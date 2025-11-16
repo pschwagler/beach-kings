@@ -1,0 +1,385 @@
+/* WhatsApp Page Specific Styles */
+
+.whatsapp-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.whatsapp-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.whatsapp-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.whatsapp-subtitle {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Error/Warning Alert Boxes */
+.whatsapp-alert {
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.whatsapp-alert-error {
+  background-color: #fee;
+  border: 1px solid #fcc;
+}
+
+.whatsapp-alert-warning {
+  background-color: #fff4e6;
+  border: 1px solid #ff9800;
+}
+
+.whatsapp-alert-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.whatsapp-alert-body {
+  flex: 1;
+}
+
+.whatsapp-alert-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.whatsapp-alert-title-error {
+  color: #c00;
+}
+
+.whatsapp-alert-title-warning {
+  color: #e65100;
+}
+
+.whatsapp-alert-message {
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Loading State */
+.whatsapp-loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.whatsapp-loading-text {
+  margin-top: 20px;
+  font-size: 1.1rem;
+}
+
+/* Success Box - Connected State */
+.whatsapp-success-box {
+  background-color: #e8f5e9;
+  border: 1px solid #4caf50;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.whatsapp-success-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.whatsapp-connected-title {
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+.whatsapp-client-info {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 4px;
+}
+
+.whatsapp-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Group Configuration Box */
+.whatsapp-config-box {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.whatsapp-config-title {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.whatsapp-form-group {
+  margin-bottom: 20px;
+}
+
+.whatsapp-form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.whatsapp-loading-groups {
+  padding: 12px;
+  color: #666;
+}
+
+.whatsapp-no-groups {
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+  color: #666;
+}
+
+.whatsapp-select {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-sizing: border-box;
+  background-color: white;
+  cursor: pointer;
+}
+
+.whatsapp-form-hint {
+  color: #666;
+  font-size: 0.85rem;
+  display: block;
+  margin-top: 4px;
+}
+
+.whatsapp-group-configured {
+  background-color: #e8f5e9;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.whatsapp-configured-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.whatsapp-configured-title {
+  color: #2e7d32;
+}
+
+.whatsapp-configured-message {
+  color: #333;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.whatsapp-info-box {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.whatsapp-info-text {
+  margin: 0;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* QR Code Box */
+.whatsapp-qr-box {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.whatsapp-qr-icon {
+  margin: 0 auto 20px;
+}
+
+.whatsapp-qr-title {
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+}
+
+.whatsapp-qr-instructions {
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.whatsapp-qr-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.whatsapp-qr-image {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  background-color: white;
+}
+
+.whatsapp-qr-waiting {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.whatsapp-qr-loading-container {
+  padding: 40px;
+}
+
+.whatsapp-qr-loading-icon {
+  animation: spin 1s linear infinite;
+  color: #25D366;
+  margin: 0 auto 20px;
+  display: block;
+}
+
+.whatsapp-qr-loading-text {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.whatsapp-qr-loading-hint {
+  color: #999;
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+/* Instructions Box */
+.whatsapp-instructions-box {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #fff9e6;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+}
+
+.whatsapp-instructions-title {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.whatsapp-instructions-list {
+  margin-left: 20px;
+  line-height: 1.8;
+}
+
+/* Error Container with Retry Button */
+.whatsapp-error-container {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.whatsapp-error-container .alert {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.whatsapp-error-container .alert-error {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.whatsapp-error-container .alert-error h3 {
+  margin-top: 0;
+  color: #c00;
+  font-size: 1.4rem;
+  margin-bottom: 15px;
+}
+
+.whatsapp-error-container .error-message {
+  background-color: #fff;
+  border-left: 4px solid #f44336;
+  padding: 12px 16px;
+  margin: 15px 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #333;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.whatsapp-error-container .error-hint {
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-top: 15px;
+}
+
+.retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background-color: #25D366;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.retry-button:hover:not(:disabled) {
+  background-color: #22bf5a;
+  transform: translateY(-2px);
+}
+
+.retry-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.retry-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
