@@ -11,6 +11,297 @@ from backend.utils.constants import INITIAL_ELO
 import csv
 import io
 
+#
+# New league-scoped CRUD helpers
+#
+
+def create_league(name: str, description: Optional[str], location_id: Optional[int], is_open: bool, whatsapp_group_id: Optional[str], creator_user_id: int) -> Dict:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO leagues (name, description, location_id, is_open, whatsapp_group_id)
+               VALUES (?, ?, ?, ?, ?)""",
+            (name, description, location_id, 1 if is_open else 0, whatsapp_group_id)
+        )
+        league_id = cur.lastrowid
+        
+        # Add creator as league admin
+        # Get the creator's player_id from their user_id
+        cur = conn.execute("SELECT id FROM players WHERE user_id = ?", (creator_user_id,))
+        player_row = cur.fetchone()
+        assert player_row is not None, "Player not found for user_id"
+
+        player_id = player_row["id"]
+        # Add creator as admin member
+        conn.execute(
+            """INSERT INTO league_members (league_id, player_id, role) VALUES (?, ?, ?)""",
+            (league_id, player_id, "admin")
+        )
+        
+        # Fetch the created league in the same transaction
+        cur = conn.execute("""SELECT * FROM leagues WHERE id = ?""", (league_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None  # type: ignore
+
+
+def list_leagues() -> List[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute("""SELECT * FROM leagues ORDER BY created_at DESC""")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_user_leagues(user_id: int) -> List[Dict]:
+    """
+    Get all leagues that a user is a member of (via their players).
+    Returns leagues with membership role information.
+    """
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """SELECT DISTINCT l.*, lm.role as membership_role
+               FROM leagues l
+               INNER JOIN league_members lm ON lm.league_id = l.id
+               INNER JOIN players p ON p.id = lm.player_id
+               WHERE p.user_id = ?
+               ORDER BY l.created_at DESC""",
+            (user_id,)
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_league(league_id: int) -> Optional[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute("""SELECT * FROM leagues WHERE id = ?""", (league_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_league(league_id: int, name: str, description: Optional[str], location_id: Optional[int], is_open: bool, whatsapp_group_id: Optional[str]) -> Optional[Dict]:
+    with db.get_db() as conn:
+        conn.execute(
+            """UPDATE leagues
+               SET name = ?, description = ?, location_id = ?, is_open = ?, whatsapp_group_id = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?""",
+            (name, description, location_id, 1 if is_open else 0, whatsapp_group_id, league_id)
+        )
+        return get_league(league_id)
+
+
+def delete_league(league_id: int) -> bool:
+    with db.get_db() as conn:
+        cur = conn.execute("""DELETE FROM leagues WHERE id = ?""", (league_id,))
+        return cur.rowcount > 0
+
+
+def create_season(league_id: int, name: Optional[str], start_date: str, end_date: str, point_system: Optional[str], is_active: bool) -> Dict:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO seasons (league_id, name, start_date, end_date, point_system, is_active)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (league_id, name, start_date, end_date, point_system, 1 if is_active else 0)
+        )
+        return get_season(cur.lastrowid)  # type: ignore
+
+
+def list_seasons(league_id: int) -> List[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute("""SELECT * FROM seasons WHERE league_id = ? ORDER BY start_date DESC""", (league_id,))
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_season(season_id: int) -> Optional[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute("""SELECT * FROM seasons WHERE id = ?""", (season_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_season(season_id: int, **fields) -> Optional[Dict]:
+    allowed = {"name", "start_date", "end_date", "point_system", "is_active"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return get_season(season_id)
+    sets = []
+    params = []
+    for k, v in updates.items():
+        sets.append(f"{k} = ?")
+        if k == "is_active":
+            params.append(1 if v else 0)
+        else:
+            params.append(v)
+    params.append(season_id)
+    with db.get_db() as conn:
+        conn.execute(f"UPDATE seasons SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", params)
+        return get_season(season_id)
+
+
+def activate_season(league_id: int, season_id: int) -> bool:
+    with db.get_db() as conn:
+        # Ensure season belongs to league
+        cur = conn.execute("""SELECT id FROM seasons WHERE id = ? AND league_id = ?""", (season_id, league_id))
+        if not cur.fetchone():
+            return False
+        conn.execute("""UPDATE leagues SET active_season_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", (season_id, league_id))
+        conn.execute("""UPDATE seasons SET is_active = 0 WHERE league_id = ? AND id != ?""", (league_id, season_id))
+        conn.execute("""UPDATE seasons SET is_active = 1 WHERE id = ?""", (season_id,))
+        return True
+
+
+def list_league_members(league_id: int) -> List[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """SELECT lm.id, lm.league_id, lm.player_id, lm.role, p.full_name as player_name
+               FROM league_members lm
+               JOIN players p ON p.id = lm.player_id
+               WHERE lm.league_id = ?
+               ORDER BY p.full_name ASC""",
+            (league_id,)
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def add_league_member(league_id: int, player_id: int, role: str = "member") -> Dict:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO league_members (league_id, player_id, role) VALUES (?, ?, ?)""",
+            (league_id, player_id, role)
+        )
+        member_id = cur.lastrowid
+        return {"id": member_id, "league_id": league_id, "player_id": player_id, "role": role}
+
+
+def update_league_member(league_id: int, member_id: int, role: str) -> Optional[Dict]:
+    with db.get_db() as conn:
+        conn.execute("""UPDATE league_members SET role = ? WHERE id = ? AND league_id = ?""", (role, member_id, league_id))
+        cur = conn.execute("""SELECT * FROM league_members WHERE id = ? AND league_id = ?""", (member_id, league_id))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def remove_league_member(league_id: int, member_id: int) -> bool:
+    with db.get_db() as conn:
+        cur = conn.execute("""DELETE FROM league_members WHERE id = ? AND league_id = ?""", (member_id, league_id))
+        return cur.rowcount > 0
+
+
+def create_location(name: str, city: Optional[str], state: Optional[str], country: str = "USA") -> Dict:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO locations (name, city, state, country) VALUES (?, ?, ?, ?)""",
+            (name, city, state, country)
+        )
+        return dict(conn.execute("""SELECT * FROM locations WHERE id = ?""", (cur.lastrowid,)).fetchone())
+
+
+def list_locations() -> List[Dict]:
+    with db.get_db() as conn:
+        cur = conn.execute("""SELECT * FROM locations ORDER BY name ASC""")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def update_location(location_id: int, name: Optional[str], city: Optional[str], state: Optional[str], country: Optional[str]) -> Optional[Dict]:
+    with db.get_db() as conn:
+        # Build dynamic update
+        fields = {"name": name, "city": city, "state": state, "country": country}
+        sets = []
+        params = []
+        for k, v in fields.items():
+            if v is not None:
+                sets.append(f"{k} = ?")
+                params.append(v)
+        if not sets:
+            return dict(conn.execute("""SELECT * FROM locations WHERE id = ?""", (location_id,)).fetchone() or {}) or None
+        params.append(location_id)
+        conn.execute(f"""UPDATE locations SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", params)
+        cur = conn.execute("""SELECT * FROM locations WHERE id = ?""", (location_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_location(location_id: int) -> bool:
+    with db.get_db() as conn:
+        cur = conn.execute("""DELETE FROM locations WHERE id = ?""", (location_id,))
+        return cur.rowcount > 0
+
+
+def create_court(name: str, address: Optional[str], location_id: int, geoJson: Optional[str]) -> Dict:
+    with db.get_db() as conn:
+        cur = conn.execute(
+            """INSERT INTO courts (name, address, location_id, geoJson) VALUES (?, ?, ?, ?)""",
+            (name, address, location_id, geoJson)
+        )
+        return dict(conn.execute("""SELECT * FROM courts WHERE id = ?""", (cur.lastrowid,)).fetchone())
+
+
+def list_courts(location_id: Optional[int] = None) -> List[Dict]:
+    with db.get_db() as conn:
+        if location_id:
+            cur = conn.execute("""SELECT * FROM courts WHERE location_id = ? ORDER BY name ASC""", (location_id,))
+        else:
+            cur = conn.execute("""SELECT * FROM courts ORDER BY name ASC""")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def update_court(court_id: int, name: Optional[str], address: Optional[str], location_id: Optional[int], geoJson: Optional[str]) -> Optional[Dict]:
+    with db.get_db() as conn:
+        fields = {"name": name, "address": address, "location_id": location_id, "geoJson": geoJson}
+        sets = []
+        params = []
+        for k, v in fields.items():
+            if v is not None:
+                sets.append(f"{k} = ?")
+                params.append(v)
+        if not sets:
+            cur = conn.execute("""SELECT * FROM courts WHERE id = ?""", (court_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+        params.append(court_id)
+        conn.execute(f"""UPDATE courts SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", params)
+        cur = conn.execute("""SELECT * FROM courts WHERE id = ?""", (court_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_court(court_id: int) -> bool:
+    with db.get_db() as conn:
+        cur = conn.execute("""DELETE FROM courts WHERE id = ?""", (court_id,))
+        return cur.rowcount > 0
+
+
+def create_league_session(league_id: int, date: str, name: Optional[str]) -> Dict:
+    with db.get_db() as conn:
+        session_name = name or date
+        cur = conn.execute(
+            """INSERT INTO sessions (date, name, is_pending) VALUES (?, ?, 1)""",
+            (date, session_name)
+        )
+        return {"id": cur.lastrowid, "date": date, "name": session_name, "is_active": True}
+
+
+def query_matches(body: Dict, user: Optional[Dict]) -> List[Dict]:
+    """
+    Minimal implementation: support limit/offset only for now; visibility (submitted_only, is_public) enforced simply.
+    """
+    limit = min(max(int(body.get("limit", 50)), 1), 500)
+    offset = max(int(body.get("offset", 0)), 0)
+    submitted_only = True if body.get("submitted_only", True) else False
+    include_non_public = True if body.get("include_non_public", False) else False
+    with db.get_db() as conn:
+        where = []
+        params = []
+        if submitted_only:
+            where.append("(m.session_id IS NULL OR s.is_pending = 0)")
+        if not include_non_public:
+            where.append("m.is_public = 1")
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        cur = conn.execute(f"""
+            SELECT m.*, s.is_pending as session_pending
+            FROM matches m
+            LEFT JOIN sessions s ON m.session_id = s.id
+            {where_sql}
+            ORDER BY m.id DESC
+            LIMIT ? OFFSET ?
+        """, (*params, limit, offset))
+        rows = [dict(row) for row in cur.fetchall()]
+        return rows
 def flush_and_repopulate(tracker, match_list):
     """
     Flush all data and import matches from Google Sheets, then calculate statistics.
@@ -906,6 +1197,121 @@ def get_all_player_names() -> List[str]:
     with db.get_db() as conn:
         cursor = conn.execute("SELECT name FROM players ORDER BY name ASC")
         return [row["name"] for row in cursor.fetchall()]
+
+
+def get_player_by_user_id(user_id: int) -> Optional[Dict]:
+    """
+    Get player profile by user_id.
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        Player dict with all fields, or None if not found
+    """
+    with db.get_db() as conn:
+        cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+        return None
+
+
+def create_player_for_user(user_id: int, full_name: str = ' ') -> int:
+    """
+    Create a basic player profile for a user.
+    
+    Args:
+        user_id: User ID to link the player to
+        full_name: Full name for the player (default: single space)
+        
+    Returns:
+        Player ID of the created player
+        
+    Raises:
+        ValueError: If user already has a player profile
+    """
+    with db.get_db() as conn:
+        # Check if user already has a player profile
+        cursor = conn.execute("SELECT id FROM players WHERE user_id = ?", (user_id,))
+        if cursor.fetchone():
+            raise ValueError(f"User {user_id} already has a player profile")
+        
+        # Create new player with user_id
+        cursor = conn.execute(
+            """INSERT INTO players (full_name, user_id)
+               VALUES (?, ?)""",
+            (full_name, user_id)
+        )
+        return cursor.lastrowid
+
+
+def update_user_player(
+    user_id: int,
+    full_name: Optional[str] = None,
+    nickname: Optional[str] = None,
+    gender: Optional[str] = None,
+    level: Optional[str] = None,
+    default_location_id: Optional[int] = None
+) -> Optional[Dict]:
+    """
+    Update player profile linked to a user.
+    
+    Args:
+        user_id: User ID
+        full_name: Full name (optional)
+        nickname: Nickname (optional)
+        gender: Gender (optional)
+        level: Skill level (optional)
+        default_location_id: Default location ID (optional)
+        
+    Returns:
+        Updated player dict, or None if player not found
+    """
+    with db.get_db() as conn:
+        # Check if player exists
+        cursor = conn.execute("SELECT id FROM players WHERE user_id = ?", (user_id,))
+        if not cursor.fetchone():
+            return None
+        
+        # Build update query dynamically
+        updates = []
+        params = []
+        
+        if full_name is not None:
+            updates.append("full_name = ?")
+            params.append(full_name)
+        if nickname is not None:
+            updates.append("nickname = ?")
+            params.append(nickname)
+        if gender is not None:
+            updates.append("gender = ?")
+            params.append(gender)
+        if level is not None:
+            updates.append("level = ?")
+            params.append(level)
+        if default_location_id is not None:
+            updates.append("default_location_id = ?")
+            params.append(default_location_id)
+        
+        if not updates:
+            # No updates to make, just return existing player
+            cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        
+        # Add updated_at
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(user_id)
+        
+        # Execute update
+        query = f"UPDATE players SET {', '.join(updates)} WHERE user_id = ?"
+        conn.execute(query, params)
+        
+        # Return updated player
+        cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
 
 
 def get_or_create_player(name: str) -> int:

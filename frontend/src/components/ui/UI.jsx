@@ -15,14 +15,16 @@ export function Button({
   let buttonClass = 'button';
   
   if (variant === 'success') {
-    buttonClass = 'btn-success';
+    buttonClass = 'button btn-success';
   } else if (variant === 'danger') {
-    buttonClass = 'btn-danger';
+    buttonClass = 'button btn-danger';
   } else if (variant === 'whatsapp') {
-    buttonClass = 'btn-whatsapp';
+    buttonClass = 'button btn-whatsapp';
   } else if (variant === 'tab') {
+    // Tab variant has its own complete styling, doesn't need base .button class
     buttonClass = `tab ${active ? 'active' : ''}`;
   } else if (variant === 'close') {
+    // Close variant has its own complete styling, doesn't need base .button class
     buttonClass = 'close-btn';
   }
   

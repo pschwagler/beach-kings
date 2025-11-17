@@ -67,8 +67,6 @@ erDiagram
         int id PK
         int league_id FK
         text point_system
-        real default_k_factor
-        real default_initial_elo
         datetime created_at
         datetime updated_at
     }
@@ -149,18 +147,12 @@ erDiagram
         int session_id FK
         text date
         int team1_player1_id
-        text team1_player1_name
         int team1_player2_id
-        text team1_player2_name
         int team2_player1_id
-        text team2_player1_name
         int team2_player2_id
-        text team2_player2_name
         int team1_score
         int team2_score
         int winner
-        real team1_elo_change
-        real team2_elo_change
     }
 ```
 
@@ -189,7 +181,7 @@ Leagues are groups of players who play together regularly. Each league has confi
 - `location_id`: Primary location of the league
 
 #### league_configs
-Configuration for each league (one-to-one relationship). Stores league-level settings like default K-factor and initial ELO.
+Configuration for each league (one-to-one relationship). Stores league-level settings such as point systems. ELO parameters (K-factor, initial ELO) are global constants applied to all ranked matches.
 
 #### league_members
 Join table linking players to leagues. Tracks membership and role (admin/member).
@@ -233,7 +225,7 @@ Gaming sessions grouped by date/time. Now linked to seasons and courts.
 ### Existing Tables (unchanged)
 
 #### matches
-Match results between two teams. Denormalized with player names for historical tracking.
+Match results between two teams. Stores player IDs, scores, date, and winner only. Player names can be resolved via `players`, and ELO deltas are tracked in `elo_history`.
 
 #### partnership_stats
 Statistics for how players perform with each partner.

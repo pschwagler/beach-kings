@@ -11,14 +11,14 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import logging
+import uvicorn
 from slowapi import _rate_limit_exceeded_handler  # type: ignore
 from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
-from backend.database.migrate_add_sessions import migrate as migrate_sessions
-from backend.database.migrate_rename_is_active import migrate as migrate_rename_is_active
-from backend.database.migrate_add_users import migrate as migrate_users
+from backend.database.migrate_db import migrate_db
+from backend.database.init_defaults import init_defaults
 from backend.services import data_service, sheets_service, calculation_service
 
 # Set up logging
@@ -34,11 +34,7 @@ async def lifespan(app: FastAPI):
     
     # Run database migrations first (in order)
     try:
-        logger.info("Running database migrations...")
-        migrate_sessions()
-        migrate_rename_is_active()
-        migrate_users()
-        logger.info("✓ All migrations completed")
+        migrate_db()
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
         # Don't raise - allow app to start even if migrations fail
@@ -47,6 +43,14 @@ async def lifespan(app: FastAPI):
     # Initialize database (create tables if they don't exist)
     db.init_database()
     logger.info("Database initialized")
+    
+    # Initialize default values (settings, etc.)
+    try:
+        init_defaults()
+        logger.info("✓ Default values initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
+        # Don't raise - allow app to start even if defaults fail
 
     yield  # App is running
     
@@ -139,6 +143,5 @@ async def serve_static_files(file_path: str):
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 

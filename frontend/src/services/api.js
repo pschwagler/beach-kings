@@ -269,5 +269,77 @@ export const exportMatchesToCSV = async () => {
   window.URL.revokeObjectURL(url);
 };
 
+/**
+ * Create a new league
+ */
+export const createLeague = async (leagueData) => {
+  const response = await api.post('/api/leagues', leagueData);
+  return response.data;
+};
+
+/**
+ * List all leagues
+ */
+export const listLeagues = async () => {
+  const response = await api.get('/api/leagues');
+  return response.data;
+};
+
+/**
+ * Get a specific league
+ */
+export const getLeague = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}`);
+  return response.data;
+};
+
+/**
+ * Get seasons for a league
+ */
+export const getLeagueSeasons = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/seasons`);
+  return response.data;
+};
+
+/**
+ * Get members of a league
+ */
+export const getLeagueMembers = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/members`);
+  return response.data;
+};
+
+/**
+ * Get leagues for the current authenticated user
+ */
+export const getUserLeagues = async () => {
+  const response = await api.get('/api/users/me/leagues');
+  return response.data;
+};
+
+/**
+ * Get the current user's player profile
+ */
+export const getCurrentUserPlayer = async () => {
+  const response = await api.get('/api/users/me/player');
+  return response.data;
+};
+
+/**
+ * Update the current user's player profile
+ */
+export const updatePlayerProfile = async (playerData) => {
+  const response = await api.put('/api/users/me/player', playerData);
+  return response.data;
+};
+
+/**
+ * Get list of locations
+ */
+export const getLocations = async () => {
+  const response = await api.get('/api/locations');
+  return response.data;
+};
+
 export default api;
 

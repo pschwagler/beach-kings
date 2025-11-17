@@ -17,14 +17,13 @@ const MODE_TITLES = {
 const defaultFormState = {
   phoneNumber: '',
   password: '',
-  name: '',
   email: '',
   code: '',
 };
 
 const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
 
-export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
+export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifySuccess }) {
   const {
     loginWithPassword,
     loginWithSms,
@@ -46,6 +45,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
     hasNumber: false,
   });
   const [resetToken, setResetToken] = useState(null);
+  const [isSignupFlow, setIsSignupFlow] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +67,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
     setIsPhoneValid(false);
     setPasswordRequirements({ minLength: false, hasNumber: false });
     setResetToken(null);
+    setIsSignupFlow(false);
     onClose?.();
   };
 
@@ -169,7 +170,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
         const result = await signup({
           phoneNumber: formData.phoneNumber,
           password: formData.password,
-          name: formData.name,
           email: formData.email,
         });
         setStatusMessage('Account created! Enter the verification code we just sent you.');
@@ -177,6 +177,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
           ...prev,
           phoneNumber: result.phone_number || prev.phoneNumber,
         }));
+        setIsSignupFlow(true); // Mark that we're in signup flow
         setActiveMode('verify');
         return;
       }
@@ -189,7 +190,16 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
 
       if (activeMode === 'verify') {
         await verifyPhone(formData.phoneNumber, formData.code);
-        handleClose();
+        // If this was a signup flow, notify parent to show player profile modal
+        // Wait a bit for auth state to update
+        if (isSignupFlow && onVerifySuccess) {
+          setTimeout(() => {
+            onVerifySuccess();
+          }, 300);
+        } else {
+          // Not signup flow, close modal normally
+          handleClose();
+        }
         return;
       }
 
@@ -281,7 +291,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
         <form className="auth-modal__form" onSubmit={handleSubmit}>
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">
-              Phone Number
+              <span>Phone Number <span style={{ color: 'red' }}>*</span></span>
               <PhoneInput
                 value={formData.phoneNumber}
                 onChange={handlePhoneChange}
@@ -307,7 +317,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
             <label className="auth-modal__label">
-              Password
+              <span>Password <span style={{ color: 'red' }}>*</span></span>
               <input
                 type="password"
                 name="password"
@@ -348,30 +358,17 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
           )}
 
           {activeMode === 'sign-up' && (
-            <>
-              <label className="auth-modal__label">
-                Name
-                <input
-                  type="text"
-                  name="name"
-                  className="auth-modal__input"
-                  placeholder="Optional"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                />
-              </label>
-              <label className="auth-modal__label">
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  className="auth-modal__input"
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                />
-              </label>
-            </>
+            <label className="auth-modal__label">
+              Email
+              <input
+                type="email"
+                name="email"
+                className="auth-modal__input"
+                placeholder="Optional"
+                value={formData.email}
+                onChange={handleInputChange}
+              />
+            </label>
           )}
 
           {(activeMode === 'sms-login' || activeMode === 'verify') && (

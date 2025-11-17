@@ -1,6 +1,6 @@
 import NavBrand from './navbar/NavBrand';
 import RecordGamesButton from './navbar/RecordGamesButton';
-import PlayersMenu from './navbar/PlayersMenu';
+import PlayersButton from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
 
@@ -12,24 +12,33 @@ export default function NavBar({
   onSignUp,
   onSmsLogin,
   userLeagues = [],
+  onLeaguesMenuClick,
+  onPlayersClick,
 }) {
   const handleRecordGamesClick = () => {
     console.log('Navigate to Record Games');
     // Handle navigation to record games page
   };
 
-  const handlePlayersMenuClick = (action) => {
-    console.log(`Players menu action: ${action}`);
-    // Handle players menu actions
+  const handlePlayersClick = () => {
+    // Handle players button click
+    if (onPlayersClick) {
+      onPlayersClick();
+    } else {
+      console.log('Players button clicked');
+    }
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
-    if (leagueId) {
-      console.log(`Navigate to league: ${leagueId}`);
-      // Handle league navigation
+    if (onLeaguesMenuClick) {
+      onLeaguesMenuClick(action, leagueId);
     } else {
-      console.log(`League action: ${action}`);
-      // Handle join/create actions
+      // Fallback to console log if handler not provided
+      if (leagueId) {
+        console.log(`Navigate to league: ${leagueId}`);
+      } else {
+        console.log(`League action: ${action}`);
+      }
     }
   };
 
@@ -46,7 +55,7 @@ export default function NavBar({
         <div className="navbar-right">
           <RecordGamesButton onClick={handleRecordGamesClick} />
           
-          <PlayersMenu onMenuClick={handlePlayersMenuClick} />
+          <PlayersButton onClick={handlePlayersClick} />
           
           <LeaguesMenu
             isLoggedIn={isLoggedIn}

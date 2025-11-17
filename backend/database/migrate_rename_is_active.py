@@ -5,7 +5,10 @@ Run this script to update an existing database.
 """
 
 import sqlite3
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Database file location
 DB_PATH = Path(__file__).parent / "volleyball.db"
@@ -13,8 +16,6 @@ DB_PATH = Path(__file__).parent / "volleyball.db"
 
 def migrate():
     """Run the migration to rename is_active to is_pending."""
-    print(f"Migrating database at {DB_PATH}...")
-    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -26,7 +27,6 @@ def migrate():
         sessions_exists = cursor.fetchone() is not None
         
         if not sessions_exists:
-            print("✓ Sessions table doesn't exist yet, no migration needed")
             return
         
         # Check if is_active column exists
@@ -37,11 +37,10 @@ def migrate():
         has_is_pending = 'is_pending' in columns
         
         if has_is_pending and not has_is_active:
-            print("✓ Column already renamed to is_pending")
             return
         
         if has_is_active and not has_is_pending:
-            print("Renaming is_active column to is_pending...")
+            logger.info("Renaming is_active column to is_pending in sessions table")
             
             # SQLite doesn't support direct column rename in older versions
             # Need to create new table and copy data
@@ -73,18 +72,15 @@ def migrate():
             # Recreate indexes
             cursor.execute("CREATE INDEX idx_sessions_date ON sessions(date DESC)")
             cursor.execute("CREATE INDEX idx_sessions_pending ON sessions(is_pending)")
-            
-            print("✓ Column renamed successfully")
         else:
-            print("⚠ Warning: Both is_active and is_pending exist. Manual intervention needed.")
+            logger.warning("Both is_active and is_pending exist in sessions table. Manual intervention needed.")
             return
         
         conn.commit()
-        print("\n✅ Migration completed successfully!")
         
     except Exception as e:
         conn.rollback()
-        print(f"\n❌ Migration failed: {e}")
+        logger.error(f"Migration failed: {e}", exc_info=True)
         raise
     finally:
         conn.close()

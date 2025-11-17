@@ -54,7 +54,10 @@ def create_user(
             (phone_number, password_hash, name, email)
         )
         
-        return cursor.lastrowid
+        user_id = cursor.lastrowid
+        # Connection will commit when context manager exits
+        
+        return user_id
 
 
 def update_user_password(user_id: int, password_hash: str) -> bool:

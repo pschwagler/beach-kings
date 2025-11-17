@@ -7,17 +7,28 @@ from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
 from slowapi.util import get_remote_address  # type: ignore
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
-from backend.api.auth_dependencies import get_current_user
+from backend.api.auth_dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    require_user,
+    require_system_admin,
+    make_require_league_admin,
+    make_require_league_member,
+)
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
     CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse,
     RefreshTokenRequest, RefreshTokenResponse, ResetPasswordRequest,
-    ResetPasswordVerifyRequest, ResetPasswordConfirmRequest
+    ResetPasswordVerifyRequest, ResetPasswordConfirmRequest,
+    LeagueCreate, LeagueResponse, PlayerUpdate
 )
 import httpx
 import os
+import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -33,6 +44,398 @@ WHATSAPP_REQUEST_TIMEOUT = 30.0
 INVALID_CREDENTIALS_RESPONSE = HTTPException(status_code=401, detail="Username or password is incorrect")
 INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(status_code=401, detail="Invalid or expired verification code")
 
+
+# League endpoints
+
+@router.post("/api/leagues", response_model=LeagueResponse)
+async def create_league(payload: LeagueCreate, user: dict = Depends(require_user)):
+    """
+    Create a new league. Any authenticated user can create.
+    """
+    try:
+        league = data_service.create_league(
+            name=payload.name,
+            description=payload.description,
+            location_id=payload.location_id,
+            is_open=payload.is_open,
+            whatsapp_group_id=payload.whatsapp_group_id,
+            creator_user_id=user["id"]
+        )
+        return league
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating league: {str(e)}")
+
+
+@router.get("/api/leagues")
+async def list_leagues():
+    """
+    List leagues (public).
+    """
+    try:
+        return data_service.list_leagues()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing leagues: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}", response_model=LeagueResponse)
+async def get_league(league_id: int):
+    """
+    Get a league by id (public).
+    """
+    try:
+        league = data_service.get_league(league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        return league
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting league: {str(e)}")
+
+
+@router.put("/api/leagues/{league_id}", response_model=LeagueResponse)
+async def update_league(
+    league_id: int,
+    payload: LeagueCreate,
+    user: dict = Depends(make_require_league_admin())
+):
+    """
+    Update league profile fields (league_admin or system_admin).
+    """
+    try:
+        league = data_service.update_league(
+            league_id=league_id,
+            name=payload.name,
+            description=payload.description,
+            location_id=payload.location_id,
+            is_open=payload.is_open,
+            whatsapp_group_id=payload.whatsapp_group_id
+        )
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        return league
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating league: {str(e)}")
+
+
+@router.delete("/api/leagues/{league_id}")
+async def delete_league(
+    league_id: int,
+    user: dict = Depends(require_system_admin)
+):
+    """
+    Archive/delete a league (system_admin).
+    """
+    try:
+        success = data_service.delete_league(league_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="League not found")
+        return {"success": True, "message": "League deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting league: {str(e)}")
+
+
+# Season endpoints
+
+@router.post("/api/leagues/{league_id}/seasons")
+async def create_season(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin())
+):
+    """
+    Create a season in a league (league_admin or system_admin).
+    Body: { name?: str, start_date: ISO, end_date: ISO, point_system?: str, is_active?: bool }
+    """
+    try:
+        body = await request.json()
+        season = data_service.create_season(
+            league_id=league_id,
+            name=body.get("name"),
+            start_date=body["start_date"],
+            end_date=body["end_date"],
+            point_system=body.get("point_system"),
+            is_active=body.get("is_active", True),
+        )
+        return season
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating season: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}/seasons")
+async def list_seasons(league_id: int, user: dict = Depends(make_require_league_member())):
+    """List seasons for a league (league_member)."""
+    try:
+        return data_service.list_seasons(league_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing seasons: {str(e)}")
+
+
+@router.get("/api/seasons/{season_id}")
+async def get_season(season_id: int):
+    """Get a season (public)."""
+    try:
+        season = data_service.get_season(season_id)
+        if not season:
+            raise HTTPException(status_code=404, detail="Season not found")
+        return season
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting season: {str(e)}")
+
+
+@router.put("/api/seasons/{season_id}")
+async def update_season(
+    season_id: int,
+    request: Request,
+    user: dict = Depends(get_current_user)  # League admin check inside service based on season->league
+):
+    """
+    Update a season (league_admin or system_admin).
+    Body may include: name, start_date, end_date, point_system, is_active
+    """
+    try:
+        body = await request.json()
+        season = data_service.update_season(
+            season_id=season_id,
+            **body
+        )
+        if not season:
+            raise HTTPException(status_code=404, detail="Season not found")
+        return season
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating season: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/seasons/{season_id}/activate")
+async def activate_season(
+    league_id: int,
+    season_id: int,
+    user: dict = Depends(make_require_league_admin())
+):
+    """Activate a season (league_admin or system_admin)."""
+    try:
+        success = data_service.activate_season(league_id, season_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="League or season not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error activating season: {str(e)}")
+
+@router.get("/api/leagues/{league_id}/members")
+async def list_league_members(league_id: int, user: dict = Depends(make_require_league_member())):
+    """List league members (league_member)."""
+    try:
+        return data_service.list_league_members(league_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing members: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/members")
+async def add_league_member(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin())
+):
+    """Add player to league with role (league_admin)."""
+    try:
+        body = await request.json()
+        player_id = body["player_id"]
+        role = body.get("role", "member")
+        member = data_service.add_league_member(league_id, player_id, role)
+        return member
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding member: {str(e)}")
+
+
+@router.put("/api/leagues/{league_id}/members/{member_id}")
+async def update_league_member(
+    league_id: int,
+    member_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin())
+):
+    """Update league member role (league_admin)."""
+    try:
+        body = await request.json()
+        role = body.get("role")
+        if role not in ("admin", "member"):
+            raise HTTPException(status_code=400, detail="Invalid role")
+        member = data_service.update_league_member(league_id, member_id, role)
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found")
+        return member
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating member: {str(e)}")
+
+
+@router.delete("/api/leagues/{league_id}/members/{member_id}")
+async def remove_league_member(
+    league_id: int,
+    member_id: int,
+    user: dict = Depends(make_require_league_admin())
+):
+    """Remove league member (league_admin)."""
+    try:
+        success = data_service.remove_league_member(league_id, member_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Member not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing member: {str(e)}")
+
+# Location endpoints
+
+@router.post("/api/locations")
+async def create_location(request: Request, user: dict = Depends(require_system_admin)):
+    """Create a location (system_admin)."""
+    try:
+        body = await request.json()
+        location = data_service.create_location(
+            name=body["name"],
+            city=body.get("city"),
+            state=body.get("state"),
+            country=body.get("country", "USA"),
+        )
+        return location
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating location: {str(e)}")
+
+
+@router.get("/api/locations")
+async def list_locations():
+    """List locations (public)."""
+    try:
+        return data_service.list_locations()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing locations: {str(e)}")
+
+
+@router.put("/api/locations/{location_id}")
+async def update_location(location_id: int, request: Request, user: dict = Depends(require_system_admin)):
+    """Update a location (system_admin)."""
+    try:
+        body = await request.json()
+        location = data_service.update_location(
+            location_id=location_id,
+            name=body.get("name"),
+            city=body.get("city"),
+            state=body.get("state"),
+            country=body.get("country"),
+        )
+        if not location:
+            raise HTTPException(status_code=404, detail="Location not found")
+        return location
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating location: {str(e)}")
+
+
+@router.delete("/api/locations/{location_id}")
+async def delete_location(location_id: int, user: dict = Depends(require_system_admin)):
+    """Delete a location (system_admin)."""
+    try:
+        success = data_service.delete_location(location_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Location not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting location: {str(e)}")
+
+# Court endpoints
+
+@router.post("/api/courts")
+async def create_court(request: Request, user: dict = Depends(require_system_admin)):
+    """Create a court (system_admin)."""
+    try:
+        body = await request.json()
+        court = data_service.create_court(
+            name=body["name"],
+            address=body.get("address"),
+            location_id=body["location_id"],
+            geoJson=body.get("geoJson"),
+        )
+        return court
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating court: {str(e)}")
+
+
+@router.get("/api/courts")
+async def list_courts(location_id: Optional[int] = None):
+    """List courts, optionally filtered by location (public)."""
+    try:
+        return data_service.list_courts(location_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing courts: {str(e)}")
+
+
+@router.put("/api/courts/{court_id}")
+async def update_court(court_id: int, request: Request, user: dict = Depends(require_system_admin)):
+    """Update a court (system_admin)."""
+    try:
+        body = await request.json()
+        court = data_service.update_court(
+            court_id=court_id,
+            name=body.get("name"),
+            address=body.get("address"),
+            location_id=body.get("location_id"),
+            geoJson=body.get("geoJson"),
+        )
+        if not court:
+            raise HTTPException(status_code=404, detail="Court not found")
+        return court
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating court: {str(e)}")
+
+
+@router.delete("/api/courts/{court_id}")
+async def delete_court(court_id: int, user: dict = Depends(require_system_admin)):
+    """Delete a court (system_admin)."""
+    try:
+        success = data_service.delete_court(court_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Court not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting court: {str(e)}")
 async def proxy_whatsapp_request(
     method: str,
     path: str,
@@ -288,6 +691,20 @@ async def get_matches():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading matches: {str(e)}")
 
+@router.post("/api/matches/query")
+async def query_matches(request: Request, user: Optional[dict] = Depends(get_current_user_optional)):
+    """
+    Query matches with a request body (preferred over GET with query params).
+    Body: MatchesQueryRequest
+    """
+    try:
+        body = await request.json()
+        results = data_service.query_matches(body, user)
+        return results
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error querying matches: {str(e)}")
 
 @router.get("/api/matches/export")
 async def export_matches():
@@ -487,6 +904,32 @@ async def set_whatsapp_config(request: Request, current_user: dict = Depends(get
         raise HTTPException(status_code=500, detail=f"Error saving WhatsApp config: {str(e)}")
 
 
+# Settings endpoints (scoped keys)
+
+@router.get("/api/settings/{key}")
+async def get_setting_value(key: str, user: dict = Depends(require_system_admin)):
+    """Get a setting value (system_admin)."""
+    try:
+        value = data_service.get_setting(key)
+        return {"key": key, "value": value}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting setting: {str(e)}")
+
+
+@router.put("/api/settings/{key}")
+async def set_setting_value(key: str, request: Request, user: dict = Depends(require_system_admin)):
+    """Set a setting value (system_admin)."""
+    try:
+        body = await request.json()
+        if "value" not in body:
+            raise HTTPException(status_code=400, detail="value is required")
+        data_service.set_setting(key, str(body["value"]))
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting value: {str(e)}")
+
 # Session management endpoints
 
 @router.get("/api/sessions")
@@ -518,6 +961,23 @@ async def get_active_session():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading active session: {str(e)}")
 
+
+@router.post("/api/leagues/{league_id}/sessions")
+async def create_league_session(league_id: int, request: Request, user: dict = Depends(make_require_league_admin())):
+    """
+    Create a new pending session for a league (league_admin).
+    Body: { date?: 'MM/DD/YYYY', name?: string }
+    """
+    try:
+        body = await request.json()
+        date = body.get("date") or datetime.now().strftime('%-m/%-d/%Y')
+        name = body.get("name")
+        session = data_service.create_league_session(league_id=league_id, date=date, name=name)
+        return {"status": "success", "message": "Session created", "session": session}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating league session: {str(e)}")
 
 @router.post("/api/sessions")
 async def create_session(request: Request, current_user: dict = Depends(get_current_user)):
@@ -688,7 +1148,8 @@ async def create_match(request: Request, current_user: dict = Depends(get_curren
             team2_player1=body['team2_player1'],
             team2_player2=body['team2_player2'],
             team1_score=body['team1_score'],
-            team2_score=body['team2_score']
+            team2_score=body['team2_score'],
+            is_public=body.get('is_public', True)
         )
         
         return {
@@ -760,7 +1221,8 @@ async def update_match(match_id: int, request: Request, current_user: dict = Dep
             team2_player1=body['team2_player1'],
             team2_player2=body['team2_player2'],
             team1_score=body['team1_score'],
-            team2_score=body['team2_score']
+            team2_score=body['team2_score'],
+            is_public=body.get('is_public')
         )
         
         if not success:
@@ -1078,6 +1540,14 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
                     name=signup_data.get("name"),
                     email=signup_data.get("email")
                 )
+                # Automatically create a basic player profile for the new user
+                # Do this after user creation to avoid database lock issues
+                try:
+                    data_service.create_player_for_user(user_id, full_name=' ')
+                except Exception as e:
+                    # Log error but don't fail user creation if player creation fails
+                    logger.error(f"Failed to create player profile for user {user_id}: {str(e)}")
+                
                 # Get the newly created user
                 user = user_service.get_user_by_id(user_id)
             except ValueError as e:
@@ -1508,4 +1978,103 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
         is_verified=current_user["is_verified"],
         created_at=current_user["created_at"]
     )
+
+
+@router.get("/api/users/me/player")
+async def get_current_user_player(current_user: dict = Depends(get_current_user)):
+    """
+    Get the current user's player profile.
+    Requires authentication.
+    
+    Returns:
+        Player profile with gender, level, etc., or null if user has no player profile
+    """
+    try:
+        player = data_service.get_player_by_user_id(current_user["id"])
+        if not player:
+            return None
+        # Return only the fields we need for the frontend
+        # Handle both 'name' and 'full_name' column names for compatibility
+        player_name = player.get("full_name") or player.get("name") or ""
+        return {
+            "id": player["id"],
+            "full_name": player_name,
+            "gender": player.get("gender"),
+            "level": player.get("level"),
+            "nickname": player.get("nickname"),
+            "age": player.get("age"),
+            "height": player.get("height"),
+            "preferred_side": player.get("preferred_side"),
+            "default_location_id": player.get("default_location_id"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting user player: {str(e)}")
+
+
+@router.put("/api/users/me/player")
+async def update_current_user_player(
+    payload: PlayerUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update the current user's player profile.
+    Requires authentication.
+    
+    Request body:
+        {
+            "full_name": "John Doe",  // Optional
+            "nickname": "Johnny",     // Optional
+            "gender": "male",         // Optional
+            "level": "beginner",      // Optional
+            "default_location_id": 1  // Optional
+        }
+    
+    Returns:
+        Updated player profile
+    """
+    try:
+        player = data_service.update_user_player(
+            user_id=current_user["id"],
+            full_name=payload.full_name,
+            nickname=payload.nickname,
+            gender=payload.gender,
+            level=payload.level,
+            default_location_id=payload.default_location_id
+        )
+        
+        if not player:
+            raise HTTPException(
+                status_code=404,
+                detail="Player profile not found. This should not happen after signup."
+            )
+        
+        # Return formatted response
+        player_name = player.get("full_name") or player.get("name") or ""
+        return {
+            "id": player["id"],
+            "full_name": player_name,
+            "gender": player.get("gender"),
+            "level": player.get("level"),
+            "nickname": player.get("nickname"),
+            "age": player.get("age"),
+            "height": player.get("height"),
+            "preferred_side": player.get("preferred_side"),
+            "default_location_id": player.get("default_location_id"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating player profile: {str(e)}")
+
+
+@router.get("/api/users/me/leagues")
+async def get_user_leagues(user: dict = Depends(get_current_user)):
+    """
+    Get all leagues that the current user is a member of.
+    Requires authentication.
+    """
+    try:
+        return data_service.get_user_leagues(user["id"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
 

@@ -148,7 +148,7 @@ clean-venv:
 
 test:
 	@echo "Running tests..."
-	./venv/bin/pytest
+	./venv/bin/pytest backend/tests/ -v
 
 whatsapp:
 	@echo "🚀 Starting WhatsApp service..."

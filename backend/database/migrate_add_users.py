@@ -5,7 +5,10 @@ Run this script to update an existing database to support user authentication.
 """
 
 import sqlite3
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Database file location
 DB_PATH = Path(__file__).parent / "volleyball.db"
@@ -13,8 +16,6 @@ DB_PATH = Path(__file__).parent / "volleyball.db"
 
 def migrate():
     """Run the migration to add users and verification_codes tables."""
-    print(f"Migrating database at {DB_PATH}...")
-    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -26,7 +27,7 @@ def migrate():
         users_exists = cursor.fetchone() is not None
         
         if not users_exists:
-            print("Creating users table...")
+            logger.info("Creating users table")
             cursor.execute("""
                 CREATE TABLE users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,26 +50,22 @@ def migrate():
             cursor.execute(
                 "CREATE INDEX idx_users_phone_verified ON users(phone_number, is_verified)"
             )
-            print("✓ Users table created")
         else:
-            print("✓ Users table already exists")
             # Check if new columns need to be added
             cursor.execute("PRAGMA table_info(users)")
             columns = [row[1] for row in cursor.fetchall()]
             
             if "failed_verification_attempts" not in columns:
-                print("Adding failed_verification_attempts column...")
+                logger.info("Adding failed_verification_attempts column to users table")
                 cursor.execute(
                     "ALTER TABLE users ADD COLUMN failed_verification_attempts INTEGER NOT NULL DEFAULT 0"
                 )
-                print("✓ Added failed_verification_attempts column")
             
             if "locked_until" not in columns:
-                print("Adding locked_until column...")
+                logger.info("Adding locked_until column to users table")
                 cursor.execute(
                     "ALTER TABLE users ADD COLUMN locked_until TEXT"
                 )
-                print("✓ Added locked_until column")
         
         # Check if verification_codes table already exists
         cursor.execute(
@@ -77,7 +74,7 @@ def migrate():
         verification_codes_exists = cursor.fetchone() is not None
         
         if not verification_codes_exists:
-            print("Creating verification_codes table...")
+            logger.info("Creating verification_codes table")
             cursor.execute("""
                 CREATE TABLE verification_codes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,9 +93,6 @@ def migrate():
             cursor.execute(
                 "CREATE INDEX idx_verification_codes_expires ON verification_codes(expires_at)"
             )
-            print("✓ Verification codes table created")
-        else:
-            print("✓ Verification codes table already exists")
         
         # Check if refresh_tokens table already exists
         cursor.execute(
@@ -107,7 +101,7 @@ def migrate():
         refresh_tokens_exists = cursor.fetchone() is not None
         
         if not refresh_tokens_exists:
-            print("Creating refresh_tokens table...")
+            logger.info("Creating refresh_tokens table")
             cursor.execute("""
                 CREATE TABLE refresh_tokens (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,16 +123,12 @@ def migrate():
             cursor.execute(
                 "CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at)"
             )
-            print("✓ Refresh tokens table created")
-        else:
-            print("✓ Refresh tokens table already exists")
         
         conn.commit()
-        print("\n✅ Migration completed successfully!")
         
     except Exception as e:
         conn.rollback()
-        print(f"\n❌ Migration failed: {e}")
+        logger.error(f"Migration failed: {e}", exc_info=True)
         raise
     finally:
         conn.close()

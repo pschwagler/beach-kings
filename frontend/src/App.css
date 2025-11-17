@@ -485,7 +485,7 @@ h1 {
   align-items: center;
 }
 
-button {
+.button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -508,18 +508,18 @@ button {
   touch-action: manipulation;
 }
 
-button:hover {
+.button:hover {
   background: var(--teal);
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0px var(--deep-ocean);
 }
 
-button:active {
+.button:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0px var(--deep-ocean);
 }
 
-button:disabled {
+.button:disabled {
   background: var(--gray-300);
   border-color: var(--gray-600);
   cursor: not-allowed;
@@ -1776,26 +1776,42 @@ tbody tr:hover .sticky-col {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 2000;
-  padding: 20px;
+  padding: 0;
   animation: fadeIn 0.2s ease-out;
 }
 
 /* Modal Content */
 .modal-content {
   background: white;
-  border-radius: 16px;
-  border: 3px solid var(--ocean-blue);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-  max-width: 600px;
+  border-radius: 24px 24px 0 0;
+  border: none;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  max-width: 100%;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease-out;
+  animation: slideUpMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUpMobile {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
@@ -1814,33 +1830,41 @@ tbody tr:hover .sticky-col {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 28px;
-  border-bottom: 2px solid var(--sand);
-  background: var(--cream);
-  border-radius: 13px 13px 0 0;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--gray-200);
+  background: white;
+  border-radius: 24px 24px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .modal-header h2 {
-  color: var(--ocean-blue);
+  color: var(--gray-900);
   font-size: 1.5em;
-  font-weight: 800;
+  font-weight: 700;
   margin: 0;
-  font-family: 'Courier New', Courier, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: -0.02em;
 }
 
 .modal-header .close-btn {
-  background: transparent;
+  background: var(--gray-100);
   border: none;
-  color: var(--gray-600);
-  padding: 4px;
+  color: var(--gray-700);
+  padding: 8px;
   box-shadow: none;
-  min-height: 32px;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  min-height: 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .modal-header .close-btn:hover {
@@ -1852,6 +1876,7 @@ tbody tr:hover .sticky-col {
 
 .modal-header .close-btn:active {
   transform: scale(0.95);
+  background: var(--gray-300);
 }
 
 /* Modal Body */
@@ -1870,13 +1895,21 @@ tbody tr:hover .sticky-col {
 .modal-actions {
   display: flex;
   gap: 12px;
-  padding: 20px 28px;
-  border-top: 2px solid var(--sand);
-  justify-content: flex-end;
+  padding: 20px;
+  border-top: 1px solid var(--gray-200);
+  justify-content: stretch;
+  background: var(--gray-50);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
 }
 
 .modal-actions button {
-  min-width: 120px;
+  flex: 1;
+  min-width: 0;
+  padding: 14px 20px;
+  font-size: 1em;
+  font-weight: 600;
 }
 
 /* Confirmation Modal */
@@ -1886,10 +1919,12 @@ tbody tr:hover .sticky-col {
 
 /* Add Match Form */
 .add-match-form {
-  padding: 28px;
+  padding: 24px 20px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .delete-match-link {
@@ -2049,6 +2084,547 @@ tbody tr:hover .sticky-col {
   font-size: 14px;
 }
 
+/* Form Styles */
+.form-group {
+  margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+.form-group label .required {
+  color: var(--danger);
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 12px;
+  font-size: 16px; /* Prevents zoom on iOS */
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background: white;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--ocean-blue);
+  box-shadow: 0 0 0 3px rgba(74, 144, 164, 0.1);
+  transform: none;
+}
+
+.form-input:disabled {
+  background-color: var(--gray-100);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-input::placeholder {
+  color: var(--gray-600);
+  opacity: 0.6;
+}
+
+.form-group textarea.form-input {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+  font-size: 16px; /* Prevents zoom on iOS */
+}
+
+/* Select dropdown styling - consistent sizing */
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%234a90a4' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  padding-right: 44px;
+  cursor: pointer;
+  min-width: 0;
+  font-size: 16px; /* Prevents zoom on iOS */
+}
+
+.form-select option {
+  padding: 8px 12px;
+  font-size: 0.95em;
+  font-weight: 500;
+  min-height: auto;
+  line-height: 1.4;
+}
+
+/* Prevent select from changing size when option is selected */
+.form-select:focus {
+  min-width: 0;
+}
+
+/* Ensure consistent width for select dropdowns */
+select.form-select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-help-text {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85em;
+  color: var(--gray-600);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--ocean-blue);
+}
+
+/* Radio Card Group */
+.radio-card-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.radio-card-group.radio-card-group-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.radio-card-group.radio-card-group-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+  .radio-card-group {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .radio-card-group.radio-card-group-2,
+  .radio-card-group.radio-card-group-3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.radio-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 14px;
+  background: white;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-height: auto;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.radio-card:hover:not(.disabled):not(:has(input:disabled)) {
+  border-color: var(--ocean-blue);
+  box-shadow: 0 2px 8px rgba(74, 144, 164, 0.1);
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .radio-card:hover:not(.disabled):not(:has(input:disabled)) {
+    transform: translateY(-1px);
+  }
+}
+
+.radio-card.selected {
+  border-color: var(--ocean-blue);
+  background: rgba(74, 144, 164, 0.05);
+  box-shadow: 0 0 0 2px rgba(74, 144, 164, 0.15);
+}
+
+.radio-card.disabled,
+.radio-card:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.radio-card.disabled:hover,
+.radio-card:has(input:disabled):hover {
+  border-color: var(--gray-300);
+  box-shadow: none;
+  transform: none;
+}
+
+.radio-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  flex: 1;
+}
+
+.radio-card input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--ocean-blue);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.radio-card.disabled input[type="radio"],
+.radio-card:has(input:disabled) input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.radio-card-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--gray-900);
+  user-select: none;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.radio-card.selected .radio-card-title {
+  color: var(--ocean-blue);
+}
+
+.radio-card-description {
+  display: none; /* Hide description on mobile for compact layout */
+  margin: 0;
+  font-size: 0.875em;
+  color: var(--gray-600);
+  line-height: 1.4;
+  user-select: none;
+}
+
+@media (min-width: 769px) {
+  .radio-card {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+  }
+  
+  .radio-card-header {
+    margin-bottom: 8px;
+  }
+  
+  .radio-card-description {
+    display: block;
+  }
+  
+  .radio-card-title {
+    font-size: 1em;
+    white-space: normal;
+  }
+}
+
+.radio-card.selected .radio-card-description {
+  color: var(--gray-800);
+  font-weight: 500;
+}
+
+.form-group-label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+/* Toggle Group */
+.toggle-group {
+  display: flex;
+  gap: 0;
+  border: 2px solid var(--gray-300);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.toggle-option {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: white;
+  color: var(--gray-700);
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-right: 1px solid var(--gray-300);
+}
+
+.toggle-option:last-child {
+  border-right: none;
+}
+
+.toggle-option:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.toggle-option.active {
+  background: var(--ocean-blue);
+  color: white;
+}
+
+.toggle-option.active:hover:not(:disabled) {
+  background: var(--deep-ocean);
+}
+
+.toggle-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* League Dashboard */
+.league-dashboard {
+  padding: 32px;
+}
+
+.league-header {
+  margin-bottom: 32px;
+}
+
+.league-title-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.league-title {
+  font-size: 2.5em;
+  font-weight: 800;
+  color: var(--ocean-blue);
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.league-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.league-badge {
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.85em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.league-badge.open {
+  background: var(--success);
+  color: white;
+}
+
+.league-badge.invite-only {
+  background: var(--gray-300);
+  color: var(--gray-700);
+}
+
+.league-description {
+  font-size: 1.1em;
+  color: var(--gray-700);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.league-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--cream) 0%, var(--sand) 100%);
+  border-radius: 12px;
+  border: 2px solid var(--gray-200);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--ocean-blue);
+  box-shadow: 0 4px 12px rgba(74, 144, 164, 0.15);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: var(--ocean-blue);
+  color: white;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 2em;
+  font-weight: 800;
+  color: var(--ocean-blue);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.9em;
+  color: var(--gray-600);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.league-section {
+  margin-bottom: 40px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5em;
+  font-weight: 800;
+  color: var(--ocean-blue);
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--gray-50);
+  border-radius: 12px;
+  border: 2px dashed var(--gray-300);
+}
+
+.empty-state p {
+  color: var(--gray-600);
+  font-size: 1.1em;
+  margin: 0;
+}
+
+.seasons-list,
+.members-list {
+  display: grid;
+  gap: 16px;
+}
+
+.season-card,
+.member-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 2px solid var(--gray-200);
+  transition: all 0.2s ease;
+}
+
+.season-card:hover,
+.member-card:hover {
+  border-color: var(--ocean-blue);
+  box-shadow: 0 2px 8px rgba(74, 144, 164, 0.1);
+}
+
+.season-info h3,
+.member-info h3 {
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 6px 0;
+}
+
+.season-dates,
+.member-role {
+  font-size: 0.9em;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.season-badge,
+.member-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.season-badge.active {
+  background: var(--success);
+  color: white;
+}
+
+.member-badge.admin {
+  background: var(--retro-yellow);
+  color: var(--gray-900);
+}
+
 /* Session Controls */
 .session-controls-start {
   margin-bottom: 28px;
@@ -2169,45 +2745,67 @@ tbody tr:hover .sticky-col {
   opacity: 1;
 }
 
-/* Responsive modals */
-@media (max-width: 768px) {
+/* Desktop modal styles */
+@media (min-width: 769px) {
   .modal-overlay {
-    padding: 8px;
-    align-items: flex-start;
-    padding-top: 20px;
+    align-items: center;
+    padding: 20px;
   }
 
   .modal-content {
-    max-height: calc(100vh - 40px);
+    border-radius: 20px;
+    max-width: 600px;
+    max-height: 85vh;
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   }
 
   .modal-header {
-    padding: 14px 16px;
-  }
-
-  .modal-header h2 {
-    font-size: 1.15em;
-  }
-
-  .modal-body {
-    padding: 16px;
-  }
-
-  .modal-actions {
-    padding: 12px 16px;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .modal-actions button {
-    width: 100%;
-    min-width: unset;
-    padding: 10px 16px;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 28px 20px;
   }
 
   .add-match-form {
-    padding: 14px;
-    gap: 14px;
+    padding: 28px;
+  }
+
+  .modal-actions {
+    padding: 20px 28px;
+    justify-content: flex-end;
+    background: white;
+  }
+
+  .modal-actions button {
+    flex: 0 1 auto;
+    min-width: 120px;
+  }
+}
+
+/* Responsive modals - mobile */
+@media (max-width: 768px) {
+  .modal-header {
+    padding: 18px 20px 14px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.25em;
+  }
+
+  .add-match-form {
+    padding: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .radio-card {
+    padding: 12px 14px;
+    min-height: auto;
+  }
+
+  .radio-card-title {
+    font-size: 0.9em;
   }
 
   .team-section {

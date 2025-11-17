@@ -53,8 +53,6 @@ CREATE TABLE IF NOT EXISTS league_configs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     league_id INTEGER NOT NULL UNIQUE,
     point_system TEXT,  -- JSON or text configuration
-    default_k_factor REAL NOT NULL DEFAULT 40,
-    default_initial_elo REAL NOT NULL DEFAULT 1200,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id)
@@ -141,24 +139,19 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (court_id) REFERENCES courts(id)
 );
 
--- Matches table: All match results (denormalized with player names)
+-- Matches table: All match results (store player IDs only)
 CREATE TABLE IF NOT EXISTS matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER,  -- NULL for legacy matches
     date TEXT NOT NULL,
     team1_player1_id INTEGER NOT NULL,
-    team1_player1_name TEXT NOT NULL,
     team1_player2_id INTEGER NOT NULL,
-    team1_player2_name TEXT NOT NULL,
     team2_player1_id INTEGER NOT NULL,
-    team2_player1_name TEXT NOT NULL,
     team2_player2_id INTEGER NOT NULL,
-    team2_player2_name TEXT NOT NULL,
     team1_score INTEGER NOT NULL,
     team2_score INTEGER NOT NULL,
     winner INTEGER NOT NULL,  -- 1 = team1, 2 = team2, -1 = tie
-    team1_elo_change REAL,
-    team2_elo_change REAL,
+    is_public INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 

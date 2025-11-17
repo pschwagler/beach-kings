@@ -7,6 +7,7 @@ import os
 import random
 import logging
 import re
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -104,7 +105,6 @@ def generate_refresh_token() -> str:
     Returns:
         Random token string suitable for use as refresh token
     """
-    import secrets
     return secrets.token_urlsafe(32)
 
 

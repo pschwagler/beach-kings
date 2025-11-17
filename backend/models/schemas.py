@@ -115,6 +115,7 @@ class CreateMatchRequest(BaseModel):
     team2_player2: str
     team1_score: int
     team2_score: int
+    is_public: Optional[bool] = True
 
 
 class CreateMatchResponse(BaseModel):
@@ -123,6 +124,32 @@ class CreateMatchResponse(BaseModel):
     message: str
     match_id: int
     session_id: int
+
+
+class UpdateMatchRequest(BaseModel):
+    """Request to update an existing match."""
+    team1_player1: str
+    team1_player2: str
+    team2_player1: str
+    team2_player2: str
+    team1_score: int
+    team2_score: int
+    is_public: Optional[bool] = None
+
+
+class MatchesQueryRequest(BaseModel):
+    """Body for matches query endpoint."""
+    limit: int = 50
+    offset: int = 0
+    league_id: Optional[int] = None
+    season_id: Optional[int] = None
+    date_from: Optional[str] = None  # ISO date
+    date_to: Optional[str] = None    # ISO date
+    player_ids: Optional[List[int]] = None
+    submitted_only: bool = True
+    include_non_public: bool = False
+    sort_by: str = "id"   # 'date' | 'id'
+    sort_dir: str = "desc"  # 'asc' | 'desc'
 
 
 # Authentication schemas
@@ -267,8 +294,6 @@ class CourtResponse(CourtBase):
 class LeagueConfigBase(BaseModel):
     """Base league config model."""
     point_system: Optional[str] = None
-    default_k_factor: float = 40.0
-    default_initial_elo: float = 1200.0
 
 
 class LeagueConfigCreate(LeagueConfigBase):
@@ -363,6 +388,15 @@ class PlayerBase(BaseModel):
 class PlayerCreate(PlayerBase):
     """Request to create a player."""
     avp_playerProfileId: Optional[int] = None
+
+
+class PlayerUpdate(BaseModel):
+    """Request to update a player profile."""
+    full_name: Optional[str] = None
+    nickname: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    default_location_id: Optional[int] = None
 
 
 class PlayerResponse(PlayerBase):
