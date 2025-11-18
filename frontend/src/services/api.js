@@ -61,16 +61,30 @@ export const clearAuthTokens = () => {
   }
 };
 
-export const getStoredTokens = () => ({
-  accessToken: authTokens.accessToken,
-  refreshToken: authTokens.refreshToken,
-});
+export const getStoredTokens = () => {
+  // Always read from localStorage to ensure we get the latest values
+  // This is especially important on page refresh
+  if (isBrowser) {
+    const storedAccess = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+    // Update the authTokens object to keep it in sync
+    authTokens.accessToken = storedAccess;
+    authTokens.refreshToken = storedRefresh;
+  }
+  return {
+    accessToken: authTokens.accessToken,
+    refreshToken: authTokens.refreshToken,
+  };
+};
 
 api.interceptors.request.use(
   (config) => {
-    if (authTokens.accessToken) {
+    // Always use the latest token from the authTokens object
+    // This ensures we use the token even if it was just refreshed
+    const token = authTokens.accessToken;
+    if (token) {
       config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${authTokens.accessToken}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -82,25 +96,49 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config || {};
     const isUnauthorized = error.response?.status === 401;
-    const isAuthEndpoint = originalRequest.url?.includes('/api/auth/');
+    const url = originalRequest.url || '';
+    // Only exclude endpoints that don't require authentication
+    // Endpoints like /api/auth/me, /api/auth/logout DO require auth and should trigger refresh
+    const shouldSkipRefresh = url.includes('/api/auth/login') ||
+                               url.includes('/api/auth/signup') ||
+                               url.includes('/api/auth/refresh') ||
+                               url.includes('/api/auth/send-verification') ||
+                               url.includes('/api/auth/verify-phone') ||
+                               url.includes('/api/auth/reset-password') ||
+                               url.includes('/api/auth/reset-password-verify') ||
+                               url.includes('/api/auth/reset-password-confirm') ||
+                               url.includes('/api/auth/sms-login') ||
+                               url.includes('/api/auth/check-phone');
 
     if (
       isUnauthorized &&
       authTokens.refreshToken &&
       !originalRequest._retry &&
-      !isAuthEndpoint
+      !shouldSkipRefresh
     ) {
       originalRequest._retry = true;
       try {
+        // Get the latest refresh token from storage in case it was updated
+        const latestRefreshToken = isBrowser 
+          ? window.localStorage.getItem(REFRESH_TOKEN_KEY) 
+          : authTokens.refreshToken;
+        
+        if (!latestRefreshToken) {
+          clearAuthTokens();
+          return Promise.reject(error);
+        }
+        
         const { data } = await refreshClient.post('/api/auth/refresh', {
-          refresh_token: authTokens.refreshToken,
+          refresh_token: latestRefreshToken,
         });
         setAuthTokens(data.access_token);
         originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${authTokens.accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
+        // Refresh failed - clear tokens and reject
         clearAuthTokens();
+        return Promise.reject(error);
       }
     }
 
@@ -119,8 +157,11 @@ export const loadFromSheets = async () => {
 /**
  * Get current rankings
  */
-export const getRankings = async () => {
-  const response = await api.get('/api/rankings');
+/**
+ * Query rankings with filters (e.g., by season_id)
+ */
+export const getRankings = async (queryParams = {}) => {
+  const response = await api.post('/api/rankings', queryParams);
   return response.data;
 };
 
@@ -165,6 +206,14 @@ export const getMatches = async () => {
 };
 
 /**
+ * Query matches with filters (e.g., by league_id, season_id)
+ */
+export const queryMatches = async (queryParams) => {
+  const response = await api.post('/api/matches/search', queryParams);
+  return response.data;
+};
+
+/**
  * Get match history for a specific player
  */
 export const getPlayerMatchHistory = async (playerName) => {
@@ -192,7 +241,7 @@ export const getSessions = async () => {
  * Get active session
  */
 export const getActiveSession = async () => {
-  const response = await api.get('/api/sessions/active');
+  const response = await api.get('/api/sessions?active=true');
   return response.data;
 };
 
@@ -205,10 +254,10 @@ export const createSession = async (date = null) => {
 };
 
 /**
- * Lock in a session
+ * Lock in a session (update session to set is_pending to false)
  */
 export const lockInSession = async (sessionId) => {
-  const response = await api.post(`/api/sessions/${sessionId}/lockin`);
+  const response = await api.patch(`/api/sessions/${sessionId}`, { is_pending: false });
   return response.data;
 };
 
@@ -220,19 +269,12 @@ export const deleteSession = async (sessionId) => {
   return response.data;
 };
 
-/**
- * End a session (legacy - use lockInSession instead)
- */
-export const endSession = async (sessionId) => {
-  const response = await api.post(`/api/sessions/${sessionId}/end`);
-  return response.data;
-};
 
 /**
  * Create a new match
  */
 export const createMatch = async (matchData) => {
-  const response = await api.post('/api/matches/create', matchData);
+  const response = await api.post('/api/matches', matchData);
   return response.data;
 };
 
@@ -318,6 +360,41 @@ export const getUserLeagues = async () => {
 };
 
 /**
+ * Add a player to a league
+ */
+export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
+  const response = await api.post(`/api/leagues/${leagueId}/members`, {
+    player_id: playerId,
+    role
+  });
+  return response.data;
+};
+
+/**
+ * Create a season for a league
+ */
+export const createLeagueSeason = async (leagueId, seasonData) => {
+  const response = await api.post(`/api/leagues/${leagueId}/seasons`, seasonData);
+  return response.data;
+};
+
+/**
+ * Create a session for a league
+ */
+export const createLeagueSession = async (leagueId, sessionData) => {
+  const response = await api.post(`/api/leagues/${leagueId}/sessions`, sessionData);
+  return response.data;
+};
+
+/**
+ * Update a league
+ */
+export const updateLeague = async (leagueId, leagueData) => {
+  const response = await api.put(`/api/leagues/${leagueId}`, leagueData);
+  return response.data;
+};
+
+/**
  * Get the current user's player profile
  */
 export const getCurrentUserPlayer = async () => {
@@ -339,6 +416,20 @@ export const updatePlayerProfile = async (playerData) => {
 export const getLocations = async () => {
   const response = await api.get('/api/locations');
   return response.data;
+};
+
+/**
+ * Logout the current user by invalidating refresh tokens
+ */
+export const logout = async () => {
+  try {
+    const response = await api.post('/api/auth/logout');
+    return response.data;
+  } catch (error) {
+    // Even if the logout request fails, we still want to clear local tokens
+    // The user is already logged out from the client side
+    throw error;
+  }
 };
 
 export default api;

@@ -1,0 +1,480 @@
+"""
+SQLAlchemy ORM models for the Beach Volleyball ELO system.
+"""
+
+from datetime import datetime
+from typing import List
+from sqlalchemy import (
+    Column, Integer, String, Text, Boolean, Float, Date, DateTime,
+    ForeignKey, UniqueConstraint, CheckConstraint, Index
+)
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from backend.database.db import Base
+
+
+class Location(Base):
+    """Metropolitan areas."""
+    __tablename__ = "locations"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    country = Column(String, default="USA")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    players = relationship("Player", back_populates="default_location")
+    leagues = relationship("League", back_populates="location")
+    courts = relationship("Court", back_populates="location")
+    
+    __table_args__ = (
+        Index("idx_locations_name", "name"),
+    )
+
+
+class User(Base):
+    """User accounts with phone-based authentication."""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    phone_number = Column(String, nullable=False, unique=True)
+    password_hash = Column(String, nullable=False)
+    name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=True, nullable=False)
+    failed_verification_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(String, nullable=True)  # ISO timestamp
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    players = relationship("Player", back_populates="user")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index("idx_users_phone", "phone_number"),
+        Index("idx_users_phone_verified", "phone_number", "is_verified"),
+    )
+
+
+class Player(Base):
+    """Player profiles."""
+    __tablename__ = "players"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    full_name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    nickname = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
+    level = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    height = Column(String, nullable=True)
+    preferred_side = Column(String, nullable=True)
+    default_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    profile_picture_url = Column(String, nullable=True)
+    avp_playerProfileId = Column(Integer, nullable=True)
+    status = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="players")
+    default_location = relationship("Location", back_populates="players")
+    league_memberships = relationship("LeagueMember", back_populates="player")
+    season_stats = relationship("PlayerSeasonStats", back_populates="player")
+    elo_history = relationship("EloHistory", back_populates="player")
+    
+    __table_args__ = (
+        Index("idx_players_name", "full_name"),
+        Index("idx_players_user", "user_id"),
+        Index("idx_players_location", "default_location_id"),
+        Index("idx_players_avp_id", "avp_playerProfileId"),
+    )
+
+
+class League(Base):
+    """League groups."""
+    __tablename__ = "leagues"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    is_open = Column(Boolean, default=True, nullable=False)
+    whatsapp_group_id = Column(String, nullable=True)
+    gender = Column(String, nullable=True)  # 'male', 'female', 'mixed'
+    level = Column(String, nullable=True)  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    location = relationship("Location", back_populates="leagues")
+    members = relationship("LeagueMember", back_populates="league", cascade="all, delete-orphan")
+    seasons = relationship("Season", foreign_keys="Season.league_id", back_populates="league")
+    config = relationship("LeagueConfig", back_populates="league", uselist=False, cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index("idx_leagues_location", "location_id"),
+    )
+
+
+class LeagueConfig(Base):
+    """Configuration for each league (one-to-one)."""
+    __tablename__ = "league_configs"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, unique=True)
+    point_system = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    league = relationship("League", back_populates="config")
+    
+    __table_args__ = (
+        Index("idx_league_configs_league", "league_id"),
+    )
+
+
+class LeagueMember(Base):
+    """Join table (Player ↔ League)."""
+    __tablename__ = "league_members"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    role = Column(String, default="member", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    league = relationship("League", back_populates="members")
+    player = relationship("Player", back_populates="league_memberships")
+    
+    __table_args__ = (
+        UniqueConstraint("league_id", "player_id"),
+        Index("idx_league_members_league", "league_id"),
+        Index("idx_league_members_player", "player_id"),
+    )
+
+
+class Season(Base):
+    """Seasons within leagues."""
+    __tablename__ = "seasons"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    name = Column(String, nullable=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    point_system = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    league = relationship("League", foreign_keys=[league_id], back_populates="seasons")
+    sessions = relationship("Session", back_populates="season")
+    player_stats = relationship("PlayerSeasonStats", back_populates="season")
+    
+    __table_args__ = (
+        Index("idx_seasons_league", "league_id"),
+        Index("idx_seasons_active", "is_active"),
+    )
+
+
+class Court(Base):
+    """Court locations."""
+    __tablename__ = "courts"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    address = Column(String, nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    geoJson = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    location = relationship("Location", back_populates="courts")
+    sessions = relationship("Session", back_populates="court")
+    
+    __table_args__ = (
+        Index("idx_courts_location", "location_id"),
+    )
+
+
+class Friend(Base):
+    """Join table (Player ↔ Player)."""
+    __tablename__ = "friends"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint("player1_id", "player2_id"),
+        CheckConstraint("player1_id < player2_id"),
+        Index("idx_friends_player1", "player1_id"),
+        Index("idx_friends_player2", "player2_id"),
+    )
+
+
+class PlayerSeasonStats(Base):
+    """Season-specific player stats."""
+    __tablename__ = "player_season_stats"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False)
+    current_elo = Column(Float, default=1200.0, nullable=False)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    player = relationship("Player", back_populates="season_stats")
+    season = relationship("Season", back_populates="player_stats")
+    
+    __table_args__ = (
+        UniqueConstraint("player_id", "season_id"),
+        Index("idx_player_season_stats_player", "player_id"),
+        Index("idx_player_season_stats_season", "season_id"),
+    )
+
+
+class Session(Base):
+    """Gaming sessions grouped by date/time."""
+    __tablename__ = "sessions"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(String, nullable=False)  # Using String for date to match existing schema
+    name = Column(String, nullable=False)
+    is_pending = Column(Boolean, default=True, nullable=False)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
+    court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    season = relationship("Season", back_populates="sessions")
+    court = relationship("Court", back_populates="sessions")
+    matches = relationship("Match", back_populates="session")
+    
+    __table_args__ = (
+        Index("idx_sessions_date", "date"),
+        Index("idx_sessions_pending", "is_pending"),
+        Index("idx_sessions_season", "season_id"),
+        Index("idx_sessions_court", "court_id"),
+    )
+
+
+class Match(Base):
+    """All match results."""
+    __tablename__ = "matches"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("sessions.id"), nullable=True)
+    date = Column(String, nullable=False)
+    team1_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team1_player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team2_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team2_player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    team1_score = Column(Integer, nullable=False)
+    team2_score = Column(Integer, nullable=False)
+    winner = Column(Integer, nullable=False)  # 1 = team1, 2 = team2, -1 = tie
+    is_public = Column(Boolean, default=True, nullable=False)
+    
+    # Relationships
+    session = relationship("Session", back_populates="matches")
+    team1_player1 = relationship("Player", foreign_keys=[team1_player1_id], lazy="select")
+    team1_player2 = relationship("Player", foreign_keys=[team1_player2_id], lazy="select")
+    team2_player1 = relationship("Player", foreign_keys=[team2_player1_id], lazy="select")
+    team2_player2 = relationship("Player", foreign_keys=[team2_player2_id], lazy="select")
+    
+    @property
+    def team1_player1_name(self) -> str:
+        """Get team1 player1 name."""
+        return self.team1_player1.full_name if self.team1_player1 else ""
+    
+    @property
+    def team1_player2_name(self) -> str:
+        """Get team1 player2 name."""
+        return self.team1_player2.full_name if self.team1_player2 else ""
+    
+    @property
+    def team2_player1_name(self) -> str:
+        """Get team2 player1 name."""
+        return self.team2_player1.full_name if self.team2_player1 else ""
+    
+    @property
+    def team2_player2_name(self) -> str:
+        """Get team2 player2 name."""
+        return self.team2_player2.full_name if self.team2_player2 else ""
+    
+    @property
+    def players(self) -> List[List[str]]:
+        """Get players as list of teams (for calculation service compatibility)."""
+        return [
+            [self.team1_player1_name, self.team1_player2_name],
+            [self.team2_player1_name, self.team2_player2_name]
+        ]
+    
+    @property
+    def original_scores(self) -> List[int]:
+        """Get original scores (for calculation service compatibility)."""
+        return [self.team1_score, self.team2_score]
+    
+    __table_args__ = (
+        Index("idx_matches_session", "session_id"),
+        Index("idx_matches_date", "date"),
+        Index("idx_matches_team1_p1", "team1_player1_id"),
+        Index("idx_matches_team1_p2", "team1_player2_id"),
+        Index("idx_matches_team2_p1", "team2_player1_id"),
+        Index("idx_matches_team2_p2", "team2_player2_id"),
+    )
+
+
+class PartnershipStats(Base):
+    """How each player performs WITH each partner."""
+    __tablename__ = "partnership_stats"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    partner_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    partner = relationship("Player", foreign_keys=[partner_id])
+    
+    __table_args__ = (
+        Index("idx_partnership_stats_player", "player_id"),
+        Index("idx_partnership_stats_partner", "partner_id"),
+    )
+
+
+class OpponentStats(Base):
+    """How each player performs AGAINST each opponent."""
+    __tablename__ = "opponent_stats"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    opponent_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    opponent = relationship("Player", foreign_keys=[opponent_id])
+    
+    __table_args__ = (
+        Index("idx_opponent_stats_player", "player_id"),
+        Index("idx_opponent_stats_opponent", "opponent_id"),
+    )
+
+
+class EloHistory(Base):
+    """Track ELO changes over time for charting."""
+    __tablename__ = "elo_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    date = Column(String, nullable=False)
+    elo_after = Column(Float, nullable=False)
+    elo_change = Column(Float, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", back_populates="elo_history")
+    match = relationship("Match")
+    
+    __table_args__ = (
+        Index("idx_elo_history_player", "player_id"),
+        Index("idx_elo_history_match", "match_id"),
+    )
+
+
+class Setting(Base):
+    """Application configuration."""
+    __tablename__ = "settings"
+    
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class VerificationCode(Base):
+    """SMS verification codes with signup data."""
+    __tablename__ = "verification_codes"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    phone_number = Column(String, nullable=False)
+    code = Column(String, nullable=False)
+    expires_at = Column(String, nullable=False)  # ISO timestamp
+    used = Column(Boolean, default=False, nullable=False)
+    password_hash = Column(String, nullable=True)
+    name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    __table_args__ = (
+        Index("idx_verification_codes_phone", "phone_number"),
+        Index("idx_verification_codes_expires", "expires_at"),
+    )
+
+
+class RefreshToken(Base):
+    """JWT refresh tokens for token rotation."""
+    __tablename__ = "refresh_tokens"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, nullable=False, unique=True)
+    expires_at = Column(String, nullable=False)  # ISO timestamp
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="refresh_tokens")
+    
+    __table_args__ = (
+        Index("idx_refresh_tokens_user", "user_id"),
+        Index("idx_refresh_tokens_token", "token"),
+        Index("idx_refresh_tokens_expires", "expires_at"),
+    )
+
+
+class PasswordResetToken(Base):
+    """Tokens for password reset after verification."""
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, nullable=False, unique=True)
+    expires_at = Column(String, nullable=False)  # ISO timestamp
+    used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="password_reset_tokens")
+    
+    __table_args__ = (
+        Index("idx_password_reset_tokens_user", "user_id"),
+        Index("idx_password_reset_tokens_token", "token"),
+        Index("idx_password_reset_tokens_expires", "expires_at"),
+    )
+

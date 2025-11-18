@@ -152,13 +152,19 @@ class MatchesQueryRequest(BaseModel):
     sort_dir: str = "desc"  # 'asc' | 'desc'
 
 
+class RankingsQueryRequest(BaseModel):
+    """Body for rankings query endpoint."""
+    season_id: Optional[int] = None
+
+
 # Authentication schemas
 
 class SignupRequest(BaseModel):
     """Request to sign up a new user."""
     phone_number: str
     password: str
-    name: Optional[str] = None
+    full_name: str  # Required - used to create player profile
+    name: Optional[str] = None  # Optional - user display name
     email: Optional[str] = None
 
 
@@ -316,6 +322,8 @@ class LeagueBase(BaseModel):
     location_id: Optional[int] = None
     is_open: bool = True
     whatsapp_group_id: Optional[str] = None
+    gender: Optional[str] = None  # 'male', 'female', 'mixed'
+    level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
 
 
 class LeagueCreate(LeagueBase):
@@ -326,7 +334,6 @@ class LeagueCreate(LeagueBase):
 class LeagueResponse(LeagueBase):
     """League response."""
     id: int
-    active_season_id: Optional[int] = None
     created_at: str
     updated_at: str
 

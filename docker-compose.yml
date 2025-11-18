@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: beach-kings-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beachkings}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
+      POSTGRES_DB: ${POSTGRES_DB:-beachkings}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beachkings}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - beach-kings-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: beach-kings-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+      - "${WHATSAPP_PORT:-3001}:3001"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres:5432/${POSTGRES_DB:-beachkings}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-beachkings}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-beachkings}
+      - POSTGRES_DB=${POSTGRES_DB:-beachkings}
+      - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - CREDENTIALS_JSON=${CREDENTIALS_JSON:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./whatsapp-service:/app/whatsapp-service
+    networks:
+      - beach-kings-network
+    restart: unless-stopped
+
+networks:
+  beach-kings-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+

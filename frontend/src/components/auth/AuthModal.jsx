@@ -17,6 +17,7 @@ const MODE_TITLES = {
 const defaultFormState = {
   phoneNumber: '',
   password: '',
+  fullName: '',
   email: '',
   code: '',
 };
@@ -148,8 +149,12 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       return;
     }
 
-    // Validate password strength for sign-up
+    // Validate password strength and full name for sign-up
     if (activeMode === 'sign-up') {
+      if (!formData.fullName || !formData.fullName.trim()) {
+        setErrorMessage('Full name is required');
+        return;
+      }
       const passwordValid = validatePassword(formData.password);
       if (!passwordValid.minLength || !passwordValid.hasNumber) {
         setErrorMessage('Password must be at least 8 characters long and include a number');
@@ -170,6 +175,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         const result = await signup({
           phoneNumber: formData.phoneNumber,
           password: formData.password,
+          fullName: formData.fullName.trim(),
           email: formData.email,
         });
         setStatusMessage('Account created! Enter the verification code we just sent you.');
@@ -289,6 +295,21 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         )}
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
+          {activeMode === 'sign-up' && (
+            <label className="auth-modal__label">
+              <span>Full Name <span style={{ color: 'red' }}>*</span></span>
+              <input
+                type="text"
+                name="fullName"
+                className="auth-modal__input"
+                placeholder="John Doe"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                required
+              />
+            </label>
+          )}
+
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">
               <span>Phone Number <span style={{ color: 'red' }}>*</span></span>

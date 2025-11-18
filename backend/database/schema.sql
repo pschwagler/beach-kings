@@ -41,11 +41,9 @@ CREATE TABLE IF NOT EXISTS leagues (
     location_id INTEGER,  -- NULLABLE
     is_open INTEGER NOT NULL DEFAULT 1,  -- 1 = open to new players, 0 = invite-only
     whatsapp_group_id TEXT,
-    active_season_id INTEGER,  -- NULLABLE
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    FOREIGN KEY (active_season_id) REFERENCES seasons(id)
+    FOREIGN KEY (location_id) REFERENCES locations(id)
 );
 
 -- League configs table: Configuration for each league (one-to-one)
@@ -284,7 +282,6 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_t
 -- New table indexes
 CREATE INDEX IF NOT EXISTS idx_locations_name ON locations(name);
 CREATE INDEX IF NOT EXISTS idx_leagues_location ON leagues(location_id);
-CREATE INDEX IF NOT EXISTS idx_leagues_active_season ON leagues(active_season_id);
 CREATE INDEX IF NOT EXISTS idx_league_configs_league ON league_configs(league_id);
 CREATE INDEX IF NOT EXISTS idx_league_members_league ON league_members(league_id);
 CREATE INDEX IF NOT EXISTS idx_league_members_player ON league_members(player_id);

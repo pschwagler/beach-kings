@@ -4,12 +4,22 @@ import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 
 /**
- * Gets the first letter for the avatar from name, email, or defaults to a user icon
+ * Gets the first letter for the avatar from player nickname, full_name, user name, email, or defaults to a user icon
  */
-const getAvatarInitial = (user) => {
+const getAvatarInitial = (user, currentUserPlayer) => {
+  // First check player nickname
+  if (currentUserPlayer?.nickname) {
+    return currentUserPlayer.nickname.trim().charAt(0).toUpperCase();
+  }
+  // Then check player full_name
+  if (currentUserPlayer?.full_name) {
+    return currentUserPlayer.full_name.trim().charAt(0).toUpperCase();
+  }
+  // Fall back to user name
   if (user?.name) {
     return user.name.trim().charAt(0).toUpperCase();
   }
+  // Fall back to user email
   if (user?.email) {
     return user.email.trim().charAt(0).toUpperCase();
   }
@@ -19,6 +29,7 @@ const getAvatarInitial = (user) => {
 export default function UserMenu({
   isLoggedIn,
   user,
+  currentUserPlayer,
   onMenuClick,
   onSignIn,
   onSignUp,
@@ -55,7 +66,7 @@ export default function UserMenu({
     }
   };
 
-  const avatarInitial = isLoggedIn ? getAvatarInitial(user) : null;
+  const avatarInitial = isLoggedIn ? getAvatarInitial(user, currentUserPlayer) : null;
 
   return (
     <div className="navbar-menu-group" ref={menuRef}>
@@ -88,7 +99,7 @@ export default function UserMenu({
           ) : (
             <>
               <div className="navbar-dropdown-header">
-                {user?.name || user?.phone_number || 'Member'}
+                {currentUserPlayer?.full_name || user?.name || user?.phone_number || 'Member'}
               </div>
               <NavDropdownItem icon={UserCircle} onClick={() => handleItemClick('profile')}>
                 My Profile

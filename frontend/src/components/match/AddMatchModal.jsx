@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
+import { useLeague } from '../../contexts/LeagueContext';
 
 // Constants
 const INITIAL_FORM_STATE = {
@@ -14,12 +15,23 @@ const INITIAL_FORM_STATE = {
   team2Score: ''
 };
 
+// Helper function to convert player name to player option (for editing)
+const nameToPlayerOption = (name, nameToIdMap) => {
+  if (!name) return '';
+  const playerId = nameToIdMap.get(name);
+  if (playerId) {
+    return { value: playerId, label: name };
+  }
+  // Fallback: if name not found in map, return as object with name as both value and label
+  return { value: name, label: name };
+};
+
 // Helper functions
-const mapEditMatchToFormData = (editMatch) => ({
-  team1Player1: editMatch['Team 1 Player 1'] || '',
-  team1Player2: editMatch['Team 1 Player 2'] || '',
-  team2Player1: editMatch['Team 2 Player 1'] || '',
-  team2Player2: editMatch['Team 2 Player 2'] || '',
+const mapEditMatchToFormData = (editMatch, nameToIdMap) => ({
+  team1Player1: nameToPlayerOption(editMatch['Team 1 Player 1'] || '', nameToIdMap),
+  team1Player2: nameToPlayerOption(editMatch['Team 1 Player 2'] || '', nameToIdMap),
+  team2Player1: nameToPlayerOption(editMatch['Team 2 Player 1'] || '', nameToIdMap),
+  team2Player2: nameToPlayerOption(editMatch['Team 2 Player 2'] || '', nameToIdMap),
   team1Score: editMatch['Team 1 Score']?.toString() || '',
   team2Score: editMatch['Team 2 Score']?.toString() || ''
 });
@@ -50,17 +62,79 @@ const validateScores = (formData) => {
   return { isValid: true, errorMessage: null, score1, score2 };
 };
 
-export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames, onCreatePlayer, onDelete, editMatch = null }) {
+export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames = [], onCreatePlayer, onDelete, editMatch = null }) {
+  const { members } = useLeague();
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Transform members into player options with value (player_id) and label (player_name)
+  const playerOptions = useMemo(() => {
+    if (!members || members.length === 0) {
+      // Fallback to allPlayerNames if no members (backward compatibility)
+      if (Array.isArray(allPlayerNames) && allPlayerNames.length > 0) {
+        // Check if allPlayerNames are already in object format
+        return allPlayerNames.map(player => {
+          if (typeof player === 'object' && 'value' in player && 'label' in player) {
+            return player;
+          }
+          return { value: player, label: player };
+        });
+      }
+      return [];
+    }
+    
+    return members.map(member => ({
+      value: member.player_id,
+      label: member.player_name || `Player ${member.player_id}`
+    }));
+  }, [members, allPlayerNames]);
+
+  // Create a map from player_id to player_name for conversion
+  const playerIdToNameMap = useMemo(() => {
+    const map = new Map();
+    if (members && members.length > 0) {
+      members.forEach(member => {
+        map.set(member.player_id, member.player_name);
+      });
+    }
+    return map;
+  }, [members]);
+
+  // Create a map from player_name to player_id for editing (when editMatch has names)
+  const playerNameToIdMap = useMemo(() => {
+    const map = new Map();
+    if (members && members.length > 0) {
+      members.forEach(member => {
+        map.set(member.player_name, member.player_id);
+      });
+    }
+    return map;
+  }, [members]);
 
   // Handle any field change
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (formError) setFormError(null);
+  };
+
+  // Helper to get player value (ID) from player option
+  const getPlayerValue = (player) => {
+    if (!player) return '';
+    if (typeof player === 'object' && 'value' in player) {
+      return player.value;
+    }
+    return player;
+  };
+
+  // Helper to check if two players are equal
+  const playersEqual = (a, b) => {
+    if (!a || !b) return a === b;
+    const valA = getPlayerValue(a);
+    const valB = getPlayerValue(b);
+    return valA === valB;
   };
 
   // Handle player selection with duplicate prevention
@@ -72,10 +146,15 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
     if (newPlayer) {
       setFormData(prev => {
         const updated = { ...prev, [field]: newPlayer };
+        const newPlayerValue = getPlayerValue(newPlayer);
+        
         // Clear the player from other positions if they're already selected
         Object.keys(updated).forEach(key => {
-          if (key !== field && key.includes('Player') && updated[key] === newPlayer) {
-            updated[key] = '';
+          if (key !== field && key.includes('Player')) {
+            const existingValue = getPlayerValue(updated[key]);
+            if (existingValue === newPlayerValue) {
+              updated[key] = '';
+            }
           }
         });
         return updated;
@@ -88,12 +167,12 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   // Pre-populate fields when editing
   useEffect(() => {
     if (editMatch) {
-      setFormData(mapEditMatchToFormData(editMatch));
+      setFormData(mapEditMatchToFormData(editMatch, playerNameToIdMap));
     } else {
       setFormData(INITIAL_FORM_STATE);
     }
     setFormError(null);
-  }, [editMatch, isOpen]);
+  }, [editMatch, isOpen, playerNameToIdMap]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,31 +193,28 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
 
     setIsSubmitting(true);
     try {
-      // Create any new players first (players not in allPlayerNames)
-      const playersInMatch = [
-        formData.team1Player1,
-        formData.team1Player2,
-        formData.team2Player1,
-        formData.team2Player2
-      ];
-      
-      const newPlayers = playersInMatch.filter(
-        player => player && !allPlayerNames.includes(player)
-      );
-
-      // Create new players in the database
-      if (newPlayers.length > 0 && onCreatePlayer) {
-        for (const playerName of newPlayers) {
-          await onCreatePlayer(playerName);
+      // Convert player options (with player_id) to player names for API
+      const getPlayerName = (playerOption) => {
+        if (!playerOption) return '';
+        
+        // If it's an object with value/label, get the name from the map or use label
+        if (typeof playerOption === 'object' && 'value' in playerOption) {
+          const playerId = playerOption.value;
+          const playerName = playerIdToNameMap.get(playerId);
+          // If found in map, use it; otherwise use label (for new players)
+          return playerName || playerOption.label || '';
         }
-      }
+        
+        // Legacy: if it's a string, return as-is
+        return playerOption;
+      };
 
-      // Now submit the match
+      // Submit the match with player names (API expects names)
       await onSubmit({
-        team1_player1: formData.team1Player1,
-        team1_player2: formData.team1Player2,
-        team2_player1: formData.team2Player1,
-        team2_player2: formData.team2Player2,
+        team1_player1: getPlayerName(formData.team1Player1),
+        team1_player2: getPlayerName(formData.team1Player2),
+        team2_player1: getPlayerName(formData.team2Player1),
+        team2_player2: getPlayerName(formData.team2Player2),
         team1_score: scoresValidation.score1,
         team2_score: scoresValidation.score2
       }, editMatch ? editMatch['Match ID'] : null);
@@ -183,7 +259,10 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   // Get list of selected players for each dropdown to exclude
   const getExcludedPlayers = (currentPlayer) => {
     const allSelected = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
-    return allSelected.filter(player => player && player !== currentPlayer);
+    return allSelected.filter(player => {
+      if (!player) return false;
+      return !playersEqual(player, currentPlayer);
+    });
   };
 
   // Determine winner based on scores
@@ -234,7 +313,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             isWinner={team1IsWinner}
             onPlayerChange={handlePlayerChange}
             onScoreChange={handleFieldChange}
-            allPlayerNames={allPlayerNames}
+            allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
           />
 
@@ -251,7 +330,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             isWinner={team2IsWinner}
             onPlayerChange={handlePlayerChange}
             onScoreChange={handleFieldChange}
-            allPlayerNames={allPlayerNames}
+            allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
           />
 

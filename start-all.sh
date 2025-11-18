@@ -3,7 +3,7 @@
 # Beach Volleyball ELO - Start All Services
 # This script starts both the main app and WhatsApp service
 
-echo "🏐 Beach Volleyball ELO System"
+echo "🏐 Beach Kings"
 echo "================================"
 echo ""
 echo "Starting all services..."
@@ -25,6 +25,17 @@ if ! ./venv/bin/python -c "import httpx" 2>/dev/null; then
     ./venv/bin/pip install httpx
     echo "✅ Dependencies installed!"
     echo ""
+fi
+
+# Start PostgreSQL if docker-compose is available
+if command -v docker-compose &> /dev/null; then
+    echo "🐘 Starting PostgreSQL database..."
+    docker-compose up -d postgres
+    echo "✅ PostgreSQL started!"
+    echo ""
+    # Wait for PostgreSQL to be ready
+    echo "⏳ Waiting for PostgreSQL to be ready..."
+    sleep 3
 fi
 
 echo "🚀 Starting services..."

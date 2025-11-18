@@ -5,6 +5,7 @@ import MatchCard from './MatchCard';
 import AddMatchModal from './AddMatchModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
+import { createLeagueSession, getActiveSession } from '../../services/api';
 
 export default function MatchesTable({ 
   matches, 
@@ -18,15 +19,16 @@ export default function MatchesTable({
   onUpdateMatch,
   onDeleteMatch,
   onCreatePlayer,
-  allPlayerNames 
+  allPlayerNames,
+  isLeagueMember = false,
+  leagueId = null
 }) {
   const [isAddMatchModalOpen, setIsAddMatchModalOpen] = useState(false);
   const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState(null);
 
-  // Check if URL contains ?gameon query parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameOnMode = urlParams.has('gameon');
+  // Use isLeagueMember prop instead of checking ?gameon query parameter
+  const gameOnMode = isLeagueMember;
 
   if (loading) {
     return <div className="loading">Loading matches...</div>;
@@ -77,14 +79,45 @@ export default function MatchesTable({
       setEditingMatch(null);
     } else {
       // Create mode
-      if (!activeSession) {
-        alert('No active session. Please create a session first.');
-        return;
+      let currentSession = activeSession;
+      
+      // If no active session exists, create one first
+      if (!currentSession && leagueId) {
+        try {
+          // Create a new session
+          const dateStr = new Date().toISOString().split('T')[0];
+          const [year, month, day] = dateStr.split('-');
+          const formattedDate = `${parseInt(month)}/${parseInt(day)}/${year}`;
+          
+          await createLeagueSession(leagueId, {
+            date: formattedDate,
+            name: undefined
+          });
+          
+          // Get the newly created active session
+          const newSession = await getActiveSession();
+          currentSession = newSession;
+          
+          // Also trigger the parent's onCreateSession to update state
+          if (onCreateSession) {
+            await onCreateSession();
+          }
+        } catch (err) {
+          console.error('Error creating session:', err);
+          // Continue without session if creation fails
+        }
       }
-      await onCreateMatch({
-        ...matchData,
-        session_id: activeSession.id
-      });
+      
+      // Create the match with the session_id if we have one
+      if (currentSession) {
+        await onCreateMatch({
+          ...matchData,
+          session_id: currentSession.id
+        });
+      } else {
+        // Fallback: create match without session
+        await onCreateMatch(matchData);
+      }
     }
   };
 
@@ -114,18 +147,28 @@ export default function MatchesTable({
 
   return (
     <div className="matches-container">
-      {/* Start Session button - shows when no active session in gameon mode */}
+      {/* Add Matches Section - Modern iOS Style */}
       {gameOnMode && !activeSession && (
-        <div className="session-controls-start">
-          <Button variant="success" onClick={onCreateSession} className="start-session-btn">
-            <Plus size={20} />
-            Start New Session
-          </Button>
+        <div className="add-matches-section">
+          <button 
+            className="add-matches-card"
+            onClick={() => setIsAddMatchModalOpen(true)}
+          >
+            <div className="add-matches-icon">
+              <Plus size={24} />
+            </div>
+            <h2 className="add-matches-title">Add Matches</h2>
+            <p className="add-matches-description">
+              Click to add your first match. A session will be created automatically.
+            </p>
+          </button>
         </div>
       )}
 
       {matches.length === 0 && gameOnMode && !activeSession && (
-        <div className="loading">No matches yet. Start a session and add your first match!</div>
+        <div className="add-matches-empty-state">
+          <p>No matches yet. Start a session and add your first match!</p>
+        </div>
       )}
 
       {/* Active session - Retro Pro Design */}
@@ -183,6 +226,8 @@ export default function MatchesTable({
         onCreatePlayer={onCreatePlayer}
         editMatch={editingMatch}
       />
+      {/* Debug: Log allPlayerNames when modal state changes */}
+      {isAddMatchModalOpen && console.log('MatchesTable: allPlayerNames passed to modal:', allPlayerNames, 'Length:', allPlayerNames?.length)}
 
       <ConfirmationModal
         isOpen={isEndSessionModalOpen}

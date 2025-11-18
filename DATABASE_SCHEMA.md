@@ -58,7 +58,6 @@ erDiagram
         int location_id FK "nullable"
         int is_open
         text whatsapp_group_id
-        int active_season_id FK
         datetime created_at
         datetime updated_at
     }
@@ -177,8 +176,9 @@ Leagues are groups of players who play together regularly. Each league has confi
 
 **Key Fields:**
 - `is_open`: Whether the league is open to new players (1) or invite-only (0)
-- `active_season_id`: Currently active season for the league
 - `location_id`: Primary location of the league
+
+**Note:** The active season for a league is determined by querying the `seasons` table for the most recent season where `is_active = 1` for that league.
 
 #### league_configs
 Configuration for each league (one-to-one relationship). Stores league-level settings such as point systems. ELO parameters (K-factor, initial ELO) are global constants applied to all ranked matches.
@@ -245,14 +245,13 @@ Application configuration key-value store.
 2. **League ↔ LeagueConfig**: One-to-one (each league has one config)
 3. **League ↔ Player**: Many-to-many via `league_members`
 4. **League → Season**: One-to-many (leagues have multiple seasons)
-5. **League → Season**: One-to-zero-or-one (active_season_id)
-6. **Season → Session**: One-to-many
-7. **Season ↔ Player**: Many-to-many via `player_season_stats`
-8. **Location → Court**: One-to-many
-9. **Location → League**: One-to-many
-10. **Location → Player**: One-to-many (via default_location_id)
-11. **Court → Session**: One-to-many (optional)
-12. **Player ↔ Player**: Many-to-many via `friends` (self-referential)
+5. **Season → Session**: One-to-many
+6. **Season ↔ Player**: Many-to-many via `player_season_stats`
+7. **Location → Court**: One-to-many
+8. **Location → League**: One-to-many
+9. **Location → Player**: One-to-many (via default_location_id)
+10. **Court → Session**: One-to-many (optional)
+11. **Player ↔ Player**: Many-to-many via `friends` (self-referential)
 
 ## Indexes
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
-import { getCurrentUserPlayer } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const INITIAL_FORM_STATE = {
@@ -32,7 +31,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, currentUserPlayer } = useAuth();
 
   // Load current user's player data and reset form when modal opens
   useEffect(() => {
@@ -41,25 +40,27 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
       setFormData(INITIAL_FORM_STATE);
       setFormError(null);
       
-      // Then load user's player data to set defaults
-      if (isAuthenticated) {
-        getCurrentUserPlayer()
-          .then(player => {
-            if (player) {
-              setFormData(prev => ({
-                ...prev,
-                gender: player.gender || 'male', // Default to Men's if not known
-                level: player.level || ''
-              }));
-            }
-          })
-          .catch(error => {
-            console.error('Error loading user player:', error);
-            // Don't show error to user, just use empty defaults
-          });
+      // Then use user's player data from context to set defaults
+      if (isAuthenticated && currentUserPlayer) {
+        // Normalize player level to match LEVEL_OPTIONS (case-insensitive)
+        let normalizedLevel = '';
+        if (currentUserPlayer.level) {
+          const playerLevelLower = currentUserPlayer.level.toLowerCase();
+          // Find matching option (case-insensitive)
+          const matchingOption = LEVEL_OPTIONS.find(opt => 
+            opt.value && opt.value.toLowerCase() === playerLevelLower
+          );
+          normalizedLevel = matchingOption ? matchingOption.value : currentUserPlayer.level;
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          gender: currentUserPlayer.gender || 'male', // Default to Men's if not known
+          level: normalizedLevel || '' // Default to player's level if it matches an option
+        }));
       }
     }
-  }, [isOpen, isAuthenticated]);
+  }, [isOpen, isAuthenticated, currentUserPlayer]);
 
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

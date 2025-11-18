@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import api, { setAuthTokens, clearAuthTokens, getStoredTokens } from '../services/api';
+import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -7,15 +7,36 @@ const normalizePhone = (phone) => phone?.trim();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [currentUserPlayer, setCurrentUserPlayer] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
       const response = await api.get('/api/auth/me');
       setUser(response.data);
-    } catch {
-      clearAuthTokens();
-      setUser(null);
+      
+      // Also fetch the current user's player profile
+      try {
+        const player = await getCurrentUserPlayer();
+        setCurrentUserPlayer(player);
+      } catch (playerError) {
+        // Player might not exist yet, that's okay
+        if (playerError.response?.status !== 404) {
+          console.error('Error fetching current user player:', playerError);
+        }
+        setCurrentUserPlayer(null);
+      }
+    } catch (error) {
+      // Only clear tokens on 401 (unauthorized) - don't clear on network errors, 500s, etc.
+      const isUnauthorized = error.response?.status === 401;
+      if (isUnauthorized) {
+        clearAuthTokens();
+        setUser(null);
+        setCurrentUserPlayer(null);
+      } else {
+        // For other errors (network, 500, etc.), keep user logged in but log the error
+        console.error('Error fetching current user (non-401):', error);
+      }
     }
   }, []);
 
@@ -60,11 +81,11 @@ export const AuthProvider = ({ children }) => {
     [handleAuthSuccess]
   );
 
-  const signup = useCallback(async ({ phoneNumber, password, name, email }) => {
+  const signup = useCallback(async ({ phoneNumber, password, fullName, email }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
       password: password.trim(),
-      name: name?.trim() || undefined,
+      full_name: fullName.trim(),
       email: email?.trim() || undefined,
     });
     return response.data;
@@ -112,13 +133,25 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   }, [handleAuthSuccess]);
 
-  const logout = useCallback(() => {
-    clearAuthTokens();
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      // Try to call the backend logout endpoint to invalidate refresh tokens
+      await logoutApi();
+    } catch (error) {
+      // Even if the backend call fails, we still want to clear local tokens
+      // The user is already logged out from the client side
+      console.error('Error calling logout endpoint:', error);
+    } finally {
+      // Always clear local tokens and user state
+      clearAuthTokens();
+      setUser(null);
+      setCurrentUserPlayer(null);
+    }
   }, []);
 
   const value = {
     user,
+    currentUserPlayer,
     isAuthenticated: Boolean(user),
     isInitializing,
     loginWithPassword,

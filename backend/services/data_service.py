@@ -4,1249 +4,721 @@ Handles all CRUD operations for the ELO system.
 """
 
 from typing import List, Dict, Optional
+from datetime import datetime
+from collections import defaultdict
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer
+from sqlalchemy.orm import selectinload, aliased
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.sql import func as sql_func
 from backend.database import db
-from backend.models.match import Match
+from backend.database.models import (
+    League, LeagueMember, Season, Location, Court, Player, 
+    Session, Match, Setting, PartnershipStats, OpponentStats, 
+    EloHistory, PlayerSeasonStats
+)
+# MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
 from backend.utils.constants import INITIAL_ELO
 import csv
 import io
 
 #
-# New league-scoped CRUD helpers
+# Async versions of data service functions
+# These use SQLAlchemy ORM with async sessions
 #
 
-def create_league(name: str, description: Optional[str], location_id: Optional[int], is_open: bool, whatsapp_group_id: Optional[str], creator_user_id: int) -> Dict:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """INSERT INTO leagues (name, description, location_id, is_open, whatsapp_group_id)
-               VALUES (?, ?, ?, ?, ?)""",
-            (name, description, location_id, 1 if is_open else 0, whatsapp_group_id)
-        )
-        league_id = cur.lastrowid
-        
-        # Add creator as league admin
-        # Get the creator's player_id from their user_id
-        cur = conn.execute("SELECT id FROM players WHERE user_id = ?", (creator_user_id,))
-        player_row = cur.fetchone()
-        assert player_row is not None, "Player not found for user_id"
-
-        player_id = player_row["id"]
-        # Add creator as admin member
-        conn.execute(
-            """INSERT INTO league_members (league_id, player_id, role) VALUES (?, ?, ?)""",
-            (league_id, player_id, "admin")
-        )
-        
-        # Fetch the created league in the same transaction
-        cur = conn.execute("""SELECT * FROM leagues WHERE id = ?""", (league_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None  # type: ignore
-
-
-def list_leagues() -> List[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute("""SELECT * FROM leagues ORDER BY created_at DESC""")
-        return [dict(row) for row in cur.fetchall()]
-
-
-def get_user_leagues(user_id: int) -> List[Dict]:
-    """
-    Get all leagues that a user is a member of (via their players).
-    Returns leagues with membership role information.
-    """
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """SELECT DISTINCT l.*, lm.role as membership_role
-               FROM leagues l
-               INNER JOIN league_members lm ON lm.league_id = l.id
-               INNER JOIN players p ON p.id = lm.player_id
-               WHERE p.user_id = ?
-               ORDER BY l.created_at DESC""",
-            (user_id,)
-        )
-        return [dict(row) for row in cur.fetchall()]
-
-
-def get_league(league_id: int) -> Optional[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute("""SELECT * FROM leagues WHERE id = ?""", (league_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def update_league(league_id: int, name: str, description: Optional[str], location_id: Optional[int], is_open: bool, whatsapp_group_id: Optional[str]) -> Optional[Dict]:
-    with db.get_db() as conn:
-        conn.execute(
-            """UPDATE leagues
-               SET name = ?, description = ?, location_id = ?, is_open = ?, whatsapp_group_id = ?, updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?""",
-            (name, description, location_id, 1 if is_open else 0, whatsapp_group_id, league_id)
-        )
-        return get_league(league_id)
-
-
-def delete_league(league_id: int) -> bool:
-    with db.get_db() as conn:
-        cur = conn.execute("""DELETE FROM leagues WHERE id = ?""", (league_id,))
-        return cur.rowcount > 0
-
-
-def create_season(league_id: int, name: Optional[str], start_date: str, end_date: str, point_system: Optional[str], is_active: bool) -> Dict:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """INSERT INTO seasons (league_id, name, start_date, end_date, point_system, is_active)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (league_id, name, start_date, end_date, point_system, 1 if is_active else 0)
-        )
-        return get_season(cur.lastrowid)  # type: ignore
-
-
-def list_seasons(league_id: int) -> List[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute("""SELECT * FROM seasons WHERE league_id = ? ORDER BY start_date DESC""", (league_id,))
-        return [dict(row) for row in cur.fetchall()]
-
-
-def get_season(season_id: int) -> Optional[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute("""SELECT * FROM seasons WHERE id = ?""", (season_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def update_season(season_id: int, **fields) -> Optional[Dict]:
-    allowed = {"name", "start_date", "end_date", "point_system", "is_active"}
-    updates = {k: v for k, v in fields.items() if k in allowed}
-    if not updates:
-        return get_season(season_id)
-    sets = []
-    params = []
-    for k, v in updates.items():
-        sets.append(f"{k} = ?")
-        if k == "is_active":
-            params.append(1 if v else 0)
-        else:
-            params.append(v)
-    params.append(season_id)
-    with db.get_db() as conn:
-        conn.execute(f"UPDATE seasons SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", params)
-        return get_season(season_id)
-
-
-def activate_season(league_id: int, season_id: int) -> bool:
-    with db.get_db() as conn:
-        # Ensure season belongs to league
-        cur = conn.execute("""SELECT id FROM seasons WHERE id = ? AND league_id = ?""", (season_id, league_id))
-        if not cur.fetchone():
-            return False
-        conn.execute("""UPDATE leagues SET active_season_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", (season_id, league_id))
-        conn.execute("""UPDATE seasons SET is_active = 0 WHERE league_id = ? AND id != ?""", (league_id, season_id))
-        conn.execute("""UPDATE seasons SET is_active = 1 WHERE id = ?""", (season_id,))
-        return True
-
-
-def list_league_members(league_id: int) -> List[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """SELECT lm.id, lm.league_id, lm.player_id, lm.role, p.full_name as player_name
-               FROM league_members lm
-               JOIN players p ON p.id = lm.player_id
-               WHERE lm.league_id = ?
-               ORDER BY p.full_name ASC""",
-            (league_id,)
-        )
-        return [dict(row) for row in cur.fetchall()]
-
-
-def add_league_member(league_id: int, player_id: int, role: str = "member") -> Dict:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """INSERT INTO league_members (league_id, player_id, role) VALUES (?, ?, ?)""",
-            (league_id, player_id, role)
-        )
-        member_id = cur.lastrowid
-        return {"id": member_id, "league_id": league_id, "player_id": player_id, "role": role}
-
-
-def update_league_member(league_id: int, member_id: int, role: str) -> Optional[Dict]:
-    with db.get_db() as conn:
-        conn.execute("""UPDATE league_members SET role = ? WHERE id = ? AND league_id = ?""", (role, member_id, league_id))
-        cur = conn.execute("""SELECT * FROM league_members WHERE id = ? AND league_id = ?""", (member_id, league_id))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def remove_league_member(league_id: int, member_id: int) -> bool:
-    with db.get_db() as conn:
-        cur = conn.execute("""DELETE FROM league_members WHERE id = ? AND league_id = ?""", (member_id, league_id))
-        return cur.rowcount > 0
-
-
-def create_location(name: str, city: Optional[str], state: Optional[str], country: str = "USA") -> Dict:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """INSERT INTO locations (name, city, state, country) VALUES (?, ?, ?, ?)""",
-            (name, city, state, country)
-        )
-        return dict(conn.execute("""SELECT * FROM locations WHERE id = ?""", (cur.lastrowid,)).fetchone())
-
-
-def list_locations() -> List[Dict]:
-    with db.get_db() as conn:
-        cur = conn.execute("""SELECT * FROM locations ORDER BY name ASC""")
-        return [dict(row) for row in cur.fetchall()]
-
-
-def update_location(location_id: int, name: Optional[str], city: Optional[str], state: Optional[str], country: Optional[str]) -> Optional[Dict]:
-    with db.get_db() as conn:
-        # Build dynamic update
-        fields = {"name": name, "city": city, "state": state, "country": country}
-        sets = []
-        params = []
-        for k, v in fields.items():
-            if v is not None:
-                sets.append(f"{k} = ?")
-                params.append(v)
-        if not sets:
-            return dict(conn.execute("""SELECT * FROM locations WHERE id = ?""", (location_id,)).fetchone() or {}) or None
-        params.append(location_id)
-        conn.execute(f"""UPDATE locations SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", params)
-        cur = conn.execute("""SELECT * FROM locations WHERE id = ?""", (location_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def delete_location(location_id: int) -> bool:
-    with db.get_db() as conn:
-        cur = conn.execute("""DELETE FROM locations WHERE id = ?""", (location_id,))
-        return cur.rowcount > 0
-
-
-def create_court(name: str, address: Optional[str], location_id: int, geoJson: Optional[str]) -> Dict:
-    with db.get_db() as conn:
-        cur = conn.execute(
-            """INSERT INTO courts (name, address, location_id, geoJson) VALUES (?, ?, ?, ?)""",
-            (name, address, location_id, geoJson)
-        )
-        return dict(conn.execute("""SELECT * FROM courts WHERE id = ?""", (cur.lastrowid,)).fetchone())
-
-
-def list_courts(location_id: Optional[int] = None) -> List[Dict]:
-    with db.get_db() as conn:
-        if location_id:
-            cur = conn.execute("""SELECT * FROM courts WHERE location_id = ? ORDER BY name ASC""", (location_id,))
-        else:
-            cur = conn.execute("""SELECT * FROM courts ORDER BY name ASC""")
-        return [dict(row) for row in cur.fetchall()]
-
-
-def update_court(court_id: int, name: Optional[str], address: Optional[str], location_id: Optional[int], geoJson: Optional[str]) -> Optional[Dict]:
-    with db.get_db() as conn:
-        fields = {"name": name, "address": address, "location_id": location_id, "geoJson": geoJson}
-        sets = []
-        params = []
-        for k, v in fields.items():
-            if v is not None:
-                sets.append(f"{k} = ?")
-                params.append(v)
-        if not sets:
-            cur = conn.execute("""SELECT * FROM courts WHERE id = ?""", (court_id,))
-            row = cur.fetchone()
-            return dict(row) if row else None
-        params.append(court_id)
-        conn.execute(f"""UPDATE courts SET {', '.join(sets)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?""", params)
-        cur = conn.execute("""SELECT * FROM courts WHERE id = ?""", (court_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def delete_court(court_id: int) -> bool:
-    with db.get_db() as conn:
-        cur = conn.execute("""DELETE FROM courts WHERE id = ?""", (court_id,))
-        return cur.rowcount > 0
-
-
-def create_league_session(league_id: int, date: str, name: Optional[str]) -> Dict:
-    with db.get_db() as conn:
-        session_name = name or date
-        cur = conn.execute(
-            """INSERT INTO sessions (date, name, is_pending) VALUES (?, ?, 1)""",
-            (date, session_name)
-        )
-        return {"id": cur.lastrowid, "date": date, "name": session_name, "is_active": True}
-
-
-def query_matches(body: Dict, user: Optional[Dict]) -> List[Dict]:
-    """
-    Minimal implementation: support limit/offset only for now; visibility (submitted_only, is_public) enforced simply.
-    """
-    limit = min(max(int(body.get("limit", 50)), 1), 500)
-    offset = max(int(body.get("offset", 0)), 0)
-    submitted_only = True if body.get("submitted_only", True) else False
-    include_non_public = True if body.get("include_non_public", False) else False
-    with db.get_db() as conn:
-        where = []
-        params = []
-        if submitted_only:
-            where.append("(m.session_id IS NULL OR s.is_pending = 0)")
-        if not include_non_public:
-            where.append("m.is_public = 1")
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-        cur = conn.execute(f"""
-            SELECT m.*, s.is_pending as session_pending
-            FROM matches m
-            LEFT JOIN sessions s ON m.session_id = s.id
-            {where_sql}
-            ORDER BY m.id DESC
-            LIMIT ? OFFSET ?
-        """, (*params, limit, offset))
-        rows = [dict(row) for row in cur.fetchall()]
-        return rows
-def flush_and_repopulate(tracker, match_list):
-    """
-    Flush all data and import matches from Google Sheets, then calculate statistics.
+async def create_league(
+    session: AsyncSession,
+    name: str,
+    description: Optional[str],
+    location_id: Optional[int],
+    is_open: bool,
+    whatsapp_group_id: Optional[str],
+    creator_user_id: int,
+    gender: Optional[str] = None,
+    level: Optional[str] = None
+) -> Dict:
+    """Create a new league (async version)."""
+    league = League(
+        name=name,
+        description=description,
+        location_id=location_id,
+        is_open=is_open,
+        whatsapp_group_id=whatsapp_group_id,
+        gender=gender,
+        level=level
+    )
+    session.add(league)
+    await session.flush()  # Get the league ID
     
-    Args:
-        tracker: Ignored (legacy parameter, calculation now done from DB)
-        match_list: List of Match objects from Google Sheets
-        
-    Returns:
-        dict with player_count and match_count from calculate_stats()
-    """
-    # Flush ALL tables
-    db.flush_all_tables()
+    # Get creator's player_id
+    result = await session.execute(
+        select(Player).where(Player.user_id == creator_user_id)
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        raise ValueError("Player not found for user_id")
     
-    # Extract unique player names for ID mapping
-    player_names = set()
-    for match in match_list:
-        player_names.add(match.players[0][0])  # team1 player1
-        player_names.add(match.players[0][1])  # team1 player2
-        player_names.add(match.players[1][0])  # team2 player1
-        player_names.add(match.players[1][1])  # team2 player2
-    
-    with db.get_db() as conn:
-        # Create placeholder players (will be recalculated by calculate_stats)
-        player_id_map = {}
-        player_data = []
-        for player_id, name in enumerate(sorted(player_names), start=1):
-            player_id_map[name] = player_id
-            # Insert with placeholder values (will be overwritten by calculate_stats)
-            player_data.append((player_id, name, 1200, 0, 0, 0, 0.0, 0.0))
-        
-        conn.executemany(
-            """INSERT INTO players (id, name, current_elo, games, wins, points, win_rate, avg_point_diff)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            player_data
-        )
-        
-        # Create sessions for each unique date (all locked-in by default)
-        unique_dates = sorted(set(match.date for match in match_list if match.date), reverse=True)
-        session_id_map = {}
-        
-        for date in unique_dates:
-            cursor = conn.execute(
-                """INSERT INTO sessions (date, name, is_pending)
-                   VALUES (?, ?, 0)""",
-                (date, date)  # Session name is just the date
-            )
-            session_id_map[date] = cursor.lastrowid
-        
-        # Insert matches with session_ids (ELO changes initially 0)
-        match_data = []
-        for match_id, match in enumerate(match_list, start=1):
-            team1_p1_name, team1_p2_name = match.players[0]
-            team2_p1_name, team2_p2_name = match.players[1]
-            session_id = session_id_map.get(match.date)
-            
-            match_data.append((
-                match_id,
-                session_id,
-                match.date or '',
-                player_id_map[team1_p1_name], team1_p1_name,
-                player_id_map[team1_p2_name], team1_p2_name,
-                player_id_map[team2_p1_name], team2_p1_name,
-                player_id_map[team2_p2_name], team2_p2_name,
-                match.original_scores[0], match.original_scores[1],
-                match.winner,
-                0, 0  # ELO changes set to 0, will be calculated by calculate_stats()
-            ))
-
-        conn.executemany(
-            """INSERT INTO matches (
-                id, session_id, date, team1_player1_id, team1_player1_name, team1_player2_id, team1_player2_name,
-                team2_player1_id, team2_player1_name, team2_player2_id, team2_player2_name,
-                team1_score, team2_score, winner, team1_elo_change, team2_elo_change
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            match_data
-        )
-    
-    # Now calculate all stats from the database
-    return calculate_stats()
-
-
-def load_matches_from_database() -> List[Match]:
-    """
-    Load matches from database (locked-in sessions only) and convert to Match objects.
-    
-    Active sessions are intentionally excluded - their matches are invisible to stats
-    until the session is locked in.
-    
-    Returns:
-        List of Match objects in chronological order
-    """
-    with db.get_db() as conn:
-        cursor = conn.execute("""
-            SELECT m.date, m.team1_player1_name, m.team1_player2_name,
-                   m.team2_player1_name, m.team2_player2_name,
-                   m.team1_score, m.team2_score
-            FROM matches m
-            LEFT JOIN sessions s ON m.session_id = s.id
-            WHERE m.session_id IS NULL OR s.is_pending = 0
-            ORDER BY m.id ASC
-        """)
-        
-        match_list = []
-        for row in cursor.fetchall():
-            match = Match(
-                row["team1_player1_name"],
-                row["team1_player2_name"],
-                row["team2_player1_name"],
-                row["team2_player2_name"],
-                [row["team1_score"], row["team2_score"]],
-                row["date"]
-            )
-            match_list.append(match)
-        
-        return match_list
-
-
-def calculate_stats() -> Dict:
-    """
-    Calculate all player statistics from database matches (locked-in sessions only).
-    
-    This is the core calculation function that:
-    - Loads locked-in session matches from database
-    - Processes through ELO calculation engine
-    - Flushes derived stats tables (players, partnerships, opponents, elo_history)
-    - Repopulates with calculated data
-    - Updates match ELO change fields in database
-    
-    Tables flushed & repopulated:
-    - players
-    - partnership_stats
-    - opponent_stats
-    - elo_history
-    - matches (ELO change fields only)
-    
-    Tables preserved:
-    - sessions (unchanged)
-    - matches records (only ELO fields updated)
-    
-    Returns:
-        dict with player_count and match_count
-    """
-    # Load locked-in matches from database
-    match_list = load_matches_from_database()
-    
-    if not match_list:
-        return {"player_count": 0, "match_count": 0}
-    
-    # Process through calculation engine
-    tracker = calculation_service.process_matches(match_list)
-    
-    # Flush derived stats tables (preserve sessions & matches & players)
-    with db.get_db() as conn:
-        conn.execute("DELETE FROM elo_history")
-        conn.execute("DELETE FROM opponent_stats")
-        conn.execute("DELETE FROM partnership_stats")
-        
-        # Update or insert players (preserve existing IDs)
-        for name, stats in tracker.players.items():
-            conn.execute("""
-                INSERT INTO players (name, current_elo, games, wins, points, win_rate, avg_point_diff)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(name) DO UPDATE SET
-                    current_elo = excluded.current_elo,
-                    games = excluded.games,
-                    wins = excluded.wins,
-                    points = excluded.points,
-                    win_rate = excluded.win_rate,
-                    avg_point_diff = excluded.avg_point_diff
-            """, (
-                name, round(stats.elo, 2), stats.game_count, stats.win_count,
-                stats.points, round(stats.win_rate, 3), round(stats.avg_point_diff, 1)
-            ))
-        
-        # Rebuild player_id_map from database
-        player_id_map = {}
-        cursor = conn.execute("SELECT id, name FROM players")
-        for row in cursor.fetchall():
-            player_id_map[row["name"]] = row["id"]
-        
-        # Update player IDs in matches table using bulk CASE update
-        if player_id_map:
-            when_clauses = " ".join([
-                f"WHEN '{name}' THEN {player_id}" 
-                for name, player_id in player_id_map.items()
-            ])
-            
-            conn.execute(f"""
-                UPDATE matches 
-                SET team1_player1_id = CASE team1_player1_name {when_clauses} ELSE team1_player1_id END,
-                    team1_player2_id = CASE team1_player2_name {when_clauses} ELSE team1_player2_id END,
-                    team2_player1_id = CASE team2_player1_name {when_clauses} ELSE team2_player1_id END,
-                    team2_player2_id = CASE team2_player2_name {when_clauses} ELSE team2_player2_id END
-            """)
-        
-        # Update match ELO changes (only for locked-in sessions)
-        for match in match_list:
-            team1_p1_name, team1_p2_name = match.players[0]
-            team2_p1_name, team2_p2_name = match.players[1]
-            
-            conn.execute("""
-                UPDATE matches 
-                SET team1_elo_change = ?, team2_elo_change = ?
-                WHERE id IN (
-                    SELECT m.id FROM matches m
-                    LEFT JOIN sessions s ON m.session_id = s.id
-                    WHERE m.team1_player1_name = ? AND m.team1_player2_name = ?
-                      AND m.team2_player1_name = ? AND m.team2_player2_name = ?
-                      AND m.team1_score = ? AND m.team2_score = ?
-                      AND m.date = ?
-                      AND (m.session_id IS NULL OR s.is_pending = 0)
-                    LIMIT 1
-                )
-            """, (
-                round(match.elo_deltas[0], 1) if match.elo_deltas[0] else 0,
-                round(match.elo_deltas[1], 1) if match.elo_deltas[1] else 0,
-                team1_p1_name, team1_p2_name,
-                team2_p1_name, team2_p2_name,
-                match.original_scores[0], match.original_scores[1],
-                match.date
-            ))
-        
-        # Get match IDs for elo_history (build map in order)
-        # Only include locked-in sessions to match load_matches_from_database()
-        match_id_map = {}
-        cursor = conn.execute("""
-            SELECT m.id, m.team1_player1_name, m.team1_player2_name,
-                   m.team2_player1_name, m.team2_player2_name,
-                   m.team1_score, m.team2_score, m.date
-            FROM matches m
-            LEFT JOIN sessions s ON m.session_id = s.id
-            WHERE m.session_id IS NULL OR s.is_pending = 0
-            ORDER BY m.id ASC
-        """)
-        
-        db_matches = cursor.fetchall()
-        match_idx = 0
-        
-        for db_match in db_matches:
-            if match_idx < len(match_list):
-                match = match_list[match_idx]
-                team1_p1_name, team1_p2_name = match.players[0]
-                team2_p1_name, team2_p2_name = match.players[1]
-                
-                # Check if this DB match corresponds to current Match object
-                if (db_match["team1_player1_name"] == team1_p1_name and
-                    db_match["team1_player2_name"] == team1_p2_name and
-                    db_match["team2_player1_name"] == team2_p1_name and
-                    db_match["team2_player2_name"] == team2_p2_name and
-                    db_match["team1_score"] == match.original_scores[0] and
-                    db_match["team2_score"] == match.original_scores[1] and
-                    db_match["date"] == match.date):
-                    
-                    match_id_map[id(match)] = db_match["id"]
-                    match_idx += 1
-        
-        # Insert partnerships
-        partnership_data = []
-        for player_name, player_stats in tracker.players.items():
-            player_id = player_id_map[player_name]
-            for partner_name, games in player_stats.games_with.items():
-                wins = player_stats.wins_with.get(partner_name, 0)
-                losses = games - wins
-                win_rate = wins / games if games > 0 else 0
-                points = (wins * 3) + (losses * 1)
-                total_pt_diff = player_stats.point_diff_with.get(partner_name, 0)
-                avg_pt_diff = total_pt_diff / games if games > 0 else 0
-                
-                partnership_data.append((
-                    player_id, player_name,
-                    player_id_map[partner_name], partner_name,
-                    games, wins, points,
-                    round(win_rate, 3), round(avg_pt_diff, 1)
-                ))
-        
-        if partnership_data:
-            conn.executemany(
-                """INSERT INTO partnership_stats (
-                    player_id, player_name, partner_id, partner_name,
-                    games, wins, points, win_rate, avg_point_diff
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                partnership_data
-            )
-        
-        # Insert opponents
-        opponent_data = []
-        for player_name, player_stats in tracker.players.items():
-            player_id = player_id_map[player_name]
-            for opponent_name, games in player_stats.games_against.items():
-                wins = player_stats.wins_against.get(opponent_name, 0)
-                losses = games - wins
-                win_rate = wins / games if games > 0 else 0
-                points = (wins * 3) + (losses * 1)
-                total_pt_diff = player_stats.point_diff_against.get(opponent_name, 0)
-                avg_pt_diff = total_pt_diff / games if games > 0 else 0
-                
-                opponent_data.append((
-                    player_id, player_name,
-                    player_id_map[opponent_name], opponent_name,
-                    games, wins, points,
-                    round(win_rate, 3), round(avg_pt_diff, 1)
-                ))
-        
-        if opponent_data:
-            conn.executemany(
-                """INSERT INTO opponent_stats (
-                    player_id, player_name, opponent_id, opponent_name,
-                    games, wins, points, win_rate, avg_point_diff
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                opponent_data
-            )
-        
-        # Insert ELO history
-        elo_history_data = []
-        for player_name, player_stats in tracker.players.items():
-            player_id = player_id_map[player_name]
-            for match_ref, elo_after, elo_change, date in player_stats.match_elo_history:
-                match_id = match_id_map.get(match_ref)
-                if match_id:
-                    elo_history_data.append((
-                        player_id, player_name, match_id,
-                        date or '',
-                        round(elo_after, 1),
-                        round(elo_change, 1)
-                    ))
-        
-        if elo_history_data:
-            conn.executemany(
-                """INSERT INTO elo_history (
-                    player_id, player_name, match_id, date, elo_after, elo_change
-                   ) VALUES (?, ?, ?, ?, ?, ?)""",
-                elo_history_data
-            )
+    # Add creator as admin member
+    member = LeagueMember(
+        league_id=league.id,
+        player_id=player.id,
+        role="admin"
+    )
+    session.add(member)
+    await session.commit()
+    await session.refresh(league)
     
     return {
-        "player_count": len(tracker.players),
-        "match_count": len(match_list)
+        "id": league.id,
+        "name": league.name,
+        "description": league.description,
+        "location_id": league.location_id,
+        "is_open": league.is_open,
+        "whatsapp_group_id": league.whatsapp_group_id,
+        "gender": league.gender,
+        "level": league.level,
+        "created_at": league.created_at.isoformat() if league.created_at else None,
+        "updated_at": league.updated_at.isoformat() if league.updated_at else None,
     }
 
 
-def get_rankings() -> List[Dict]:
-    """Get current player rankings ordered by points."""
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            """SELECT name, points, games, win_rate, wins, 
-                      (games - wins) as losses, avg_point_diff, current_elo
-               FROM players
-               ORDER BY points DESC, name ASC"""
-        )
-        
-        results = []
-        for row in cursor.fetchall():
-            results.append({
-                "Name": row["name"],
-                "Points": row["points"],
-                "Games": row["games"],
-                "Win Rate": row["win_rate"],
-                "Wins": row["wins"],
-                "Losses": row["losses"],
-                "Avg Pt Diff": row["avg_point_diff"],
-                "ELO": round(row["current_elo"])
-            })
-        
-        return results
-
-
-def get_player_stats(player_name: str) -> Optional[Dict]:
-    """
-    Get detailed stats for a player including partnerships and opponents.
-    
-    Returns dict with structure:
-    {
-        "overview": {"ranking": 1, "points": 100, "rating": 1500},
-        "stats": [
-            {"Partner/Opponent": "OVERALL", "Points": ..., ...},
-            {"Partner/Opponent": "", ...},  # blank row
-            {"Partner/Opponent": "WITH PARTNERS", ...},
-            {"Partner/Opponent": "partner_name", ...},
-            ...
-            {"Partner/Opponent": "", ...},  # blank row
-            {"Partner/Opponent": "VS OPPONENTS", ...},
-            {"Partner/Opponent": "opponent_name", ...},
-            ...
-        ]
-    }
-    """
-    with db.get_db() as conn:
-        # Get overall player stats
-        cursor = conn.execute(
-            "SELECT * FROM players WHERE name = ?",
-            (player_name,)
-        )
-        player_row = cursor.fetchone()
-        
-        if not player_row:
-            return None
-        
-        # Calculate player's ranking
-        cursor = conn.execute(
-            """SELECT name FROM players 
-               ORDER BY points DESC, avg_point_diff DESC, win_rate DESC, current_elo DESC"""
-        )
-        all_players = [row["name"] for row in cursor.fetchall()]
-        ranking = all_players.index(player_name) + 1 if player_name in all_players else None
-        
-        # Build overview
-        overview = {
-            "ranking": ranking,
-            "points": player_row["points"],
-            "rating": round(player_row["current_elo"])
+async def list_leagues(session: AsyncSession) -> List[Dict]:
+    """List all leagues (async version)."""
+    result = await session.execute(
+        select(League).order_by(League.created_at.desc())
+    )
+    leagues = result.scalars().all()
+    return [
+        {
+            "id": l.id,
+            "name": l.name,
+            "description": l.description,
+            "location_id": l.location_id,
+            "is_open": l.is_open,
+            "whatsapp_group_id": l.whatsapp_group_id,
+            "gender": l.gender,
+            "level": l.level,
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+            "updated_at": l.updated_at.isoformat() if l.updated_at else None,
         }
-        
-        # Build results list
-        results = []
-        
-        # Overall stats
-        results.append({
-            "Partner/Opponent": "OVERALL",
-            "Points": player_row["points"],
-            "Games": player_row["games"],
-            "Wins": player_row["wins"],
-            "Losses": player_row["games"] - player_row["wins"],
-            "Win Rate": player_row["win_rate"],
-            "Avg Pt Diff": player_row["avg_point_diff"]
-        })
-        
-        # Blank row
-        results.append({
-            "Partner/Opponent": "",
-            "Points": "",
-            "Games": "",
-            "Wins": "",
-            "Losses": "",
-            "Win Rate": "",
-            "Avg Pt Diff": ""
-        })
-        
-        # Partnership header
-        results.append({
-            "Partner/Opponent": "WITH PARTNERS",
-            "Points": "",
-            "Games": "",
-            "Wins": "",
-            "Losses": "",
-            "Win Rate": "",
-            "Avg Pt Diff": ""
-        })
-        
-        # Partnership stats
-        cursor = conn.execute(
-            """SELECT partner_name, games, wins, points, win_rate, avg_point_diff
-               FROM partnership_stats
-               WHERE player_name = ?
-               ORDER BY points DESC, win_rate DESC""",
-            (player_name,)
-        )
-        
-        for row in cursor.fetchall():
-            results.append({
-                "Partner/Opponent": row["partner_name"],
-                "Points": row["points"],
-                "Games": row["games"],
-                "Wins": row["wins"],
-                "Losses": row["games"] - row["wins"],
-                "Win Rate": row["win_rate"],
-                "Avg Pt Diff": row["avg_point_diff"]
-            })
-        
-        # Blank row
-        results.append({
-            "Partner/Opponent": "",
-            "Points": "",
-            "Games": "",
-            "Wins": "",
-            "Losses": "",
-            "Win Rate": "",
-            "Avg Pt Diff": ""
-        })
-        
-        # Opponent header
-        results.append({
-            "Partner/Opponent": "VS OPPONENTS",
-            "Points": "",
-            "Games": "",
-            "Wins": "",
-            "Losses": "",
-            "Win Rate": "",
-            "Avg Pt Diff": ""
-        })
-        
-        # Opponent stats
-        cursor = conn.execute(
-            """SELECT opponent_name, games, wins, points, win_rate, avg_point_diff
-               FROM opponent_stats
-               WHERE player_name = ?
-               ORDER BY points DESC, win_rate DESC""",
-            (player_name,)
-        )
-        
-        for row in cursor.fetchall():
-            results.append({
-                "Partner/Opponent": row["opponent_name"],
-                "Points": row["points"],
-                "Games": row["games"],
-                "Wins": row["wins"],
-                "Losses": row["games"] - row["wins"],
-                "Win Rate": row["win_rate"],
-                "Avg Pt Diff": row["avg_point_diff"]
-            })
-        
-        return {
-            "overview": overview,
-            "stats": results
-        }
+        for l in leagues
+    ]
 
 
-def get_matches(limit: Optional[int] = None) -> List[Dict]:
-    """Get all matches, optionally limited."""
-    with db.get_db() as conn:
-        query = """
-            SELECT m.id, m.date, m.session_id, s.name as session_name, s.is_pending as session_pending,
-                   m.team1_player1_name, m.team1_player2_name,
-                   m.team2_player1_name, m.team2_player2_name,
-                   m.team1_score, m.team2_score, m.winner,
-                   m.team1_elo_change, m.team2_elo_change
-            FROM matches m
-            LEFT JOIN sessions s ON m.session_id = s.id
-            ORDER BY COALESCE(s.id, 999999) DESC, m.id DESC
-        """
-        
-        if limit:
-            query += f" LIMIT {limit}"
-        
-        cursor = conn.execute(query)
-        
-        results = []
-        for row in cursor.fetchall():
-            winner_text = "Tie"
-            if row["winner"] == 1:
-                winner_text = "Team 1"
-            elif row["winner"] == 2:
-                winner_text = "Team 2"
-            
-            results.append({
-                "Match ID": row["id"],
-                "Date": row["date"],
-                "Session ID": row["session_id"],
-                "Session Name": row["session_name"],
-                "Session Active": bool(row["session_pending"]) if row["session_pending"] is not None else None,
-                "Team 1 Player 1": row["team1_player1_name"],
-                "Team 1 Player 2": row["team1_player2_name"],
-                "Team 2 Player 1": row["team2_player1_name"],
-                "Team 2 Player 2": row["team2_player2_name"],
-                "Team 1 Score": row["team1_score"],
-                "Team 2 Score": row["team2_score"],
-                "Winner": winner_text,
-                "Team 1 ELO Change": row["team1_elo_change"],
-                "Team 2 ELO Change": row["team2_elo_change"]
-            })
-        
-        return results
-
-
-def get_player_match_history(player_name: str) -> Optional[List[Dict]]:
-    """
-    Get match history for a specific player.
-    
-    Returns:
-        List of matches if player found (may be empty)
-        None if player not found
-    """
-    with db.get_db() as conn:
-        # Get player ID
-        cursor = conn.execute("SELECT id FROM players WHERE name = ?", (player_name,))
-        player_row = cursor.fetchone()
-        
-        if not player_row:
-            return None  # Player not found
-        
-        player_id = player_row["id"]
-        
-        # Get all matches where player participated, joined with ELO history and session status
-        cursor = conn.execute(
-            """SELECT m.*, eh.elo_after, s.is_pending as session_pending
-               FROM matches m
-               LEFT JOIN elo_history eh ON eh.match_id = m.id AND eh.player_id = ?
-               LEFT JOIN sessions s ON m.session_id = s.id
-               WHERE team1_player1_id = ? OR team1_player2_id = ?
-                  OR team2_player1_id = ? OR team2_player2_id = ?
-               ORDER BY m.id DESC""",
-            (player_id, player_id, player_id, player_id, player_id)
-        )
-        
-        results = []
-        for row in cursor.fetchall():
-            # Determine which team the player was on
-            if row["team1_player1_id"] == player_id or row["team1_player2_id"] == player_id:
-                # Player on team 1
-                partner = row["team1_player2_name"] if row["team1_player1_id"] == player_id else row["team1_player1_name"]
-                opponent1 = row["team2_player1_name"]
-                opponent2 = row["team2_player2_name"]
-                player_score = row["team1_score"]
-                opponent_score = row["team2_score"]
-                elo_change = row["team1_elo_change"]
-                
-                if row["winner"] == 1:
-                    result = "W"
-                elif row["winner"] == -1:
-                    result = "T"
-                else:
-                    result = "L"
-            else:
-                # Player on team 2
-                partner = row["team2_player2_name"] if row["team2_player1_id"] == player_id else row["team2_player1_name"]
-                opponent1 = row["team1_player1_name"]
-                opponent2 = row["team1_player2_name"]
-                player_score = row["team2_score"]
-                opponent_score = row["team1_score"]
-                elo_change = row["team2_elo_change"]
-                
-                if row["winner"] == 2:
-                    result = "W"
-                elif row["winner"] == -1:
-                    result = "T"
-                else:
-                    result = "L"
-            
-            results.append({
-                "Date": row["date"],
-                "Partner": partner,
-                "Opponent 1": opponent1,
-                "Opponent 2": opponent2,
-                "Result": result,
-                "Score": f"{player_score}-{opponent_score}",
-                "ELO Change": elo_change,
-                "ELO After": row["elo_after"],
-                "Session Active": bool(row["session_pending"]) if row["session_pending"] is not None else False
-            })
-        
-        return results
-
-
-def get_elo_timeline() -> List[Dict]:
-    """Get ELO timeline data for all players."""
-    with db.get_db() as conn:
-        # Get all unique dates
-        cursor = conn.execute(
-            "SELECT DISTINCT date FROM elo_history ORDER BY date ASC"
-        )
-        dates = [row["date"] for row in cursor.fetchall()]
-        
-        if not dates:
-            return []
-        
-        # Get all players
-        cursor = conn.execute("SELECT name FROM players ORDER BY name ASC")
-        player_names = [row["name"] for row in cursor.fetchall()]
-        
-        # Build timeline data
-        timeline = []
-        for date in dates:
-            row_data = {"Date": date}
-            
-            for player_name in player_names:
-                # Get the ELO at this date for this player
-                cursor = conn.execute(
-                    """SELECT elo_after FROM elo_history
-                       WHERE player_name = ? AND date <= ?
-                       ORDER BY date DESC, id DESC
-                       LIMIT 1""",
-                    (player_name, date)
-                )
-                result = cursor.fetchone()
-                
-                if result:
-                    row_data[player_name] = result["elo_after"]
-                else:
-                    # Player hasn't played yet at this date, use initial ELO
-                    row_data[player_name] = INITIAL_ELO
-            
-            timeline.append(row_data)
-        
-        return timeline
-
-
-def is_database_empty() -> bool:
-    """Check if database is empty (no players)."""
-    return db.is_database_empty()
-
-
-def get_setting(key: str) -> Optional[str]:
-    """
-    Get a setting value by key.
-    
-    Args:
-        key: Setting key (e.g., 'whatsapp_group_id')
-        
-    Returns:
-        Setting value or None if not found
-    """
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            "SELECT value FROM settings WHERE key = ?",
-            (key,)
-        )
-        row = cursor.fetchone()
-        return row["value"] if row else None
-
-
-def set_setting(key: str, value: str) -> None:
-    """
-    Set a setting value (upsert).
-    
-    Args:
-        key: Setting key
-        value: Setting value
-    """
-    with db.get_db() as conn:
-        conn.execute(
-            """INSERT INTO settings (key, value, updated_at)
-               VALUES (?, ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(key) DO UPDATE SET 
-                   value = excluded.value,
-                   updated_at = CURRENT_TIMESTAMP""",
-            (key, value)
-        )
-
-
-def get_sessions() -> List[Dict]:
-    """Get all sessions ordered by date (most recent first)."""
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            """SELECT id, date, name, is_pending, created_at
-               FROM sessions
-               ORDER BY date DESC, created_at DESC"""
-        )
-        
-        results = []
-        for row in cursor.fetchall():
-            results.append({
-                "id": row["id"],
-                "date": row["date"],
-                "name": row["name"],
-                "is_active": bool(row["is_pending"]),
-                "created_at": row["created_at"]
-            })
-        
-        return results
-
-
-def get_session(session_id: int) -> Optional[Dict]:
-    """Get a specific session by ID."""
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            "SELECT id, date, name, is_pending, created_at FROM sessions WHERE id = ?",
-            (session_id,)
-        )
-        row = cursor.fetchone()
-        
-        if not row:
-            return None
-        
-        return {
-            "id": row["id"],
-            "date": row["date"],
-            "name": row["name"],
-            "is_active": bool(row["is_pending"]),
-            "created_at": row["created_at"]
-        }
-
-
-def create_session(date: str) -> Dict:
-    """
-    Create a new session.
-    
-    Args:
-        date: Date string (e.g., '11/7/2025')
-        
-    Returns:
-        Dict with session info
-        
-    Raises:
-        ValueError: If an active session already exists for this date
-    """
-    with db.get_db() as conn:
-        # Check if active session exists for this date
-        cursor = conn.execute(
-            "SELECT id, name FROM sessions WHERE date = ? AND is_pending = 1",
-            (date,)
-        )
-        active_session = cursor.fetchone()
-        if active_session:
-            raise ValueError(f"A pending session '{active_session['name']}' already exists for this date. Please submit the current session before creating a new one.")
-        
-        # Count existing sessions for this date
-        cursor = conn.execute(
-            "SELECT COUNT(*) as count FROM sessions WHERE date = ?",
-            (date,)
-        )
-        count = cursor.fetchone()["count"]
-        
-        # Generate session name
-        if count == 0:
-            name = date
-        else:
-            name = f"{date} #{count + 1}"
-        
-        # Create the session
-        cursor = conn.execute(
-            """INSERT INTO sessions (date, name, is_pending)
-               VALUES (?, ?, 1)""",
-            (date, name)
-        )
-        session_id = cursor.lastrowid
-        
-        return {
-            "id": session_id,
-            "date": date,
-            "name": name,
-            "is_active": True,
-            "created_at": ""  # Will be set by database
-        }
-
-
-def lock_in_session(session_id: int) -> bool:
-    """
-    Lock in a session (mark as complete/submitted, is_pending = 0).
-    
-    Args:
-        session_id: ID of session to lock in
-        
-    Returns:
-        True if successful, False if session not found
-    """
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            "UPDATE sessions SET is_pending = 0 WHERE id = ?",
-            (session_id,)
-        )
-        return cursor.rowcount > 0
-
-
-def delete_session(session_id: int) -> bool:
-    """
-    Delete an active session and all its matches.
-    Only active (pending) sessions can be deleted.
-    
-    Args:
-        session_id: ID of session to delete
-        
-    Returns:
-        True if successful, False if session not found or not active
-        
-    Raises:
-        ValueError: If session is not active (already submitted)
-    """
-    with db.get_db() as conn:
-        # Check if session exists and is active
-        cursor = conn.execute(
-            "SELECT is_pending FROM sessions WHERE id = ?",
-            (session_id,)
-        )
-        session = cursor.fetchone()
-        
-        if not session:
-            return False
-        
-        if session['is_pending'] != 1:
-            raise ValueError("Cannot delete a submitted session. Only active sessions can be deleted.")
-        
-        # First delete all matches in the session
-        conn.execute(
-            "DELETE FROM matches WHERE session_id = ?",
-            (session_id,)
-        )
-        
-        # Then delete the session itself
-        cursor = conn.execute(
-            "DELETE FROM sessions WHERE id = ?",
-            (session_id,)
-        )
-        return cursor.rowcount > 0
-
-
-def get_all_player_names() -> List[str]:
-    """
-    Get all unique player names from the database.
-    
-    Returns:
-        List of player names sorted alphabetically
-    """
-    with db.get_db() as conn:
-        cursor = conn.execute("SELECT name FROM players ORDER BY name ASC")
-        return [row["name"] for row in cursor.fetchall()]
-
-
-def get_player_by_user_id(user_id: int) -> Optional[Dict]:
-    """
-    Get player profile by user_id.
-    
-    Args:
-        user_id: User ID
-        
-    Returns:
-        Player dict with all fields, or None if not found
-    """
-    with db.get_db() as conn:
-        cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
-        if row:
-            return dict(row)
+async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
+    """Get a league by ID (async version)."""
+    result = await session.execute(
+        select(League).where(League.id == league_id)
+    )
+    league = result.scalar_one_or_none()
+    if not league:
         return None
+    return {
+        "id": league.id,
+        "name": league.name,
+        "description": league.description,
+        "location_id": league.location_id,
+        "is_open": league.is_open,
+        "whatsapp_group_id": league.whatsapp_group_id,
+        "gender": league.gender,
+        "level": league.level,
+        "created_at": league.created_at.isoformat() if league.created_at else None,
+        "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+    }
 
 
-def create_player_for_user(user_id: int, full_name: str = ' ') -> int:
-    """
-    Create a basic player profile for a user.
+async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
+    """Get all leagues a user is a member of (async version)."""
+    result = await session.execute(
+        select(League, LeagueMember.role.label("membership_role"))
+        .join(LeagueMember, LeagueMember.league_id == League.id)
+        .join(Player, Player.id == LeagueMember.player_id)
+        .where(Player.user_id == user_id)
+        .distinct()
+        .order_by(League.created_at.desc())
+    )
+    rows = result.all()
+    return [
+        {
+            "id": league.id,
+            "name": league.name,
+            "description": league.description,
+            "location_id": league.location_id,
+            "is_open": league.is_open,
+            "whatsapp_group_id": league.whatsapp_group_id,
+            "gender": league.gender,
+            "level": league.level,
+            "membership_role": role,
+            "created_at": league.created_at.isoformat() if league.created_at else None,
+            "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+        }
+        for league, role in rows
+    ]
+
+
+async def update_league(
+    session: AsyncSession,
+    league_id: int,
+    name: str,
+    description: Optional[str],
+    location_id: Optional[int],
+    is_open: bool,
+    whatsapp_group_id: Optional[str],
+    gender: Optional[str] = None,
+    level: Optional[str] = None
+) -> Optional[Dict]:
+    """Update a league (async version)."""
+    update_values = {
+        "name": name,
+        "description": description,
+        "location_id": location_id,
+        "is_open": is_open,
+        "whatsapp_group_id": whatsapp_group_id
+    }
+    if gender is not None:
+        update_values["gender"] = gender
+    if level is not None:
+        update_values["level"] = level
     
-    Args:
-        user_id: User ID to link the player to
-        full_name: Full name for the player (default: single space)
-        
-    Returns:
-        Player ID of the created player
-        
-    Raises:
-        ValueError: If user already has a player profile
-    """
-    with db.get_db() as conn:
-        # Check if user already has a player profile
-        cursor = conn.execute("SELECT id FROM players WHERE user_id = ?", (user_id,))
-        if cursor.fetchone():
-            raise ValueError(f"User {user_id} already has a player profile")
-        
-        # Create new player with user_id
-        cursor = conn.execute(
-            """INSERT INTO players (full_name, user_id)
-               VALUES (?, ?)""",
-            (full_name, user_id)
+    await session.execute(
+        update(League)
+        .where(League.id == league_id)
+        .values(**update_values)
+    )
+    await session.commit()
+    return await get_league(session, league_id)
+
+
+async def delete_league(session: AsyncSession, league_id: int) -> bool:
+    """Delete a league (async version)."""
+    result = await session.execute(
+        delete(League).where(League.id == league_id)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def is_database_empty(session: AsyncSession) -> bool:
+    """Check if database is empty (async version)."""
+    result = await session.execute(select(func.count(Player.id)))
+    count = result.scalar() or 0
+    return count == 0
+
+
+async def create_season(
+    session: AsyncSession,
+    league_id: int,
+    name: Optional[str],
+    start_date: str,
+    end_date: str,
+    point_system: Optional[str],
+    is_active: bool
+) -> Dict:
+    """Create a season (async version)."""
+    season = Season(
+        league_id=league_id,
+        name=name,
+        start_date=datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date,
+        end_date=datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date,
+        point_system=point_system,
+        is_active=is_active
+    )
+    session.add(season)
+    await session.commit()
+    await session.refresh(season)
+    return {
+        "id": season.id,
+        "league_id": season.league_id,
+        "name": season.name,
+        "start_date": season.start_date.isoformat() if season.start_date else None,
+        "end_date": season.end_date.isoformat() if season.end_date else None,
+        "point_system": season.point_system,
+        "is_active": season.is_active,
+        "created_at": season.created_at.isoformat() if season.created_at else None,
+        "updated_at": season.updated_at.isoformat() if season.updated_at else None,
+    }
+
+
+async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
+    """List seasons for a league (async version)."""
+    result = await session.execute(
+        select(Season)
+        .where(Season.league_id == league_id)
+        .order_by(Season.start_date.desc())
+    )
+    seasons = result.scalars().all()
+    return [
+        {
+            "id": s.id,
+            "league_id": s.league_id,
+            "name": s.name,
+            "start_date": s.start_date.isoformat() if s.start_date else None,
+            "end_date": s.end_date.isoformat() if s.end_date else None,
+            "point_system": s.point_system,
+            "is_active": s.is_active,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        }
+        for s in seasons
+    ]
+
+
+async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
+    """Get a season by ID (async version)."""
+    result = await session.execute(
+        select(Season).where(Season.id == season_id)
+    )
+    season = result.scalar_one_or_none()
+    if not season:
+        return None
+    return {
+        "id": season.id,
+        "league_id": season.league_id,
+        "name": season.name,
+        "start_date": season.start_date.isoformat() if season.start_date else None,
+        "end_date": season.end_date.isoformat() if season.end_date else None,
+        "point_system": season.point_system,
+        "is_active": season.is_active,
+        "created_at": season.created_at.isoformat() if season.created_at else None,
+        "updated_at": season.updated_at.isoformat() if season.updated_at else None,
+    }
+
+
+async def get_sessions(session: AsyncSession) -> List[Dict]:
+    """Get all sessions ordered by date (async version)."""
+    result = await session.execute(
+        select(Session).order_by(Session.date.desc(), Session.created_at.desc())
+    )
+    sessions = result.scalars().all()
+    return [
+        {
+            "id": s.id,
+            "date": s.date,
+            "name": s.name,
+            "is_pending": s.is_pending,
+            "season_id": s.season_id,
+            "court_id": s.court_id,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in sessions
+    ]
+
+
+async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
+    """Get a session by ID (async version)."""
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
+        return None
+    return {
+        "id": s.id,
+        "date": s.date,
+        "name": s.name,
+        "is_pending": s.is_pending,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+async def get_active_session(session: AsyncSession) -> Optional[Dict]:
+    """Get the active (pending) session (async version)."""
+    result = await session.execute(
+        select(Session)
+        .where(Session.is_pending == True)
+        .order_by(Session.created_at.desc())
+        .limit(1)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
+        return None
+    return {
+        "id": s.id,
+        "date": s.date,
+        "name": s.name,
+        "is_pending": s.is_pending,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+async def create_league_session(
+    session: AsyncSession,
+    league_id: int,
+    date: str,
+    name: Optional[str]
+) -> Dict:
+    """Create a league session (async version). Automatically uses the league's most recent active season."""
+    # Verify league exists
+    result = await session.execute(
+        select(League).where(League.id == league_id)
+    )
+    league = result.scalar_one_or_none()
+    if not league:
+        raise ValueError(f"League {league_id} not found")
+    
+    # Find the most recent active season for this league
+    season_result = await session.execute(
+        select(Season)
+        .where(and_(Season.league_id == league_id, Season.is_active == True))
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    active_season = season_result.scalar_one_or_none()
+    
+    if not active_season:
+        raise ValueError(f"League {league_id} does not have an active season. Please create and activate a season first.")
+    
+    session_name = name or date
+    new_session = Session(
+        date=date,
+        name=session_name,
+        is_pending=True,
+        season_id=active_season.id
+    )
+    session.add(new_session)
+    await session.commit()
+    await session.refresh(new_session)
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "is_active": new_session.is_pending,
+        "season_id": new_session.season_id,
+    }
+
+
+async def list_league_members(session: AsyncSession, league_id: int) -> List[Dict]:
+    """List league members (async version)."""
+    result = await session.execute(
+        select(LeagueMember, Player.full_name.label("player_name"))
+        .join(Player, Player.id == LeagueMember.player_id)
+        .where(LeagueMember.league_id == league_id)
+        .order_by(Player.full_name.asc())
+    )
+    rows = result.all()
+    return [
+        {
+            "id": member.id,
+            "league_id": member.league_id,
+            "player_id": member.player_id,
+            "role": member.role,
+            "player_name": player_name,
+        }
+        for member, player_name in rows
+    ]
+
+
+async def create_location(
+    session: AsyncSession,
+    name: str,
+    city: Optional[str],
+    state: Optional[str],
+    country: str = "USA"
+) -> Dict:
+    """Create a location (async version)."""
+    location = Location(
+        name=name,
+        city=city,
+        state=state,
+        country=country
+    )
+    session.add(location)
+    await session.commit()
+    await session.refresh(location)
+    return {
+        "id": location.id,
+        "name": location.name,
+        "city": location.city,
+        "state": location.state,
+        "country": location.country,
+        "created_at": location.created_at.isoformat() if location.created_at else None,
+        "updated_at": location.updated_at.isoformat() if location.updated_at else None,
+    }
+
+
+async def list_locations(session: AsyncSession) -> List[Dict]:
+    """List all locations (async version)."""
+    result = await session.execute(select(Location).order_by(Location.name.asc()))
+    locations = result.scalars().all()
+    return [
+        {
+            "id": l.id,
+            "name": l.name,
+            "city": l.city,
+            "state": l.state,
+            "country": l.country,
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+            "updated_at": l.updated_at.isoformat() if l.updated_at else None,
+        }
+        for l in locations
+    ]
+
+
+async def update_location(
+    session: AsyncSession,
+    location_id: int,
+    name: Optional[str],
+    city: Optional[str],
+    state: Optional[str],
+    country: Optional[str]
+) -> Optional[Dict]:
+    """Update a location (async version)."""
+    update_values = {}
+    if name is not None:
+        update_values["name"] = name
+    if city is not None:
+        update_values["city"] = city
+    if state is not None:
+        update_values["state"] = state
+    if country is not None:
+        update_values["country"] = country
+    
+    if update_values:
+        await session.execute(
+            update(Location)
+            .where(Location.id == location_id)
+            .values(**update_values)
         )
-        return cursor.lastrowid
+        await session.commit()
+    
+    result = await session.execute(
+        select(Location).where(Location.id == location_id)
+    )
+    location = result.scalar_one_or_none()
+    if not location:
+        return None
+    return {
+        "id": location.id,
+        "name": location.name,
+        "city": location.city,
+        "state": location.state,
+        "country": location.country,
+        "created_at": location.created_at.isoformat() if location.created_at else None,
+        "updated_at": location.updated_at.isoformat() if location.updated_at else None,
+    }
 
 
-def update_user_player(
+async def delete_location(session: AsyncSession, location_id: int) -> bool:
+    """Delete a location (async version)."""
+    result = await session.execute(
+        delete(Location).where(Location.id == location_id)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def create_court(
+    session: AsyncSession,
+    name: str,
+    address: Optional[str],
+    location_id: int,
+    geoJson: Optional[str]
+) -> Dict:
+    """Create a court (async version)."""
+    court = Court(
+        name=name,
+        address=address,
+        location_id=location_id,
+        geoJson=geoJson
+    )
+    session.add(court)
+    await session.commit()
+    await session.refresh(court)
+    return {
+        "id": court.id,
+        "name": court.name,
+        "address": court.address,
+        "location_id": court.location_id,
+        "geoJson": court.geoJson,
+        "created_at": court.created_at.isoformat() if court.created_at else None,
+        "updated_at": court.updated_at.isoformat() if court.updated_at else None,
+    }
+
+
+async def list_courts(session: AsyncSession, location_id: Optional[int] = None) -> List[Dict]:
+    """List courts, optionally filtered by location (async version)."""
+    query = select(Court).order_by(Court.name.asc())
+    if location_id is not None:
+        query = query.where(Court.location_id == location_id)
+    
+    result = await session.execute(query)
+    courts = result.scalars().all()
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "address": c.address,
+            "location_id": c.location_id,
+            "geoJson": c.geoJson,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        }
+        for c in courts
+    ]
+
+
+async def update_court(
+    session: AsyncSession,
+    court_id: int,
+    name: Optional[str],
+    address: Optional[str],
+    location_id: Optional[int],
+    geoJson: Optional[str]
+) -> Optional[Dict]:
+    """Update a court (async version)."""
+    update_values = {}
+    if name is not None:
+        update_values["name"] = name
+    if address is not None:
+        update_values["address"] = address
+    if location_id is not None:
+        update_values["location_id"] = location_id
+    if geoJson is not None:
+        update_values["geoJson"] = geoJson
+    
+    if update_values:
+        await session.execute(
+            update(Court)
+            .where(Court.id == court_id)
+            .values(**update_values)
+        )
+        await session.commit()
+    
+    result = await session.execute(
+        select(Court).where(Court.id == court_id)
+    )
+    court = result.scalar_one_or_none()
+    if not court:
+        return None
+    return {
+        "id": court.id,
+        "name": court.name,
+        "address": court.address,
+        "location_id": court.location_id,
+        "geoJson": court.geoJson,
+        "created_at": court.created_at.isoformat() if court.created_at else None,
+        "updated_at": court.updated_at.isoformat() if court.updated_at else None,
+    }
+
+
+async def delete_court(session: AsyncSession, court_id: int) -> bool:
+    """Delete a court (async version)."""
+    result = await session.execute(
+        delete(Court).where(Court.id == court_id)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def add_league_member(
+    session: AsyncSession,
+    league_id: int,
+    player_id: int,
+    role: str = "member"
+) -> Dict:
+    """Add a league member (async version)."""
+    member = LeagueMember(
+        league_id=league_id,
+        player_id=player_id,
+        role=role
+    )
+    session.add(member)
+    await session.commit()
+    await session.refresh(member)
+    return {
+        "id": member.id,
+        "league_id": member.league_id,
+        "player_id": member.player_id,
+        "role": member.role,
+    }
+
+
+async def update_league_member(
+    session: AsyncSession,
+    league_id: int,
+    member_id: int,
+    role: str
+) -> Optional[Dict]:
+    """Update a league member (async version)."""
+    await session.execute(
+        update(LeagueMember)
+        .where(and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id))
+        .values(role=role)
+    )
+    await session.commit()
+    
+    result = await session.execute(
+        select(LeagueMember)
+        .where(and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id))
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        return None
+    return {
+        "id": member.id,
+        "league_id": member.league_id,
+        "player_id": member.player_id,
+        "role": member.role,
+    }
+
+
+async def remove_league_member(
+    session: AsyncSession,
+    league_id: int,
+    member_id: int
+) -> bool:
+    """Remove a league member (async version)."""
+    result = await session.execute(
+        delete(LeagueMember)
+        .where(and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id))
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def get_all_player_names(session: AsyncSession) -> List[str]:
+    """Get all unique player names (async version)."""
+    result = await session.execute(
+        select(Player.full_name).order_by(Player.full_name.asc())
+    )
+    return [row[0] for row in result.all()]
+
+
+async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional[Dict]:
+    """Get player profile by user_id (async version)."""
+    result = await session.execute(
+        select(Player).where(Player.user_id == user_id)
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        return None
+    return {
+        "id": player.id,
+        "full_name": player.full_name,
+        "user_id": player.user_id,
+        "nickname": player.nickname,
+        "gender": player.gender,
+        "level": player.level,
+        "age": player.age,
+        "height": player.height,
+        "preferred_side": player.preferred_side,
+        "default_location_id": player.default_location_id,
+        "profile_picture_url": player.profile_picture_url,
+        "avp_playerProfileId": player.avp_playerProfileId,
+        "status": player.status,
+        "created_at": player.created_at.isoformat() if player.created_at else None,
+        "updated_at": player.updated_at.isoformat() if player.updated_at else None,
+    }
+
+
+async def upsert_user_player(
+    session: AsyncSession,
     user_id: int,
     full_name: Optional[str] = None,
     nickname: Optional[str] = None,
@@ -1255,314 +727,826 @@ def update_user_player(
     default_location_id: Optional[int] = None
 ) -> Optional[Dict]:
     """
-    Update player profile linked to a user.
+    Upsert (create or update) player profile linked to a user (async version).
+    Creates player if it doesn't exist, updates if it does.
     
     Args:
+        session: Database session
         user_id: User ID
-        full_name: Full name (optional)
+        full_name: Full name (required for creation, optional for update)
         nickname: Nickname (optional)
         gender: Gender (optional)
         level: Skill level (optional)
         default_location_id: Default location ID (optional)
         
     Returns:
-        Updated player dict, or None if player not found
+        Player dict, or None if error (e.g., creation without full_name)
     """
-    with db.get_db() as conn:
-        # Check if player exists
-        cursor = conn.execute("SELECT id FROM players WHERE user_id = ?", (user_id,))
-        if not cursor.fetchone():
-            return None
-        
-        # Build update query dynamically
-        updates = []
-        params = []
-        
-        if full_name is not None:
-            updates.append("full_name = ?")
-            params.append(full_name)
-        if nickname is not None:
-            updates.append("nickname = ?")
-            params.append(nickname)
-        if gender is not None:
-            updates.append("gender = ?")
-            params.append(gender)
-        if level is not None:
-            updates.append("level = ?")
-            params.append(level)
-        if default_location_id is not None:
-            updates.append("default_location_id = ?")
-            params.append(default_location_id)
-        
-        if not updates:
-            # No updates to make, just return existing player
-            cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
-            row = cursor.fetchone()
-            return dict(row) if row else None
-        
-        # Add updated_at
-        updates.append("updated_at = CURRENT_TIMESTAMP")
-        params.append(user_id)
-        
-        # Execute update
-        query = f"UPDATE players SET {', '.join(updates)} WHERE user_id = ?"
-        conn.execute(query, params)
-        
-        # Return updated player
-        cursor = conn.execute("SELECT * FROM players WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
-
-
-def get_or_create_player(name: str) -> int:
-    """
-    Get player ID by name, or create if doesn't exist.
+    # Check if player exists
+    result = await session.execute(
+        select(Player).where(Player.user_id == user_id)
+    )
+    player = result.scalar_one_or_none()
     
-    Args:
-        name: Player name
-        
-    Returns:
-        Player ID
-    """
-    with db.get_db() as conn:
-        # Try to get existing player
-        cursor = conn.execute("SELECT id FROM players WHERE name = ?", (name,))
-        row = cursor.fetchone()
-        
-        if row:
-            return row["id"]
-        
-        # Create new player
-        cursor = conn.execute(
-            """INSERT INTO players (name, current_elo, games, wins, points, win_rate, avg_point_diff)
-               VALUES (?, ?, 0, 0, 0, 0.0, 0.0)""",
-            (name, INITIAL_ELO)
+    if not player:
+        # Create player if it doesn't exist
+        if full_name is None:
+            return None  # Need at least a name to create
+        player = Player(
+            user_id=user_id,
+            full_name=full_name,
+            nickname=nickname,
+            gender=gender,
+            level=level,
+            default_location_id=default_location_id
         )
-        return cursor.lastrowid
+        session.add(player)
+        await session.commit()
+        await session.refresh(player)
+    else:
+        # Update existing player
+        update_values = {
+            k: v for k, v in {
+                "full_name": full_name,
+                "nickname": nickname,
+                "gender": gender,
+                "level": level,
+                "default_location_id": default_location_id
+            }.items() if v is not None
+        }
+        
+        if update_values:
+            await session.execute(
+                update(Player)
+                .where(Player.user_id == user_id)
+                .values(**update_values)
+            )
+            await session.commit()
+            await session.refresh(player)
+    
+    return {
+        "id": player.id,
+        "full_name": player.full_name,
+        "user_id": player.user_id,
+        "nickname": player.nickname,
+        "gender": player.gender,
+        "level": player.level,
+        "age": player.age,
+        "height": player.height,
+        "preferred_side": player.preferred_side,
+        "default_location_id": player.default_location_id,
+        "profile_picture_url": player.profile_picture_url,
+        "avp_playerProfileId": player.avp_playerProfileId,
+        "status": player.status,
+        "created_at": player.created_at.isoformat() if player.created_at else None,
+        "updated_at": player.updated_at.isoformat() if player.updated_at else None,
+    }
 
 
-def create_match(
-    session_id: int,
-    date: str,
-    team1_player1: str,
-    team1_player2: str,
-    team2_player1: str,
-    team2_player2: str,
-    team1_score: int,
-    team2_score: int
-) -> int:
+async def get_or_create_player(session: AsyncSession, name: str) -> int:
+    """Get player ID by name, or create if doesn't exist (async version)."""
+    # Try to get existing player
+    result = await session.execute(
+        select(Player.id).where(Player.full_name == name)
+    )
+    player_id = result.scalar_one_or_none()
+    
+    if player_id:
+        return player_id
+    
+    # Create new player
+    player = Player(full_name=name)
+    session.add(player)
+    await session.commit()
+    await session.refresh(player)
+    return player.id
+
+
+async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> List[Dict]:
     """
-    Create a new match in a session.
+    Get current player rankings ordered by points (async version).
     
     Args:
-        session_id: Session ID
-        date: Match date
-        team1_player1: Team 1 player 1 name
-        team1_player2: Team 1 player 2 name
-        team2_player1: Team 2 player 1 name
-        team2_player2: Team 2 player 2 name
-        team1_score: Team 1 score
-        team2_score: Team 2 score
-        
+        session: Database session
+        body: Optional query parameters dict with:
+            - season_id: Optional[int] - filter by season (if not provided, gets latest stats across all seasons)
+    
     Returns:
-        Match ID
+        List of player rankings with stats
     """
-    with db.get_db() as conn:
-        # Get or create player IDs
-        team1_p1_id = get_or_create_player(team1_player1)
-        team1_p2_id = get_or_create_player(team1_player2)
-        team2_p1_id = get_or_create_player(team2_player1)
-        team2_p2_id = get_or_create_player(team2_player2)
+    if body is None:
+        body = {}
+    
+    season_id = body.get("season_id")
+    
+    # For now, use the sync function via compatibility layer until calculate_stats is converted
+    # This is a temporary solution - rankings will be empty until calculate_stats runs
+    # TODO: Convert calculate_stats to async and update players table or query from player_season_stats
+    try:
+        # Create subqueries for latest stats per player
+        # Get the most recent stats for each player (by updated_at, then by id as tiebreaker)
         
-        # Determine winner
-        if team1_score > team2_score:
-            winner = 1
-        elif team2_score > team1_score:
-            winner = 2
-        else:
-            winner = -1  # Tie
+        # Subquery to get the latest stat row ID for each player
+        # Using ROW_NUMBER equivalent: get max updated_at, then max id as tiebreaker
+        latest_stats_subq = select(
+            PlayerSeasonStats.player_id,
+            func.max(PlayerSeasonStats.updated_at).label("max_updated_at")
+        )
         
-        # For now, we don't calculate ELO changes (would need full recalculation)
-        # These can be set to 0 or null
-        cursor = conn.execute(
-            """INSERT INTO matches (
-                session_id, date,
-                team1_player1_id, team1_player1_name,
-                team1_player2_id, team1_player2_name,
-                team2_player1_id, team2_player1_name,
-                team2_player2_id, team2_player2_name,
-                team1_score, team2_score, winner,
-                team1_elo_change, team2_elo_change
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)""",
-            (
-                session_id, date,
-                team1_p1_id, team1_player1,
-                team1_p2_id, team1_player2,
-                team2_p1_id, team2_player1,
-                team2_p2_id, team2_player2,
-                team1_score, team2_score, winner
+        # Filter by season if provided
+        if season_id is not None:
+            latest_stats_subq = latest_stats_subq.where(
+                PlayerSeasonStats.season_id == int(season_id)
+            )
+        
+        latest_stats_subq = latest_stats_subq.group_by(
+            PlayerSeasonStats.player_id
+        ).subquery()
+        
+        # Get the max id for each player with max updated_at (to handle ties)
+        latest_id_subq = select(
+            PlayerSeasonStats.player_id,
+            func.max(PlayerSeasonStats.id).label("max_id")
+        ).join(
+            latest_stats_subq,
+            and_(
+                PlayerSeasonStats.player_id == latest_stats_subq.c.player_id,
+                PlayerSeasonStats.updated_at == latest_stats_subq.c.max_updated_at
             )
         )
         
-        return cursor.lastrowid
+        # Apply season filter to the join if provided
+        if season_id is not None:
+            latest_id_subq = latest_id_subq.where(
+                PlayerSeasonStats.season_id == int(season_id)
+            )
+        
+        latest_id_subq = latest_id_subq.group_by(
+            PlayerSeasonStats.player_id
+        ).subquery()
+        
+        # Join with actual stats using both player_id and id
+        stats_subq = select(
+            PlayerSeasonStats.player_id,
+            PlayerSeasonStats.points,
+            PlayerSeasonStats.games,
+            PlayerSeasonStats.wins,
+            PlayerSeasonStats.win_rate,
+            PlayerSeasonStats.avg_point_diff,
+            PlayerSeasonStats.current_elo
+        ).join(
+            latest_id_subq,
+            and_(
+                PlayerSeasonStats.player_id == latest_id_subq.c.player_id,
+                PlayerSeasonStats.id == latest_id_subq.c.max_id
+            )
+        )
+        
+        # Apply season filter if provided
+        if season_id is not None:
+            stats_subq = stats_subq.where(
+                PlayerSeasonStats.season_id == int(season_id)
+            )
+        
+        stats_subq = stats_subq.subquery()
+        
+        # Main query with COALESCE for defaults
+        query = select(
+            Player.full_name.label("name"),
+            func.coalesce(stats_subq.c.points, 0).label("points"),
+            func.coalesce(stats_subq.c.games, 0).label("games"),
+            func.coalesce(stats_subq.c.wins, 0).label("wins"),
+            func.coalesce(stats_subq.c.win_rate, 0.0).label("win_rate"),
+            func.coalesce(stats_subq.c.avg_point_diff, 0.0).label("avg_point_diff"),
+            func.coalesce(stats_subq.c.current_elo, 1200.0).label("current_elo")
+        ).select_from(
+            Player
+        ).outerjoin(
+            stats_subq, Player.id == stats_subq.c.player_id
+        ).order_by(
+            func.coalesce(stats_subq.c.points, 0).desc(),
+            Player.full_name.asc()
+        )
+        
+        result = await session.execute(query)
+        rows = result.all()
+        
+        return [
+            {
+                "Name": row.name,
+                "Points": row.points or 0,
+                "Games": row.games or 0,
+                "Win Rate": row.win_rate or 0.0,
+                "Wins": row.wins or 0,
+                "Losses": (row.games or 0) - (row.wins or 0),
+                "Avg Pt Diff": row.avg_point_diff or 0.0,
+                "ELO": round(row.current_elo or 1200)
+            }
+            for row in rows if row.points > 0 or row.games > 0  # Only return players with stats
+        ]
+    except Exception:
+        # If query fails, return empty list (stats haven't been calculated yet)
+        return []
 
 
-def update_match(
-    match_id: int,
-    team1_player1: str,
-    team1_player2: str,
-    team2_player1: str,
-    team2_player2: str,
-    team1_score: int,
-    team2_score: int
+async def get_session_for_routes(session: AsyncSession, session_id: int) -> Optional[Dict]:
+    """Get a session by ID (async version) - alias for get_session."""
+    return await get_session(session, session_id)
+
+
+async def get_user_leagues_for_routes(session: AsyncSession, user_id: int) -> List[Dict]:
+    """Get user leagues (async version) - alias for get_user_leagues."""
+    return await get_user_leagues(session, user_id)
+
+
+async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> List[Dict]:
+    """Get all matches, optionally limited (async version)."""
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    
+    # Build the query with joins
+    query = select(
+        Match.id,
+        Match.date,
+        Match.session_id,
+        Session.name.label("session_name"),
+        Session.is_pending.label("session_pending"),
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        Match.team1_score,
+        Match.team2_score,
+        Match.winner,
+        cast(0, Integer).label("team1_elo_change"),
+        cast(0, Integer).label("team2_elo_change")
+    ).select_from(
+        Match
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    ).order_by(
+        func.coalesce(Session.id, 999999).desc(),
+        Match.id.desc()
+    )
+    
+    if limit:
+        query = query.limit(limit)
+    
+    result = await session.execute(query)
+    rows = result.all()
+    
+    return [
+        {
+            "id": row.id,
+            "date": row.date,
+            "session_id": row.session_id,
+            "session_name": row.session_name,
+            "session_pending": row.session_pending,
+            "team1_player1_name": row.team1_player1_name,
+            "team1_player2_name": row.team1_player2_name,
+            "team2_player1_name": row.team2_player1_name,
+            "team2_player2_name": row.team2_player2_name,
+            "team1_score": row.team1_score,
+            "team2_score": row.team2_score,
+            "winner": row.winner,
+            "team1_elo_change": row.team1_elo_change,
+            "team2_elo_change": row.team2_elo_change,
+        }
+        for row in rows
+    ]
+
+
+async def lock_in_session(session: AsyncSession, session_id: int) -> bool:
+    """Lock in a session (mark as complete/submitted, is_pending = False) - async version."""
+    result = await session.execute(
+        update(Session)
+        .where(Session.id == session_id)
+        .values(is_pending=False)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def delete_session(session: AsyncSession, session_id: int) -> bool:
+    """
+    Delete an active session and all its matches - async version.
+    Only active (pending) sessions can be deleted.
+    
+    Returns:
+        True if successful, False if session not found or not active
+        
+    Raises:
+        ValueError: If session is not active (already submitted)
+    """
+    # Check if session exists and is active
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    session_obj = result.scalar_one_or_none()
+    
+    if not session_obj:
+        return False
+    
+    if not session_obj.is_pending:
+        raise ValueError("Cannot delete a session that has already been submitted")
+    
+    # Delete matches first (foreign key constraint)
+    await session.execute(
+        delete(Match).where(Match.session_id == session_id)
+    )
+    
+    # Delete the session
+    await session.execute(
+        delete(Session).where(Session.id == session_id)
+    )
+    await session.commit()
+    return True
+
+
+async def update_season(
+    session: AsyncSession,
+    season_id: int,
+    **fields
+) -> Optional[Dict]:
+    """Update a season - async version."""
+    allowed = {"name", "start_date", "end_date", "point_system", "is_active"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    
+    if not updates:
+        return await get_season(session, season_id)
+    
+    # Convert is_active boolean to int if present
+    if "is_active" in updates:
+        updates["is_active"] = bool(updates["is_active"])
+    
+    await session.execute(
+        update(Season)
+        .where(Season.id == season_id)
+        .values(**updates)
+    )
+    await session.commit()
+    
+    return await get_season(session, season_id)
+
+
+async def activate_season(
+    session: AsyncSession,
+    league_id: int,
+    season_id: int
 ) -> bool:
+    """Activate a season - async version."""
+    # Ensure season belongs to league
+    result = await session.execute(
+        select(Season).where(
+            and_(Season.id == season_id, Season.league_id == league_id)
+        )
+    )
+    if not result.scalar_one_or_none():
+        return False
+    
+    # Deactivate all other seasons in the league
+    await session.execute(
+        update(Season)
+        .where(and_(Season.league_id == league_id, Season.id != season_id))
+        .values(is_active=False)
+    )
+    
+    # Activate this season
+    await session.execute(
+        update(Season)
+        .where(Season.id == season_id)
+        .values(is_active=True)
+    )
+    
+    await session.commit()
+    return True
+
+
+async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
+    """Get ELO timeline data for all players - async version."""
+    # Get all unique dates
+    result = await session.execute(
+        select(EloHistory.date).distinct().order_by(EloHistory.date.asc())
+    )
+    dates = [row[0] for row in result.all()]
+    
+    if not dates:
+        return []
+    
+    # Get all players
+    result = await session.execute(
+        select(Player.full_name).order_by(Player.full_name.asc())
+    )
+    player_names = [row[0] for row in result.all()]
+    
+    # Build timeline data
+    timeline = []
+    for date in dates:
+        row_data = {"Date": date}
+        
+        for player_name in player_names:
+            # Get the ELO at this date for this player
+            result = await session.execute(
+                select(EloHistory.elo_after)
+                .join(Player, EloHistory.player_id == Player.id)
+                .where(
+                    and_(
+                        Player.full_name == player_name,
+                        EloHistory.date <= date
+                    )
+                )
+                .order_by(EloHistory.date.desc(), EloHistory.id.desc())
+                .limit(1)
+            )
+            elo_result = result.scalar_one_or_none()
+            
+            if elo_result:
+                row_data[player_name] = elo_result
+            else:
+                # Player hasn't played yet at this date, use initial ELO
+                row_data[player_name] = INITIAL_ELO
+        
+        timeline.append(row_data)
+    
+    return timeline
+
+
+async def get_setting(session: AsyncSession, key: str) -> Optional[str]:
     """
-    Update an existing match.
+    Get a setting value - async version.
     
     Args:
-        match_id: Match ID to update
-        team1_player1: Team 1 player 1 name
-        team1_player2: Team 1 player 2 name
-        team2_player1: Team 2 player 1 name
-        team2_player2: Team 2 player 2 name
-        team1_score: Team 1 score
-        team2_score: Team 2 score
+        session: Database session
+        key: Setting key
         
     Returns:
-        True if successful, False if match not found
+        Setting value or None if not found
     """
-    with db.get_db() as conn:
-        # Get or create player IDs
-        team1_p1_id = get_or_create_player(team1_player1)
-        team1_p2_id = get_or_create_player(team1_player2)
-        team2_p1_id = get_or_create_player(team2_player1)
-        team2_p2_id = get_or_create_player(team2_player2)
-        
-        # Determine winner
-        if team1_score > team2_score:
-            winner = 1
-        elif team2_score > team1_score:
-            winner = 2
-        else:
-            winner = -1  # Tie
-        
-        cursor = conn.execute(
-            """UPDATE matches 
-               SET team1_player1_id = ?, team1_player1_name = ?,
-                   team1_player2_id = ?, team1_player2_name = ?,
-                   team2_player1_id = ?, team2_player1_name = ?,
-                   team2_player2_id = ?, team2_player2_name = ?,
-                   team1_score = ?, team2_score = ?,
-                   winner = ?
-               WHERE id = ?""",
-            (
-                team1_p1_id, team1_player1,
-                team1_p2_id, team1_player2,
-                team2_p1_id, team2_player1,
-                team2_p2_id, team2_player2,
-                team1_score, team2_score,
-                winner,
-                match_id
+    result = await session.execute(
+        select(Setting).where(Setting.key == key)
+    )
+    setting = result.scalar_one_or_none()
+    return setting.value if setting else None
+
+
+async def set_setting(session: AsyncSession, key: str, value: str) -> None:
+    """
+    Set a setting value (upsert) - async version.
+    
+    Args:
+        session: Database session
+        key: Setting key
+        value: Setting value
+    """
+    stmt = insert(Setting).values(key=key, value=value)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=['key'],
+        set_=dict(value=stmt.excluded.value, updated_at=sql_func.now())
+    )
+    await session.execute(stmt)
+    await session.commit()
+
+
+async def query_matches(
+    session: AsyncSession,
+    body: Dict,
+    user: Optional[Dict] = None
+) -> List[Dict]:
+    """
+    Query matches with filtering - async version.
+    
+    Args:
+        session: Database session
+        body: Query parameters dict with:
+            - limit: int (default 50, max 500)
+            - offset: int (default 0)
+            - league_id: Optional[int] - filter by league
+            - season_id: Optional[int] - filter by season
+            - submitted_only: bool (default True) - only show matches from submitted sessions
+            - include_non_public: bool (default False) - include non-public matches
+            - sort_by: str (default 'id') - 'date' or 'id'
+            - sort_dir: str (default 'desc') - 'asc' or 'desc'
+        user: Optional user dict for permission checks
+    
+    Returns:
+        List of match dictionaries
+    """
+    limit = min(max(int(body.get("limit", 50)), 1), 500)
+    offset = max(int(body.get("offset", 0)), 0)
+    submitted_only = body.get("submitted_only", True)
+    include_non_public = body.get("include_non_public", False)
+    league_id = body.get("league_id")
+    season_id = body.get("season_id")
+    sort_by = body.get("sort_by", "id")
+    sort_dir = body.get("sort_dir", "desc")
+    
+    # Validate sort_by and sort_dir
+    if sort_by not in ["id", "date"]:
+        sort_by = "id"
+    if sort_dir not in ["asc", "desc"]:
+        sort_dir = "desc"
+    
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    
+    # Build the query with joins
+    query = select(
+        Match.id,
+        Match.date,
+        Match.session_id,
+        Session.name.label("session_name"),
+        Session.is_pending.label("session_pending"),
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        Match.team1_score,
+        Match.team2_score,
+        Match.winner,
+        Match.is_public,
+        cast(0, Integer).label("team1_elo_change"),
+        cast(0, Integer).label("team2_elo_change")
+    ).select_from(
+        Match
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).outerjoin(
+        Season, Session.season_id == Season.id
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    )
+    
+    # Build WHERE conditions
+    conditions = []
+    
+    if submitted_only:
+        # Only show matches from submitted (non-pending) sessions, or matches without sessions
+        conditions.append(
+            or_(
+                Match.session_id.is_(None),
+                Session.is_pending == False
             )
         )
-        
-        return cursor.rowcount > 0
-
-
-def delete_match(match_id: int) -> bool:
-    """
-    Delete a match from the database.
+    # If submitted_only is False, we include all matches (no filter)
     
-    Args:
-        match_id: ID of the match to delete
-        
-    Returns:
-        True if successful, False if match not found
+    if not include_non_public:
+        conditions.append(Match.is_public == True)
+    
+    # Filter by league_id (through sessions -> seasons)
+    # Only include matches that have a session with a season in the specified league
+    if league_id is not None:
+        conditions.append(
+            and_(
+                Session.season_id.isnot(None),
+                Season.league_id == int(league_id)
+            )
+        )
+    
+    # Filter by season_id
+    if season_id is not None:
+        conditions.append(Session.season_id == int(season_id))
+    
+    # Apply WHERE conditions
+    if conditions:
+        query = query.where(and_(*conditions))
+    
+    # Apply ORDER BY
+    if sort_by == "date":
+        order_column = Match.date
+    else:
+        order_column = Match.id
+    
+    if sort_dir.lower() == "asc":
+        query = query.order_by(order_column.asc())
+    else:
+        query = query.order_by(order_column.desc())
+    
+    # Apply limit and offset
+    query = query.limit(limit).offset(offset)
+    
+    # Execute query
+    result = await session.execute(query)
+    rows = result.all()
+    
+    # Convert to dict format matching the old API
+    return [
+        {
+            "id": row.id,
+            "date": row.date,
+            "session_id": row.session_id,
+            "session_name": row.session_name,
+            "session_pending": row.session_pending,
+            "team1_player1_name": row.team1_player1_name,
+            "team1_player2_name": row.team1_player2_name,
+            "team2_player1_name": row.team2_player1_name,
+            "team2_player2_name": row.team2_player2_name,
+            "team1_score": row.team1_score,
+            "team2_score": row.team2_score,
+            "winner": row.winner,
+            "is_public": row.is_public,
+            "team1_elo_change": row.team1_elo_change,
+            "team2_elo_change": row.team2_elo_change,
+        }
+        for row in rows
+    ]
+
+
+async def get_player_stats(session: AsyncSession, player_name: str) -> Optional[Dict]:
     """
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            "DELETE FROM matches WHERE id = ?",
-            (match_id,)
-        )
-        return cursor.rowcount > 0
+    Get detailed stats for a player including partnerships and opponents - async version.
+    
+    Returns dict with structure:
+    {
+        "name": str,
+        "current_elo": float,
+        "games": int,
+        "wins": int,
+        "losses": int,
+        "win_rate": float,
+        "points": int,
+        "avg_point_diff": float,
+        "rank": int,
+        "partnerships": [...],
+        "opponents": [...],
+        "match_history": [...]
+    }
+    """
+    # Get player basic stats
+    result = await session.execute(
+        select(Player).where(Player.full_name == player_name)
+    )
+    player = result.scalar_one_or_none()
+    
+    if not player:
+        return None
+    
+    # Get latest season stats or calculate from player_season_stats
+    # For now, use a simplified approach - get from player_season_stats if available
+    # Otherwise use default values
+    current_elo = INITIAL_ELO
+    games = 0
+    wins = 0
+    points = 0
+    win_rate = 0.0
+    avg_point_diff = 0.0
+    
+    # Try to get from player_season_stats (latest)
+    result = await session.execute(
+        select(PlayerSeasonStats)
+        .where(PlayerSeasonStats.player_id == player.id)
+        .order_by(PlayerSeasonStats.updated_at.desc())
+        .limit(1)
+    )
+    season_stats = result.scalar_one_or_none()
+    if season_stats:
+        current_elo = season_stats.current_elo
+        games = season_stats.games
+        wins = season_stats.wins
+        points = season_stats.points
+        win_rate = season_stats.win_rate
+        avg_point_diff = season_stats.avg_point_diff
+    
+    # Get partnerships
+    PartnerPlayer = aliased(Player)
+    PlayerAlias = aliased(Player)
+    
+    result = await session.execute(
+        select(PartnershipStats, PartnerPlayer.full_name.label("partner_name"))
+        .join(PartnerPlayer, PartnershipStats.partner_id == PartnerPlayer.id)
+        .join(PlayerAlias, PartnershipStats.player_id == PlayerAlias.id)
+        .where(PlayerAlias.full_name == player_name)
+        .order_by(PartnershipStats.points.desc(), PartnershipStats.win_rate.desc())
+    )
+    partnerships = []
+    for row in result.all():
+        partnership, partner_name = row
+        partnerships.append({
+            "Partner/Opponent": partner_name,
+            "Points": partnership.points,
+            "Games": partnership.games,
+            "Wins": partnership.wins,
+            "Losses": partnership.games - partnership.wins,
+            "Win Rate": partnership.win_rate,
+            "Avg Pt Diff": partnership.avg_point_diff
+        })
+    
+    # Get opponents
+    OpponentPlayer = aliased(Player)
+    PlayerAlias2 = aliased(Player)
+    
+    result = await session.execute(
+        select(OpponentStats, OpponentPlayer.full_name.label("opponent_name"))
+        .join(OpponentPlayer, OpponentStats.opponent_id == OpponentPlayer.id)
+        .join(PlayerAlias2, OpponentStats.player_id == PlayerAlias2.id)
+        .where(PlayerAlias2.full_name == player_name)
+        .order_by(OpponentStats.points.desc(), OpponentStats.win_rate.desc())
+    )
+    opponents = []
+    for row in result.all():
+        opponent_stat, opponent_name = row
+        opponents.append({
+            "Partner/Opponent": opponent_name,
+            "Points": opponent_stat.points,
+            "Games": opponent_stat.games,
+            "Wins": opponent_stat.wins,
+            "Losses": opponent_stat.games - opponent_stat.wins,
+            "Win Rate": opponent_stat.win_rate,
+            "Avg Pt Diff": opponent_stat.avg_point_diff
+        })
+    
+    # Get match history (simplified - would need to join with players table)
+    # For now, return empty list - this can be enhanced later
+    match_history = []
+    
+    # Calculate rank (simplified - would need full rankings)
+    rank = None
+    
+    return {
+        "name": player_name,
+        "current_elo": round(current_elo),
+        "games": games,
+        "wins": wins,
+        "losses": games - wins,
+        "win_rate": win_rate,
+        "points": points,
+        "avg_point_diff": avg_point_diff,
+        "rank": rank,
+        "partnerships": partnerships,
+        "opponents": opponents,
+        "match_history": match_history
+    }
 
 
-def get_match(match_id: int) -> Optional[Dict]:
-    """Get a specific match by ID."""
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            """SELECT m.id, m.session_id, m.date,
-                      m.team1_player1_name, m.team1_player2_name,
-                      m.team2_player1_name, m.team2_player2_name,
-                      m.team1_score, m.team2_score,
-                      s.is_pending as session_pending
-               FROM matches m
-               LEFT JOIN sessions s ON m.session_id = s.id
-               WHERE m.id = ?""",
-            (match_id,)
-        )
-        row = cursor.fetchone()
-        
-        if not row:
-            return None
-        
-        return {
-            "id": row["id"],
-            "session_id": row["session_id"],
-            "date": row["date"],
-            "team1_player1": row["team1_player1_name"],
-            "team1_player2": row["team1_player2_name"],
-            "team2_player1": row["team2_player1_name"],
-            "team2_player2": row["team2_player2_name"],
-            "team1_score": row["team1_score"],
-            "team2_score": row["team2_score"],
-            "session_active": bool(row["session_pending"]) if row["session_pending"] is not None else None
-        }
-
-
-def get_active_session() -> Optional[Dict]:
-    """Get the currently active session, if any."""
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            """SELECT id, date, name, is_pending, created_at
-               FROM sessions
-               WHERE is_pending = 1
-               ORDER BY created_at DESC
-               LIMIT 1"""
-        )
-        row = cursor.fetchone()
-        
-        if not row:
-            return None
-        
-        return {
-            "id": row["id"],
-            "date": row["date"],
-            "name": row["name"],
-            "is_active": bool(row["is_pending"]),
-            "created_at": row["created_at"]
-        }
-
-
-def export_matches_to_csv() -> str:
+async def export_matches_to_csv(session: AsyncSession) -> str:
     """
     Export all matches (locked-in sessions only) to CSV format matching Google Sheets import format.
     
     Format: DATE, T1P1, T1P2, T2P1, T2P2, T1SCORE, T2SCORE
     
+    Args:
+        session: Database session
+    
     Returns:
         str: CSV formatted string with header and all matches
     """
-    with db.get_db() as conn:
-        cursor = conn.execute(
-            """SELECT date, team1_player1_name, team1_player2_name, 
-                      team2_player1_name, team2_player2_name,
-                      team1_score, team2_score
-               FROM matches 
-               WHERE session_id IN (SELECT id FROM sessions WHERE is_pending = 0)
-               ORDER BY id ASC"""
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    
+    # Build query for matches from submitted sessions or without sessions
+    query = select(
+        Match.date,
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        Match.team1_score,
+        Match.team2_score
+    ).select_from(
+        Match
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    ).where(
+        or_(
+            Session.is_pending == False,
+            Match.session_id.is_(None)
         )
-        matches = cursor.fetchall()
+    ).order_by(
+        Match.id.asc()
+    )
+    
+    result = await session.execute(query)
+    matches = result.all()
     
     # Create CSV in memory
     output = io.StringIO()
@@ -1574,14 +1558,453 @@ def export_matches_to_csv() -> str:
     # Write match data
     for match in matches:
         writer.writerow([
-            match['date'],
-            match['team1_player1_name'],
-            match['team1_player2_name'],
-            match['team2_player1_name'],
-            match['team2_player2_name'],
-            match['team1_score'],
-            match['team2_score']
+            match.date,
+            match.team1_player1_name,
+            match.team1_player2_name,
+            match.team2_player1_name,
+            match.team2_player2_name,
+            match.team1_score,
+            match.team2_score
         ])
     
     return output.getvalue()
+
+
+async def get_player_match_history(session: AsyncSession, player_name: str) -> Optional[List[Dict]]:
+    """
+    Get match history for a specific player - async version.
+    
+    Args:
+        session: Database session
+        player_name: Name of the player
+    
+    Returns:
+        List of matches if player found (may be empty)
+        None if player not found
+    """
+    # Get player ID
+    result = await session.execute(
+        select(Player.id).where(Player.full_name == player_name)
+    )
+    player = result.scalar_one_or_none()
+    
+    if not player:
+        return None  # Player not found
+    
+    player_id = player.id
+    
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    eh = aliased(EloHistory)
+    
+    # Get all matches where player participated
+    query = select(
+        Match.id,
+        Match.date,
+        Match.session_id,
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+        Match.team1_score,
+        Match.team2_score,
+        Match.winner,
+        cast(0, Integer).label("team1_elo_change"),  # Note: ELO changes not stored in matches table
+        cast(0, Integer).label("team2_elo_change"),
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        eh.elo_after,
+        Session.is_pending.label("session_pending")
+    ).select_from(
+        Match
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    ).outerjoin(
+        eh, and_(eh.match_id == Match.id, eh.player_id == player_id)
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).where(
+        or_(
+            Match.team1_player1_id == player_id,
+            Match.team1_player2_id == player_id,
+            Match.team2_player1_id == player_id,
+            Match.team2_player2_id == player_id
+        )
+    ).order_by(
+        Match.id.desc()
+    )
+    
+    result = await session.execute(query)
+    rows = result.all()
+    
+    results = []
+    for row in rows:
+        # Determine which team the player was on
+        if row.team1_player1_id == player_id or row.team1_player2_id == player_id:
+            # Player on team 1
+            partner = row.team1_player2_name if row.team1_player1_id == player_id else row.team1_player1_name
+            opponent1 = row.team2_player1_name
+            opponent2 = row.team2_player2_name
+            player_score = row.team1_score
+            opponent_score = row.team2_score
+            elo_change = row.team1_elo_change or 0
+            
+            if row.winner == 1:
+                match_result = "W"
+            elif row.winner == -1:
+                match_result = "T"
+            else:
+                match_result = "L"
+        else:
+            # Player on team 2
+            partner = row.team2_player2_name if row.team2_player1_id == player_id else row.team2_player1_name
+            opponent1 = row.team1_player1_name
+            opponent2 = row.team1_player2_name
+            player_score = row.team2_score
+            opponent_score = row.team1_score
+            elo_change = row.team2_elo_change or 0
+            
+            if row.winner == 2:
+                match_result = "W"
+            elif row.winner == -1:
+                match_result = "T"
+            else:
+                match_result = "L"
+        
+        results.append({
+            "Date": row.date,
+            "Partner": partner,
+            "Opponent 1": opponent1,
+            "Opponent 2": opponent2,
+            "Result": match_result,
+            "Score": f"{player_score}-{opponent_score}",
+            "ELO Change": elo_change,
+            "ELO After": row.elo_after,
+            "Session Active": bool(row.session_pending) if row.session_pending is not None else False
+        })
+    
+    return results
+
+
+async def create_session(session: AsyncSession, date: str) -> Dict:
+    """
+    Create a new session.
+    
+    Args:
+        session: Database session
+        date: Date string (e.g., '11/7/2025')
+        
+    Returns:
+        Dict with session info
+        
+    Raises:
+        ValueError: If an active session already exists for this date
+    """
+    # Check if active session exists for this date
+    result = await session.execute(
+        select(Session).where(
+            and_(Session.date == date, Session.is_pending == True)
+        )
+    )
+    active_session = result.scalar_one_or_none()
+    if active_session:
+        raise ValueError(f"A pending session '{active_session.name}' already exists for this date. Please submit the current session before creating a new one.")
+    
+    # Count existing sessions for this date
+    result = await session.execute(
+        select(func.count(Session.id)).where(Session.date == date)
+    )
+    count = result.scalar() or 0
+    
+    # Generate session name
+    if count == 0:
+        name = date
+    else:
+        name = f"{date} #{count + 1}"
+    
+    # Create the session
+    new_session = Session(
+        date=date,
+        name=name,
+        is_pending=True
+    )
+    session.add(new_session)
+    await session.flush()
+    await session.commit()
+    await session.refresh(new_session)
+    
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "is_active": True,
+        "created_at": new_session.created_at.isoformat() if new_session.created_at else ""
+    }
+
+
+async def create_match_async(
+    session: AsyncSession,
+    session_id: int,
+    date: str,
+    team1_player1: str,
+    team1_player2: str,
+    team2_player1: str,
+    team2_player2: str,
+    team1_score: int,
+    team2_score: int,
+    is_public: bool = True
+) -> int:
+    """
+    Create a new match in a session - async version.
+    
+    Args:
+        session: Database session
+        session_id: Session ID
+        date: Match date
+        team1_player1: Team 1 player 1 name
+        team1_player2: Team 1 player 2 name
+        team2_player1: Team 2 player 1 name
+        team2_player2: Team 2 player 2 name
+        team1_score: Team 1 score
+        team2_score: Team 2 score
+        is_public: Whether match is public
+        
+    Returns:
+        Match ID
+    """
+    # Get or create player IDs
+    team1_p1_id = await get_or_create_player(session, team1_player1)
+    team1_p2_id = await get_or_create_player(session, team1_player2)
+    team2_p1_id = await get_or_create_player(session, team2_player1)
+    team2_p2_id = await get_or_create_player(session, team2_player2)
+    
+    # Determine winner
+    if team1_score > team2_score:
+        winner = 1
+    elif team2_score > team1_score:
+        winner = 2
+    else:
+        winner = -1  # Tie
+    
+    # Create match
+    new_match = Match(
+        session_id=session_id,
+        date=date,
+        team1_player1_id=team1_p1_id,
+        team1_player2_id=team1_p2_id,
+        team2_player1_id=team2_p1_id,
+        team2_player2_id=team2_p2_id,
+        team1_score=team1_score,
+        team2_score=team2_score,
+        winner=winner,
+        is_public=is_public
+    )
+    session.add(new_match)
+    await session.flush()
+    await session.commit()
+    await session.refresh(new_match)
+    
+    return new_match.id
+
+
+async def update_match_async(
+    session: AsyncSession,
+    match_id: int,
+    team1_player1: str,
+    team1_player2: str,
+    team2_player1: str,
+    team2_player2: str,
+    team1_score: int,
+    team2_score: int,
+    is_public: Optional[bool] = None
+) -> bool:
+    """
+    Update an existing match - async version.
+    
+    Args:
+        session: Database session
+        match_id: Match ID to update
+        team1_player1: Team 1 player 1 name
+        team1_player2: Team 1 player 2 name
+        team2_player1: Team 2 player 1 name
+        team2_player2: Team 2 player 2 name
+        team1_score: Team 1 score
+        team2_score: Team 2 score
+        is_public: Whether match is public (optional)
+        
+    Returns:
+        True if successful, False if match not found
+    """
+    # Get match
+    result = await session.execute(
+        select(Match).where(Match.id == match_id)
+    )
+    match = result.scalar_one_or_none()
+    if not match:
+        return False
+    
+    # Get or create player IDs
+    team1_p1_id = await get_or_create_player(session, team1_player1)
+    team1_p2_id = await get_or_create_player(session, team1_player2)
+    team2_p1_id = await get_or_create_player(session, team2_player1)
+    team2_p2_id = await get_or_create_player(session, team2_player2)
+    
+    # Determine winner
+    if team1_score > team2_score:
+        winner = 1
+    elif team2_score > team1_score:
+        winner = 2
+    else:
+        winner = -1  # Tie
+    
+    # Update match
+    match.team1_player1_id = team1_p1_id
+    match.team1_player2_id = team1_p2_id
+    match.team2_player1_id = team2_p1_id
+    match.team2_player2_id = team2_p2_id
+    match.team1_score = team1_score
+    match.team2_score = team2_score
+    match.winner = winner
+    if is_public is not None:
+        match.is_public = is_public
+    
+    await session.commit()
+    return True
+
+
+async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
+    """
+    Delete a match from the database - async version.
+    
+    Args:
+        session: Database session
+        match_id: ID of the match to delete
+        
+    Returns:
+        True if successful, False if match not found
+    """
+    result = await session.execute(
+        delete(Match).where(Match.id == match_id)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict]:
+    """
+    Get a specific match by ID - async version.
+    
+    Args:
+        session: Database session
+        match_id: Match ID
+    
+    Returns:
+        Match dict or None if not found
+    """
+    result = await session.execute(
+        select(Match, Session.is_pending.label("session_pending"))
+        .outerjoin(Session, Match.session_id == Session.id)
+        .where(Match.id == match_id)
+    )
+    row = result.first()
+    
+    if not row:
+        return None
+    
+    match, session_pending = row
+    
+    # Get player names
+    team1_p1 = await session.get(Player, match.team1_player1_id)
+    team1_p2 = await session.get(Player, match.team1_player2_id)
+    team2_p1 = await session.get(Player, match.team2_player1_id)
+    team2_p2 = await session.get(Player, match.team2_player2_id)
+    
+    return {
+        "id": match.id,
+        "session_id": match.session_id,
+        "date": match.date,
+        "team1_player1": team1_p1.full_name if team1_p1 else None,
+        "team1_player2": team1_p2.full_name if team1_p2 else None,
+        "team2_player1": team2_p1.full_name if team2_p1 else None,
+        "team2_player2": team2_p2.full_name if team2_p2 else None,
+        "team1_score": match.team1_score,
+        "team2_score": match.team2_score,
+        "session_active": bool(session_pending) if session_pending is not None else None
+    }
+
+
+async def recalculate_all_stats(session: AsyncSession) -> Dict:
+    """
+    Recalculate all statistics from existing database matches (finalized sessions only).
+    
+    This function:
+    1. Gets all matches from finalized (non-pending) sessions
+    2. Processes them through the calculation service
+    3. Clears old stats and saves new stats to database
+    4. Returns summary with counts
+    
+    Args:
+        session: Database session
+    
+    Returns:
+        Dict with player_count and match_count
+    """
+    # Get all matches from finalized sessions (is_pending = False)
+    result = await session.execute(
+        select(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .where(or_(Session.is_pending == False, Session.is_pending.is_(None)))
+        .order_by(Match.id.asc())
+    )
+    matches = result.scalars().all()
+    
+    if not matches:
+        # No matches to process
+        return {"player_count": 0, "match_count": 0}
+    
+    # Get all players and create player_id_map (name -> id)
+    result = await session.execute(select(Player))
+    players = result.scalars().all()
+    player_id_map = {player.full_name: player.id for player in players}
+    
+    # Process matches through calculation service
+    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+        matches,
+        player_id_map
+    )
+    
+    # Clear old stats
+    await session.execute(delete(PartnershipStats))
+    await session.execute(delete(OpponentStats))
+    await session.execute(delete(EloHistory))
+    
+    # Save new stats
+    session.add_all(partnerships)
+    session.add_all(opponents)
+    session.add_all(elo_history_list)
+    
+    # Update match ELO changes
+    for match, (team1_delta, team2_delta) in elo_deltas_map.items():
+        # Note: Match model doesn't have elo_change columns, so we skip this
+        # ELO changes are tracked in EloHistory instead
+        pass
+    
+    # Commit the stats
+    await session.commit()
+    
+    return {
+        "player_count": len(player_id_map),
+        "match_count": len(matches)
+    }
 

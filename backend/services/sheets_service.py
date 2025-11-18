@@ -8,7 +8,8 @@ import json
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from backend.models.match import Match
+# Note: This service is disabled. If re-enabled, would need to create Match ORM objects
+# from backend.database.models import Match
 
 # Google Sheets configuration
 CREDENTIALS_FILE = 'credentials.json'
@@ -32,16 +33,19 @@ def get_credentials():
 
 def load_matches_from_sheets(sheet_id=None):
     """
-    Load matches from Google Sheets.
+    DISABLED: This function has been disabled.
     
-    Args:
-        sheet_id: Google Sheets ID or name (optional, uses default if not provided)
-        
-    Returns:
-        List of Match objects
+    TODO: Re-implement to be season-specific and add proper validations.
+    This function should:
+    - Accept a season_id parameter
+    - Validate matches against season constraints
+    - Handle data validation and error reporting
     """
-    if sheet_id is None:
-        sheet_id = GOOGLE_SHEETS_ID
+    raise NotImplementedError(
+        "load_matches_from_sheets has been disabled. "
+        "This function needs to be re-implemented to be season-specific with proper validations. "
+        "It should accept a season_id parameter and validate matches against season constraints."
+    )
     
     credentials = get_credentials()
     gc = gspread.authorize(credentials)
@@ -60,13 +64,14 @@ def load_matches_from_sheets(sheet_id=None):
 
     match_list = []
     for _, row in df.iterrows():
-        match = Match(
-            row['T1P1'],
-            row['T1P2'],
-            row['T2P1'],
-            row['T2P2'],
-            [row['T1SCORE'], row['T2SCORE']],
-            row['DATE']
+        match = MatchData(
+            team1_player1=row['T1P1'],
+            team1_player2=row['T1P2'],
+            team2_player1=row['T2P1'],
+            team2_player2=row['T2P2'],
+            team1_score=int(row['T1SCORE']),
+            team2_score=int(row['T2SCORE']),
+            date=row['DATE']
         )
         match_list.append(match)
     

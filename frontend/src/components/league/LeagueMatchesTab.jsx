@@ -1,0 +1,306 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import MatchesTable from '../match/MatchesTable';
+import { useLeague } from '../../contexts/LeagueContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { 
+  queryMatches, 
+  createMatch, 
+  updateMatch, 
+  deleteMatch, 
+  getActiveSession,
+  lockInSession,
+  deleteSession,
+  getPlayers,
+  createLeagueSession
+} from '../../services/api';
+
+export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage }) {
+  const { league, seasons, members } = useLeague();
+  const { currentUserPlayer } = useAuth();
+  const [matches, setMatches] = useState([]);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [activeSession, setActiveSession] = useState(null);
+  const [allPlayerNames, setAllPlayerNames] = useState([]);
+  const [playerNameToFullName, setPlayerNameToFullName] = useState(new Map());
+
+  // Compute isLeagueMember from context
+  const isLeagueMember = useMemo(() => {
+    if (!currentUserPlayer || !members.length) return false;
+    return members.some(m => m.player_id === currentUserPlayer.id);
+  }, [currentUserPlayer, members]);
+
+  // Transform match data from API format to MatchesTable format
+  const transformMatchData = (matches) => {
+    return matches.map(match => {
+      const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
+      return {
+        id: match.id,
+        Date: match.date,
+        'Session ID': match.session_id,
+        'Session Name': match.session_name || match.date,
+        'Session Active': match.session_pending === true || match.session_pending === 1,
+        'Team 1 Player 1': match.team1_player1_name || '',
+        'Team 1 Player 2': match.team1_player2_name || '',
+        'Team 2 Player 1': match.team2_player1_name || '',
+        'Team 2 Player 2': match.team2_player2_name || '',
+        'Team 1 Score': match.team1_score,
+        'Team 2 Score': match.team2_score,
+        Winner: winner,
+        'Team 1 ELO Change': match.team1_elo_change || 0,
+        'Team 2 ELO Change': match.team2_elo_change || 0,
+      };
+    });
+  };
+
+  const loadLeagueMatches = useCallback(async () => {
+    if (!leagueId || !league) return;
+    setMatchesLoading(true);
+    try {
+      // Find the active season for this league
+      const activeSeason = seasons.find(s => s.is_active === true || s.is_active === 1);
+      
+      // Filter matches by the league's active season
+      const queryParams = {
+        submitted_only: false,
+        include_non_public: isLeagueMember,
+        limit: 1000,
+        sort_by: 'date',
+        sort_dir: 'desc'
+      };
+      
+      // Use season_id if we have an active season, otherwise fall back to league_id
+      if (activeSeason) {
+        queryParams.season_id = activeSeason.id;
+      } else {
+        queryParams.league_id = leagueId;
+      }
+      
+      const response = await queryMatches(queryParams);
+      // queryMatches returns an array directly, not wrapped in an object
+      const matches = Array.isArray(response) ? response : (response.matches || []);
+      const transformedMatches = transformMatchData(matches);
+      setMatches(transformedMatches);
+    } catch (err) {
+      console.error('Error loading league matches:', err);
+      setMatches([]);
+    } finally {
+      setMatchesLoading(false);
+    }
+  }, [leagueId, league, seasons, isLeagueMember]);
+
+  const loadActiveSession = useCallback(async () => {
+    if (!leagueId) return;
+    try {
+      const session = await getActiveSession().catch(() => null);
+      // TODO: Filter by league_id when API supports it
+      setActiveSession(session);
+    } catch (err) {
+      console.error('Error loading active session:', err);
+      setActiveSession(null);
+    }
+  }, [leagueId]);
+
+  // Load league player names for match creation (nickname if exists, else full_name)
+  useEffect(() => {
+    if (!leagueId) {
+      setAllPlayerNames([]);
+      setPlayerNameToFullName(new Map());
+      return;
+    }
+    
+    // If no members yet, wait for them to load
+    if (!members.length) {
+      return;
+    }
+    
+    const loadLeaguePlayers = async () => {
+      try {
+        // Get all players to access their full data (including nicknames)
+        const allPlayersData = await getPlayers();
+        
+        // Create a map of player_id to player data for quick lookup
+        const playerMap = new Map();
+        allPlayersData.forEach(p => {
+          playerMap.set(p.id, p);
+        });
+        
+        // Create mapping from display name to full_name
+        const nameMapping = new Map();
+        const playerNameSet = new Set();
+        
+        // Get display names for league members (nickname if exists, else full_name)
+        members.forEach(member => {
+          const player = playerMap.get(member.player_id);
+          if (!player) return;
+          
+          const fullName = player.full_name || `Player ${player.id}`;
+          // Use nickname if exists, otherwise use full_name
+          const displayName = player.nickname || fullName;
+          
+          // Map display name to full_name (for match submission)
+          nameMapping.set(displayName, fullName);
+          // Add display name to the set
+          playerNameSet.add(displayName);
+          
+          // If player has a nickname, also add full_name to dropdown options
+          // (so editing works when form shows full_name)
+          if (player.nickname && player.nickname !== fullName) {
+            nameMapping.set(fullName, fullName);
+            playerNameSet.add(fullName);
+          }
+        });
+        
+        const leaguePlayerNames = Array.from(playerNameSet).sort((a, b) => a.localeCompare(b));
+        
+        setAllPlayerNames(leaguePlayerNames);
+        setPlayerNameToFullName(nameMapping);
+      } catch (err) {
+        console.error('Error loading league players:', err);
+        setAllPlayerNames([]);
+        setPlayerNameToFullName(new Map());
+      }
+    };
+    
+    loadLeaguePlayers();
+  }, [leagueId, members]);
+
+  // Load matches and active session on mount and when dependencies change
+  useEffect(() => {
+    if (leagueId && league && seasons.length > 0) {
+      loadLeagueMatches();
+      loadActiveSession();
+    }
+  }, [leagueId, league, seasons, loadLeagueMatches, loadActiveSession]);
+
+  const handleCreateSession = async () => {
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      // Convert YYYY-MM-DD to MM/DD/YYYY format
+      const [year, month, day] = dateStr.split('-');
+      const formattedDate = `${parseInt(month)}/${parseInt(day)}/${year}`;
+      
+      await createLeagueSession(leagueId, {
+        date: formattedDate,
+        name: undefined
+      });
+      showMessage?.('success', 'Session created successfully');
+      await loadActiveSession();
+      await loadLeagueMatches();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to create session');
+    }
+  };
+
+  const handleEndSession = async (sessionId) => {
+    try {
+      await lockInSession(sessionId);
+      showMessage?.('success', 'Scores submitted and stats recalculated!');
+      await loadActiveSession();
+      await loadLeagueMatches();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to submit scores');
+      throw err;
+    }
+  };
+
+  const handleDeleteSession = async (sessionId) => {
+    try {
+      await deleteSession(sessionId);
+      showMessage?.('success', 'Session deleted successfully');
+      await loadActiveSession();
+      await loadLeagueMatches();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to delete session');
+      throw err;
+    }
+  };
+
+  const handleCreateMatch = async (matchData) => {
+    try {
+      // Convert display names (nicknames) back to full_name for backend
+      const matchDataWithFullNames = {
+        ...matchData,
+        team1_player1: playerNameToFullName.get(matchData.team1_player1) || matchData.team1_player1,
+        team1_player2: playerNameToFullName.get(matchData.team1_player2) || matchData.team1_player2,
+        team2_player1: playerNameToFullName.get(matchData.team2_player1) || matchData.team2_player1,
+        team2_player2: playerNameToFullName.get(matchData.team2_player2) || matchData.team2_player2,
+      };
+      
+      await createMatch(matchDataWithFullNames);
+      showMessage?.('success', 'Match created successfully');
+      await loadLeagueMatches();
+      await loadActiveSession();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to create match');
+      throw err;
+    }
+  };
+
+  const handleUpdateMatch = async (matchId, matchData) => {
+    try {
+      // Convert display names (nicknames) back to full_name for backend
+      const matchDataWithFullNames = {
+        ...matchData,
+        team1_player1: playerNameToFullName.get(matchData.team1_player1) || matchData.team1_player1,
+        team1_player2: playerNameToFullName.get(matchData.team1_player2) || matchData.team1_player2,
+        team2_player1: playerNameToFullName.get(matchData.team2_player1) || matchData.team2_player1,
+        team2_player2: playerNameToFullName.get(matchData.team2_player2) || matchData.team2_player2,
+      };
+      
+      await updateMatch(matchId, matchDataWithFullNames);
+      showMessage?.('success', 'Match updated successfully');
+      await loadLeagueMatches();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to update match');
+      throw err;
+    }
+  };
+
+  const handleDeleteMatch = async (matchId) => {
+    try {
+      await deleteMatch(matchId);
+      showMessage?.('success', 'Match deleted successfully');
+      await loadLeagueMatches();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to delete match');
+      throw err;
+    }
+  };
+
+  const handleCreatePlayer = async (name) => {
+    try {
+      // This will be handled by AddMatchModal
+      const players = await getPlayers();
+      const player = players.find(p => (p.full_name || p.nickname || '').toLowerCase() === name.toLowerCase());
+      if (!player) {
+        throw new Error('Player creation not yet implemented for league context');
+      }
+      return player;
+    } catch (err) {
+      console.error('Error creating player:', err);
+      throw err;
+    }
+  };
+
+  return (
+    <div className="league-section">
+      <MatchesTable
+        matches={matches}
+        onPlayerClick={onPlayerClick}
+        loading={matchesLoading}
+        activeSession={activeSession}
+        onCreateSession={handleCreateSession}
+        onEndSession={handleEndSession}
+        onDeleteSession={handleDeleteSession}
+        onCreateMatch={handleCreateMatch}
+        onUpdateMatch={handleUpdateMatch}
+        onDeleteMatch={handleDeleteMatch}
+        onCreatePlayer={handleCreatePlayer}
+        allPlayerNames={allPlayerNames}
+        isLeagueMember={isLeagueMember}
+        leagueId={leagueId}
+      />
+    </div>
+  );
+}
+

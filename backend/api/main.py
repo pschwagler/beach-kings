@@ -17,9 +17,9 @@ from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
-from backend.database.migrate_db import migrate_db
 from backend.database.init_defaults import init_defaults
 from backend.services import data_service, sheets_service, calculation_service
+import asyncio
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -32,21 +32,19 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Beach Volleyball ELO API...")
     
-    # Run database migrations first (in order)
-    try:
-        migrate_db()
-    except Exception as e:
-        logger.error(f"Migration failed: {e}", exc_info=True)
-        # Don't raise - allow app to start even if migrations fail
-        # (useful for development, but you might want to raise in production)
-    
     # Initialize database (create tables if they don't exist)
-    db.init_database()
-    logger.info("Database initialized")
+    # Note: Alembic migrations should be run separately via CLI: alembic upgrade head
+    try:
+        await db.init_database()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
+        # Don't raise - allow app to start even if initialization fails
+        # (useful for development, but you might want to raise in production)
     
     # Initialize default values (settings, etc.)
     try:
-        init_defaults()
+        await init_defaults()
         logger.info("✓ Default values initialized")
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)

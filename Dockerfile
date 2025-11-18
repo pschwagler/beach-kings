@@ -1,7 +1,7 @@
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Install Node.js, bash, and Chromium dependencies for WhatsApp Web.js
+# Install Node.js, bash, Chromium dependencies for WhatsApp Web.js, and PostgreSQL client
 RUN apt-get update && apt-get install -y \
     curl \
     bash \
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     xdg-utils \
+    postgresql-client \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*

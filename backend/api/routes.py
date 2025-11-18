@@ -6,6 +6,10 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
 from slowapi.util import get_remote_address  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from backend.database.db import get_db_session
+from backend.database.models import Season
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -25,6 +29,7 @@ from backend.models.schemas import (
 import httpx
 import os
 import logging
+import traceback
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
@@ -48,18 +53,25 @@ INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(status_code=401, detail="Inva
 # League endpoints
 
 @router.post("/api/leagues", response_model=LeagueResponse)
-async def create_league(payload: LeagueCreate, user: dict = Depends(require_user)):
+async def create_league(
+    payload: LeagueCreate,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Create a new league. Any authenticated user can create.
     """
     try:
-        league = data_service.create_league(
+        league = await data_service.create_league(
+            session=session,
             name=payload.name,
             description=payload.description,
             location_id=payload.location_id,
             is_open=payload.is_open,
             whatsapp_group_id=payload.whatsapp_group_id,
-            creator_user_id=user["id"]
+            creator_user_id=user["id"],
+            gender=payload.gender,
+            level=payload.level
         )
         return league
     except HTTPException:
@@ -69,23 +81,23 @@ async def create_league(payload: LeagueCreate, user: dict = Depends(require_user
 
 
 @router.get("/api/leagues")
-async def list_leagues():
+async def list_leagues(session: AsyncSession = Depends(get_db_session)):
     """
     List leagues (public).
     """
     try:
-        return data_service.list_leagues()
+        return await data_service.list_leagues(session)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing leagues: {str(e)}")
 
 
 @router.get("/api/leagues/{league_id}", response_model=LeagueResponse)
-async def get_league(league_id: int):
+async def get_league(league_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get a league by id (public).
     """
     try:
-        league = data_service.get_league(league_id)
+        league = await data_service.get_league(session, league_id)
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
         return league
@@ -99,19 +111,23 @@ async def get_league(league_id: int):
 async def update_league(
     league_id: int,
     payload: LeagueCreate,
-    user: dict = Depends(make_require_league_admin())
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Update league profile fields (league_admin or system_admin).
     """
     try:
-        league = data_service.update_league(
+        league = await data_service.update_league(
+            session=session,
             league_id=league_id,
             name=payload.name,
             description=payload.description,
             location_id=payload.location_id,
             is_open=payload.is_open,
-            whatsapp_group_id=payload.whatsapp_group_id
+            whatsapp_group_id=payload.whatsapp_group_id,
+            gender=payload.gender,
+            level=payload.level
         )
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
@@ -125,13 +141,14 @@ async def update_league(
 @router.delete("/api/leagues/{league_id}")
 async def delete_league(
     league_id: int,
-    user: dict = Depends(require_system_admin)
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Archive/delete a league (system_admin).
     """
     try:
-        success = data_service.delete_league(league_id)
+        success = await data_service.delete_league(session, league_id)
         if not success:
             raise HTTPException(status_code=404, detail="League not found")
         return {"success": True, "message": "League deleted"}
@@ -147,7 +164,8 @@ async def delete_league(
 async def create_season(
     league_id: int,
     request: Request,
-    user: dict = Depends(make_require_league_admin())
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Create a season in a league (league_admin or system_admin).
@@ -155,7 +173,8 @@ async def create_season(
     """
     try:
         body = await request.json()
-        season = data_service.create_season(
+        season = await data_service.create_season(
+            session=session,
             league_id=league_id,
             name=body.get("name"),
             start_date=body["start_date"],
@@ -173,19 +192,23 @@ async def create_season(
 
 
 @router.get("/api/leagues/{league_id}/seasons")
-async def list_seasons(league_id: int, user: dict = Depends(make_require_league_member())):
+async def list_seasons(
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session)
+):
     """List seasons for a league (league_member)."""
     try:
-        return data_service.list_seasons(league_id)
+        return await data_service.list_seasons(session, league_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing seasons: {str(e)}")
 
 
 @router.get("/api/seasons/{season_id}")
-async def get_season(season_id: int):
+async def get_season(season_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get a season (public)."""
     try:
-        season = data_service.get_season(season_id)
+        season = await data_service.get_season(session, season_id)
         if not season:
             raise HTTPException(status_code=404, detail="Season not found")
         return season
@@ -199,7 +222,8 @@ async def get_season(season_id: int):
 async def update_season(
     season_id: int,
     request: Request,
-    user: dict = Depends(get_current_user)  # League admin check inside service based on season->league
+    user: dict = Depends(get_current_user),  # League admin check inside service based on season->league
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Update a season (league_admin or system_admin).
@@ -207,7 +231,8 @@ async def update_season(
     """
     try:
         body = await request.json()
-        season = data_service.update_season(
+        season = await data_service.update_season(
+            session,
             season_id=season_id,
             **body
         )
@@ -220,28 +245,65 @@ async def update_season(
         raise HTTPException(status_code=500, detail=f"Error updating season: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/seasons/{season_id}/activate")
-async def activate_season(
-    league_id: int,
+@router.patch("/api/seasons/{season_id}")
+async def update_season(
     season_id: int,
-    user: dict = Depends(make_require_league_admin())
+    request: Request,
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
 ):
-    """Activate a season (league_admin or system_admin)."""
+    """
+    Update a season (e.g., activate by setting is_active to true).
+    
+    Body: { "is_active": true } to activate a season
+    
+    Requires league_admin or system_admin permissions.
+    """
     try:
-        success = data_service.activate_season(league_id, season_id)
+        body = await request.json()
+        is_active = body.get("is_active")
+        
+        if is_active is None:
+            raise HTTPException(status_code=400, detail="is_active field is required")
+        
+        # Get season to check league_id for permission check
+        result = await session.execute(
+            select(Season).where(Season.id == season_id)
+        )
+        season = result.scalar_one_or_none()
+        if not season:
+            raise HTTPException(status_code=404, detail="Season not found")
+        
+        # Check permissions (league_admin or system_admin)
+        try:
+            # Try system admin first
+            await require_system_admin(user, session)
+        except HTTPException:
+            # If not system admin, check league admin
+            league_admin_check = make_require_league_admin()
+            await league_admin_check(season.league_id, user, session)
+        
+        success = await data_service.activate_season(session, season.league_id, season_id) if is_active else False
+        
         if not success:
             raise HTTPException(status_code=404, detail="League or season not found")
         return {"success": True}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error activating season: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating season: {str(e)}")
+
+
 
 @router.get("/api/leagues/{league_id}/members")
-async def list_league_members(league_id: int, user: dict = Depends(make_require_league_member())):
+async def list_league_members(
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session)
+):
     """List league members (league_member)."""
     try:
-        return data_service.list_league_members(league_id)
+        return await data_service.list_league_members(session, league_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing members: {str(e)}")
 
@@ -250,14 +312,15 @@ async def list_league_members(league_id: int, user: dict = Depends(make_require_
 async def add_league_member(
     league_id: int,
     request: Request,
-    user: dict = Depends(make_require_league_admin())
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """Add player to league with role (league_admin)."""
     try:
         body = await request.json()
         player_id = body["player_id"]
         role = body.get("role", "member")
-        member = data_service.add_league_member(league_id, player_id, role)
+        member = await data_service.add_league_member(session, league_id, player_id, role)
         return member
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
@@ -272,7 +335,8 @@ async def update_league_member(
     league_id: int,
     member_id: int,
     request: Request,
-    user: dict = Depends(make_require_league_admin())
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """Update league member role (league_admin)."""
     try:
@@ -280,7 +344,7 @@ async def update_league_member(
         role = body.get("role")
         if role not in ("admin", "member"):
             raise HTTPException(status_code=400, detail="Invalid role")
-        member = data_service.update_league_member(league_id, member_id, role)
+        member = await data_service.update_league_member(session, league_id, member_id, role)
         if not member:
             raise HTTPException(status_code=404, detail="Member not found")
         return member
@@ -294,11 +358,12 @@ async def update_league_member(
 async def remove_league_member(
     league_id: int,
     member_id: int,
-    user: dict = Depends(make_require_league_admin())
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """Remove league member (league_admin)."""
     try:
-        success = data_service.remove_league_member(league_id, member_id)
+        success = await data_service.remove_league_member(session, league_id, member_id)
         if not success:
             raise HTTPException(status_code=404, detail="Member not found")
         return {"success": True}
@@ -310,11 +375,16 @@ async def remove_league_member(
 # Location endpoints
 
 @router.post("/api/locations")
-async def create_location(request: Request, user: dict = Depends(require_system_admin)):
+async def create_location(
+    request: Request,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Create a location (system_admin)."""
     try:
         body = await request.json()
-        location = data_service.create_location(
+        location = await data_service.create_location(
+            session=session,
             name=body["name"],
             city=body.get("city"),
             state=body.get("state"),
@@ -330,20 +400,26 @@ async def create_location(request: Request, user: dict = Depends(require_system_
 
 
 @router.get("/api/locations")
-async def list_locations():
+async def list_locations(session: AsyncSession = Depends(get_db_session)):
     """List locations (public)."""
     try:
-        return data_service.list_locations()
+        return await data_service.list_locations(session)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing locations: {str(e)}")
 
 
 @router.put("/api/locations/{location_id}")
-async def update_location(location_id: int, request: Request, user: dict = Depends(require_system_admin)):
+async def update_location(
+    location_id: int,
+    request: Request,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Update a location (system_admin)."""
     try:
         body = await request.json()
-        location = data_service.update_location(
+        location = await data_service.update_location(
+            session=session,
             location_id=location_id,
             name=body.get("name"),
             city=body.get("city"),
@@ -360,10 +436,14 @@ async def update_location(location_id: int, request: Request, user: dict = Depen
 
 
 @router.delete("/api/locations/{location_id}")
-async def delete_location(location_id: int, user: dict = Depends(require_system_admin)):
+async def delete_location(
+    location_id: int,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Delete a location (system_admin)."""
     try:
-        success = data_service.delete_location(location_id)
+        success = await data_service.delete_location(session, location_id)
         if not success:
             raise HTTPException(status_code=404, detail="Location not found")
         return {"success": True}
@@ -375,11 +455,16 @@ async def delete_location(location_id: int, user: dict = Depends(require_system_
 # Court endpoints
 
 @router.post("/api/courts")
-async def create_court(request: Request, user: dict = Depends(require_system_admin)):
+async def create_court(
+    request: Request,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Create a court (system_admin)."""
     try:
         body = await request.json()
-        court = data_service.create_court(
+        court = await data_service.create_court(
+            session=session,
             name=body["name"],
             address=body.get("address"),
             location_id=body["location_id"],
@@ -395,20 +480,29 @@ async def create_court(request: Request, user: dict = Depends(require_system_adm
 
 
 @router.get("/api/courts")
-async def list_courts(location_id: Optional[int] = None):
+async def list_courts(
+    location_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_db_session)
+):
     """List courts, optionally filtered by location (public)."""
     try:
-        return data_service.list_courts(location_id)
+        return await data_service.list_courts(session, location_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing courts: {str(e)}")
 
 
 @router.put("/api/courts/{court_id}")
-async def update_court(court_id: int, request: Request, user: dict = Depends(require_system_admin)):
+async def update_court(
+    court_id: int,
+    request: Request,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Update a court (system_admin)."""
     try:
         body = await request.json()
-        court = data_service.update_court(
+        court = await data_service.update_court(
+            session=session,
             court_id=court_id,
             name=body.get("name"),
             address=body.get("address"),
@@ -425,10 +519,14 @@ async def update_court(court_id: int, request: Request, user: dict = Depends(req
 
 
 @router.delete("/api/courts/{court_id}")
-async def delete_court(court_id: int, user: dict = Depends(require_system_admin)):
+async def delete_court(
+    court_id: int,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Delete a court (system_admin)."""
     try:
-        success = data_service.delete_court(court_id)
+        success = await data_service.delete_court(session, court_id)
         if not success:
             raise HTTPException(status_code=404, detail="Court not found")
         return {"success": True}
@@ -500,40 +598,38 @@ async def proxy_whatsapp_request(
 @router.post("/api/loadsheets")
 async def load_sheets(current_user: dict = Depends(get_current_user)):
     """
-    Load matches from Google Sheets into database and calculate statistics.
-    Creates one locked-in session per unique date from sheet data.
+    DISABLED: This endpoint has been disabled.
     
-    Returns:
-        dict: Status and summary of calculations
+    TODO: Re-implement to be season-specific and add proper validations.
+    This endpoint should:
+    - Accept a season_id parameter
+    - Only load/import matches for the specified season
+    - Add proper data validation
+    - Handle errors gracefully
     """
-    try:
-        # Load matches from Google Sheets
-        match_list = sheets_service.load_matches_from_sheets()
-        
-        # Flush and repopulate database, then calculate stats
-        result = data_service.flush_and_repopulate(None, match_list)
-        
-        return {
-            "status": "success",
-            "message": "Statistics calculated and saved successfully",
-            "player_count": result["player_count"],
-            "match_count": result["match_count"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading sheets: {str(e)}")
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            "This endpoint has been disabled. "
+            "It needs to be re-implemented to be season-specific with proper validations. "
+            "The function should only load matches for a specific season, not all data."
+        )
+    )
 
 
 @router.post("/api/calculate")
-async def calculate_stats(current_user: dict = Depends(get_current_user)):
+async def calculate_stats(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
-    Recalculate statistics from existing database matches (locked-in sessions only).
-    Does not load from Google Sheets - use /api/loadsheets for that.
+    Recalculate all statistics from existing database matches (finalized sessions only).
     
     Returns:
         dict: Status and summary of calculations
     """
     try:
-        result = data_service.calculate_stats()
+        result = await data_service.recalculate_all_stats(session)
         
         return {
             "status": "success",
@@ -545,16 +641,21 @@ async def calculate_stats(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Error calculating stats: {str(e)}")
 
 
-@router.get("/api/rankings")
-async def get_rankings():
+@router.post("/api/rankings")
+async def query_rankings(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
-    Get current player rankings.
+    Query rankings with filters (e.g., by season_id).
+    Body: RankingsQueryRequest
     
     Returns:
         list: Array of player rankings with stats
     """
     try:
-        rankings = data_service.get_rankings()
+        body = await request.json()
+        rankings = await data_service.get_rankings(session, body)
         if not rankings:
             raise HTTPException(
                 status_code=404,
@@ -568,7 +669,7 @@ async def get_rankings():
 
 
 @router.get("/api/players")
-async def list_players():
+async def list_players(session: AsyncSession = Depends(get_db_session)):
     """
     Get list of all players.
     
@@ -577,7 +678,7 @@ async def list_players():
     """
     try:
         # Get all unique player names from database (not just from rankings)
-        players = data_service.get_all_player_names()
+        players = await data_service.get_all_player_names(session)
         return [{"name": name} for name in players]
     except Exception as e:
         raise HTTPException(
@@ -587,7 +688,11 @@ async def list_players():
 
 
 @router.post("/api/players")
-async def create_player(request: Request, current_user: dict = Depends(get_current_user)):
+async def create_player(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Create a new player.
     
@@ -606,7 +711,7 @@ async def create_player(request: Request, current_user: dict = Depends(get_curre
         if not name:
             raise HTTPException(status_code=400, detail="Player name is required")
         
-        player_id = data_service.get_or_create_player(name)
+        player_id = await data_service.get_or_create_player(session, name)
         
         return {
             "status": "success",
@@ -621,7 +726,10 @@ async def create_player(request: Request, current_user: dict = Depends(get_curre
 
 
 @router.get("/api/players/{player_name}")
-async def get_player_stats(player_name: str):
+async def get_player_stats(
+    player_name: str,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Get detailed statistics for a specific player.
     
@@ -632,7 +740,7 @@ async def get_player_stats(player_name: str):
         list: Array of player stats including partnerships and opponents
     """
     try:
-        player_stats = data_service.get_player_stats(player_name)
+        player_stats = await data_service.get_player_stats(session, player_name)
         
         if player_stats is None:
             raise HTTPException(
@@ -648,7 +756,7 @@ async def get_player_stats(player_name: str):
 
 
 @router.get("/api/elo-timeline")
-async def get_elo_timeline():
+async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
     """
     Get ELO timeline data for all players.
     Useful for creating charts/graphs of ELO changes over time.
@@ -657,7 +765,7 @@ async def get_elo_timeline():
         list: Array of date/ELO data points for each player
     """
     try:
-        timeline = data_service.get_elo_timeline()
+        timeline = await data_service.get_elo_timeline(session)
         if not timeline:
             raise HTTPException(
                 status_code=404,
@@ -670,51 +778,38 @@ async def get_elo_timeline():
         raise HTTPException(status_code=500, detail=f"Error loading ELO timeline: {str(e)}")
 
 
-@router.get("/api/matches")
-async def get_matches():
+@router.post("/api/matches/search")
+async def search_matches(
+    request: Request,
+    user: Optional[dict] = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
-    Get all matches with results.
+    Search matches with filters.
+    Body: MatchesQueryRequest
     
     Returns:
-        list: Array of all matches sorted by date (most recent first)
-    """
-    try:
-        matches = data_service.get_matches()
-        if not matches:
-            raise HTTPException(
-                status_code=404,
-                detail="Matches not found. Please run /api/calculate first."
-            )
-        return matches
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading matches: {str(e)}")
-
-@router.post("/api/matches/query")
-async def query_matches(request: Request, user: Optional[dict] = Depends(get_current_user_optional)):
-    """
-    Query matches with a request body (preferred over GET with query params).
-    Body: MatchesQueryRequest
+        list: Array of matches matching the query criteria
     """
     try:
         body = await request.json()
-        results = data_service.query_matches(body, user)
+        results = await data_service.query_matches(session, body, user)
         return results
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error querying matches: {str(e)}")
+        error_detail = f"Error searching matches: {str(e)}\n{traceback.format_exc()}"
+        raise HTTPException(status_code=500, detail=error_detail)
 
 @router.get("/api/matches/export")
-async def export_matches():
+async def export_matches(session: AsyncSession = Depends(get_db_session)):
     """
     Export all matches to CSV format (Google Sheets compatible).
     
     Returns CSV file with headers: DATE, T1P1, T1P2, T2P1, T2P2, T1SCORE, T2SCORE
     """
     try:
-        csv_content = data_service.export_matches_to_csv()
+        csv_content = await data_service.export_matches_to_csv(session)
         return Response(
             content=csv_content,
             media_type="text/csv",
@@ -727,7 +822,10 @@ async def export_matches():
 
 
 @router.get("/api/players/{player_name}/matches")
-async def get_player_match_history(player_name: str):
+async def get_player_match_history(
+    player_name: str,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Get match history for a specific player.
     
@@ -738,7 +836,7 @@ async def get_player_match_history(player_name: str):
         list: Array of player's matches (most recent first, may be empty)
     """
     try:
-        match_history = data_service.get_player_match_history(player_name)
+        match_history = await data_service.get_player_match_history(session, player_name)
         
         if match_history is None:
             raise HTTPException(
@@ -755,7 +853,7 @@ async def get_player_match_history(player_name: str):
 
 
 @router.get("/api/health")
-async def health_check():
+async def health_check(session: AsyncSession = Depends(get_db_session)):
     """
     Health check endpoint.
     
@@ -763,12 +861,9 @@ async def health_check():
         dict: Service status
     """
     try:
-        data_available = not data_service.is_database_empty()
-        
         return {
             "status": "healthy",
-            "data_available": data_available,
-            "message": "API is running" if data_available else "No data yet. Run /api/calculate to generate statistics."
+            "message": "API is running"
         }
     except Exception as e:
         return {
@@ -855,7 +950,10 @@ async def whatsapp_send(request: Request, current_user: dict = Depends(get_curre
 
 
 @router.get("/api/whatsapp/config")
-async def get_whatsapp_config(current_user: dict = Depends(get_current_user)):
+async def get_whatsapp_config(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Get WhatsApp configuration (selected group for automated messages).
     
@@ -863,7 +961,7 @@ async def get_whatsapp_config(current_user: dict = Depends(get_current_user)):
         dict: Configuration including group_id
     """
     try:
-        group_id = data_service.get_setting('whatsapp_group_id')
+        group_id = await data_service.get_setting(session, 'whatsapp_group_id')
         return {
             "success": True,
             "group_id": group_id,
@@ -873,7 +971,11 @@ async def get_whatsapp_config(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/api/whatsapp/config")
-async def set_whatsapp_config(request: Request, current_user: dict = Depends(get_current_user)):
+async def set_whatsapp_config(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Set WhatsApp configuration (selected group for automated messages).
     
@@ -892,7 +994,7 @@ async def set_whatsapp_config(request: Request, current_user: dict = Depends(get
         if not group_id:
             raise HTTPException(status_code=400, detail="group_id is required")
         
-        data_service.set_setting('whatsapp_group_id', group_id)
+        await data_service.set_setting(session, 'whatsapp_group_id', group_id)
         
         return {
             "success": True,
@@ -907,23 +1009,32 @@ async def set_whatsapp_config(request: Request, current_user: dict = Depends(get
 # Settings endpoints (scoped keys)
 
 @router.get("/api/settings/{key}")
-async def get_setting_value(key: str, user: dict = Depends(require_system_admin)):
+async def get_setting_value(
+    key: str,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Get a setting value (system_admin)."""
     try:
-        value = data_service.get_setting(key)
+        value = await data_service.get_setting(session, key)
         return {"key": key, "value": value}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting setting: {str(e)}")
 
 
 @router.put("/api/settings/{key}")
-async def set_setting_value(key: str, request: Request, user: dict = Depends(require_system_admin)):
+async def set_setting_value(
+    key: str,
+    request: Request,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session)
+):
     """Set a setting value (system_admin)."""
     try:
         body = await request.json()
         if "value" not in body:
             raise HTTPException(status_code=400, detail="value is required")
-        data_service.set_setting(key, str(body["value"]))
+        await data_service.set_setting(session, key, str(body["value"]))
         return {"success": True}
     except HTTPException:
         raise
@@ -933,37 +1044,39 @@ async def set_setting_value(key: str, request: Request, user: dict = Depends(req
 # Session management endpoints
 
 @router.get("/api/sessions")
-async def get_sessions():
+async def get_sessions(
+    active: Optional[bool] = None,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
-    Get all sessions.
+    Get sessions.
+    
+    Query params:
+        active: If true, returns only the active session. If false or omitted, returns all sessions.
     
     Returns:
-        list: Array of all sessions (most recent first)
+        list or dict: Array of sessions (most recent first) or active session dict if active=true
     """
     try:
-        sessions = data_service.get_sessions()
-        return sessions
+        if active is True:
+            # Return active session (single object or null)
+            active_session = await data_service.get_active_session(session)
+            return active_session
+        else:
+            # Return all sessions
+            sessions = await data_service.get_sessions(session)
+            return sessions
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading sessions: {str(e)}")
 
 
-@router.get("/api/sessions/active")
-async def get_active_session():
-    """
-    Get the currently active session, if any.
-    
-    Returns:
-        dict: Active session or null
-    """
-    try:
-        session = data_service.get_active_session()
-        return session
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading active session: {str(e)}")
-
-
 @router.post("/api/leagues/{league_id}/sessions")
-async def create_league_session(league_id: int, request: Request, user: dict = Depends(make_require_league_admin())):
+async def create_league_session(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Create a new pending session for a league (league_admin).
     Body: { date?: 'MM/DD/YYYY', name?: string }
@@ -972,15 +1085,24 @@ async def create_league_session(league_id: int, request: Request, user: dict = D
         body = await request.json()
         date = body.get("date") or datetime.now().strftime('%-m/%-d/%Y')
         name = body.get("name")
-        session = data_service.create_league_session(league_id=league_id, date=date, name=name)
-        return {"status": "success", "message": "Session created", "session": session}
+        new_session = await data_service.create_league_session(
+            session=session,
+            league_id=league_id,
+            date=date,
+            name=name
+        )
+        return {"status": "success", "message": "Session created", "session": new_session}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating league session: {str(e)}")
 
 @router.post("/api/sessions")
-async def create_session(request: Request, current_user: dict = Depends(get_current_user)):
+async def create_session(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Create a new session.
     
@@ -1000,12 +1122,12 @@ async def create_session(request: Request, current_user: dict = Depends(get_curr
         if not date:
             date = datetime.now().strftime('%-m/%-d/%Y')
         
-        session = data_service.create_session(date)
+        new_session = await data_service.create_session(session, date)
         
         return {
             "status": "success",
             "message": "Session created successfully",
-            "session": session
+            "session": new_session
         }
     except ValueError as e:
         # Handle duplicate active session error
@@ -1014,53 +1136,66 @@ async def create_session(request: Request, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
 
 
-@router.post("/api/sessions/{session_id}/lockin")
-async def lock_in_session_endpoint(session_id: int, current_user: dict = Depends(get_current_user)):
+@router.patch("/api/sessions/{session_id}")
+async def update_session(
+    session_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
-    Lock in a session and recalculate all statistics.
+    Update a session (e.g., lock in by setting is_pending to false).
+    
+    Body: { "is_pending": false } to lock in a session
     
     When a session is locked in:
-    1. Session is marked as complete (is_pending = 0)
+    1. Session is marked as complete (is_pending = false)
     2. All derived stats recalculated from database (locked-in sessions only)
     3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
     
     Args:
-        session_id: ID of session to lock in
+        session_id: ID of session to update
     
     Returns:
         dict: Status message with calculation summary
     """
     try:
-        success = data_service.lock_in_session(session_id)
+        body = await request.json()
+        is_pending = body.get("is_pending")
         
-        if not success:
-            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        if is_pending is None:
+            raise HTTPException(status_code=400, detail="is_pending field is required")
         
-        # Auto-recalculate all stats from locked-in sessions
-        result = data_service.calculate_stats()
-        
-        return {
-            "status": "success",
-            "message": f"Session submitted and stats recalculated",
-            "player_count": result["player_count"],
-            "match_count": result["match_count"]
-        }
+        # If locking in the session (is_pending = false)
+        if is_pending is False:
+            success = await data_service.lock_in_session(session, session_id)
+            
+            if not success:
+                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            
+            # Auto-recalculate all stats from locked-in sessions
+            result = await data_service.recalculate_all_stats(session)
+            
+            return {
+                "status": "success",
+                "message": f"Session submitted and stats recalculated",
+                "player_count": result["player_count"],
+                "match_count": result["match_count"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Only setting is_pending to false is currently supported")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error locking in session: {str(e)}")
-
-
-@router.post("/api/sessions/{session_id}/end")
-async def end_session(session_id: int, current_user: dict = Depends(get_current_user)):
-    """
-    Legacy endpoint - calls lockin for backwards compatibility.
-    """
-    return await lock_in_session_endpoint(session_id)
+        raise HTTPException(status_code=500, detail=f"Error updating session: {str(e)}")
 
 
 @router.delete("/api/sessions/{session_id}")
-async def delete_session(session_id: int, current_user: dict = Depends(get_current_user)):
+async def delete_session(
+    session_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Delete an active session and all its matches.
     Only active (pending) sessions can be deleted.
@@ -1073,7 +1208,7 @@ async def delete_session(session_id: int, current_user: dict = Depends(get_curre
     """
     try:
         # Delete the session (and all its matches)
-        success = data_service.delete_session(session_id)
+        success = await data_service.delete_session(session, session_id)
         
         if not success:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1092,8 +1227,12 @@ async def delete_session(session_id: int, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
 
 
-@router.post("/api/matches/create")
-async def create_match(request: Request, current_user: dict = Depends(get_current_user)):
+@router.post("/api/matches")
+async def create_match(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Create a new match in a session.
     
@@ -1132,17 +1271,18 @@ async def create_match(request: Request, current_user: dict = Depends(get_curren
             raise HTTPException(status_code=400, detail="All four players must be distinct")
         
         # Get session to verify it exists and is pending
-        session = data_service.get_session(body['session_id'])
-        if not session:
+        session_obj = await data_service.get_session(session, body['session_id'])
+        if not session_obj:
             raise HTTPException(status_code=404, detail=f"Session {body['session_id']} not found")
         
-        if not session['is_active']:  # is_active still used in dict for API compatibility
+        if not session_obj.get('is_pending', True):  # Check if session is pending
             raise HTTPException(status_code=400, detail="Cannot add matches to a submitted session")
         
         # Create the match using the session's date
-        match_id = data_service.create_match(
+        match_id = await data_service.create_match_async(
+            session=session,
             session_id=body['session_id'],
-            date=session['date'],
+            date=session_obj['date'],
             team1_player1=body['team1_player1'],
             team1_player2=body['team1_player2'],
             team2_player1=body['team2_player1'],
@@ -1165,7 +1305,12 @@ async def create_match(request: Request, current_user: dict = Depends(get_curren
 
 
 @router.put("/api/matches/{match_id}")
-async def update_match(match_id: int, request: Request, current_user: dict = Depends(get_current_user)):
+async def update_match(
+    match_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Update an existing match.
     
@@ -1206,15 +1351,16 @@ async def update_match(match_id: int, request: Request, current_user: dict = Dep
             raise HTTPException(status_code=400, detail="All four players must be distinct")
         
         # Get match to verify it exists and belongs to active session
-        match = data_service.get_match(match_id)
+        match = await data_service.get_match_async(session, match_id)
         if not match:
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
-        if match['session_active'] is False:
+        if match.get('session_active') is False:
             raise HTTPException(status_code=400, detail="Cannot edit matches in a submitted session")
         
         # Update the match
-        success = data_service.update_match(
+        success = await data_service.update_match_async(
+            session=session,
             match_id=match_id,
             team1_player1=body['team1_player1'],
             team1_player2=body['team1_player2'],
@@ -1240,7 +1386,11 @@ async def update_match(match_id: int, request: Request, current_user: dict = Dep
 
 
 @router.delete("/api/matches/{match_id}")
-async def delete_match(match_id: int, current_user: dict = Depends(get_current_user)):
+async def delete_match(
+    match_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Delete a match.
     
@@ -1252,15 +1402,15 @@ async def delete_match(match_id: int, current_user: dict = Depends(get_current_u
     """
     try:
         # Get match to verify it exists and belongs to active session
-        match = data_service.get_match(match_id)
+        match = await data_service.get_match_async(session, match_id)
         if not match:
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
-        if match['session_active'] is False:
+        if match.get('session_active') is False:
             raise HTTPException(status_code=400, detail="Cannot delete matches in a submitted session")
         
         # Delete the match
-        success = data_service.delete_match(match_id)
+        success = await data_service.delete_match_async(session, match_id)
         
         if not success:
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
@@ -1279,7 +1429,7 @@ async def delete_match(match_id: int, current_user: dict = Depends(get_current_u
 # Authentication endpoints
 
 @router.post("/api/auth/signup", response_model=Dict[str, Any])
-async def signup(request: SignupRequest):
+async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Start signup process by storing signup data and sending verification code.
     Account is only created after phone verification.
@@ -1288,7 +1438,8 @@ async def signup(request: SignupRequest):
         {
             "phone_number": "+15551234567",
             "password": "user_password",  // Required
-            "name": "John Doe",  // Optional
+            "full_name": "John Doe",  // Required - used for player profile
+            "name": "John",  // Optional - user display name
             "email": "john@example.com"  // Optional
         }
     
@@ -1300,7 +1451,7 @@ async def signup(request: SignupRequest):
         phone_number = auth_service.normalize_phone_number(request.phone_number)
         
         # Check if user already exists
-        if user_service.check_phone_exists(phone_number, verified_only=True):
+        if await user_service.check_phone_exists(session, phone_number):
             raise HTTPException(
                 status_code=400,
                 detail="Phone number is already registered"
@@ -1318,6 +1469,13 @@ async def signup(request: SignupRequest):
                 detail="Password must include at least one number"
             )
         
+        # Validate full_name (required)
+        if not request.full_name or not request.full_name.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Full name is required"
+            )
+        
         # Normalize email if provided
         email = None
         if request.email:
@@ -1330,11 +1488,13 @@ async def signup(request: SignupRequest):
         code = auth_service.generate_verification_code()
         
         # Store verification code with signup data (account not created yet)
-        success = user_service.create_verification_code(
+        # Store full_name in the 'name' field of VerificationCode for player creation
+        success = await user_service.create_verification_code(
+            session=session,
             phone_number=phone_number,
             code=code,
             password_hash=password_hash,
-            name=request.name,
+            name=request.full_name.strip(),  # Store full_name in name field
             email=email
         )
         if not success:
@@ -1366,7 +1526,7 @@ async def signup(request: SignupRequest):
 
 
 @router.post("/api/auth/login", response_model=AuthResponse)
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Login with phone number or email and password.
     
@@ -1392,14 +1552,14 @@ async def login(request: LoginRequest):
             # Normalize phone number
             phone_number = auth_service.normalize_phone_number(request.phone_number)
             # Get verified user by phone
-            user = user_service.get_verified_user_by_phone(phone_number)
+            user = await user_service.get_user_by_phone(session, phone_number)
         
         # Handle email login
         elif request.email:
             # Normalize and validate email
             email = auth_service.normalize_email(request.email)
             # Get verified user by email
-            user = user_service.get_verified_user_by_email(email)
+            user = await user_service.get_user_by_email(session, email)
         
         # If user not found, return generic error (don't reveal if phone/email exists)
         if not user:
@@ -1426,7 +1586,7 @@ async def login(request: LoginRequest):
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
         expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
             access_token=access_token,
@@ -1447,7 +1607,7 @@ async def login(request: LoginRequest):
 
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
 @limiter.limit("3/hour")
-async def send_verification(request: Request, payload: CheckPhoneRequest):
+async def send_verification(request: Request, payload: CheckPhoneRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Send SMS verification code to phone number.
     
@@ -1467,7 +1627,11 @@ async def send_verification(request: Request, payload: CheckPhoneRequest):
         code = auth_service.generate_verification_code()
         
         # Save code to database
-        success = user_service.create_verification_code(phone_number, code)
+        success = await user_service.create_verification_code(
+            session=session,
+            phone_number=phone_number,
+            code=code
+        )
         if not success:
             raise HTTPException(
                 status_code=500,
@@ -1495,7 +1659,7 @@ async def send_verification(request: Request, payload: CheckPhoneRequest):
 
 @router.post("/api/auth/verify-phone", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def verify_phone(request: Request, payload: VerifyPhoneRequest):
+async def verify_phone(request: Request, payload: VerifyPhoneRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Verify phone number with code (for signup).
     
@@ -1513,10 +1677,10 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
         # Verify the code and get signup data if present
-        signup_data = user_service.verify_and_mark_code_used(phone_number, payload.code)
+        signup_data = await user_service.verify_and_mark_code_used(session, phone_number, payload.code)
         if not signup_data:
             # Check if user exists (for SMS login case)
-            user = user_service.get_user_by_phone(phone_number, verified_only=True)
+            user = await user_service.get_user_by_phone(session, phone_number)
             if user:
                 # Account is locked check for existing users
                 if user_service.is_account_locked(user):
@@ -1525,31 +1689,37 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
                         detail="Account is temporarily locked due to too many failed attempts. Please try again later."
                     )
                 # Increment failed attempts for existing user (uses phone_number internally)
-                user_service.increment_failed_attempts(phone_number)
+                await user_service.increment_failed_attempts(session, phone_number)
             raise INVALID_VERIFICATION_CODE_RESPONSE
         
         # Check if this is a signup (has password_hash) or SMS login (no password_hash)
         is_signup = signup_data.get("password_hash") is not None
         
         if is_signup:
-            # Create new user account from signup data
+            # Create new user account and player profile from signup data
+            # full_name is stored in signup_data["name"] (from SignupRequest.full_name)
             try:
-                user_id = user_service.create_user(
+                user_id = await user_service.create_user(
+                    session=session,
                     phone_number=phone_number,
                     password_hash=signup_data["password_hash"],
-                    name=signup_data.get("name"),
+                    name=None,  # User display name is optional
                     email=signup_data.get("email")
                 )
-                # Automatically create a basic player profile for the new user
-                # Do this after user creation to avoid database lock issues
-                try:
-                    data_service.create_player_for_user(user_id, full_name=' ')
-                except Exception as e:
-                    # Log error but don't fail user creation if player creation fails
-                    logger.error(f"Failed to create player profile for user {user_id}: {str(e)}")
+                
+                # Create player profile with full_name from signup
+                full_name = signup_data.get("name")  # full_name stored here
+                if full_name:
+                    player = await data_service.upsert_user_player(
+                        session=session,
+                        user_id=user_id,
+                        full_name=full_name
+                    )
+                    if not player:
+                        logger.error(f"Failed to create player profile for user {user_id}")
                 
                 # Get the newly created user
-                user = user_service.get_user_by_id(user_id)
+                user = await user_service.get_user_by_id(session, user_id)
             except ValueError as e:
                 # User already exists (race condition or duplicate signup)
                 raise HTTPException(
@@ -1558,7 +1728,7 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
                 )
         else:
             # SMS login - get existing user
-            user = user_service.get_user_by_phone(phone_number, verified_only=True)
+            user = await user_service.get_user_by_phone(session, phone_number)
             if not user:
                 raise INVALID_CREDENTIALS_RESPONSE
             # Check if account is locked
@@ -1569,7 +1739,7 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
                 )
         
         # Reset failed attempts on success
-        user_service.reset_failed_attempts(user["id"])
+        await user_service.reset_failed_attempts(session, user["id"])
         
         # Create access token
         token_data = {
@@ -1581,7 +1751,7 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
         expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
             access_token=access_token,
@@ -1601,7 +1771,7 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest):
 
 @router.post("/api/auth/reset-password", response_model=Dict[str, Any])
 @limiter.limit("3/hour")
-async def reset_password(request: Request, payload: ResetPasswordRequest):
+async def reset_password(request: Request, payload: ResetPasswordRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Initiate password reset by sending verification code.
     
@@ -1618,7 +1788,7 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
         # Check if user exists
-        user = user_service.get_user_by_phone(phone_number, verified_only=True)
+        user = await user_service.get_user_by_phone(session, phone_number)
         if not user:
             # Don't reveal if phone exists for security
             return {
@@ -1630,7 +1800,11 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
         code = auth_service.generate_verification_code()
         
         # Save code to database (without signup data, just for password reset)
-        success = user_service.create_verification_code(phone_number, code)
+        success = await user_service.create_verification_code(
+            session=session,
+            phone_number=phone_number,
+            code=code
+        )
         if not success:
             raise HTTPException(
                 status_code=500,
@@ -1658,7 +1832,7 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
 
 @router.post("/api/auth/reset-password-verify", response_model=Dict[str, Any])
 @limiter.limit("10/minute")
-async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRequest):
+async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Verify code for password reset and return a reset token.
     
@@ -1676,7 +1850,7 @@ async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRe
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
         # Get user
-        user = user_service.get_user_by_phone(phone_number, verified_only=True)
+        user = await user_service.get_user_by_phone(session, phone_number)
         if not user:
             raise INVALID_CREDENTIALS_RESPONSE
         
@@ -1688,21 +1862,21 @@ async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRe
             )
         
         # Verify the code (for password reset, code won't have signup data, but function still returns dict if valid)
-        code_result = user_service.verify_and_mark_code_used(phone_number, payload.code)
+        code_result = await user_service.verify_and_mark_code_used(session, phone_number, payload.code)
         if not code_result:
             # Increment failed attempts
-            user_service.increment_failed_attempts(phone_number)
+            await user_service.increment_failed_attempts(session, phone_number)
             raise INVALID_VERIFICATION_CODE_RESPONSE
         
         # Reset failed attempts on success
-        user_service.reset_failed_attempts(user["id"])
+        await user_service.reset_failed_attempts(session, user["id"])
         
         # Generate reset token
         reset_token = auth_service.generate_refresh_token()  # Reuse the same secure token generator
         expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
         
         # Store reset token
-        success = user_service.create_password_reset_token(user["id"], reset_token, expires_at)
+        success = await user_service.create_password_reset_token(session, user["id"], reset_token, expires_at)
         if not success:
             raise HTTPException(
                 status_code=500,
@@ -1722,7 +1896,11 @@ async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRe
 
 @router.post("/api/auth/reset-password-confirm", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def reset_password_confirm(request: Request, payload: ResetPasswordConfirmRequest):
+async def reset_password_confirm(
+    request: Request,
+    payload: ResetPasswordConfirmRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Confirm password reset with token and set new password.
     Automatically logs the user in after successful reset.
@@ -1750,7 +1928,7 @@ async def reset_password_confirm(request: Request, payload: ResetPasswordConfirm
             )
         
         # Verify and use the reset token
-        user_id = user_service.verify_and_use_password_reset_token(payload.reset_token)
+        user_id = await user_service.verify_and_use_password_reset_token(session, payload.reset_token)
         if not user_id:
             raise HTTPException(
                 status_code=401,
@@ -1758,7 +1936,7 @@ async def reset_password_confirm(request: Request, payload: ResetPasswordConfirm
             )
         
         # Get user to get phone number for token
-        user = user_service.get_user_by_id(user_id)
+        user = await user_service.get_user_by_id(session, user_id)
         if not user:
             raise HTTPException(
                 status_code=404,
@@ -1769,7 +1947,7 @@ async def reset_password_confirm(request: Request, payload: ResetPasswordConfirm
         new_password_hash = auth_service.hash_password(payload.new_password)
         
         # Update password
-        success = user_service.update_user_password(user_id, new_password_hash)
+        success = await user_service.update_user_password(session, user_id, new_password_hash)
         if not success:
             raise HTTPException(
                 status_code=500,
@@ -1786,7 +1964,7 @@ async def reset_password_confirm(request: Request, payload: ResetPasswordConfirm
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
         expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
             access_token=access_token,
@@ -1804,7 +1982,11 @@ async def reset_password_confirm(request: Request, payload: ResetPasswordConfirm
 
 @router.post("/api/auth/sms-login", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def sms_login(request: Request, payload: SMSLoginRequest):
+async def sms_login(
+    request: Request,
+    payload: SMSLoginRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Passwordless login with SMS verification code.
     
@@ -1820,9 +2002,7 @@ async def sms_login(request: Request, payload: SMSLoginRequest):
     try:
         # Normalize phone number
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
-        
-        # Get verified user
-        user = user_service.get_verified_user_by_phone(phone_number)
+        user = await user_service.get_user_by_phone(session, phone_number)
         if not user:
             raise INVALID_CREDENTIALS_RESPONSE
         
@@ -1834,13 +2014,13 @@ async def sms_login(request: Request, payload: SMSLoginRequest):
             )
         
         # Atomically verify code and mark as used
-        if not user_service.verify_and_mark_code_used(phone_number, payload.code):
+        if not await user_service.verify_and_mark_code_used(session, phone_number, payload.code):
             # Increment failed attempts
-            user_service.increment_failed_attempts(phone_number)
+            await user_service.increment_failed_attempts(session, phone_number)
             raise INVALID_VERIFICATION_CODE_RESPONSE
         
         # Reset failed attempts on success
-        user_service.reset_failed_attempts(user["id"])
+        await user_service.reset_failed_attempts(session, user["id"])
         
         # Create access token
         token_data = {
@@ -1852,7 +2032,7 @@ async def sms_login(request: Request, payload: SMSLoginRequest):
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
         expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
             access_token=access_token,
@@ -1869,7 +2049,10 @@ async def sms_login(request: Request, payload: SMSLoginRequest):
 
 
 @router.get("/api/auth/check-phone", response_model=CheckPhoneResponse)
-async def check_phone(phone_number: str):
+async def check_phone(
+    phone_number: str,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Check if phone number exists in the system.
     
@@ -1882,29 +2065,23 @@ async def check_phone(phone_number: str):
     try:
         # Normalize phone number
         normalized_phone = auth_service.normalize_phone_number(phone_number)
-        
-        # Check if verified user exists
-        verified_user = user_service.get_verified_user_by_phone(normalized_phone)
-        
-        if verified_user:
-            return CheckPhoneResponse(
-                exists=True,
-                is_verified=True
-            )
-        
+
         # Check if any user exists (including unverified)
-        user = user_service.get_user_by_phone(normalized_phone, verified_only=False)
+        user = await user_service.get_user_by_phone(session, normalized_phone)
         
         return CheckPhoneResponse(
             exists=user is not None,
-            is_verified=False
+            is_verified=user.get("is_verified", False)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking phone: {str(e)}")
 
 
 @router.post("/api/auth/refresh", response_model=RefreshTokenResponse)
-async def refresh_token(request: RefreshTokenRequest):
+async def refresh_token(
+    request: RefreshTokenRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Refresh access token using refresh token.
     
@@ -1918,7 +2095,7 @@ async def refresh_token(request: RefreshTokenRequest):
     """
     try:
         # Get refresh token from database
-        refresh_token_record = user_service.get_refresh_token(request.refresh_token)
+        refresh_token_record = await user_service.get_refresh_token(session, request.refresh_token)
         if not refresh_token_record:
             raise HTTPException(
                 status_code=401,
@@ -1929,14 +2106,14 @@ async def refresh_token(request: RefreshTokenRequest):
         expires_at = datetime.fromisoformat(refresh_token_record["expires_at"])
         if datetime.utcnow() > expires_at:
             # Delete expired token
-            user_service.delete_refresh_token(request.refresh_token)
+            await user_service.delete_refresh_token(session, request.refresh_token)
             raise HTTPException(
                 status_code=401,
                 detail="Refresh token has expired"
             )
         
         # Get user
-        user = user_service.get_user_by_id(refresh_token_record["user_id"])
+        user = await user_service.get_user_by_id(session, refresh_token_record["user_id"])
         if not user:
             raise HTTPException(
                 status_code=401,
@@ -1960,6 +2137,27 @@ async def refresh_token(request: RefreshTokenRequest):
         raise HTTPException(status_code=500, detail=f"Error refreshing token: {str(e)}")
 
 
+@router.post("/api/auth/logout")
+async def logout(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Logout the current user by invalidating all refresh tokens.
+    
+    Requires authentication via Bearer token.
+    
+    Returns:
+        dict: Success message
+    """
+    try:
+        # Delete all refresh tokens for this user
+        await user_service.delete_user_refresh_tokens(session, current_user["id"])
+        return {"status": "success", "message": "Logged out successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+
+
 @router.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """
@@ -1981,7 +2179,10 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/api/users/me/player")
-async def get_current_user_player(current_user: dict = Depends(get_current_user)):
+async def get_current_user_player(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Get the current user's player profile.
     Requires authentication.
@@ -1990,7 +2191,7 @@ async def get_current_user_player(current_user: dict = Depends(get_current_user)
         Player profile with gender, level, etc., or null if user has no player profile
     """
     try:
-        player = data_service.get_player_by_user_id(current_user["id"])
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             return None
         # Return only the fields we need for the frontend
@@ -2014,15 +2215,17 @@ async def get_current_user_player(current_user: dict = Depends(get_current_user)
 @router.put("/api/users/me/player")
 async def update_current_user_player(
     payload: PlayerUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Update the current user's player profile.
+    Creates user and player if they don't exist (for signup flow).
     Requires authentication.
     
     Request body:
         {
-            "full_name": "John Doe",  // Optional
+            "full_name": "John Doe",  // Required for creating new player
             "nickname": "Johnny",     // Optional
             "gender": "male",         // Optional
             "level": "beginner",      // Optional
@@ -2033,7 +2236,15 @@ async def update_current_user_player(
         Updated player profile
     """
     try:
-        player = data_service.update_user_player(
+        # Check if user exists, if not create it from verification code
+        user = await user_service.get_user_by_id(session, current_user["id"])
+        if not user:
+            # This shouldn't happen if auth is working, but handle it
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update or create player profile
+        player = await data_service.upsert_user_player(
+            session=session,
             user_id=current_user["id"],
             full_name=payload.full_name,
             nickname=payload.nickname,
@@ -2044,8 +2255,8 @@ async def update_current_user_player(
         
         if not player:
             raise HTTPException(
-                status_code=404,
-                detail="Player profile not found. This should not happen after signup."
+                status_code=400,
+                detail="Failed to create/update player profile. full_name is required."
             )
         
         # Return formatted response
@@ -2068,13 +2279,16 @@ async def update_current_user_player(
 
 
 @router.get("/api/users/me/leagues")
-async def get_user_leagues(user: dict = Depends(get_current_user)):
+async def get_user_leagues(
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
     """
     Get all leagues that the current user is a member of.
     Requires authentication.
     """
     try:
-        return data_service.get_user_leagues(user["id"])
+        return await data_service.get_user_leagues(session, user["id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
 

@@ -7,6 +7,7 @@ import UserMenu from './navbar/UserMenu';
 export default function NavBar({
   isLoggedIn = false,
   user,
+  currentUserPlayer,
   onSignOut,
   onSignIn,
   onSignUp,
@@ -66,6 +67,7 @@ export default function NavBar({
           <UserMenu
             isLoggedIn={isLoggedIn}
             user={user}
+            currentUserPlayer={currentUserPlayer}
             onMenuClick={handleUserMenuClick}
             onSignIn={onSignIn}
             onSignUp={onSignUp}

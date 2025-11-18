@@ -1,5 +1,31 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, UserPlus } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+
+// Helper to check if an item is an object with value/label
+const isPlayerOption = (item) => {
+  return item && typeof item === 'object' && 'value' in item && 'label' in item;
+};
+
+// Helper to get display value from either string or object
+const getDisplayValue = (item) => {
+  if (!item) return '';
+  return isPlayerOption(item) ? item.label : item;
+};
+
+// Helper to get the value (ID) from either string or object
+const getValue = (item) => {
+  if (!item) return '';
+  return isPlayerOption(item) ? item.value : item;
+};
+
+// Helper to check if two items are equal
+const itemsEqual = (a, b) => {
+  if (!a || !b) return a === b;
+  if (isPlayerOption(a) && isPlayerOption(b)) {
+    return a.value === b.value;
+  }
+  return a === b;
+};
 
 export default function PlayerDropdown({ value, onChange, allPlayerNames, placeholder = "Select player", excludePlayers = [] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,18 +50,35 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredPlayers = allPlayerNames
-    ? allPlayerNames.filter(player => 
-        player.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !excludePlayers.includes(player)
-      )
+  // Normalize allPlayerNames to always be an array of objects with value/label
+  const normalizedPlayers = (Array.isArray(allPlayerNames) && allPlayerNames.length > 0)
+    ? allPlayerNames.map(player => {
+        if (isPlayerOption(player)) {
+          return player;
+        }
+        // Convert string to object format
+        return { value: player, label: player };
+      })
     : [];
 
-  const showCreateOption = searchTerm.trim() && 
-    !allPlayerNames.some(name => name.toLowerCase() === searchTerm.toLowerCase());
+  const filteredPlayers = normalizedPlayers.filter(player => {
+    const label = player.label.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = label.includes(searchLower);
+    
+    // Check if excluded (compare by value for objects, by string for legacy)
+    const isExcluded = excludePlayers.some(excluded => {
+      if (isPlayerOption(excluded)) {
+        return excluded.value === player.value;
+      }
+      return excluded === player.value || excluded === player.label;
+    });
+    
+    return matchesSearch && !isExcluded;
+  });
 
-  // Build the full options list (create option + filtered players)
-  const totalOptions = (showCreateOption ? 1 : 0) + filteredPlayers.length;
+  // Total options is just the filtered players
+  const totalOptions = filteredPlayers.length;
 
   // Auto-highlight first option when search term changes or dropdown opens
   useEffect(() => {
@@ -56,6 +99,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   }, [isOpen]);
 
   const handleSelect = (player) => {
+    // Always pass the full object (or string for backward compatibility)
     onChange(player);
     setIsOpen(false);
     setSearchTerm('');
@@ -64,22 +108,6 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     setTimeout(() => {
       triggerRef.current?.focus();
     }, 0);
-  };
-
-  const handleCreateNew = () => {
-    const newName = searchTerm.trim();
-    if (newName) {
-      // Just set the name - don't create in DB yet
-      // The parent component will handle creating the player when the form is submitted
-      onChange(newName);
-      setIsOpen(false);
-      setSearchTerm('');
-      setHighlightedIndex(-1);
-      // Return focus to trigger for continued tab navigation
-      setTimeout(() => {
-        triggerRef.current?.focus();
-      }, 0);
-    }
   };
 
   // Handle keyboard navigation
@@ -107,25 +135,16 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
         if (totalOptions === 0) return;
         
         // Select the highlighted option (first option is auto-highlighted)
-        if (showCreateOption && highlightedIndex === filteredPlayers.length) {
-          // Create new player option is highlighted
-          handleCreateNew();
-        } else if (highlightedIndex >= 0 && highlightedIndex < filteredPlayers.length) {
-          // A filtered player is highlighted
+        if (highlightedIndex >= 0 && highlightedIndex < filteredPlayers.length) {
           handleSelect(filteredPlayers[highlightedIndex]);
         }
         break;
       
       case 'Tab':
         // Select first option on Tab if options exist and user has typed something
-        // Prioritize existing players over creating new
         // Don't prevent default so Tab can still move to next field
-        if (totalOptions > 0 && searchTerm.trim()) {
-          if (filteredPlayers.length > 0) {
-            handleSelect(filteredPlayers[0]);
-          } else if (showCreateOption) {
-            handleCreateNew();
-          }
+        if (totalOptions > 0 && searchTerm.trim() && filteredPlayers.length > 0) {
+          handleSelect(filteredPlayers[0]);
         }
         break;
       
@@ -192,7 +211,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
         aria-haspopup="listbox"
       >
         <span className={value ? 'player-dropdown-value' : 'player-dropdown-placeholder'}>
-          {value || placeholder}
+          {value ? getDisplayValue(value) : placeholder}
         </span>
         <ChevronDown size={18} className={isOpen ? 'rotate-180' : ''} />
       </div>
@@ -203,7 +222,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
             ref={searchInputRef}
             type="text"
             className="player-dropdown-search"
-            placeholder="Search or type new name..."
+            placeholder="Search players..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -215,30 +234,18 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
             {filteredPlayers.length > 0 ? (
               filteredPlayers.map((player, index) => (
                 <div
-                  key={player}
+                  key={isPlayerOption(player) ? player.value : player}
                   ref={el => optionsRefs.current[index] = el}
-                  className={`player-dropdown-option ${player === value ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
+                  className={`player-dropdown-option ${itemsEqual(player, value) ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
                   onClick={() => handleSelect(player)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
-                  {player}
+                  {player.label}
                 </div>
               ))
-            ) : !showCreateOption ? (
+            ) : (
               <div className="player-dropdown-option disabled">
                 {searchTerm ? 'No players found' : 'No players available'}
-              </div>
-            ) : null}
-            
-            {showCreateOption && (
-              <div 
-                ref={el => optionsRefs.current[filteredPlayers.length] = el}
-                className={`player-dropdown-option create-new ${highlightedIndex === filteredPlayers.length ? 'highlighted' : ''}`}
-                onClick={handleCreateNew}
-                onMouseEnter={() => setHighlightedIndex(filteredPlayers.length)}
-              >
-                <UserPlus size={16} />
-                <span>Create "{searchTerm}"</span>
               </div>
             )}
           </div>
