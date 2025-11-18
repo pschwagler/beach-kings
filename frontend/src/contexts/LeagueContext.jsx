@@ -77,6 +77,12 @@ export const LeagueProvider = ({ children, leagueId }) => {
     setLeague(updatedLeague);
   }, []);
 
+  const updateMember = useCallback((memberId, updates) => {
+    setMembers(prev => prev.map(m => 
+      m.id === memberId ? { ...m, ...updates } : m
+    ));
+  }, []);
+
   const value = {
     league,
     seasons,
@@ -87,6 +93,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     refreshSeasons,
     refreshMembers,
     updateLeague,
+    updateMember,
   };
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;

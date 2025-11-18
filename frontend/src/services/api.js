@@ -262,6 +262,14 @@ export const lockInSession = async (sessionId) => {
 };
 
 /**
+ * Lock in a league session (update session to set is_pending to false)
+ */
+export const lockInLeagueSession = async (leagueId, sessionId) => {
+  const response = await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { is_pending: false });
+  return response.data;
+};
+
+/**
  * Delete a session
  */
 export const deleteSession = async (sessionId) => {
@@ -365,6 +373,24 @@ export const getUserLeagues = async () => {
 export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
   const response = await api.post(`/api/leagues/${leagueId}/members`, {
     player_id: playerId,
+    role
+  });
+  return response.data;
+};
+
+/**
+ * Remove a member from a league
+ */
+export const removeLeagueMember = async (leagueId, memberId) => {
+  const response = await api.delete(`/api/leagues/${leagueId}/members/${memberId}`);
+  return response.data;
+};
+
+/**
+ * Update a league member's role
+ */
+export const updateLeagueMember = async (leagueId, memberId, role) => {
+  const response = await api.put(`/api/leagues/${leagueId}/members/${memberId}`, {
     role
   });
   return response.data;

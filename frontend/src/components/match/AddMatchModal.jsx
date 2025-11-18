@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
@@ -11,8 +11,8 @@ const INITIAL_FORM_STATE = {
   team1Player2: '',
   team2Player1: '',
   team2Player2: '',
-  team1Score: '',
-  team2Score: ''
+  team1Score: '00',
+  team2Score: '00'
 };
 
 // Helper function to convert player name to player option (for editing)
@@ -26,19 +26,35 @@ const nameToPlayerOption = (name, nameToIdMap) => {
   return { value: name, label: name };
 };
 
+// Helper function to format score as 2-digit string
+const formatScore = (score) => {
+  if (!score && score !== 0) return '00';
+  const num = parseInt(score);
+  if (isNaN(num)) return '00';
+  // Clamp to 0-99 range
+  const clamped = Math.max(0, Math.min(99, num));
+  return clamped.toString().padStart(2, '0');
+};
+
 // Helper functions
 const mapEditMatchToFormData = (editMatch, nameToIdMap) => ({
   team1Player1: nameToPlayerOption(editMatch['Team 1 Player 1'] || '', nameToIdMap),
   team1Player2: nameToPlayerOption(editMatch['Team 1 Player 2'] || '', nameToIdMap),
   team2Player1: nameToPlayerOption(editMatch['Team 2 Player 1'] || '', nameToIdMap),
   team2Player2: nameToPlayerOption(editMatch['Team 2 Player 2'] || '', nameToIdMap),
-  team1Score: editMatch['Team 1 Score']?.toString() || '',
-  team2Score: editMatch['Team 2 Score']?.toString() || ''
+  team1Score: formatScore(editMatch['Team 1 Score']),
+  team2Score: formatScore(editMatch['Team 2 Score'])
 });
 
 const validateFormFields = (formData) => {
-  if (!formData.team1Player1 || !formData.team1Player2 || !formData.team2Player1 || !formData.team2Player2 || !formData.team1Score || !formData.team2Score) {
-    return { isValid: false, errorMessage: 'Please fill in all fields' };
+  if (!formData.team1Player1 || !formData.team1Player2 || !formData.team2Player1 || !formData.team2Player2) {
+    return { isValid: false, errorMessage: 'Please fill in all player fields' };
+  }
+  // Scores are always present (default to '00'), so we just need to validate they're valid numbers
+  const score1 = parseInt(formData.team1Score);
+  const score2 = parseInt(formData.team2Score);
+  if (isNaN(score1) || isNaN(score2)) {
+    return { isValid: false, errorMessage: 'Please enter valid scores' };
   }
   return { isValid: true, errorMessage: null };
 };
@@ -116,6 +132,26 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   // Handle any field change
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (formError) setFormError(null);
+  };
+
+  // Handle score change - ensure it's always 2 digits
+  const handleScoreChange = (field, value) => {
+    // Remove any non-numeric characters
+    const numericValue = value.replace(/\D/g, '');
+    
+    // Limit to 2 digits
+    let formattedValue = numericValue.slice(0, 2);
+    
+    // If empty, set to '00', otherwise pad with leading zero if needed
+    if (!formattedValue) {
+      formattedValue = '00';
+    } else {
+      formattedValue = formattedValue.padStart(2, '0');
+    }
+    
+    setFormData(prev => ({ ...prev, [field]: formattedValue }));
     // Clear error when user starts typing
     if (formError) setFormError(null);
   };
@@ -217,7 +253,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
         team2_player2: getPlayerName(formData.team2Player2),
         team1_score: scoresValidation.score1,
         team2_score: scoresValidation.score2
-      }, editMatch ? editMatch['Match ID'] : null);
+      }, editMatch ? editMatch.id : null);
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
@@ -242,7 +278,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
     
     setIsSubmitting(true);
     try {
-      await onDelete(editMatch['Match ID']);
+      await onDelete(editMatch.id);
       setShowDeleteConfirm(false);
       onClose();
     } catch (error) {
@@ -266,8 +302,8 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   };
 
   // Determine winner based on scores
-  const score1 = parseInt(formData.team1Score);
-  const score2 = parseInt(formData.team2Score);
+  const score1 = parseInt(formData.team1Score) || 0;
+  const score2 = parseInt(formData.team2Score) || 0;
   const hasValidScores = !isNaN(score1) && !isNaN(score2) && score1 >= 0 && score2 >= 0;
   const team1IsWinner = hasValidScores && score1 > score2;
   const team2IsWinner = hasValidScores && score2 > score1;
@@ -281,19 +317,6 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             <X size={20} />
           </Button>
         </div>
-
-        {editMatch && onDelete && (
-          <div className="delete-match-link">
-            <button 
-              type="button" 
-              onClick={handleDeleteClick} 
-              disabled={isSubmitting}
-              className="delete-match-text-btn"
-            >
-              Delete match
-            </button>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="add-match-form">
           {formError && (
@@ -312,7 +335,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             scoreField="team1Score"
             isWinner={team1IsWinner}
             onPlayerChange={handlePlayerChange}
-            onScoreChange={handleFieldChange}
+            onScoreChange={handleScoreChange}
             allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
           />
@@ -329,12 +352,22 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             scoreField="team2Score"
             isWinner={team2IsWinner}
             onPlayerChange={handlePlayerChange}
-            onScoreChange={handleFieldChange}
+            onScoreChange={handleScoreChange}
             allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
           />
 
           <div className="modal-actions">
+            {editMatch && onDelete && (
+              <button 
+                type="button" 
+                onClick={handleDeleteClick} 
+                disabled={isSubmitting}
+                className="delete-match-text-btn"
+              >
+                Delete match
+              </button>
+            )}
             <Button type="button" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
@@ -353,6 +386,135 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
         message="Are you sure you want to delete this match? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
+      />
+    </div>
+  );
+}
+
+// ScoreCard Input Component - Two separate digit inputs
+function ScoreCardInput({ value, onChange, teamNumber }) {
+  const formattedValue = formatScore(value);
+  const digit1 = formattedValue[0] || '0';
+  const digit2 = formattedValue[1] || '0';
+  
+  const isTeam1 = teamNumber === 1;
+  const bgColor = isTeam1 ? '#dc2626' : '#2563eb'; // red-600 : blue-600
+  
+  const input1Ref = useRef(null);
+  const input2Ref = useRef(null);
+  
+  const handleDigitChange = (position, inputValue) => {
+    // Remove non-numeric characters and get the last character (for paste support)
+    const numericValue = inputValue.replace(/\D/g, '');
+    const lastDigit = numericValue.slice(-1) || '0';
+    
+    if (position === 1) {
+      // First digit changed
+      const newValue = lastDigit + digit2;
+      onChange(newValue);
+      // Auto-advance to second digit if a number was entered
+      if (lastDigit !== '0' && numericValue.length > 0) {
+        setTimeout(() => {
+          input2Ref.current?.focus();
+        }, 10);
+      }
+    } else {
+      // Second digit changed
+      const newValue = digit1 + lastDigit;
+      onChange(newValue);
+    }
+  };
+  
+  const handleKeyDown = (e, position) => {
+    const keyCode = e.keyCode || e.which;
+    const key = e.key;
+    
+    // Handle arrow keys for navigation
+    if (keyCode === 37) { // Left arrow
+      e.preventDefault();
+      if (position === 2) {
+        e.target.previousSibling?.focus();
+      }
+      return;
+    } else if (keyCode === 39) { // Right arrow
+      e.preventDefault();
+      if (position === 1) {
+        e.target.nextSibling?.focus();
+      }
+      return;
+    }
+    
+    // Handle backspace - clear current digit and move left if at second position
+    if (keyCode === 8 || key === 'Backspace') {
+      e.preventDefault();
+      if (position === 2) {
+        handleDigitChange(2, '0');
+      } else if (position === 1) {
+        handleDigitChange(1, '0');
+      }
+      return;
+    }
+    
+    // Handle delete - clear current digit
+    if (keyCode === 46 || key === 'Delete') {
+      e.preventDefault();
+      handleDigitChange(position, '0');
+      return;
+    }
+    
+    // Allow tab, escape, enter
+    if ([9, 27, 13].indexOf(keyCode) !== -1) {
+      return;
+    }
+    
+    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+    if ((keyCode === 65 || keyCode === 67 || keyCode === 86 || keyCode === 88) && (e.ctrlKey || e.metaKey)) {
+      return;
+    }
+    
+    // Block non-numeric characters (numbers will be handled by onChange)
+    const isNumber = (keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105);
+    if (!isNumber) {
+      e.preventDefault();
+    }
+  };
+  
+  const handleFocus = (e) => {
+    // Select all text when focused for easy replacement
+    setTimeout(() => {
+      e.target.select();
+    }, 0);
+  };
+  
+  return (
+    <div className="scorecard-container">
+      <input
+        ref={input1Ref}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={1}
+        value={digit1}
+        onChange={(e) => handleDigitChange(1, e.target.value)}
+        onKeyDown={(e) => handleKeyDown(e, 1)}
+        onFocus={handleFocus}
+        className="scorecard-digit-input"
+        style={{ backgroundColor: bgColor }}
+        aria-label={`Team ${teamNumber} score first digit`}
+      />
+      <input
+        ref={input2Ref}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={1}
+        value={digit2}
+        onChange={(e) => handleDigitChange(2, e.target.value)}
+        onKeyDown={(e) => handleKeyDown(e, 2)}
+        onFocus={handleFocus}
+        className="scorecard-digit-input"
+        style={{ backgroundColor: bgColor }}
+        aria-label={`Team ${teamNumber} score second digit`}
       />
     </div>
   );
@@ -400,14 +562,10 @@ function TeamSection({
             excludePlayers={getExcludedPlayers(player2Value)}
           />
         </div>
-        <input
-          type="number"
-          min="0"
+        <ScoreCardInput
           value={scoreValue}
-          onChange={(e) => onScoreChange(scoreField, e.target.value)}
-          placeholder="0"
-          className="score-input"
-          required
+          onChange={(value) => onScoreChange(scoreField, value)}
+          teamNumber={teamNumber}
         />
       </div>
     </div>

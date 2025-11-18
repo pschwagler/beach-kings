@@ -8,10 +8,9 @@ import {
   updateMatch, 
   deleteMatch, 
   getActiveSession,
-  lockInSession,
+  lockInLeagueSession,
   deleteSession,
-  getPlayers,
-  createLeagueSession
+  getPlayers
 } from '../../services/api';
 
 export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage }) {
@@ -172,28 +171,15 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     }
   }, [leagueId, league, seasons, loadLeagueMatches, loadActiveSession]);
 
-  const handleCreateSession = async () => {
-    try {
-      const dateStr = new Date().toISOString().split('T')[0];
-      // Convert YYYY-MM-DD to MM/DD/YYYY format
-      const [year, month, day] = dateStr.split('-');
-      const formattedDate = `${parseInt(month)}/${parseInt(day)}/${year}`;
-      
-      await createLeagueSession(leagueId, {
-        date: formattedDate,
-        name: undefined
-      });
-      showMessage?.('success', 'Session created successfully');
-      await loadActiveSession();
-      await loadLeagueMatches();
-    } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create session');
-    }
+  const handleRefreshSession = async () => {
+    // Just refresh the session state without creating a new one
+    await loadActiveSession();
+    await loadLeagueMatches();
   };
 
   const handleEndSession = async (sessionId) => {
     try {
-      await lockInSession(sessionId);
+      await lockInLeagueSession(leagueId, sessionId);
       showMessage?.('success', 'Scores submitted and stats recalculated!');
       await loadActiveSession();
       await loadLeagueMatches();
@@ -289,7 +275,7 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         onPlayerClick={onPlayerClick}
         loading={matchesLoading}
         activeSession={activeSession}
-        onCreateSession={handleCreateSession}
+        onCreateSession={handleRefreshSession}
         onEndSession={handleEndSession}
         onDeleteSession={handleDeleteSession}
         onCreateMatch={handleCreateMatch}

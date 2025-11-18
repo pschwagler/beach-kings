@@ -144,7 +144,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
         // Select first option on Tab if options exist and user has typed something
         // Don't prevent default so Tab can still move to next field
         if (totalOptions > 0 && searchTerm.trim() && filteredPlayers.length > 0) {
-          handleSelect(filteredPlayers[0]);
+            handleSelect(filteredPlayers[0]);
         }
         break;
       

@@ -237,6 +237,18 @@ export default function MatchesTable({
         message="Are you sure you want to submit these scores? Once submitted, matches will be locked in and no edits will be allowed."
         confirmText="Submit Scores"
         cancelText="Cancel"
+        gameCount={activeSessionMatches.length}
+        playerCount={(() => {
+          const players = new Set();
+          activeSessionMatches.forEach(match => {
+            if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
+            if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
+            if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
+            if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
+          });
+          return players.size;
+        })()}
+        matches={activeSessionMatches}
       />
     </div>
   );

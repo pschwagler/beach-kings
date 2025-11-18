@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.database.db import get_db_session
-from backend.database.models import Season
+from backend.database.models import Season, Player
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -674,12 +674,24 @@ async def list_players(session: AsyncSession = Depends(get_db_session)):
     Get list of all players.
     
     Returns:
-        list: Array of player names
+        list: Array of player objects with id, full_name, nickname, etc.
     """
     try:
-        # Get all unique player names from database (not just from rankings)
-        players = await data_service.get_all_player_names(session)
-        return [{"name": name} for name in players]
+        # Get all players from database
+        result = await session.execute(select(Player))
+        players = result.scalars().all()
+        return [
+            {
+                "id": player.id,
+                "full_name": player.full_name,
+                "nickname": player.nickname,
+                "name": player.nickname or player.full_name,  # For backward compatibility
+                "gender": player.gender,
+                "level": player.level,
+                "user_id": player.user_id,
+            }
+            for player in players
+        ]
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -1096,6 +1108,54 @@ async def create_league_session(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating league session: {str(e)}")
+
+@router.patch("/api/leagues/{league_id}/sessions/{session_id}")
+async def end_league_session(
+    league_id: int,
+    session_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    End/lock in a league session by setting is_pending to false (league_admin).
+    
+    Body: { "is_pending": false } to lock in a session
+    
+    When a session is locked in:
+    1. Session is marked as complete (is_pending = false)
+    2. All derived stats recalculated from database (locked-in sessions only)
+    3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
+    """
+    try:
+        body = await request.json()
+        is_pending = body.get("is_pending")
+        
+        if is_pending is None:
+            raise HTTPException(status_code=400, detail="is_pending field is required")
+        
+        # If locking in the session (is_pending = false)
+        if is_pending is False:
+            success = await data_service.lock_in_session(session, session_id)
+            
+            if not success:
+                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            
+            # Auto-recalculate all stats from locked-in sessions
+            result = await data_service.recalculate_all_stats(session)
+            
+            return {
+                "status": "success",
+                "message": f"Session submitted and stats recalculated",
+                "player_count": result["player_count"],
+                "match_count": result["match_count"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Only setting is_pending to false is currently supported")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating league session: {str(e)}")
 
 @router.post("/api/sessions")
 async def create_session(

@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-backend-port
+.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-backend-port ensure-docker migrate
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -19,6 +19,22 @@ ensure-backend-port:
 		echo "✅ Port $(BACKEND_PORT) is free."; \
 	fi
 
+ensure-docker:
+	@echo "Checking Docker services..."
+	@if ! command -v docker-compose >/dev/null 2>&1 && ! command -v docker >/dev/null 2>&1; then \
+		echo "❌ Docker is not installed. Please install Docker to continue."; \
+		exit 1; \
+	fi
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "❌ Docker daemon is not running. Please start Docker and try again."; \
+		exit 1; \
+	fi
+	@echo "Starting PostgreSQL database..."
+	@docker-compose up -d postgres 2>/dev/null || docker compose up -d postgres 2>/dev/null || true
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@sleep 3
+	@echo "✅ Docker services ready!"
+
 help:
 	@echo "Beach Volleyball ELO - Available Commands:"
 	@echo ""
@@ -29,8 +45,9 @@ help:
 	@echo "  make watch             - Watch and rebuild frontend only"
 	@echo "  make build             - Build frontend for production"
 	@echo "  make start             - Build frontend + start backend"
-	@echo "  make clean             - Remove build artifacts and database"
+	@echo "  make clean             - Remove build artifacts and Docker containers/volumes"
 	@echo "  make clean-venv        - Remove Python virtual environment"
+	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
 	@echo "  make test              - Run tests"
 	@echo ""
 	@echo "WhatsApp Integration:"
@@ -84,7 +101,7 @@ whatsapp-install:
 	cd whatsapp-service && npm install
 	@echo "✅ WhatsApp service dependencies installed!"
 
-dev: ensure-backend-port
+dev: ensure-docker ensure-backend-port
 	@echo "🚀 Starting ALL services (backend + frontend + WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "🎨 Frontend: auto-rebuilding on file changes"
@@ -100,7 +117,7 @@ dev: ensure-backend-port
 	(cd frontend && npm run build -- --watch) & \
 	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
 
-dev-basic: ensure-backend-port
+dev-basic: ensure-docker ensure-backend-port
 	@echo "🚀 Starting backend + frontend watch (no WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "🎨 Frontend: auto-rebuilding on file changes"
@@ -111,7 +128,7 @@ dev-basic: ensure-backend-port
 	(cd frontend && npm run build -- --watch) & \
 	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
 
-dev-backend: ensure-backend-port
+dev-backend: ensure-docker ensure-backend-port
 	@echo "Starting backend only with auto-reload..."
 	@echo "Visit: http://localhost:8000"
 	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
@@ -127,13 +144,24 @@ build:
 	cd frontend && npm run build
 	@echo "✅ Frontend built!"
 
-start: ensure-backend-port build
+start: ensure-docker ensure-backend-port build
 	@echo "Starting production server..."
 	./venv/bin/uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
 
 clean:
 	@echo "Cleaning up..."
-	rm -rf backend/database/volleyball.db
+	@echo "Stopping and removing Docker containers and volumes..."
+	@docker-compose down -v 2>/dev/null || true
+	@if [ -n "$$(docker ps -a --filter 'name=beach-kings' --format '{{.ID}}' 2>/dev/null)" ]; then \
+		docker ps -a --filter "name=beach-kings" --format "{{.ID}}" | xargs docker rm -f 2>/dev/null || true; \
+	fi
+	@if [ -n "$$(docker volume ls --filter 'name=beach-kings' --format '{{.Name}}' 2>/dev/null)" ]; then \
+		docker volume ls --filter "name=beach-kings" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
+	fi
+	@if [ -n "$$(docker volume ls --filter 'name=postgres_data' --format '{{.Name}}' 2>/dev/null)" ]; then \
+		docker volume ls --filter "name=postgres_data" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
+	fi
+	@echo "Removing build artifacts..."
 	rm -rf frontend/dist
 	rm -rf **/__pycache__
 	rm -rf backend/**/__pycache__
@@ -145,6 +173,15 @@ clean-venv:
 	@echo "✅ Virtual environment removed!"
 	@echo ""
 	@echo "Run 'make install' to create a new venv with Python 3.8+"
+
+migrate:
+	@echo "Running database migrations..."
+	@if [ ! -d "venv" ]; then \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+		exit 1; \
+	fi
+	@./venv/bin/alembic upgrade head
+	@echo "✅ Migrations complete!"
 
 test:
 	@echo "Running tests..."
