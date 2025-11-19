@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import logging
+import os
 import uvicorn
 from slowapi import _rate_limit_exceeded_handler  # type: ignore
 from slowapi.errors import RateLimitExceeded  # type: ignore
@@ -18,8 +19,8 @@ from slowapi.errors import RateLimitExceeded  # type: ignore
 from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
 from backend.database.init_defaults import init_defaults
+from backend.alembic.env import run_migrations_online_programmatic
 from backend.services import data_service, sheets_service, calculation_service
-import asyncio
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -32,8 +33,23 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Beach Volleyball ELO API...")
     
+    # Run database migrations
+    # Note: In production (Docker), migrations are run by entrypoint.sh before starting the app.
+    # This serves as a fallback for local development and ensures migrations are always applied.
+    # Alembic is idempotent, so running migrations twice is safe.
+    try:
+        logger.info("Running database migrations...")
+        await run_migrations_online_programmatic()
+        logger.info("✓ Database migrations completed")
+    except Exception as e:
+        logger.error(f"Database migration failed: {e}", exc_info=True)
+        # In production, you might want to raise here to prevent app from starting
+        # For development, we'll continue but log the error
+        if os.getenv("ENV") == "production":
+            raise
+    
     # Initialize database (create tables if they don't exist)
-    # Note: Alembic migrations should be run separately via CLI: alembic upgrade head
+    # This is a fallback for tables that might not be in migrations yet
     try:
         await db.init_database()
         logger.info("Database initialized")

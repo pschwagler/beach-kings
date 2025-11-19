@@ -4,8 +4,9 @@ Handles all CRUD operations for the ELO system.
 """
 
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, date, time, timedelta
 from collections import defaultdict
+import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer
 from sqlalchemy.orm import selectinload, aliased
@@ -15,7 +16,9 @@ from backend.database import db
 from backend.database.models import (
     League, LeagueMember, Season, Location, Court, Player, 
     Session, Match, Setting, PartnershipStats, OpponentStats, 
-    EloHistory, PlayerSeasonStats, SessionStatus
+    EloHistory, PlayerSeasonStats, SessionStatus,
+    WeeklySchedule, Signup, SignupPlayer, SignupEvent,
+    OpenSignupsMode, SignupEventType
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
@@ -347,14 +350,27 @@ async def get_active_session(session: AsyncSession) -> Optional[Dict]:
     }
 
 
-async def create_league_session(
+async def get_or_create_active_league_session(
     session: AsyncSession,
     league_id: int,
     date: str,
-    name: Optional[str],
+    name: Optional[str] = None,
     created_by: Optional[int] = None
 ) -> Dict:
-    """Create a league session (async version). Automatically uses the league's most recent active season."""
+    """
+    Get or create an active session for a league and date atomically.
+    Uses SELECT FOR UPDATE to prevent race conditions.
+    
+    Args:
+        session: Database session
+        league_id: League ID
+        date: Session date
+        name: Optional session name
+        created_by: Optional player ID who created the session
+        
+    Returns:
+        Dict with session info
+    """
     # Verify league exists
     result = await session.execute(
         select(League).where(League.id == league_id)
@@ -374,6 +390,120 @@ async def create_league_session(
     
     if not active_season:
         raise ValueError(f"League {league_id} does not have an active season. Please create and activate a season first.")
+    
+    # Try to get existing active session for this date and season
+    # Use SELECT FOR UPDATE to lock the row and prevent race conditions
+    # We'll try without nowait first, then retry if needed
+    try:
+        result = await session.execute(
+            select(Session)
+            .where(
+                and_(
+                    Session.date == date,
+                    Session.season_id == active_season.id,
+                    Session.status == SessionStatus.ACTIVE
+                )
+            )
+            .with_for_update()  # Lock matching rows (waits if locked by another transaction)
+        )
+        existing_session = result.scalar_one_or_none()
+        
+        if existing_session:
+            # Return existing session
+            return {
+                "id": existing_session.id,
+                "date": existing_session.date,
+                "name": existing_session.name,
+                "status": existing_session.status.value if existing_session.status else None,
+                "season_id": existing_session.season_id,
+            }
+    except Exception:
+        # If SELECT FOR UPDATE fails, retry without lock (another transaction may have created it)
+        result = await session.execute(
+            select(Session)
+            .where(
+                and_(
+                    Session.date == date,
+                    Session.season_id == active_season.id,
+                    Session.status == SessionStatus.ACTIVE
+                )
+            )
+        )
+        existing_session = result.scalar_one_or_none()
+        if existing_session:
+            return {
+                "id": existing_session.id,
+                "date": existing_session.date,
+                "name": existing_session.name,
+                "status": existing_session.status.value if existing_session.status else None,
+                "season_id": existing_session.season_id,
+            }
+    
+    # No existing session found, create a new one
+    session_name = name or date
+    new_session = Session(
+        date=date,
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        season_id=active_season.id,
+        created_by=created_by
+    )
+    session.add(new_session)
+    await session.flush()  # Flush to get the ID
+    await session.refresh(new_session)
+    return {
+        "id": new_session.id,
+        "date": new_session.date,
+        "name": new_session.name,
+        "status": new_session.status.value if new_session.status else None,
+        "season_id": new_session.season_id,
+    }
+
+
+async def create_league_session(
+    session: AsyncSession,
+    league_id: int,
+    date: str,
+    name: Optional[str],
+    created_by: Optional[int] = None
+) -> Dict:
+    """
+    Create a league session (async version). Automatically uses the league's most recent active season.
+    Now includes duplicate prevention - will raise ValueError if active session already exists.
+    """
+    # Verify league exists
+    result = await session.execute(
+        select(League).where(League.id == league_id)
+    )
+    league = result.scalar_one_or_none()
+    if not league:
+        raise ValueError(f"League {league_id} not found")
+    
+    # Find the most recent active season for this league
+    season_result = await session.execute(
+        select(Season)
+        .where(and_(Season.league_id == league_id, Season.is_active == True))
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    active_season = season_result.scalar_one_or_none()
+    
+    if not active_season:
+        raise ValueError(f"League {league_id} does not have an active season. Please create and activate a season first.")
+    
+    # Check if active session already exists for this date and season
+    result = await session.execute(
+        select(Session).where(
+            and_(
+                Session.date == date,
+                Session.season_id == active_season.id,
+                Session.status == SessionStatus.ACTIVE
+            )
+        )
+    )
+    existing_session = result.scalar_one_or_none()
+    if existing_session:
+        raise ValueError(f"An active session '{existing_session.name}' already exists for this date. Please submit the current session before creating a new one.")
     
     session_name = name or date
     new_session = Session(
@@ -1049,7 +1179,7 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
     result = await session.execute(
         update(Session)
         .where(Session.id == session_id)
-        .values(status=new_status, updated_by=updated_by)
+        .values(status=new_status, updated_by=updated_by, updated_at=func.now())
     )
     await session.commit()
     return result.rowcount > 0
@@ -1290,6 +1420,7 @@ async def query_matches(
         Session.name.label("session_name"),
         Session.status.label("session_status"),
         Session.created_at.label("session_created_at"),
+        Session.updated_at.label("session_updated_at"),
         Session.created_by.label("session_created_by"),
         Session.updated_by.label("session_updated_by"),
         p1.full_name.label("team1_player1_name"),
@@ -1385,6 +1516,7 @@ async def query_matches(
             "session_name": row.session_name,
             "session_status": row.session_status.value if row.session_status else None,
             "session_created_at": row.session_created_at.isoformat() if row.session_created_at else None,
+            "session_updated_at": row.session_updated_at.isoformat() if row.session_updated_at else None,
             "session_created_by": row.session_created_by,
             "session_updated_by": row.session_updated_by,
             "session_created_by_name": row.session_created_by_name,
@@ -1571,7 +1703,7 @@ async def export_matches_to_csv(session: AsyncSession) -> str:
         p4, Match.team2_player2_id == p4.id
     ).where(
         or_(
-            Session.is_pending == False,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
             Match.session_id.is_(None)
         )
     ).order_by(
@@ -1652,7 +1784,7 @@ async def get_player_match_history(session: AsyncSession, player_name: str) -> O
         p3.full_name.label("team2_player1_name"),
         p4.full_name.label("team2_player2_name"),
         eh.elo_after,
-        Session.is_pending.label("session_pending")
+        Session.status.label("session_status")
     ).select_from(
         Match
     ).outerjoin(
@@ -1724,7 +1856,7 @@ async def get_player_match_history(session: AsyncSession, player_name: str) -> O
             "Score": f"{player_score}-{opponent_score}",
             "ELO Change": elo_change,
             "ELO After": row.elo_after,
-            "Session Active": bool(row.session_pending) if row.session_pending is not None else False
+            "Session Status": row.session_status.value if row.session_status else None
         })
     
     return results
@@ -1747,12 +1879,12 @@ async def create_session(session: AsyncSession, date: str) -> Dict:
     # Check if active session exists for this date
     result = await session.execute(
         select(Session).where(
-            and_(Session.date == date, Session.is_pending == True)
+            and_(Session.date == date, Session.status == SessionStatus.ACTIVE)
         )
     )
     active_session = result.scalar_one_or_none()
     if active_session:
-        raise ValueError(f"A pending session '{active_session.name}' already exists for this date. Please submit the current session before creating a new one.")
+        raise ValueError(f"An active session '{active_session.name}' already exists for this date. Please submit the current session before creating a new one.")
     
     # Count existing sessions for this date
     result = await session.execute(
@@ -1770,7 +1902,7 @@ async def create_session(session: AsyncSession, date: str) -> Dict:
     new_session = Session(
         date=date,
         name=name,
-        is_pending=True
+        status=SessionStatus.ACTIVE
     )
     session.add(new_session)
     await session.flush()
@@ -1860,7 +1992,8 @@ async def update_match_async(
     team2_player2: str,
     team1_score: int,
     team2_score: int,
-    is_public: Optional[bool] = None
+    is_public: Optional[bool] = None,
+    updated_by: Optional[int] = None
 ) -> bool:
     """
     Update an existing match - async version.
@@ -1911,6 +2044,16 @@ async def update_match_async(
     match.winner = winner
     if is_public is not None:
         match.is_public = is_public
+    if updated_by is not None:
+        match.updated_by = updated_by
+    
+    # Update the session's updated_by and updated_at if the session exists
+    if match.session_id and updated_by is not None:
+        await session.execute(
+            update(Session)
+            .where(Session.id == match.session_id)
+            .values(updated_by=updated_by, updated_at=func.now())
+        )
     
     await session.commit()
     return True
@@ -1946,7 +2089,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
         Match dict or None if not found
     """
     result = await session.execute(
-        select(Match, Session.is_pending.label("session_pending"))
+        select(Match, Session.status.label("session_status"))
         .outerjoin(Session, Match.session_id == Session.id)
         .where(Match.id == match_id)
     )
@@ -1955,7 +2098,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
     if not row:
         return None
     
-    match, session_pending = row
+    match, session_status = row
     
     # Get player names
     team1_p1 = await session.get(Player, match.team1_player1_id)
@@ -1973,7 +2116,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
         "team2_player2": team2_p2.full_name if team2_p2 else None,
         "team1_score": match.team1_score,
         "team2_score": match.team2_score,
-        "session_active": bool(session_pending) if session_pending is not None else None
+        "session_status": session_status.value if session_status else None
     }
 
 
@@ -1993,11 +2136,14 @@ async def recalculate_all_stats(session: AsyncSession) -> Dict:
     Returns:
         Dict with player_count and match_count
     """
-    # Get all matches from finalized sessions (is_pending = False)
+    # Get all matches from finalized sessions (SUBMITTED or EDITED)
     result = await session.execute(
         select(Match)
         .outerjoin(Session, Match.session_id == Session.id)
-        .where(or_(Session.is_pending == False, Session.is_pending.is_(None)))
+        .where(or_(
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Session.id.is_(None)
+        ))
         .order_by(Match.id.asc())
     )
     matches = result.scalars().all()
@@ -2040,4 +2186,626 @@ async def recalculate_all_stats(session: AsyncSession) -> Dict:
         "player_count": len(player_id_map),
         "match_count": len(matches)
     }
+
+
+# Weekly Schedule functions
+
+async def create_weekly_schedule(
+    session: AsyncSession,
+    season_id: int,
+    day_of_week: int,
+    start_time: str,
+    duration_hours: float,
+    court_id: Optional[int],
+    open_signups_mode: str,
+    open_signups_day_of_week: Optional[int],
+    open_signups_time: Optional[str],
+    end_date: str,
+    creator_player_id: Optional[int] = None
+) -> Dict:
+    """Create a weekly schedule and auto-generate signups."""
+    # Validate season exists
+    season_result = await session.execute(
+        select(Season).where(Season.id == season_id)
+    )
+    season = season_result.scalar_one_or_none()
+    if not season:
+        raise ValueError("Season not found")
+    
+    # Validate end_date doesn't exceed 6 months or season end
+    end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
+    max_end_date = min(
+        date.today() + timedelta(days=180),  # 6 months
+        season.end_date
+    )
+    if end_date_obj > max_end_date:
+        raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
+    
+    # Create schedule
+    schedule = WeeklySchedule(
+        season_id=season_id,
+        day_of_week=day_of_week,
+        start_time=start_time,
+        duration_hours=duration_hours,
+        court_id=court_id,
+        open_signups_mode=OpenSignupsMode(open_signups_mode),
+        open_signups_day_of_week=open_signups_day_of_week,
+        open_signups_time=open_signups_time,
+        end_date=end_date_obj,
+        created_by=creator_player_id,
+        updated_by=creator_player_id
+    )
+    session.add(schedule)
+    await session.flush()
+    
+    # Generate signups
+    await _generate_signups_from_schedule(session, schedule, season)
+    
+    await session.commit()
+    await session.refresh(schedule)
+    
+    return _weekly_schedule_to_dict(schedule)
+
+
+async def get_weekly_schedules(session: AsyncSession, season_id: int) -> List[Dict]:
+    """Get all weekly schedules for a season."""
+    result = await session.execute(
+        select(WeeklySchedule)
+        .where(WeeklySchedule.season_id == season_id)
+        .order_by(WeeklySchedule.day_of_week, WeeklySchedule.start_time)
+    )
+    schedules = result.scalars().all()
+    return [_weekly_schedule_to_dict(s) for s in schedules]
+
+
+async def get_weekly_schedule(session: AsyncSession, schedule_id: int) -> Optional[Dict]:
+    """Get a weekly schedule by ID."""
+    result = await session.execute(
+        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        return None
+    return _weekly_schedule_to_dict(schedule)
+
+
+async def update_weekly_schedule(
+    session: AsyncSession,
+    schedule_id: int,
+    day_of_week: Optional[int] = None,
+    start_time: Optional[str] = None,
+    duration_hours: Optional[float] = None,
+    court_id: Optional[int] = None,
+    open_signups_mode: Optional[str] = None,
+    open_signups_day_of_week: Optional[int] = None,
+    open_signups_time: Optional[str] = None,
+    end_date: Optional[str] = None,
+    updater_player_id: Optional[int] = None
+) -> Optional[Dict]:
+    """Update a weekly schedule and regenerate affected signups."""
+    result = await session.execute(
+        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        return None
+    
+    # Get season for validation
+    season_result = await session.execute(
+        select(Season).where(Season.id == schedule.season_id)
+    )
+    season = season_result.scalar_one_or_none()
+    if not season:
+        raise ValueError("Season not found")
+    
+    # Update fields
+    if day_of_week is not None:
+        schedule.day_of_week = day_of_week
+    if start_time is not None:
+        schedule.start_time = start_time
+    if duration_hours is not None:
+        schedule.duration_hours = duration_hours
+    if court_id is not None:
+        schedule.court_id = court_id
+    if open_signups_mode is not None:
+        schedule.open_signups_mode = OpenSignupsMode(open_signups_mode)
+    if open_signups_day_of_week is not None:
+        schedule.open_signups_day_of_week = open_signups_day_of_week
+    if open_signups_time is not None:
+        schedule.open_signups_time = open_signups_time
+    if end_date is not None:
+        end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
+        max_end_date = min(
+            date.today() + timedelta(days=180),
+            season.end_date
+        )
+        if end_date_obj > max_end_date:
+            raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
+        schedule.end_date = end_date_obj
+    
+    if updater_player_id is not None:
+        schedule.updated_by = updater_player_id
+    
+    # Delete existing generated signups and regenerate
+    await session.execute(
+        delete(Signup).where(Signup.weekly_schedule_id == schedule_id)
+    )
+    await _generate_signups_from_schedule(session, schedule, season)
+    
+    await session.commit()
+    await session.refresh(schedule)
+    
+    return _weekly_schedule_to_dict(schedule)
+
+
+async def delete_weekly_schedule(session: AsyncSession, schedule_id: int) -> bool:
+    """Delete a weekly schedule and its generated signups."""
+    result = await session.execute(
+        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        return False
+    
+    # Delete generated signups (cascade will handle signup_players and signup_events)
+    await session.execute(
+        delete(Signup).where(Signup.weekly_schedule_id == schedule_id)
+    )
+    
+    # Delete schedule
+    await session.delete(schedule)
+    await session.commit()
+    
+    return True
+
+
+async def _generate_signups_from_schedule(
+    session: AsyncSession,
+    schedule: WeeklySchedule,
+    season: Season
+):
+    """Generate signups from a weekly schedule for the schedule duration."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Start from today or season start, whichever is later
+    start_date = max(date.today(), season.start_date)
+    end_date = min(schedule.end_date, season.end_date)
+    
+    # Parse start_time
+    time_parts = schedule.start_time.split(':')
+    start_hour = int(time_parts[0])
+    start_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+    
+    # Generate signups for each occurrence
+    current_date = start_date
+    while current_date <= end_date:
+        # Check if current_date matches the day of week
+        # Python weekday: Monday=0, Sunday=6
+        if current_date.weekday() == schedule.day_of_week:
+            # Create scheduled_datetime in UTC
+            scheduled_datetime = utc.localize(
+                datetime.combine(current_date, time(start_hour, start_minute))
+            )
+            
+            # Calculate open_signups_at based on mode
+            open_signups_at = await _calculate_open_signups_at(
+                session, schedule, scheduled_datetime, season
+            )
+            
+            # Only create if scheduled_datetime is in the future or today
+            if scheduled_datetime >= now_utc.replace(hour=0, minute=0, second=0, microsecond=0):
+                signup = Signup(
+                    season_id=schedule.season_id,
+                    scheduled_datetime=scheduled_datetime,
+                    duration_hours=schedule.duration_hours,
+                    court_id=schedule.court_id,
+                    open_signups_at=open_signups_at,
+                    weekly_schedule_id=schedule.id,
+                    created_by=schedule.created_by,
+                    updated_by=schedule.updated_by
+                )
+                session.add(signup)
+        
+        current_date += timedelta(days=1)
+    
+    await session.flush()
+
+
+async def _calculate_open_signups_at(
+    session: AsyncSession,
+    schedule: WeeklySchedule,
+    scheduled_datetime: datetime,
+    season: Season
+) -> datetime:
+    """Calculate when signups should open for a scheduled datetime."""
+    utc = pytz.UTC
+    
+    if schedule.open_signups_mode == OpenSignupsMode.ALWAYS_OPEN:
+        # Open immediately (or in the past if already passed)
+        return utc.localize(datetime.min)
+    
+    elif schedule.open_signups_mode == OpenSignupsMode.SPECIFIC_DAY_TIME:
+        # Open at specific day/time the week before
+        if not schedule.open_signups_day_of_week or not schedule.open_signups_time:
+            # Fallback to always open if not configured
+            return utc.localize(datetime.min)
+        
+        # Find the previous week's occurrence of open_signups_day_of_week
+        time_parts = schedule.open_signups_time.split(':')
+        open_hour = int(time_parts[0])
+        open_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+        
+        # Go back 7 days from scheduled_datetime, then find the matching day
+        target_date = scheduled_datetime.date() - timedelta(days=7)
+        days_until_target = (schedule.open_signups_day_of_week - target_date.weekday()) % 7
+        if days_until_target == 0 and target_date.weekday() != schedule.open_signups_day_of_week:
+            days_until_target = 7
+        open_date = target_date + timedelta(days=days_until_target)
+        
+        return utc.localize(datetime.combine(open_date, time(open_hour, open_minute)))
+    
+    else:  # AUTO_AFTER_LAST_SESSION
+        # Open 3 hours after the last session of the previous week
+        # Find the previous week's last signup for this schedule
+        previous_week_start = scheduled_datetime - timedelta(days=7)
+        previous_week_end = scheduled_datetime - timedelta(seconds=1)
+        
+        result = await session.execute(
+            select(Signup)
+            .where(
+                Signup.weekly_schedule_id == schedule.id,
+                Signup.scheduled_datetime >= previous_week_start,
+                Signup.scheduled_datetime < previous_week_end
+            )
+            .order_by(Signup.scheduled_datetime.desc())
+            .limit(1)
+        )
+        last_signup = result.scalar_one_or_none()
+        
+        if last_signup:
+            # 3 hours after last session ends
+            return last_signup.scheduled_datetime + timedelta(hours=last_signup.duration_hours + 3)
+        else:
+            # No previous signup, open immediately
+            return utc.localize(datetime.min)
+
+
+def _weekly_schedule_to_dict(schedule: WeeklySchedule) -> Dict:
+    """Convert WeeklySchedule model to dict."""
+    return {
+        "id": schedule.id,
+        "season_id": schedule.season_id,
+        "day_of_week": schedule.day_of_week,
+        "start_time": schedule.start_time,
+        "duration_hours": schedule.duration_hours,
+        "court_id": schedule.court_id,
+        "open_signups_mode": schedule.open_signups_mode.value,
+        "open_signups_day_of_week": schedule.open_signups_day_of_week,
+        "open_signups_time": schedule.open_signups_time,
+        "end_date": schedule.end_date.isoformat() if schedule.end_date else None,
+        "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+        "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None,
+    }
+
+
+# Signup functions
+
+async def create_signup(
+    session: AsyncSession,
+    season_id: int,
+    scheduled_datetime: str,
+    duration_hours: float,
+    court_id: Optional[int],
+    open_signups_at: str,
+    creator_player_id: Optional[int] = None
+) -> Dict:
+    """Create an ad-hoc signup."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Parse datetimes (assume UTC)
+    scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace('Z', '+00:00'))
+    if scheduled_dt.tzinfo is None:
+        scheduled_dt = utc.localize(scheduled_dt)
+    
+    open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
+    if open_dt.tzinfo is None:
+        open_dt = utc.localize(open_dt)
+    
+    # Validate open_signups_at is not in the past
+    if open_dt < now_utc:
+        raise ValueError("open_signups_at cannot be in the past")
+    
+    signup = Signup(
+        season_id=season_id,
+        scheduled_datetime=scheduled_dt,
+        duration_hours=duration_hours,
+        court_id=court_id,
+        open_signups_at=open_dt,
+        created_by=creator_player_id,
+        updated_by=creator_player_id
+    )
+    session.add(signup)
+    await session.commit()
+    await session.refresh(signup)
+    
+    return await _signup_to_dict(session, signup)
+
+
+async def get_signups(
+    session: AsyncSession,
+    season_id: int,
+    upcoming_only: bool = False,
+    past_only: bool = False
+) -> List[Dict]:
+    """Get signups for a season."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    query = select(Signup).where(Signup.season_id == season_id)
+    
+    if upcoming_only:
+        query = query.where(Signup.scheduled_datetime >= now_utc)
+    elif past_only:
+        query = query.where(Signup.scheduled_datetime < now_utc)
+    
+    query = query.order_by(Signup.scheduled_datetime.asc())
+    
+    result = await session.execute(query)
+    signups = result.scalars().all()
+    
+    return [await _signup_to_dict(session, s) for s in signups]
+
+
+async def get_signup(session: AsyncSession, signup_id: int, include_players: bool = False) -> Optional[Dict]:
+    """Get a signup by ID."""
+    result = await session.execute(
+        select(Signup).where(Signup.id == signup_id)
+    )
+    signup = result.scalar_one_or_none()
+    if not signup:
+        return None
+    return await _signup_to_dict(session, signup, include_players=include_players)
+
+
+async def update_signup(
+    session: AsyncSession,
+    signup_id: int,
+    scheduled_datetime: Optional[str] = None,
+    duration_hours: Optional[float] = None,
+    court_id: Optional[int] = None,
+    open_signups_at: Optional[str] = None,
+    updater_player_id: Optional[int] = None
+) -> Optional[Dict]:
+    """Update a signup."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    result = await session.execute(
+        select(Signup).where(Signup.id == signup_id)
+    )
+    signup = result.scalar_one_or_none()
+    if not signup:
+        return None
+    
+    if scheduled_datetime is not None:
+        scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace('Z', '+00:00'))
+        if scheduled_dt.tzinfo is None:
+            scheduled_dt = utc.localize(scheduled_dt)
+        signup.scheduled_datetime = scheduled_dt
+    
+    if duration_hours is not None:
+        signup.duration_hours = duration_hours
+    
+    if court_id is not None:
+        signup.court_id = court_id
+    
+    if open_signups_at is not None:
+        open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
+        if open_dt.tzinfo is None:
+            open_dt = utc.localize(open_dt)
+        # Validate not in the past
+        if open_dt < now_utc:
+            raise ValueError("open_signups_at cannot be in the past")
+        signup.open_signups_at = open_dt
+    
+    if updater_player_id is not None:
+        signup.updated_by = updater_player_id
+    
+    await session.commit()
+    await session.refresh(signup)
+    
+    return await _signup_to_dict(session, signup)
+
+
+async def delete_signup(session: AsyncSession, signup_id: int) -> bool:
+    """Delete a signup."""
+    result = await session.execute(
+        select(Signup).where(Signup.id == signup_id)
+    )
+    signup = result.scalar_one_or_none()
+    if not signup:
+        return False
+    
+    await session.delete(signup)
+    await session.commit()
+    
+    return True
+
+
+async def signup_player(
+    session: AsyncSession,
+    signup_id: int,
+    player_id: int,
+    creator_player_id: Optional[int] = None
+) -> bool:
+    """Add a player to a signup."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Get signup and validate it's open
+    result = await session.execute(
+        select(Signup).where(Signup.id == signup_id)
+    )
+    signup = result.scalar_one_or_none()
+    if not signup:
+        raise ValueError("Signup not found")
+    
+    if signup.open_signups_at > now_utc:
+        raise ValueError("Signups are not yet open for this session")
+    
+    # Check if already signed up
+    existing = await session.execute(
+        select(SignupPlayer).where(
+            SignupPlayer.signup_id == signup_id,
+            SignupPlayer.player_id == player_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        return False  # Already signed up
+    
+    # Add player
+    signup_player = SignupPlayer(
+        signup_id=signup_id,
+        player_id=player_id
+    )
+    session.add(signup_player)
+    
+    # Log event
+    event = SignupEvent(
+        signup_id=signup_id,
+        player_id=player_id,
+        event_type=SignupEventType.SIGNUP,
+        created_by=creator_player_id or player_id
+    )
+    session.add(event)
+    
+    await session.commit()
+    return True
+
+
+async def dropout_player(
+    session: AsyncSession,
+    signup_id: int,
+    player_id: int,
+    creator_player_id: Optional[int] = None
+) -> bool:
+    """Remove a player from a signup."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Get signup and validate it's open
+    result = await session.execute(
+        select(Signup).where(Signup.id == signup_id)
+    )
+    signup = result.scalar_one_or_none()
+    if not signup:
+        raise ValueError("Signup not found")
+    
+    if signup.open_signups_at > now_utc:
+        raise ValueError("Signups are not yet open for this session")
+    
+    # Remove player
+    result = await session.execute(
+        delete(SignupPlayer).where(
+            SignupPlayer.signup_id == signup_id,
+            SignupPlayer.player_id == player_id
+        )
+    )
+    
+    if result.rowcount == 0:
+        return False  # Not signed up
+    
+    # Log event
+    event = SignupEvent(
+        signup_id=signup_id,
+        player_id=player_id,
+        event_type=SignupEventType.DROPOUT,
+        created_by=creator_player_id or player_id
+    )
+    session.add(event)
+    
+    await session.commit()
+    return True
+
+
+async def get_signup_players(session: AsyncSession, signup_id: int) -> List[Dict]:
+    """Get all players signed up for a signup."""
+    result = await session.execute(
+        select(SignupPlayer, Player)
+        .join(Player, SignupPlayer.player_id == Player.id)
+        .where(SignupPlayer.signup_id == signup_id)
+        .order_by(SignupPlayer.signed_up_at.asc())
+    )
+    rows = result.all()
+    
+    return [
+        {
+            "player_id": sp.player_id,
+            "player_name": p.full_name,
+            "signed_up_at": sp.signed_up_at.isoformat() if sp.signed_up_at else None
+        }
+        for sp, p in rows
+    ]
+
+
+async def get_signup_events(session: AsyncSession, signup_id: int) -> List[Dict]:
+    """Get event log for a signup."""
+    result = await session.execute(
+        select(SignupEvent, Player)
+        .join(Player, SignupEvent.player_id == Player.id)
+        .where(SignupEvent.signup_id == signup_id)
+        .order_by(SignupEvent.created_at.desc())
+    )
+    rows = result.all()
+    
+    return [
+        {
+            "id": event.id,
+            "player_id": event.player_id,
+            "player_name": p.full_name,
+            "event_type": event.event_type.value,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
+            "created_by": event.created_by
+        }
+        for event, p in rows
+    ]
+
+
+async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players: bool = False) -> Dict:
+    """Convert Signup model to dict."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Get player count
+    count_result = await session.execute(
+        select(func.count(SignupPlayer.player_id))
+        .where(SignupPlayer.signup_id == signup.id)
+    )
+    player_count = count_result.scalar() or 0
+    
+    # Compute is_open and is_past
+    is_open = signup.open_signups_at <= now_utc
+    is_past = signup.scheduled_datetime < now_utc
+    
+    result = {
+        "id": signup.id,
+        "season_id": signup.season_id,
+        "scheduled_datetime": signup.scheduled_datetime.isoformat() if signup.scheduled_datetime else None,
+        "duration_hours": signup.duration_hours,
+        "court_id": signup.court_id,
+        "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
+        "weekly_schedule_id": signup.weekly_schedule_id,
+        "player_count": player_count,
+        "is_open": is_open,
+        "is_past": is_past,
+        "created_at": signup.created_at.isoformat() if signup.created_at else None,
+        "updated_at": signup.updated_at.isoformat() if signup.updated_at else None,
+    }
+    
+    if include_players:
+        result["players"] = await get_signup_players(session, signup.id)
+    
+    return result
 

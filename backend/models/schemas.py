@@ -449,8 +449,103 @@ class SessionResponse(BaseModel):
     id: int
     date: str
     name: str
-    is_pending: bool
+    status: str  # ACTIVE, SUBMITTED, or EDITED
     season_id: Optional[int] = None
     court_id: Optional[int] = None
     created_at: str
+
+
+# Weekly Schedule schemas
+class WeeklyScheduleBase(BaseModel):
+    """Base weekly schedule model."""
+    day_of_week: int  # 0-6, Monday=0
+    start_time: str  # HH:MM format
+    duration_hours: float = 2.0
+    court_id: Optional[int] = None
+    open_signups_mode: str = "auto_after_last_session"  # 'auto_after_last_session', 'specific_day_time', 'always_open'
+    open_signups_day_of_week: Optional[int] = None  # For specific_day_time mode
+    open_signups_time: Optional[str] = None  # HH:MM format for specific_day_time mode
+    end_date: str  # ISO date string
+
+
+class WeeklyScheduleCreate(WeeklyScheduleBase):
+    """Request to create a weekly schedule."""
+    season_id: int
+
+
+class WeeklyScheduleUpdate(BaseModel):
+    """Request to update a weekly schedule."""
+    day_of_week: Optional[int] = None
+    start_time: Optional[str] = None
+    duration_hours: Optional[float] = None
+    court_id: Optional[int] = None
+    open_signups_mode: Optional[str] = None
+    open_signups_day_of_week: Optional[int] = None
+    open_signups_time: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class WeeklyScheduleResponse(WeeklyScheduleBase):
+    """Weekly schedule response."""
+    id: int
+    season_id: int
+    created_at: str
+    updated_at: str
+
+
+# Signup schemas
+class SignupBase(BaseModel):
+    """Base signup model."""
+    scheduled_datetime: str  # ISO datetime string (UTC)
+    duration_hours: float
+    court_id: Optional[int] = None
+    open_signups_at: str  # ISO datetime string (UTC)
+
+
+class SignupCreate(SignupBase):
+    """Request to create a signup."""
+    season_id: int
+
+
+class SignupUpdate(BaseModel):
+    """Request to update a signup."""
+    scheduled_datetime: Optional[str] = None  # ISO datetime string (UTC)
+    duration_hours: Optional[float] = None
+    court_id: Optional[int] = None
+    open_signups_at: Optional[str] = None  # ISO datetime string (UTC)
+
+
+class SignupPlayerResponse(BaseModel):
+    """Signup player response."""
+    player_id: int
+    player_name: str
+    signed_up_at: str  # ISO datetime string (UTC)
+
+
+class SignupEventResponse(BaseModel):
+    """Signup event response."""
+    id: int
+    player_id: int
+    player_name: str
+    event_type: str  # 'signup' or 'dropout'
+    created_at: str  # ISO datetime string (UTC)
+    created_by: Optional[int] = None
+
+
+class SignupResponse(SignupBase):
+    """Signup response."""
+    id: int
+    season_id: int
+    weekly_schedule_id: Optional[int] = None
+    player_count: int = 0
+    is_open: bool = False  # Computed: open_signups_at <= now (UTC)
+    is_past: bool = False  # Computed: scheduled_datetime < now (UTC)
+    created_at: str
+    updated_at: str
+    players: Optional[List[SignupPlayerResponse]] = None  # Optional, populated when requested
+
+
+class SignupWithPlayersResponse(SignupResponse):
+    """Signup response with players list."""
+    players: List[SignupPlayerResponse]
 

@@ -22,6 +22,12 @@ else
     echo ""
 fi
 
+# Run database migrations
+echo "🔄 Running database migrations..."
+(cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head)
+echo "✅ Migrations complete!"
+echo ""
+
 # Start WhatsApp service if ENABLE_WHATSAPP is true (or True or TRUE). Default to true.
 if [ "${ENABLE_WHATSAPP:-true}" = "true" ] || [ "${ENABLE_WHATSAPP:-true}" = "True" ] || [ "${ENABLE_WHATSAPP:-true}" = "TRUE" ]; then
     echo "📱 Starting WhatsApp service on port 3001..."

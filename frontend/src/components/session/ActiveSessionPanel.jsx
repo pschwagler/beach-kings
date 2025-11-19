@@ -22,7 +22,10 @@ export default function ActiveSessionPanel({
   onAddMatchClick,
   onEditMatch,
   onSubmitClick,
-  onDeleteSession
+  onSaveClick,
+  onCancelClick,
+  onDeleteSession,
+  isEditing = false
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
@@ -40,11 +43,15 @@ export default function ActiveSessionPanel({
         gameCount={gameCount}
         playerCount={playerCount}
         onDelete={gameCount === 0 ? handleDeleteSession : null}
+        isEditing={isEditing}
       />
 
       <SessionActions 
         onAddMatchClick={onAddMatchClick}
         onSubmitClick={onSubmitClick}
+        onSaveClick={onSaveClick}
+        onCancelClick={onCancelClick}
+        isEditing={isEditing}
       />
 
       <div className="session-matches-section">

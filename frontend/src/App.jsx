@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Crown } from 'lucide-react';
 import './App.css';
 import NavBar from './components/layout/NavBar';
 import HeroHeader from './components/layout/HeroHeader';
@@ -160,7 +161,14 @@ function App() {
         <div className="landing-content">
           {!isAuthenticated ? (
             <div className="landing-message">
-              <h2>Welcome to Beach Kings Volleyball App</h2>
+              <h2 className="landing-welcome-title">
+                Welcome to{' '}
+                <span className="landing-brand">
+                  <Crown size={28} className="landing-brand-crown" />
+                  <span className="landing-brand-text">BEACH KINGS</span>
+                </span>
+                {' '}Volleyball App
+              </h2>
               <p>Login to get started</p>
               <button 
                 className="btn btn-primary" 
@@ -171,7 +179,9 @@ function App() {
             </div>
           ) : (
             <div className="landing-message">
-              <h2>Welcome back{currentUserPlayer?.first_name ? ', ' + currentUserPlayer.first_name : ''}!</h2>
+              <h2 className="landing-welcome-title">
+                Welcome back{currentUserPlayer?.first_name ? ', ' + currentUserPlayer.first_name : ''}!
+              </h2>
               <p>Select a league from the menu above to get started.</p>
             </div>
           )}

@@ -36,7 +36,8 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
         <tbody>
           {matchHistory.map((match, idx) => {
             const ratingDisplay = formatNewRating(match['ELO After'], match['ELO Change']);
-            const isActiveSession = match['Session Active'] === true;
+            const sessionStatus = match['Session Status'];
+            const isActiveSession = sessionStatus === 'ACTIVE';
             return (
               <tr key={idx} className={isActiveSession ? 'active-session-row' : ''}>
                 <td>

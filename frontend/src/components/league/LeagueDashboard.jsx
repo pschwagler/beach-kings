@@ -4,7 +4,7 @@ import NavBar from '../layout/NavBar';
 import LeagueRankingsTab from './LeagueRankingsTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
 import LeagueDetailsTab from './LeagueDetailsTab';
-import LeagueSessionsTab from './LeagueSessionsTab';
+import LeagueSignUpsTab from './LeagueSignUpsTab';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
@@ -39,7 +39,7 @@ function LeagueDashboardContent({ leagueId }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab');
-    if (tab && ['rankings', 'matches', 'details', 'sessions'].includes(tab)) {
+    if (tab && ['rankings', 'matches', 'details', 'signups'].includes(tab)) {
       setActiveTab(tab);
     }
   }, []);
@@ -256,12 +256,12 @@ function LeagueDashboardContent({ leagueId }) {
                 {!sidebarCollapsed && <span>Details</span>}
               </button>
               <button
-                className={`league-sidebar-nav-item ${activeTab === 'sessions' ? 'active' : ''}`}
-                onClick={() => handleTabChange('sessions')}
-                title="Sessions"
+                className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}
+                onClick={() => handleTabChange('signups')}
+                title="Sign Ups"
               >
                 <Calendar size={20} />
-                {!sidebarCollapsed && <span>Sessions</span>}
+                {!sidebarCollapsed && <span>Sign Ups</span>}
               </button>
             </nav>
           </aside>
@@ -348,12 +348,13 @@ function LeagueDashboardContent({ leagueId }) {
               />
             )}
 
-            {activeTab === 'sessions' && (
-              <LeagueSessionsTab
+            {activeTab === 'signups' && (
+              <LeagueSignUpsTab
                 leagueId={leagueId}
                 showMessage={showMessage}
               />
             )}
+
           </main>
         </div>
       </div>

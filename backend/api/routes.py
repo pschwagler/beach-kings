@@ -7,9 +7,9 @@ from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
 from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player
+from backend.database.models import Season, Player, Session, SessionStatus
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -24,13 +24,15 @@ from backend.models.schemas import (
     CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse,
     RefreshTokenRequest, RefreshTokenResponse, ResetPasswordRequest,
     ResetPasswordVerifyRequest, ResetPasswordConfirmRequest,
-    LeagueCreate, LeagueResponse, PlayerUpdate
+    LeagueCreate, LeagueResponse, PlayerUpdate,
+    WeeklyScheduleCreate, WeeklyScheduleResponse, WeeklyScheduleUpdate,
+    SignupCreate, SignupResponse, SignupUpdate, SignupWithPlayersResponse
 )
 import httpx
 import os
 import logging
 import traceback
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,52 @@ WHATSAPP_REQUEST_TIMEOUT = 30.0
 
 INVALID_CREDENTIALS_RESPONSE = HTTPException(status_code=401, detail="Username or password is incorrect")
 INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(status_code=401, detail="Invalid or expired verification code")
+
+
+# Helper functions for session editing
+
+async def get_league_id_from_session(session: AsyncSession, session_id: int) -> Optional[int]:
+    """Get league_id from session_id via session -> season -> league."""
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    session_obj = result.scalar_one_or_none()
+    if not session_obj or not session_obj.season_id:
+        return None
+    
+    result = await session.execute(
+        select(Season).where(Season.id == session_obj.season_id)
+    )
+    season = result.scalar_one_or_none()
+    if not season:
+        return None
+    
+    return season.league_id
+
+
+async def is_user_admin_of_session_league(
+    session: AsyncSession,
+    user_id: int,
+    session_id: int
+) -> bool:
+    """Check if user is admin of the league that the session belongs to."""
+    from backend.database.models import LeagueMember
+    
+    league_id = await get_league_id_from_session(session, session_id)
+    if not league_id:
+        return False
+    
+    # Check if user is admin of this league
+    query = select(1).select_from(
+        LeagueMember.__table__.join(Player.__table__, LeagueMember.player_id == Player.id)
+    ).where(
+        LeagueMember.league_id == league_id,
+        Player.user_id == user_id,
+        LeagueMember.role == "admin"
+    ).limit(1)
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
 
 
 # League endpoints
@@ -887,6 +935,338 @@ async def health_check(session: AsyncSession = Depends(get_db_session)):
 
 # WhatsApp proxy endpoints (optional - frontend can also call the service directly)
 
+# Weekly Schedule endpoints
+
+@router.post("/api/seasons/{season_id}/weekly-schedules", response_model=WeeklyScheduleResponse)
+async def create_weekly_schedule(
+    season_id: int,
+    payload: WeeklyScheduleCreate,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Create a weekly schedule (admin only)."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        schedule = await data_service.create_weekly_schedule(
+            session=session,
+            season_id=season_id,
+            day_of_week=payload.day_of_week,
+            start_time=payload.start_time,
+            duration_hours=payload.duration_hours,
+            court_id=payload.court_id,
+            open_signups_mode=payload.open_signups_mode,
+            open_signups_day_of_week=payload.open_signups_day_of_week,
+            open_signups_time=payload.open_signups_time,
+            end_date=payload.end_date,
+            creator_player_id=player.id
+        )
+        return schedule
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating weekly schedule: {str(e)}")
+
+
+@router.get("/api/seasons/{season_id}/weekly-schedules", response_model=List[WeeklyScheduleResponse])
+async def list_weekly_schedules(
+    season_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """List weekly schedules for a season."""
+    try:
+        return await data_service.get_weekly_schedules(session, season_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing weekly schedules: {str(e)}")
+
+
+@router.put("/api/weekly-schedules/{schedule_id}", response_model=WeeklyScheduleResponse)
+async def update_weekly_schedule(
+    schedule_id: int,
+    payload: WeeklyScheduleUpdate,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Update a weekly schedule (admin only)."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        schedule = await data_service.update_weekly_schedule(
+            session=session,
+            schedule_id=schedule_id,
+            day_of_week=payload.day_of_week,
+            start_time=payload.start_time,
+            duration_hours=payload.duration_hours,
+            court_id=payload.court_id,
+            open_signups_mode=payload.open_signups_mode,
+            open_signups_day_of_week=payload.open_signups_day_of_week,
+            open_signups_time=payload.open_signups_time,
+            end_date=payload.end_date,
+            updater_player_id=player.id
+        )
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Weekly schedule not found")
+        return schedule
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating weekly schedule: {str(e)}")
+
+
+@router.delete("/api/weekly-schedules/{schedule_id}")
+async def delete_weekly_schedule(
+    schedule_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Delete a weekly schedule (admin only)."""
+    try:
+        success = await data_service.delete_weekly_schedule(session, schedule_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Weekly schedule not found")
+        return {"status": "success", "message": "Weekly schedule deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting weekly schedule: {str(e)}")
+
+
+# Signup endpoints
+
+@router.post("/api/seasons/{season_id}/signups", response_model=SignupResponse)
+async def create_signup(
+    season_id: int,
+    payload: SignupCreate,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Create an ad-hoc signup (admin only)."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        signup = await data_service.create_signup(
+            session=session,
+            season_id=season_id,
+            scheduled_datetime=payload.scheduled_datetime,
+            duration_hours=payload.duration_hours,
+            court_id=payload.court_id,
+            open_signups_at=payload.open_signups_at,
+            creator_player_id=player.id
+        )
+        return signup
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating signup: {str(e)}")
+
+
+@router.get("/api/seasons/{season_id}/signups", response_model=List[SignupResponse])
+async def list_signups(
+    season_id: int,
+    upcoming_only: bool = False,
+    past_only: bool = False,
+    user: dict = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """List signups for a season. Public endpoint."""
+    try:
+        return await data_service.get_signups(
+            session, season_id, upcoming_only=upcoming_only, past_only=past_only
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing signups: {str(e)}")
+
+
+@router.get("/api/signups/{signup_id}", response_model=SignupWithPlayersResponse)
+async def get_signup(
+    signup_id: int,
+    user: dict = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get a signup by ID with players list. Public endpoint."""
+    try:
+        signup = await data_service.get_signup(session, signup_id, include_players=True)
+        if not signup:
+            raise HTTPException(status_code=404, detail="Signup not found")
+        return signup
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting signup: {str(e)}")
+
+
+@router.put("/api/signups/{signup_id}", response_model=SignupResponse)
+async def update_signup(
+    signup_id: int,
+    payload: SignupUpdate,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Update a signup (admin only)."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        signup = await data_service.update_signup(
+            session=session,
+            signup_id=signup_id,
+            scheduled_datetime=payload.scheduled_datetime,
+            duration_hours=payload.duration_hours,
+            court_id=payload.court_id,
+            open_signups_at=payload.open_signups_at,
+            updater_player_id=player.id
+        )
+        if not signup:
+            raise HTTPException(status_code=404, detail="Signup not found")
+        return signup
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating signup: {str(e)}")
+
+
+@router.delete("/api/signups/{signup_id}")
+async def delete_signup(
+    signup_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Delete a signup (admin only)."""
+    try:
+        success = await data_service.delete_signup(session, signup_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Signup not found")
+        return {"status": "success", "message": "Signup deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting signup: {str(e)}")
+
+
+@router.post("/api/signups/{signup_id}/signup")
+async def signup_player_endpoint(
+    signup_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Player signs up for a signup."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        success = await data_service.signup_player(
+            session=session,
+            signup_id=signup_id,
+            player_id=player.id,
+            creator_player_id=player.id
+        )
+        if not success:
+            return {"status": "already_signed_up", "message": "Already signed up"}
+        return {"status": "success", "message": "Signed up successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error signing up: {str(e)}")
+
+
+@router.post("/api/signups/{signup_id}/dropout")
+async def dropout_player_endpoint(
+    signup_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Player drops out of a signup."""
+    try:
+        # Get user's player_id
+        result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+        
+        success = await data_service.dropout_player(
+            session=session,
+            signup_id=signup_id,
+            player_id=player.id,
+            creator_player_id=player.id
+        )
+        if not success:
+            return {"status": "not_signed_up", "message": "Not signed up"}
+        return {"status": "success", "message": "Dropped out successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error dropping out: {str(e)}")
+
+
+@router.get("/api/signups/{signup_id}/players")
+async def get_signup_players_endpoint(
+    signup_id: int,
+    user: dict = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get all players signed up for a signup. Public endpoint."""
+    try:
+        return await data_service.get_signup_players(session, signup_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting signup players: {str(e)}")
+
+
+@router.get("/api/signups/{signup_id}/events")
+async def get_signup_events_endpoint(
+    signup_id: int,
+    user: dict = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get event log for a signup. Public endpoint."""
+    try:
+        return await data_service.get_signup_events(session, signup_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting signup events: {str(e)}")
+
+
 @router.get("/api/whatsapp/qr")
 async def whatsapp_qr(current_user: dict = Depends(get_current_user)):
     """
@@ -1127,47 +1507,43 @@ async def end_league_session(
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    End/lock in a league session by setting is_pending to false (league_admin).
+    End/lock in a league session by submitting it (league_admin).
     
-    Body: { "is_pending": false } to lock in a session
+    Body: { "submit": true } to submit/lock in a session
     
     When a session is locked in:
-    1. Session is marked as complete (is_pending = false)
+    1. Session status is set to SUBMITTED (if ACTIVE) or EDITED (if already SUBMITTED/EDITED)
     2. All derived stats recalculated from database (locked-in sessions only)
     3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
     """
     try:
         body = await request.json()
-        is_pending = body.get("is_pending")
+        submit = body.get("submit")
         
-        if is_pending is None:
-            raise HTTPException(status_code=400, detail="is_pending field is required")
+        if submit is not True:
+            raise HTTPException(status_code=400, detail="submit field must be true to submit a session")
         
-        # If locking in the session (is_pending = false)
-        if is_pending is False:
-            # Get player_id from user
-            player_id = None
-            if user:
-                player = await data_service.get_player_by_user_id(session, user["id"])
-                if player:
-                    player_id = player["id"]
-            
-            success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
-            
-            if not success:
-                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-            
-            # Auto-recalculate all stats from locked-in sessions
-            result = await data_service.recalculate_all_stats(session)
-            
-            return {
-                "status": "success",
-                "message": f"Session submitted and stats recalculated",
-                "player_count": result["player_count"],
-                "match_count": result["match_count"]
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Only setting is_pending to false is currently supported")
+        # Get player_id from user
+        player_id = None
+        if user:
+            player = await data_service.get_player_by_user_id(session, user["id"])
+            if player:
+                player_id = player["id"]
+        
+        success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        # Auto-recalculate all stats from locked-in sessions
+        result = await data_service.recalculate_all_stats(session)
+        
+        return {
+            "status": "success",
+            "message": f"Session submitted and stats recalculated",
+            "player_count": result["player_count"],
+            "match_count": result["match_count"]
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -1220,12 +1596,12 @@ async def update_session(
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Update a session (e.g., lock in by setting is_pending to false).
+    Update a session (e.g., submit by setting submit to true).
     
-    Body: { "is_pending": false } to lock in a session
+    Body: { "submit": true } to submit/lock in a session
     
     When a session is locked in:
-    1. Session is marked as complete (is_pending = false)
+    1. Session status is set to SUBMITTED (if ACTIVE) or EDITED (if already SUBMITTED/EDITED)
     2. All derived stats recalculated from database (locked-in sessions only)
     3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
     
@@ -1237,36 +1613,32 @@ async def update_session(
     """
     try:
         body = await request.json()
-        is_pending = body.get("is_pending")
+        submit = body.get("submit")
         
-        if is_pending is None:
-            raise HTTPException(status_code=400, detail="is_pending field is required")
+        if submit is not True:
+            raise HTTPException(status_code=400, detail="submit field must be true to submit a session")
         
-        # If locking in the session (is_pending = false)
-        if is_pending is False:
-            # Get player_id from user
-            player_id = None
-            if current_user:
-                player = await data_service.get_player_by_user_id(session, current_user["id"])
-                if player:
-                    player_id = player["id"]
-            
-            success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
-            
-            if not success:
-                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-            
-            # Auto-recalculate all stats from locked-in sessions
-            result = await data_service.recalculate_all_stats(session)
-            
-            return {
-                "status": "success",
-                "message": f"Session submitted and stats recalculated",
-                "player_count": result["player_count"],
-                "match_count": result["match_count"]
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Only setting is_pending to false is currently supported")
+        # Get player_id from user
+        player_id = None
+        if current_user:
+            player = await data_service.get_player_by_user_id(session, current_user["id"])
+            if player:
+                player_id = player["id"]
+        
+        success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        # Auto-recalculate all stats from locked-in sessions
+        result = await data_service.recalculate_all_stats(session)
+        
+        return {
+            "status": "success",
+            "message": f"Session submitted and stats recalculated",
+            "player_count": result["player_count"],
+            "match_count": result["match_count"]
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -1321,7 +1693,9 @@ async def create_match(
     
     Request body:
         {
-            "session_id": 1,
+            "league_id": 1,   // Required (unless session_id is provided)
+            "session_id": 1,   // Optional - if provided, use this specific session
+            "date": "11/7/2025",  // Optional - defaults to today's date (only used if session_id not provided)
             "team1_player1": "Alice",
             "team1_player2": "Bob",
             "team2_player1": "Charlie",
@@ -1338,7 +1712,7 @@ async def create_match(
         
         # Validate required fields
         required_fields = [
-            'session_id', 'team1_player1', 'team1_player2',
+            'team1_player1', 'team1_player2',
             'team2_player1', 'team2_player2', 'team1_score', 'team2_score'
         ]
         for field in required_fields:
@@ -1353,18 +1727,105 @@ async def create_match(
         if len(players) != len(set(players)):
             raise HTTPException(status_code=400, detail="All four players must be distinct")
         
-        # Get session to verify it exists and is pending
-        session_obj = await data_service.get_session(session, body['session_id'])
-        if not session_obj:
-            raise HTTPException(status_code=404, detail=f"Session {body['session_id']} not found")
+        session_id = body.get('session_id')
+        session_obj = None
         
-        if not session_obj.get('is_pending', True):  # Check if session is pending
-            raise HTTPException(status_code=400, detail="Cannot add matches to a submitted session")
+        # If session_id is provided, use that specific session (for editing mode)
+        if session_id:
+            session_obj = await data_service.get_session(session, session_id)
+            if not session_obj:
+                raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+            
+            session_status = session_obj.get('status')
+            # Allow match creation if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin
+            if session_status != 'ACTIVE':
+                if session_status not in ('SUBMITTED', 'EDITED'):
+                    raise HTTPException(status_code=400, detail="Cannot add matches to a session with this status")
+                # Check if user is league admin
+                if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
+                    raise HTTPException(status_code=403, detail="Only league admins can add matches to submitted sessions")
+        else:
+            # No session_id provided - need league_id to find/create session
+            league_id = body.get('league_id')
+            if not league_id:
+                raise HTTPException(status_code=400, detail="Either session_id or league_id is required")
+            
+            # Default to today's date if not provided
+            match_date = body.get('date')
+            if not match_date:
+                # Format today's date as MM/DD/YYYY
+                today = datetime.now()
+                match_date = f"{today.month}/{today.day}/{today.year}"
+            
+            # Get player_id for created_by
+            player_id = None
+            player = await data_service.get_player_by_user_id(session, current_user["id"])
+            if player:
+                player_id = player["id"]
+            
+            # Find the most recent active season for this league
+            season_result = await session.execute(
+                select(Season)
+                .where(and_(Season.league_id == league_id, Season.is_active == True))
+                .order_by(Season.created_at.desc())
+                .limit(1)
+            )
+            active_season = season_result.scalar_one_or_none()
+            
+            if not active_season:
+                raise HTTPException(status_code=400, detail=f"League {league_id} does not have an active season. Please create and activate a season first.")
+            
+            # Try to find an existing session (ACTIVE first, then SUBMITTED/EDITED if user is admin)
+            result = await session.execute(
+                select(Session)
+                .where(
+                    and_(
+                        Session.date == match_date,
+                        Session.season_id == active_season.id,
+                        Session.status == SessionStatus.ACTIVE
+                    )
+                )
+                .with_for_update()  # Lock to prevent race conditions
+            )
+            session_obj = result.scalar_one_or_none()
+            
+            # If no active session, check for SUBMITTED/EDITED session (for admin editing)
+            if not session_obj:
+                result = await session.execute(
+                    select(Session)
+                    .where(
+                        and_(
+                            Session.date == match_date,
+                            Session.season_id == active_season.id,
+                            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED])
+                        )
+                    )
+                    .order_by(Session.created_at.desc())
+                    .limit(1)
+                )
+                submitted_session = result.scalar_one_or_none()
+                
+                if submitted_session:
+                    # Check if user is league admin
+                    if await is_user_admin_of_session_league(session, current_user["id"], submitted_session.id):
+                        session_obj = submitted_session
+                    # Not admin, cannot add to submitted session - will create new active session
+            
+            # If still no session found, create a new active one atomically
+            if not session_obj:
+                session_obj = await data_service.get_or_create_active_league_session(
+                    session=session,
+                    league_id=league_id,
+                    date=match_date,
+                    created_by=player_id
+                )
+            
+            session_id = session_obj["id"]
         
         # Create the match using the session's date
         match_id = await data_service.create_match_async(
             session=session,
-            session_id=body['session_id'],
+            session_id=session_id,
             date=session_obj['date'],
             team1_player1=body['team1_player1'],
             team1_player2=body['team1_player2'],
@@ -1379,10 +1840,12 @@ async def create_match(
             "status": "success",
             "message": "Match created successfully",
             "match_id": match_id,
-            "session_id": body['session_id']
+            "session_id": session_id
         }
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating match: {str(e)}")
 
@@ -1438,8 +1901,23 @@ async def update_match(
         if not match:
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
-        if match.get('session_active') is False:
-            raise HTTPException(status_code=400, detail="Cannot edit matches in a submitted session")
+        session_status = match.get('session_status')
+        # Allow match editing if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin
+        if session_status != 'ACTIVE':
+            if session_status not in ('SUBMITTED', 'EDITED'):
+                raise HTTPException(status_code=400, detail="Cannot edit matches in a session with this status")
+            # Check if user is league admin
+            session_id = match.get('session_id')
+            if not session_id:
+                raise HTTPException(status_code=400, detail="Match does not belong to a session")
+            if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
+                raise HTTPException(status_code=403, detail="Only league admins can edit matches in submitted sessions")
+        
+        # Get player_id for updated_by
+        player_id = None
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        if player:
+            player_id = player["id"]
         
         # Update the match
         success = await data_service.update_match_async(
@@ -1451,7 +1929,8 @@ async def update_match(
             team2_player2=body['team2_player2'],
             team1_score=body['team1_score'],
             team2_score=body['team2_score'],
-            is_public=body.get('is_public')
+            is_public=body.get('is_public'),
+            updated_by=player_id
         )
         
         if not success:
@@ -1489,8 +1968,17 @@ async def delete_match(
         if not match:
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
-        if match.get('session_active') is False:
-            raise HTTPException(status_code=400, detail="Cannot delete matches in a submitted session")
+        session_status = match.get('session_status')
+        # Allow match deletion if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin
+        if session_status != 'ACTIVE':
+            if session_status not in ('SUBMITTED', 'EDITED'):
+                raise HTTPException(status_code=400, detail="Cannot delete matches in a session with this status")
+            # Check if user is league admin
+            session_id = match.get('session_id')
+            if not session_id:
+                raise HTTPException(status_code=400, detail="Match does not belong to a session")
+            if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
+                raise HTTPException(status_code=403, detail="Only league admins can delete matches in submitted sessions")
         
         # Delete the match
         success = await data_service.delete_match_async(session, match_id)

@@ -45,3 +45,4 @@ export default function SeasonsSection({ seasons, isAdmin, onCreateSeason }) {
   );
 }
 
+

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Complete script to set up players: signup, verify phone, and update profile.
-This script handles the full player onboarding process.
+Script to populate players by signing them up and verifying their phones.
+Since SMS is disabled, we query the database to get verification codes.
 """
 
 import asyncio
@@ -15,10 +15,10 @@ sys.path.insert(0, project_root)
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select
+from sqlalchemy import select, text
 from backend.database.models import VerificationCode
 
-# Players to set up
+# Players to sign up
 PLAYERS = [
     {"full_name": "Colan Gulla", "phone": "+14012078049", "nickname": "Colan"},
     {"full_name": "Daniel Minicucci", "phone": "+15168804085", "nickname": "Dan"},
@@ -39,10 +39,6 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 # Default password for all users (meets requirements: 8+ chars, has number)
 DEFAULT_PASSWORD = "Password123"
-
-# Profile settings
-GENDER = "male"
-LEVEL = "Open"
 
 # Database connection
 DATABASE_URL = os.getenv(
@@ -68,7 +64,7 @@ async def get_verification_code(session: AsyncSession, phone_number: str) -> str
 
 async def signup_player(client: httpx.AsyncClient, player: dict) -> dict:
     """Sign up a player."""
-    print(f"   📝 Signing up {player['full_name']} ({player['phone']})...")
+    print(f"📝 Signing up {player['full_name']} ({player['phone']})...")
     
     response = await client.post(
         f"{API_BASE_URL}/api/auth/signup",
@@ -81,18 +77,18 @@ async def signup_player(client: httpx.AsyncClient, player: dict) -> dict:
     )
     
     if response.status_code == 200:
-        print(f"      ✅ Signup successful")
+        print(f"   ✅ Signup successful")
         return response.json()
     elif response.status_code == 400 and "already registered" in response.text:
-        print(f"      ⚠️  User already exists, will attempt verification")
+        print(f"   ⚠️  User already exists, skipping signup")
         return {"status": "exists"}
     else:
-        print(f"      ❌ Signup failed: {response.status_code} - {response.text}")
+        print(f"   ❌ Signup failed: {response.status_code} - {response.text}")
         return None
 
 
 async def verify_phone(client: httpx.AsyncClient, player: dict, code: str) -> dict:
-    """Verify phone number with code and return auth response."""
+    """Verify phone number with code."""
     print(f"   🔐 Verifying phone with code {code}...")
     
     response = await client.post(
@@ -105,69 +101,24 @@ async def verify_phone(client: httpx.AsyncClient, player: dict, code: str) -> di
     )
     
     if response.status_code == 200:
-        print(f"      ✅ Verification successful!")
+        print(f"   ✅ Verification successful!")
         return response.json()
     else:
-        print(f"      ❌ Verification failed: {response.status_code} - {response.text}")
+        print(f"   ❌ Verification failed: {response.status_code} - {response.text}")
         return None
 
 
-async def update_player_profile(client: httpx.AsyncClient, token: str, player: dict) -> bool:
-    """Update player profile with nickname, gender, and level."""
-    print(f"   📋 Updating profile (nickname: {player['nickname']}, gender: {GENDER}, level: {LEVEL})...")
-    
-    response = await client.put(
-        f"{API_BASE_URL}/api/users/me/player",
-        json={
-            "full_name": player["full_name"],
-            "nickname": player["nickname"],
-            "gender": GENDER,
-            "level": LEVEL,
-        },
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
-        timeout=30.0
-    )
-    
-    if response.status_code == 200:
-        print(f"      ✅ Profile updated successfully")
-        return True
-    else:
-        print(f"      ❌ Update failed: {response.status_code} - {response.text}")
-        return False
-
-
 async def process_player(player: dict, db_session: AsyncSession):
-    """Process a single player: signup, verify, and update profile."""
+    """Process a single player: signup and verify."""
     async with httpx.AsyncClient() as client:
         # Step 1: Signup
         signup_result = await signup_player(client, player)
         if signup_result is None:
             return False
         
-        # If user already exists, we still need to verify/login
+        # If user already exists, try to verify anyway (in case they're not verified)
         if signup_result.get("status") == "exists":
-            # Try to login instead
-            print(f"      🔑 Attempting login...")
-            login_response = await client.post(
-                f"{API_BASE_URL}/api/auth/login",
-                json={
-                    "phone_number": player["phone"],
-                    "password": DEFAULT_PASSWORD,
-                },
-                timeout=30.0
-            )
-            
-            if login_response.status_code == 200:
-                auth_data = login_response.json()
-                token = auth_data.get("access_token")
-                if token:
-                    # Skip verification, go straight to profile update
-                    return await update_player_profile(client, token, player)
-            else:
-                # If login fails, continue with verification flow
-                print(f"      ⚠️  Login failed, continuing with verification...")
+            print(f"   ℹ️  User exists, attempting verification...")
         
         # Step 2: Get verification code from database
         # Wait a bit for the code to be stored
@@ -175,34 +126,25 @@ async def process_player(player: dict, db_session: AsyncSession):
         
         code = await get_verification_code(db_session, player["phone"])
         if not code:
-            print(f"      ❌ Could not find verification code in database")
+            print(f"   ❌ Could not find verification code in database")
             return False
         
-        # Step 3: Verify phone (this returns auth tokens)
+        # Step 3: Verify phone
         verify_result = await verify_phone(client, player, code)
         if verify_result is None:
             return False
         
-        # Step 4: Update profile using the access token from verification
-        token = verify_result.get("access_token")
-        if not token:
-            print(f"      ❌ No access token in verification response")
-            return False
-        
-        profile_success = await update_player_profile(client, token, player)
-        return profile_success
+        return True
 
 
 async def main():
     """Main function to process all players."""
-    print("🏐 Beach Kings - Complete Player Setup Script")
-    print("=" * 60)
+    print("🏐 Beach Kings - Player Population Script")
+    print("=" * 50)
     print(f"API URL: {API_BASE_URL}")
     print(f"Database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'N/A'}")
-    print(f"Gender: {GENDER}")
-    print(f"Level: {LEVEL}")
     print(f"Players to process: {len(PLAYERS)}")
-    print("=" * 60)
+    print("=" * 50)
     print()
     
     # Create database engine and session
@@ -225,8 +167,6 @@ async def main():
                         failed_count += 1
                 except Exception as e:
                     print(f"   ❌ Error: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
                     failed_count += 1
                 
                 # Wait between players to avoid rate limiting
@@ -235,10 +175,10 @@ async def main():
                     print(f"   ⏳ Waiting 7 seconds to avoid rate limiting...")
                     await asyncio.sleep(7)
         
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 50)
         print(f"✅ Successfully processed: {success_count}")
         print(f"❌ Failed: {failed_count}")
-        print("=" * 60)
+        print("=" * 50)
         
     finally:
         await engine.dispose()
@@ -246,5 +186,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 

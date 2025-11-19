@@ -62,14 +62,9 @@ export const clearAuthTokens = () => {
 };
 
 export const getStoredTokens = () => {
-  // Always read from localStorage to ensure we get the latest values
-  // This is especially important on page refresh
   if (isBrowser) {
-    const storedAccess = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-    const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_KEY);
-    // Update the authTokens object to keep it in sync
-    authTokens.accessToken = storedAccess;
-    authTokens.refreshToken = storedRefresh;
+    authTokens.accessToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    authTokens.refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
   }
   return {
     accessToken: authTokens.accessToken,
@@ -91,53 +86,114 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Queue to handle concurrent refresh attempts - only one refresh at a time
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Public endpoints that should never trigger token refresh
+const PUBLIC_AUTH_ENDPOINTS = [
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/refresh',
+  '/api/auth/send-verification',
+  '/api/auth/verify-phone',
+  '/api/auth/reset-password',
+  '/api/auth/reset-password-verify',
+  '/api/auth/reset-password-confirm',
+  '/api/auth/sms-login',
+  '/api/auth/check-phone'
+];
+
+const isPublicAuthEndpoint = (url) => {
+  if (!url) return false;
+  return PUBLIC_AUTH_ENDPOINTS.some(endpoint => url.includes(endpoint));
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config || {};
     const isUnauthorized = error.response?.status === 401;
     const url = originalRequest.url || '';
-    // Only exclude endpoints that don't require authentication
-    // Endpoints like /api/auth/me, /api/auth/logout DO require auth and should trigger refresh
-    const shouldSkipRefresh = url.includes('/api/auth/login') ||
-                               url.includes('/api/auth/signup') ||
-                               url.includes('/api/auth/refresh') ||
-                               url.includes('/api/auth/send-verification') ||
-                               url.includes('/api/auth/verify-phone') ||
-                               url.includes('/api/auth/reset-password') ||
-                               url.includes('/api/auth/reset-password-verify') ||
-                               url.includes('/api/auth/reset-password-confirm') ||
-                               url.includes('/api/auth/sms-login') ||
-                               url.includes('/api/auth/check-phone');
 
+    // Skip refresh for public endpoints that don't require authentication
+    if (isUnauthorized && isPublicAuthEndpoint(url)) {
+      return Promise.reject(error);
+    }
+
+    // If we're already refreshing, queue this request to retry after refresh
+    if (isUnauthorized && isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+        .then(token => {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        })
+        .catch(err => {
+          return Promise.reject(err);
+        });
+    }
+
+    // Attempt to refresh token if unauthorized and we have a refresh token
     if (
       isUnauthorized &&
       authTokens.refreshToken &&
       !originalRequest._retry &&
-      !shouldSkipRefresh
+      !isPublicAuthEndpoint(url)
     ) {
       originalRequest._retry = true;
+      isRefreshing = true;
+
       try {
-        // Get the latest refresh token from storage in case it was updated
+        // Get the latest refresh token from storage
         const latestRefreshToken = isBrowser 
           ? window.localStorage.getItem(REFRESH_TOKEN_KEY) 
           : authTokens.refreshToken;
         
         if (!latestRefreshToken) {
           clearAuthTokens();
+          isRefreshing = false;
+          processQueue(error, null);
           return Promise.reject(error);
         }
         
         const { data } = await refreshClient.post('/api/auth/refresh', {
           refresh_token: latestRefreshToken,
         });
+        
+        // Update tokens with the new access token
         setAuthTokens(data.access_token);
+        
+        // Use the new token directly from the response
+        const newAccessToken = data.access_token;
+        
+        // Process queued requests with the new token
+        isRefreshing = false;
+        processQueue(null, newAccessToken);
+        
+        // Retry the original request with the new token
         originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${authTokens.accessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear tokens and reject
+        // Refresh failed - clear tokens and reject all queued requests
         clearAuthTokens();
+        isRefreshing = false;
+        processQueue(refreshError, null);
         return Promise.reject(error);
       }
     }
@@ -254,18 +310,18 @@ export const createSession = async (date = null) => {
 };
 
 /**
- * Lock in a session (update session to set is_pending to false)
+ * Lock in a session (submit session)
  */
 export const lockInSession = async (sessionId) => {
-  const response = await api.patch(`/api/sessions/${sessionId}`, { is_pending: false });
+  const response = await api.patch(`/api/sessions/${sessionId}`, { submit: true });
   return response.data;
 };
 
 /**
- * Lock in a league session (update session to set is_pending to false)
+ * Lock in a league session (submit session)
  */
 export const lockInLeagueSession = async (leagueId, sessionId) => {
-  const response = await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { is_pending: false });
+  const response = await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { submit: true });
   return response.data;
 };
 
@@ -456,6 +512,123 @@ export const logout = async () => {
     // The user is already logged out from the client side
     throw error;
   }
+};
+
+/**
+ * Weekly Schedule API methods
+ */
+
+/**
+ * Create a weekly schedule for a season
+ */
+export const createWeeklySchedule = async (seasonId, scheduleData) => {
+  const response = await api.post(`/api/seasons/${seasonId}/weekly-schedules`, scheduleData);
+  return response.data;
+};
+
+/**
+ * Get weekly schedules for a season
+ */
+export const getWeeklySchedules = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/weekly-schedules`);
+  return response.data;
+};
+
+/**
+ * Update a weekly schedule
+ */
+export const updateWeeklySchedule = async (scheduleId, scheduleData) => {
+  const response = await api.put(`/api/weekly-schedules/${scheduleId}`, scheduleData);
+  return response.data;
+};
+
+/**
+ * Delete a weekly schedule
+ */
+export const deleteWeeklySchedule = async (scheduleId) => {
+  const response = await api.delete(`/api/weekly-schedules/${scheduleId}`);
+  return response.data;
+};
+
+/**
+ * Signup API methods
+ */
+
+/**
+ * Create an ad-hoc signup for a season
+ */
+export const createSignup = async (seasonId, signupData) => {
+  const response = await api.post(`/api/seasons/${seasonId}/signups`, signupData);
+  return response.data;
+};
+
+/**
+ * Get signups for a season
+ */
+export const getSignups = async (seasonId, options = {}) => {
+  const params = new URLSearchParams();
+  if (options.upcoming_only) params.append('upcoming_only', 'true');
+  if (options.past_only) params.append('past_only', 'true');
+  const queryString = params.toString();
+  const url = `/api/seasons/${seasonId}/signups${queryString ? `?${queryString}` : ''}`;
+  const response = await api.get(url);
+  return response.data;
+};
+
+/**
+ * Get a signup by ID with players list
+ */
+export const getSignup = async (signupId) => {
+  const response = await api.get(`/api/signups/${signupId}`);
+  return response.data;
+};
+
+/**
+ * Update a signup
+ */
+export const updateSignup = async (signupId, signupData) => {
+  const response = await api.put(`/api/signups/${signupId}`, signupData);
+  return response.data;
+};
+
+/**
+ * Delete a signup
+ */
+export const deleteSignup = async (signupId) => {
+  const response = await api.delete(`/api/signups/${signupId}`);
+  return response.data;
+};
+
+/**
+ * Sign up a player for a signup
+ */
+export const signupForSignup = async (signupId) => {
+  const response = await api.post(`/api/signups/${signupId}/signup`);
+  return response.data;
+};
+
+/**
+ * Drop out a player from a signup
+ */
+export const dropoutFromSignup = async (signupId) => {
+  const response = await api.post(`/api/signups/${signupId}/dropout`);
+  return response.data;
+};
+
+/**
+ * Get players signed up for a signup
+ */
+export const getSignupPlayers = async (signupId) => {
+  const response = await api.get(`/api/signups/${signupId}/players`);
+  return response.data;
+};
+
+/**
+ * Get event log for a signup
+ */
+export const getSignupEvents = async (signupId) => {
+  const response = await api.get(`/api/signups/${signupId}/events`);
+  return response.data;
 };
 
 export default api;

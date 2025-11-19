@@ -698,6 +698,39 @@ h1 {
   font-weight: 700;
 }
 
+.landing-welcome-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-brand-crown {
+  color: var(--retro-yellow);
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(254, 202, 87, 0.4));
+}
+
+.landing-brand-text {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--sunset-orange) 0%, var(--coral) 50%, var(--retro-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  text-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+}
+
 .landing-message p {
   font-size: 1.125rem;
   color: var(--gray-700);
@@ -1515,6 +1548,19 @@ tbody tr:hover .sticky-col {
     padding: 0 10px;
   }
 
+  .landing-message h2 {
+    font-size: 1.5rem;
+  }
+
+  .landing-welcome-title {
+    font-size: 1.5rem;
+  }
+
+  .landing-brand-crown {
+    width: 24px;
+    height: 24px;
+  }
+
   /* Tables - Better mobile handling */
   table {
     font-size: 1em;
@@ -1782,6 +1828,19 @@ tbody tr:hover .sticky-col {
 
   h1 {
     font-size: 1.5em;
+  }
+
+  .landing-message h2 {
+    font-size: 1.25rem;
+  }
+
+  .landing-welcome-title {
+    font-size: 1.25rem;
+  }
+
+  .landing-brand-crown {
+    width: 20px;
+    height: 20px;
   }
 
   .hero-header {
@@ -5206,5 +5265,311 @@ select.form-select {
   .session-empty-icon {
     width: 32px;
     height: 32px;
+  }
+}
+
+/* Signup Components Styles */
+.signups-section {
+  margin-bottom: 32px;
+}
+
+.subsection-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--warm-brown);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.signup-card {
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.signup-card:hover {
+  border-color: var(--ocean-blue);
+  box-shadow: var(--shadow-md);
+}
+
+.signup-card.past {
+  opacity: 0.7;
+  background: var(--gray-50);
+}
+
+.signup-card.closed {
+  border-color: var(--gray-300);
+}
+
+.signup-card-header {
+  width: 100%;
+}
+
+.signup-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.signup-card-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.signup-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--warm-brown);
+  margin-bottom: 8px;
+}
+
+.signup-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.signup-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.signup-status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.signup-status-badge.closed {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.signup-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.signup-card-players {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.signup-players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signup-player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: var(--gray-50);
+  border-radius: 6px;
+}
+
+.signup-player-item .player-name {
+  font-weight: 500;
+  color: var(--warm-brown);
+}
+
+.signup-player-item .player-signed-up-at {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+/* Schedule Cards */
+.schedules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-card {
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.schedule-card:hover {
+  border-color: var(--ocean-blue);
+  box-shadow: var(--shadow-md);
+}
+
+.schedule-card-header {
+  width: 100%;
+}
+
+.schedule-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.schedule-card-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.schedule-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--warm-brown);
+  margin-bottom: 8px;
+}
+
+.schedule-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.schedule-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Signup Players Modal */
+.signup-players-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.signup-player-modal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+}
+
+.signup-player-modal-item .player-modal-name {
+  font-weight: 600;
+  color: var(--warm-brown);
+  font-size: 1rem;
+}
+
+.signup-player-modal-item .player-modal-time {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+/* Modal Close Button */
+.modal-close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-600);
+  transition: color 0.2s ease;
+}
+
+.modal-close-button:hover {
+  color: var(--warm-brown);
+}
+
+/* Form Inputs */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--warm-brown);
+  font-size: 0.875rem;
+}
+
+.form-group .required {
+  color: var(--danger);
+}
+
+.form-group small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--gray-600);
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--ocean-blue);
+}
+
+.form-input select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+/* Responsive Signup Styles */
+@media (max-width: 768px) {
+  .signup-card-main {
+    flex-direction: column;
+  }
+
+  .signup-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .schedule-card-main {
+    flex-direction: column;
+  }
+
+  .schedule-card-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }

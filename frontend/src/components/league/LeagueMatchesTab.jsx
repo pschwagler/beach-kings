@@ -28,6 +28,20 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     return members.some(m => m.player_id === currentUserPlayer.id);
   }, [currentUserPlayer, members]);
 
+  // Compute isAdmin from context
+  const isAdmin = useMemo(() => {
+    if (!currentUserPlayer || !members.length) return false;
+    const userMember = members.find(m => m.player_id === currentUserPlayer.id);
+    return userMember?.role === 'admin';
+  }, [currentUserPlayer, members]);
+
+  // Track which sessions are in editing mode (local state only)
+  const [editingSessions, setEditingSessions] = useState(new Set());
+  
+  // Track pending match changes when editing a session
+  // Structure: { sessionId: { updates: Map<matchId, matchData>, additions: [matchData, ...] } }
+  const [pendingMatchChanges, setPendingMatchChanges] = useState(new Map());
+
   // Transform match data from API format to MatchesTable format
   const transformMatchData = (matches) => {
     return matches.map(match => {
@@ -37,8 +51,9 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         Date: match.date,
         'Session ID': match.session_id,
         'Session Name': match.session_name || match.date,
-        'Session Active': match.session_pending === true || match.session_pending === 1,
+        'Session Status': match.session_status || null,
         'Session Created At': match.session_created_at || null,
+        'Session Updated At': match.session_updated_at || null,
         'Session Created By': match.session_created_by_name || null,
         'Session Updated By': match.session_updated_by_name || null,
         'Team 1 Player 1': match.team1_player1_name || '',
@@ -204,7 +219,7 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     }
   };
 
-  const handleCreateMatch = async (matchData) => {
+  const handleCreateMatch = async (matchData, sessionId = null) => {
     try {
       // Convert display names (nicknames) back to full_name for backend
       const matchDataWithFullNames = {
@@ -214,6 +229,20 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         team2_player1: playerNameToFullName.get(matchData.team2_player1) || matchData.team2_player1,
         team2_player2: playerNameToFullName.get(matchData.team2_player2) || matchData.team2_player2,
       };
+      
+      // If we're editing a session, store the change locally instead of making API call
+      if (sessionId && editingSessions.has(sessionId)) {
+        setPendingMatchChanges(prev => {
+          const next = new Map(prev);
+          const sessionChanges = next.get(sessionId) || { updates: new Map(), additions: [] };
+          sessionChanges.additions.push(matchDataWithFullNames);
+          next.set(sessionId, sessionChanges);
+          return next;
+        });
+        showMessage?.('success', 'Match added (pending save)');
+        // Don't reload matches - UI will update from pendingMatchChanges state
+        return;
+      }
       
       await createMatch(matchDataWithFullNames);
       showMessage?.('success', 'Match created successfully');
@@ -225,7 +254,7 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     }
   };
 
-  const handleUpdateMatch = async (matchId, matchData) => {
+  const handleUpdateMatch = async (matchId, matchData, sessionId = null) => {
     try {
       // Convert display names (nicknames) back to full_name for backend
       const matchDataWithFullNames = {
@@ -235,6 +264,42 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         team2_player1: playerNameToFullName.get(matchData.team2_player1) || matchData.team2_player1,
         team2_player2: playerNameToFullName.get(matchData.team2_player2) || matchData.team2_player2,
       };
+      
+      // If we're editing a session, store the change locally instead of making API call
+      if (sessionId && editingSessions.has(sessionId)) {
+        setPendingMatchChanges(prev => {
+          const next = new Map(prev);
+          const sessionChanges = next.get(sessionId) || { updates: new Map(), additions: [] };
+          
+          // Check if this is a pending match (newly added match being edited)
+          if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
+            // Extract index from temp ID: pending-{sessionId}-{index}
+            const parts = matchId.split('-');
+            if (parts.length >= 3) {
+              const index = parseInt(parts[2]);
+              if (!isNaN(index) && index >= 0 && index < sessionChanges.additions.length) {
+                // Update the addition in place
+                sessionChanges.additions[index] = matchDataWithFullNames;
+              } else {
+                // Index not found, add as new addition
+                sessionChanges.additions.push(matchDataWithFullNames);
+              }
+            } else {
+              // Invalid temp ID format, add as new addition
+              sessionChanges.additions.push(matchDataWithFullNames);
+            }
+          } else {
+            // Existing match being edited - store in updates
+            sessionChanges.updates.set(matchId, matchDataWithFullNames);
+          }
+          
+          next.set(sessionId, sessionChanges);
+          return next;
+        });
+        showMessage?.('success', 'Match updated (pending save)');
+        // Don't reload matches - UI will update from pendingMatchChanges state
+        return;
+      }
       
       await updateMatch(matchId, matchDataWithFullNames);
       showMessage?.('success', 'Match updated successfully');
@@ -271,6 +336,74 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     }
   };
 
+  const handleEnterEditMode = (sessionId) => {
+    setEditingSessions(prev => new Set(prev).add(sessionId));
+    // Initialize pending changes for this session
+    setPendingMatchChanges(prev => {
+      const next = new Map(prev);
+      if (!next.has(sessionId)) {
+        next.set(sessionId, { updates: new Map(), additions: [] });
+      }
+      return next;
+    });
+  };
+
+  const handleSaveEditedSession = async (sessionId) => {
+    try {
+      // Apply all pending match changes for this session
+      const sessionChanges = pendingMatchChanges.get(sessionId);
+      if (sessionChanges) {
+        // Apply updates
+        for (const [matchId, matchData] of sessionChanges.updates) {
+          await updateMatch(matchId, matchData);
+        }
+        
+        // Apply additions
+        for (const matchData of sessionChanges.additions) {
+          await createMatch(matchData);
+        }
+      }
+      
+      // Lock in the session (this will recalculate stats)
+      await lockInLeagueSession(leagueId, sessionId);
+      showMessage?.('success', 'Session saved and stats recalculated!');
+      
+      // Clear editing state and pending changes
+      setEditingSessions(prev => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      setPendingMatchChanges(prev => {
+        const next = new Map(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      
+      await loadLeagueMatches();
+      await loadActiveSession();
+    } catch (err) {
+      showMessage?.('error', err.response?.data?.detail || 'Failed to save session');
+      throw err;
+    }
+  };
+
+  const handleCancelEdit = (sessionId) => {
+    setEditingSessions(prev => {
+      const next = new Set(prev);
+      next.delete(sessionId);
+      return next;
+    });
+    // Discard pending changes for this session
+    setPendingMatchChanges(prev => {
+      const next = new Map(prev);
+      next.delete(sessionId);
+      return next;
+    });
+    // Reload matches to discard any local changes
+    loadLeagueMatches();
+  };
+
   return (
     <div className="league-section">
       <MatchesTable
@@ -288,6 +421,12 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         allPlayerNames={allPlayerNames}
         isLeagueMember={isLeagueMember}
         leagueId={leagueId}
+        isAdmin={isAdmin}
+        editingSessions={editingSessions}
+        onEnterEditMode={handleEnterEditMode}
+        onSaveEditedSession={handleSaveEditedSession}
+        onCancelEdit={handleCancelEdit}
+        pendingMatchChanges={pendingMatchChanges}
       />
     </div>
   );

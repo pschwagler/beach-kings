@@ -82,3 +82,4 @@ export default function DescriptionSection({ league, leagueId, isAdmin, onUpdate
   );
 }
 
+

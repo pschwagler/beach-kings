@@ -1,13 +1,19 @@
 import { Trophy, Users, X } from 'lucide-react';
 
-export default function SessionHeader({ sessionName, gameCount, playerCount, onDelete }) {
+export default function SessionHeader({ sessionName, gameCount, playerCount, onDelete, isEditing = false }) {
   return (
     <div className="session-header">
       <div className="session-title-group">
-        <div className="recording-badge">
-          <div className="recording-dot" />
-          Recording
-        </div>
+        {isEditing ? (
+          <div className="editing-badge" style={{ backgroundColor: '#f59e0b', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' }}>
+            Editing
+          </div>
+        ) : (
+          <div className="recording-badge">
+            <div className="recording-dot" />
+            Recording
+          </div>
+        )}
         <h3 className="session-name">
           {sessionName}
         </h3>

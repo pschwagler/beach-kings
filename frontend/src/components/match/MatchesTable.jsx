@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Edit2 } from 'lucide-react';
 import { Button } from '../ui/UI';
 import MatchCard from './MatchCard';
 import AddMatchModal from './AddMatchModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
-import { createLeagueSession, getActiveSession } from '../../services/api';
 
 // Helper function to format timestamp as relative time or date
 function formatSessionTimestamp(timestamp) {
@@ -51,7 +50,13 @@ export default function MatchesTable({
   onCreatePlayer,
   allPlayerNames,
   isLeagueMember = false,
-  leagueId = null
+  leagueId = null,
+  isAdmin = false,
+  editingSessions = new Set(),
+  onEnterEditMode,
+  onSaveEditedSession,
+  onCancelEdit,
+  pendingMatchChanges = new Map()
 }) {
   const [isAddMatchModalOpen, setIsAddMatchModalOpen] = useState(false);
   const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
@@ -60,20 +65,83 @@ export default function MatchesTable({
   // Use isLeagueMember prop instead of checking ?gameon query parameter
   const gameOnMode = isLeagueMember;
 
+  // Apply pending changes to matches for display
+  const matchesWithPendingChanges = useMemo(() => {
+    if (pendingMatchChanges.size === 0) {
+      return matches;
+    }
+
+    let updatedMatches = [...matches];
+
+    // Apply pending changes for each editing session
+    pendingMatchChanges.forEach((sessionChanges, sessionId) => {
+      // Apply updates to existing matches
+      sessionChanges.updates.forEach((updatedData, matchId) => {
+        const matchIndex = updatedMatches.findIndex(m => m.id === matchId);
+        if (matchIndex !== -1) {
+          // Update the match with pending changes
+          const match = updatedMatches[matchIndex];
+          updatedMatches[matchIndex] = {
+            ...match,
+            'Team 1 Player 1': updatedData.team1_player1 || match['Team 1 Player 1'],
+            'Team 1 Player 2': updatedData.team1_player2 || match['Team 1 Player 2'],
+            'Team 2 Player 1': updatedData.team2_player1 || match['Team 2 Player 1'],
+            'Team 2 Player 2': updatedData.team2_player2 || match['Team 2 Player 2'],
+            'Team 1 Score': updatedData.team1_score !== undefined ? updatedData.team1_score : match['Team 1 Score'],
+            'Team 2 Score': updatedData.team2_score !== undefined ? updatedData.team2_score : match['Team 2 Score'],
+            Winner: updatedData.team1_score > updatedData.team2_score ? 'Team 1' : 
+                   updatedData.team1_score < updatedData.team2_score ? 'Team 2' : 'Tie'
+          };
+        }
+      });
+
+      // Add new matches (with temporary IDs)
+      sessionChanges.additions.forEach((newMatchData, index) => {
+        const tempId = `pending-${sessionId}-${index}`;
+        const winner = newMatchData.team1_score > newMatchData.team2_score ? 'Team 1' : 
+                      newMatchData.team1_score < newMatchData.team2_score ? 'Team 2' : 'Tie';
+        
+        // Find session name from existing matches
+        const sessionMatch = updatedMatches.find(m => m['Session ID'] === sessionId);
+        const sessionName = sessionMatch ? sessionMatch['Session Name'] : 'New Session';
+        
+        updatedMatches.push({
+          id: tempId,
+          Date: new Date().toISOString().split('T')[0],
+          'Session ID': sessionId,
+          'Session Name': sessionName,
+          'Session Status': 'ACTIVE',
+          'Team 1 Player 1': newMatchData.team1_player1 || '',
+          'Team 1 Player 2': newMatchData.team1_player2 || '',
+          'Team 2 Player 1': newMatchData.team2_player1 || '',
+          'Team 2 Player 2': newMatchData.team2_player2 || '',
+          'Team 1 Score': newMatchData.team1_score,
+          'Team 2 Score': newMatchData.team2_score,
+          Winner: winner,
+          'Team 1 ELO Change': 0,
+          'Team 2 ELO Change': 0,
+        });
+      });
+    });
+
+    return updatedMatches;
+  }, [matches, pendingMatchChanges]);
+
   if (loading) {
     return <div className="loading">Loading matches...</div>;
   }
 
-  if (matches.length === 0 && !gameOnMode) {
+  if (matchesWithPendingChanges.length === 0 && !gameOnMode) {
     return <div className="loading">No matches available yet. Click "Recalculate Stats" to load data.</div>;
   }
 
   // Group matches by session (or by date for legacy matches without session)
-  const matchesBySession = matches.reduce((acc, match) => {
+  const matchesBySession = matchesWithPendingChanges.reduce((acc, match) => {
     const sessionId = match['Session ID'];
     const sessionName = match['Session Name'];
-    const isActive = match['Session Active'];
+    const sessionStatus = match['Session Status'];
     const sessionCreatedAt = match['Session Created At'];
+    const sessionUpdatedAt = match['Session Updated At'];
     const sessionCreatedBy = match['Session Created By'];
     const sessionUpdatedBy = match['Session Updated By'];
     
@@ -85,18 +153,28 @@ export default function MatchesTable({
           type: 'session',
           id: sessionId,
           name: sessionName,
-          isActive: isActive,
+          status: sessionStatus,
+          isActive: sessionStatus === 'ACTIVE',
           createdAt: sessionCreatedAt,
+          updatedAt: sessionUpdatedAt,
           createdBy: sessionCreatedBy,
           updatedBy: sessionUpdatedBy,
-          lastUpdated: sessionCreatedAt, // Use created_at for timestamp
+          lastUpdated: sessionUpdatedAt || sessionCreatedAt, // Use updated_at if available, else created_at
           matches: []
         };
       }
       acc[key].matches.push(match);
-      // Update updatedBy if this match has it
+      // Update status, updatedBy, updatedAt if this match has them
+      if (sessionStatus) {
+        acc[key].status = sessionStatus;
+        acc[key].isActive = sessionStatus === 'ACTIVE';
+      }
       if (sessionUpdatedBy) {
         acc[key].updatedBy = sessionUpdatedBy;
+      }
+      if (sessionUpdatedAt) {
+        acc[key].updatedAt = sessionUpdatedAt;
+        acc[key].lastUpdated = sessionUpdatedAt; // Update lastUpdated when we see updatedAt
       }
     } else {
       // For legacy matches, group by date
@@ -117,51 +195,70 @@ export default function MatchesTable({
     return acc;
   }, {});
 
+  // Sort matches within each session group by id (descending - newest first)
+  // Match id represents creation order since it's auto-incrementing
+  Object.values(matchesBySession).forEach(group => {
+    if (group.matches && group.matches.length > 0) {
+      group.matches.sort((a, b) => {
+        // Sort by match id descending (newest first)
+        const idA = a.id || 0;
+        const idB = b.id || 0;
+        return idB - idA;
+      });
+    }
+  });
+
   const handleAddMatch = async (matchData, matchId) => {
     if (matchId) {
-      // Edit mode
-      await onUpdateMatch(matchId, matchData);
+          // Edit mode - find which session this match belongs to
+      const match = matchesWithPendingChanges.find(m => m.id === matchId);
+      const sessionId = match ? match['Session ID'] : null;
+      
+      // Check if we're editing this session
+      const isEditingSession = sessionId && editingSessions.has(sessionId);
+      
+      if (isEditingSession) {
+        // Pass sessionId so it stores changes locally
+        await onUpdateMatch(matchId, matchData, sessionId);
+      } else {
+        // Not in editing mode, update immediately
+        await onUpdateMatch(matchId, matchData);
+      }
       setEditingMatch(null);
     } else {
       // Create mode
-      let currentSession = activeSession;
+      let matchPayload = { ...matchData };
+      let editingSessionId = null;
       
-      // If no active session exists, create one first
-      if (!currentSession && leagueId) {
-        try {
-          // Create a new session
-          const dateStr = new Date().toISOString().split('T')[0];
-          const [year, month, day] = dateStr.split('-');
-          const formattedDate = `${parseInt(month)}/${parseInt(day)}/${year}`;
-          
-          await createLeagueSession(leagueId, {
-            date: formattedDate,
-            name: undefined
-          });
-          
-          // Get the newly created active session
-          const newSession = await getActiveSession();
-          currentSession = newSession;
-          
-          // Also trigger the parent's onCreateSession to update state
-          if (onCreateSession) {
-            await onCreateSession();
-          }
-        } catch (err) {
-          console.error('Error creating session:', err);
-          // Continue without session if creation fails
-        }
+      // Check if we're in editing mode for a session (use the specific session_id)
+      if (editingSessions.size > 0) {
+        editingSessionId = Array.from(editingSessions)[0];
+        matchPayload.session_id = editingSessionId;
+        // When editing, session_id is sufficient - backend will use that specific session
+      } else if (activeSession) {
+        // Use active session if available
+        matchPayload.session_id = activeSession.id;
+      } else if (leagueId) {
+        // No session - pass league_id and let backend find/create session
+        matchPayload.league_id = leagueId;
+        // Date is optional - backend defaults to today if not provided
+        // Backend will automatically:
+        // - Use active session if one exists for this league/date
+        // - Use submitted/edited session if user is admin and editing
+        // - Create new active session if none exists
+      } else {
+        throw new Error('leagueId is required to create a match');
       }
       
-      // Create the match with the session_id if we have one
-      if (currentSession) {
-        await onCreateMatch({
-          ...matchData,
-          session_id: currentSession.id
-        });
+      // Create the match - if editing, pass sessionId to store locally
+      if (editingSessionId) {
+        await onCreateMatch(matchPayload, editingSessionId);
       } else {
-        // Fallback: create match without session
-        await onCreateMatch(matchData);
+        await onCreateMatch(matchPayload);
+        // Refresh active session after creating match (in case a new session was created)
+        if (onCreateSession) {
+          await onCreateSession();
+        }
       }
     }
   };
@@ -198,7 +295,7 @@ export default function MatchesTable({
   
   // Get matches for active session
   const activeSessionMatches = activeSession 
-    ? matches.filter(match => match['Session ID'] === activeSession.id)
+    ? matchesWithPendingChanges.filter(match => match['Session ID'] === activeSession.id)
     : [];
 
   return (
@@ -221,7 +318,7 @@ export default function MatchesTable({
         </div>
       )}
 
-      {matches.length === 0 && gameOnMode && !activeSession && (
+      {matchesWithPendingChanges.length === 0 && gameOnMode && !activeSession && (
         <div className="add-matches-empty-state">
           <p>No matches yet. Start a session and add your first match!</p>
         </div>
@@ -249,38 +346,96 @@ export default function MatchesTable({
           }
           return true;
         })
-        .map(([key, group]) => (
-          <div 
-            key={key} 
-            className={`match-date-group ${group.type === 'session' && group.isActive ? 'active-session-group' : ''}`}
-          >
-            <h3 className="match-date-header">
-              {group.type === 'session' && group.isActive && (
-                <span className="active-badge">Pending</span>
-              )}
-              {group.name}
-            </h3>
-            <div className="match-cards">
-              {group.matches.map((match, idx) => (
-                <MatchCard 
-                  key={idx} 
-                  match={match} 
-                  onPlayerClick={onPlayerClick} 
-                />
-              ))}
-            </div>
-            {group.lastUpdated && (
-              <div className="session-timestamp">
-                {group.updatedBy 
-                  ? `Edited ${formatSessionTimestamp(group.lastUpdated)} by ${group.updatedBy}`
-                  : group.createdBy
-                  ? `Submitted ${formatSessionTimestamp(group.lastUpdated)} by ${group.createdBy}`
-                  : formatSessionTimestamp(group.lastUpdated)
-                }
+        .map(([key, group]) => {
+          const isEditing = group.type === 'session' && editingSessions.has(group.id);
+          const canEdit = isAdmin && group.type === 'session' && 
+                         (group.status === 'SUBMITTED' || group.status === 'EDITED') && 
+                         !isEditing;
+          
+          // If in editing mode, render similar to active session
+          if (isEditing && group.type === 'session') {
+            const editingSessionMatches = group.matches;
+            return (
+              <ActiveSessionPanel
+                key={key}
+                activeSession={{ id: group.id, name: group.name }}
+                activeSessionMatches={editingSessionMatches}
+                onPlayerClick={onPlayerClick}
+                onAddMatchClick={() => setIsAddMatchModalOpen(true)}
+                onEditMatch={handleEditMatch}
+                onSaveClick={() => onSaveEditedSession(group.id)}
+                onCancelClick={() => onCancelEdit(group.id)}
+                onDeleteSession={onDeleteSession}
+                isEditing={true}
+              />
+            );
+          }
+          
+          return (
+            <div 
+              key={key} 
+              className={`match-date-group ${group.type === 'session' && group.isActive ? 'active-session-group' : ''}`}
+            >
+              <h3 className="match-date-header">
+                {group.type === 'session' && group.isActive && (
+                  <span className="active-badge">Pending</span>
+                )}
+                {group.name}
+                {canEdit && (
+                  <button
+                    className="edit-session-button"
+                    onClick={() => onEnterEditMode(group.id)}
+                    title="Edit Session"
+                    style={{
+                      marginLeft: '10px',
+                      padding: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'transparent',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f3f4f6';
+                      e.currentTarget.style.borderColor = '#9ca3af';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }}
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                )}
+              </h3>
+              <div className="match-cards">
+                {group.matches.map((match, idx) => (
+                  <MatchCard 
+                    key={idx} 
+                    match={match} 
+                    onPlayerClick={onPlayerClick} 
+                  />
+                ))}
               </div>
-            )}
-          </div>
-        ))}
+              {group.lastUpdated && (
+                <div className="session-timestamp">
+                  {group.status === 'EDITED' && group.updatedBy
+                    ? `Edited ${formatSessionTimestamp(group.lastUpdated)} by ${group.updatedBy}`
+                    : group.status === 'SUBMITTED' && group.updatedBy
+                    ? `Submitted ${formatSessionTimestamp(group.lastUpdated)} by ${group.updatedBy}`
+                    : group.status === 'SUBMITTED' && group.createdBy
+                    ? `Submitted ${formatSessionTimestamp(group.lastUpdated)} by ${group.createdBy}`
+                    : formatSessionTimestamp(group.lastUpdated)
+                  }
+                </div>
+              )}
+            </div>
+          );
+        })}
 
       {/* Modals */}
       <AddMatchModal
