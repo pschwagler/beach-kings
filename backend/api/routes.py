@@ -18,6 +18,9 @@ from backend.api.auth_dependencies import (
     require_system_admin,
     make_require_league_admin,
     make_require_league_member,
+    make_require_league_admin_from_season,
+    make_require_league_member_from_season,
+    make_require_league_admin_from_schedule,
 )
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
@@ -666,27 +669,100 @@ async def load_sheets(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/api/calculate")
+@router.post("/api/calculate-stats")
 async def calculate_stats(
+    request: Request,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Recalculate all statistics from existing database matches (finalized sessions only).
+    Queue a stats calculation job.
+    
+    Request body (optional):
+        {
+            "season_id": 123  // If provided, calculates season-specific stats. If omitted, calculates global stats.
+        }
     
     Returns:
-        dict: Status and summary of calculations
+        dict: Job ID and status
     """
     try:
-        result = await data_service.recalculate_all_stats(session)
+        from backend.services.stats_queue import get_stats_queue
+        
+        # Try to get body, default to empty dict if not present
+        try:
+            body = await request.json()
+        except:
+            body = {}
+        
+        season_id = body.get("season_id") if body else None
+        
+        calc_type = "season" if season_id else "global"
+        
+        queue = get_stats_queue()
+        job_id = await queue.enqueue_calculation(session, calc_type, season_id)
         
         return {
-            "status": "success",
-            "message": "Statistics recalculated successfully",
-            "player_count": result["player_count"],
-            "match_count": result["match_count"]
+            "job_id": job_id,
+            "status": "queued",
+            "calc_type": calc_type,
+            "season_id": season_id
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error queueing stats calculation: {str(e)}")
+
+
+@router.get("/api/calculate-stats/status")
+async def get_calculation_status(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get current queue status and recent jobs.
+    
+    Returns:
+        dict: Queue status with running, pending, and recent jobs
+    """
+    try:
+        from backend.services.stats_queue import get_stats_queue
+        
+        queue = get_stats_queue()
+        status = await queue.get_queue_status(session)
+        
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting queue status: {str(e)}")
+
+
+@router.get("/api/calculate-stats/status/{job_id}")
+async def get_job_status(
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get status of a specific calculation job.
+    
+    Args:
+        job_id: Job ID
+        
+    Returns:
+        dict: Job status
+    """
+    try:
+        from backend.services.stats_queue import get_stats_queue
+        
+        queue = get_stats_queue()
+        job_status = await queue.get_job_status(session, job_id)
+        
+        if not job_status:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        return job_status
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting job status: {str(e)}")
 
 
 @router.post("/api/rankings")
@@ -941,7 +1017,7 @@ async def health_check(session: AsyncSession = Depends(get_db_session)):
 async def create_weekly_schedule(
     season_id: int,
     payload: WeeklyScheduleCreate,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_season()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Create a weekly schedule (admin only)."""
@@ -979,7 +1055,7 @@ async def create_weekly_schedule(
 @router.get("/api/seasons/{season_id}/weekly-schedules", response_model=List[WeeklyScheduleResponse])
 async def list_weekly_schedules(
     season_id: int,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(make_require_league_member_from_season()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List weekly schedules for a season."""
@@ -993,7 +1069,7 @@ async def list_weekly_schedules(
 async def update_weekly_schedule(
     schedule_id: int,
     payload: WeeklyScheduleUpdate,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_schedule()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Update a weekly schedule (admin only)."""
@@ -1033,7 +1109,7 @@ async def update_weekly_schedule(
 @router.delete("/api/weekly-schedules/{schedule_id}")
 async def delete_weekly_schedule(
     schedule_id: int,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_schedule()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Delete a weekly schedule (admin only)."""
@@ -1054,7 +1130,7 @@ async def delete_weekly_schedule(
 async def create_signup(
     season_id: int,
     payload: SignupCreate,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_season()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Create an ad-hoc signup (admin only)."""
@@ -1090,7 +1166,7 @@ async def list_signups(
     season_id: int,
     upcoming_only: bool = False,
     past_only: bool = False,
-    user: dict = Depends(get_current_user_optional),
+    user: Optional[dict] = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List signups for a season. Public endpoint."""

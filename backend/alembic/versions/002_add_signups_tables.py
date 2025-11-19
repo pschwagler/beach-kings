@@ -21,9 +21,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create signup-related tables."""
-    # Create enum types
-    op.execute("CREATE TYPE opensignupsmode AS ENUM ('auto_after_last_session', 'specific_day_time', 'always_open')")
-    op.execute("CREATE TYPE signupeventtype AS ENUM ('signup', 'dropout')")
+    # Create enum types (only if they don't exist)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE opensignupsmode AS ENUM ('auto_after_last_session', 'specific_day_time', 'always_open');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE signupeventtype AS ENUM ('signup', 'dropout');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
     
     # Create weekly_schedules table
     op.create_table(

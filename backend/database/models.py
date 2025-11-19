@@ -348,6 +348,7 @@ class Match(Base):
     team2_score = Column(Integer, nullable=False)
     winner = Column(Integer, nullable=False)  # 1 = team1, 2 = team2, -1 = tie
     is_public = Column(Boolean, default=True, nullable=False)
+    is_ranked = Column(Boolean, default=True, nullable=False)  # Whether match counts toward rankings
     created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the match
     updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the match
     
@@ -404,12 +405,11 @@ class Match(Base):
 
 
 class PartnershipStats(Base):
-    """How each player performs WITH each partner."""
+    """How each player performs WITH each partner (global stats)."""
     __tablename__ = "partnership_stats"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    partner_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    partner_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
     points = Column(Integer, default=0, nullable=False)
@@ -427,12 +427,11 @@ class PartnershipStats(Base):
 
 
 class OpponentStats(Base):
-    """How each player performs AGAINST each opponent."""
+    """How each player performs AGAINST each opponent (global stats)."""
     __tablename__ = "opponent_stats"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    opponent_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    opponent_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
     points = Column(Integer, default=0, nullable=False)
@@ -450,12 +449,11 @@ class OpponentStats(Base):
 
 
 class EloHistory(Base):
-    """Track ELO changes over time for charting."""
+    """Track ELO changes over time for charting (global)."""
     __tablename__ = "elo_history"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False, primary_key=True)
     date = Column(String, nullable=False)
     elo_after = Column(Float, nullable=False)
     elo_change = Column(Float, nullable=False)
@@ -585,7 +583,7 @@ class Signup(Base):
     scheduled_datetime = Column(DateTime(timezone=True), nullable=False)  # UTC
     duration_hours = Column(Float, nullable=False)
     court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
-    open_signups_at = Column(DateTime(timezone=True), nullable=False)  # UTC
+    open_signups_at = Column(DateTime(timezone=True), nullable=True)  # UTC. NULL means always open
     weekly_schedule_id = Column(Integer, ForeignKey("weekly_schedules.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -648,5 +646,86 @@ class SignupEvent(Base):
         Index("idx_signup_events_signup", "signup_id"),
         Index("idx_signup_events_player", "player_id"),
         Index("idx_signup_events_created_at", "created_at"),
+    )
+
+
+class PartnershipStatsSeason(Base):
+    """How each player performs WITH each partner (season-specific stats)."""
+    __tablename__ = "partnership_stats_season"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    partner_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False, primary_key=True)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    partner = relationship("Player", foreign_keys=[partner_id])
+    season = relationship("Season", foreign_keys=[season_id])
+    
+    __table_args__ = (
+        Index("idx_partnership_stats_season_player", "player_id"),
+        Index("idx_partnership_stats_season_partner", "partner_id"),
+        Index("idx_partnership_stats_season_season", "season_id"),
+    )
+
+
+class OpponentStatsSeason(Base):
+    """How each player performs AGAINST each opponent (season-specific stats)."""
+    __tablename__ = "opponent_stats_season"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    opponent_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False, primary_key=True)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    opponent = relationship("Player", foreign_keys=[opponent_id])
+    season = relationship("Season", foreign_keys=[season_id])
+    
+    __table_args__ = (
+        Index("idx_opponent_stats_season_player", "player_id"),
+        Index("idx_opponent_stats_season_opponent", "opponent_id"),
+        Index("idx_opponent_stats_season_season", "season_id"),
+    )
+
+
+class StatsCalculationJobStatus(str, enum.Enum):
+    """Stats calculation job status enum."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class StatsCalculationJob(Base):
+    """Queue for stats calculation jobs."""
+    __tablename__ = "stats_calculation_jobs"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    calc_type = Column(String, nullable=False)  # 'global' or 'season'
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
+    status = Column(Enum(StatsCalculationJobStatus), default=StatsCalculationJobStatus.PENDING, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+    
+    # Relationships
+    season = relationship("Season", foreign_keys=[season_id])
+    
+    __table_args__ = (
+        Index("idx_stats_calculation_jobs_status", "status"),
+        Index("idx_stats_calculation_jobs_type_season", "calc_type", "season_id"),
+        Index("idx_stats_calculation_jobs_created_at", "created_at"),
     )
 

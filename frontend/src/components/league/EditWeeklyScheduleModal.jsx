@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Button } from '../ui/UI';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Monday' },
@@ -12,17 +11,49 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Sunday' }
 ];
 
+// Helper to convert UTC time string to local time
+function utcTimeToLocal(utcTimeStr) {
+  if (!utcTimeStr) return utcTimeStr;
+  const [hours, minutes] = utcTimeStr.split(':').map(Number);
+  // Use today as reference date to handle DST correctly
+  const today = new Date();
+  const utcDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes));
+  // Get local time components
+  const localHours = String(utcDate.getHours()).padStart(2, '0');
+  const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+  return `${localHours}:${localMinutes}`;
+}
+
+// Helper to convert local time string to UTC
+function localTimeToUTC(localTimeStr) {
+  if (!localTimeStr) return localTimeStr;
+  const [hours, minutes] = localTimeStr.split(':').map(Number);
+  // Use today as reference date to handle DST correctly
+  const today = new Date();
+  const localDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+  // Get UTC time components
+  const utcHours = String(localDate.getUTCHours()).padStart(2, '0');
+  const utcMinutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+  return `${utcHours}:${utcMinutes}`;
+}
+
 export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClose, onSubmit }) {
+  // Convert UTC times from schedule to local times for display
+  const localStartTime = schedule.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
+  const localOpenSignupsTime = schedule.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
+  
   const [formData, setFormData] = useState({
     day_of_week: schedule.day_of_week?.toString() || '0',
-    start_time: schedule.start_time || '18:00',
+    start_time: localStartTime,
     duration_hours: schedule.duration_hours?.toString() || '2.0',
     court_id: schedule.court_id?.toString() || '',
     open_signups_mode: schedule.open_signups_mode || 'auto_after_last_session',
     open_signups_day_of_week: schedule.open_signups_day_of_week?.toString() || '',
-    open_signups_time: schedule.open_signups_time || '',
+    open_signups_time: localOpenSignupsTime,
     end_date: schedule.end_date || ''
   });
+  
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   const handleSubmit = async () => {
     if (!formData.day_of_week || !formData.start_time || !formData.end_date) {
@@ -37,19 +68,31 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
       }
     }
     
+    // Show confirmation dialog
+    if (!showConfirmation) {
+      setShowConfirmation(true);
+      return;
+    }
+    
+    // Convert local times to UTC before sending
+    const utcStartTime = localTimeToUTC(formData.start_time);
+    const utcOpenSignupsTime = formData.open_signups_time ? localTimeToUTC(formData.open_signups_time) : null;
+    
     try {
       await onSubmit({
         day_of_week: parseInt(formData.day_of_week),
-        start_time: formData.start_time,
+        start_time: utcStartTime,
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
         court_id: formData.court_id ? parseInt(formData.court_id) : null,
         open_signups_mode: formData.open_signups_mode,
         open_signups_day_of_week: formData.open_signups_day_of_week ? parseInt(formData.open_signups_day_of_week) : null,
-        open_signups_time: formData.open_signups_time || null,
+        open_signups_time: utcOpenSignupsTime,
         end_date: formData.end_date
       });
+      setShowConfirmation(false);
     } catch (err) {
       // Error handling is done in parent
+      setShowConfirmation(false);
     }
   };
   
@@ -63,6 +106,26 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
           </button>
         </div>
         <div className="modal-body">
+          {showConfirmation && (
+            <div className="form-group" style={{ 
+              backgroundColor: '#fff3cd', 
+              border: '1px solid #ffc107', 
+              borderRadius: '4px', 
+              padding: '16px', 
+              marginBottom: '20px' 
+            }}>
+              <h3 style={{ marginTop: 0, marginBottom: '12px', color: '#856404' }}>
+                ⚠️ Confirm Schedule Update
+              </h3>
+              <p style={{ margin: 0, color: '#856404', lineHeight: '1.5' }}>
+                Updating this schedule will <strong>delete all future week sessions</strong> (after the current week) 
+                and regenerate them with the new schedule settings. <strong>Sessions from the current week will be preserved.</strong>
+              </p>
+              <p style={{ margin: '12px 0 0 0', color: '#856404', fontSize: '14px' }}>
+                Are you sure you want to continue?
+              </p>
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="day-of-week">
               Day of Week <span className="required">*</span>
@@ -122,9 +185,9 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
               onChange={(e) => setFormData({ ...formData, open_signups_mode: e.target.value })}
               className="form-input"
             >
-              <option value="auto_after_last_session">Auto: 3 hours after last session</option>
-              <option value="specific_day_time">Specific day/time</option>
-              <option value="always_open">Always open</option>
+              <option value="auto_after_last_session">Weekly signups open immediately after last session of previous week</option>
+              <option value="specific_day_time">Weekly signups open at a specific day/time of previous week</option>
+              <option value="always_open">Open for signup whenever</option>
             </select>
           </div>
           {formData.open_signups_mode === 'specific_day_time' && (
@@ -172,10 +235,39 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
           </div>
         </div>
         <div className="modal-actions">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>
-            Update Schedule
-          </Button>
+          <button 
+            className="league-text-button" 
+            onClick={() => {
+              setShowConfirmation(false);
+              onClose();
+            }}
+          >
+            Cancel
+          </button>
+          {showConfirmation ? (
+            <>
+              <button
+                className="league-text-button"
+                onClick={() => setShowConfirmation(false)}
+              >
+                Go Back
+              </button>
+              <button
+                className="league-text-button primary"
+                onClick={handleSubmit}
+              >
+                Confirm Update
+              </button>
+            </>
+          ) : (
+            <button
+              className="league-text-button primary"
+              onClick={handleSubmit}
+              disabled={!formData.day_of_week || !formData.start_time || !formData.end_date}
+            >
+              Update Schedule
+            </button>
+          )}
         </div>
       </div>
     </div>

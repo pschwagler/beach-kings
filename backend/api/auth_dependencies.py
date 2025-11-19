@@ -166,3 +166,89 @@ def make_require_league_member():
     return _dep
 
 
+def make_require_league_member_from_season():
+    """Require league membership, getting league_id from season_id."""
+    async def _dep(
+        season_id: int,
+        user: dict = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db_session)
+    ) -> dict:
+        from backend.database.models import Season
+        # Get season to find league_id
+        result = await session.execute(
+            select(Season).where(Season.id == season_id)
+        )
+        season = result.scalar_one_or_none()
+        if not season:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+        
+        league_id = season.league_id
+        
+        if await _is_system_admin(session, user):
+            return user
+        if not await _has_league_role(session, user_id=user["id"], league_id=league_id, required_role=None):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League membership required")
+        return user
+    return _dep
+
+
+def make_require_league_admin_from_season():
+    """Require league admin, getting league_id from season_id."""
+    async def _dep(
+        season_id: int,
+        user: dict = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db_session)
+    ) -> dict:
+        from backend.database.models import Season
+        # Get season to find league_id
+        result = await session.execute(
+            select(Season).where(Season.id == season_id)
+        )
+        season = result.scalar_one_or_none()
+        if not season:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+        
+        league_id = season.league_id
+        
+        if await _is_system_admin(session, user):
+            return user
+        if not await _has_league_role(session, user_id=user["id"], league_id=league_id, required_role="admin"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League admin access required")
+        return user
+    return _dep
+
+
+def make_require_league_admin_from_schedule():
+    """Require league admin, getting league_id from weekly_schedule_id."""
+    async def _dep(
+        schedule_id: int,
+        user: dict = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db_session)
+    ) -> dict:
+        from backend.database.models import WeeklySchedule, Season
+        # Get schedule to find season, then league_id
+        result = await session.execute(
+            select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
+        )
+        schedule = result.scalar_one_or_none()
+        if not schedule:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly schedule not found")
+        
+        # Get season to find league_id
+        season_result = await session.execute(
+            select(Season).where(Season.id == schedule.season_id)
+        )
+        season = season_result.scalar_one_or_none()
+        if not season:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+        
+        league_id = season.league_id
+        
+        if await _is_system_admin(session, user):
+            return user
+        if not await _has_league_role(session, user_id=user["id"], league_id=league_id, required_role="admin"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League admin access required")
+        return user
+    return _dep
+
+

@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import { Button } from '../ui/UI';
 
 // Helper function to format datetime with timezone
 function formatDateTimeWithTimezone(isoString) {
@@ -54,7 +53,9 @@ export default function SignupPlayersListModal({ signup, onClose }) {
           </div>
         </div>
         <div className="modal-actions">
-          <Button onClick={onClose}>Close</Button>
+          <button className="league-text-button primary" onClick={onClose}>
+            Close
+          </button>
         </div>
       </div>
     </div>

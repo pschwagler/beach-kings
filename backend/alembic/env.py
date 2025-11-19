@@ -22,6 +22,10 @@ from alembic import context, config as alembic_config, command
 from backend.database.db import Base, DATABASE_URL
 from backend.database import models  # noqa: F401
 
+# Import all migration files so Alembic can detect them
+# This ensures all migrations in the versions directory are discoverable
+import backend.alembic.versions  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # This is the Alembic Config object, which provides
@@ -105,10 +109,14 @@ async def run_migrations_online_programmatic() -> None:
     """Run migrations programmatically (called from main.py).
     
     Uses Alembic's command API to properly initialize context.
+    Raises exceptions if migrations fail.
     """
     # Get the backend directory (where alembic.ini is located)
     backend_dir = Path(__file__).parent.parent
     alembic_ini_path = backend_dir / "alembic.ini"
+    
+    if not alembic_ini_path.exists():
+        raise FileNotFoundError(f"Alembic config file not found: {alembic_ini_path}")
     
     # Initialize Alembic config
     alembic_cfg = alembic_config.Config(str(alembic_ini_path))
@@ -121,15 +129,24 @@ async def run_migrations_online_programmatic() -> None:
         os.chdir(str(backend_dir))
         
         def run_upgrade():
-            command.upgrade(alembic_cfg, "head")
+            try:
+                # Run upgrade - Alembic will log which migrations it's running
+                command.upgrade(alembic_cfg, "head")
+                logger.info("✓ Migrations completed successfully")
+            except Exception as e:
+                logger.error(f"Migration execution failed: {e}", exc_info=True)
+                raise
         
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
             await loop.run_in_executor(executor, run_upgrade)
+    except FileNotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to run migrations: {e}", exc_info=True)
+        raise
     finally:
         os.chdir(original_cwd)
-    
-    logger.info("✓ Migrations completed successfully")
 
 
 # Alembic CLI entry point - this code runs when you execute:

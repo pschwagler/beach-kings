@@ -176,11 +176,11 @@ clean-venv:
 
 migrate:
 	@echo "Running database migrations..."
-	@if [ ! -d "venv" ]; then \
-		echo "❌ Virtual environment not found. Run 'make install' first."; \
+	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
+		echo "❌ Backend container is not running. Start it with 'make dev' or 'docker-compose up -d backend'"; \
 		exit 1; \
 	fi
-	@./venv/bin/alembic upgrade head
+	@docker exec beach-kings-backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
 
 test:

@@ -18,7 +18,8 @@ from backend.database.models import (
     Session, Match, Setting, PartnershipStats, OpponentStats, 
     EloHistory, PlayerSeasonStats, SessionStatus,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
-    OpenSignupsMode, SignupEventType
+    OpenSignupsMode, SignupEventType,
+    PartnershipStatsSeason, OpponentStatsSeason, StatsCalculationJob, StatsCalculationJobStatus
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
@@ -2188,6 +2189,332 @@ async def recalculate_all_stats(session: AsyncSession) -> Dict:
     }
 
 
+# ============================================================================
+# Async Stats Calculation Functions
+# ============================================================================
+
+async def load_ranked_matches_async(
+    session: AsyncSession, 
+    season_id: Optional[int] = None
+) -> List[Match]:
+    """
+    Load ranked matches from database.
+    
+    Only includes matches from finalized sessions (SUBMITTED or EDITED) or matches with no session.
+    
+    Args:
+        session: Database session
+        season_id: Optional season ID to filter by
+        
+    Returns:
+        List of Match objects
+    """
+    query = (
+        select(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .where(
+            and_(
+                Match.is_ranked == True,
+                or_(
+                    Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+                    Session.id.is_(None)
+                )
+            )
+        )
+    )
+    
+    if season_id is not None:
+        query = query.where(Session.season_id == season_id)
+    
+    query = query.order_by(Match.id.asc())
+    
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+async def delete_global_stats_async(session: AsyncSession) -> None:
+    """Delete all global stats."""
+    await session.execute(delete(EloHistory))
+    await session.execute(delete(PartnershipStats))
+    await session.execute(delete(OpponentStats))
+
+
+async def delete_season_stats_async(session: AsyncSession, season_id: int) -> None:
+    """Delete all season-specific stats for a given season."""
+    await session.execute(
+        delete(PartnershipStatsSeason).where(PartnershipStatsSeason.season_id == season_id)
+    )
+    await session.execute(
+        delete(OpponentStatsSeason).where(OpponentStatsSeason.season_id == season_id)
+    )
+    await session.execute(
+        delete(PlayerSeasonStats).where(PlayerSeasonStats.season_id == season_id)
+    )
+
+
+def _chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
+async def insert_elo_history_async(session: AsyncSession, elo_history_list: List[EloHistory]) -> None:
+    """Bulk insert ELO history records in chunks."""
+    if not elo_history_list:
+        return
+    
+    for chunk in _chunks(elo_history_list, 1000):
+        session.add_all(chunk)
+
+
+async def insert_partnership_stats_async(session: AsyncSession, partnerships: List[PartnershipStats]) -> None:
+    """Bulk insert partnership stats in chunks."""
+    if not partnerships:
+        return
+    
+    for chunk in _chunks(partnerships, 1000):
+        session.add_all(chunk)
+
+
+async def insert_opponent_stats_async(session: AsyncSession, opponents: List[OpponentStats]) -> None:
+    """Bulk insert opponent stats in chunks."""
+    if not opponents:
+        return
+    
+    for chunk in _chunks(opponents, 1000):
+        session.add_all(chunk)
+
+
+async def insert_partnership_stats_season_async(
+    session: AsyncSession, 
+    partnerships: List[PartnershipStatsSeason], 
+    season_id: int
+) -> None:
+    """Bulk insert season-specific partnership stats in chunks."""
+    if not partnerships:
+        return
+    
+    for chunk in _chunks(partnerships, 1000):
+        session.add_all(chunk)
+
+
+async def insert_opponent_stats_season_async(
+    session: AsyncSession, 
+    opponents: List[OpponentStatsSeason], 
+    season_id: int
+) -> None:
+    """Bulk insert season-specific opponent stats in chunks."""
+    if not opponents:
+        return
+    
+    for chunk in _chunks(opponents, 1000):
+        session.add_all(chunk)
+
+
+async def upsert_player_season_stats_async(
+    session: AsyncSession, 
+    tracker: 'calculation_service.StatsTracker', 
+    season_id: int
+) -> None:
+    """
+    Upsert player season stats from tracker.
+    
+    Args:
+        session: Database session
+        tracker: StatsTracker from calculation service
+        season_id: Season ID
+    """
+    from sqlalchemy.dialects.postgresql import insert
+    
+    player_stats_list = []
+    for player_name, player_stats in tracker.players.items():
+        # Get player ID
+        result = await session.execute(
+            select(Player).where(Player.full_name == player_name)
+        )
+        player = result.scalar_one_or_none()
+        if not player:
+            continue
+        
+        player_stats_list.append({
+            "player_id": player.id,
+            "season_id": season_id,
+            "current_elo": round(player_stats.elo, 1),
+            "games": player_stats.game_count,
+            "wins": player_stats.win_count,
+            "points": player_stats.points,
+            "win_rate": round(player_stats.win_rate, 3),
+            "avg_point_diff": round(player_stats.avg_point_diff, 1)
+        })
+    
+    if not player_stats_list:
+        return
+    
+    # Use upsert for player season stats
+    stmt = insert(PlayerSeasonStats).values(player_stats_list)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=['player_id', 'season_id'],
+        set_=dict(
+            current_elo=stmt.excluded.current_elo,
+            games=stmt.excluded.games,
+            wins=stmt.excluded.wins,
+            points=stmt.excluded.points,
+            win_rate=stmt.excluded.win_rate,
+            avg_point_diff=stmt.excluded.avg_point_diff,
+            updated_at=sql_func.now()
+        )
+    )
+    
+    await session.execute(stmt)
+
+
+async def calculate_global_stats_async(session: AsyncSession) -> Dict:
+    """
+    Calculate global stats from all ranked matches.
+    
+    This function:
+    1. Loads all ranked matches
+    2. Processes them through calculation service
+    3. Deletes all global stats
+    4. Inserts new global stats
+    
+    All operations happen within a single transaction to ensure consistency.
+    
+    Args:
+        session: Database session
+        
+    Returns:
+        Dict with player_count and match_count
+    """
+    # Load all ranked matches
+    matches = await load_ranked_matches_async(session)
+    
+    # Delete all global stats first (even if no matches, to remove stale data)
+    await delete_global_stats_async(session)
+    
+    if not matches:
+        await session.commit()
+        return {"player_count": 0, "match_count": 0}
+    
+    # Get all players and create player_id_map (name -> id)
+    result = await session.execute(select(Player))
+    players = result.scalars().all()
+    player_id_map = {player.full_name: player.id for player in players}
+    
+    # Process matches through calculation service (in-memory, fast)
+    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+        matches,
+        player_id_map
+    )
+    
+    # Insert new stats (within same transaction)
+    await insert_elo_history_async(session, elo_history_list)
+    await insert_partnership_stats_async(session, partnerships)
+    await insert_opponent_stats_async(session, opponents)
+    
+    # Commit the transaction - readers now see new stats
+    # If any error occurs, transaction rolls back and old stats remain
+    await session.commit()
+    
+    return {
+        "player_count": len(player_id_map),
+        "match_count": len(matches)
+    }
+
+
+async def calculate_season_stats_async(session: AsyncSession, season_id: int) -> Dict:
+    """
+    Calculate season-specific stats from ranked matches in a season.
+    
+    This function:
+    1. Loads ranked matches for the season
+    2. Processes them through calculation service
+    3. Deletes all season-specific stats for that season
+    4. Inserts new season-specific stats
+    
+    All operations happen within a single transaction to ensure consistency.
+    
+    Args:
+        session: Database session
+        season_id: Season ID
+        
+    Returns:
+        Dict with player_count and match_count
+    """
+    # Load ranked matches for this season
+    matches = await load_ranked_matches_async(session, season_id)
+    
+    # Delete all season-specific stats for this season first (even if no matches, to remove stale data)
+    await delete_season_stats_async(session, season_id)
+    
+    if not matches:
+        await session.commit()
+        return {"player_count": 0, "match_count": 0}
+    
+    # Get all players and create player_id_map (name -> id)
+    result = await session.execute(select(Player))
+    players = result.scalars().all()
+    player_id_map = {player.full_name: player.id for player in players}
+    
+    # Process matches through calculation service (in-memory, fast)
+    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+        matches,
+        player_id_map
+    )
+    
+    # Create tracker for player season stats (process matches again to get player-level stats)
+    tracker = calculation_service.StatsTracker()
+    for match in matches:
+        tracker.process_match(match)
+    
+    # Convert partnerships and opponents to season-specific models
+    partnership_season_list = []
+    for ps in partnerships:
+        partnership_season_list.append(
+            PartnershipStatsSeason(
+                player_id=ps.player_id,
+                partner_id=ps.partner_id,
+                season_id=season_id,
+                games=ps.games,
+                wins=ps.wins,
+                points=ps.points,
+                win_rate=ps.win_rate,
+                avg_point_diff=ps.avg_point_diff
+            )
+        )
+    
+    opponent_season_list = []
+    for os in opponents:
+        opponent_season_list.append(
+            OpponentStatsSeason(
+                player_id=os.player_id,
+                opponent_id=os.opponent_id,
+                season_id=season_id,
+                games=os.games,
+                wins=os.wins,
+                points=os.points,
+                win_rate=os.win_rate,
+                avg_point_diff=os.avg_point_diff
+            )
+        )
+    
+    # Insert new season-specific stats (within same transaction)
+    await insert_partnership_stats_season_async(session, partnership_season_list, season_id)
+    await insert_opponent_stats_season_async(session, opponent_season_list, season_id)
+    
+    # Update player season stats using the tracker
+    await upsert_player_season_stats_async(session, tracker, season_id)
+    
+    # Commit the transaction - readers now see new stats
+    # If any error occurs, transaction rolls back and old stats remain
+    await session.commit()
+    
+    return {
+        "player_count": len(player_id_map),
+        "match_count": len(matches)
+    }
+
+
 # Weekly Schedule functions
 
 async def create_weekly_schedule(
@@ -2326,11 +2653,31 @@ async def update_weekly_schedule(
     if updater_player_id is not None:
         schedule.updated_by = updater_player_id
     
-    # Delete existing generated signups and regenerate
-    await session.execute(
-        delete(Signup).where(Signup.weekly_schedule_id == schedule_id)
+    # Calculate the end of the current week (Sunday)
+    # Preserve signups from the current week (Monday-Sunday), delete only future weeks
+    today = date.today()
+    # Get Monday of current week (weekday: Monday=0, so subtract days to get Monday)
+    days_since_monday = today.weekday()
+    current_week_monday = today - timedelta(days=days_since_monday)
+    current_week_sunday = current_week_monday + timedelta(days=6)
+    
+    # Delete only future week signups (after current week Sunday)
+    # Convert Sunday to UTC datetime at end of day (23:59:59)
+    utc = pytz.UTC
+    current_week_sunday_end = utc.localize(
+        datetime.combine(current_week_sunday, time(23, 59, 59))
     )
-    await _generate_signups_from_schedule(session, schedule, season)
+    
+    await session.execute(
+        delete(Signup).where(
+            and_(
+                Signup.weekly_schedule_id == schedule_id,
+                Signup.scheduled_datetime > current_week_sunday_end
+            )
+        )
+    )
+    # Regenerate signups, skipping current week to preserve existing signups
+    await _generate_signups_from_schedule(session, schedule, season, skip_current_week=True)
     
     await session.commit()
     await session.refresh(schedule)
@@ -2362,17 +2709,39 @@ async def delete_weekly_schedule(session: AsyncSession, schedule_id: int) -> boo
 async def _generate_signups_from_schedule(
     session: AsyncSession,
     schedule: WeeklySchedule,
-    season: Season
+    season: Season,
+    skip_current_week: bool = False
 ):
-    """Generate signups from a weekly schedule for the schedule duration."""
+    """Generate signups from a weekly schedule for the schedule duration.
+    
+    Args:
+        session: Database session
+        schedule: WeeklySchedule instance
+        season: Season instance
+        skip_current_week: If True, skip generating signups for the current week (Monday-Sunday)
+    """
     utc = pytz.UTC
     now_utc = datetime.now(utc)
     
-    # Start from today or season start, whichever is later
-    start_date = max(date.today(), season.start_date)
+    # Calculate start date
+    base_start_date = max(date.today(), season.start_date)
+    
+    # If skipping current week, start from next Monday
+    if skip_current_week:
+        today = date.today()
+        days_since_monday = today.weekday()
+        current_week_monday = today - timedelta(days=days_since_monday)
+        next_monday = current_week_monday + timedelta(days=7)
+        start_date = max(next_monday, base_start_date)
+    else:
+        start_date = base_start_date
+    
     end_date = min(schedule.end_date, season.end_date)
     
     # Parse start_time
+    # IMPORTANT: start_time is stored as "HH:MM" and should be interpreted as UTC time
+    # The frontend should send times in UTC, but if it sends local time, we need timezone info
+    # For now, we'll treat it as UTC to match the expected behavior
     time_parts = schedule.start_time.split(':')
     start_hour = int(time_parts[0])
     start_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
@@ -2384,6 +2753,7 @@ async def _generate_signups_from_schedule(
         # Python weekday: Monday=0, Sunday=6
         if current_date.weekday() == schedule.day_of_week:
             # Create scheduled_datetime in UTC
+            # The date is already a date object (no timezone), so we combine with time and localize to UTC
             scheduled_datetime = utc.localize(
                 datetime.combine(current_date, time(start_hour, start_minute))
             )
@@ -2417,19 +2787,19 @@ async def _calculate_open_signups_at(
     schedule: WeeklySchedule,
     scheduled_datetime: datetime,
     season: Season
-) -> datetime:
-    """Calculate when signups should open for a scheduled datetime."""
+) -> Optional[datetime]:
+    """Calculate when signups should open for a scheduled datetime. Returns None for always open."""
     utc = pytz.UTC
     
     if schedule.open_signups_mode == OpenSignupsMode.ALWAYS_OPEN:
-        # Open immediately (or in the past if already passed)
-        return utc.localize(datetime.min)
+        # NULL means always open
+        return None
     
     elif schedule.open_signups_mode == OpenSignupsMode.SPECIFIC_DAY_TIME:
         # Open at specific day/time the week before
         if not schedule.open_signups_day_of_week or not schedule.open_signups_time:
             # Fallback to always open if not configured
-            return utc.localize(datetime.min)
+            return None
         
         # Find the previous week's occurrence of open_signups_day_of_week
         time_parts = schedule.open_signups_time.split(':')
@@ -2467,8 +2837,8 @@ async def _calculate_open_signups_at(
             # 3 hours after last session ends
             return last_signup.scheduled_datetime + timedelta(hours=last_signup.duration_hours + 3)
         else:
-            # No previous signup, open immediately
-            return utc.localize(datetime.min)
+            # No previous signup, open immediately (NULL means always open)
+            return None
 
 
 def _weekly_schedule_to_dict(schedule: WeeklySchedule) -> Dict:
@@ -2497,7 +2867,7 @@ async def create_signup(
     scheduled_datetime: str,
     duration_hours: float,
     court_id: Optional[int],
-    open_signups_at: str,
+    open_signups_at: Optional[str] = None,
     creator_player_id: Optional[int] = None
 ) -> Dict:
     """Create an ad-hoc signup."""
@@ -2509,20 +2879,24 @@ async def create_signup(
     if scheduled_dt.tzinfo is None:
         scheduled_dt = utc.localize(scheduled_dt)
     
-    open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
-    if open_dt.tzinfo is None:
-        open_dt = utc.localize(open_dt)
-    
-    # Validate open_signups_at is not in the past
-    if open_dt < now_utc:
-        raise ValueError("open_signups_at cannot be in the past")
+    # If open_signups_at is not provided, store NULL (always open)
+    if open_signups_at is None:
+        open_dt = None
+    else:
+        open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
+        if open_dt.tzinfo is None:
+            open_dt = utc.localize(open_dt)
+        
+        # Validate open_signups_at is not in the past
+        if open_dt < now_utc:
+            raise ValueError("open_signups_at cannot be in the past")
     
     signup = Signup(
         season_id=season_id,
         scheduled_datetime=scheduled_dt,
         duration_hours=duration_hours,
         court_id=court_id,
-        open_signups_at=open_dt,
+        open_signups_at=open_dt,  # NULL means always open
         created_by=creator_player_id,
         updated_by=creator_player_id
     )
@@ -2652,7 +3026,8 @@ async def signup_player(
     if not signup:
         raise ValueError("Signup not found")
     
-    if signup.open_signups_at > now_utc:
+    # NULL open_signups_at means always open
+    if signup.open_signups_at is not None and signup.open_signups_at > now_utc:
         raise ValueError("Signups are not yet open for this session")
     
     # Check if already signed up
@@ -2703,7 +3078,8 @@ async def dropout_player(
     if not signup:
         raise ValueError("Signup not found")
     
-    if signup.open_signups_at > now_utc:
+    # NULL open_signups_at means always open
+    if signup.open_signups_at is not None and signup.open_signups_at > now_utc:
         raise ValueError("Signups are not yet open for this session")
     
     # Remove player
@@ -2786,7 +3162,8 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
     player_count = count_result.scalar() or 0
     
     # Compute is_open and is_past
-    is_open = signup.open_signups_at <= now_utc
+    # NULL open_signups_at means always open
+    is_open = signup.open_signups_at is None or signup.open_signups_at <= now_utc
     is_past = signup.scheduled_datetime < now_utc
     
     result = {

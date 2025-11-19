@@ -19,7 +19,6 @@ from slowapi.errors import RateLimitExceeded  # type: ignore
 from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
 from backend.database.init_defaults import init_defaults
-from backend.alembic.env import run_migrations_online_programmatic
 from backend.services import data_service, sheets_service, calculation_service
 
 # Set up logging
@@ -32,21 +31,6 @@ async def lifespan(app: FastAPI):
     """Lifespan handler for startup and shutdown events."""
     # Startup
     logger.info("Starting up Beach Volleyball ELO API...")
-    
-    # Run database migrations
-    # Note: In production (Docker), migrations are run by entrypoint.sh before starting the app.
-    # This serves as a fallback for local development and ensures migrations are always applied.
-    # Alembic is idempotent, so running migrations twice is safe.
-    try:
-        logger.info("Running database migrations...")
-        await run_migrations_online_programmatic()
-        logger.info("✓ Database migrations completed")
-    except Exception as e:
-        logger.error(f"Database migration failed: {e}", exc_info=True)
-        # In production, you might want to raise here to prevent app from starting
-        # For development, we'll continue but log the error
-        if os.getenv("ENV") == "production":
-            raise
     
     # Initialize database (create tables if they don't exist)
     # This is a fallback for tables that might not be in migrations yet
@@ -65,11 +49,30 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
+    
+    # Start stats calculation queue worker
+    try:
+        from backend.services.stats_queue import get_stats_queue
+        queue = get_stats_queue()
+        queue.start_background_worker()
+        logger.info("✓ Stats calculation queue worker started")
+    except Exception as e:
+        logger.error(f"Failed to start stats calculation queue worker: {e}", exc_info=True)
+        # Don't raise - allow app to start even if queue worker fails
 
     yield  # App is running
     
     # Shutdown (if needed)
     logger.info("Shutting down Beach Volleyball ELO API...")
+    
+    # Stop stats calculation queue worker
+    try:
+        from backend.services.stats_queue import get_stats_queue
+        queue = get_stats_queue()
+        queue.stop_background_worker()
+        logger.info("✓ Stats calculation queue worker stopped")
+    except Exception as e:
+        logger.error(f"Error stopping stats calculation queue worker: {e}", exc_info=True)
 
 
 app = FastAPI(

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Button } from '../ui/UI';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Monday' },
@@ -37,15 +36,33 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
       }
     }
     
+    // Convert local time to UTC for start_time
+    // We use a reference date to properly handle DST
+    const convertLocalTimeToUTC = (localTimeStr) => {
+      if (!localTimeStr) return localTimeStr;
+      const [hours, minutes] = localTimeStr.split(':').map(Number);
+      // Use today as reference date to handle DST correctly
+      const today = new Date();
+      const localDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+      // Get UTC time components
+      const utcHours = String(localDateTime.getUTCHours()).padStart(2, '0');
+      const utcMinutes = String(localDateTime.getUTCMinutes()).padStart(2, '0');
+      return `${utcHours}:${utcMinutes}`;
+    };
+    
+    // Convert times to UTC before sending
+    const utcStartTime = convertLocalTimeToUTC(formData.start_time);
+    const utcOpenSignupsTime = formData.open_signups_time ? convertLocalTimeToUTC(formData.open_signups_time) : null;
+    
     try {
       await onSubmit({
         day_of_week: parseInt(formData.day_of_week),
-        start_time: formData.start_time,
+        start_time: utcStartTime,
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
         court_id: formData.court_id ? parseInt(formData.court_id) : null,
         open_signups_mode: formData.open_signups_mode,
         open_signups_day_of_week: formData.open_signups_day_of_week ? parseInt(formData.open_signups_day_of_week) : null,
-        open_signups_time: formData.open_signups_time || null,
+        open_signups_time: utcOpenSignupsTime,
         end_date: formData.end_date
       });
     } catch (err) {
@@ -122,9 +139,9 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
               onChange={(e) => setFormData({ ...formData, open_signups_mode: e.target.value })}
               className="form-input"
             >
-              <option value="auto_after_last_session">Auto: 3 hours after last session</option>
-              <option value="specific_day_time">Specific day/time</option>
-              <option value="always_open">Always open</option>
+              <option value="auto_after_last_session">Weekly signups open immediately after last session of previous week</option>
+              <option value="specific_day_time">Weekly signups open at a specific day/time of previous week</option>
+              <option value="always_open">Open for signup whenever</option>
             </select>
           </div>
           {formData.open_signups_mode === 'specific_day_time' && (
@@ -172,10 +189,16 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
           </div>
         </div>
         <div className="modal-actions">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>
+          <button className="league-text-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="league-text-button primary"
+            onClick={handleSubmit}
+            disabled={!formData.day_of_week || !formData.start_time || !formData.end_date}
+          >
             Create Schedule
-          </Button>
+          </button>
         </div>
       </div>
     </div>

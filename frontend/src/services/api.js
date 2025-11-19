@@ -515,6 +515,15 @@ export const logout = async () => {
 };
 
 /**
+ * Court API methods
+ */
+export const getCourts = async (locationId = null) => {
+  const params = locationId ? { location_id: locationId } : {};
+  const response = await api.get('/api/courts', { params });
+  return response.data;
+};
+
+/**
  * Weekly Schedule API methods
  */
 

@@ -469,8 +469,7 @@ class WeeklyScheduleBase(BaseModel):
 
 
 class WeeklyScheduleCreate(WeeklyScheduleBase):
-    """Request to create a weekly schedule."""
-    season_id: int
+    """Request to create a weekly schedule. season_id is provided in the URL path."""
 
 
 class WeeklyScheduleUpdate(BaseModel):
@@ -499,12 +498,11 @@ class SignupBase(BaseModel):
     scheduled_datetime: str  # ISO datetime string (UTC)
     duration_hours: float
     court_id: Optional[int] = None
-    open_signups_at: str  # ISO datetime string (UTC)
+    open_signups_at: Optional[str] = None  # ISO datetime string (UTC). If None, defaults to now (immediately open)
 
 
 class SignupCreate(SignupBase):
-    """Request to create a signup."""
-    season_id: int
+    """Request to create a signup. season_id is provided in the URL path."""
 
 
 class SignupUpdate(BaseModel):
@@ -538,7 +536,7 @@ class SignupResponse(SignupBase):
     season_id: int
     weekly_schedule_id: Optional[int] = None
     player_count: int = 0
-    is_open: bool = False  # Computed: open_signups_at <= now (UTC)
+    is_open: bool = False  # Computed: open_signups_at is NULL or open_signups_at <= now (UTC). NULL means always open.
     is_past: bool = False  # Computed: scheduled_datetime < now (UTC)
     created_at: str
     updated_at: str

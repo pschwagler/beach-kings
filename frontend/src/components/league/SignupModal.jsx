@@ -9,6 +9,21 @@ function localToUTCISOString(dateStr, timeStr) {
   return localDate.toISOString();
 }
 
+// Helper to convert UTC ISO string to local date/time
+function utcToLocalDateTime(isoString) {
+  if (!isoString) return { date: '', time: '' };
+  const date = new Date(isoString);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const dateStr = date.toLocaleDateString('en-CA', { timeZone }); // YYYY-MM-DD format
+  const timeStr = date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false,
+    timeZone 
+  });
+  return { date: dateStr, time: timeStr };
+}
+
 // Helper to get timezone abbreviation
 function getTimezoneAbbr() {
   const date = new Date();
@@ -35,14 +50,19 @@ function getNextHour() {
   return `${hours}:${minutes}`;
 }
 
-export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
+export default function SignupModal({ signup, seasonId, onClose, onSubmit }) {
+  const isEditMode = !!signup;
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Initialize form data
+  const scheduled = signup ? utcToLocalDateTime(signup.scheduled_datetime) : { date: getTodayDate(), time: getNextHour() };
+  
   const [formData, setFormData] = useState({
-    scheduled_date: getTodayDate(),
-    scheduled_time: getNextHour(),
-    duration_hours: '2.0',
-    court_id: ''
+    scheduled_date: scheduled.date,
+    scheduled_time: scheduled.time,
+    duration_hours: signup?.duration_hours?.toString() || '2.0',
+    court_id: signup?.court_id?.toString() || ''
   });
   
   useEffect(() => {
@@ -72,7 +92,8 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
       return;
     }
     
-    // Don't send open_signups_at - backend will default to now (immediately open)
+    // Don't send open_signups_at - backend will default to now (immediately open) for new signups
+    // For edits, we don't change open_signups_at
     try {
       await onSubmit({
         scheduled_datetime,
@@ -90,7 +111,7 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Schedule New Session for Sign Ups</h2>
+          <h2>{isEditMode ? 'Edit Session' : 'Schedule New Session for Sign Ups'}</h2>
           <button className="modal-close-button" onClick={onClose}>
             <X size={20} />
           </button>
@@ -164,7 +185,7 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
             onClick={handleSubmit}
             disabled={!formData.scheduled_date || !formData.scheduled_time}
           >
-            Schedule Session
+            {isEditMode ? 'Update Session' : 'Schedule Session'}
           </button>
         </div>
       </div>

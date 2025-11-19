@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Button } from '../ui/UI';
 
 // Helper to convert UTC ISO string to local date/time
 function utcToLocalDateTime(isoString) {
@@ -148,10 +147,16 @@ export default function EditSignupModal({ signup, onClose, onSubmit }) {
           </div>
         </div>
         <div className="modal-actions">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>
+          <button className="league-text-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="league-text-button primary"
+            onClick={handleSubmit}
+            disabled={!formData.scheduled_date || !formData.scheduled_time || !formData.open_signups_date || !formData.open_signups_time}
+          >
             Update Signup
-          </Button>
+          </button>
         </div>
       </div>
     </div>

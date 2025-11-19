@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Plus, Edit2, Trash2, Users, Clock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '../ui/UI';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -17,11 +16,9 @@ import {
   deleteWeeklySchedule,
   getLocations
 } from '../../services/api';
-import CreateSignupModal from './CreateSignupModal';
-import EditSignupModal from './EditSignupModal';
+import SignupModal from './SignupModal';
 import CreateWeeklyScheduleModal from './CreateWeeklyScheduleModal';
 import EditWeeklyScheduleModal from './EditWeeklyScheduleModal';
-import SignupPlayersListModal from './SignupPlayersListModal';
 
 // Helper function to format datetime with timezone
 function formatDateTimeWithTimezone(isoString) {
@@ -72,6 +69,19 @@ function formatTime(isoString) {
   return `${timeStr} ${timeZoneName}`;
 }
 
+// Helper to convert UTC time string (HH:MM) to local time string
+function utcTimeToLocal(utcTimeStr) {
+  if (!utcTimeStr) return utcTimeStr;
+  const [hours, minutes] = utcTimeStr.split(':').map(Number);
+  // Use today as reference date to handle DST correctly
+  const today = new Date();
+  const utcDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes));
+  // Get local time components
+  const localHours = String(utcDate.getHours()).padStart(2, '0');
+  const localMinutes = String(utcDate.getMinutes()).padStart(2, '0');
+  return `${localHours}:${localMinutes}`;
+}
+
 export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const { seasons, members } = useLeague();
   const { currentUserPlayer } = useAuth();
@@ -80,7 +90,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const [weeklySchedules, setWeeklySchedules] = useState([]);
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [expandedSignups, setExpandedSignups] = useState(new Set());
+  const [collapsedSignups, setCollapsedSignups] = useState(new Set()); // Track which ones are manually collapsed
   const [expandedSchedules, setExpandedSchedules] = useState(new Set());
   
   // Modals
@@ -90,8 +100,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
-  const [showPlayersModal, setShowPlayersModal] = useState(false);
-  const [selectedSignupForPlayers, setSelectedSignupForPlayers] = useState(null);
   
   // Compute isAdmin and isLeagueMember
   const isAdmin = useMemo(() => {
@@ -156,6 +164,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
         })
       );
       setSignups(signupsWithPlayers);
+      // Signups are expanded by default, so we don't need to initialize expandedSignups
     } catch (err) {
       console.error('Error loading signups:', err);
       showMessage?.('error', 'Failed to load signups');
@@ -273,14 +282,14 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   };
   
   const toggleSignupExpanded = (signupId) => {
-    setExpandedSignups(prev => {
-      const next = new Set(prev);
-      if (next.has(signupId)) {
-        next.delete(signupId);
+    setCollapsedSignups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(signupId)) {
+        newSet.delete(signupId); // Expand it
       } else {
-        next.add(signupId);
+        newSet.add(signupId); // Collapse it
       }
-      return next;
+      return newSet;
     });
   };
   
@@ -296,16 +305,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     });
   };
   
-  const handleViewPlayers = async (signupId) => {
-    try {
-      const signup = await getSignup(signupId);
-      setSelectedSignupForPlayers(signup);
-      setShowPlayersModal(true);
-    } catch (err) {
-      showMessage?.('error', 'Failed to load players');
-    }
-  };
-  
   const isPlayerSignedUp = (signup) => {
     if (!currentUserPlayer || !signup.players) return false;
     return signup.players.some(p => p.player_id === currentUserPlayer.id);
@@ -315,9 +314,9 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   
   if (!activeSeason) {
     return (
-      <div className="league-section">
-        <div className="empty-state">
-          <Calendar size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+      <div className="league-signups-section">
+        <div className="league-empty-state">
+          <Calendar size={40} />
           <p>No active season. Please create an active season to manage signups.</p>
         </div>
       </div>
@@ -328,276 +327,248 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const pastSignups = signups.filter(s => s.is_past);
   
   return (
-    <div className="league-section">
-      <div className="section-header">
-        <h2 className="section-title">
-          <Calendar size={20} />
-          Sign Ups
-        </h2>
-        {isAdmin && (
-          <Button 
-            variant="success" 
-            size="small"
-            onClick={() => setShowCreateSignupModal(true)}
-          >
-            <Plus size={16} />
-            Create Signup
-          </Button>
+    <div className="league-details-new">
+      {/* Upcoming Signups Section */}
+      <div className="league-signups-section">
+        <div className="league-section-header">
+          <h3 className="league-section-title">
+            <Calendar size={18} />
+            Upcoming Signups
+          </h3>
+          {isAdmin && (
+            <button className="league-text-button" onClick={() => setShowCreateSignupModal(true)}>
+              <Plus size={16} />
+              Schedule New Session
+            </button>
+          )}
+        </div>
+        
+        {loading ? (
+          <div className="league-empty-state">
+            <p>Loading signups...</p>
+          </div>
+        ) : upcomingSignups.length === 0 ? (
+          <div className="league-empty-state">
+            <Calendar size={40} />
+            <p>No upcoming signups. {isAdmin && 'Create a signup or weekly schedule to get started.'}</p>
+          </div>
+        ) : (
+          <div className="league-signups-list">
+            {upcomingSignups.map(signup => {
+              const isSignedUp = isPlayerSignedUp(signup);
+              // Signups are expanded by default unless manually collapsed
+              const isExpanded = signup.players && signup.players.length > 0 && !collapsedSignups.has(signup.id);
+              
+              return (
+                <div key={signup.id} className={`league-signup-row ${!signup.is_open ? 'closed' : ''} ${isSignedUp ? 'signed-up' : ''}`}>
+                  <div className="league-signup-info">
+                    <div className="league-signup-main">
+                      <div className="league-signup-details">
+                        <div className="league-signup-title">
+                          {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
+                        </div>
+                        <div className="league-signup-meta">
+                          <span className="league-signup-meta-item">
+                            <Clock size={14} />
+                            {signup.duration_hours} hours
+                          </span>
+                          {signup.court_id && (
+                            <span className="league-signup-meta-item">
+                              <MapPin size={14} />
+                              Court {signup.court_id}
+                            </span>
+                          )}
+                          <span className="league-signup-meta-item">
+                            <Users size={14} />
+                            {signup.player_count} {signup.player_count === 1 ? 'player' : 'players'}
+                          </span>
+                        </div>
+                        {!signup.is_open && (
+                          <div className="league-signup-status">
+                            Opens {formatDateTimeWithTimezone(signup.open_signups_at)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="league-signup-actions">
+                        {isLeagueMember && signup.is_open && (
+                          <button
+                            className={`league-text-button ${isSignedUp ? 'danger' : 'primary'}`}
+                            onClick={() => isSignedUp ? handleDropout(signup.id) : handleSignup(signup.id)}
+                          >
+                            {isSignedUp ? 'Drop Out' : 'Sign Up'}
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <button
+                              className="league-text-button"
+                              onClick={() => {
+                                setEditingSignup(signup);
+                                setShowEditSignupModal(true);
+                              }}
+                            >
+                              <Edit2 size={14} />
+                              Edit
+                            </button>
+                            <button
+                              className="league-signup-remove"
+                              onClick={() => handleDeleteSignup(signup.id)}
+                              title="Delete signup"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                        {signup.players && signup.players.length > 0 && (
+                          <button
+                            className="league-text-button"
+                            onClick={() => toggleSignupExpanded(signup.id)}
+                            title={isExpanded ? "Collapse players" : "Expand players"}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {isExpanded && signup.players && signup.players.length > 0 && (
+                      <div className="league-signup-players">
+                        {signup.players.map((player, idx) => (
+                          <div key={idx} className="league-signup-player-item">
+                            <span className="league-signup-player-name">{player.player_name}</span>
+                            <span className="league-signup-player-time">
+                              Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
       
-      {loading ? (
-        <div className="empty-state">
-          <p>Loading signups...</p>
-        </div>
-      ) : (
-        <>
-          {/* Upcoming Signups */}
-          <div className="signups-section">
-            <h3 className="subsection-title">Upcoming Signups</h3>
-            {upcomingSignups.length === 0 ? (
-              <div className="empty-state">
-                <Calendar size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
-                <p>No upcoming signups. {isAdmin && 'Create a signup or weekly schedule to get started.'}</p>
-              </div>
-            ) : (
-              <div className="signups-list">
-                {upcomingSignups.map(signup => {
-                  const isSignedUp = isPlayerSignedUp(signup);
-                  const isExpanded = expandedSignups.has(signup.id);
-                  
-                  return (
-                    <div key={signup.id} className={`signup-card ${signup.is_past ? 'past' : ''} ${!signup.is_open ? 'closed' : ''}`}>
-                      <div className="signup-card-header">
-                        <div className="signup-card-main">
-                          <div className="signup-card-info">
-                            <div className="signup-card-title">
-                              {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
-                            </div>
-                            <div className="signup-card-meta">
-                              <span className="signup-meta-item">
-                                <Clock size={14} />
-                                {signup.duration_hours} hours
-                              </span>
-                              {signup.court_id && (
-                                <span className="signup-meta-item">
-                                  <MapPin size={14} />
-                                  Court {signup.court_id}
-                                </span>
-                              )}
-                              <span className="signup-meta-item">
-                                <Users size={14} />
-                                {signup.player_count} {signup.player_count === 1 ? 'player' : 'players'}
-                              </span>
-                            </div>
-                            {!signup.is_open && (
-                              <div className="signup-status-badge closed">
-                                Opens {formatDateTimeWithTimezone(signup.open_signups_at)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="signup-card-actions">
-                            {isLeagueMember && signup.is_open && (
-                              <Button
-                                variant={isSignedUp ? "danger" : "success"}
-                                size="small"
-                                onClick={() => isSignedUp ? handleDropout(signup.id) : handleSignup(signup.id)}
-                              >
-                                {isSignedUp ? 'Drop Out' : 'Sign Up'}
-                              </Button>
-                            )}
-                            {signup.player_count > 0 && (
-                              <Button
-                                variant="secondary"
-                                size="small"
-                                onClick={() => handleViewPlayers(signup.id)}
-                              >
-                                <Users size={14} />
-                                View Players
-                              </Button>
-                            )}
-                            {isAdmin && (
-                              <>
-                                <Button
-                                  variant="secondary"
-                                  size="small"
-                                  onClick={() => {
-                                    setEditingSignup(signup);
-                                    setShowEditSignupModal(true);
-                                  }}
-                                >
-                                  <Edit2 size={14} />
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="small"
-                                  onClick={() => handleDeleteSignup(signup.id)}
-                                >
-                                  <Trash2 size={14} />
-                                  Delete
-                                </Button>
-                              </>
-                            )}
-                            {signup.players && signup.players.length > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                onClick={() => toggleSignupExpanded(signup.id)}
-                              >
-                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                              </Button>
-                            )}
-                          </div>
+      {/* Past Signups Section */}
+      {pastSignups.length > 0 && (
+        <div className="league-signups-section">
+          <div className="league-section-header">
+            <h3 className="league-section-title">
+              <Calendar size={18} />
+              Past Signups
+            </h3>
+          </div>
+          <div className="league-signups-list">
+            {pastSignups.map(signup => {
+              const isSignedUpPast = isPlayerSignedUp(signup);
+              return (
+                <div key={signup.id} className={`league-signup-row past ${isSignedUpPast ? 'signed-up' : ''}`}>
+                  <div className="league-signup-info">
+                    <div className="league-signup-main">
+                      <div className="league-signup-details">
+                        <div className="league-signup-title">
+                          {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
+                        </div>
+                        <div className="league-signup-meta">
+                          <span className="league-signup-meta-item">
+                            <Users size={14} />
+                            {signup.player_count} {signup.player_count === 1 ? 'player' : 'players'}
+                          </span>
                         </div>
                       </div>
-                      {isExpanded && signup.players && signup.players.length > 0 && (
-                        <div className="signup-card-players">
-                          <div className="signup-players-list">
-                            {signup.players.map((player, idx) => (
-                              <div key={idx} className="signup-player-item">
-                                <span className="player-name">{player.player_name}</span>
-                                <span className="player-signed-up-at">
-                                  Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          
-          {/* Past Signups (collapsed by default) */}
-          {pastSignups.length > 0 && (
-            <div className="signups-section">
-              <h3 className="subsection-title">Past Signups</h3>
-              <div className="signups-list">
-                {pastSignups.map(signup => (
-                  <div key={signup.id} className="signup-card past">
-                    <div className="signup-card-header">
-                      <div className="signup-card-main">
-                        <div className="signup-card-info">
-                          <div className="signup-card-title">
-                            {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
-                          </div>
-                          <div className="signup-card-meta">
-                            <span className="signup-meta-item">
-                              <Users size={14} />
-                              {signup.player_count} {signup.player_count === 1 ? 'player' : 'players'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="signup-card-actions">
-                          {signup.player_count > 0 && (
-                            <Button
-                              variant="secondary"
-                              size="small"
-                              onClick={() => handleViewPlayers(signup.id)}
-                            >
-                              <Users size={14} />
-                              View Players
-                            </Button>
-                          )}
-                        </div>
+                      <div className="league-signup-actions">
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Weekly Schedules (Admin only) */}
-          {isAdmin && (
-            <div className="signups-section">
-              <div className="section-header">
-                <h3 className="subsection-title">Weekly Schedules</h3>
-                <Button 
-                  variant="success" 
-                  size="small"
-                  onClick={() => setShowCreateScheduleModal(true)}
-                >
-                  <Plus size={16} />
-                  Create Weekly Schedule
-                </Button>
-              </div>
-              {weeklySchedules.length === 0 ? (
-                <div className="empty-state">
-                  <Calendar size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
-                  <p>No weekly schedules. Create one to automatically generate signups.</p>
                 </div>
-              ) : (
-                <div className="schedules-list">
-                  {weeklySchedules.map(schedule => {
-                    const isExpanded = expandedSchedules.has(schedule.id);
-                    return (
-                      <div key={schedule.id} className="schedule-card">
-                        <div className="schedule-card-header">
-                          <div className="schedule-card-main">
-                            <div className="schedule-card-info">
-                              <div className="schedule-card-title">
-                                {dayNames[schedule.day_of_week]} at {schedule.start_time} ({schedule.duration_hours} hours)
-                              </div>
-                              <div className="schedule-card-meta">
-                                <span>Ends: {formatDate(schedule.end_date)}</span>
-                                <span>Mode: {schedule.open_signups_mode.replace(/_/g, ' ')}</span>
-                              </div>
-                            </div>
-                            <div className="schedule-card-actions">
-                              <Button
-                                variant="secondary"
-                                size="small"
-                                onClick={() => {
-                                  setEditingSchedule(schedule);
-                                  setShowEditScheduleModal(true);
-                                }}
-                              >
-                                <Edit2 size={14} />
-                                Edit
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="small"
-                                onClick={() => handleDeleteSchedule(schedule.id)}
-                              >
-                                <Trash2 size={14} />
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Weekly Schedules Section (Admin only) */}
+      {isAdmin && (
+        <div className="league-schedules-section">
+          <div className="league-section-header">
+            <h3 className="league-section-title">
+              <Calendar size={18} />
+              Weekly Schedules
+            </h3>
+            <button className="league-text-button" onClick={() => setShowCreateScheduleModal(true)}>
+              <Plus size={16} />
+              Create Weekly Schedule
+            </button>
+          </div>
+          {weeklySchedules.length === 0 ? (
+            <div className="league-empty-state">
+              <Calendar size={40} />
+              <p>No weekly schedules. Create one to automatically generate signups.</p>
+            </div>
+          ) : (
+            <div className="league-schedules-list">
+              {weeklySchedules.map(schedule => (
+                <div key={schedule.id} className="league-schedule-row">
+                  <div className="league-schedule-info">
+                    <div className="league-schedule-main">
+                      <div className="league-schedule-details">
+                        <div className="league-schedule-title">
+                          {dayNames[schedule.day_of_week]} at {utcTimeToLocal(schedule.start_time)} ({schedule.duration_hours} hours)
+                        </div>
+                        <div className="league-schedule-meta">
+                          <span>Ends: {formatDate(schedule.end_date)}</span>
+                          <span>Mode: {schedule.open_signups_mode.replace(/_/g, ' ')}</span>
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="league-schedule-actions">
+                        <button
+                          className="league-text-button"
+                          onClick={() => {
+                            setEditingSchedule(schedule);
+                            setShowEditScheduleModal(true);
+                          }}
+                        >
+                          <Edit2 size={14} />
+                          Edit
+                        </button>
+                        <button
+                          className="league-schedule-remove"
+                          onClick={() => handleDeleteSchedule(schedule.id)}
+                          title="Delete schedule"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
-        </>
+        </div>
       )}
       
       {/* Modals */}
-      {showCreateSignupModal && (
-        <CreateSignupModal
-          seasonId={activeSeason.id}
-          onClose={() => setShowCreateSignupModal(false)}
-          onSubmit={handleCreateSignup}
-        />
-      )}
-      
-      {showEditSignupModal && editingSignup && (
-        <EditSignupModal
+      {(showCreateSignupModal || showEditSignupModal) && (
+        <SignupModal
           signup={editingSignup}
+          seasonId={activeSeason.id}
           onClose={() => {
+            setShowCreateSignupModal(false);
             setShowEditSignupModal(false);
             setEditingSignup(null);
           }}
-          onSubmit={(data) => handleUpdateSignup(editingSignup.id, data)}
+          onSubmit={async (data) => {
+            if (editingSignup) {
+              await handleUpdateSignup(editingSignup.id, data);
+              setShowEditSignupModal(false);
+              setEditingSignup(null);
+            } else {
+              await handleCreateSignup(data);
+              setShowCreateSignupModal(false);
+            }
+          }}
         />
       )}
       
@@ -622,15 +593,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
         />
       )}
       
-      {showPlayersModal && selectedSignupForPlayers && (
-        <SignupPlayersListModal
-          signup={selectedSignupForPlayers}
-          onClose={() => {
-            setShowPlayersModal(false);
-            setSelectedSignupForPlayers(null);
-          }}
-        />
-      )}
     </div>
   );
 }
