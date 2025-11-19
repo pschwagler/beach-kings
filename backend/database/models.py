@@ -4,13 +4,21 @@ SQLAlchemy ORM models for the Beach Volleyball ELO system.
 
 from datetime import datetime
 from typing import List
+import enum
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, Float, Date, DateTime,
+    Column, Integer, String, Text, Boolean, Float, Date, DateTime, Enum,
     ForeignKey, UniqueConstraint, CheckConstraint, Index
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database.db import Base
+
+
+class SessionStatus(str, enum.Enum):
+    """Session status enum."""
+    ACTIVE = "ACTIVE"
+    SUBMITTED = "SUBMITTED"
+    EDITED = "EDITED"
 
 
 class Location(Base):
@@ -24,11 +32,15 @@ class Location(Base):
     country = Column(String, default="USA")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the location
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the location
     
     # Relationships
-    players = relationship("Player", back_populates="default_location")
+    players = relationship("Player", primaryjoin="Location.id == Player.default_location_id", back_populates="default_location")
     leagues = relationship("League", back_populates="location")
     courts = relationship("Court", back_populates="location")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_locations")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_locations")
     
     __table_args__ = (
         Index("idx_locations_name", "name"),
@@ -83,8 +95,8 @@ class Player(Base):
     
     # Relationships
     user = relationship("User", back_populates="players")
-    default_location = relationship("Location", back_populates="players")
-    league_memberships = relationship("LeagueMember", back_populates="player")
+    default_location = relationship("Location", foreign_keys=[default_location_id], back_populates="players")
+    league_memberships = relationship("LeagueMember", foreign_keys="LeagueMember.player_id", back_populates="player")
     season_stats = relationship("PlayerSeasonStats", back_populates="player")
     elo_history = relationship("EloHistory", back_populates="player")
     
@@ -110,12 +122,16 @@ class League(Base):
     level = Column(String, nullable=True)  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the league
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the league
     
     # Relationships
     location = relationship("Location", back_populates="leagues")
     members = relationship("LeagueMember", back_populates="league", cascade="all, delete-orphan")
     seasons = relationship("Season", foreign_keys="Season.league_id", back_populates="league")
     config = relationship("LeagueConfig", back_populates="league", uselist=False, cascade="all, delete-orphan")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_leagues")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_leagues")
     
     __table_args__ = (
         Index("idx_leagues_location", "location_id"),
@@ -131,9 +147,13 @@ class LeagueConfig(Base):
     point_system = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the config
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the config
     
     # Relationships
     league = relationship("League", back_populates="config")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_league_configs")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_league_configs")
     
     __table_args__ = (
         Index("idx_league_configs_league", "league_id"),
@@ -149,10 +169,12 @@ class LeagueMember(Base):
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     role = Column(String, default="member", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who added this member
     
     # Relationships
     league = relationship("League", back_populates="members")
-    player = relationship("Player", back_populates="league_memberships")
+    player = relationship("Player", foreign_keys=[player_id], back_populates="league_memberships")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_league_members")
     
     __table_args__ = (
         UniqueConstraint("league_id", "player_id"),
@@ -174,11 +196,15 @@ class Season(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the season
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the season
     
     # Relationships
     league = relationship("League", foreign_keys=[league_id], back_populates="seasons")
     sessions = relationship("Session", back_populates="season")
     player_stats = relationship("PlayerSeasonStats", back_populates="season")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_seasons")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_seasons")
     
     __table_args__ = (
         Index("idx_seasons_league", "league_id"),
@@ -197,10 +223,14 @@ class Court(Base):
     geoJson = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the court
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the court
     
     # Relationships
     location = relationship("Location", back_populates="courts")
     sessions = relationship("Session", back_populates="court")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_courts")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_courts")
     
     __table_args__ = (
         Index("idx_courts_location", "location_id"),
@@ -215,6 +245,10 @@ class Friend(Base):
     player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who initiated the friendship
+    
+    # Relationships
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_friendships")
     
     __table_args__ = (
         UniqueConstraint("player1_id", "player2_id"),
@@ -258,15 +292,19 @@ class Session(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(String, nullable=False)  # Using String for date to match existing schema
     name = Column(String, nullable=False)
-    is_pending = Column(Boolean, default=True, nullable=False)
+    status = Column(Enum(SessionStatus), default=SessionStatus.ACTIVE, nullable=False)
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
     court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the session
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated/submitted the session
     
     # Relationships
     season = relationship("Season", back_populates="sessions")
     court = relationship("Court", back_populates="sessions")
     matches = relationship("Match", back_populates="session")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_sessions")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_sessions")
     
     __table_args__ = (
         Index("idx_sessions_date", "date"),
@@ -291,6 +329,8 @@ class Match(Base):
     team2_score = Column(Integer, nullable=False)
     winner = Column(Integer, nullable=False)  # 1 = team1, 2 = team2, -1 = tie
     is_public = Column(Boolean, default=True, nullable=False)
+    created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the match
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the match
     
     # Relationships
     session = relationship("Session", back_populates="matches")
@@ -298,6 +338,8 @@ class Match(Base):
     team1_player2 = relationship("Player", foreign_keys=[team1_player2_id], lazy="select")
     team2_player1 = relationship("Player", foreign_keys=[team2_player1_id], lazy="select")
     team2_player2 = relationship("Player", foreign_keys=[team2_player2_id], lazy="select")
+    creator = relationship("Player", foreign_keys=[created_by], backref="created_matches")
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_matches")
     
     @property
     def team1_player1_name(self) -> str:
@@ -416,6 +458,10 @@ class Setting(Base):
     key = Column(String, primary_key=True)
     value = Column(Text, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who last updated the setting
+    
+    # Relationships
+    updater = relationship("Player", foreign_keys=[updated_by], backref="updated_settings")
 
 
 class VerificationCode(Base):

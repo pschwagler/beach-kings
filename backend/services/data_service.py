@@ -15,7 +15,7 @@ from backend.database import db
 from backend.database.models import (
     League, LeagueMember, Season, Location, Court, Player, 
     Session, Match, Setting, PartnershipStats, OpponentStats, 
-    EloHistory, PlayerSeasonStats
+    EloHistory, PlayerSeasonStats, SessionStatus
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
@@ -297,7 +297,7 @@ async def get_sessions(session: AsyncSession) -> List[Dict]:
             "id": s.id,
             "date": s.date,
             "name": s.name,
-            "is_pending": s.is_pending,
+            "status": s.status.value if s.status else None,
             "season_id": s.season_id,
             "court_id": s.court_id,
             "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -318,7 +318,7 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "id": s.id,
         "date": s.date,
         "name": s.name,
-        "is_pending": s.is_pending,
+        "status": s.status.value if s.status else None,
         "season_id": s.season_id,
         "court_id": s.court_id,
         "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -326,10 +326,10 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
 
 
 async def get_active_session(session: AsyncSession) -> Optional[Dict]:
-    """Get the active (pending) session (async version)."""
+    """Get the active session (async version)."""
     result = await session.execute(
         select(Session)
-        .where(Session.is_pending == True)
+        .where(Session.status == SessionStatus.ACTIVE)
         .order_by(Session.created_at.desc())
         .limit(1)
     )
@@ -340,7 +340,7 @@ async def get_active_session(session: AsyncSession) -> Optional[Dict]:
         "id": s.id,
         "date": s.date,
         "name": s.name,
-        "is_pending": s.is_pending,
+        "status": s.status.value if s.status else None,
         "season_id": s.season_id,
         "court_id": s.court_id,
         "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -351,7 +351,8 @@ async def create_league_session(
     session: AsyncSession,
     league_id: int,
     date: str,
-    name: Optional[str]
+    name: Optional[str],
+    created_by: Optional[int] = None
 ) -> Dict:
     """Create a league session (async version). Automatically uses the league's most recent active season."""
     # Verify league exists
@@ -378,8 +379,9 @@ async def create_league_session(
     new_session = Session(
         date=date,
         name=session_name,
-        is_pending=True,
-        season_id=active_season.id
+        status=SessionStatus.ACTIVE,
+        season_id=active_season.id,
+        created_by=created_by
     )
     session.add(new_session)
     await session.commit()
@@ -388,7 +390,7 @@ async def create_league_session(
         "id": new_session.id,
         "date": new_session.date,
         "name": new_session.name,
-        "is_active": new_session.is_pending,
+        "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
     }
 
@@ -973,7 +975,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
         Match.date,
         Match.session_id,
         Session.name.label("session_name"),
-        Session.is_pending.label("session_pending"),
+        Session.status.label("session_status"),
         p1.full_name.label("team1_player1_name"),
         p2.full_name.label("team1_player2_name"),
         p3.full_name.label("team2_player1_name"),
@@ -1012,7 +1014,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             "date": row.date,
             "session_id": row.session_id,
             "session_name": row.session_name,
-            "session_pending": row.session_pending,
+            "session_status": row.session_status.value if row.session_status else None,
             "team1_player1_name": row.team1_player1_name,
             "team1_player2_name": row.team1_player2_name,
             "team2_player1_name": row.team2_player1_name,
@@ -1027,12 +1029,27 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
     ]
 
 
-async def lock_in_session(session: AsyncSession, session_id: int) -> bool:
-    """Lock in a session (mark as complete/submitted, is_pending = False) - async version."""
+async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Optional[int] = None) -> bool:
+    """Lock in a session - sets status to SUBMITTED if ACTIVE, or EDITED if already SUBMITTED/EDITED."""
+    # Get current session to check its status
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    session_obj = result.scalar_one_or_none()
+    
+    if not session_obj:
+        return False
+    
+    # Determine new status: SUBMITTED if currently ACTIVE, EDITED if already SUBMITTED/EDITED
+    if session_obj.status == SessionStatus.ACTIVE:
+        new_status = SessionStatus.SUBMITTED
+    else:
+        new_status = SessionStatus.EDITED
+    
     result = await session.execute(
         update(Session)
         .where(Session.id == session_id)
-        .values(is_pending=False)
+        .values(status=new_status, updated_by=updated_by)
     )
     await session.commit()
     return result.rowcount > 0
@@ -1041,13 +1058,13 @@ async def lock_in_session(session: AsyncSession, session_id: int) -> bool:
 async def delete_session(session: AsyncSession, session_id: int) -> bool:
     """
     Delete an active session and all its matches - async version.
-    Only active (pending) sessions can be deleted.
+    Only ACTIVE sessions can be deleted.
     
     Returns:
         True if successful, False if session not found or not active
         
     Raises:
-        ValueError: If session is not active (already submitted)
+        ValueError: If session is not active (already submitted/edited)
     """
     # Check if session exists and is active
     result = await session.execute(
@@ -1058,7 +1075,7 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
     if not session_obj:
         return False
     
-    if not session_obj.is_pending:
+    if session_obj.status != SessionStatus.ACTIVE:
         raise ValueError("Cannot delete a session that has already been submitted")
     
     # Delete matches first (foreign key constraint)
@@ -1262,6 +1279,8 @@ async def query_matches(
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
+    creator = aliased(Player)
+    updater = aliased(Player)
     
     # Build the query with joins
     query = select(
@@ -1269,11 +1288,16 @@ async def query_matches(
         Match.date,
         Match.session_id,
         Session.name.label("session_name"),
-        Session.is_pending.label("session_pending"),
+        Session.status.label("session_status"),
+        Session.created_at.label("session_created_at"),
+        Session.created_by.label("session_created_by"),
+        Session.updated_by.label("session_updated_by"),
         p1.full_name.label("team1_player1_name"),
         p2.full_name.label("team1_player2_name"),
         p3.full_name.label("team2_player1_name"),
         p4.full_name.label("team2_player2_name"),
+        creator.full_name.label("session_created_by_name"),
+        updater.full_name.label("session_updated_by_name"),
         Match.team1_score,
         Match.team2_score,
         Match.winner,
@@ -1294,17 +1318,21 @@ async def query_matches(
         p3, Match.team2_player1_id == p3.id
     ).outerjoin(
         p4, Match.team2_player2_id == p4.id
+    ).outerjoin(
+        creator, Session.created_by == creator.id
+    ).outerjoin(
+        updater, Session.updated_by == updater.id
     )
     
     # Build WHERE conditions
     conditions = []
     
     if submitted_only:
-        # Only show matches from submitted (non-pending) sessions, or matches without sessions
+        # Only show matches from submitted/edited sessions, or matches without sessions
         conditions.append(
             or_(
                 Match.session_id.is_(None),
-                Session.is_pending == False
+                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED])
             )
         )
     # If submitted_only is False, we include all matches (no filter)
@@ -1355,7 +1383,12 @@ async def query_matches(
             "date": row.date,
             "session_id": row.session_id,
             "session_name": row.session_name,
-            "session_pending": row.session_pending,
+            "session_status": row.session_status.value if row.session_status else None,
+            "session_created_at": row.session_created_at.isoformat() if row.session_created_at else None,
+            "session_created_by": row.session_created_by,
+            "session_updated_by": row.session_updated_by,
+            "session_created_by_name": row.session_created_by_name,
+            "session_updated_by_name": row.session_updated_by_name,
             "team1_player1_name": row.team1_player1_name,
             "team1_player2_name": row.team1_player2_name,
             "team2_player1_name": row.team2_player1_name,

@@ -160,7 +160,7 @@ function App() {
         <div className="landing-content">
           {!isAuthenticated ? (
             <div className="landing-message">
-              <h2>Welcome to QBK Beach Volleyball</h2>
+              <h2>Welcome to Beach Kings Volleyball App</h2>
               <p>Login to get started</p>
               <button 
                 className="btn btn-primary" 
@@ -171,7 +171,7 @@ function App() {
             </div>
           ) : (
             <div className="landing-message">
-              <h2>Welcome back, {user?.name || 'User'}!</h2>
+              <h2>Welcome back{currentUserPlayer?.first_name ? ', ' + currentUserPlayer.first_name : ''}!</h2>
               <p>Select a league from the menu above to get started.</p>
             </div>
           )}

@@ -7,6 +7,36 @@ import ConfirmationModal from '../modal/ConfirmationModal';
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
 import { createLeagueSession, getActiveSession } from '../../services/api';
 
+// Helper function to format timestamp as relative time or date
+function formatSessionTimestamp(timestamp) {
+  if (!timestamp) return null;
+  
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours === 0) {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      if (diffMins < 1) return 'Just now';
+      return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    }
+    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  } else if (diffDays === 1) {
+    return 'Yesterday';
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+  } else {
+    // Format as "Jan 15, 2024"
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}
+
 export default function MatchesTable({ 
   matches, 
   onPlayerClick, 
@@ -43,6 +73,9 @@ export default function MatchesTable({
     const sessionId = match['Session ID'];
     const sessionName = match['Session Name'];
     const isActive = match['Session Active'];
+    const sessionCreatedAt = match['Session Created At'];
+    const sessionCreatedBy = match['Session Created By'];
+    const sessionUpdatedBy = match['Session Updated By'];
     
     // For matches with a session, group by session
     if (sessionId !== null && sessionId !== undefined) {
@@ -53,10 +86,18 @@ export default function MatchesTable({
           id: sessionId,
           name: sessionName,
           isActive: isActive,
+          createdAt: sessionCreatedAt,
+          createdBy: sessionCreatedBy,
+          updatedBy: sessionUpdatedBy,
+          lastUpdated: sessionCreatedAt, // Use created_at for timestamp
           matches: []
         };
       }
       acc[key].matches.push(match);
+      // Update updatedBy if this match has it
+      if (sessionUpdatedBy) {
+        acc[key].updatedBy = sessionUpdatedBy;
+      }
     } else {
       // For legacy matches, group by date
       const key = `date-${match.Date}`;
@@ -64,6 +105,10 @@ export default function MatchesTable({
         acc[key] = {
           type: 'date',
           name: match.Date,
+          createdAt: null, // Legacy matches don't have created_at
+          lastUpdated: null, // Legacy matches don't have timestamps
+          createdBy: null,
+          updatedBy: null,
           matches: []
         };
       }
@@ -138,7 +183,18 @@ export default function MatchesTable({
     }
   };
 
-  const sessionGroups = Object.entries(matchesBySession);
+  // Sort session groups by created_at (newest first), then by name for legacy date groups
+  const sessionGroups = Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
+    // If both have created_at, sort by created_at descending (newest first)
+    if (groupA.createdAt && groupB.createdAt) {
+      return new Date(groupB.createdAt) - new Date(groupA.createdAt);
+    }
+    // If only one has created_at, prioritize it (sessions with created_at come first)
+    if (groupA.createdAt && !groupB.createdAt) return -1;
+    if (!groupA.createdAt && groupB.createdAt) return 1;
+    // If neither has created_at (legacy date groups), sort by name descending
+    return groupB.name.localeCompare(groupA.name);
+  });
   
   // Get matches for active session
   const activeSessionMatches = activeSession 
@@ -213,6 +269,16 @@ export default function MatchesTable({
                 />
               ))}
             </div>
+            {group.lastUpdated && (
+              <div className="session-timestamp">
+                {group.updatedBy 
+                  ? `Edited ${formatSessionTimestamp(group.lastUpdated)} by ${group.updatedBy}`
+                  : group.createdBy
+                  ? `Submitted ${formatSessionTimestamp(group.lastUpdated)} by ${group.createdBy}`
+                  : formatSessionTimestamp(group.lastUpdated)
+                }
+              </div>
+            )}
           </div>
         ))}
 

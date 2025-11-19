@@ -1097,11 +1097,20 @@ async def create_league_session(
         body = await request.json()
         date = body.get("date") or datetime.now().strftime('%-m/%-d/%Y')
         name = body.get("name")
+        
+        # Get player_id from user
+        player_id = None
+        if user:
+            player = await data_service.get_player_by_user_id(session, user["id"])
+            if player:
+                player_id = player["id"]
+        
         new_session = await data_service.create_league_session(
             session=session,
             league_id=league_id,
             date=date,
-            name=name
+            name=name,
+            created_by=player_id
         )
         return {"status": "success", "message": "Session created", "session": new_session}
     except ValueError as e:
@@ -1136,7 +1145,14 @@ async def end_league_session(
         
         # If locking in the session (is_pending = false)
         if is_pending is False:
-            success = await data_service.lock_in_session(session, session_id)
+            # Get player_id from user
+            player_id = None
+            if user:
+                player = await data_service.get_player_by_user_id(session, user["id"])
+                if player:
+                    player_id = player["id"]
+            
+            success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
             
             if not success:
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
@@ -1228,7 +1244,14 @@ async def update_session(
         
         # If locking in the session (is_pending = false)
         if is_pending is False:
-            success = await data_service.lock_in_session(session, session_id)
+            # Get player_id from user
+            player_id = None
+            if current_user:
+                player = await data_service.get_player_by_user_id(session, current_user["id"])
+                if player:
+                    player_id = player["id"]
+            
+            success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
             
             if not success:
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")

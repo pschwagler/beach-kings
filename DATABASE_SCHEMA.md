@@ -60,6 +60,8 @@ erDiagram
         text whatsapp_group_id
         datetime created_at
         datetime updated_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     league_configs {
@@ -68,6 +70,8 @@ erDiagram
         text point_system
         datetime created_at
         datetime updated_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     league_members {
@@ -76,6 +80,7 @@ erDiagram
         int player_id FK
         text role
         datetime created_at
+        int created_by FK "nullable"
     }
 
     seasons {
@@ -88,6 +93,8 @@ erDiagram
         int is_active
         datetime created_at
         datetime updated_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     sessions {
@@ -98,6 +105,8 @@ erDiagram
         int season_id FK
         int court_id FK
         datetime created_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     player_season_stats {
@@ -122,6 +131,8 @@ erDiagram
         text country
         datetime created_at
         datetime updated_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     courts {
@@ -132,6 +143,8 @@ erDiagram
         text geoJson
         datetime created_at
         datetime updated_at
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 
     friends {
@@ -139,6 +152,7 @@ erDiagram
         int player1_id FK
         int player2_id FK
         datetime created_at
+        int created_by FK "nullable"
     }
 
     matches {
@@ -152,6 +166,8 @@ erDiagram
         int team1_score
         int team2_score
         int winner
+        int created_by FK "nullable"
+        int updated_by FK "nullable"
     }
 ```
 
@@ -238,6 +254,9 @@ Historical ELO changes over time for charting.
 
 #### settings
 Application configuration key-value store.
+
+**Key Fields:**
+- `updated_by`: Player who last updated the setting
 
 ## Relationships Summary
 

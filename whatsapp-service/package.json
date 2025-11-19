@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-service",
   "version": "1.0.0",
-  "description": "WhatsApp Web.js service for QBK Beach Volleyball",
+  "description": "WhatsApp Web.js service for Beach Kings App",
   "main": "server.js",
   "type": "module",
   "scripts": {
