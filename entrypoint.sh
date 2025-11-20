@@ -24,8 +24,26 @@ fi
 
 # Run database migrations
 echo "🔄 Running database migrations..."
-(cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head)
+echo "   Current directory: $(pwd)"
+echo "   DATABASE_URL: ${DATABASE_URL:-not set}"
+echo "   Checking current migration version..."
+if ! (cd /app/backend && PYTHONPATH=/app python -m alembic current 2>&1); then
+    echo "   ⚠️  Could not check current version (this is OK if database is new)"
+fi
+echo ""
+echo "   Running migrations..."
+if ! (cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head 2>&1); then
+    echo ""
+    echo "❌ ERROR: Database migrations failed!"
+    echo "   This is a critical error. The application may not work correctly."
+    echo "   Check the error messages above for details."
+    echo "   You may need to manually fix the database state."
+    exit 1
+fi
+echo ""
 echo "✅ Migrations complete!"
+echo "   Verifying migration version..."
+(cd /app/backend && PYTHONPATH=/app python -m alembic current 2>&1) || echo "   ⚠️  Could not verify version"
 echo ""
 
 # Start WhatsApp service if ENABLE_WHATSAPP is true (or True or TRUE). Default to true.

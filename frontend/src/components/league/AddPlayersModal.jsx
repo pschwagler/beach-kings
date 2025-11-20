@@ -105,7 +105,6 @@ export default function AddPlayersModal({
       for (const selectedPlayer of selectedPlayers) {
         await addLeagueMember(leagueId, selectedPlayer.player_id, selectedPlayer.role);
       }
-      showMessage?.('success', `${selectedPlayers.length} player${selectedPlayers.length !== 1 ? 's' : ''} added to league successfully`);
       onSuccess();
       onClose();
     } catch (err) {

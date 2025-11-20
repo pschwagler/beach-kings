@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import PlayerDetails from './PlayerDetails';
 import PlayerDetailsSideTab from './PlayerDetailsSideTab';
 
@@ -9,8 +10,24 @@ export default function PlayerDetailsPanel({
   allPlayerNames,
   onPlayerChange,
   onClose,
-  onSideTabClick
+  onSideTabClick,
+  leagueName,
+  seasonName
 }) {
+  // Prevent body scrolling when drawer is open
+  useEffect(() => {
+    if (isPanelOpen) {
+      document.body.classList.add('drawer-open');
+    } else {
+      document.body.classList.remove('drawer-open');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('drawer-open');
+    };
+  }, [isPanelOpen]);
+
   return (
     <>
       {/* Backdrop - only shown when panel is open */}
@@ -24,6 +41,8 @@ export default function PlayerDetailsPanel({
             onClose={onClose}
             allPlayers={allPlayerNames}
             onPlayerChange={onPlayerChange}
+            leagueName={leagueName}
+            seasonName={seasonName}
           />
         </>
       )}

@@ -1,23 +1,10 @@
-.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-backend-port ensure-docker migrate
+.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-docker migrate
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
 BACKEND_APP ?= backend.api.main:app
 DEBUG_BACKEND ?= 0
 DEBUGPY_PORT ?= 5678
-
-ensure-backend-port:
-	@if lsof -ti tcp:$(BACKEND_PORT) >/dev/null; then \
-		echo "⚠️ Port $(BACKEND_PORT) is in use. Attempting to stop the previous backend..."; \
-		lsof -ti tcp:$(BACKEND_PORT) | xargs kill -TERM; \
-		sleep 1; \
-		if lsof -ti tcp:$(BACKEND_PORT) >/dev/null; then \
-			echo "Force killing remaining processes on port $(BACKEND_PORT)..."; \
-			lsof -ti tcp:$(BACKEND_PORT) | xargs kill -KILL; \
-			sleep 1; \
-		fi; \
-		echo "✅ Port $(BACKEND_PORT) is free."; \
-	fi
 
 ensure-docker:
 	@echo "Checking Docker services..."
@@ -29,19 +16,15 @@ ensure-docker:
 		echo "❌ Docker daemon is not running. Please start Docker and try again."; \
 		exit 1; \
 	fi
-	@echo "Starting PostgreSQL database..."
-	@docker-compose up -d postgres 2>/dev/null || docker compose up -d postgres 2>/dev/null || true
-	@echo "⏳ Waiting for PostgreSQL to be ready..."
-	@sleep 3
-	@echo "✅ Docker services ready!"
+	@echo "✅ Docker is ready!"
 
 help:
 	@echo "Beach Volleyball ELO - Available Commands:"
 	@echo ""
 	@echo "  make install           - Install all dependencies (Python + Frontend + WhatsApp)"
-	@echo "  make dev               - Start ALL services (backend + frontend + WhatsApp)"
-	@echo "  make dev-basic         - Start backend + frontend only (no WhatsApp)"
-	@echo "  make dev-backend       - Start backend only"
+	@echo "  make dev               - Start ALL services (backend + postgres + WhatsApp + frontend dev server)"
+	@echo "  make dev-basic         - Start backend + postgres + frontend dev server (no WhatsApp)"
+	@echo "  make dev-backend       - Start backend only with Docker Compose"
 	@echo "  make watch             - Watch and rebuild frontend only"
 	@echo "  make build             - Build frontend for production"
 	@echo "  make start             - Build frontend + start backend"
@@ -101,37 +84,40 @@ whatsapp-install:
 	cd whatsapp-service && npm install
 	@echo "✅ WhatsApp service dependencies installed!"
 
-dev: ensure-docker ensure-backend-port
-	@echo "🚀 Starting ALL services (backend + frontend + WhatsApp)..."
+dev: ensure-docker
+	@echo "🚀 Starting ALL services (backend + postgres + WhatsApp + frontend)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
-	@echo "🎨 Frontend: auto-rebuilding on file changes"
 	@echo "📱 WhatsApp: http://localhost:3001"
+	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
 	@echo ""
-	@echo "🌐 Visit: http://localhost:8000"
+	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
 	@echo "📱 WhatsApp setup: http://localhost:8000/whatsapp"
 	@echo ""
 	@echo "Press Ctrl+C to stop all services"
 	@echo ""
-	@trap 'kill 0' EXIT; \
-	(cd whatsapp-service && npm start) & \
-	(cd frontend && npm run build -- --watch) & \
-	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
+	@trap 'docker compose down' EXIT INT TERM; \
+	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
+		"docker compose up" \
+		"npm run dev"
 
-dev-basic: ensure-docker ensure-backend-port
-	@echo "🚀 Starting backend + frontend watch (no WhatsApp)..."
+dev-basic: ensure-docker
+	@echo "🚀 Starting backend + postgres + frontend (no WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
-	@echo "🎨 Frontend: auto-rebuilding on file changes"
+	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
 	@echo ""
-	@echo "Press Ctrl+C to stop both"
+	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
 	@echo ""
-	@trap 'kill 0' EXIT; \
-	(cd frontend && npm run build -- --watch) & \
-	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	@trap 'ENABLE_WHATSAPP=false docker compose down' EXIT INT TERM; \
+	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
+		"ENABLE_WHATSAPP=false docker compose up" \
+		"npm run dev"
 
-dev-backend: ensure-docker ensure-backend-port
-	@echo "Starting backend only with auto-reload..."
+dev-backend: ensure-docker
+	@echo "Starting backend only with Docker Compose (auto-reload)..."
 	@echo "Visit: http://localhost:8000"
-	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
+	@docker compose up backend
 
 watch:
 	@echo "Watching frontend files and rebuilding on changes..."
@@ -144,14 +130,14 @@ build:
 	cd frontend && npm run build
 	@echo "✅ Frontend built!"
 
-start: ensure-docker ensure-backend-port build
-	@echo "Starting production server..."
-	./venv/bin/uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
+start: ensure-docker build
+	@echo "Starting production server with Docker Compose..."
+	@ENV=production docker compose up
 
 clean:
 	@echo "Cleaning up..."
 	@echo "Stopping and removing Docker containers and volumes..."
-	@docker-compose down -v 2>/dev/null || true
+	@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || true
 	@if [ -n "$$(docker ps -a --filter 'name=beach-kings' --format '{{.ID}}' 2>/dev/null)" ]; then \
 		docker ps -a --filter "name=beach-kings" --format "{{.ID}}" | xargs docker rm -f 2>/dev/null || true; \
 	fi
@@ -177,7 +163,7 @@ clean-venv:
 migrate:
 	@echo "Running database migrations..."
 	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
-		echo "❌ Backend container is not running. Start it with 'make dev' or 'docker-compose up -d backend'"; \
+		echo "❌ Backend container is not running. Start it with 'make dev' or 'docker compose up -d backend'"; \
 		exit 1; \
 	fi
 	@docker exec beach-kings-backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"

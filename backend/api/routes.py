@@ -269,6 +269,61 @@ async def get_season(season_id: int, session: AsyncSession = Depends(get_db_sess
         raise HTTPException(status_code=500, detail=f"Error getting season: {str(e)}")
 
 
+@router.get("/api/seasons/{season_id}/matches")
+async def get_season_matches(
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get all matches for a season with ELO changes (public)."""
+    try:
+        matches = await data_service.get_season_matches_with_elo(session, season_id)
+        return matches
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading season matches: {str(e)}")
+
+
+@router.get("/api/seasons/{season_id}/player-stats")
+async def get_season_player_stats(
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get all player season stats for a season (public)."""
+    try:
+        player_stats = await data_service.get_all_player_season_stats(session, season_id)
+        return player_stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading player season stats: {str(e)}")
+
+
+@router.get("/api/seasons/{season_id}/partnership-opponent-stats")
+async def get_season_partnership_opponent_stats(
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get all partnership and opponent stats for all players in a season (public)."""
+    try:
+        stats = await data_service.get_all_player_season_partnership_opponent_stats(session, season_id)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}")
+
+
+@router.get("/api/players/{player_id}/season/{season_id}/partnership-opponent-stats")
+async def get_player_season_partnership_opponent_stats(
+    player_id: int,
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get partnership and opponent stats for a player in a season (public)."""
+    try:
+        stats = await data_service.get_player_season_partnership_opponent_stats(
+            session, player_id, season_id
+        )
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading partnership/opponent stats: {str(e)}")
+
+
 @router.put("/api/seasons/{season_id}")
 async def update_season(
     season_id: int,
@@ -891,6 +946,40 @@ async def get_player_stats(
         raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
 
 
+@router.get("/api/players/{player_id}/season/{season_id}/stats")
+async def get_player_season_stats(
+    player_id: int,
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get player statistics for a specific season.
+    
+    Args:
+        player_id: ID of the player
+        season_id: ID of the season
+        
+    Returns:
+        dict: Player season stats including ELO, games, wins, etc.
+    """
+    try:
+        season_stats = await data_service.get_player_season_stats(
+            session, player_id, season_id
+        )
+        
+        if season_stats is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Player or season not found."
+            )
+        
+        return season_stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading player season stats: {str(e)}")
+
+
 @router.get("/api/elo-timeline")
 async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
     """
@@ -1130,10 +1219,10 @@ async def delete_weekly_schedule(
 async def create_signup(
     season_id: int,
     payload: SignupCreate,
-    user: dict = Depends(make_require_league_admin_from_season()),
+    user: dict = Depends(make_require_league_member_from_season()),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Create an ad-hoc signup (admin only)."""
+    """Create an ad-hoc signup (league member)."""
     try:
         # Get user's player_id
         result = await session.execute(
@@ -1166,13 +1255,14 @@ async def list_signups(
     season_id: int,
     upcoming_only: bool = False,
     past_only: bool = False,
+    include_players: bool = False,
     user: Optional[dict] = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List signups for a season. Public endpoint."""
     try:
         return await data_service.get_signups(
-            session, season_id, upcoming_only=upcoming_only, past_only=past_only
+            session, season_id, upcoming_only=upcoming_only, past_only=past_only, include_players=include_players
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing signups: {str(e)}")
@@ -1606,19 +1696,17 @@ async def end_league_session(
             if player:
                 player_id = player["id"]
         
-        success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
+        result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
         
-        if not success:
+        if not result:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        
-        # Auto-recalculate all stats from locked-in sessions
-        result = await data_service.recalculate_all_stats(session)
         
         return {
             "status": "success",
-            "message": f"Session submitted and stats recalculated",
-            "player_count": result["player_count"],
-            "match_count": result["match_count"]
+            "message": f"Session submitted and stats calculations queued",
+            "global_job_id": result["global_job_id"],
+            "season_job_id": result["season_job_id"],
+            "season_id": result["season_id"]
         }
     except HTTPException:
         raise
@@ -1701,19 +1789,17 @@ async def update_session(
             if player:
                 player_id = player["id"]
         
-        success = await data_service.lock_in_session(session, session_id, updated_by=player_id)
+        result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
         
-        if not success:
+        if not result:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-        
-        # Auto-recalculate all stats from locked-in sessions
-        result = await data_service.recalculate_all_stats(session)
         
         return {
             "status": "success",
-            "message": f"Session submitted and stats recalculated",
-            "player_count": result["player_count"],
-            "match_count": result["match_count"]
+            "message": f"Session submitted and stats calculations queued",
+            "global_job_id": result["global_job_id"],
+            "season_job_id": result["season_job_id"],
+            "season_id": result["season_id"]
         }
     except HTTPException:
         raise
@@ -1863,31 +1949,21 @@ async def create_match(
                 )
                 .with_for_update()  # Lock to prevent race conditions
             )
-            session_obj = result.scalar_one_or_none()
+            session_orm = result.scalar_one_or_none()
             
-            # If no active session, check for SUBMITTED/EDITED session (for admin editing)
-            if not session_obj:
-                result = await session.execute(
-                    select(Session)
-                    .where(
-                        and_(
-                            Session.date == match_date,
-                            Session.season_id == active_season.id,
-                            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED])
-                        )
-                    )
-                    .order_by(Session.created_at.desc())
-                    .limit(1)
-                )
-                submitted_session = result.scalar_one_or_none()
-                
-                if submitted_session:
-                    # Check if user is league admin
-                    if await is_user_admin_of_session_league(session, current_user["id"], submitted_session.id):
-                        session_obj = submitted_session
-                    # Not admin, cannot add to submitted session - will create new active session
+            # Convert ORM object to dict if found
+            if session_orm:
+                session_obj = {
+                    "id": session_orm.id,
+                    "date": session_orm.date,
+                    "name": session_orm.name,
+                    "status": session_orm.status.value if session_orm.status else None,
+                    "season_id": session_orm.season_id,
+                }
             
-            # If still no session found, create a new active one atomically
+            # If no active session found, create a new active one atomically
+            # Note: We do NOT reuse SUBMITTED/EDITED sessions here - those should only be used
+            # when explicitly editing a session (when session_id is provided in the request)
             if not session_obj:
                 session_obj = await data_service.get_or_create_active_league_session(
                     session=session,

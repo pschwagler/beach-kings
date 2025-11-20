@@ -88,21 +88,36 @@ async def run_async_migrations(alembic_cfg=None) -> None:
     configuration = config_obj.get_section(config_obj.config_ini_section)
     configuration["sqlalchemy.url"] = DATABASE_URL
     
+    logger.info("Creating database connection...")
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
+    try:
+        logger.info("Executing migrations...")
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+        logger.info("Migrations executed successfully")
+    except Exception as e:
+        logger.error(f"Error during migration execution: {e}", exc_info=True)
+        raise
+    finally:
+        await connectable.dispose()
+        logger.info("Database connection closed")
 
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode (called by Alembic CLI)."""
-    asyncio.run(run_async_migrations())
+    logger.info("Starting database migrations...")
+    logger.info(f"Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'configured'}")
+    try:
+        asyncio.run(run_async_migrations())
+        logger.info("✓ Migrations completed successfully")
+    except Exception as e:
+        logger.error(f"✗ Migration failed: {e}", exc_info=True)
+        raise
 
 
 async def run_migrations_online_programmatic() -> None:

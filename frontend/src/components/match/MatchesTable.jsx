@@ -56,7 +56,8 @@ export default function MatchesTable({
   onEnterEditMode,
   onSaveEditedSession,
   onCancelEdit,
-  pendingMatchChanges = new Map()
+  pendingMatchChanges = new Map(),
+  editingSessionMetadata = new Map()
 }) {
   const [isAddMatchModalOpen, setIsAddMatchModalOpen] = useState(false);
   const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
@@ -75,6 +76,11 @@ export default function MatchesTable({
 
     // Apply pending changes for each editing session
     pendingMatchChanges.forEach((sessionChanges, sessionId) => {
+      // Remove deleted matches
+      if (sessionChanges.deletions && sessionChanges.deletions.length > 0) {
+        updatedMatches = updatedMatches.filter(m => !sessionChanges.deletions.includes(m.id));
+      }
+      
       // Apply updates to existing matches
       sessionChanges.updates.forEach((updatedData, matchId) => {
         const matchIndex = updatedMatches.findIndex(m => m.id === matchId);
@@ -127,6 +133,114 @@ export default function MatchesTable({
     return updatedMatches;
   }, [matches, pendingMatchChanges]);
 
+  // Group matches by session (or by date for legacy matches without session)
+  // This must be before any early returns to maintain consistent hook order
+  const matchesBySession = useMemo(() => {
+    const grouped = matchesWithPendingChanges.reduce((acc, match) => {
+      const sessionId = match['Session ID'];
+      const sessionName = match['Session Name'];
+      const sessionStatus = match['Session Status'];
+      const sessionCreatedAt = match['Session Created At'];
+      const sessionUpdatedAt = match['Session Updated At'];
+      const sessionCreatedBy = match['Session Created By'];
+      const sessionUpdatedBy = match['Session Updated By'];
+      
+      // For matches with a session, group by session
+      if (sessionId !== null && sessionId !== undefined) {
+        const key = `session-${sessionId}`;
+        if (!acc[key]) {
+          acc[key] = {
+            type: 'session',
+            id: sessionId,
+            name: sessionName,
+            status: sessionStatus,
+            isActive: sessionStatus === 'ACTIVE',
+            createdAt: sessionCreatedAt,
+            updatedAt: sessionUpdatedAt,
+            createdBy: sessionCreatedBy,
+            updatedBy: sessionUpdatedBy,
+            lastUpdated: sessionUpdatedAt || sessionCreatedAt, // Use updated_at if available, else created_at
+            matches: []
+          };
+        }
+        acc[key].matches.push(match);
+        // Update status, updatedBy, updatedAt if this match has them
+        if (sessionStatus) {
+          acc[key].status = sessionStatus;
+          acc[key].isActive = sessionStatus === 'ACTIVE';
+        }
+        if (sessionUpdatedBy) {
+          acc[key].updatedBy = sessionUpdatedBy;
+        }
+        if (sessionUpdatedAt) {
+          acc[key].updatedAt = sessionUpdatedAt;
+          acc[key].lastUpdated = sessionUpdatedAt; // Update lastUpdated when we see updatedAt
+        }
+      } else {
+        // For legacy matches, group by date
+        const key = `date-${match.Date}`;
+        if (!acc[key]) {
+          acc[key] = {
+            type: 'date',
+            name: match.Date,
+            createdAt: null, // Legacy matches don't have created_at
+            lastUpdated: null, // Legacy matches don't have timestamps
+            createdBy: null,
+            updatedBy: null,
+            matches: []
+          };
+        }
+        acc[key].matches.push(match);
+      }
+      return acc;
+    }, {});
+
+    // Ensure sessions in edit mode are included even if all matches are deleted
+    editingSessions.forEach(sessionId => {
+      const key = `session-${sessionId}`;
+      if (!grouped[key]) {
+        // First try to get session info from stored metadata
+        const sessionMetadata = editingSessionMetadata.get(sessionId);
+        if (sessionMetadata) {
+          grouped[key] = {
+            type: 'session',
+            id: sessionId,
+            name: sessionMetadata.name || `Session ${sessionId}`,
+            status: sessionMetadata.status || 'SUBMITTED',
+            isActive: sessionMetadata.status === 'ACTIVE',
+            createdAt: sessionMetadata.createdAt,
+            updatedAt: sessionMetadata.updatedAt,
+            createdBy: sessionMetadata.createdBy,
+            updatedBy: sessionMetadata.updatedBy,
+            lastUpdated: sessionMetadata.updatedAt || sessionMetadata.createdAt,
+            matches: []
+          };
+        } else {
+          // Fallback: find session info from original matches
+          const sessionMatch = matches.find(m => m['Session ID'] === sessionId);
+          if (sessionMatch) {
+            grouped[key] = {
+              type: 'session',
+              id: sessionId,
+              name: sessionMatch['Session Name'] || `Session ${sessionId}`,
+              status: sessionMatch['Session Status'] || 'SUBMITTED',
+              isActive: sessionMatch['Session Status'] === 'ACTIVE',
+              createdAt: sessionMatch['Session Created At'],
+              updatedAt: sessionMatch['Session Updated At'],
+              createdBy: sessionMatch['Session Created By'],
+              updatedBy: sessionMatch['Session Updated By'],
+              lastUpdated: sessionMatch['Session Updated At'] || sessionMatch['Session Created At'],
+              matches: []
+            };
+          }
+        }
+      }
+    });
+    
+    return grouped;
+  }, [matchesWithPendingChanges, Array.from(editingSessions).join(','), Array.from(editingSessionMetadata.keys()).join(','), matches]);
+
+  // Early returns must come AFTER all hooks
   if (loading) {
     return <div className="loading">Loading matches...</div>;
   }
@@ -134,66 +248,6 @@ export default function MatchesTable({
   if (matchesWithPendingChanges.length === 0 && !gameOnMode) {
     return <div className="loading">No matches available yet. Click "Recalculate Stats" to load data.</div>;
   }
-
-  // Group matches by session (or by date for legacy matches without session)
-  const matchesBySession = matchesWithPendingChanges.reduce((acc, match) => {
-    const sessionId = match['Session ID'];
-    const sessionName = match['Session Name'];
-    const sessionStatus = match['Session Status'];
-    const sessionCreatedAt = match['Session Created At'];
-    const sessionUpdatedAt = match['Session Updated At'];
-    const sessionCreatedBy = match['Session Created By'];
-    const sessionUpdatedBy = match['Session Updated By'];
-    
-    // For matches with a session, group by session
-    if (sessionId !== null && sessionId !== undefined) {
-      const key = `session-${sessionId}`;
-      if (!acc[key]) {
-        acc[key] = {
-          type: 'session',
-          id: sessionId,
-          name: sessionName,
-          status: sessionStatus,
-          isActive: sessionStatus === 'ACTIVE',
-          createdAt: sessionCreatedAt,
-          updatedAt: sessionUpdatedAt,
-          createdBy: sessionCreatedBy,
-          updatedBy: sessionUpdatedBy,
-          lastUpdated: sessionUpdatedAt || sessionCreatedAt, // Use updated_at if available, else created_at
-          matches: []
-        };
-      }
-      acc[key].matches.push(match);
-      // Update status, updatedBy, updatedAt if this match has them
-      if (sessionStatus) {
-        acc[key].status = sessionStatus;
-        acc[key].isActive = sessionStatus === 'ACTIVE';
-      }
-      if (sessionUpdatedBy) {
-        acc[key].updatedBy = sessionUpdatedBy;
-      }
-      if (sessionUpdatedAt) {
-        acc[key].updatedAt = sessionUpdatedAt;
-        acc[key].lastUpdated = sessionUpdatedAt; // Update lastUpdated when we see updatedAt
-      }
-    } else {
-      // For legacy matches, group by date
-      const key = `date-${match.Date}`;
-      if (!acc[key]) {
-        acc[key] = {
-          type: 'date',
-          name: match.Date,
-          createdAt: null, // Legacy matches don't have created_at
-          lastUpdated: null, // Legacy matches don't have timestamps
-          createdBy: null,
-          updatedBy: null,
-          matches: []
-        };
-      }
-      acc[key].matches.push(match);
-    }
-    return acc;
-  }, {});
 
   // Sort matches within each session group by id (descending - newest first)
   // Match id represents creation order since it's auto-incrementing
@@ -312,7 +366,7 @@ export default function MatchesTable({
             </div>
             <h2 className="add-matches-title">Add Matches</h2>
             <p className="add-matches-description">
-              Click to add your first match. A session will be created automatically.
+              Click to log a new match and start a session.
             </p>
           </button>
         </div>

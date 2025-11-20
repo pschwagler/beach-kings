@@ -27,7 +27,6 @@ export default function CreateSeasonModal({ isOpen, leagueId, onClose, onSuccess
         start_date: formData.start_date,
         end_date: formData.end_date
       });
-      showMessage?.('success', 'Season created successfully');
       onSuccess();
       onClose();
     } catch (err) {

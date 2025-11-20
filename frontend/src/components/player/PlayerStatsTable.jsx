@@ -18,14 +18,14 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
   return (
     <>
       <h3><BarChart3 size={22} />Player Stats</h3>
-      <table>
+      <div className="table-scroll-wrapper">
+        <table>
         <thead>
           <tr>
             <th>Partner/Opponent</th>
             <th>Wins</th>
             <th>Losses</th>
             <th>Win Rate</th>
-            <th>Points</th>
             <th>Games</th>
             <th>Avg Pt Diff</th>
           </tr>
@@ -39,16 +39,16 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
             const isOverall = row['Partner/Opponent'] === 'OVERALL';
 
             if (isEmpty) {
-              return <tr key={idx}><td colSpan="7" className="spacer-row"></td></tr>;
+              return <tr key={idx}><td colSpan="6" className="spacer-row"></td></tr>;
             } else if (isSectionHeader) {
               return (
                 <tr key={idx} className="section-header">
-                  <td colSpan="7">{row['Partner/Opponent']}</td>
+                  <td colSpan="6" style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
                 </tr>
               );
             } else {
               return (
-                <tr key={idx} className={isOverall ? 'section-header' : ''}>
+                <tr key={idx} className={isOverall ? 'overall-row' : ''}>
                   <td>
                     {isOverall ? (
                       <strong>{row['Partner/Opponent']}</strong>
@@ -63,7 +63,6 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
                   <td>{row['Wins']}</td>
                   <td>{row['Losses']}</td>
                   <td>{formatWinRate(row['Win Rate'])}</td>
-                  <td>{row['Points']}</td>
                   <td>{row['Games']}</td>
                   <td>{formatPtDiff(row['Avg Pt Diff'])}</td>
                 </tr>
@@ -72,6 +71,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
           })}
         </tbody>
       </table>
+      </div>
     </>
   );
 }

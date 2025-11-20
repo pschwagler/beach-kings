@@ -9,7 +9,6 @@ import {
   deleteSignup,
   signupForSignup,
   dropoutFromSignup,
-  getSignup,
   getWeeklySchedules,
   createWeeklySchedule,
   updateWeeklySchedule,
@@ -21,7 +20,7 @@ import CreateWeeklyScheduleModal from './CreateWeeklyScheduleModal';
 import EditWeeklyScheduleModal from './EditWeeklyScheduleModal';
 
 // Helper function to format datetime with timezone
-function formatDateTimeWithTimezone(isoString) {
+function formatDateTimeWithTimezone(isoString, showYear = true) {
   if (!isoString) return '';
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -30,7 +29,7 @@ function formatDateTimeWithTimezone(isoString) {
   const dateStr = date.toLocaleDateString('en-US', { 
     month: 'short', 
     day: 'numeric', 
-    year: 'numeric',
+    year: showYear ? 'numeric' : undefined,
     timeZone 
   });
   const timeStr = date.toLocaleTimeString('en-US', { 
@@ -83,7 +82,7 @@ function utcTimeToLocal(utcTimeStr) {
 }
 
 export default function LeagueSignUpsTab({ leagueId, showMessage }) {
-  const { seasons, members } = useLeague();
+  const { seasons, members, isLeagueAdmin } = useLeague();
   const { currentUserPlayer } = useAuth();
   
   const [signups, setSignups] = useState([]);
@@ -91,6 +90,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [collapsedSignups, setCollapsedSignups] = useState(new Set()); // Track which ones are manually collapsed
+  const [expandedPastSignups, setExpandedPastSignups] = useState(new Set()); // Track which past signups are expanded
   const [expandedSchedules, setExpandedSchedules] = useState(new Set());
   
   // Modals
@@ -100,13 +100,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
-  
-  // Compute isAdmin and isLeagueMember
-  const isAdmin = useMemo(() => {
-    if (!currentUserPlayer || !members.length) return false;
-    const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-    return userMember?.role === 'admin';
-  }, [currentUserPlayer, members]);
   
   const isLeagueMember = useMemo(() => {
     if (!currentUserPlayer || !members.length) return false;
@@ -150,20 +143,12 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     if (!activeSeason) return;
     setLoading(true);
     try {
-      const data = await getSignups(activeSeason.id, { upcoming_only: false });
-      // Load players for each signup
-      const signupsWithPlayers = await Promise.all(
-        data.map(async (signup) => {
-          try {
-            const fullSignup = await getSignup(signup.id);
-            return fullSignup;
-          } catch (err) {
-            console.error(`Error loading players for signup ${signup.id}:`, err);
-            return signup; // Return signup without players if error
-          }
-        })
-      );
-      setSignups(signupsWithPlayers);
+      // Load signups with players in a single request
+      const data = await getSignups(activeSeason.id, { 
+        upcoming_only: false,
+        include_players: true 
+      });
+      setSignups(data);
       // Signups are expanded by default, so we don't need to initialize expandedSignups
     } catch (err) {
       console.error('Error loading signups:', err);
@@ -188,7 +173,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     if (!activeSeason) return;
     try {
       await createSignup(activeSeason.id, signupData);
-      showMessage?.('success', 'Signup created successfully');
       setShowCreateSignupModal(false);
       await loadSignups();
     } catch (err) {
@@ -200,7 +184,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const handleUpdateSignup = async (signupId, signupData) => {
     try {
       await updateSignup(signupId, signupData);
-      showMessage?.('success', 'Signup updated successfully');
       setShowEditSignupModal(false);
       setEditingSignup(null);
       await loadSignups();
@@ -214,7 +197,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     if (!confirm('Are you sure you want to delete this signup?')) return;
     try {
       await deleteSignup(signupId);
-      showMessage?.('success', 'Signup deleted successfully');
       await loadSignups();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete signup');
@@ -224,7 +206,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const handleSignup = async (signupId) => {
     try {
       await signupForSignup(signupId);
-      showMessage?.('success', 'Signed up successfully');
       await loadSignups();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to sign up');
@@ -234,7 +215,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const handleDropout = async (signupId) => {
     try {
       await dropoutFromSignup(signupId);
-      showMessage?.('success', 'Dropped out successfully');
       await loadSignups();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to drop out');
@@ -245,7 +225,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     if (!activeSeason) return;
     try {
       await createWeeklySchedule(activeSeason.id, scheduleData);
-      showMessage?.('success', 'Weekly schedule created successfully');
       setShowCreateScheduleModal(false);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as new ones may have been generated
@@ -258,7 +237,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
   const handleUpdateSchedule = async (scheduleId, scheduleData) => {
     try {
       await updateWeeklySchedule(scheduleId, scheduleData);
-      showMessage?.('success', 'Weekly schedule updated successfully');
       setShowEditScheduleModal(false);
       setEditingSchedule(null);
       await loadWeeklySchedules();
@@ -273,7 +251,6 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
     if (!confirm('Are you sure you want to delete this weekly schedule? All generated signups will be deleted.')) return;
     try {
       await deleteWeeklySchedule(scheduleId);
-      showMessage?.('success', 'Weekly schedule deleted successfully');
       await loadWeeklySchedules();
       await loadSignups();
     } catch (err) {
@@ -288,6 +265,18 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
         newSet.delete(signupId); // Expand it
       } else {
         newSet.add(signupId); // Collapse it
+      }
+      return newSet;
+    });
+  };
+  
+  const togglePastSignupExpanded = (signupId) => {
+    setExpandedPastSignups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(signupId)) {
+        newSet.delete(signupId); // Collapse it
+      } else {
+        newSet.add(signupId); // Expand it
       }
       return newSet;
     });
@@ -333,9 +322,9 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
         <div className="league-section-header">
           <h3 className="league-section-title">
             <Calendar size={18} />
-            Upcoming Signups
+            Upcoming Sessions
           </h3>
-          {isAdmin && (
+          {isLeagueMember && (
             <button className="league-text-button" onClick={() => setShowCreateSignupModal(true)}>
               <Plus size={16} />
               Schedule New Session
@@ -350,7 +339,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
         ) : upcomingSignups.length === 0 ? (
           <div className="league-empty-state">
             <Calendar size={40} />
-            <p>No upcoming signups. {isAdmin && 'Create a signup or weekly schedule to get started.'}</p>
+            <p>No upcoming sessions. {isLeagueAdmin && 'Create a session or weekly schedule to get started.'}</p>
           </div>
         ) : (
           <div className="league-signups-list">
@@ -360,12 +349,18 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
               const isExpanded = signup.players && signup.players.length > 0 && !collapsedSignups.has(signup.id);
               
               return (
-                <div key={signup.id} className={`league-signup-row ${!signup.is_open ? 'closed' : ''} ${isSignedUp ? 'signed-up' : ''}`}>
+                <div key={signup.id} className={`league-signup-row ${!signup.is_open ? 'closed' : ''} ${isLeagueAdmin ? 'admin' : ''}`}>
                   <div className="league-signup-info">
                     <div className="league-signup-main">
                       <div className="league-signup-details">
-                        <div className="league-signup-title">
-                          {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
+                        <div className="league-signup-title" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <span>{formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}</span>
+                          {isSignedUp && (
+                            <div className="signed-up-badge">
+                              <div className="signed-up-dot" />
+                              You're signed up
+                            </div>
+                          )}
                         </div>
                         <div className="league-signup-meta">
                           <span className="league-signup-meta-item">
@@ -398,7 +393,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
                             {isSignedUp ? 'Drop Out' : 'Sign Up'}
                           </button>
                         )}
-                        {isAdmin && (
+                        {isLeagueAdmin && (
                           <>
                             <button
                               className="league-text-button"
@@ -432,14 +427,17 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
                     </div>
                     {isExpanded && signup.players && signup.players.length > 0 && (
                       <div className="league-signup-players">
-                        {signup.players.map((player, idx) => (
-                          <div key={idx} className="league-signup-player-item">
-                            <span className="league-signup-player-name">{player.player_name}</span>
-                            <span className="league-signup-player-time">
-                              Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
-                            </span>
-                          </div>
-                        ))}
+                        {signup.players.map((player, idx) => {
+                          const isCurrentPlayer = currentUserPlayer && player.player_id === currentUserPlayer.id;
+                          return (
+                            <div key={idx} className={`league-signup-player-item ${isCurrentPlayer ? 'current-player' : ''}`}>
+                              <span className="league-signup-player-name">{player.player_name}</span>
+                              <span className="league-signup-player-time">
+                                Signed up {formatDateTimeWithTimezone(player.signed_up_at, false)}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -462,13 +460,20 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
           <div className="league-signups-list">
             {pastSignups.map(signup => {
               const isSignedUpPast = isPlayerSignedUp(signup);
+              const isExpanded = expandedPastSignups.has(signup.id);
               return (
-                <div key={signup.id} className={`league-signup-row past ${isSignedUpPast ? 'signed-up' : ''}`}>
+                <div key={signup.id} className="league-signup-row past">
                   <div className="league-signup-info">
                     <div className="league-signup-main">
                       <div className="league-signup-details">
-                        <div className="league-signup-title">
-                          {formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}
+                        <div className="league-signup-title" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <span>{formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}</span>
+                          {isSignedUpPast && (
+                            <div className="signed-up-badge">
+                              <div className="signed-up-dot" />
+                              You're signed up
+                            </div>
+                          )}
                         </div>
                         <div className="league-signup-meta">
                           <span className="league-signup-meta-item">
@@ -478,8 +483,32 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
                         </div>
                       </div>
                       <div className="league-signup-actions">
+                        {signup.players && signup.players.length > 0 && (
+                          <button
+                            className="league-text-button"
+                            onClick={() => togglePastSignupExpanded(signup.id)}
+                            title={isExpanded ? "Collapse players" : "Expand players"}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </button>
+                        )}
                       </div>
                     </div>
+                    {isExpanded && signup.players && signup.players.length > 0 && (
+                      <div className="league-signup-players">
+                        {signup.players.map((player, idx) => {
+                          const isCurrentPlayer = currentUserPlayer && player.player_id === currentUserPlayer.id;
+                          return (
+                            <div key={idx} className={`league-signup-player-item ${isCurrentPlayer ? 'current-player' : ''}`}>
+                              <span className="league-signup-player-name">{player.player_name}</span>
+                              <span className="league-signup-player-time">
+                                Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -489,7 +518,7 @@ export default function LeagueSignUpsTab({ leagueId, showMessage }) {
       )}
       
       {/* Weekly Schedules Section (Admin only) */}
-      {isAdmin && (
+      {isLeagueAdmin && (
         <div className="league-schedules-section">
           <div className="league-section-header">
             <h3 className="league-section-title">

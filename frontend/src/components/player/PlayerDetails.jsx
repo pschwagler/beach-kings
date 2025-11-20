@@ -5,10 +5,11 @@ import PlayerOverview from './PlayerOverview';
 import MatchHistoryTable from '../match/MatchHistoryTable';
 import PlayerStatsTable from './PlayerStatsTable';
 
-export default function PlayerDetails({ playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange }) {
+export default function PlayerDetails({ playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange, leagueName, seasonName }) {
   const overview = stats?.overview || {};
   const playerStats = stats?.stats || [];
   const hasStats = playerStats.length > 0;
+  const hasOverview = overview && (overview.ranking !== undefined || overview.points !== undefined || overview.rating !== undefined);
 
   return (
     <div className="player-details">
@@ -23,21 +24,29 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
         onPlayerChange={onPlayerChange}
       />
 
-      {hasStats ? (
-        <>
-          <PlayerOverview overview={overview} />
-          
-          <MatchHistoryTable 
-            matchHistory={matchHistory}
-            onPlayerChange={onPlayerChange}
-          />
+      {(leagueName || seasonName) && (
+        <div className="player-details-season-name">
+          {leagueName && seasonName ? `${leagueName} - ${seasonName}` : leagueName || seasonName}
+        </div>
+      )}
 
-          <PlayerStatsTable 
-            playerStats={playerStats}
-            onPlayerChange={onPlayerChange}
-          />
-        </>
-      ) : (
+      {hasOverview && (
+        <PlayerOverview overview={overview} />
+      )}
+
+      {matchHistory && matchHistory.length > 0 && (
+        <MatchHistoryTable 
+          matchHistory={matchHistory}
+          onPlayerChange={onPlayerChange}
+        />
+      )}
+
+      {hasStats ? (
+        <PlayerStatsTable 
+          playerStats={playerStats}
+          onPlayerChange={onPlayerChange}
+        />
+      ) : !hasOverview && (
         <div className="loading" style={{marginTop: '32px'}}>
           No stats available yet. This player's matches haven't been included in calculations.
           {matchHistory && matchHistory.length > 0 && (

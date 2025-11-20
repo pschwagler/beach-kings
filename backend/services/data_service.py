@@ -1045,6 +1045,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         
         # Main query with COALESCE for defaults
         query = select(
+            Player.id.label("player_id"),
             Player.full_name.label("name"),
             func.coalesce(stats_subq.c.points, 0).label("points"),
             func.coalesce(stats_subq.c.games, 0).label("games"),
@@ -1066,6 +1067,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         
         return [
             {
+                "player_id": row.player_id,
                 "Name": row.name,
                 "Points": row.points or 0,
                 "Games": row.games or 0,
@@ -1160,16 +1162,24 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
     ]
 
 
-async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Optional[int] = None) -> bool:
-    """Lock in a session - sets status to SUBMITTED if ACTIVE, or EDITED if already SUBMITTED/EDITED."""
-    # Get current session to check its status
+async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Optional[int] = None) -> Optional[Dict]:
+    """
+    Lock in a session - sets status to SUBMITTED if ACTIVE, or EDITED if already SUBMITTED/EDITED.
+    Also enqueues stats calculations (both global and season-specific).
+    
+    Returns:
+        Dict with success status, season_id, and job IDs, or None if session not found
+    """
+    # Get current session to check its status and get season_id
     result = await session.execute(
         select(Session).where(Session.id == session_id)
     )
     session_obj = result.scalar_one_or_none()
     
     if not session_obj:
-        return False
+        return None
+    
+    season_id = session_obj.season_id
     
     # Determine new status: SUBMITTED if currently ACTIVE, EDITED if already SUBMITTED/EDITED
     if session_obj.status == SessionStatus.ACTIVE:
@@ -1183,7 +1193,28 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
         .values(status=new_status, updated_by=updated_by, updated_at=func.now())
     )
     await session.commit()
-    return result.rowcount > 0
+    
+    if result.rowcount == 0:
+        return None
+    
+    # Enqueue both global and season stats calculations
+    from backend.services.stats_queue import get_stats_queue
+    queue = get_stats_queue()
+    
+    # Enqueue global stats calculation
+    global_job_id = await queue.enqueue_calculation(session, "global", None)
+    
+    # Enqueue season stats calculation if session has a season
+    season_job_id = None
+    if season_id:
+        season_job_id = await queue.enqueue_calculation(session, "season", season_id)
+    
+    return {
+        "success": True,
+        "season_id": season_id,
+        "global_job_id": global_job_id,
+        "season_job_id": season_job_id
+    }
 
 
 async def delete_session(session: AsyncSession, session_id: int) -> bool:
@@ -1364,6 +1395,125 @@ async def set_setting(session: AsyncSession, key: str, value: str) -> None:
     )
     await session.execute(stmt)
     await session.commit()
+
+
+async def get_season_matches_with_elo(
+    session: AsyncSession,
+    season_id: int
+) -> List[Dict]:
+    """
+    Get all matches for a season with ELO changes per player.
+    
+    Args:
+        session: Database session
+        season_id: Season ID to filter matches
+        
+    Returns:
+        List of match dictionaries with ELO changes per player
+    """
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    
+    # Build the query for matches
+    query = select(
+        Match.id,
+        Match.date,
+        Match.session_id,
+        Session.name.label("session_name"),
+        Session.status.label("session_status"),
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        Match.team1_score,
+        Match.team2_score,
+        Match.winner
+    ).select_from(
+        Match
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    ).where(
+        Session.season_id == season_id
+        # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
+        # Active sessions won't have ELO history yet, which is fine - elo_by_match will be empty for them
+    ).order_by(
+        Match.id.desc()
+    )
+    
+    # Execute query
+    result = await session.execute(query)
+    match_rows = result.all()
+    
+    # Get all match IDs
+    match_ids = [row.id for row in match_rows]
+    
+    # Query ELO history for all matches
+    elo_history_query = select(
+        EloHistory.match_id,
+        EloHistory.player_id,
+        EloHistory.elo_after,
+        EloHistory.elo_change
+    ).where(
+        EloHistory.match_id.in_(match_ids)
+    )
+    
+    elo_result = await session.execute(elo_history_query)
+    elo_rows = elo_result.all()
+    
+    # Group ELO changes by match_id
+    elo_by_match = {}
+    for elo_row in elo_rows:
+        match_id = elo_row.match_id
+        if match_id not in elo_by_match:
+            elo_by_match[match_id] = {}
+        # Calculate elo_before from elo_after - elo_change
+        elo_before = elo_row.elo_after - elo_row.elo_change
+        elo_by_match[match_id][elo_row.player_id] = {
+            "elo_before": round(elo_before, 1),
+            "elo_after": round(elo_row.elo_after, 1),
+            "elo_change": round(elo_row.elo_change, 1)
+        }
+    
+    # Build result list
+    matches = []
+    for row in match_rows:
+        match_data = {
+            "id": row.id,
+            "date": row.date,
+            "session_id": row.session_id,
+            "session_name": row.session_name,
+            "session_status": row.session_status.value if row.session_status else None,
+            "team1_player1_id": row.team1_player1_id,
+            "team1_player1_name": row.team1_player1_name,
+            "team1_player2_id": row.team1_player2_id,
+            "team1_player2_name": row.team1_player2_name,
+            "team2_player1_id": row.team2_player1_id,
+            "team2_player1_name": row.team2_player1_name,
+            "team2_player2_id": row.team2_player2_id,
+            "team2_player2_name": row.team2_player2_name,
+            "team1_score": row.team1_score,
+            "team2_score": row.team2_score,
+            "winner": row.winner,
+            "elo_changes": elo_by_match.get(row.id, {})
+        }
+        matches.append(match_data)
+    
+    return matches
 
 
 async def query_matches(
@@ -1660,6 +1810,321 @@ async def get_player_stats(session: AsyncSession, player_name: str) -> Optional[
         "partnerships": partnerships,
         "opponents": opponents,
         "match_history": match_history
+    }
+
+
+async def get_player_season_partnership_opponent_stats(
+    session: AsyncSession,
+    player_id: int,
+    season_id: int
+) -> Dict:
+    """
+    Get partnership and opponent stats for a player in a season.
+    
+    Args:
+        session: Database session
+        player_id: Player ID
+        season_id: Season ID
+        
+    Returns:
+        Dict with 'partnerships' and 'opponents' lists
+    """
+    # Get partnerships
+    PartnerPlayer = aliased(Player)
+    
+    result = await session.execute(
+        select(
+            PartnershipStatsSeason,
+            PartnerPlayer.full_name.label("partner_name")
+        )
+        .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
+        .where(
+            and_(
+                PartnershipStatsSeason.player_id == player_id,
+                PartnershipStatsSeason.season_id == season_id
+            )
+        )
+        .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
+    )
+    
+    partnerships = []
+    for row in result.all():
+        partnership, partner_name = row
+        partnerships.append({
+            "Partner/Opponent": partner_name,
+            "Points": partnership.points,
+            "Games": partnership.games,
+            "Wins": partnership.wins,
+            "Losses": partnership.games - partnership.wins,
+            "Win Rate": partnership.win_rate,
+            "Avg Pt Diff": partnership.avg_point_diff
+        })
+    
+    # Get opponents
+    OpponentPlayer = aliased(Player)
+    
+    result = await session.execute(
+        select(
+            OpponentStatsSeason,
+            OpponentPlayer.full_name.label("opponent_name")
+        )
+        .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
+        .where(
+            and_(
+                OpponentStatsSeason.player_id == player_id,
+                OpponentStatsSeason.season_id == season_id
+            )
+        )
+        .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
+    )
+    
+    opponents = []
+    for row in result.all():
+        opponent_stat, opponent_name = row
+        opponents.append({
+            "Partner/Opponent": opponent_name,
+            "Points": opponent_stat.points,
+            "Games": opponent_stat.games,
+            "Wins": opponent_stat.wins,
+            "Losses": opponent_stat.games - opponent_stat.wins,
+            "Win Rate": opponent_stat.win_rate,
+            "Avg Pt Diff": opponent_stat.avg_point_diff
+        })
+    
+    return {
+        "partnerships": partnerships,
+        "opponents": opponents
+    }
+
+
+async def get_all_player_season_stats(
+    session: AsyncSession,
+    season_id: int
+) -> Dict[int, Dict]:
+    """
+    Get all player season stats for a specific season.
+    
+    Args:
+        session: Database session
+        season_id: Season ID
+        
+    Returns:
+        Dict mapping player_id to season stats
+    """
+    # Get all player season stats for this season
+    result = await session.execute(
+        select(
+            PlayerSeasonStats,
+            Player.full_name.label("player_name")
+        )
+        .join(Player, PlayerSeasonStats.player_id == Player.id)
+        .where(PlayerSeasonStats.season_id == season_id)
+    )
+    rows = result.all()
+    
+    # Get rankings to calculate rank
+    rankings = await get_rankings(session, {"season_id": season_id})
+    
+    # Create a map of player_id to rank
+    player_rank_map = {}
+    for idx, ranking in enumerate(rankings):
+        if "player_id" in ranking:
+            player_rank_map[ranking["player_id"]] = idx + 1
+    
+    # Build result dict
+    player_stats = {}
+    for row in rows:
+        season_stats, player_name = row
+        player_stats[season_stats.player_id] = {
+            "player_id": season_stats.player_id,
+            "player_name": player_name,
+            "season_id": season_id,
+            "current_elo": round(season_stats.current_elo),
+            "games": season_stats.games,
+            "wins": season_stats.wins,
+            "losses": season_stats.games - season_stats.wins,
+            "win_rate": season_stats.win_rate,
+            "points": season_stats.points,
+            "avg_point_diff": season_stats.avg_point_diff,
+            "rank": player_rank_map.get(season_stats.player_id)
+        }
+    
+    return player_stats
+
+
+async def get_all_player_season_partnership_opponent_stats(
+    session: AsyncSession,
+    season_id: int
+) -> Dict[int, Dict]:
+    """
+    Get all partnership and opponent stats for all players in a season.
+    
+    Args:
+        session: Database session
+        season_id: Season ID
+        
+    Returns:
+        Dict mapping player_id to dict with 'partnerships' and 'opponents' lists
+    """
+    # Get all partnerships for this season
+    PartnerPlayer = aliased(Player)
+    
+    partnership_result = await session.execute(
+        select(
+            PartnershipStatsSeason,
+            PartnerPlayer.full_name.label("partner_name")
+        )
+        .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
+        .where(PartnershipStatsSeason.season_id == season_id)
+        .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
+    )
+    
+    # Group partnerships by player_id
+    partnerships_by_player = {}
+    for row in partnership_result.all():
+        partnership, partner_name = row
+        player_id = partnership.player_id
+        
+        if player_id not in partnerships_by_player:
+            partnerships_by_player[player_id] = []
+        
+        partnerships_by_player[player_id].append({
+            "Partner/Opponent": partner_name,
+            "Points": partnership.points,
+            "Games": partnership.games,
+            "Wins": partnership.wins,
+            "Losses": partnership.games - partnership.wins,
+            "Win Rate": partnership.win_rate,
+            "Avg Pt Diff": partnership.avg_point_diff
+        })
+    
+    # Get all opponents for this season
+    OpponentPlayer = aliased(Player)
+    
+    opponent_result = await session.execute(
+        select(
+            OpponentStatsSeason,
+            OpponentPlayer.full_name.label("opponent_name")
+        )
+        .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
+        .where(OpponentStatsSeason.season_id == season_id)
+        .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
+    )
+    
+    # Group opponents by player_id
+    opponents_by_player = {}
+    for row in opponent_result.all():
+        opponent_stat, opponent_name = row
+        player_id = opponent_stat.player_id
+        
+        if player_id not in opponents_by_player:
+            opponents_by_player[player_id] = []
+        
+        opponents_by_player[player_id].append({
+            "Partner/Opponent": opponent_name,
+            "Points": opponent_stat.points,
+            "Games": opponent_stat.games,
+            "Wins": opponent_stat.wins,
+            "Losses": opponent_stat.games - opponent_stat.wins,
+            "Win Rate": opponent_stat.win_rate,
+            "Avg Pt Diff": opponent_stat.avg_point_diff
+        })
+    
+    # Combine into result dict
+    result = {}
+    all_player_ids = set(list(partnerships_by_player.keys()) + list(opponents_by_player.keys()))
+    
+    for player_id in all_player_ids:
+        result[player_id] = {
+            "partnerships": partnerships_by_player.get(player_id, []),
+            "opponents": opponents_by_player.get(player_id, [])
+        }
+    
+    return result
+
+
+async def get_player_season_stats(
+    session: AsyncSession, 
+    player_id: int, 
+    season_id: int
+) -> Optional[Dict]:
+    """
+    Get player stats for a specific season - async version.
+    
+    Returns dict with structure:
+    {
+        "player_id": int,
+        "player_name": str,
+        "season_id": int,
+        "current_elo": float,
+        "games": int,
+        "wins": int,
+        "losses": int,
+        "win_rate": float,
+        "points": int,
+        "avg_point_diff": float,
+        "rank": int (optional)
+    }
+    """
+    # Get player
+    result = await session.execute(
+        select(Player).where(Player.id == player_id)
+    )
+    player = result.scalar_one_or_none()
+    
+    if not player:
+        return None
+    
+    # Get season stats
+    result = await session.execute(
+        select(PlayerSeasonStats)
+        .where(
+            and_(
+                PlayerSeasonStats.player_id == player_id,
+                PlayerSeasonStats.season_id == season_id
+            )
+        )
+        .order_by(PlayerSeasonStats.updated_at.desc())
+        .limit(1)
+    )
+    season_stats = result.scalar_one_or_none()
+    
+    if not season_stats:
+        # Return default values if no stats found
+        return {
+            "player_id": player_id,
+            "player_name": player.full_name,
+            "season_id": season_id,
+            "current_elo": INITIAL_ELO,
+            "games": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "points": 0,
+            "avg_point_diff": 0.0,
+            "rank": None
+        }
+    
+    # Calculate rank by getting position in rankings for this season
+    rankings = await get_rankings(session, {"season_id": season_id})
+    rank = None
+    for idx, ranking in enumerate(rankings):
+        if ranking.get("player_id") == player_id:
+            rank = idx + 1
+            break
+    
+    return {
+        "player_id": player_id,
+        "player_name": player.full_name,
+        "season_id": season_id,
+        "current_elo": round(season_stats.current_elo),
+        "games": season_stats.games,
+        "wins": season_stats.wins,
+        "losses": season_stats.games - season_stats.wins,
+        "win_rate": season_stats.win_rate,
+        "points": season_stats.points,
+        "avg_point_diff": season_stats.avg_point_diff,
+        "rank": rank
     }
 
 
@@ -2063,6 +2528,7 @@ async def update_match_async(
 async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
     """
     Delete a match from the database - async version.
+    Also deletes associated elo_history records to avoid foreign key constraint violations.
     
     Args:
         session: Database session
@@ -2071,6 +2537,12 @@ async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
     Returns:
         True if successful, False if match not found
     """
+    # First, delete associated elo_history records
+    await session.execute(
+        delete(EloHistory).where(EloHistory.match_id == match_id)
+    )
+    
+    # Then delete the match
     result = await session.execute(
         delete(Match).where(Match.id == match_id)
     )
@@ -2911,25 +3383,77 @@ async def get_signups(
     session: AsyncSession,
     season_id: int,
     upcoming_only: bool = False,
-    past_only: bool = False
+    past_only: bool = False,
+    include_players: bool = False
 ) -> List[Dict]:
     """Get signups for a season."""
     utc = pytz.UTC
     now_utc = datetime.now(utc)
     
-    query = select(Signup).where(Signup.season_id == season_id)
-    
-    if upcoming_only:
-        query = query.where(Signup.scheduled_datetime >= now_utc)
-    elif past_only:
-        query = query.where(Signup.scheduled_datetime < now_utc)
-    
-    query = query.order_by(Signup.scheduled_datetime.asc())
-    
-    result = await session.execute(query)
-    signups = result.scalars().all()
-    
-    return [await _signup_to_dict(session, s) for s in signups]
+    if include_players:
+        # Single query with JOIN to get signups and players
+        query = (
+            select(
+                Signup,
+                SignupPlayer.player_id,
+                Player.full_name.label("player_name"),
+                SignupPlayer.signed_up_at
+            )
+            .select_from(Signup)
+            .outerjoin(SignupPlayer, Signup.id == SignupPlayer.signup_id)
+            .outerjoin(Player, SignupPlayer.player_id == Player.id)
+            .where(Signup.season_id == season_id)
+        )
+        
+        if upcoming_only:
+            query = query.where(Signup.scheduled_datetime >= now_utc)
+        elif past_only:
+            query = query.where(Signup.scheduled_datetime < now_utc)
+        
+        query = query.order_by(Signup.scheduled_datetime.asc(), SignupPlayer.signed_up_at.asc())
+        
+        result = await session.execute(query)
+        rows = result.all()
+        
+        # Group players by signup
+        signups_dict = {}
+        for row in rows:
+            signup = row[0]  # Signup object
+            player_id = row[1]  # SignupPlayer.player_id
+            player_name = row[2]  # Player.full_name
+            signed_up_at = row[3]  # SignupPlayer.signed_up_at
+            
+            if signup.id not in signups_dict:
+                signups_dict[signup.id] = {
+                    "signup": signup,
+                    "players": []
+                }
+            
+            # Only add player if it exists (LEFT JOIN can return None)
+            if player_id is not None and player_name is not None:
+                signups_dict[signup.id]["players"].append({
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "signed_up_at": signed_up_at.isoformat() if signed_up_at else None
+                })
+        
+        # Convert to list of dicts
+        return [await _signup_to_dict_with_players(session, data["signup"], data["players"]) for data in signups_dict.values()]
+    else:
+        # Simple query without players
+        query = select(Signup).where(Signup.season_id == season_id)
+        
+        if upcoming_only:
+            query = query.where(Signup.scheduled_datetime >= now_utc)
+        elif past_only:
+            query = query.where(Signup.scheduled_datetime < now_utc)
+        
+        query = query.order_by(Signup.scheduled_datetime.asc())
+        
+        result = await session.execute(query)
+        signups = result.scalars().all()
+        
+        return [await _signup_to_dict(session, s, include_players=False) for s in signups]
 
 
 async def get_signup(session: AsyncSession, signup_id: int, include_players: bool = False) -> Optional[Dict]:
@@ -3185,4 +3709,31 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
         result["players"] = await get_signup_players(session, signup.id)
     
     return result
+
+
+async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, players: List[Dict]) -> Dict:
+    """Convert Signup model to dict with pre-loaded players list (optimized version)."""
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Compute is_open and is_past
+    # NULL open_signups_at means always open
+    is_open = signup.open_signups_at is None or signup.open_signups_at <= now_utc
+    is_past = signup.scheduled_datetime < now_utc
+    
+    return {
+        "id": signup.id,
+        "season_id": signup.season_id,
+        "scheduled_datetime": signup.scheduled_datetime.isoformat() if signup.scheduled_datetime else None,
+        "duration_hours": signup.duration_hours,
+        "court_id": signup.court_id,
+        "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
+        "weekly_schedule_id": signup.weekly_schedule_id,
+        "player_count": len(players),  # Use pre-loaded count
+        "is_open": is_open,
+        "is_past": is_past,
+        "created_at": signup.created_at.isoformat() if signup.created_at else None,
+        "updated_at": signup.updated_at.isoformat() if signup.updated_at else None,
+        "players": players  # Use pre-loaded players
+    }
 

@@ -246,6 +246,46 @@ export const getPlayerStats = async (playerName) => {
 };
 
 /**
+ * Get player stats for a specific season
+ */
+export const getPlayerSeasonStats = async (playerId, seasonId) => {
+  const response = await api.get(`/api/players/${playerId}/season/${seasonId}/stats`);
+  return response.data;
+};
+
+/**
+ * Get all matches for a season with ELO changes
+ */
+export const getSeasonMatches = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/matches`);
+  return response.data;
+};
+
+/**
+ * Get all player season stats for a season
+ */
+export const getAllPlayerSeasonStats = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/player-stats`);
+  return response.data;
+};
+
+/**
+ * Get partnership and opponent stats for a player in a season
+ */
+export const getPlayerSeasonPartnershipOpponentStats = async (playerId, seasonId) => {
+  const response = await api.get(`/api/players/${playerId}/season/${seasonId}/partnership-opponent-stats`);
+  return response.data;
+};
+
+/**
+ * Get all partnership and opponent stats for all players in a season
+ */
+export const getAllSeasonPartnershipOpponentStats = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/partnership-opponent-stats`);
+  return response.data;
+};
+
+/**
  * Get ELO timeline for all players
  */
 export const getEloTimeline = async () => {
@@ -578,6 +618,7 @@ export const getSignups = async (seasonId, options = {}) => {
   const params = new URLSearchParams();
   if (options.upcoming_only) params.append('upcoming_only', 'true');
   if (options.past_only) params.append('past_only', 'true');
+  if (options.include_players) params.append('include_players', 'true');
   const queryString = params.toString();
   const url = `/api/seasons/${seasonId}/signups${queryString ? `?${queryString}` : ''}`;
   const response = await api.get(url);

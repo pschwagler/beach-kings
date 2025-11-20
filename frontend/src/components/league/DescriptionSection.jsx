@@ -36,7 +36,6 @@ export default function DescriptionSection({ league, leagueId, isAdmin, onUpdate
 
       onUpdate(updatedLeague);
       setIsEditing(false);
-      showMessage?.('success', 'Description updated successfully');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update description');
     }

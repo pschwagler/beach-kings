@@ -167,7 +167,7 @@ function App() {
                   <Crown size={28} className="landing-brand-crown" />
                   <span className="landing-brand-text">BEACH KINGS</span>
                 </span>
-                {' '}Volleyball App
+                {' '}Beach Volleyball App
               </h2>
               <p>Login to get started</p>
               <button 

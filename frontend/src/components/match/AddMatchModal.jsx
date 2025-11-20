@@ -84,6 +84,14 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Refs for auto-focusing next fields
+  const team1Player1Ref = useRef(null);
+  const team1Player2Ref = useRef(null);
+  const team2Player1Ref = useRef(null);
+  const team2Player2Ref = useRef(null);
+  const team1ScoreRef = useRef(null);
+  const team2ScoreRef = useRef(null);
 
   // Transform members into player options with value (player_id) and label (player_name)
   const playerOptions = useMemo(() => {
@@ -173,7 +181,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
     return valA === valB;
   };
 
-  // Handle player selection with duplicate prevention
+  // Handle player selection with duplicate prevention and auto-advance
   const handlePlayerChange = (field, newPlayer) => {
     // Clear error when user starts typing
     if (formError) setFormError(null);
@@ -195,6 +203,40 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
         });
         return updated;
       });
+      
+      // Auto-advance to next field after selection
+      setTimeout(() => {
+        switch (field) {
+          case 'team1Player1':
+            // Find the trigger element in the next dropdown and focus it
+            const trigger2 = team1Player2Ref.current?.querySelector('.player-dropdown-trigger');
+            if (trigger2) {
+              trigger2.focus();
+              // Open the dropdown
+              trigger2.click();
+            }
+            break;
+          case 'team1Player2':
+            const trigger3 = team2Player1Ref.current?.querySelector('.player-dropdown-trigger');
+            if (trigger3) {
+              trigger3.focus();
+              trigger3.click();
+            }
+            break;
+          case 'team2Player1':
+            const trigger4 = team2Player2Ref.current?.querySelector('.player-dropdown-trigger');
+            if (trigger4) {
+              trigger4.focus();
+              trigger4.click();
+            }
+            break;
+          case 'team2Player2':
+            team1ScoreRef.current?.focus();
+            break;
+          default:
+            break;
+        }
+      }, 100);
     } else {
       setFormData(prev => ({ ...prev, [field]: newPlayer }));
     }
@@ -338,6 +380,10 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             onScoreChange={handleScoreChange}
             allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
+            player1Ref={team1Player1Ref}
+            player2Ref={team1Player2Ref}
+            scoreRef={team1ScoreRef}
+            nextScoreRef={team2ScoreRef}
           />
 
           <div className="vs-divider">VS</div>
@@ -355,6 +401,10 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             onScoreChange={handleScoreChange}
             allPlayerNames={playerOptions}
             getExcludedPlayers={getExcludedPlayers}
+            player1Ref={team2Player1Ref}
+            player2Ref={team2Player2Ref}
+            scoreRef={team2ScoreRef}
+            nextScoreRef={null}
           />
 
           <div className="modal-actions">
@@ -392,7 +442,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
 }
 
 // ScoreCard Input Component - Two separate digit inputs
-function ScoreCardInput({ value, onChange, teamNumber }) {
+function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }) {
   const formattedValue = formatScore(value);
   const digit1 = formattedValue[0] || '0';
   const digit2 = formattedValue[1] || '0';
@@ -402,6 +452,15 @@ function ScoreCardInput({ value, onChange, teamNumber }) {
   
   const input1Ref = useRef(null);
   const input2Ref = useRef(null);
+  
+  // Expose focus method via ref
+  useEffect(() => {
+    if (scoreRef) {
+      scoreRef.current = {
+        focus: () => input1Ref.current?.focus()
+      };
+    }
+  }, [scoreRef]);
   
   const handleDigitChange = (position, inputValue) => {
     // Remove non-numeric characters and get the last character (for paste support)
@@ -422,6 +481,12 @@ function ScoreCardInput({ value, onChange, teamNumber }) {
       // Second digit changed
       const newValue = digit1 + lastDigit;
       onChange(newValue);
+      // Auto-advance to next score input after second digit is entered
+      if (numericValue.length > 0 && nextScoreRef) {
+        setTimeout(() => {
+          nextScoreRef.current?.focus();
+        }, 10);
+      }
     }
   };
   
@@ -472,8 +537,17 @@ function ScoreCardInput({ value, onChange, teamNumber }) {
       return;
     }
     
-    // Block non-numeric characters (numbers will be handled by onChange)
+    // Check if it's a number key
     const isNumber = (keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105);
+    
+    // If input has a value and a number is pressed, replace and advance
+    if (isNumber && e.target.value.length === 1) {
+      e.preventDefault();
+      handleDigitChange(position, key);
+      return;
+    }
+    
+    // Block non-numeric characters (numbers will be handled by onChange)
     if (!isNumber) {
       e.preventDefault();
     }
@@ -533,7 +607,11 @@ function TeamSection({
   onPlayerChange, 
   onScoreChange,
   allPlayerNames,
-  getExcludedPlayers
+  getExcludedPlayers,
+  player1Ref,
+  player2Ref,
+  scoreRef,
+  nextScoreRef
 }) {
   return (
     <div className="team-section">
@@ -547,25 +625,31 @@ function TeamSection({
       </div>
       <div className="team-inputs-row">
         <div className="player-inputs">
-          <PlayerDropdown
-            value={player1Value}
-            onChange={(player) => onPlayerChange(player1Field, player)}
-            allPlayerNames={allPlayerNames || []}
-            placeholder="Player 1"
-            excludePlayers={getExcludedPlayers(player1Value)}
-          />
-          <PlayerDropdown
-            value={player2Value}
-            onChange={(player) => onPlayerChange(player2Field, player)}
-            allPlayerNames={allPlayerNames || []}
-            placeholder="Player 2"
-            excludePlayers={getExcludedPlayers(player2Value)}
-          />
+          <div ref={player1Ref}>
+            <PlayerDropdown
+              value={player1Value}
+              onChange={(player) => onPlayerChange(player1Field, player)}
+              allPlayerNames={allPlayerNames || []}
+              placeholder="Player 1"
+              excludePlayers={getExcludedPlayers(player1Value)}
+            />
+          </div>
+          <div ref={player2Ref}>
+            <PlayerDropdown
+              value={player2Value}
+              onChange={(player) => onPlayerChange(player2Field, player)}
+              allPlayerNames={allPlayerNames || []}
+              placeholder="Player 2"
+              excludePlayers={getExcludedPlayers(player2Value)}
+            />
+          </div>
         </div>
         <ScoreCardInput
           value={scoreValue}
           onChange={(value) => onScoreChange(scoreField, value)}
           teamNumber={teamNumber}
+          scoreRef={scoreRef}
+          nextScoreRef={nextScoreRef}
         />
       </div>
     </div>

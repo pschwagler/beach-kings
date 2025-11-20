@@ -28,12 +28,8 @@ function LeagueDashboardContent({ leagueId }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [leagueName, setLeagueName] = useState('');
 
-  // Compute isAdmin from context
-  const isAdmin = useMemo(() => {
-    if (!currentUserPlayer || !members.length) return false;
-    const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-    return userMember?.role === 'admin';
-  }, [currentUserPlayer, members]);
+  // Get isLeagueAdmin from context
+  const { isLeagueAdmin } = useLeague();
 
   // Get tab from URL query parameter
   useEffect(() => {
@@ -117,7 +113,6 @@ function LeagueDashboardContent({ leagueId }) {
       
       updateLeagueInContext(updatedLeague);
       setIsEditingName(false);
-      showMessage('success', 'League name updated successfully');
     } catch (err) {
       showMessage('error', err.response?.data?.detail || 'Failed to update league name');
       setLeagueName(league?.name || '');
@@ -234,10 +229,10 @@ function LeagueDashboardContent({ leagueId }) {
               <button
                 className={`league-sidebar-nav-item ${activeTab === 'rankings' ? 'active' : ''}`}
                 onClick={() => handleTabChange('rankings')}
-                title="Rankings"
+                title="Leaderboard"
               >
                 <Trophy size={20} />
-                {!sidebarCollapsed && <span>Rankings</span>}
+                <span>Leaderboard</span>
               </button>
               <button
                 className={`league-sidebar-nav-item ${activeTab === 'matches' ? 'active' : ''}`}
@@ -245,7 +240,15 @@ function LeagueDashboardContent({ leagueId }) {
                 title="Matches"
               >
                 <Calendar size={20} />
-                {!sidebarCollapsed && <span>Matches</span>}
+                <span>Matches</span>
+              </button>
+              <button
+                className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}
+                onClick={() => handleTabChange('signups')}
+                title="Schedule & Sign Ups"
+              >
+                <Calendar size={20} />
+                <span>Sign Ups</span>
               </button>
               <button
                 className={`league-sidebar-nav-item ${activeTab === 'details' ? 'active' : ''}`}
@@ -253,15 +256,7 @@ function LeagueDashboardContent({ leagueId }) {
                 title="Details"
               >
                 <Settings size={20} />
-                {!sidebarCollapsed && <span>Details</span>}
-              </button>
-              <button
-                className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}
-                onClick={() => handleTabChange('signups')}
-                title="Sign Ups"
-              >
-                <Calendar size={20} />
-                {!sidebarCollapsed && <span>Sign Ups</span>}
+                <span>Details</span>
               </button>
             </nav>
           </aside>
@@ -310,7 +305,7 @@ function LeagueDashboardContent({ leagueId }) {
               ) : (
                 <div className="league-content-header-title">
                   <h1 className="league-content-header-text">{league.name}</h1>
-                  {isAdmin && (
+                  {isLeagueAdmin && (
                     <button
                       className="league-content-header-edit-btn"
                       onClick={() => setIsEditingName(true)}

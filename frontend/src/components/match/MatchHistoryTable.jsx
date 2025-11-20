@@ -22,7 +22,8 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
   return (
     <>
       <h3><History size={22} />Match History</h3>
-      <table>
+      <div className="table-scroll-wrapper">
+        <table>
         <thead>
           <tr>
             <th>Date</th>
@@ -78,6 +79,7 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
           })}
         </tbody>
       </table>
+      </div>
     </>
   );
 }

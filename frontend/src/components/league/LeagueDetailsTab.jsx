@@ -15,6 +15,7 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
     league,
     members,
     seasons,
+    isLeagueAdmin,
     refreshMembers,
     refreshSeasons,
     updateLeague: updateLeagueInContext,
@@ -25,13 +26,6 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
   const [locations, setLocations] = useState([]);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
-
-  // Compute isAdmin from context
-  const isAdmin = useMemo(() => {
-    if (!currentUserPlayer || !members.length) return false;
-    const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-    return userMember?.role === 'admin';
-  }, [currentUserPlayer, members]);
 
   // Use custom hook for sorted members
   const sortedMembers = useSortedMembers(members, currentUserPlayer);
@@ -54,7 +48,6 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
       await updateLeagueMember(leagueId, memberId, newRole);
       // Update the member in place without refreshing (to preserve sort order)
       updateMember(memberId, { role: newRole });
-      showMessage?.('success', 'Role updated successfully');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update role');
     }
@@ -67,7 +60,6 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
 
     try {
       await removeLeagueMember(leagueId, memberId);
-      showMessage?.('success', 'Player removed from league successfully');
       await refreshMembers();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to remove player');
@@ -92,7 +84,7 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
         <DescriptionSection
           league={league}
           leagueId={leagueId}
-          isAdmin={isAdmin}
+          isLeagueAdmin={isLeagueAdmin}
           onUpdate={updateLeagueInContext}
           showMessage={showMessage}
         />
@@ -100,7 +92,7 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
         <PlayersSection
           sortedMembers={sortedMembers}
           currentUserPlayer={currentUserPlayer}
-          isAdmin={isAdmin}
+          isLeagueAdmin={isLeagueAdmin}
           onAddPlayers={() => setShowAddPlayerModal(true)}
           onRoleChange={handleRoleChange}
           onRemoveMember={handleRemoveMember}
@@ -108,7 +100,7 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
 
         <SeasonsSection
           seasons={seasons}
-          isAdmin={isAdmin}
+          isLeagueAdmin={isLeagueAdmin}
           onCreateSeason={() => setShowCreateSeasonModal(true)}
         />
 
