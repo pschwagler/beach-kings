@@ -2,17 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { X, Plus } from 'lucide-react';
 import { getPlayers, addLeagueMember } from '../../services/api';
 import { getPlayerDisplayName, matchesSearchTerm, ROLE_OPTIONS } from './utils/leagueUtils';
+import { useLeague } from '../../contexts/LeagueContext';
 
 const INITIAL_PLAYERS_TO_SHOW = 10;
 
 export default function AddPlayersModal({
   isOpen,
-  leagueId,
   members,
   onClose,
-  onSuccess,
-  showMessage
+  onSuccess
 }) {
+  const { leagueId, showMessage } = useLeague();
   const [allPlayers, setAllPlayers] = useState([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState([]); // Array of {player_id, role}

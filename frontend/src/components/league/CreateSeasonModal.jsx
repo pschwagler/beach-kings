@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { createLeagueSeason } from '../../services/api';
+import { useLeague } from '../../contexts/LeagueContext';
 
-export default function CreateSeasonModal({ isOpen, leagueId, onClose, onSuccess, showMessage }) {
+export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
+  const { leagueId, showMessage } = useLeague();
   const [formData, setFormData] = useState({
     name: '',
     start_date: '',

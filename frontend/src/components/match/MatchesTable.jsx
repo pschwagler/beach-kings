@@ -47,7 +47,6 @@ export default function MatchesTable({
   onCreateMatch,
   onUpdateMatch,
   onDeleteMatch,
-  onCreatePlayer,
   allPlayerNames,
   isLeagueMember = false,
   leagueId = null,
@@ -498,7 +497,6 @@ export default function MatchesTable({
         onSubmit={handleAddMatch}
         onDelete={onDeleteMatch}
         allPlayerNames={allPlayerNames}
-        onCreatePlayer={onCreatePlayer}
         editMatch={editingMatch}
       />
       {/* Debug: Log allPlayerNames when modal state changes */}

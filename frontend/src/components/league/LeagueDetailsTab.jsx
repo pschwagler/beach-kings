@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getLocations, removeLeagueMember, updateLeagueMember } from '../../services/api';
+import { useApp } from '../../contexts/AppContext';
+import { removeLeagueMember, updateLeagueMember } from '../../services/api';
 import { useSortedMembers } from './hooks/useSortedMembers';
 import DescriptionSection from './DescriptionSection';
 import PlayersSection from './PlayersSection';
@@ -10,38 +11,27 @@ import LeagueInfoSection from './LeagueInfoSection';
 import AddPlayersModal from './AddPlayersModal';
 import CreateSeasonModal from './CreateSeasonModal';
 
-export default function LeagueDetailsTab({ leagueId, showMessage }) {
+export default function LeagueDetailsTab() {
   const {
     league,
     members,
     seasons,
+    leagueId,
     isLeagueAdmin,
     refreshMembers,
     refreshSeasons,
     updateLeague: updateLeagueInContext,
-    updateMember
+    updateMember,
+    showMessage
   } = useLeague();
   const { currentUserPlayer } = useAuth();
+  const { locations } = useApp();
 
-  const [locations, setLocations] = useState([]);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
 
   // Use custom hook for sorted members
   const sortedMembers = useSortedMembers(members, currentUserPlayer);
-
-  // Load locations on mount
-  useEffect(() => {
-    const loadLocations = async () => {
-      try {
-        const locationsData = await getLocations();
-        setLocations(locationsData);
-      } catch (err) {
-        console.error('Error loading locations:', err);
-      }
-    };
-    loadLocations();
-  }, []);
 
   const handleRoleChange = async (memberId, newRole) => {
     try {
@@ -83,16 +73,12 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
       <div className="league-details-new">
         <DescriptionSection
           league={league}
-          leagueId={leagueId}
-          isLeagueAdmin={isLeagueAdmin}
           onUpdate={updateLeagueInContext}
-          showMessage={showMessage}
         />
 
         <PlayersSection
           sortedMembers={sortedMembers}
           currentUserPlayer={currentUserPlayer}
-          isLeagueAdmin={isLeagueAdmin}
           onAddPlayers={() => setShowAddPlayerModal(true)}
           onRoleChange={handleRoleChange}
           onRemoveMember={handleRemoveMember}
@@ -100,28 +86,26 @@ export default function LeagueDetailsTab({ leagueId, showMessage }) {
 
         <SeasonsSection
           seasons={seasons}
-          isLeagueAdmin={isLeagueAdmin}
           onCreateSeason={() => setShowCreateSeasonModal(true)}
         />
 
-        <LeagueInfoSection league={league} locations={locations} />
+        <LeagueInfoSection 
+          league={league} 
+          onUpdate={updateLeagueInContext}
+        />
       </div>
 
       <AddPlayersModal
         isOpen={showAddPlayerModal}
-        leagueId={leagueId}
         members={members}
         onClose={() => setShowAddPlayerModal(false)}
         onSuccess={handleAddPlayersSuccess}
-        showMessage={showMessage}
       />
 
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}
-        leagueId={leagueId}
         onClose={() => setShowCreateSeasonModal(false)}
         onSuccess={handleCreateSeasonSuccess}
-        showMessage={showMessage}
       />
     </>
   );

@@ -5,7 +5,7 @@ export default function NavBrand() {
     <div className="navbar-left">
       <a href="/" className="navbar-brand">
         <Crown size={24} className="navbar-brand-crown" />
-        <span className="navbar-brand-text">BEACH KINGS</span>
+        <span className="navbar-brand-text">BEACH LEAGUE</span>
       </a>
     </div>
   );

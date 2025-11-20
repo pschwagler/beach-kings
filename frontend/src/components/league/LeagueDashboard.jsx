@@ -14,7 +14,7 @@ function LeagueDashboardContent({ leagueId }) {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
   const [activeTab, setActiveTab] = useState('rankings');
-  const [message, setMessage] = useState(null);
+  const { message, showMessage } = useLeague();
   const [userLeagues, setUserLeagues] = useState([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // Start collapsed on mobile screens
@@ -87,10 +87,6 @@ function LeagueDashboardContent({ leagueId }) {
     window.history.pushState({}, '', url);
   };
 
-  const showMessage = (type, text) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  };
 
   const handleUpdateLeagueName = async () => {
     if (!leagueName.trim()) {
@@ -223,6 +219,7 @@ function LeagueDashboardContent({ leagueId }) {
               >
                 {sidebarCollapsed ? <Menu size={20} /> : <XIcon size={20} />}
               </button>
+              <h1 className="league-sidebar-title">{league.name}</h1>
             </div>
             
             <nav className="league-sidebar-nav">
@@ -263,60 +260,62 @@ function LeagueDashboardContent({ leagueId }) {
 
           {/* Main Content Area */}
           <main className="league-content">
-            {/* League Name Header */}
-            <div className="league-content-header">
-              {isEditingName ? (
-                <div className="league-content-header-edit">
-                  <input
-                    type="text"
-                    value={leagueName}
-                    onChange={(e) => setLeagueName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleUpdateLeagueName();
-                      } else if (e.key === 'Escape') {
-                        setLeagueName(league.name);
-                        setIsEditingName(false);
-                      }
-                    }}
-                    className="league-content-header-input"
-                    autoFocus
-                  />
-                  <div className="league-content-header-actions">
-                    <button
-                      className="league-content-header-action-btn"
-                      onClick={handleUpdateLeagueName}
-                      aria-label="Save"
-                    >
-                      <Check size={18} />
-                    </button>
-                    <button
-                      className="league-content-header-action-btn"
-                      onClick={() => {
-                        setLeagueName(league.name);
-                        setIsEditingName(false);
+            {/* League Name Header - Only show on Details tab */}
+            {activeTab === 'details' && (
+              <div className="league-content-header">
+                {isEditingName ? (
+                  <div className="league-content-header-edit">
+                    <input
+                      type="text"
+                      value={leagueName}
+                      onChange={(e) => setLeagueName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleUpdateLeagueName();
+                        } else if (e.key === 'Escape') {
+                          setLeagueName(league.name);
+                          setIsEditingName(false);
+                        }
                       }}
-                      aria-label="Cancel"
-                    >
-                      <X size={18} />
-                    </button>
+                      className="league-content-header-input"
+                      autoFocus
+                    />
+                    <div className="league-content-header-actions">
+                      <button
+                        className="league-content-header-action-btn"
+                        onClick={handleUpdateLeagueName}
+                        aria-label="Save"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        className="league-content-header-action-btn"
+                        onClick={() => {
+                          setLeagueName(league.name);
+                          setIsEditingName(false);
+                        }}
+                        aria-label="Cancel"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="league-content-header-title">
-                  <h1 className="league-content-header-text">{league.name}</h1>
-                  {isLeagueAdmin && (
-                    <button
-                      className="league-content-header-edit-btn"
-                      onClick={() => setIsEditingName(true)}
-                      aria-label="Edit league name"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="league-content-header-title">
+                    <h1 className="league-content-header-text">{league.name}</h1>
+                    {isLeagueAdmin && (
+                      <button
+                        className="league-content-header-edit-btn"
+                        onClick={() => setIsEditingName(true)}
+                        aria-label="Edit league name"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Message Alert */}
             {message && (
@@ -330,24 +329,16 @@ function LeagueDashboardContent({ leagueId }) {
 
             {activeTab === 'matches' && (
               <LeagueMatchesTab
-                leagueId={leagueId}
                 onPlayerClick={handlePlayerClick}
-                showMessage={showMessage}
               />
             )}
 
             {activeTab === 'details' && (
-              <LeagueDetailsTab
-                leagueId={leagueId}
-                showMessage={showMessage}
-              />
+              <LeagueDetailsTab />
             )}
 
             {activeTab === 'signups' && (
-              <LeagueSignUpsTab
-                leagueId={leagueId}
-                showMessage={showMessage}
-              />
+              <LeagueSignUpsTab />
             )}
 
           </main>

@@ -1,15 +1,16 @@
 import { Users, Plus, X } from 'lucide-react';
 import { getPlayerDisplayName } from './utils/leagueUtils';
 import { ROLE_OPTIONS } from './utils/leagueUtils';
+import { useLeague } from '../../contexts/LeagueContext';
 
 export default function PlayersSection({
   sortedMembers,
   currentUserPlayer,
-  isAdmin,
   onAddPlayers,
   onRoleChange,
   onRemoveMember
 }) {
+  const { isLeagueAdmin } = useLeague();
   return (
     <div className="league-players-section">
       <div className="league-section-header">
@@ -17,7 +18,7 @@ export default function PlayersSection({
           <Users size={18} />
           Players
         </h3>
-        {isAdmin && (
+        {isLeagueAdmin && (
           <button className="league-text-button" onClick={onAddPlayers}>
             <Plus size={16} />
             Add Players
@@ -36,7 +37,7 @@ export default function PlayersSection({
             const isCurrentUser = currentUserPlayer && member.player_id === currentUserPlayer.id;
             const playerName = member.player_name || `Player ${member.player_id}`;
             const displayName = getPlayerDisplayName(member, isCurrentUser);
-            const canEdit = isAdmin && !isCurrentUser;
+            const canEdit = isLeagueAdmin && !isCurrentUser;
 
             return (
               <div key={member.id} className={`league-player-row ${!canEdit ? 'disabled' : ''}`}>

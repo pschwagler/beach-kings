@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { getLeague, getLeagueSeasons, getLeagueMembers, getRankings, getSeasonMatches, getAllPlayerSeasonStats, getAllSeasonPartnershipOpponentStats } from '../services/api';
 import { useAuth } from './AuthContext';
+import { transformPlayerData } from '../components/league/utils/playerDataUtils';
 
 const LeagueContext = createContext(null);
 
@@ -11,6 +12,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
   
   // Season data state
   const [seasonData, setSeasonData] = useState({}); // Maps season_id to data
@@ -32,8 +34,12 @@ export const LeagueProvider = ({ children, leagueId }) => {
   // Compute isLeagueAdmin from members
   const isLeagueAdmin = useMemo(() => {
     if (!currentUserPlayer || !members.length) return false;
-    const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-    return userMember?.role === 'admin';
+    // Handle both string and number IDs
+    const userMember = members.find(m => 
+      String(m.player_id) === String(currentUserPlayer.id) || 
+      Number(m.player_id) === Number(currentUserPlayer.id)
+    );
+    return userMember?.role?.toLowerCase() === 'admin';
   }, [currentUserPlayer, members]);
   
   // Get active season data
@@ -62,7 +68,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
           getLeagueMembers(leagueId)
         ]);
         setSeasons(seasonsData);
-        console.log('LeagueContext: membersData:', membersData);
         setMembers(membersData);
       } catch (err) {
         console.error('Error loading league data:', err);
@@ -98,7 +103,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
     if (!leagueId) return;
     try {
       const membersData = await getLeagueMembers(leagueId);
-      console.log('LeagueContext: membersData:', membersData);
       setMembers(membersData);
     } catch (err) {
       console.error('Error refreshing members:', err);
@@ -218,122 +222,11 @@ export const LeagueProvider = ({ children, leagueId }) => {
     setSelectedPlayerId(playerId);
     setSelectedPlayerName(playerName);
     
-    // Get player season stats from context
-    const seasonStats = activeSeasonData.player_season_stats?.[playerId];
+    // Transform player data using utility function
+    const { stats, matchHistory } = transformPlayerData(activeSeasonData, playerId);
     
-    if (seasonStats) {
-      // Get partnership and opponent stats from context
-      const partnershipOpponentStats = activeSeasonData.partnership_opponent_stats?.[playerId] || { partnerships: [], opponents: [] };
-      
-      // Format stats array for PlayerStatsTable
-      const statsArray = [];
-      
-      // Add overall row first
-      statsArray.push({
-        "Partner/Opponent": "OVERALL",
-        "Points": seasonStats.points,
-        "Games": seasonStats.games,
-        "Wins": seasonStats.wins,
-        "Losses": seasonStats.losses,
-        "Win Rate": seasonStats.win_rate,
-        "Avg Pt Diff": seasonStats.avg_point_diff
-      });
-      
-      // Add empty row separator
-      statsArray.push({ "Partner/Opponent": "" });
-      
-      // Add partnerships section
-      if (partnershipOpponentStats.partnerships && partnershipOpponentStats.partnerships.length > 0) {
-        statsArray.push({ "Partner/Opponent": "WITH PARTNERS" });
-        statsArray.push(...partnershipOpponentStats.partnerships);
-        statsArray.push({ "Partner/Opponent": "" }); // Empty row
-      }
-      
-      // Add opponents section
-      if (partnershipOpponentStats.opponents && partnershipOpponentStats.opponents.length > 0) {
-        statsArray.push({ "Partner/Opponent": "VS OPPONENTS" });
-        statsArray.push(...partnershipOpponentStats.opponents);
-        statsArray.push({ "Partner/Opponent": "" }); // Empty row
-      }
-      
-      // Format season stats for PlayerDetails component
-      const formattedStats = {
-        overview: {
-          ranking: seasonStats.rank,
-          points: seasonStats.points,
-          rating: seasonStats.current_elo,
-          games: seasonStats.games,
-          wins: seasonStats.wins,
-          losses: seasonStats.losses,
-          win_rate: seasonStats.win_rate,
-          avg_point_diff: seasonStats.avg_point_diff
-        },
-        stats: statsArray
-      };
-      setPlayerSeasonStats(formattedStats);
-    } else {
-      setPlayerSeasonStats(null);
-    }
-    
-    // Filter match history to only include matches where this player participated
-    const matches = activeSeasonData.matches || [];
-    const playerMatches = matches.filter(match => {
-      const playerIds = [
-        match.team1_player1_id,
-        match.team1_player2_id,
-        match.team2_player1_id,
-        match.team2_player2_id
-      ].filter(Boolean);
-      
-      return playerIds.includes(playerId);
-    });
-    
-    // Transform matches to MatchHistoryTable format
-    const playerMatchHistory = playerMatches.map(match => {
-      // Determine which team the player was on
-      const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
-      
-      let partner, opponent1, opponent2, playerScore, opponentScore, result;
-      
-      if (isTeam1) {
-        partner = match.team1_player1_id === playerId 
-          ? match.team1_player2_name 
-          : match.team1_player1_name;
-        opponent1 = match.team2_player1_name;
-        opponent2 = match.team2_player2_name;
-        playerScore = match.team1_score;
-        opponentScore = match.team2_score;
-        result = match.winner === 1 ? 'W' : match.winner === 2 ? 'L' : 'T';
-      } else {
-        partner = match.team2_player1_id === playerId 
-          ? match.team2_player2_name 
-          : match.team2_player1_name;
-        opponent1 = match.team1_player1_name;
-        opponent2 = match.team1_player2_name;
-        playerScore = match.team2_score;
-        opponentScore = match.team1_score;
-        result = match.winner === 2 ? 'W' : match.winner === 1 ? 'L' : 'T';
-      }
-      
-      // Get ELO change for this player
-      const eloChange = match.elo_changes?.[playerId];
-      const eloAfter = eloChange?.elo_after;
-      const eloChangeValue = eloChange?.elo_change;
-      
-      return {
-        Date: match.date,
-        Partner: partner || '',
-        'Opponent 1': opponent1 || '',
-        'Opponent 2': opponent2 || '',
-        Result: result,
-        Score: `${playerScore}-${opponentScore}`,
-        'ELO After': eloAfter,
-        'ELO Change': eloChangeValue,
-        'Session Status': match.session_status || null
-      };
-    });
-    
-    setPlayerMatchHistory(playerMatchHistory);
+    setPlayerSeasonStats(stats);
+    setPlayerMatchHistory(matchHistory || []);
   }, [activeSeasonData, activeSeason]);
 
   // Reload player data when season data changes
@@ -383,8 +276,14 @@ export const LeagueProvider = ({ children, leagueId }) => {
       setPlayerMatchHistory(null);
       setIsPlayerPanelOpen(false);
     },
+    // League ID and message utilities
+    leagueId,
+    showMessage: (type, text) => {
+      setMessage({ type, text });
+      setTimeout(() => setMessage(null), 5000);
+    },
+    message,
   };
-  console.log('LeagueContext: seasonData:', seasonData);
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;
 };

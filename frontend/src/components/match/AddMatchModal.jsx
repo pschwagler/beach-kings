@@ -78,7 +78,7 @@ const validateScores = (formData) => {
   return { isValid: true, errorMessage: null, score1, score2 };
 };
 
-export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames = [], onCreatePlayer, onDelete, editMatch = null }) {
+export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames = [], onDelete, editMatch = null }) {
   const { members } = useLeague();
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);

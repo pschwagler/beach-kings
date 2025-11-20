@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Trophy } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePlayerSelection } from './hooks/usePlayerSelection';
+import { useMessage } from './hooks/useMessage';
 import RankingsTable from '../rankings/RankingsTable';
 import PlayerDetailsPanel from '../player/PlayerDetailsPanel';
 
@@ -20,7 +22,7 @@ export default function LeagueRankingsTab() {
     setSelectedPlayer
   } = useLeague();
   const { currentUserPlayer } = useAuth();
-  const [message, setMessage] = useState(null);
+  const [message, showMessage] = useMessage(5000);
 
   // Get rankings from context
   const rankings = useMemo(() => {
@@ -32,39 +34,22 @@ export default function LeagueRankingsTab() {
     return rankings.map(r => r.Name) || [];
   }, [rankings]);
 
+  // Auto-select player when rankings become available
+  usePlayerSelection({
+    currentUserPlayer,
+    selectedPlayerId,
+    setSelectedPlayer,
+    activeSeasonData,
+    activeSeason,
+    rankings,
+  });
 
-  // Auto-load current user's player data when rankings are available (but don't open panel)
-  // Falls back to first place player if current user is not in rankings
-  useEffect(() => {
-    if (rankings.length > 0 && !selectedPlayerId && activeSeasonData?.player_season_stats && activeSeasonData?.partnership_opponent_stats && activeSeason) {
-      let playerToSelect = null;
-      
-      // Try to find current user's player in rankings first
-      if (currentUserPlayer && currentUserPlayer.id) {
-        const currentUserInRankings = rankings.find(r => r.player_id === currentUserPlayer.id);
-        if (currentUserInRankings && currentUserInRankings.player_id) {
-          playerToSelect = currentUserInRankings;
-        }
-      }
-      
-      // Fall back to first place player if current user not found
-      if (!playerToSelect) {
-        playerToSelect = rankings[0]; // Rankings are already sorted
-      }
-      
-      if (playerToSelect && playerToSelect.player_id) {
-        setSelectedPlayer(playerToSelect.player_id, playerToSelect.Name);
-        // Don't auto-open the panel - let user click to open it
-      }
-    }
-  }, [rankings, activeSeasonData, activeSeason, selectedPlayerId, setSelectedPlayer, currentUserPlayer]);
-
-  const handlePlayerClick = (playerId, playerName) => {
+  const handlePlayerClick = useCallback((playerId, playerName) => {
     setSelectedPlayer(playerId, playerName);
     setTimeout(() => setIsPlayerPanelOpen(true), 10);
-  };
+  }, [setSelectedPlayer, setIsPlayerPanelOpen]);
 
-  const handleSideTabClick = () => {
+  const handleSideTabClick = useCallback(() => {
     if (selectedPlayerId && playerSeasonStats) {
       setIsPlayerPanelOpen(true);
     } else if (rankings.length > 0) {
@@ -86,27 +71,19 @@ export default function LeagueRankingsTab() {
         handlePlayerClick(playerToSelect.player_id, playerToSelect.Name);
       }
     }
-  };
+  }, [selectedPlayerId, playerSeasonStats, rankings, currentUserPlayer, handlePlayerClick, setIsPlayerPanelOpen]);
 
-  const handleClosePlayer = () => {
+  const handleClosePlayer = useCallback(() => {
     setIsPlayerPanelOpen(false);
-  };
+  }, [setIsPlayerPanelOpen]);
 
-  const handlePlayerChange = (newPlayerName) => {
+  const handlePlayerChange = useCallback((newPlayerName) => {
     // Find player by name in rankings
     const player = rankings.find(r => r.Name === newPlayerName);
     if (player && player.player_id) {
       setSelectedPlayer(player.player_id, newPlayerName);
     }
-  };
-
-  // Show message alert
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  }, [rankings, setSelectedPlayer]);
 
   if (!activeSeason) {
     return (

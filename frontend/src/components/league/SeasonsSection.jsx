@@ -1,7 +1,9 @@
 import { Calendar, Plus } from 'lucide-react';
 import { formatDateRange } from './utils/leagueUtils';
+import { useLeague } from '../../contexts/LeagueContext';
 
-export default function SeasonsSection({ seasons, isAdmin, onCreateSeason }) {
+export default function SeasonsSection({ seasons, onCreateSeason }) {
+  const { isLeagueAdmin } = useLeague();
   return (
     <div className="league-seasons-section">
       <div className="league-section-header">
@@ -9,7 +11,7 @@ export default function SeasonsSection({ seasons, isAdmin, onCreateSeason }) {
           <Calendar size={18} />
           Seasons
         </h3>
-        {isAdmin && (
+        {isLeagueAdmin && (
           <button className="league-text-button" onClick={onCreateSeason}>
             <Plus size={16} />
             New Season

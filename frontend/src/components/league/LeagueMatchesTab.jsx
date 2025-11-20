@@ -3,6 +3,8 @@ import MatchesTable from '../match/MatchesTable';
 import PlayerDetailsPanel from '../player/PlayerDetailsPanel';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePlayerSelection } from './hooks/usePlayerSelection';
+import { transformMatchData } from './utils/matchUtils';
 import { 
   createMatch, 
   updateMatch, 
@@ -13,9 +15,10 @@ import {
   getPlayers
 } from '../../services/api';
 
-export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage }) {
+export default function LeagueMatchesTab({ onPlayerClick }) {
   const { 
     league, 
+    leagueId,
     seasons, 
     members, 
     activeSeason, 
@@ -28,7 +31,8 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     playerMatchHistory,
     isPlayerPanelOpen,
     setIsPlayerPanelOpen,
-    setSelectedPlayer
+    setSelectedPlayer,
+    showMessage
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   const [matches, setMatches] = useState([]);
@@ -57,59 +61,6 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
   // Structure: { sessionId: { id, name, status, createdAt, updatedAt, createdBy, updatedBy } }
   const [editingSessionMetadata, setEditingSessionMetadata] = useState(new Map());
 
-  // Transform match data from API format to MatchesTable format
-  const transformMatchData = (matches) => {
-    return matches.map(match => {
-      const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
-      
-      // Handle both context format (with elo_changes) and API format (with team elo changes)
-      let team1EloChange = 0;
-      let team2EloChange = 0;
-      
-      if (match.elo_changes) {
-        // Context format: calculate team ELO changes from individual player changes
-        const team1Players = [match.team1_player1_id, match.team1_player2_id].filter(Boolean);
-        const team2Players = [match.team2_player1_id, match.team2_player2_id].filter(Boolean);
-        
-        team1Players.forEach(playerId => {
-          if (match.elo_changes[playerId]) {
-            team1EloChange += match.elo_changes[playerId].elo_change || 0;
-          }
-        });
-        
-        team2Players.forEach(playerId => {
-          if (match.elo_changes[playerId]) {
-            team2EloChange += match.elo_changes[playerId].elo_change || 0;
-          }
-        });
-      } else {
-        // API format: use team ELO changes directly
-        team1EloChange = match.team1_elo_change || 0;
-        team2EloChange = match.team2_elo_change || 0;
-      }
-      
-      return {
-        id: match.id,
-        Date: match.date,
-        'Session ID': match.session_id,
-        'Session Name': match.session_name || match.date,
-        'Session Status': match.session_status || null,
-        'Session Created At': match.session_created_at || null,
-        'Session Updated At': match.session_updated_at || null,
-        'Session Created By': match.session_created_by_name || null,
-        'Session Updated By': match.session_updated_by_name || null,
-        'Team 1 Player 1': match.team1_player1_name || '',
-        'Team 1 Player 2': match.team1_player2_name || '',
-        'Team 2 Player 1': match.team2_player1_name || '',
-        'Team 2 Player 2': match.team2_player2_name || '',
-        'Team 1 Score': match.team1_score,
-        'Team 2 Score': match.team2_score,
-        Winner: winner,
-        'Team 1 ELO Change': team1EloChange,
-        'Team 2 ELO Change': team2EloChange,
-      };
-    });
-  };
 
   const loadLeagueMatches = useCallback(async () => {
     if (!leagueId || !league) return;
@@ -230,45 +181,16 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
 
   // Auto-select current user's player when player data is available (but don't open panel)
   // Falls back to first player if current user is not in the league
-  useEffect(() => {
-    if (!selectedPlayerId && allPlayerNames.length > 0 && playerNameToId.size > 0 && activeSeasonData?.player_season_stats && activeSeasonData?.partnership_opponent_stats && activeSeason) {
-      let playerToSelect = null;
-      let playerNameToSelect = null;
-      
-      // Try to find current user's player in the league
-      if (currentUserPlayer && currentUserPlayer.id) {
-        // Check if current user is a member
-        const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-        if (userMember) {
-          // Find the display name for this player
-          const playerName = allPlayerNames.find(name => {
-            const id = playerNameToId.get(name);
-            return id === currentUserPlayer.id;
-          });
-          
-          if (playerName) {
-            playerToSelect = currentUserPlayer.id;
-            playerNameToSelect = playerName;
-          }
-        }
-      }
-      
-      // Fall back to first player if current user not found
-      if (!playerToSelect && allPlayerNames.length > 0) {
-        const firstName = allPlayerNames[0];
-        const firstId = playerNameToId.get(firstName);
-        if (firstId) {
-          playerToSelect = firstId;
-          playerNameToSelect = firstName;
-        }
-      }
-      
-      if (playerToSelect && playerNameToSelect) {
-        setSelectedPlayer(playerToSelect, playerNameToSelect);
-        // Don't auto-open the panel - let user click to open it
-      }
-    }
-  }, [allPlayerNames, playerNameToId, members, currentUserPlayer, selectedPlayerId, activeSeasonData, activeSeason, setSelectedPlayer]);
+  usePlayerSelection({
+    currentUserPlayer,
+    selectedPlayerId,
+    setSelectedPlayer,
+    activeSeasonData,
+    activeSeason,
+    allPlayerNames,
+    playerNameToId,
+    members,
+  });
 
   const handleRefreshSession = async () => {
     // Just refresh the session state without creating a new one
@@ -460,20 +382,6 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
     }
   };
 
-  const handleCreatePlayer = async (name) => {
-    try {
-      // This will be handled by AddMatchModal
-      const players = await getPlayers();
-      const player = players.find(p => (p.full_name || p.nickname || '').toLowerCase() === name.toLowerCase());
-      if (!player) {
-        throw new Error('Player creation not yet implemented for league context');
-      }
-      return player;
-    } catch (err) {
-      console.error('Error creating player:', err);
-      throw err;
-    }
-  };
 
   const handleEnterEditMode = (sessionId) => {
     setEditingSessions(prev => new Set(prev).add(sessionId));
@@ -655,7 +563,6 @@ export default function LeagueMatchesTab({ leagueId, onPlayerClick, showMessage 
         onCreateMatch={handleCreateMatch}
         onUpdateMatch={handleUpdateMatch}
         onDeleteMatch={handleDeleteMatch}
-        onCreatePlayer={handleCreatePlayer}
         allPlayerNames={allPlayerNames}
         isLeagueMember={isLeagueMember}
         leagueId={leagueId}

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Edit2 } from 'lucide-react';
 import { updateLeague } from '../../services/api';
+import { useLeague } from '../../contexts/LeagueContext';
 
-export default function DescriptionSection({ league, leagueId, isAdmin, onUpdate, showMessage }) {
+export default function DescriptionSection({ league, onUpdate }) {
+  const { isLeagueAdmin, leagueId, showMessage } = useLeague();
   const [description, setDescription] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -66,7 +68,7 @@ export default function DescriptionSection({ league, leagueId, isAdmin, onUpdate
           <p className="league-description-text">
             {league?.description || 'No description'}
           </p>
-          {isAdmin && (
+          {isLeagueAdmin && (
             <button
               className="league-edit-icon"
               onClick={handleEdit}
