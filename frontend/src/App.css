@@ -996,12 +996,22 @@ tbody tr:hover .sticky-col {
   border-bottom: 1px solid var(--gray-200);
 }
 
+/* Override general th:first-child rule for rankings table */
 .rankings-table-modern thead tr:first-child th:first-child {
-  border-top-left-radius: 8px;
+  border-top-left-radius: 8px !important;
 }
 
 .rankings-table-modern thead tr:first-child th:last-child {
-  border-top-right-radius: 8px;
+  border-top-right-radius: 8px !important;
+}
+
+/* Ensure no border-radius from general table rules */
+.rankings-table-modern th:first-child {
+  border-top-left-radius: 8px !important;
+}
+
+.rankings-table-modern th:last-child {
+  border-top-right-radius: 8px !important;
 }
 
 .rankings-table-modern th {
@@ -2331,7 +2341,7 @@ body.drawer-open {
   }
 
   .rankings-table-modern td {
-    padding: 12px 6px;
+    padding: 12px 8px;
     font-size: 0.85em;
   }
 
@@ -2376,9 +2386,29 @@ body.drawer-open {
 
   .rankings-stat-cell {
     padding: 12px 4px;
-    min-width: 38px;
-    max-width: 50px;
+    min-width: 28px;
+    max-width: 35px;
     white-space: nowrap;
+  }
+
+  /* Make stat header columns narrower on mobile - only need space for 3-4 digit numbers */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern th:nth-child(4),
+  .rankings-table-modern th:nth-child(5),
+  .rankings-table-modern th:nth-child(7) {
+    min-width: 30px;
+    max-width: 35px;
+  }
+
+  /* Win Rate column needs slightly more space for "XX.X%" */
+  .rankings-table-modern th:nth-child(6) {
+    min-width: 40px;
+    max-width: 45px;
+  }
+
+  .rankings-table-modern td:nth-child(6) {
+    min-width: 40px;
+    max-width: 45px;
   }
 
   /* League section - reduce padding on mobile (league-content already has padding) */
@@ -2715,7 +2745,7 @@ body.drawer-open {
   }
 
   .rankings-table-modern td {
-    padding: 10px 5px;
+    padding: 10px 8px;
     font-size: 0.8em;
   }
 
@@ -2755,8 +2785,28 @@ body.drawer-open {
 
   .rankings-stat-cell {
     padding: 10px 4px;
-    min-width: 35px;
-    max-width: 50px;
+    min-width: 28px;
+    max-width: 35px;
+  }
+
+  /* Make stat header columns narrower on very small screens */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern th:nth-child(4),
+  .rankings-table-modern th:nth-child(5),
+  .rankings-table-modern th:nth-child(7) {
+    min-width: 30px;
+    max-width: 35px;
+  }
+
+  /* Win Rate column needs slightly more space for "XX.X%" */
+  .rankings-table-modern th:nth-child(6) {
+    min-width: 40px;
+    max-width: 45px;
+  }
+
+  .rankings-table-modern td:nth-child(6) {
+    min-width: 40px;
+    max-width: 45px;
   }
 
   /* League section - even less padding on very small screens */
@@ -2787,12 +2837,27 @@ body.drawer-open {
   /* Make overview stack vertically on small screens */
   .player-overview {
     flex-direction: column;
-    gap: 12px;
-    padding: 16px;
+    gap: 8px;
+    margin: 16px 0;
+    padding: 0;
+  }
+
+  .overview-stat {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .overview-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .overview-label {
+    font-size: 0.7em;
   }
 
   .overview-value {
-    font-size: 1.25em;
+    font-size: 1em;
   }
 }
 
