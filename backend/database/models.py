@@ -101,6 +101,7 @@ class Player(Base):
     preferred_side = Column(String, nullable=True)
     default_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     profile_picture_url = Column(String, nullable=True)
+    avatar = Column(String, nullable=True)  # Can store initials (e.g., "JD") or image URL
     avp_playerProfileId = Column(Integer, nullable=True)
     status = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

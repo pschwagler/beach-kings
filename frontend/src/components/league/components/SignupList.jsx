@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Calendar, Edit2, Trash2, Users, Clock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDateTimeWithTimezone, formatDate, formatTime } from '../../../utils/dateUtils';
+import { SignupListSkeleton } from '../../ui/Skeletons';
+import { useLeague } from '../../../contexts/LeagueContext';
 
 /**
  * Component for rendering signup lists (upcoming and past)
@@ -9,7 +11,6 @@ export default function SignupList({
   signups,
   loading,
   isUpcoming = true,
-  isLeagueMember = false,
   isLeagueAdmin = false,
   currentUserPlayer,
   onSignup,
@@ -19,6 +20,7 @@ export default function SignupList({
   showCreateButton = false,
   onCreateClick,
 }) {
+  const { isLeagueMember } = useLeague();
   const [collapsedSignups, setCollapsedSignups] = useState(new Set());
   const [expandedPastSignups, setExpandedPastSignups] = useState(new Set());
 
@@ -65,11 +67,7 @@ export default function SignupList({
   };
 
   if (loading) {
-    return (
-      <div className="league-empty-state">
-        <p>Loading signups...</p>
-      </div>
-    );
+    return <SignupListSkeleton />;
   }
 
   if (signups.length === 0) {

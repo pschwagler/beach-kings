@@ -1,4 +1,4 @@
-import { ChevronLeft, User } from 'lucide-react';
+import { User } from 'lucide-react';
 
 export default function PlayerDetailsSideTab({ onClick, isVisible }) {
   if (!isVisible) return null;
@@ -10,7 +10,6 @@ export default function PlayerDetailsSideTab({ onClick, isVisible }) {
       aria-label="Open player details"
     >
       <User size={20} />
-      <ChevronLeft size={20} />
     </button>
   );
 }

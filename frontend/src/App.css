@@ -7,7 +7,6 @@
 }
 
 :root {
-
   --primary: #2c7a8f;
   /* Vintage Malibu Color Palette */
   --sunset-orange: #ff7849;
@@ -20,7 +19,7 @@
   --sunset-pink: #ff9a76;
   --deep-ocean: #2c7a8f;
   --warm-brown: #8b6f47;
-  
+
   /* Grays */
   --gray-50: #fafafa;
   --gray-100: #f5f5f5;
@@ -29,24 +28,25 @@
   --gray-600: #757575;
   --gray-700: #616161;
   --gray-900: #212121;
-  
+
   /* Functional */
   --success: #10b981;
   --success-dark: #059669;
   --success-light: #e8fbf0;
   --danger: #ef4444;
   --danger-light: #ffeceb;
-  
+
   /* Warm shadows that fit the beach palette */
   --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.10);
+  --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(150 110 80 / 0.12);
   --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
 }
 
 body {
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(135deg, #f7f8f9, #fafbfc, #f7f8f9);
@@ -83,15 +83,18 @@ body {
   z-index: 1000;
   background: linear-gradient(
     135deg,
-    #fff8ef 0%,     /* cream-soft */
-    #ffead6 40%,    /* warm peach tint */
-    #f7e9d3 100%    /* sand-warm */
-  );;
+    #fffefc 0%,
+    /* cream-soft - lighter */ #fffbf7 40%,
+    /* warm peach tint - lighter */ #fffbf7 100% /* sand-warm - lighter */
+  );
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(59, 130, 200, 0.2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 120, 73, 0.1) inset;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 120, 73, 0.1) inset;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .navbar-container {
@@ -138,12 +141,17 @@ body {
 }
 
 .navbar-brand-text {
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   font-size: 1.5em;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--sunset-orange) 0%, var(--coral) 50%, var(--retro-yellow) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--sunset-orange) 0%,
+    var(--coral) 50%,
+    var(--retro-yellow) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -152,7 +160,12 @@ body {
 }
 
 .navbar-brand:hover .navbar-brand-text {
-  background: linear-gradient(135deg, var(--coral) 0%, var(--sunset-orange) 50%, var(--coral) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--coral) 0%,
+    var(--sunset-orange) 50%,
+    var(--coral) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -161,13 +174,18 @@ body {
 
 /* Add a subtle retro underline effect */
 .navbar-brand-text::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -4px;
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--sunset-orange), var(--retro-yellow), var(--sunset-orange));
+  background: linear-gradient(
+    90deg,
+    var(--sunset-orange),
+    var(--retro-yellow),
+    var(--sunset-orange)
+  );
   border-radius: 2px;
   opacity: 0.6;
   transform: scaleX(0);
@@ -206,7 +224,9 @@ body {
   box-shadow: none;
   text-transform: none;
   letter-spacing: normal;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .navbar-menu-button:hover {
@@ -239,7 +259,9 @@ body {
   font-weight: 600;
   flex-shrink: 0;
   transition: all 0.2s ease;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .navbar-menu-button:hover .navbar-avatar {
@@ -328,6 +350,17 @@ body {
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .navbar-dropdown-item {
   display: flex;
   align-items: center;
@@ -348,7 +381,9 @@ body {
   letter-spacing: normal;
   min-height: auto;
   justify-content: flex-start;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .navbar-dropdown-item:last-child {
@@ -408,7 +443,9 @@ body {
   color: var(--gray-600);
   margin-bottom: 4px;
   text-align: left;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .navbar-dropdown-divider {
@@ -460,7 +497,7 @@ h1 {
   font-size: 3.5em;
   font-weight: 900;
   letter-spacing: -0.025em;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   text-transform: uppercase;
 }
 
@@ -508,7 +545,7 @@ h1 {
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.15s ease;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   text-transform: none;
   letter-spacing: normal;
   box-shadow: none;
@@ -609,6 +646,51 @@ h1 {
   justify-content: center;
   gap: 12px;
   font-weight: 600;
+}
+
+/* Skeleton Loading Styles */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 16px;
+  display: block;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
 }
 
 .error {
@@ -722,11 +804,16 @@ h1 {
 }
 
 .landing-brand-text {
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--sunset-orange) 0%, var(--coral) 50%, var(--retro-yellow) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--sunset-orange) 0%,
+    var(--coral) 50%,
+    var(--retro-yellow) 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -805,7 +892,7 @@ th:last-child {
 
 td {
   padding: 14px 12px;
-  border-bottom: 1px solid var(--sand);
+  border-bottom: 1px solid var(--gray-200);
   color: var(--gray-700);
   font-size: 0.95em;
 }
@@ -870,73 +957,143 @@ tbody tr:hover .sticky-col {
 
 .crown-icon {
   margin-left: 8px;
-  color: #FFD700;
+  color: #ffd700;
   vertical-align: middle;
 }
 
 /* Modern Rankings Table Styling */
 .rankings-table-wrapper {
   background: white;
-  border-radius: 16px;
-  border: 1px solid var(--gray-200);
-  box-shadow: var(--shadow-sm);
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  box-shadow: 0 1px 3px var(--gray-300);
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   margin-top: 0;
-  /* Ensure horizontal scrolling works */
-  min-width: 100%;
+  /* Ensure horizontal scrolling works - container should be constrained */
+  width: 100%;
+  max-width: 100%;
+  /* Ensure scrollbar doesn't affect alignment */
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-400) transparent;
 }
 
 .rankings-table-modern {
   width: 100%;
-  min-width: 800px; /* Minimum width to ensure columns don't get too cramped */
-  border-collapse: separate;
+  min-width: 800px; /* Minimum width to ensure columns don't get too cramped - forces scrolling if container is smaller */
+  border-collapse: separate; /* Separate needed for sticky positioning */
   border-spacing: 0;
   border: none;
   margin: 0;
   background: white;
   box-shadow: none;
-  table-layout: auto;
+  table-layout: auto; /* Auto layout allows natural column sizing while respecting min-widths */
 }
 
 .rankings-table-modern thead {
-  background: linear-gradient(135deg, var(--ocean-blue) 0%, var(--teal) 100%);
+  background: var(--gray-200);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.rankings-table-modern thead tr:first-child th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.rankings-table-modern thead tr:first-child th:last-child {
+  border-top-right-radius: 8px;
 }
 
 .rankings-table-modern th {
-  color: white;
-  padding: 16px 16px;
+  color: var(--gray-700);
+  padding: 14px 16px;
   text-align: left;
   cursor: pointer;
   user-select: none;
   font-weight: 600;
-  font-size: 0.85em;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   transition: all 0.2s;
   border: none;
   position: relative;
+  white-space: nowrap;
+  box-sizing: border-box; /* Ensure padding is included in width */
+  vertical-align: middle; /* Vertically center text */
+}
+
+.rankings-table-modern td {
+  box-sizing: border-box; /* Ensure padding is included in width */
+  vertical-align: middle; /* Vertically center text */
+}
+
+/* Ensure Points column (3rd column) has enough width for "POINTS ↑" */
+.rankings-table-modern th:nth-child(3) {
+  min-width: 80px;
+}
+
+/* Ensure Rating column (4th column) has enough width for "RATING ↑" */
+.rankings-table-modern th:nth-child(4) {
+  min-width: 85px;
+}
+
+.rankings-table-modern th.rank-number-header {
+  text-align: left;
+  color: var(--gray-600);
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  padding: 14px 4px 14px 12px; /* Reduced right padding to let arrow bleed */
+  vertical-align: middle;
+}
+
+.rankings-table-modern th.rank-number-header .th-content {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  justify-content: flex-start;
 }
 
 .rankings-table-modern th .th-content {
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
-.rankings-table-modern th:hover {
-  background: rgba(255, 255, 255, 0.15);
+.rankings-table-modern th:hover:not(.rank-number-header) {
+  background: var(--gray-100);
 }
 
 .rankings-table-modern thead .sticky-col {
-  background: linear-gradient(135deg, var(--ocean-blue) 0%, var(--teal) 100%);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  background: var(--gray-200);
+  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  left: 50px; /* Position after the rank number column which is 50px wide */
+  z-index: 10;
+  vertical-align: middle;
+  min-width: 220px;
+  width: 220px;
+}
+
+.rankings-table-modern thead .rank-number-header {
+  background: var(--gray-200);
+  z-index: 11;
 }
 
 .rankings-table-modern tbody .sticky-col {
   background: white;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.03);
+  position: sticky;
+  left: 50px; /* Position after the rank number column which is 50px wide */
+  z-index: 9;
+  vertical-align: middle;
+  min-width: 220px;
+  width: 220px;
 }
 
 .rankings-table-modern tbody tr:hover .sticky-col {
@@ -956,27 +1113,59 @@ tbody tr:hover .sticky-col {
   border-bottom: none;
 }
 
+.rankings-table-modern tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.rankings-table-modern tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+/* Rank number column */
+.rank-number-cell {
+  padding: 14px 4px 14px 12px;
+  text-align: left;
+  color: var(--gray-600);
+  font-weight: 500;
+  font-size: 0.875rem;
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: white;
+  vertical-align: middle;
+}
+
+.rankings-table-modern tbody tr:hover .rank-number-cell {
+  background: var(--gray-50);
+}
+
 .rankings-name-cell {
-  padding: 16px 16px;
-  min-width: 180px;
+  padding: 4px 16px;
+  min-width: 220px;
+  width: 220px;
+  vertical-align: middle;
 }
 
 .rankings-stat-cell {
-  padding: 16px 16px;
+  padding: 14px 16px;
   color: var(--gray-700);
-  font-size: 0.95em;
+  font-size: 0.9375rem;
   font-weight: 500;
   text-align: left;
-  font-variant-numeric: tabular-nums;
+  box-sizing: border-box; /* Ensure padding is included in width */
+  vertical-align: middle; /* Vertically center text */
 }
 
 .player-name-modern {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   color: var(--ocean-blue);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   transition: all 0.2s;
   padding: 4px 0;
 }
@@ -987,15 +1176,52 @@ tbody tr:hover .sticky-col {
 
 .player-name-modern .player-name-text {
   flex: 1;
+  font-weight: 600;
 }
 
-  .crown-icon-modern {
-    color: var(--retro-yellow);
-    flex-shrink: 0;
-    filter: drop-shadow(0 1px 2px rgba(255, 214, 107, 0.4));
-  }
+.crown-icon-modern {
+  color: var(--retro-yellow);
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(255, 214, 107, 0.4));
+}
 
-  /* Remove mobile label switching - we use full names everywhere */
+/* Player Avatar Styles */
+.player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.player-avatar-initials {
+  background-color: var(--gray-100);
+  border: 1px solid var(--gray-200);
+}
+
+.player-avatar-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.player-avatar-image {
+  background: transparent;
+}
+
+.player-avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Remove mobile label switching - we use full names everywhere */
 
 /* Winner/Loser cell styling */
 .winner-cell {
@@ -1137,7 +1363,7 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 650px;
   max-width: 100%;
-  padding: 32px;
+  padding: 24px;
   background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
   border-left: 1px solid var(--gray-200);
   box-shadow: -4px 0px 20px rgba(0, 0, 0, 0.08);
@@ -1200,7 +1426,7 @@ tbody tr:hover .sticky-col {
 }
 
 .player-details table thead {
-  background: linear-gradient(135deg, var(--ocean-blue) 0%, var(--teal) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #2c7c8fe3 100%);
 }
 
 .player-details table th {
@@ -1212,6 +1438,12 @@ tbody tr:hover .sticky-col {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border: none;
+}
+
+/* Center the Result column (4th column) in match history table */
+.player-details table thead th:nth-child(4),
+.player-details table tbody td:nth-child(4) {
+  text-align: center;
 }
 
 .player-details table tbody tr {
@@ -1326,20 +1558,30 @@ tbody tr:hover .sticky-col {
   }
 }
 
+@keyframes shimmer {
+  0%,
+  100% {
+    background-color: #ffffff2b;
+    box-shadow: -2px 0px 8px #3b82c81c;
+  }
+  50% {
+    background-color: #3b82c80d;
+    box-shadow: -2px 0px 8px rgba(0, 0, 0, 0);
+  }
+}
+
 /* Player Details Side Tab - Modern Design */
 .player-details-side-tab {
   position: fixed;
-  top: 50%;
-  right: 0;
+  top: 25%;
+  right: 10px;
   transform: translateY(-50%);
   z-index: 998;
-  background: white;
-  color: var(--gray-700);
+  background: var(--gray-50);
+  color: var(--deep-ocean);
   border: 1px solid var(--gray-300);
-  border-right: none;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  padding: 16px 10px;
+  border-radius: 100%;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1348,6 +1590,8 @@ tbody tr:hover .sticky-col {
   box-shadow: -2px 0px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
   writing-mode: vertical-rl;
+  opacity: 0.9;
+  animation: shimmer 3s ease-in-out infinite;
 }
 
 .player-details-side-tab:hover {
@@ -1356,11 +1600,20 @@ tbody tr:hover .sticky-col {
   transform: translateY(-50%) translateX(-4px);
   box-shadow: -4px 0px 12px rgba(0, 0, 0, 0.12);
   color: var(--ocean-blue);
+  opacity: 1;
+  animation: none;
 }
 
 .player-details-side-tab:active {
   transform: translateY(-50%) translateX(-2px);
   box-shadow: -2px 0px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 769px) {
+  .player-details-side-tab {
+    right: 20px;
+    padding: 16px;
+  }
 }
 
 .player-details-side-tab svg {
@@ -1399,7 +1652,6 @@ body.drawer-open {
 
 .player-selector-wrapper {
   position: relative;
-  flex: 1;
   min-width: 0;
 }
 
@@ -1409,17 +1661,16 @@ body.drawer-open {
   justify-content: space-between;
   gap: 12px;
   cursor: pointer;
-  padding: 14px 16px;
-  background: white;
-  border: 1.5px solid var(--gray-300);
+  padding: 14px 16px 10px 16px;
+  background: none;
+  border: none;
   border-radius: 12px;
   transition: all 0.2s ease;
   box-shadow: none;
 }
 
 .player-selector-current:hover {
-  border-color: var(--gray-400);
-  box-shadow: 0 0 0 3px rgba(59, 130, 200, 0.1);
+  opacity: 0.7;
 }
 
 .player-selector-current:active {
@@ -1430,7 +1681,7 @@ body.drawer-open {
   font-size: 1.25em;
   font-weight: 600;
   color: var(--gray-900);
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   letter-spacing: -0.01em;
 }
 
@@ -1509,6 +1760,11 @@ body.drawer-open {
   font-weight: 600;
 }
 
+.player-selector-option.highlighted {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
 .player-selector-option.disabled {
   cursor: not-allowed;
   color: var(--gray-600);
@@ -1547,7 +1803,7 @@ body.drawer-open {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 12px;
   background: white;
   border-radius: 12px;
   border: 1px solid var(--gray-200);
@@ -1562,7 +1818,7 @@ body.drawer-open {
 }
 
 .overview-icon {
-  color: var(--ocean-blue);
+  color: var(--sunset-orange);
   flex-shrink: 0;
 }
 
@@ -1585,7 +1841,7 @@ body.drawer-open {
   font-size: 1.75em;
   font-weight: 700;
   color: var(--gray-900);
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -1597,7 +1853,7 @@ body.drawer-open {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -1615,6 +1871,40 @@ body.drawer-open {
 }
 
 /* Player Details Header - Modern Button */
+.player-details-close-btn {
+  position: absolute;
+  top: 30px;
+  right: 24px;
+  background: none;
+  border: none;
+  color: var(--gray-600);
+  padding: 8px;
+  box-shadow: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.player-details-close-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+  transform: none;
+  box-shadow: none;
+}
+
+.player-details-close-btn:active {
+  transform: scale(0.95);
+  background: var(--gray-200);
+}
+
+/* Legacy support for old close button class */
 .player-details > .close-btn,
 .player-details button.close-btn {
   background: var(--gray-100);
@@ -1726,7 +2016,9 @@ body.drawer-open {
   /* League Dashboard Mobile */
   .league-dashboard-container {
     margin-top: 56px;
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); /* Space for bottom nav + safe area */
+    padding-bottom: calc(
+      72px + env(safe-area-inset-bottom, 0)
+    ); /* Space for bottom nav + safe area */
   }
 
   .league-dashboard {
@@ -1754,7 +2046,10 @@ body.drawer-open {
     background: #ffffffbf !important;
     backdrop-filter: blur(10px) !important;
     order: 2; /* Place after content */
-    padding-bottom: env(safe-area-inset-bottom, 0); /* Support for iPhone home indicator */
+    padding-bottom: env(
+      safe-area-inset-bottom,
+      0
+    ); /* Support for iPhone home indicator */
     overflow-y: visible !important;
     overflow-x: visible !important;
     transform: none !important;
@@ -1773,19 +2068,35 @@ body.drawer-open {
   /* Show header on mobile but hide collapse button, show title */
   .league-sidebar-header {
     display: flex;
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 2px !important;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    justify-content: center;
+    align-items: center;
   }
 
   .league-sidebar-collapse-btn {
-    display: none;
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .league-sidebar-title-wrapper-container {
+    display: flex !important;
+    flex: 0 0 auto;
+    width: auto;
+  }
+
+  .league-sidebar-title-wrapper {
+    display: flex !important;
+    width: auto;
+    justify-content: center;
   }
 
   .league-sidebar-title {
     display: block !important;
-    font-size: 1.1rem;
+    font-size: 1rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    white-space: nowrap;
   }
 
   /* Make nav horizontal on mobile */
@@ -1816,6 +2127,16 @@ body.drawer-open {
   /* Override collapsed state on mobile - always show labels */
   .league-sidebar.collapsed .league-sidebar-nav-item span {
     display: block !important;
+  }
+
+  /* Position dropdown above on mobile since sidebar is at bottom */
+  .league-sidebar-dropdown {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+  }
+
+  .league-sidebar-dropdown-menu {
+    animation: slideUp 0.2s ease-out !important;
   }
 
   .league-sidebar-nav-item.active::before {
@@ -1992,10 +2313,10 @@ body.drawer-open {
 
   /* Rankings table mobile optimization */
   .rankings-table-wrapper {
-    margin: 0 -8px; /* Extend closer to edge, less margin */
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
+    margin: 0; /* Remove negative margin to prevent table cutoff */
+    border-radius: 8px;
+    border-left: 1px solid var(--gray-300);
+    border-right: 1px solid var(--gray-300);
   }
 
   .rankings-table-modern {
@@ -2014,6 +2335,35 @@ body.drawer-open {
     font-size: 0.85em;
   }
 
+  /* No. column - narrower on mobile */
+  .rankings-table-modern th.rank-number-header {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 12px 2px 12px 8px;
+  }
+
+  .rank-number-cell {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 12px 2px 12px 8px;
+  }
+
+  /* Adjust sticky column position for narrower No. column */
+  .rankings-table-modern thead .sticky-col {
+    left: 40px;
+  }
+
+  .rankings-table-modern tbody .sticky-col {
+    left: 40px;
+  }
+
+  /* Hide player avatar on mobile */
+  .player-avatar {
+    display: none;
+  }
+
   /* Hide less critical columns on mobile */
   .mobile-hide-col {
     display: none;
@@ -2021,12 +2371,13 @@ body.drawer-open {
 
   .rankings-name-cell {
     min-width: 90px;
-    padding: 12px 8px;
+    padding: 4px 8px;
   }
 
   .rankings-stat-cell {
-    padding: 12px 6px;
-    min-width: 50px;
+    padding: 12px 4px;
+    min-width: 38px;
+    max-width: 50px;
     white-space: nowrap;
   }
 
@@ -2109,12 +2460,11 @@ body.drawer-open {
   /* Player Details - Full Screen on Mobile */
   .player-details {
     width: 100%;
-    padding: 16px;
+    padding: 12px 16px;
     border-left: none;
-    border-top: 3px solid var(--sunset-orange);
     /* Safe area padding for notched devices */
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 
@@ -2128,6 +2478,14 @@ body.drawer-open {
     margin-bottom: 12px;
   }
 
+  .player-details-close-btn {
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+  }
+
   /* Player Selector Mobile */
   .player-selector-container {
     flex-direction: row;
@@ -2138,7 +2496,6 @@ body.drawer-open {
   }
 
   .player-selector-wrapper {
-    flex: 1;
     min-width: 0;
   }
 
@@ -2163,10 +2520,9 @@ body.drawer-open {
 
   /* Side Tab - Smaller on mobile */
   .player-details-side-tab {
-    padding: 12px 8px;
+    padding: 10px;
     font-size: 0.85em;
-    border-top-left-radius: 8px;
-    border-bottom-left-radius: 8px;
+    border-radius: 40px;
   }
 
   /* Loading states */
@@ -2334,7 +2690,8 @@ body.drawer-open {
     font-size: 0.9em;
   }
 
-  th, td {
+  th,
+  td {
     padding: 8px 6px;
     min-width: 60px;
   }
@@ -2362,14 +2719,44 @@ body.drawer-open {
     font-size: 0.8em;
   }
 
+  /* No. column - narrower on mobile */
+  .rankings-table-modern th.rank-number-header {
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
+    padding: 10px 2px 10px 8px;
+  }
+
+  .rank-number-cell {
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
+    padding: 10px 2px 10px 8px;
+  }
+
+  /* Adjust sticky column position for narrower No. column */
+  .rankings-table-modern thead .sticky-col {
+    left: 35px;
+  }
+
+  .rankings-table-modern tbody .sticky-col {
+    left: 35px;
+  }
+
+  /* Hide player avatar on mobile */
+  .player-avatar {
+    display: none;
+  }
+
   .rankings-name-cell {
     min-width: 85px;
-    padding: 10px 6px;
+    padding: 4px 6px;
   }
 
   .rankings-stat-cell {
-    padding: 10px 5px;
-    min-width: 45px;
+    padding: 10px 4px;
+    min-width: 35px;
+    max-width: 50px;
   }
 
   /* League section - even less padding on very small screens */
@@ -2442,7 +2829,8 @@ body.drawer-open {
 }
 
 @keyframes wave {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
   50% {
@@ -2451,7 +2839,8 @@ body.drawer-open {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -2467,27 +2856,62 @@ body.drawer-open {
   animation: fadeIn 0.4s ease-out;
 }
 
-
-
-/* Custom scrollbar for retro vibe */
+/* Custom scrollbar - neutral, auto-hiding */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
+  transition: width 0.2s ease, opacity 0.3s ease;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--sand);
-  border-radius: 5px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--ocean-blue);
-  border-radius: 5px;
-  border: 2px solid var(--sand);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s ease, opacity 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--teal);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+/* Default: hide scrollbar when not scrolling and not hovering */
+html:not(:hover) body:not(.scrolling) ::-webkit-scrollbar {
+  opacity: 0;
+}
+
+html:not(:hover) body:not(.scrolling) ::-webkit-scrollbar-thumb {
+  opacity: 0;
+}
+
+/* Show scrollbar when scrolling */
+body.scrolling ::-webkit-scrollbar {
+  opacity: 1;
+}
+
+body.scrolling ::-webkit-scrollbar-thumb {
+  opacity: 1;
+}
+
+/* Show and widen scrollbar on hover (even when not scrolling) */
+html:hover ::-webkit-scrollbar,
+body:hover ::-webkit-scrollbar {
+  opacity: 1;
+  width: 8px;
+}
+
+html:hover ::-webkit-scrollbar-thumb,
+body:hover ::-webkit-scrollbar-thumb {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* React-based Tooltips */
@@ -2640,7 +3064,7 @@ body.drawer-open {
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
 }
 
 .modal-header .close-btn {
@@ -2776,7 +3200,7 @@ body.drawer-open {
 }
 
 .modal-stats-table th:not(:last-child)::after {
-  content: '';
+  content: "";
   position: absolute;
   right: 0;
   top: 20%;
@@ -2838,7 +3262,7 @@ body.drawer-open {
   box-shadow: none;
   transition: all 0.15s ease;
   font-weight: 500;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -2927,7 +3351,7 @@ body.drawer-open {
   border-radius: 8px;
   font-size: 2.5em;
   font-weight: 800;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   transition: all 0.2s;
   background: white;
   text-align: center;
@@ -2966,7 +3390,7 @@ body.drawer-open {
   color: white;
   font-size: 2.5em;
   font-weight: 800;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   transition: all 0.2s;
@@ -2990,7 +3414,7 @@ body.drawer-open {
   margin: 0;
 }
 
-.scorecard-digit-input[type=number] {
+.scorecard-digit-input[type="number"] {
   -moz-appearance: textfield;
 }
 
@@ -3014,7 +3438,7 @@ body.drawer-open {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--gray-500);
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   padding: 4px 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -3176,7 +3600,7 @@ select.form-select {
     width: 100%;
     max-width: 100%;
   }
-  
+
   .radio-card-group.radio-card-group-2,
   .radio-card-group.radio-card-group-3 {
     grid-template-columns: 1fr !important;
@@ -3285,15 +3709,15 @@ select.form-select {
     justify-content: center;
     gap: 0;
   }
-  
+
   .radio-card-header {
     margin-bottom: 8px;
   }
-  
+
   .radio-card-description {
     display: block;
   }
-  
+
   .radio-card-title {
     font-size: 1em;
     white-space: normal;
@@ -3389,7 +3813,9 @@ select.form-select {
   height: calc(100vh - 64px);
   overflow-y: auto;
   z-index: 100;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .league-sidebar-header {
@@ -3397,23 +3823,109 @@ select.form-select {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
+}
+
+.league-sidebar-title-wrapper-container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.league-sidebar-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0; /* Allow shrinking */
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+}
+
+.league-sidebar-title-wrapper:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.league-sidebar-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--gray-900);
+  margin: 0;
+  font-family: "Urbanist", sans-serif;
+  line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-wrap: wrap;
+  min-width: 0; /* Allow text to shrink */
+}
+
+.league-sidebar-title-caret {
+  color: var(--gray-500);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.league-sidebar-title-caret.open {
+  transform: rotate(180deg);
+}
+
+.league-sidebar-title-wrapper:hover .league-sidebar-title-caret {
+  color: var(--gray-700);
+}
+
+/* League Dropdown */
+.league-sidebar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1002;
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.league-sidebar-dropdown-menu {
+  position: relative;
+  right: auto;
+  left: 0;
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Current league highlighting in sidebar dropdown */
+.league-sidebar-current {
+  color: var(--sunset-orange) !important;
+  font-weight: 600;
+}
+
+.league-sidebar-current svg {
+  color: var(--sunset-orange) !important;
+}
+
+.league-sidebar-current:hover {
+  color: var(--sunset-orange) !important;
 }
 
 .league-sidebar-collapse-btn {
   background: transparent;
   border: none;
-  padding: 8px;
-  border-radius: 8px;
+  padding: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  color: var(--gray-700);
+  color: var(--gray-600);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .league-sidebar-collapse-btn:hover {
@@ -3425,27 +3937,19 @@ select.form-select {
   transform: scale(0.95);
 }
 
-.league-sidebar-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--gray-900);
-  margin: 0;
-  flex: 1;
-  font-family: 'Urbanist', sans-serif;
-  line-height: 1.2;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  text-wrap: wrap;
+.league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+  display: none;
 }
 
-.league-sidebar.collapsed .league-sidebar-title {
-  display: none;
+/* Center the collapse button when sidebar is collapsed */
+.league-sidebar.collapsed .league-sidebar-header {
+  justify-content: center;
 }
 
 /* Show title on mobile even when collapsed */
 @media (max-width: 768px) {
-  .league-sidebar.collapsed .league-sidebar-title {
-    display: block !important;
+  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+    display: flex !important;
   }
 }
 
@@ -3491,7 +3995,9 @@ select.form-select {
   text-align: left;
   transition: all 0.2s ease;
   position: relative;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .league-sidebar-nav-item:hover {
@@ -3506,7 +4012,7 @@ select.form-select {
 }
 
 .league-sidebar-nav-item.active::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -3534,15 +4040,20 @@ select.form-select {
   margin-left: 280px;
   overflow-y: auto;
   background: transparent;
-  min-height: calc(100vh - 64px);
+  min-height: 0; /* Allow natural height, don't force minimum */
   display: flex;
   flex-direction: column;
   transition: margin-left 0.3s ease;
 }
 
 /* Content wrapper for padding */
-.league-content > *:not(.league-content-header) {
+.league-content > *:not(.league-content-header):not(.league-section) {
   padding: 32px 40px;
+}
+
+/* league-section has its own padding, don't add parent padding */
+.league-content > .league-section {
+  padding: 18px;
 }
 
 /* League Content Header - Crisp, No Shadow */
@@ -3566,7 +4077,9 @@ select.form-select {
 }
 
 .league-content-header-text {
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: var(--gray-900);
@@ -3620,7 +4133,9 @@ select.form-select {
   color: var(--gray-900);
   flex: 1;
   max-width: 600px;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -3707,7 +4222,7 @@ select.form-select {
 
 /* League Section Styling - Modern iOS Cards */
 .league-section {
-  padding: 24px;
+  padding: 18px;
   margin-bottom: 24px;
 }
 
@@ -3820,7 +4335,6 @@ select.form-select {
   letter-spacing: 0.5px;
 }
 
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -3838,7 +4352,7 @@ select.form-select {
   font-weight: 800;
   color: var(--ocean-blue);
   margin: 0;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -3978,7 +4492,7 @@ select.form-select {
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 0.95em;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   resize: vertical;
   transition: all 0.2s;
   line-height: 1.5;
@@ -4029,7 +4543,7 @@ select.form-select {
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
 }
 
 .league-text-button:hover {
@@ -4345,7 +4859,7 @@ select.form-select {
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 0.9em;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
   background: white;
   color: var(--gray-900);
   cursor: pointer;
@@ -4383,7 +4897,7 @@ select.form-select {
 .league-seasons-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;  
+  gap: 8px;
 }
 
 .league-season-item {
@@ -4526,7 +5040,9 @@ select.form-select {
   border: 1px solid rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
   cursor: pointer;
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
 }
 
 .add-matches-card:hover {
@@ -4557,7 +5073,9 @@ select.form-select {
 }
 
 .add-matches-title {
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--gray-900);
@@ -4568,7 +5086,9 @@ select.form-select {
 }
 
 .add-matches-description {
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   font-size: 0.95rem;
   font-weight: 400;
   color: var(--gray-600);
@@ -4582,19 +5102,12 @@ select.form-select {
   text-align: center;
   padding: 24px;
   color: var(--gray-600);
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   font-size: 0.95rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Active Session Group - styled like match-date-group */
-.active-session-group {
-  border: 3px solid var(--success);
-  padding: 20px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--success-light) 0%, white 100%);
-  box-shadow: 4px 4px 0px rgba(16, 185, 129, 0.2);
 }
 
 .match-date-header-container {
@@ -4609,28 +5122,6 @@ select.form-select {
 .match-date-header-left {
   flex: 1;
   min-width: 0;
-}
-
-.active-session-group .match-date-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.active-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  background: var(--success);
-  color: white;
-  border-radius: 16px;
-  font-size: 0.7em;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .btn-end-session-header {
@@ -4774,7 +5265,7 @@ select.form-select {
     gap: 8px;
     margin-bottom: 6px;
   }
-  
+
   .team-section h3 {
     font-size: 0.95em;
   }
@@ -4783,12 +5274,12 @@ select.form-select {
     padding: 4px 10px;
     font-size: 0.7em;
   }
-  
+
   .vs-divider {
     font-size: 1.2em;
     padding: 4px 0;
   }
-  
+
   .form-error {
     padding: 10px;
     font-size: 13px;
@@ -4828,9 +5319,6 @@ select.form-select {
     justify-content: center;
   }
 
-  .active-session-group {
-    padding: 16px;
-  }
 
   .add-match-card {
     padding: 30px 20px;
@@ -4844,7 +5332,7 @@ select.form-select {
     padding: 4px;
     padding-top: 10px;
   }
-  
+
   .modal-content {
     max-height: calc(100vh - 20px);
   }
@@ -4888,7 +5376,7 @@ select.form-select {
     padding: 10px 14px;
     gap: 8px;
   }
-  
+
   .modal-actions button {
     padding: 10px 14px;
   }
@@ -4922,7 +5410,7 @@ select.form-select {
     gap: 6px;
     margin-bottom: 4px;
   }
-  
+
   .team-section h3 {
     font-size: 0.9em;
   }
@@ -4931,12 +5419,12 @@ select.form-select {
     padding: 3px 8px;
     font-size: 0.65em;
   }
-  
+
   .vs-divider {
     font-size: 1em;
     padding: 2px 0;
   }
-  
+
   .form-error {
     padding: 8px 10px;
     font-size: 12px;
@@ -4971,9 +5459,6 @@ select.form-select {
     font-size: 0.95rem;
   }
 
-  .active-session-group {
-    padding: 12px;
-  }
 
   .add-match-card {
     padding: 24px 16px;
@@ -5183,7 +5668,7 @@ select.form-select {
   font-weight: normal !important;
   min-height: auto !important;
   gap: 0 !important;
-  
+
   /* Simple X button styling */
   width: 32px;
   height: 32px;
@@ -5563,7 +6048,8 @@ select.form-select {
 }
 
 @keyframes recording-blink {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -5669,7 +6155,7 @@ select.form-select {
   cursor: pointer;
   transition: all 0.15s ease;
   border: none;
-  font-family: 'Urbanist', sans-serif;
+  font-family: "Urbanist", sans-serif;
 }
 
 .session-btn-add {
@@ -6116,7 +6602,7 @@ select.form-select {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .league-signups-section,
   .league-schedules-section {
     padding: 8px 4px;

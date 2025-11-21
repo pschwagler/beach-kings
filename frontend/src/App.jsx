@@ -101,6 +101,28 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // Auto-hide scrollbar when scrolling stops
+  useEffect(() => {
+    let scrollTimeout;
+    const handleScroll = () => {
+      document.body.classList.add('scrolling');
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        document.body.classList.remove('scrolling');
+      }, 1000); // Hide scrollbar 1 second after scrolling stops
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Also handle scroll on document and html element for better compatibility
+    document.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, []);
+
   const navigateToLeague = (leagueId) => {
     window.history.pushState({}, '', `/league/${leagueId}`);
     window.dispatchEvent(new PopStateEvent('popstate'));

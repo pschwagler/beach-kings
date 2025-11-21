@@ -10,6 +10,7 @@ import SeasonsSection from './SeasonsSection';
 import LeagueInfoSection from './LeagueInfoSection';
 import AddPlayersModal from './AddPlayersModal';
 import CreateSeasonModal from './CreateSeasonModal';
+import { LeagueDetailsSkeleton } from '../ui/Skeletons';
 
 export default function LeagueDetailsTab() {
   const {
@@ -65,7 +66,7 @@ export default function LeagueDetailsTab() {
   };
 
   if (!league) {
-    return <div className="loading">Loading league details...</div>;
+    return <LeagueDetailsSkeleton />;
   }
 
   return (

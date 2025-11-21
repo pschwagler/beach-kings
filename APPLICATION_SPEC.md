@@ -6,6 +6,7 @@
 - What if a player is not signed up as a user?
     - Rating is not tracked until they sign up and claim the player profile
     - They can still play in leagues and sessions, but their rating is not tracked until they sign up
+    - ~~~ 11/19 - HOW CAN THEY BE ADDED TO LEAGUE / SESSION? ~~~ This part doesn't make sense with my model!
 - Should the players table be seeded with players from AVP?
     - if so, if a user realizes they are also on AVP, would we merge their players?
     - script to update AVP data would upsert, looking up avp ID first

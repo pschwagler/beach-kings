@@ -38,10 +38,8 @@ export default function LeagueSignUpsTab() {
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   
-  const isLeagueMember = useMemo(() => {
-    if (!currentUserPlayer || !members.length) return false;
-    return members.some(m => m.player_id === currentUserPlayer.id);
-  }, [currentUserPlayer, members]);
+  // Get isLeagueMember from context
+  const { isLeagueMember } = useLeague();
   
   // Get active season
   const activeSeason = useMemo(() => {
@@ -231,7 +229,6 @@ export default function LeagueSignUpsTab() {
           signups={upcomingSignups}
           loading={loading}
           isUpcoming={true}
-          isLeagueMember={isLeagueMember}
           isLeagueAdmin={isLeagueAdmin}
           currentUserPlayer={currentUserPlayer}
           onSignup={handleSignup}
@@ -257,7 +254,6 @@ export default function LeagueSignUpsTab() {
             signups={pastSignups}
             loading={false}
             isUpcoming={false}
-            isLeagueMember={isLeagueMember}
             isLeagueAdmin={isLeagueAdmin}
             currentUserPlayer={currentUserPlayer}
             onSignup={handleSignup}

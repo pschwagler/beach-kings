@@ -205,7 +205,13 @@ def test_courts_crud_system_admin(monkeypatch):
 def test_matches_query_public(monkeypatch):
     # no auth provided; should still work for submitted-only public view
     client = TestClient(app)
-    r = client.post("/api/matches/query", json={"limit": 5})
+    
+    async def fake_query_matches(session, body, user=None):
+        return []
+    
+    monkeypatch.setattr(data_service, "query_matches", fake_query_matches, raising=True)
+    
+    r = client.post("/api/matches/search", json={"limit": 5})
     # even if empty DB, endpoint should respond
     if r.status_code != 200:
         print(f"Error: {r.status_code}, {r.text}")

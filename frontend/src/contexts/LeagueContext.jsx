@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getLeague, getLeagueSeasons, getLeagueMembers, getRankings, getSeasonMatches, getAllPlayerSeasonStats, getAllSeasonPartnershipOpponentStats } from '../services/api';
 import { useAuth } from './AuthContext';
 import { transformPlayerData } from '../components/league/utils/playerDataUtils';
@@ -30,6 +30,16 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const activeSeason = useMemo(() => {
     return seasons?.find(s => s.is_active === true) || null;
   }, [seasons]);
+
+  // Compute isLeagueMember from members
+  const isLeagueMember = useMemo(() => {
+    if (!currentUserPlayer || !members.length) return false;
+    // Handle both string and number IDs
+    return members.some(m => 
+      String(m.player_id) === String(currentUserPlayer.id) || 
+      Number(m.player_id) === Number(currentUserPlayer.id)
+    );
+  }, [currentUserPlayer, members]);
 
   // Compute isLeagueAdmin from members
   const isLeagueAdmin = useMemo(() => {
@@ -119,12 +129,25 @@ export const LeagueProvider = ({ children, leagueId }) => {
     ));
   }, []);
 
+  // Use refs to track loading state without causing re-renders
+  const loadingRef = useRef({});
+  const dataRef = useRef({});
+  
+  // Update refs when state changes
+  useEffect(() => {
+    loadingRef.current = seasonDataLoading;
+  }, [seasonDataLoading]);
+  
+  useEffect(() => {
+    dataRef.current = seasonData;
+  }, [seasonData]);
+  
   // Load season data with progressive loading
   const loadSeasonData = useCallback(async (seasonId) => {
     if (!seasonId) return;
     
-    // Don't reload if already loading or loaded
-    if (seasonDataLoading[seasonId] || seasonData[seasonId]) {
+    // Check if already loading or loaded using refs (doesn't cause re-render)
+    if (loadingRef.current[seasonId] || dataRef.current[seasonId]) {
       return;
     }
     
@@ -137,18 +160,35 @@ export const LeagueProvider = ({ children, leagueId }) => {
     
     try {
       // Load rankings immediately (fast, show first)
-      const rankings = await getRankings({ season_id: seasonId });
-      
-      // Update with rankings first
-      setSeasonData(prev => ({
-        ...prev,
-        [seasonId]: {
-          rankings: rankings || [],
-          matches: null,
-          player_season_stats: null,
-          partnership_opponent_stats: null
+      // Handle 404 gracefully - return empty array instead of failing
+      let rankings = [];
+      try {
+        rankings = await getRankings({ season_id: seasonId }) || [];
+      } catch (err) {
+        // If 404 or empty, use empty array - don't fail the whole load
+        if (err.response?.status === 404) {
+          console.log('No rankings found for season', seasonId, '- using empty array');
+          rankings = [];
+        } else {
+          throw err; // Re-throw other errors
         }
-      }));
+      }
+      
+      // Update with rankings first (check again to avoid race conditions)
+      setSeasonData(prev => {
+        if (prev[seasonId]) {
+          return prev; // Already loaded
+        }
+        return {
+          ...prev,
+          [seasonId]: {
+            rankings: rankings || [],
+            matches: null,
+            player_season_stats: null,
+            partnership_opponent_stats: null
+          }
+        };
+      });
       
       // Load matches, player stats, and partnership/opponent stats in parallel (background)
       const [matches, playerStats, partnershipOpponentStats] = await Promise.all([
@@ -166,22 +206,44 @@ export const LeagueProvider = ({ children, leagueId }) => {
         })
       ]);
       
-      // Update with complete data
-      setSeasonData(prev => ({
-        ...prev,
-        [seasonId]: {
-          rankings: rankings || [],
-          matches: matches || [],
-          player_season_stats: playerStats || {},
-          partnership_opponent_stats: partnershipOpponentStats || {}
+      // Update with complete data (check again to avoid race conditions)
+      setSeasonData(prev => {
+        const existing = prev[seasonId];
+        if (existing?.matches && existing?.player_season_stats) {
+          // Already has complete data, don't overwrite
+          return prev;
         }
-      }));
+        return {
+          ...prev,
+          [seasonId]: {
+            rankings: existing?.rankings || rankings || [],
+            matches: matches || [],
+            player_season_stats: playerStats || {},
+            partnership_opponent_stats: partnershipOpponentStats || {}
+          }
+        };
+      });
     } catch (err) {
       console.error('Error loading season data:', err);
       setSeasonDataError(prev => ({
         ...prev,
         [seasonId]: err.response?.data?.detail || 'Failed to load season data'
       }));
+      // Set empty data structure on error to prevent retries
+      setSeasonData(prev => {
+        if (prev[seasonId]) {
+          return prev; // Don't overwrite if data exists
+        }
+        return {
+          ...prev,
+          [seasonId]: {
+            rankings: [],
+            matches: [],
+            player_season_stats: {},
+            partnership_opponent_stats: {}
+          }
+        };
+      });
     } finally {
       setSeasonDataLoading(prev => {
         const newState = { ...prev };
@@ -189,14 +251,19 @@ export const LeagueProvider = ({ children, leagueId }) => {
         return newState;
       });
     }
-  }, [seasonDataLoading, seasonData]);
+  }, []); // Empty deps - function is stable, uses refs for state checks
   
   // Auto-load season data when active season changes
   useEffect(() => {
     if (activeSeason?.id) {
-      loadSeasonData(activeSeason.id);
+      // Check using refs to avoid infinite loop
+      const seasonId = activeSeason.id;
+      if (!loadingRef.current[seasonId] && !dataRef.current[seasonId]) {
+        loadSeasonData(seasonId);
+      }
     }
-  }, [activeSeason?.id, loadSeasonData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSeason?.id]); // Only depend on activeSeason.id - loadSeasonData is stable
   
   const refreshSeasonData = useCallback(async (seasonId) => {
     // Clear existing data and reload
@@ -253,6 +320,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     seasonDataError: activeSeason ? seasonDataError[activeSeason.id] : null,
     loadSeasonData,
     refreshSeasonData,
+    isLeagueMember,
     isLeagueAdmin,
     // Selected player state
     selectedPlayerId,

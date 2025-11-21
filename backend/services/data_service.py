@@ -28,6 +28,35 @@ import csv
 import io
 
 #
+# Helper functions
+#
+
+def generate_player_initials(name: str) -> str:
+    """
+    Generate initials from player name.
+    Returns first letter of first name + first letter of last name.
+    If only one name, returns first two letters.
+    """
+    if not name or not name.strip():
+        return ""
+    
+    name_parts = name.strip().split()
+    
+    if len(name_parts) == 0:
+        return ""
+    elif len(name_parts) == 1:
+        # Single name - return first two letters (if available)
+        single_name = name_parts[0]
+        if len(single_name) >= 2:
+            return single_name[0:2].upper()
+        else:
+            return single_name[0].upper()
+    else:
+        # Multiple names - return first letter of first name + first letter of last name
+        return (name_parts[0][0] + name_parts[-1][0]).upper()
+
+
+#
 # Async versions of data service functions
 # These use SQLAlchemy ORM with async sessions
 #
@@ -1047,6 +1076,8 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         query = select(
             Player.id.label("player_id"),
             Player.full_name.label("name"),
+            Player.avatar.label("avatar"),
+            Player.profile_picture_url.label("profile_picture_url"),
             func.coalesce(stats_subq.c.points, 0).label("points"),
             func.coalesce(stats_subq.c.games, 0).label("games"),
             func.coalesce(stats_subq.c.wins, 0).label("wins"),
@@ -1065,10 +1096,12 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         result = await session.execute(query)
         rows = result.all()
         
-        return [
+        # Build rankings list with all stats
+        rankings = [
             {
                 "player_id": row.player_id,
                 "Name": row.name,
+                "avatar": row.avatar if row.avatar else generate_player_initials(row.name),
                 "Points": row.points or 0,
                 "Games": row.games or 0,
                 "Win Rate": row.win_rate or 0.0,
@@ -1079,6 +1112,23 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             }
             for row in rows if row.points > 0 or row.games > 0  # Only return players with stats
         ]
+        
+        # Sort by default ranking logic: Points → Avg Pt Diff → Win Rate → ELO (all descending)
+        rankings_sorted = sorted(
+            rankings,
+            key=lambda p: (
+                -(p["Points"] or 0),  # Negative for descending
+                -(p["Avg Pt Diff"] or 0.0),
+                -(p["Win Rate"] or 0.0),
+                -(p["ELO"] or 0)
+            )
+        )
+        
+        # Add season_rank (1-indexed) based on default sorting
+        for idx, player in enumerate(rankings_sorted):
+            player["season_rank"] = idx + 1
+        
+        return rankings_sorted
     except Exception:
         # If query fails, return empty list (stats haven't been calculated yet)
         return []

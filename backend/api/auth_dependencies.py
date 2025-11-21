@@ -166,6 +166,46 @@ def make_require_league_member():
     return _dep
 
 
+def make_require_league_member_with_403_auth():
+    """
+    Require league membership, returning 403 for both unauthenticated and non-member users.
+    This converts 401 (Unauthorized) to 403 (Forbidden) to avoid leaking information about authentication status.
+    """
+    async def _dep(
+        league_id: int,
+        session: AsyncSession = Depends(get_db_session),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    ) -> dict:
+        # Check authentication - return 403 if not authenticated
+        if credentials is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        
+        token = credentials.credentials
+        
+        # Verify token
+        payload = auth_service.verify_token(token)
+        if payload is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        
+        # Get user_id from token
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        
+        # Get user from database
+        user = await user_service.get_user_by_id(session, user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        
+        # Check league membership - return 403 if not a member
+        if await _is_system_admin(session, user):
+            return user
+        if not await _has_league_role(session, user_id=user["id"], league_id=league_id, required_role=None):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        return user
+    return _dep
+
+
 def make_require_league_member_from_season():
     """Require league membership, getting league_id from season_id."""
     async def _dep(

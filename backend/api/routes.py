@@ -18,6 +18,7 @@ from backend.api.auth_dependencies import (
     require_system_admin,
     make_require_league_admin,
     make_require_league_member,
+    make_require_league_member_with_403_auth,
     make_require_league_admin_from_season,
     make_require_league_member_from_season,
     make_require_league_admin_from_schedule,
@@ -143,14 +144,20 @@ async def list_leagues(session: AsyncSession = Depends(get_db_session)):
 
 
 @router.get("/api/leagues/{league_id}", response_model=LeagueResponse)
-async def get_league(league_id: int, session: AsyncSession = Depends(get_db_session)):
+async def get_league(
+    league_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    user: dict = Depends(make_require_league_member_with_403_auth()),
+):
     """
-    Get a league by id (public).
+    Get a league by id. Requires authentication and league membership.
+    Returns 403 if user is not authenticated or not a league member.
     """
     try:
+        # Check if league exists - return 403 instead of 404 to avoid leaking information
         league = await data_service.get_league(session, league_id)
         if not league:
-            raise HTTPException(status_code=404, detail="League not found")
+            raise HTTPException(status_code=403, detail="Forbidden")
         return league
     except HTTPException:
         raise

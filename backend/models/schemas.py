@@ -17,6 +17,7 @@ class RankingResponse(BaseModel):
     Losses: int
     Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
     ELO: int
+    season_rank: int
 
 
 class PartnershipStats(BaseModel):

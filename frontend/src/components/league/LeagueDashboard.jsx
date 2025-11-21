@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users } from 'lucide-react';
 import NavBar from '../layout/NavBar';
 import LeagueRankingsTab from './LeagueRankingsTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
@@ -9,11 +9,25 @@ import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
+import NavDropdown from '../layout/navbar/NavDropdown';
+import NavDropdownSection from '../layout/navbar/NavDropdownSection';
+import NavDropdownItem from '../layout/navbar/NavDropdownItem';
+import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton, LeagueSidebarTitleSkeleton } from '../ui/Skeletons';
 
 function LeagueDashboardContent({ leagueId }) {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
-  const [activeTab, setActiveTab] = useState('rankings');
+  // Initialize activeTab from URL params immediately
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      if (tab && ['rankings', 'matches', 'details', 'signups'].includes(tab)) {
+        return tab;
+      }
+    }
+    return 'rankings';
+  });
   const { message, showMessage } = useLeague();
   const [userLeagues, setUserLeagues] = useState([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -23,13 +37,15 @@ function LeagueDashboardContent({ leagueId }) {
     }
     return false;
   });
+  const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState(false);
+  const leagueDropdownRef = useRef(null);
   
   // League name editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [leagueName, setLeagueName] = useState('');
 
-  // Get isLeagueAdmin from context
-  const { isLeagueAdmin } = useLeague();
+  // Get isLeagueAdmin and isLeagueMember from context
+  const { isLeagueAdmin, isLeagueMember } = useLeague();
 
   // Get tab from URL query parameter
   useEffect(() => {
@@ -73,6 +89,20 @@ function LeagueDashboardContent({ leagueId }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Close league dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (leagueDropdownRef.current && !leagueDropdownRef.current.contains(event.target)) {
+        setIsLeagueDropdownOpen(false);
+      }
+    };
+
+    if (isLeagueDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isLeagueDropdownOpen]);
 
   const handleBack = () => {
     window.history.pushState({}, '', '/');
@@ -123,6 +153,14 @@ function LeagueDashboardContent({ leagueId }) {
     }
   };
 
+  const handleLeagueSelect = (selectedLeagueId) => {
+    if (selectedLeagueId !== leagueId) {
+      window.history.pushState({}, '', `/league/${selectedLeagueId}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    setIsLeagueDropdownOpen(false);
+  };
+
   const handlePlayerClick = (playerName) => {
     // Navigate to player details - could be implemented later
     console.log('Player clicked:', playerName);
@@ -149,6 +187,23 @@ function LeagueDashboardContent({ leagueId }) {
     navigateTo('/');
   };
 
+  // Render appropriate skeleton based on active tab
+  const renderTabSkeleton = () => {
+    switch (activeTab) {
+      case 'rankings':
+        return <RankingsTableSkeleton />;
+      case 'matches':
+        // Always show Add Match card skeleton during loading to match final layout
+        return <MatchesTableSkeleton isLeagueMember={true} />;
+      case 'signups':
+        return <SignupListSkeleton />;
+      case 'details':
+        return <LeagueDetailsSkeleton />;
+      default:
+        return <RankingsTableSkeleton />;
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -163,8 +218,60 @@ function LeagueDashboardContent({ leagueId }) {
           onSignUp={handleSignUp}
         />
         <div className="league-dashboard-container">
-          <div className="league-loading">
-            Loading league...
+          <div className="league-dashboard">
+            {/* Left Sidebar Navigation */}
+            <aside className={`league-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+              <div className="league-sidebar-header">
+                <LeagueSidebarTitleSkeleton />
+                <button
+                  className="league-sidebar-collapse-btn"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  {sidebarCollapsed ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+                </button>
+              </div>
+              
+              <nav className="league-sidebar-nav">
+                <button
+                  className={`league-sidebar-nav-item ${activeTab === 'rankings' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('rankings')}
+                  title="Leaderboard"
+                >
+                  <Trophy size={20} />
+                  <span>Leaderboard</span>
+                </button>
+                <button
+                  className={`league-sidebar-nav-item ${activeTab === 'matches' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('matches')}
+                  title="Matches"
+                >
+                  <Calendar size={20} />
+                  <span>Matches</span>
+                </button>
+                <button
+                  className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('signups')}
+                  title="Schedule & Sign Ups"
+                >
+                  <Calendar size={20} />
+                  <span>Sign Ups</span>
+                </button>
+                <button
+                  className={`league-sidebar-nav-item ${activeTab === 'details' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('details')}
+                  title="Details"
+                >
+                  <Settings size={20} />
+                  <span>Details</span>
+                </button>
+              </nav>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="league-content">
+              {renderTabSkeleton()}
+            </main>
           </div>
         </div>
       </>
@@ -195,6 +302,32 @@ function LeagueDashboardContent({ leagueId }) {
     );
   }
 
+  // Check if user is a league member (only check if authenticated and members are loaded)
+  if (isAuthenticated && members.length > 0 && !isLeagueMember) {
+    return (
+      <>
+        <NavBar
+          isLoggedIn={isAuthenticated}
+          user={user}
+          currentUserPlayer={currentUserPlayer}
+          userLeagues={userLeagues}
+          onLeaguesMenuClick={handleLeaguesMenuClick}
+          onSignOut={handleSignOut}
+          onSignIn={handleSignIn}
+          onSignUp={handleSignUp}
+        />
+        <div className="league-dashboard-container">
+          <div className="league-error">
+            <div className="league-message error">
+              <h2>Access Denied</h2>
+              <p>You don't have access to this league. Please contact a league administrator to be added as a member.</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <NavBar
@@ -212,14 +345,45 @@ function LeagueDashboardContent({ leagueId }) {
           {/* Left Sidebar Navigation */}
           <aside className={`league-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
             <div className="league-sidebar-header">
+              <div className="league-sidebar-title-wrapper-container" ref={leagueDropdownRef}>
+                <button
+                  className="league-sidebar-title-wrapper"
+                  onClick={() => setIsLeagueDropdownOpen(!isLeagueDropdownOpen)}
+                  aria-label="Select league"
+                >
+                  <h1 className="league-sidebar-title">{league.name}</h1>
+                  <ChevronDown 
+                    size={16} 
+                    className={`league-sidebar-title-caret ${isLeagueDropdownOpen ? 'open' : ''}`}
+                  />
+                </button>
+                {isLeagueDropdownOpen && isAuthenticated && userLeagues.length > 0 && (
+                  <div className="league-sidebar-dropdown">
+                    <NavDropdown className="league-sidebar-dropdown-menu">
+                      <NavDropdownSection title="My Leagues">
+                        {userLeagues.map((userLeague) => (
+                          <NavDropdownItem
+                            key={userLeague.id}
+                            icon={Users}
+                            variant={userLeague.id === leagueId ? 'league' : 'default'}
+                            onClick={() => handleLeagueSelect(userLeague.id)}
+                            className={userLeague.id === leagueId ? 'league-sidebar-current' : ''}
+                          >
+                            {userLeague.name}
+                          </NavDropdownItem>
+                        ))}
+                      </NavDropdownSection>
+                    </NavDropdown>
+                  </div>
+                )}
+              </div>
               <button
                 className="league-sidebar-collapse-btn"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               >
-                {sidebarCollapsed ? <Menu size={20} /> : <XIcon size={20} />}
+                {sidebarCollapsed ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
               </button>
-              <h1 className="league-sidebar-title">{league.name}</h1>
             </div>
             
             <nav className="league-sidebar-nav">

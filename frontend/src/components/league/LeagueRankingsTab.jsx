@@ -25,12 +25,18 @@ export default function LeagueRankingsTab() {
   const [message, showMessage] = useMessage(5000);
 
   // Get rankings from context
+  // Return null if rankings hasn't loaded yet (undefined), only return [] if explicitly empty array
   const rankings = useMemo(() => {
-    return activeSeasonData?.rankings || [];
+    if (!activeSeasonData) return null;
+    // If rankings is undefined, data hasn't loaded yet - return null
+    if (activeSeasonData.rankings === undefined) return null;
+    // If rankings is explicitly an array (even if empty), return it
+    return Array.isArray(activeSeasonData.rankings) ? activeSeasonData.rankings : [];
   }, [activeSeasonData]);
 
   // Get all player names from rankings
   const allPlayerNames = useMemo(() => {
+    if (!rankings || !Array.isArray(rankings)) return [];
     return rankings.map(r => r.Name) || [];
   }, [rankings]);
 
@@ -52,7 +58,7 @@ export default function LeagueRankingsTab() {
   const handleSideTabClick = useCallback(() => {
     if (selectedPlayerId && playerSeasonStats) {
       setIsPlayerPanelOpen(true);
-    } else if (rankings.length > 0) {
+    } else if (rankings && Array.isArray(rankings) && rankings.length > 0) {
       // Try to find current user's player first
       let playerToSelect = null;
       if (currentUserPlayer && currentUserPlayer.id) {
@@ -79,6 +85,7 @@ export default function LeagueRankingsTab() {
 
   const handlePlayerChange = useCallback((newPlayerName) => {
     // Find player by name in rankings
+    if (!rankings || !Array.isArray(rankings)) return;
     const player = rankings.find(r => r.Name === newPlayerName);
     if (player && player.player_id) {
       setSelectedPlayer(player.player_id, newPlayerName);

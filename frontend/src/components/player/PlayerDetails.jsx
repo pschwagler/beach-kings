@@ -1,5 +1,4 @@
 import { X } from 'lucide-react';
-import { Button } from '../ui/UI';
 import PlayerSelector from './PlayerSelector';
 import PlayerOverview from './PlayerOverview';
 import MatchHistoryTable from '../match/MatchHistoryTable';
@@ -13,10 +12,9 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
 
   return (
     <div className="player-details">
-      <Button variant="close" onClick={onClose}>
-        <X size={16} />
-        Close
-      </Button>
+      <button className="player-details-close-btn" onClick={onClose} aria-label="Close player details">
+        <X size={20} />
+      </button>
       
       <PlayerSelector 
         playerName={playerName}
