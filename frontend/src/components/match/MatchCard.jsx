@@ -30,10 +30,10 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
       {/* Team 1 */}
       <div className={`match-team ${team1Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1']); }}>
             {match['Team 1 Player 1']}
           </span>
-          <span className="player-name" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2']); }}>
             {match['Team 1 Player 2']}
           </span>
         </div>
@@ -45,10 +45,10 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
       {/* Team 2 */}
       <div className={`match-team ${team2Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1']); }}>
             {match['Team 2 Player 1']}
           </span>
-          <span className="player-name" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2']); }}>
             {match['Team 2 Player 2']}
           </span>
         </div>

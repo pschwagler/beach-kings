@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import PlayerDetails from './PlayerDetails';
-import PlayerDetailsSideTab from './PlayerDetailsSideTab';
 
 export default function PlayerDetailsPanel({
   selectedPlayer,
@@ -10,7 +9,6 @@ export default function PlayerDetailsPanel({
   allPlayerNames,
   onPlayerChange,
   onClose,
-  onSideTabClick,
   leagueName,
   seasonName
 }) {
@@ -28,29 +26,20 @@ export default function PlayerDetailsPanel({
     };
   }, [isPanelOpen]);
 
+  if (!isPanelOpen) return null;
+
   return (
     <>
-      {/* Backdrop - only shown when panel is open */}
-      {isPanelOpen && (
-        <>
-          <div className="player-details-backdrop" onClick={onClose} />
-          <PlayerDetails
-            playerName={selectedPlayer}
-            stats={playerStats}
-            matchHistory={playerMatchHistory}
-            onClose={onClose}
-            allPlayers={allPlayerNames}
-            onPlayerChange={onPlayerChange}
-            leagueName={leagueName}
-            seasonName={seasonName}
-          />
-        </>
-      )}
-
-      {/* Side Tab - only shown when panel is closed */}
-      <PlayerDetailsSideTab
-        onClick={onSideTabClick}
-        isVisible={!isPanelOpen}
+      <div className="player-details-backdrop" onClick={onClose} />
+      <PlayerDetails
+        playerName={selectedPlayer}
+        stats={playerStats}
+        matchHistory={playerMatchHistory}
+        onClose={onClose}
+        allPlayers={allPlayerNames}
+        onPlayerChange={onPlayerChange}
+        leagueName={leagueName}
+        seasonName={seasonName}
       />
     </>
   );

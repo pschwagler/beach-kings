@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 // Helper to check if an item is an object with value/label
@@ -31,24 +32,63 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  
   const dropdownRef = useRef(null);
   const optionsRefs = useRef([]);
   const triggerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const menuRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      // Check if click is inside trigger or menu
+      const clickedTrigger = triggerRef.current && triggerRef.current.contains(event.target);
+      const clickedMenu = menuRef.current && menuRef.current.contains(event.target);
+      
+      if (!clickedTrigger && !clickedMenu) {
         setIsOpen(false);
         setSearchTerm('');
         setHighlightedIndex(-1);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      // Close on ANY scroll (including modal) or resize
+      // Use capture=true for scroll to catch events from children (like the modal)
+      document.addEventListener('scroll', () => setIsOpen(false), true);
+      window.addEventListener('resize', () => setIsOpen(false));
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('scroll', () => setIsOpen(false), true);
+      window.removeEventListener('resize', () => setIsOpen(false));
+    };
+  }, [isOpen]);
+
+  // Update menu position when opening
+  useLayoutEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const menuHeight = 300; // max-height of menu
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // If not enough space below and more space above, position above
+      const showAbove = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+      
+      setMenuPosition({
+        top: showAbove ? rect.top - menuHeight - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        showAbove
+      });
+    }
+  }, [isOpen]);
 
   // Normalize allPlayerNames to always be an array of objects with value/label
   const normalizedPlayers = (Array.isArray(allPlayerNames) && allPlayerNames.length > 0)
@@ -92,7 +132,10 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   // Focus search input when dropdown opens, clear search when it closes
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
+      // Small timeout to ensure element is in DOM
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 10);
     } else if (!isOpen) {
       setSearchTerm('');
     }
@@ -216,8 +259,21 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
         <ChevronDown size={18} className={isOpen ? 'rotate-180' : ''} />
       </div>
 
-      {isOpen && (
-        <div className="player-dropdown-menu">
+      {isOpen && createPortal(
+        <div 
+          ref={menuRef}
+          className={`player-dropdown-menu ${menuPosition.showAbove ? 'above' : ''}`}
+          style={{
+            position: 'fixed', // Use fixed positioning for better reliability
+            top: menuPosition.showAbove ? 'auto' : `${menuPosition.top}px`,
+            bottom: menuPosition.showAbove ? `${window.innerHeight - menuPosition.top - 304}px` : 'auto',
+            left: `${menuPosition.left}px`,
+            width: `${menuPosition.width}px`,
+            right: 'auto', // Override any CSS right: 0
+            // Ensure it's on top of everything
+            zIndex: 9999
+          }}
+        >
           <input
             ref={searchInputRef}
             type="text"
@@ -226,7 +282,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoFocus
+            // No autoFocus here, we handle it in useEffect
             onClick={(e) => e.stopPropagation()}
           />
           
@@ -249,7 +305,8 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

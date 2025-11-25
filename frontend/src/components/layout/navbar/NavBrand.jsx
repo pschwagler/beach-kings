@@ -4,8 +4,12 @@ export default function NavBrand() {
   return (
     <div className="navbar-left">
       <a href="/" className="navbar-brand">
-        <Crown size={24} className="navbar-brand-crown" />
-        <span className="navbar-brand-text">BEACH LEAGUE</span>
+        <img 
+          src="/beach-league-gold-on-navy.png" 
+          alt="Beach League" 
+          className="navbar-brand-logo"
+          style={{ height: '40px', objectFit: 'contain' }}
+        />
       </a>
     </div>
   );

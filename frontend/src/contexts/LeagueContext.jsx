@@ -272,6 +272,8 @@ export const LeagueProvider = ({ children, leagueId }) => {
       delete newState[seasonId];
       return newState;
     });
+    // Also clear the ref so loadSeasonData doesn't skip due to stale ref value
+    delete dataRef.current[seasonId];
     await loadSeasonData(seasonId);
     // Note: Player data will be reloaded automatically by the useEffect that watches activeSeasonData
   }, [loadSeasonData]);

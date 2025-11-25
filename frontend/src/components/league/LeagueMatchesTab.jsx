@@ -531,45 +531,6 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     }
   };
 
-  const handleSideTabClick = () => {
-    if (selectedPlayerId && playerSeasonStats) {
-      setIsPlayerPanelOpen(true);
-    } else if (allPlayerNames.length > 0 && playerNameToId.size > 0) {
-      // Try to find current user's player first
-      let playerToSelect = null;
-      let playerNameToSelect = null;
-      
-      if (currentUserPlayer && currentUserPlayer.id) {
-        const userMember = members.find(m => m.player_id === currentUserPlayer.id);
-        if (userMember) {
-          const playerName = allPlayerNames.find(name => {
-            const id = playerNameToId.get(name);
-            return id === currentUserPlayer.id;
-          });
-          
-          if (playerName) {
-            playerToSelect = currentUserPlayer.id;
-            playerNameToSelect = playerName;
-          }
-        }
-      }
-      
-      // Fall back to first player if current user not found
-      if (!playerToSelect && allPlayerNames.length > 0) {
-        const firstName = allPlayerNames[0];
-        const firstId = playerNameToId.get(firstName);
-        if (firstId) {
-          playerToSelect = firstId;
-          playerNameToSelect = firstName;
-        }
-      }
-      
-      if (playerToSelect && playerNameToSelect) {
-        handlePlayerClick(playerNameToSelect);
-      }
-    }
-  };
-
   return (
     <div className="league-section">
       <MatchesTable
@@ -602,7 +563,6 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         allPlayerNames={allPlayerNames}
         onPlayerChange={handlePlayerChange}
         onClose={handleClosePlayer}
-        onSideTabClick={handleSideTabClick}
         leagueName={league?.name}
         seasonName={activeSeason?.name}
       />

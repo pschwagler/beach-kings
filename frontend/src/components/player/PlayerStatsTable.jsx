@@ -31,30 +31,46 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
           </tr>
         </thead>
         <tbody>
-          {playerStats.map((row, idx) => {
+          {playerStats.reduce((acc, row, idx) => {
             const isSectionHeader = 
               row['Partner/Opponent'] === 'WITH PARTNERS' || 
               row['Partner/Opponent'] === 'VS OPPONENTS';
             const isEmpty = row['Partner/Opponent'] === '';
             const isOverall = row['Partner/Opponent'] === 'OVERALL';
 
+            // Reset counter on section header
+            if (isSectionHeader) {
+              acc.groupRowIndex = 0;
+            }
+
+            let className = '';
+            if (isOverall) {
+              className = 'overall-row';
+            } else if (!isEmpty && !isSectionHeader) {
+              // Increment counter for data rows
+              if (acc.groupRowIndex % 2 !== 0) {
+                className = 'row-gray';
+              }
+              acc.groupRowIndex++;
+            }
+
             if (isEmpty) {
-              return <tr key={idx}><td colSpan="6" className="spacer-row"></td></tr>;
+              acc.rows.push(<tr key={idx}><td colSpan="6" className="spacer-row"></td></tr>);
             } else if (isSectionHeader) {
-              return (
+              acc.rows.push(
                 <tr key={idx} className="section-header">
                   <td colSpan="6" style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
                 </tr>
               );
             } else {
-              return (
-                <tr key={idx} className={isOverall ? 'overall-row' : ''}>
+              acc.rows.push(
+                <tr key={idx} className={className}>
                   <td>
                     {isOverall ? (
                       <strong>{row['Partner/Opponent']}</strong>
                     ) : (
                       <strong>
-                        <span className="player-name" onClick={() => onPlayerChange(row['Partner/Opponent'])}>
+                        <span className="player-name-modern" onClick={() => onPlayerChange(row['Partner/Opponent'])}>
                           {row['Partner/Opponent']}
                         </span>
                       </strong>
@@ -68,7 +84,8 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
                 </tr>
               );
             }
-          })}
+            return acc;
+          }, { rows: [], groupRowIndex: 0 }).rows}
         </tbody>
       </table>
       </div>

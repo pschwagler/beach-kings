@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X, ChevronDown, Info } from 'lucide-react';
+import { X, ChevronDown, Info, Settings } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -105,6 +105,7 @@ export default function AddMatchModal({
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingSeason, setLoadingSeason] = useState(false);
   const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState(false);
+  const [isConfigExpanded, setIsConfigExpanded] = useState(true);
   const leagueDropdownRef = useRef(null);
   
   // Refs for auto-focusing next fields
@@ -329,7 +330,14 @@ export default function AddMatchModal({
       setMatchType(leagueMatchOnly ? 'league' : 'non-league');
       setSelectedLeagueId(defaultLeagueId);
       setIsRanked(true);
+      // Prevent background scrolling
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, leagueMatchOnly, defaultLeagueId]);
 
   // Close league dropdown when clicking outside
@@ -349,14 +357,14 @@ export default function AddMatchModal({
   // Auto-focus first player dropdown when modal opens in leagueMatchOnly mode
   useEffect(() => {
     if (isOpen && !editMatch && leagueMatchOnly) {
-      // Small delay to ensure the modal is fully rendered
+      // Delay to ensure modal animation completes before opening dropdown
       setTimeout(() => {
         const trigger = team1Player1Ref.current?.querySelector('.player-dropdown-trigger');
         if (trigger) {
           trigger.focus();
           trigger.click();
         }
-      }, 100);
+      }, 350);
     }
   }, [isOpen, editMatch, leagueMatchOnly]);
 
@@ -484,7 +492,7 @@ export default function AddMatchModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="drawer-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{editMatch ? 'Edit Match' : 'Add New Match'}</h2>
           <Button variant="close" onClick={onClose}>
@@ -499,18 +507,32 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Compact Top Layout */}
+          {/* Match Configuration Section - Collapsible */}
+          {/* Match Configuration Section - Collapsible */}
+          {/* Match Configuration Section - Collapsible */}
           {!editMatch && (
             <div className="match-config-section">
-              {/* First Row: Match Type, Ranked, League (if league match) */}
-              <div className="match-config-top-row">
-                <div className="match-config-item compact">
-                  <label className="match-config-label">
-                    Match Type
-                    <span className="info-icon-wrapper" title="Non-League matches are public matches not associated with a league. League matches are part of a specific league's season.">
-                      <Info size={12} />
-                    </span>
-                  </label>
+              <div className="match-config-header-row">
+                <button 
+                  type="button" 
+                  className="match-config-toggle inline"
+                  onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                >
+                  <Settings size={16} strokeWidth={2.5} />
+                  <span className="match-info-title">Match Info</span>
+                </button>
+                
+                <button 
+                  type="button" 
+                  className="match-config-chevron-button"
+                  onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                >
+                  <ChevronDown size={16} className={`config-chevron ${isConfigExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+              
+              {isConfigExpanded && (
+                <div className="match-config-inline-controls">
                   <div className="match-type-toggle compact">
                     <button
                       type="button"
@@ -535,14 +557,7 @@ export default function AddMatchModal({
                       League
                     </button>
                   </div>
-                </div>
-                <div className="match-config-item compact">
-                  <label className="match-config-label">
-                    Ranked
-                    <span className="info-icon-wrapper" title="Ranked matches count toward player ratings and statistics. Unranked matches are for fun and don't affect ratings.">
-                      <Info size={12} />
-                    </span>
-                  </label>
+
                   <div className="ranked-toggle-switch compact">
                     <button
                       type="button"
@@ -570,63 +585,68 @@ export default function AddMatchModal({
                     </button>
                   </div>
                 </div>
-                {matchType === 'league' && (
-                  <div className="match-config-item compact league-season-item">
-                    <label className="match-config-label">League & Season</label>
-                    <div className="league-season-combined-inline">
-                      <div className="league-dropdown-container compact" ref={leagueDropdownRef}>
-                        <div
-                          className={`league-dropdown-trigger compact ${isLeagueDropdownOpen ? 'open' : ''} ${!selectedLeagueId ? 'placeholder' : ''} ${leagueMatchOnly ? 'disabled-look' : ''}`}
-                          onClick={() => {
-                            if (!leagueMatchOnly && availableLeagues.length > 0) {
-                              setIsLeagueDropdownOpen(!isLeagueDropdownOpen);
-                            }
-                          }}
-                          tabIndex={leagueMatchOnly ? -1 : 0}
-                        >
-                          <span>
-                            {selectedLeagueId
-                              ? availableLeagues.find(l => l.id === selectedLeagueId)?.name || 'Select league'
-                              : loadingLeagues
-                              ? 'Loading...'
-                              : 'Select league'}
-                          </span>
-                          {!leagueMatchOnly && availableLeagues.length > 0 && (
-                            <ChevronDown size={14} className={isLeagueDropdownOpen ? 'rotate-180' : ''} />
-                          )}
-                        </div>
-                        {isLeagueDropdownOpen && availableLeagues.length > 0 && (
-                          <div className="league-dropdown-menu">
-                            {availableLeagues.map((league) => (
-                              <div
-                                key={league.id}
-                                className={`league-dropdown-option ${selectedLeagueId === league.id ? 'selected' : ''}`}
-                                onClick={() => {
-                                  setSelectedLeagueId(league.id);
-                                  setIsLeagueDropdownOpen(false);
-                                }}
-                              >
-                                {league.name}
-                              </div>
-                            ))}
-                          </div>
+              )}
+              
+              {isConfigExpanded && matchType === 'league' && (
+                <div className="match-config-item compact league-season-item">
+                  <div className="league-season-combined-inline">
+                    <div className="league-dropdown-container compact" ref={leagueDropdownRef}>
+                      <div
+                        className={`league-dropdown-trigger compact ${isLeagueDropdownOpen ? 'open' : ''} ${!selectedLeagueId ? 'placeholder' : ''} ${leagueMatchOnly ? 'disabled-look' : ''}`}
+                        onClick={() => {
+                          if (!leagueMatchOnly && availableLeagues.length > 0) {
+                            setIsLeagueDropdownOpen(!isLeagueDropdownOpen);
+                          }
+                        }}
+                        tabIndex={leagueMatchOnly ? -1 : 0}
+                      >
+                        <span>
+                          {selectedLeagueId
+                            ? availableLeagues.find(l => l.id === selectedLeagueId)?.name || 'Select league'
+                            : loadingLeagues
+                            ? 'Loading...'
+                            : 'Select league'}
+                        </span>
+                        {!leagueMatchOnly && availableLeagues.length > 0 && (
+                          <ChevronDown size={14} className={isLeagueDropdownOpen ? 'rotate-180' : ''} />
                         )}
                       </div>
-                      {selectedLeagueId && (
-                        <span className="active-season-inline-text">
-                          {loadingSeason ? (
-                            'Loading...'
-                          ) : activeSeason ? (
-                            `${activeSeason.name} ${activeSeason.start_date && activeSeason.end_date ? formatDateRange(activeSeason.start_date, activeSeason.end_date) : ''}`
-                          ) : (
-                            'No active season'
-                          )}
-                        </span>
+                      {isLeagueDropdownOpen && availableLeagues.length > 0 && (
+                        <div className="league-dropdown-menu">
+                          {availableLeagues.map((league) => (
+                            <div
+                              key={league.id}
+                              className={`league-dropdown-option ${selectedLeagueId === league.id ? 'selected' : ''}`}
+                              onClick={() => {
+                                setSelectedLeagueId(league.id);
+                                setIsLeagueDropdownOpen(false);
+                              }}
+                            >
+                              {league.name}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
+                    {selectedLeagueId && (
+                      <span className="active-season-inline-text">
+                        {loadingSeason ? (
+                          'Loading...'
+                        ) : activeSeason ? (
+                          <>
+                            <span className="season-name">{activeSeason.name}</span>
+                            {activeSeason.start_date && activeSeason.end_date && (
+                              <span className="season-dates">{formatDateRange(activeSeason.start_date, activeSeason.end_date)}</span>
+                            )}
+                          </>
+                        ) : (
+                          'No active season'
+                        )}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -889,6 +909,7 @@ function TeamSection({
         )}
       </div>
       <div className="team-inputs-row">
+
         <div className="player-inputs">
           <div ref={player1Ref}>
             <PlayerDropdown

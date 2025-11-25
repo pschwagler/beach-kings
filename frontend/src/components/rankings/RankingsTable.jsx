@@ -169,15 +169,19 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
         <tbody>
           {sortedRankings.map((player, idx) => {
             return (
-              <tr key={player.player_id || idx} className="rankings-row">
+              <tr 
+                key={player.player_id || idx} 
+                className="rankings-row clickable-row"
+                onClick={() => onPlayerClick(player.player_id, player.Name)}
+              >
                 <td className="rank-number-cell">{player.season_rank || idx + 1}</td>
                 <td className="sticky-col rankings-name-cell">
-                  <span className="player-name-modern" onClick={() => onPlayerClick(player.player_id, player.Name)}>
+                  <span className="player-name-modern">
                     <PlayerAvatar avatar={player.avatar} playerName={player.Name} />
                     {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
                       <Crown size={18} className="crown-icon-modern" />
                     )}
-                    <span className="player-name-text">{player.Name}</span>
+                    <span className="player-name-modern">{player.Name}</span>
                   </span>
                 </td>
                 <td className="rankings-stat-cell">{player.Points}</td>

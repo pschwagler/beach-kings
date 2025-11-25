@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users } from 'lucide-react';
+import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users, Swords } from 'lucide-react';
 import NavBar from '../layout/NavBar';
 import LeagueRankingsTab from './LeagueRankingsTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
@@ -246,7 +246,7 @@ function LeagueDashboardContent({ leagueId }) {
                   onClick={() => handleTabChange('matches')}
                   title="Matches"
                 >
-                  <Calendar size={20} />
+                  <Swords size={20} />
                   <span>Matches</span>
                 </button>
                 <button
@@ -400,7 +400,7 @@ function LeagueDashboardContent({ leagueId }) {
                 onClick={() => handleTabChange('matches')}
                 title="Matches"
               >
-                <Calendar size={20} />
+                <Swords size={20} />
                 <span>Matches</span>
               </button>
               <button

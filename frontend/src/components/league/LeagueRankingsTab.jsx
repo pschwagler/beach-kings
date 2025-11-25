@@ -55,30 +55,6 @@ export default function LeagueRankingsTab() {
     setTimeout(() => setIsPlayerPanelOpen(true), 10);
   }, [setSelectedPlayer, setIsPlayerPanelOpen]);
 
-  const handleSideTabClick = useCallback(() => {
-    if (selectedPlayerId && playerSeasonStats) {
-      setIsPlayerPanelOpen(true);
-    } else if (rankings && Array.isArray(rankings) && rankings.length > 0) {
-      // Try to find current user's player first
-      let playerToSelect = null;
-      if (currentUserPlayer && currentUserPlayer.id) {
-        const currentUserInRankings = rankings.find(r => r.player_id === currentUserPlayer.id);
-        if (currentUserInRankings && currentUserInRankings.player_id) {
-          playerToSelect = currentUserInRankings;
-        }
-      }
-      
-      // Fall back to first place player if current user not found
-      if (!playerToSelect) {
-        playerToSelect = rankings[0];
-      }
-      
-      if (playerToSelect && playerToSelect.player_id) {
-        handlePlayerClick(playerToSelect.player_id, playerToSelect.Name);
-      }
-    }
-  }, [selectedPlayerId, playerSeasonStats, rankings, currentUserPlayer, handlePlayerClick, setIsPlayerPanelOpen]);
-
   const handleClosePlayer = useCallback(() => {
     setIsPlayerPanelOpen(false);
   }, [setIsPlayerPanelOpen]);
@@ -125,7 +101,6 @@ export default function LeagueRankingsTab() {
         allPlayerNames={allPlayerNames}
         onPlayerChange={handlePlayerChange}
         onClose={handleClosePlayer}
-        onSideTabClick={handleSideTabClick}
         leagueName={league?.name}
         seasonName={activeSeason?.name}
       />

@@ -10,7 +10,8 @@ export function Button({
   className = '',
   active = false,
   type = 'button',
-  style = {}
+  style = {},
+  form
 }) {
   let buttonClass = 'button';
   
@@ -33,6 +34,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       style={style}
+      form={form}
     >
       {children}
     </button>
