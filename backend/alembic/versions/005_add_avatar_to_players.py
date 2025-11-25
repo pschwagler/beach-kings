@@ -41,3 +41,4 @@ def downgrade() -> None:
     if 'avatar' in [col['name'] for col in inspector.get_columns('players')]:
         op.drop_column('players', 'avatar')
 
+

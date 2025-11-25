@@ -463,6 +463,8 @@ export default function MatchesTable({
         onDelete={onDeleteMatch}
         allPlayerNames={allPlayerNames}
         editMatch={editingMatch}
+        leagueMatchOnly={!!leagueId}
+        defaultLeagueId={leagueId}
       />
 
       <ConfirmationModal

@@ -126,7 +126,16 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config || {};
     const isUnauthorized = error.response?.status === 401;
+    const isForbidden = error.response?.status === 403;
     const url = originalRequest.url || '';
+
+    // Handle 403 Forbidden - show login modal
+    if (isForbidden && isBrowser) {
+      // Dispatch a custom event to trigger login modal
+      window.dispatchEvent(new CustomEvent('show-login-modal', { 
+        detail: { reason: 'forbidden' } 
+      }));
+    }
 
     // Skip refresh for public endpoints that don't require authentication
     if (isUnauthorized && isPublicAuthEndpoint(url)) {

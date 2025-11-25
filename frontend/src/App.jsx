@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Crown } from 'lucide-react';
 import './App.css';
 import NavBar from './components/layout/NavBar';
@@ -31,10 +31,10 @@ function App() {
     }
   };
 
-  const openAuthModal = (mode) => {
+  const openAuthModal = useCallback((mode) => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
-  };
+  }, []);
 
   const closeAuthModal = () => {
     setIsAuthModalOpen(false);
@@ -100,6 +100,21 @@ function App() {
       setUserLeagues([]);
     }
   }, [isAuthenticated]);
+
+  // Listen for 403 forbidden errors to show login modal
+  useEffect(() => {
+    const handleShowLoginModal = (event) => {
+      if (!isAuthenticated) {
+        openAuthModal('sign-in');
+      }
+    };
+
+    window.addEventListener('show-login-modal', handleShowLoginModal);
+    
+    return () => {
+      window.removeEventListener('show-login-modal', handleShowLoginModal);
+    };
+  }, [isAuthenticated, openAuthModal]);
 
   // Auto-hide scrollbar when scrolling stops
   useEffect(() => {

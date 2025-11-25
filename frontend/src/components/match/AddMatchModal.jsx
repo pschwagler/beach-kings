@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronDown, Info } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { useLeague } from '../../contexts/LeagueContext';
+import { getUserLeagues, getLeagueSeasons } from '../../services/api';
+import { formatDateRange } from '../league/utils/leagueUtils';
 
 // Constants
 const INITIAL_FORM_STATE = {
@@ -78,12 +80,32 @@ const validateScores = (formData) => {
   return { isValid: true, errorMessage: null, score1, score2 };
 };
 
-export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames = [], onDelete, editMatch = null }) {
-  const { members } = useLeague();
+export default function AddMatchModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  allPlayerNames = [], 
+  onDelete, 
+  editMatch = null,
+  leagueMatchOnly = false,
+  defaultLeagueId = null
+}) {
+  const { members, league } = useLeague();
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // New state for match type and league selection
+  const [matchType, setMatchType] = useState(leagueMatchOnly ? 'league' : 'non-league');
+  const [selectedLeagueId, setSelectedLeagueId] = useState(defaultLeagueId);
+  const [isRanked, setIsRanked] = useState(true);
+  const [availableLeagues, setAvailableLeagues] = useState([]);
+  const [activeSeason, setActiveSeason] = useState(null);
+  const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const [loadingSeason, setLoadingSeason] = useState(false);
+  const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState(false);
+  const leagueDropdownRef = useRef(null);
   
   // Refs for auto-focusing next fields
   const team1Player1Ref = useRef(null);
@@ -242,6 +264,102 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
     }
   };
 
+  // Load user leagues when modal opens and match type is league
+  useEffect(() => {
+    if (isOpen && matchType === 'league' && !leagueMatchOnly) {
+      const loadLeagues = async () => {
+        setLoadingLeagues(true);
+        try {
+          const leagues = await getUserLeagues();
+          setAvailableLeagues(leagues || []);
+          // If defaultLeagueId is provided, select it
+          if (defaultLeagueId && leagues) {
+            const defaultLeague = leagues.find(l => l.id === defaultLeagueId);
+            if (defaultLeague) {
+              setSelectedLeagueId(defaultLeagueId);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading leagues:', error);
+          setAvailableLeagues([]);
+        } finally {
+          setLoadingLeagues(false);
+        }
+      };
+      loadLeagues();
+    } else if (leagueMatchOnly && defaultLeagueId) {
+      // If leagueMatchOnly, use league from context if available, or create a placeholder
+      setSelectedLeagueId(defaultLeagueId);
+      if (league) {
+        setAvailableLeagues([{ id: league.id, name: league.name }]);
+      } else {
+        setAvailableLeagues([{ id: defaultLeagueId, name: 'Current League' }]);
+      }
+    } else if (matchType === 'non-league') {
+      setSelectedLeagueId(null);
+      setActiveSeason(null);
+    }
+  }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league]);
+
+  // Load active season when league is selected
+  useEffect(() => {
+    if (selectedLeagueId && matchType === 'league') {
+      const loadActiveSeason = async () => {
+        setLoadingSeason(true);
+        try {
+          const seasons = await getLeagueSeasons(selectedLeagueId);
+          const active = seasons?.find(s => s.is_active === true);
+          setActiveSeason(active || null);
+        } catch (error) {
+          console.error('Error loading active season:', error);
+          setActiveSeason(null);
+        } finally {
+          setLoadingSeason(false);
+        }
+      };
+      loadActiveSeason();
+    } else {
+      setActiveSeason(null);
+    }
+  }, [selectedLeagueId, matchType]);
+
+  // Reset match type when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setMatchType(leagueMatchOnly ? 'league' : 'non-league');
+      setSelectedLeagueId(defaultLeagueId);
+      setIsRanked(true);
+    }
+  }, [isOpen, leagueMatchOnly, defaultLeagueId]);
+
+  // Close league dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (leagueDropdownRef.current && !leagueDropdownRef.current.contains(event.target)) {
+        setIsLeagueDropdownOpen(false);
+      }
+    };
+
+    if (isLeagueDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isLeagueDropdownOpen]);
+
+  // Auto-focus first player dropdown when modal opens in leagueMatchOnly mode
+  useEffect(() => {
+    if (isOpen && !editMatch && leagueMatchOnly) {
+      // Small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        const trigger = team1Player1Ref.current?.querySelector('.player-dropdown-trigger');
+        if (trigger) {
+          trigger.focus();
+          trigger.click();
+        }
+      }, 100);
+    }
+  }, [isOpen, editMatch, leagueMatchOnly]);
+
   // Pre-populate fields when editing
   useEffect(() => {
     if (editMatch) {
@@ -269,6 +387,12 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
       return;
     }
 
+    // Validate league selection for league matches
+    if (!editMatch && matchType === 'league' && !selectedLeagueId) {
+      setFormError('Please select a league');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Convert player options (with player_id) to player names for API
@@ -288,14 +412,22 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
       };
 
       // Submit the match with player names (API expects names)
-      await onSubmit({
+      const matchPayload = {
         team1_player1: getPlayerName(formData.team1Player1),
         team1_player2: getPlayerName(formData.team1Player2),
         team2_player1: getPlayerName(formData.team2Player1),
         team2_player2: getPlayerName(formData.team2Player2),
         team1_score: scoresValidation.score1,
-        team2_score: scoresValidation.score2
-      }, editMatch ? editMatch.id : null);
+        team2_score: scoresValidation.score2,
+        is_ranked: isRanked
+      };
+
+      // Add league_id only for league matches
+      if (matchType === 'league' && selectedLeagueId) {
+        matchPayload.league_id = selectedLeagueId;
+      }
+
+      await onSubmit(matchPayload, editMatch ? editMatch.id : null);
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
@@ -360,72 +492,205 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="add-match-form">
+        <form id="add-match-form" onSubmit={handleSubmit} className="add-match-form">
           {formError && (
             <div className="form-error">
               {formError}
             </div>
           )}
 
-          <TeamSection
-            teamNumber={1}
-            player1Value={formData.team1Player1}
-            player2Value={formData.team1Player2}
-            scoreValue={formData.team1Score}
-            player1Field="team1Player1"
-            player2Field="team1Player2"
-            scoreField="team1Score"
-            isWinner={team1IsWinner}
-            onPlayerChange={handlePlayerChange}
-            onScoreChange={handleScoreChange}
-            allPlayerNames={playerOptions}
-            getExcludedPlayers={getExcludedPlayers}
-            player1Ref={team1Player1Ref}
-            player2Ref={team1Player2Ref}
-            scoreRef={team1ScoreRef}
-            nextScoreRef={team2ScoreRef}
-          />
+          {/* Match Configuration Section - Compact Top Layout */}
+          {!editMatch && (
+            <div className="match-config-section">
+              {/* First Row: Match Type, Ranked, League (if league match) */}
+              <div className="match-config-top-row">
+                <div className="match-config-item compact">
+                  <label className="match-config-label">
+                    Match Type
+                    <span className="info-icon-wrapper" title="Non-League matches are public matches not associated with a league. League matches are part of a specific league's season.">
+                      <Info size={12} />
+                    </span>
+                  </label>
+                  <div className="match-type-toggle compact">
+                    <button
+                      type="button"
+                      className={`match-type-option compact ${matchType === 'non-league' ? 'active' : ''}`}
+                      onClick={() => {
+                        if (!leagueMatchOnly) {
+                          setMatchType('non-league');
+                          setSelectedLeagueId(null);
+                          setActiveSeason(null);
+                        }
+                      }}
+                      disabled={leagueMatchOnly}
+                    >
+                      Non-League
+                    </button>
+                    <button
+                      type="button"
+                      className={`match-type-option compact ${matchType === 'league' ? 'active' : ''}`}
+                      onClick={() => setMatchType('league')}
+                      disabled={leagueMatchOnly}
+                    >
+                      League
+                    </button>
+                  </div>
+                </div>
+                <div className="match-config-item compact">
+                  <label className="match-config-label">
+                    Ranked
+                    <span className="info-icon-wrapper" title="Ranked matches count toward player ratings and statistics. Unranked matches are for fun and don't affect ratings.">
+                      <Info size={12} />
+                    </span>
+                  </label>
+                  <div className="ranked-toggle-switch compact">
+                    <button
+                      type="button"
+                      className={`ranked-toggle-option compact ${!isRanked ? 'active' : ''}`}
+                      onClick={() => {
+                        if (matchType === 'non-league') {
+                          setIsRanked(false);
+                        }
+                      }}
+                      disabled={matchType === 'league'}
+                    >
+                      Unranked
+                    </button>
+                    <button
+                      type="button"
+                      className={`ranked-toggle-option compact ${isRanked ? 'active' : ''}`}
+                      onClick={() => {
+                        if (matchType === 'non-league') {
+                          setIsRanked(true);
+                        }
+                      }}
+                      disabled={matchType === 'league'}
+                    >
+                      Ranked
+                    </button>
+                  </div>
+                </div>
+                {matchType === 'league' && (
+                  <div className="match-config-item compact league-season-item">
+                    <label className="match-config-label">League & Season</label>
+                    <div className="league-season-combined-inline">
+                      <div className="league-dropdown-container compact" ref={leagueDropdownRef}>
+                        <div
+                          className={`league-dropdown-trigger compact ${isLeagueDropdownOpen ? 'open' : ''} ${!selectedLeagueId ? 'placeholder' : ''} ${leagueMatchOnly ? 'disabled-look' : ''}`}
+                          onClick={() => {
+                            if (!leagueMatchOnly && availableLeagues.length > 0) {
+                              setIsLeagueDropdownOpen(!isLeagueDropdownOpen);
+                            }
+                          }}
+                          tabIndex={leagueMatchOnly ? -1 : 0}
+                        >
+                          <span>
+                            {selectedLeagueId
+                              ? availableLeagues.find(l => l.id === selectedLeagueId)?.name || 'Select league'
+                              : loadingLeagues
+                              ? 'Loading...'
+                              : 'Select league'}
+                          </span>
+                          {!leagueMatchOnly && availableLeagues.length > 0 && (
+                            <ChevronDown size={14} className={isLeagueDropdownOpen ? 'rotate-180' : ''} />
+                          )}
+                        </div>
+                        {isLeagueDropdownOpen && availableLeagues.length > 0 && (
+                          <div className="league-dropdown-menu">
+                            {availableLeagues.map((league) => (
+                              <div
+                                key={league.id}
+                                className={`league-dropdown-option ${selectedLeagueId === league.id ? 'selected' : ''}`}
+                                onClick={() => {
+                                  setSelectedLeagueId(league.id);
+                                  setIsLeagueDropdownOpen(false);
+                                }}
+                              >
+                                {league.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {selectedLeagueId && (
+                        <span className="active-season-inline-text">
+                          {loadingSeason ? (
+                            'Loading...'
+                          ) : activeSeason ? (
+                            `${activeSeason.name} ${activeSeason.start_date && activeSeason.end_date ? formatDateRange(activeSeason.start_date, activeSeason.end_date) : ''}`
+                          ) : (
+                            'No active season'
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-          <div className="vs-divider">VS</div>
+          <div className="teams-container">
+            <TeamSection
+              teamNumber={1}
+              player1Value={formData.team1Player1}
+              player2Value={formData.team1Player2}
+              scoreValue={formData.team1Score}
+              player1Field="team1Player1"
+              player2Field="team1Player2"
+              scoreField="team1Score"
+              isWinner={team1IsWinner}
+              onPlayerChange={handlePlayerChange}
+              onScoreChange={handleScoreChange}
+              allPlayerNames={playerOptions}
+              getExcludedPlayers={getExcludedPlayers}
+              player1Ref={team1Player1Ref}
+              player2Ref={team1Player2Ref}
+              scoreRef={team1ScoreRef}
+              nextScoreRef={team2ScoreRef}
+            />
 
-          <TeamSection
-            teamNumber={2}
-            player1Value={formData.team2Player1}
-            player2Value={formData.team2Player2}
-            scoreValue={formData.team2Score}
-            player1Field="team2Player1"
-            player2Field="team2Player2"
-            scoreField="team2Score"
-            isWinner={team2IsWinner}
-            onPlayerChange={handlePlayerChange}
-            onScoreChange={handleScoreChange}
-            allPlayerNames={playerOptions}
-            getExcludedPlayers={getExcludedPlayers}
-            player1Ref={team2Player1Ref}
-            player2Ref={team2Player2Ref}
-            scoreRef={team2ScoreRef}
-            nextScoreRef={null}
-          />
+            <div className="vs-divider-column">VS</div>
 
-          <div className="modal-actions">
-            {editMatch && onDelete && (
-              <button 
-                type="button" 
-                onClick={handleDeleteClick} 
-                disabled={isSubmitting}
-                className="delete-match-text-btn"
-              >
-                Delete match
-              </button>
-            )}
-            <Button type="button" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="success" disabled={isSubmitting}>
-              {isSubmitting ? (editMatch ? 'Updating...' : 'Adding...') : (editMatch ? 'Update Match' : 'Add Match')}
-            </Button>
+            <TeamSection
+              teamNumber={2}
+              player1Value={formData.team2Player1}
+              player2Value={formData.team2Player2}
+              scoreValue={formData.team2Score}
+              player1Field="team2Player1"
+              player2Field="team2Player2"
+              scoreField="team2Score"
+              isWinner={team2IsWinner}
+              onPlayerChange={handlePlayerChange}
+              onScoreChange={handleScoreChange}
+              allPlayerNames={playerOptions}
+              getExcludedPlayers={getExcludedPlayers}
+              player1Ref={team2Player1Ref}
+              player2Ref={team2Player2Ref}
+              scoreRef={team2ScoreRef}
+              nextScoreRef={null}
+            />
           </div>
+
         </form>
+        <div className="modal-actions">
+          {editMatch && onDelete && (
+            <button 
+              type="button" 
+              onClick={handleDeleteClick} 
+              disabled={isSubmitting}
+              className="delete-match-text-btn"
+            >
+              Delete match
+            </button>
+          )}
+          <Button type="button" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" form="add-match-form" variant="success" disabled={isSubmitting}>
+            {isSubmitting ? (editMatch ? 'Updating...' : 'Adding...') : (editMatch ? 'Update Match' : 'Add Match')}
+          </Button>
+        </div>
       </div>
       
       <ConfirmationModal

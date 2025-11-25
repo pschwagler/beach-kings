@@ -139,7 +139,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
             <th onClick={() => handleSort('Win Rate')}>
               <Tooltip text="Percentage of games won">
                 <span className="th-content">
-                  Win Rate{getSortArrow('Win Rate')}
+                  Win %{getSortArrow('Win Rate')}
                 </span>
               </Tooltip>
             </th>
@@ -150,14 +150,14 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                 </span>
               </Tooltip>
             </th>
-            <th className="mobile-hide-col" onClick={() => handleSort('Losses')}>
+            <th onClick={() => handleSort('Losses')}>
               <Tooltip text="Total number of losses">
                 <span className="th-content">
                   Losses{getSortArrow('Losses')}
                 </span>
               </Tooltip>
             </th>
-            <th className="mobile-hide-col" onClick={() => handleSort('Avg Pt Diff')}>
+            <th onClick={() => handleSort('Avg Pt Diff')}>
               <Tooltip text="Average point differential per game">
                 <span className="th-content">
                   Avg Pt Diff{getSortArrow('Avg Pt Diff')}
@@ -185,8 +185,8 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
               <td className="rankings-stat-cell">{player.Games}</td>
               <td className="rankings-stat-cell">{(player['Win Rate'] * 100).toFixed(1)}%</td>
               <td className="rankings-stat-cell">{player.Wins}</td>
-              <td className="rankings-stat-cell mobile-hide-col">{player.Losses}</td>
-              <td className="rankings-stat-cell mobile-hide-col">{formatPtDiff(player['Avg Pt Diff'])}</td>
+              <td className="rankings-stat-cell">{player.Losses}</td>
+              <td className="rankings-stat-cell">{formatPtDiff(player['Avg Pt Diff'])}</td>
               </tr>
             );
           })}

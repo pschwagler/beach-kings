@@ -8,17 +8,37 @@
 
 :root {
   --primary: #2c7a8f;
-  /* Vintage Malibu Color Palette */
+  --primary-light: #5faec0;
+  --primary-lighter: #bfe1e7;
+  --primary-dark: #205e6f;
+  --primary-darker: #183f4a;
+
   --sunset-orange: #ff7849;
+  --sunset-dark: #e76a41;
+  --sunset-light: #ff9673;
   --coral: #ff9a76;
+  --coral-light: #ffc7b3;
+  --coral-dark: #e08361;
   --sand: #f4e4c1;
-  --ocean-blue: #3b82c8;
-  --teal: #52b5ba;
-  --retro-yellow: #ffd66b;
-  --cream: #fef5e7;
-  --sunset-pink: #ff9a76;
+  --sand-light: #faf0d8;
+  --sand-dark: #d6c19c;
   --deep-ocean: #2c7a8f;
   --warm-brown: #8b6f47;
+  --warm-brown-light: #b89a6d;
+  --warm-brown-dark: #6b5334;
+  --seafoam: #8ed4c6;
+  --seafoam-light: #c9eee6;
+  --seafoam-dark: #5fa79b;
+  --sun-gold: #ffd78a;
+  --sun-gold-light: #ffebc2;
+  --sun-gold-dark: #e7b662;
+  --dusk-purple: #4c3a4d;
+  --dusk-purple-light: #7a6780;
+  --dusk-purple-dark: #342735;
+  --ocean-gray: #9aa7a9;
+  --ocean-gray-light: #c4cfd1;
+  --ocean-gray-dark: #6f7b7d;
+  --ocean-gray-darker: #3d4445;
 
   /* Grays */
   --gray-50: #fafafa;
@@ -43,6 +63,13 @@
   --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
 }
 
+html {
+  /* Ensure pull-to-refresh works on mobile Chrome */
+  overscroll-behavior-y: auto;
+  /* Don't set overflow-y on html - let it default to allow proper mobile scrolling */
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
@@ -53,8 +80,13 @@ body {
   min-height: 100vh;
   padding: 0;
   margin: 0;
-  /* Improve mobile scrolling */
+  /* Chrome mobile: Use auto instead of scroll to fix mobile touch scrolling */
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Ensure pull-to-refresh works - must allow overscroll */
+  overscroll-behavior-y: auto;
+  position: relative;
   /* Safe area for notched devices */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
@@ -83,9 +115,9 @@ body {
   z-index: 1000;
   background: linear-gradient(
     135deg,
-    #fffefc 0%,
-    /* cream-soft - lighter */ #fffbf7 40%,
-    /* warm peach tint - lighter */ #fffbf7 100% /* sand-warm - lighter */
+    var(--sun-gold-light) 0%,
+    var(--sun-gold) 50%,
+    var(--sand-light) 100%
   );
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -99,12 +131,12 @@ body {
 
 .navbar-container {
   max-width: 1400px;
-  margin: 0 auto;
+  margin: 0 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 24px;
-  height: 64px;
+  height: 52px;
   position: relative;
 }
 
@@ -934,6 +966,7 @@ tbody tr:hover .sticky-col {
   color: var(--ocean-blue);
   cursor: pointer;
   font-weight: 700;
+  font-size: 0.9em;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
@@ -968,13 +1001,11 @@ tbody tr:hover .sticky-col {
   border: 1px solid var(--gray-300);
   box-shadow: 0 1px 3px var(--gray-300);
   overflow-x: auto;
-  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  position: relative; /* Create containing block for sticky elements */
   margin-top: 0;
-  /* Ensure horizontal scrolling works - container should be constrained */
   width: 100%;
   max-width: 100%;
-  /* Ensure scrollbar doesn't affect alignment */
   scrollbar-width: thin;
   scrollbar-color: var(--gray-400) transparent;
 }
@@ -989,10 +1020,19 @@ tbody tr:hover .sticky-col {
   background: white;
   box-shadow: none;
   table-layout: auto; /* Auto layout allows natural column sizing while respecting min-widths */
+  border-radius: 0 !important; /* Override general table border-radius: 12px rule */
+  position: relative; /* Ensure table stays in place during overscroll */
+}
+
+/* Ensure mobile-hide-col columns are visible on desktop */
+@media (min-width: 769px) {
+  .mobile-hide-col {
+    display: table-cell !important;
+  }
 }
 
 .rankings-table-modern thead {
-  background: var(--gray-200);
+  background: var(--gray-300);
   border-bottom: 1px solid var(--gray-200);
 }
 
@@ -1039,7 +1079,13 @@ tbody tr:hover .sticky-col {
 
 /* Ensure Points column (3rd column) has enough width for "POINTS ↑" */
 .rankings-table-modern th:nth-child(3) {
-  min-width: 80px;
+  min-width: 55px;
+  width: 100px; /* Prefer wider width when space allows */
+}
+
+.rankings-table-modern td:nth-child(3) {
+  min-width: 55px;
+  width: 100px; /* Match header width preference */
 }
 
 /* Ensure Rating column (4th column) has enough width for "RATING ↑" */
@@ -1080,7 +1126,7 @@ tbody tr:hover .sticky-col {
 }
 
 .rankings-table-modern thead .sticky-col {
-  background: var(--gray-200);
+  background: var(--gray-300);
   box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
   position: sticky;
   left: 50px; /* Position after the rank number column which is 50px wide */
@@ -1091,7 +1137,7 @@ tbody tr:hover .sticky-col {
 }
 
 .rankings-table-modern thead .rank-number-header {
-  background: var(--gray-200);
+  background: var(--gray-300);
   z-index: 11;
 }
 
@@ -1106,8 +1152,13 @@ tbody tr:hover .sticky-col {
   width: 220px;
 }
 
-.rankings-table-modern tbody tr:hover .sticky-col {
+/* Alternate sticky column background to match row colors */
+.rankings-table-modern tbody tr:nth-child(even) .sticky-col {
   background: var(--gray-50);
+}
+
+.rankings-table-modern tbody tr:hover .sticky-col {
+  background: rgba(0, 0, 0, 0.03); /* Match hover background */
 }
 
 .rankings-row {
@@ -1115,8 +1166,18 @@ tbody tr:hover .sticky-col {
   border-bottom: 1px solid var(--gray-100);
 }
 
-.rankings-row:hover {
+/* Alternate row colors - every other row gets gray-50 background */
+.rankings-row:nth-child(even) {
   background: var(--gray-50);
+}
+
+.rankings-row:hover {
+  background: rgba(0, 0, 0, 0.03); /* Slightly darker than gray-50 for hover */
+}
+
+/* Ensure hover overrides the alternating color */
+.rankings-row:nth-child(even):hover {
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .rankings-row:last-child {
@@ -1148,8 +1209,13 @@ tbody tr:hover .sticky-col {
   vertical-align: middle;
 }
 
-.rankings-table-modern tbody tr:hover .rank-number-cell {
+/* Alternate rank number cell background to match row colors */
+.rankings-table-modern tbody tr:nth-child(even) .rank-number-cell {
   background: var(--gray-50);
+}
+
+.rankings-table-modern tbody tr:hover .rank-number-cell {
+  background: rgba(0, 0, 0, 0.03); /* Match hover background */
 }
 
 .rankings-name-cell {
@@ -1178,6 +1244,7 @@ tbody tr:hover .sticky-col {
   font-weight: 500;
   transition: all 0.2s;
   padding: 4px 0;
+  font-size: 0.9em;
 }
 
 .player-name-modern:hover {
@@ -1190,7 +1257,7 @@ tbody tr:hover .sticky-col {
 }
 
 .crown-icon-modern {
-  color: var(--retro-yellow);
+  color: var(--sunset-dark);
   flex-shrink: 0;
   filter: drop-shadow(0 1px 2px rgba(255, 214, 107, 0.4));
 }
@@ -1215,7 +1282,7 @@ tbody tr:hover .sticky-col {
 .player-avatar-text {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--primary);
+  color: var(--primary-dark);
   text-transform: uppercase;
   line-height: 1;
 }
@@ -1257,19 +1324,42 @@ tbody tr:hover .sticky-col {
 }
 
 .match-date-header {
-  color: var(--sunset-orange);
+  color: var(--dusk-purple-dark);
   font-size: 1.25em;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--sand);
+  border-bottom: 1px solid var(--dusk-purple-light);
+}
+
+.edit-session-button {
+  margin-left: 10px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 6px;
+  color: var(--gray-700) !important;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: "Urbanist", sans-serif;
+}
+
+.edit-session-button:hover {
+  background-color: var(--gray-200) !important;
+}
+
+.edit-session-button:active {
+  background-color: var(--gray-300) !important;
 }
 
 .match-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  gap: 14px;
 }
 
 .session-timestamp {
@@ -1288,6 +1378,18 @@ tbody tr:hover .sticky-col {
   box-shadow: var(--shadow-md);
   transition: all 0.2s;
   position: relative;
+}
+
+.match-card .match-team {
+  background: white;
+}
+
+.match-card .match-team.winner {
+  background: white;
+}
+
+.match-card .match-team.loser {
+  background: white;
 }
 
 .match-card:not(.editable):hover {
@@ -1327,11 +1429,11 @@ tbody tr:hover .sticky-col {
 }
 
 .match-team.winner {
-  background: var(--success-light);
+  background: white;
 }
 
 .match-team.loser {
-  background: var(--gray-50);
+  background: white;
 }
 
 .team-players {
@@ -1342,27 +1444,26 @@ tbody tr:hover .sticky-col {
 
 .match-team.winner .player-name {
   font-weight: 700;
-  color: var(--gray-900);
+  color: var(--dusk-purple-dark);
 }
 
 .match-team.loser .player-name {
-  font-weight: 600;
-  color: var(--gray-700);
+  font-weight: 700;
+  color: var(--dusk-purple-light);
 }
 
 .team-score {
-  font-size: 1.75em;
+  font-size: 1.5em;
   font-weight: 700;
-  min-width: 40px;
   text-align: right;
 }
 
 .winner-score {
-  color: var(--sunset-orange);
+  color: var(--dusk-purple-dark);
 }
 
 .loser-score {
-  color: var(--gray-700);
+  color: var(--dusk-purple-light);
 }
 
 /* Player Details Panel - Slide-in from Right - Modern Design */
@@ -1380,7 +1481,10 @@ tbody tr:hover .sticky-col {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  z-index: 1000;
+  z-index: 9999; /* Much higher z-index to ensure it's above navbar on all devices */
+  /* Create new stacking context to ensure it's above everything */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   animation: slideInFromRight 0.3s ease-out;
 }
 
@@ -1638,13 +1742,22 @@ tbody tr:hover .sticky-col {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 9998; /* Below drawer (9999) but above navbar (1000) */
   animation: fadeIn 0.3s ease-out;
 }
 
 /* Prevent body scrolling when player details drawer is open */
 body.drawer-open {
   overflow: hidden;
+  /* Don't use position: fixed as it breaks mobile scrolling */
+  /* Use overflow: hidden which works better on mobile */
+  /* Prevent pull-to-refresh when drawer is open */
+  overscroll-behavior-y: none;
+}
+
+/* Lower navbar z-index when drawer is open to ensure drawer appears on top */
+body.drawer-open .navbar {
+  z-index: 999 !important;
 }
 
 /* Player Selector (replaces h2 in player details) - Modern Design */
@@ -1815,7 +1928,7 @@ body.drawer-open {
   gap: 12px;
   padding: 12px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--gray-200);
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
@@ -1848,7 +1961,7 @@ body.drawer-open {
 }
 
 .overview-value {
-  font-size: 1.75em;
+  font-size: 1.2em;
   font-weight: 700;
   color: var(--gray-900);
   font-family: "Urbanist", sans-serif;
@@ -1990,8 +2103,8 @@ body.drawer-open {
 
   /* Navbar Mobile */
   .navbar-container {
-    padding: 0 16px;
-    height: 56px;
+    padding: 0 12px;
+    height: 52px;
   }
 
   .navbar-brand-text {
@@ -2025,7 +2138,8 @@ body.drawer-open {
 
   /* League Dashboard Mobile */
   .league-dashboard-container {
-    margin-top: 56px;
+    margin-top: calc(56px + env(safe-area-inset-top, 0)); /* Account for navbar + safe area */
+    padding-top: 0;
     padding-bottom: calc(
       72px + env(safe-area-inset-bottom, 0)
     ); /* Space for bottom nav + safe area */
@@ -2300,6 +2414,11 @@ body.drawer-open {
     box-shadow: 4px 4px 0px var(--sand);
   }
 
+  /* Override general table display:block for rankings table - it needs to be a table */
+  .rankings-table-modern {
+    display: table !important; /* Must be table, not block */
+  }
+
   th,
   td {
     padding: 10px 8px;
@@ -2309,6 +2428,12 @@ body.drawer-open {
 
   th {
     font-size: 0.875em;
+  }
+
+  /* Override general th/td rules for rankings table - must come after general rules */
+  .rankings-table-modern th,
+  .rankings-table-modern td {
+    min-width: auto !important; /* Let column-specific min-widths apply, override general rule */
   }
 
   /* Sticky column on mobile - make it wider for player names */
@@ -2323,15 +2448,23 @@ body.drawer-open {
 
   /* Rankings table mobile optimization */
   .rankings-table-wrapper {
-    margin: 0; /* Remove negative margin to prevent table cutoff */
+    margin: 0;
     border-radius: 8px;
     border-left: 1px solid var(--gray-300);
     border-right: 1px solid var(--gray-300);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .rankings-table-modern {
-    min-width: 100%; /* Remove 800px min-width on mobile */
+    /* Calculate min-width: 40 (No.) + 120 (Player) + 60 (Points) + 65 (Rating) + 60 (Games) + 70 (Win Rate) + 55 (Wins) + 65 (Losses) + 85 (Avg Pt Diff) = 635px */
+    /* Add extra for cell padding and content: use 700px to be safe */
+    min-width: 700px !important; /* Ensure table is wide enough for all columns */
+    width: auto; /* Let table size based on content, not fixed widths */
     font-size: 0.875em;
+    position: relative;
+    overscroll-behavior-x: none;
+    table-layout: auto; /* Ensure auto layout for proper column sizing */
   }
 
   .rankings-table-modern th {
@@ -2367,6 +2500,8 @@ body.drawer-open {
 
   .rankings-table-modern tbody .sticky-col {
     left: 40px;
+    min-width: 120px;
+    width: 120px;
   }
 
   /* Hide player avatar on mobile */
@@ -2374,9 +2509,9 @@ body.drawer-open {
     display: none;
   }
 
-  /* Hide less critical columns on mobile */
+  /* Show all columns on mobile - don't hide any */
   .mobile-hide-col {
-    display: none;
+    display: table-cell !important;
   }
 
   .rankings-name-cell {
@@ -2384,31 +2519,68 @@ body.drawer-open {
     padding: 4px 8px;
   }
 
+  /* Ensure sticky header column has enough width for "PLAYER NAME ↑" */
+  .rankings-table-modern thead .sticky-col {
+    min-width: 120px;
+    width: 120px;
+  }
+
   .rankings-stat-cell {
     padding: 12px 4px;
-    min-width: 28px;
-    max-width: 35px;
+    min-width: 45px;
+    max-width: none; /* Remove max-width constraint */
     white-space: nowrap;
   }
 
   /* Make stat header columns narrower on mobile - only need space for 3-4 digit numbers */
-  .rankings-table-modern th:nth-child(3),
-  .rankings-table-modern th:nth-child(4),
-  .rankings-table-modern th:nth-child(5),
-  .rankings-table-modern th:nth-child(7) {
-    min-width: 30px;
-    max-width: 35px;
+  /* But ensure headers have enough space for text + sort arrows */
+  .rankings-table-modern th {
+    min-width: 45px;
   }
 
-  /* Win Rate column needs slightly more space for "XX.X%" */
+  /* Points column (3rd) - needs space for "POINTS ↑" */
+  .rankings-table-modern th:nth-child(3) {
+    min-width: 60px;
+  }
+
+  /* Rating column (4th) - needs space for "RATING ↑" */
+  .rankings-table-modern th:nth-child(4) {
+    min-width: 65px;
+  }
+
+  /* Games column (5th) - needs space for "GAMES ↑" */
+  .rankings-table-modern th:nth-child(5) {
+    min-width: 60px;
+  }
+
+  /* Win Rate column (6th) - needs space for "WIN RATE ↑" */
   .rankings-table-modern th:nth-child(6) {
-    min-width: 40px;
-    max-width: 45px;
+    min-width: 70px;
   }
 
   .rankings-table-modern td:nth-child(6) {
-    min-width: 40px;
-    max-width: 45px;
+    min-width: 50px;
+  }
+
+  /* Wins column (7th) - needs space for "WINS ↑" */
+  .rankings-table-modern th:nth-child(7) {
+    min-width: 55px;
+  }
+
+  /* Losses column (8th) - needs space for "LOSSES ↑" */
+  .rankings-table-modern th:nth-child(8) {
+    min-width: 65px;
+  }
+
+  /* Avg Pt Diff column (9th) - needs space for "AVG PT DIFF ↑" */
+  .rankings-table-modern th:nth-child(9) {
+    min-width: 85px;
+  }
+
+  /* First column after sticky (Points) needs more left padding */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern td:nth-child(3) {
+    padding-left: 12px;
   }
 
   /* League section - reduce padding on mobile (league-content already has padding) */
@@ -2474,12 +2646,11 @@ body.drawer-open {
   }
 
   .team-score {
-    font-size: 1.5em;
-    min-width: 40px;
+    font-size: 1.2em;
   }
 
   .player-name {
-    font-size: 0.95em;
+    font-size: 0.9em;
   }
 
   .team-players {
@@ -2490,13 +2661,21 @@ body.drawer-open {
   /* Player Details - Full Screen on Mobile */
   .player-details {
     width: 100%;
+    top: 0; /* Full screen, covering navbar */
     padding: 12px 16px;
+    padding-top: max(68px, calc(56px + env(safe-area-inset-top))); /* Account for navbar + safe area */
     border-left: none;
     /* Safe area padding for notched devices */
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
     padding-bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 9999 !important; /* Much higher z-index to ensure it's above navbar on all mobile devices */
+    /* Create new stacking context to ensure it's above everything */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
+  
+  /* Note: navbar z-index lowering is handled globally above, no need to duplicate here */
 
   .player-details h2 {
     font-size: 1.4em;
@@ -2712,8 +2891,7 @@ body.drawer-open {
   }
 
   .team-score {
-    font-size: 1.5em;
-    min-width: 35px;
+    font-size: 1.2em;
   }
 
   table {
@@ -2724,6 +2902,12 @@ body.drawer-open {
   td {
     padding: 8px 6px;
     min-width: 60px;
+  }
+
+  /* Override general th/td rules for rankings table - must come after general rules */
+  .rankings-table-modern th,
+  .rankings-table-modern td {
+    min-width: auto; /* Let column-specific min-widths apply */
   }
 
   /* Sticky column on very small screens */
@@ -2785,8 +2969,9 @@ body.drawer-open {
 
   .rankings-stat-cell {
     padding: 10px 4px;
-    min-width: 28px;
-    max-width: 35px;
+    min-width: 45px;
+    max-width: none; /* Remove max-width constraint */
+    white-space: nowrap;
   }
 
   /* Make stat header columns narrower on very small screens */
@@ -2794,19 +2979,24 @@ body.drawer-open {
   .rankings-table-modern th:nth-child(4),
   .rankings-table-modern th:nth-child(5),
   .rankings-table-modern th:nth-child(7) {
-    min-width: 30px;
-    max-width: 35px;
+    min-width: 45px;
+    max-width: 55px;
   }
 
   /* Win Rate column needs slightly more space for "XX.X%" */
   .rankings-table-modern th:nth-child(6) {
-    min-width: 40px;
-    max-width: 45px;
+    min-width: 50px;
+    max-width: 60px;
   }
 
   .rankings-table-modern td:nth-child(6) {
-    min-width: 40px;
-    max-width: 45px;
+    min-width: 50px;
+  }
+
+  /* First column after sticky (Points) needs more left padding */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern td:nth-child(3) {
+    padding-left: 12px;
   }
 
   /* League section - even less padding on very small screens */
@@ -2836,8 +3026,6 @@ body.drawer-open {
 
   /* Make overview stack vertically on small screens */
   .player-overview {
-    flex-direction: column;
-    gap: 8px;
     margin: 16px 0;
     padding: 0;
   }
@@ -2857,7 +3045,7 @@ body.drawer-open {
   }
 
   .overview-value {
-    font-size: 1em;
+    font-size: 1.2em;
   }
 }
 
@@ -3079,12 +3267,16 @@ body:hover ::-webkit-scrollbar-thumb {
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
   max-width: 100%;
   width: 100%;
-  max-height: 90vh;
+  max-height: 95vh;
+  height: auto;
   overflow-y: auto;
+  overflow-x: visible;
   animation: slideUpMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   display: flex;
   flex-direction: column;
+  padding-bottom: 250px;
+  margin-bottom: -250px;
 }
 
 @keyframes slideUpMobile {
@@ -3114,7 +3306,7 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 28px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--gray-200);
   background: white;
   border-radius: 24px 24px 0 0;
@@ -3122,6 +3314,10 @@ body:hover ::-webkit-scrollbar-thumb {
   top: 0;
   z-index: 10;
   flex-shrink: 0;
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
 }
 
 .modal-header h2 {
@@ -3200,14 +3396,15 @@ body:hover ::-webkit-scrollbar-thumb {
 /* Modal Actions */
 .modal-actions {
   display: flex;
-  gap: 10px;
-  padding: 20px 28px;
+  gap: 8px;
+  padding: 10px 12px;
   border-top: 1px solid var(--gray-200);
   justify-content: flex-end;
   background: white;
   position: sticky;
   bottom: 0;
   flex-shrink: 0;
+  margin-top: auto;
 }
 
 .modal-actions .button:not(.btn-success) {
@@ -3307,12 +3504,337 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* Add Match Form */
 .add-match-form {
-  padding: 28px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   flex: 1;
+  overflow: visible;
+  min-height: 0;
+}
+
+/* Match Configuration Section - Compact */
+.match-config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+
+.match-config-top-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+@media (min-width: 769px) {
+  .match-config-top-row {
+    gap: 10px;
+  }
+}
+
+.match-config-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.match-config-item.compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.match-config-item.compact.league-season-item {
+  min-width: 180px;
+}
+
+.league-season-combined-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.active-season-inline-text {
+  font-size: 0.6875rem;
+  color: var(--gray-600);
+  padding: 2px 6px;
+  background: var(--gray-50);
+  border-radius: 4px;
+  border: 1px solid var(--gray-200);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.match-config-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.info-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: var(--gray-400);
+  transition: color 0.15s ease;
+}
+
+.info-icon-wrapper:hover {
+  color: var(--gray-600);
+}
+
+.match-type-toggle.compact {
+  display: flex;
+  gap: 0;
+  background: white;
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+.match-type-option.compact {
+  flex: 1;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  font-family: "Urbanist", sans-serif;
+  white-space: nowrap;
+}
+
+.match-type-option.compact:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+.match-type-option.compact.active {
+  background: var(--ocean-blue);
+  color: white;
+}
+
+.match-type-option.compact:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.league-dropdown-container {
+  position: relative;
+}
+
+.league-dropdown-container.compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.league-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.875rem;
+  color: var(--gray-900);
+  min-height: 40px;
+}
+
+.league-dropdown-trigger.compact {
+  padding: 5px 10px;
+  min-height: 28px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.league-dropdown-trigger.compact.disabled-look {
+  background: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-500);
+  cursor: default;
+}
+
+.league-dropdown-trigger.compact.disabled-look:hover {
+  border-color: var(--gray-200);
+}
+
+.league-dropdown-trigger:hover:not(:disabled) {
+  border-color: var(--gray-400);
+}
+
+.league-dropdown-trigger.open {
+  border-color: var(--ocean-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.league-dropdown-trigger.placeholder {
+  color: var(--gray-400);
+}
+
+.league-dropdown-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.league-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 3000;
+  max-height: 200px;
   overflow-y: auto;
+}
+
+.league-dropdown-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--gray-900);
+  transition: background 0.15s ease;
+}
+
+.league-dropdown-option:hover {
+  background: var(--gray-50);
+}
+
+.league-dropdown-option.selected {
+  background: var(--ocean-blue);
+  color: white;
+}
+
+/* Active Season Card */
+.active-season-card {
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.active-season-card.compact {
+  padding: 5px 10px;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.active-season-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.active-season-name {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.75rem;
+}
+
+.active-season-card.compact .active-season-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.active-season-dates {
+  font-size: 0.6875rem;
+  color: var(--gray-600);
+}
+
+.active-season-dates {
+  font-size: 0.8125rem;
+  color: var(--gray-600);
+}
+
+.active-season-loading,
+.active-season-no-season {
+  color: var(--gray-500);
+  font-size: 0.8125rem;
+}
+
+.active-season-card.compact .active-season-loading,
+.active-season-card.compact .active-season-no-season {
+  font-size: 0.75rem;
+}
+
+.ranked-toggle-switch.compact {
+  display: flex;
+  gap: 0;
+  background: white;
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+.ranked-toggle-option.compact {
+  flex: 1;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  font-family: "Urbanist", sans-serif;
+  white-space: nowrap;
+}
+
+.ranked-toggle-option.compact:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+.ranked-toggle-option.compact.active {
+  background: var(--ocean-blue);
+  color: white;
+}
+
+.ranked-toggle-option.compact:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ranked-toggle-note.compact {
+  font-size: 0.6875rem;
+  color: var(--gray-500);
+  font-style: italic;
+  white-space: nowrap;
 }
 
 .delete-match-text-btn {
@@ -3350,14 +3872,34 @@ body:hover ::-webkit-scrollbar-thumb {
   cursor: not-allowed;
 }
 
+.teams-container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
 .team-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px;
+  gap: 8px;
+  padding: 10px;
   background: white;
   border-radius: 8px;
   border: 1px solid var(--gray-200);
+  overflow: visible;
+  position: relative;
+}
+
+.vs-divider-column {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  padding: 0 6px;
+  align-self: center;
 }
 
 .team-header {
@@ -3383,6 +3925,8 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   gap: 16px;
   align-items: stretch;
+  overflow: visible;
+  position: relative;
 }
 
 .player-inputs {
@@ -3390,6 +3934,8 @@ body:hover ::-webkit-scrollbar-thumb {
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  overflow: visible;
+  position: relative;
 }
 
 .player-input {
@@ -3499,14 +4045,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .vs-divider {
-  text-align: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--gray-500);
-  font-family: "Urbanist", sans-serif;
-  padding: 4px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  display: none;
 }
 
 /* Form Error */
@@ -3903,7 +4442,7 @@ select.form-select {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  margin: 0 auto;
   min-width: 0; /* Allow shrinking */
   cursor: pointer;
   padding: 6px 10px;
@@ -4029,7 +4568,7 @@ select.form-select {
 
 .league-sidebar.collapsed .league-sidebar-nav-item {
   justify-content: center;
-  padding: 12px;
+  padding: 6px 12px;
 }
 
 .league-sidebar.collapsed .league-sidebar-nav-item span {
@@ -5253,23 +5792,28 @@ select.form-select {
 
   .modal-content {
     border-radius: 20px;
-    max-width: 600px;
-    max-height: 85vh;
+    max-width: 700px;
+    max-height: 90vh;
+    height: auto;
     animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   }
 
   .modal-header {
     border-radius: 20px 20px 0 0;
-    padding: 24px 28px 20px;
+    padding: 8px 12px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.1rem;
   }
 
   .add-match-form {
-    padding: 28px;
+    padding: 16px;
   }
 
   .modal-actions {
-    padding: 20px 28px;
+    padding: 10px 12px;
     justify-content: flex-end;
     background: white;
   }
@@ -5282,11 +5826,11 @@ select.form-select {
 /* Responsive modals - mobile */
 @media (max-width: 768px) {
   .modal-header {
-    padding: 18px 20px 14px;
+    padding: 8px 12px;
   }
 
   .modal-header h2 {
-    font-size: 1.25em;
+    font-size: 1.1rem;
   }
 
   .add-match-form {
@@ -5448,12 +5992,85 @@ select.form-select {
 
   .add-match-form {
     padding: 12px;
-    gap: 12px;
+    gap: 10px;
+  }
+
+  .teams-container {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .vs-divider-column {
+    display: none;
+  }
+
+  .vs-divider {
+    display: block;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-400);
+    padding: 4px 0;
+    margin: 0;
   }
 
   .team-section {
-    padding: 10px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .match-config-section {
+    padding: 8px 10px;
     gap: 6px;
+  }
+
+  .match-config-top-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .match-config-bottom-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding-top: 6px;
+  }
+
+  .match-config-item.compact.league-item {
+    min-width: 0;
+  }
+
+  .match-type-option.compact,
+  .ranked-toggle-option.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+  }
+
+  .league-dropdown-trigger.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+    min-height: 26px;
+  }
+
+  .active-season-card.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+    width: 100%;
+  }
+
+  .active-season-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .ranked-toggle-note.compact {
+    font-size: 0.625rem;
+    width: 100%;
+  }
+
+  .match-config-label {
+    font-size: 0.625rem;
   }
 
   .team-inputs-row {
@@ -5536,6 +6153,7 @@ select.form-select {
 .player-dropdown-container {
   position: relative;
   width: 100%;
+  z-index: 1;
 }
 
 .player-dropdown-trigger {
@@ -5588,7 +6206,7 @@ select.form-select {
   border: 2px solid var(--ocean-blue);
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 3000;
   max-height: 300px;
   overflow: hidden;
   display: flex;

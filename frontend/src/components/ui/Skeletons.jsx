@@ -29,10 +29,10 @@ export function RankingsTableSkeleton() {
             <th>
               <span className="th-content skeleton-text" style={{ width: '50px' }}></span>
             </th>
-            <th className="mobile-hide-col">
+            <th>
               <span className="th-content skeleton-text" style={{ width: '60px' }}></span>
             </th>
-            <th className="mobile-hide-col">
+            <th>
               <span className="th-content skeleton-text" style={{ width: '80px' }}></span>
             </th>
           </tr>
@@ -64,10 +64,10 @@ export function RankingsTableSkeleton() {
               <td className="rankings-stat-cell">
                 <div className="skeleton-text" style={{ width: '30px' }}></div>
               </td>
-              <td className="rankings-stat-cell mobile-hide-col">
+              <td className="rankings-stat-cell">
                 <div className="skeleton-text" style={{ width: '30px' }}></div>
               </td>
-              <td className="rankings-stat-cell mobile-hide-col">
+              <td className="rankings-stat-cell">
                 <div className="skeleton-text" style={{ width: '50px' }}></div>
               </td>
             </tr>

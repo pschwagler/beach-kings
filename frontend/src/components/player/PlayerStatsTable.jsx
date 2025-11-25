@@ -25,7 +25,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
             <th>Partner/Opponent</th>
             <th>Wins</th>
             <th>Losses</th>
-            <th>Win Rate</th>
+            <th>Win %</th>
             <th>Games</th>
             <th>Avg Pt Diff</th>
           </tr>
