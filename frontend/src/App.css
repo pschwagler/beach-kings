@@ -13,7 +13,7 @@
   --primary-dark: #205e6f;
   --primary-darker: #183f4a;
 
-  --sunset-orange: #ff7849;
+  --muted-red: #ff7849;
   --sunset-dark: #e76a41;
   --sunset-light: #ff9673;
   --coral: #ff9a76;
@@ -41,7 +41,12 @@
   --ocean-gray-darker: #3d4445;
   --navy-logo-bg: #0f172a;
   --muted-red: #cc4e4e;
-  --gold-gradient: linear-gradient(90deg, #c9a652 0%, #ecd36f 50%, #b68b34 100%);
+  --gold-gradient: linear-gradient(
+    90deg,
+    #c9a652 0%,
+    #ecd36f 50%,
+    #b68b34 100%
+  );
   --gold-text: #ecd36f;
   --gold-dark: #b68b34;
 
@@ -100,15 +105,8 @@ body {
 }
 
 .container {
-  max-width: 1400px;
   margin: 0 auto;
   margin-top: 64px; /* Account for fixed navbar */
-  background: var(--cream);
-  border-radius: 20px;
-  box-shadow: var(--shadow-xl);
-  padding: 0;
-  border: 3px solid var(--sand);
-  overflow: hidden;
 }
 
 /* Navbar - Modern Fixed Design */
@@ -153,6 +151,11 @@ body {
   align-items: center;
   gap: 10px;
   transition: all 0.2s ease;
+}
+
+.navbar-brand-logo {
+  height: 34px;
+  object-fit: contain;
 }
 
 .navbar-brand-crown {
@@ -535,20 +538,6 @@ h1 {
   font-style: italic;
 }
 
-/* Add padding to content below header */
-.container > *:not(.hero-header) {
-  padding-left: 40px;
-  padding-right: 40px;
-}
-
-.container > *:nth-child(2) {
-  padding-top: 40px;
-}
-
-.container > *:last-child {
-  padding-bottom: 40px;
-}
-
 .controls {
   margin-bottom: 28px;
   display: flex;
@@ -767,15 +756,15 @@ h1 {
 
 .tab:hover {
   background: rgba(255, 120, 73, 0.1);
-  color: var(--sunset-orange);
+  color: var(--muted-red);
   transform: none;
   box-shadow: none;
 }
 
 .tab.active {
   background: transparent;
-  color: var(--sunset-orange);
-  border-bottom: 4px solid var(--sunset-orange);
+  color: var(--muted-red);
+  border-bottom: 4px solid var(--muted-red);
   font-weight: 800;
   box-shadow: none;
 }
@@ -784,12 +773,26 @@ h1 {
   margin-top: 24px;
 }
 
-.landing-content {
-  margin-top: 48px;
+.homepage-video-container {
+  margin-top: 32px;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 400px;
+}
+
+.homepage-video {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.landing-content {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
 }
 
 .landing-message {
@@ -836,7 +839,7 @@ h1 {
   text-transform: uppercase;
   background: linear-gradient(
     135deg,
-    var(--sunset-orange) 0%,
+    var(--muted-red) 0%,
     var(--coral) 50%,
     var(--retro-yellow) 100%
   );
@@ -864,7 +867,7 @@ h1 {
 }
 
 .landing-message .btn-primary {
-  background: var(--sunset-orange);
+  background: var(--muted-red);
   color: white;
 }
 
@@ -909,11 +912,11 @@ th:hover {
 }
 
 th:first-child {
-  border-top-left-radius: 9px;
+  border-top-left-radius: 6px;
 }
 
 th:last-child {
-  border-top-right-radius: 9px;
+  border-top-right-radius: 6px;
 }
 
 td {
@@ -1006,20 +1009,20 @@ tbody tr:hover .sticky-col {
 
 /* Override general th:first-child rule for rankings table */
 .rankings-table-modern thead tr:first-child th:first-child {
-  border-top-left-radius: 8px !important;
+  border-top-left-radius: 6px !important;
 }
 
 .rankings-table-modern thead tr:first-child th:last-child {
-  border-top-right-radius: 8px !important;
+  border-top-right-radius: 6px !important;
 }
 
 /* Ensure no border-radius from general table rules */
 .rankings-table-modern th:first-child {
-  border-top-left-radius: 8px !important;
+  border-top-left-radius: 6px !important;
 }
 
 .rankings-table-modern th:last-child {
-  border-top-right-radius: 8px !important;
+  border-top-right-radius: 6px !important;
 }
 
 .rankings-table-modern th {
@@ -1157,11 +1160,11 @@ tbody tr:hover .sticky-col {
 }
 
 .rankings-table-modern tbody tr:last-child td:first-child {
-  border-bottom-left-radius: 8px;
+  border-bottom-left-radius: 6px;
 }
 
 .rankings-table-modern tbody tr:last-child td:last-child {
-  border-bottom-right-radius: 8px;
+  border-bottom-right-radius: 6px;
 }
 
 /* Rank number column */
@@ -1459,16 +1462,14 @@ tbody tr:hover .sticky-col {
 .table-scroll-wrapper {
   width: 100%;
   overflow-x: auto;
-  overflow-y: clip; /* Prevents vertical scrolling without creating scrollbar */
-  overflow-y: hidden; /* Fallback for browsers that don't support clip */
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   margin-top: 0;
   /* Add subtle scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: var(--gray-300) transparent;
   position: relative;
-  /* Prevent any vertical scrolling */
-  max-height: none;
+  max-height: 80vh;
   height: auto;
   padding: 4px;
 }
@@ -1508,7 +1509,11 @@ tbody tr:hover .sticky-col {
 }
 
 .player-details table thead {
-  background: linear-gradient(135deg, var(--primary-darker) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary-darker) 0%,
+    var(--primary-dark) 100%
+  );
 }
 
 .player-details table th {
@@ -2053,14 +2058,16 @@ body.drawer-open .navbar {
   }
 
   .container {
-    margin-top: 56px; /* Smaller navbar height on mobile */
-    border-radius: 12px;
-    border-width: 2px;
+    margin-top: calc(
+      56px + env(safe-area-inset-top, 0)
+    ); /* Account for navbar + safe area */
   }
 
   /* League Dashboard Mobile */
   .league-dashboard-container {
-    margin-top: calc(56px + env(safe-area-inset-top, 0)); /* Account for navbar + safe area */
+    margin-top: calc(
+      56px + env(safe-area-inset-top, 0)
+    ); /* Account for navbar + safe area */
     padding-top: 0;
     padding-bottom: calc(
       72px + env(safe-area-inset-bottom, 0)
@@ -2210,12 +2217,13 @@ body.drawer-open .navbar {
   .league-content {
     margin-left: 0 !important;
     order: 1; /* Place before sidebar */
-    padding-bottom: 8px; /* Extra padding at bottom for scroll */
+    padding-bottom: 90px; /* Space for fixed bottom sidebar */
   }
 
   /* Override collapsed sidebar margin on mobile */
   .league-sidebar.collapsed ~ .league-content {
     margin-left: 0 !important;
+    margin-bottom: 90px;
   }
 
   .league-content > *:not(.league-content-header) {
@@ -2276,20 +2284,6 @@ body.drawer-open .navbar {
 
   .league-empty-state {
     padding: 32px 16px;
-  }
-
-  /* Reduced padding for mobile - use direct selectors */
-  .container > *:not(.hero-header) {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .container > *:nth-child(2) {
-    padding-top: 20px;
-  }
-
-  .container > *:last-child {
-    padding-bottom: 20px;
   }
 
   /* Hero Header Mobile */
@@ -2379,14 +2373,12 @@ body.drawer-open .navbar {
   }
 
   .rankings-table-modern {
-    /* Calculate min-width: 40 (No.) + 120 (Player) + 60 (Points) + 65 (Rating) + 60 (Games) + 70 (Win Rate) + 55 (Wins) + 65 (Losses) + 85 (Avg Pt Diff) = 635px */
-    /* Add extra for cell padding and content: use 700px to be safe */
-    min-width: 700px !important; /* Ensure table is wide enough for all columns */
-    width: auto; /* Let table size based on content, not fixed widths */
+    min-width: auto !important;
+    width: max-content;
     font-size: 0.875em;
     position: relative;
     overscroll-behavior-x: none;
-    table-layout: auto; /* Ensure auto layout for proper column sizing */
+    table-layout: auto;
   }
 
   .rankings-table-modern th {
@@ -2422,8 +2414,8 @@ body.drawer-open .navbar {
 
   .rankings-table-modern tbody .sticky-col {
     left: 40px;
-    min-width: 120px;
-    width: 120px;
+    min-width: auto;
+    width: auto;
   }
 
   /* Hide player avatar on mobile */
@@ -2437,66 +2429,27 @@ body.drawer-open .navbar {
   }
 
   .rankings-name-cell {
-    min-width: 90px;
+    min-width: auto;
+    width: auto;
     padding: 4px 8px;
   }
 
-  /* Ensure sticky header column has enough width for "PLAYER NAME ↑" */
+  /* Sticky header column - fit to content */
   .rankings-table-modern thead .sticky-col {
-    min-width: 120px;
-    width: 120px;
+    min-width: auto;
+    width: auto;
   }
 
   .rankings-stat-cell {
-    padding: 12px 4px;
-    min-width: 45px;
-    max-width: none; /* Remove max-width constraint */
+    padding: 12px 3px;
     white-space: nowrap;
   }
 
-  /* Make stat header columns narrower on mobile - only need space for 3-4 digit numbers */
-  /* But ensure headers have enough space for text + sort arrows */
-  .rankings-table-modern th {
-    min-width: 45px;
-  }
-
-  /* Points column (3rd) - needs space for "POINTS ↑" */
-  .rankings-table-modern th:nth-child(3) {
-    min-width: 60px;
-  }
-
-  /* Rating column (4th) - needs space for "RATING ↑" */
-  .rankings-table-modern th:nth-child(4) {
-    min-width: 65px;
-  }
-
-  /* Games column (5th) - needs space for "GAMES ↑" */
-  .rankings-table-modern th:nth-child(5) {
-    min-width: 60px;
-  }
-
-  /* Win Rate column (6th) - needs space for "WIN RATE ↑" */
-  .rankings-table-modern th:nth-child(6) {
-    min-width: 70px;
-  }
-
-  .rankings-table-modern td:nth-child(6) {
-    min-width: 50px;
-  }
-
-  /* Wins column (7th) - needs space for "WINS ↑" */
-  .rankings-table-modern th:nth-child(7) {
-    min-width: 55px;
-  }
-
-  /* Losses column (8th) - needs space for "LOSSES ↑" */
-  .rankings-table-modern th:nth-child(8) {
-    min-width: 65px;
-  }
-
-  /* Avg Pt Diff column (9th) - needs space for "AVG PT DIFF ↑" */
-  .rankings-table-modern th:nth-child(9) {
-    min-width: 85px;
+  /* Non-sticky stat columns - fit to content */
+  .rankings-table-modern th:nth-child(n + 3),
+  .rankings-table-modern td:nth-child(n + 3) {
+    width: auto;
+    min-width: auto;
   }
 
   /* First column after sticky (Points) needs more left padding */
@@ -2581,7 +2534,7 @@ body.drawer-open .navbar {
     max-width: 100%;
     top: 0; /* Full screen, covering navbar */
     padding: 12px 16px;
-    padding-top: max(68px, calc(56px + env(safe-area-inset-top))); /* Account for navbar + safe area */
+    padding-top: calc(10px + env(safe-area-inset-top));
     border-left: none;
     /* Safe area padding for notched devices */
     padding-left: max(12px, env(safe-area-inset-left));
@@ -2592,7 +2545,7 @@ body.drawer-open .navbar {
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
-  
+
   /* Note: navbar z-index lowering is handled globally above, no need to duplicate here */
 
   .player-details h2 {
@@ -2779,19 +2732,6 @@ body.drawer-open .navbar {
     height: 150px;
   }
 
-  .container > *:not(.hero-header) {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .container > *:nth-child(2) {
-    padding-top: 16px;
-  }
-
-  .container > *:last-child {
-    padding-bottom: 16px;
-  }
-
   /* Match cards - reduce padding */
   .match-team {
     padding: 10px 12px;
@@ -2874,7 +2814,8 @@ body.drawer-open .navbar {
   }
 
   .rankings-name-cell {
-    min-width: 85px;
+    min-width: auto;
+    width: auto;
     padding: 4px 6px;
   }
 
@@ -2885,23 +2826,11 @@ body.drawer-open .navbar {
     white-space: nowrap;
   }
 
-  /* Make stat header columns narrower on very small screens */
-  .rankings-table-modern th:nth-child(3),
-  .rankings-table-modern th:nth-child(4),
-  .rankings-table-modern th:nth-child(5),
-  .rankings-table-modern th:nth-child(7) {
-    min-width: 45px;
-    max-width: 55px;
-  }
-
-  /* Win Rate column needs slightly more space for "XX.X%" */
-  .rankings-table-modern th:nth-child(6) {
-    min-width: 50px;
-    max-width: 60px;
-  }
-
-  .rankings-table-modern td:nth-child(6) {
-    min-width: 50px;
+  /* Stat columns - fit to content on very small screens */
+  .rankings-table-modern th:nth-child(n + 3),
+  .rankings-table-modern td:nth-child(n + 3) {
+    width: auto;
+    min-width: auto;
   }
 
   /* First column after sticky (Points) needs more left padding */
@@ -3434,7 +3363,6 @@ body:hover ::-webkit-scrollbar-thumb {
   border: 1px solid var(--gray-200);
 }
 
-
 .match-config-top-row {
   display: grid;
   grid-template-columns: 1fr;
@@ -3633,7 +3561,8 @@ body:hover ::-webkit-scrollbar-thumb {
   background: white;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 3000;
   max-height: 200px;
   overflow-y: auto;
@@ -3804,7 +3733,7 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px;
+  padding: 14px;
   background: white;
   border-radius: 8px;
   border: 1px solid var(--gray-200);
@@ -3958,7 +3887,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 4px 10px;
   background: var(--success);
   color: white;
-  border-radius: 4px;
+  border-radius: 10px;
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -4425,16 +4354,16 @@ select.form-select {
 
 /* Current league highlighting in sidebar dropdown */
 .league-sidebar-current {
-  color: var(--sunset-orange) !important;
+  color: var(--muted-red) !important;
   font-weight: 600;
 }
 
 .league-sidebar-current svg {
-  color: var(--sunset-orange) !important;
+  color: var(--muted-red) !important;
 }
 
 .league-sidebar-current:hover {
-  color: var(--sunset-orange) !important;
+  color: var(--muted-red) !important;
 }
 
 .league-sidebar-collapse-btn {
@@ -4672,7 +4601,7 @@ select.form-select {
 
 .league-content-header-input:focus {
   outline: none;
-  border-color: var(--sunset-orange);
+  border-color: var(--muted-red);
   box-shadow: 0 0 0 3px rgba(255, 120, 73, 0.15);
 }
 
@@ -5517,8 +5446,8 @@ select.form-select {
 
 .league-info-select:focus {
   outline: none;
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 2px var(--primary-100);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 /* Empty State */
@@ -5608,7 +5537,7 @@ select.form-select {
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
-  color: var(--sunset-orange);
+  color: var(--muted-red);
   transition: all 0.2s ease;
 }
 
@@ -5865,14 +5794,12 @@ select.form-select {
   }
 
   .team-section {
-    padding: 12px;
+    padding: 14px;
     gap: 8px;
   }
 
   .player-dropdown-trigger {
     padding: 14px 16px;
-    font-size: 0.85em;
-    min-height: auto;
   }
 
   .team-inputs-row {
@@ -5903,13 +5830,16 @@ select.form-select {
     position: relative;
   }
 
+  .team-section.is-winner {
+    border: 2px solid var(--success);
+  }
+
   .team-section h3 {
     font-size: 0.95em;
   }
 
   .winner-badge {
-    padding: 4px 10px;
-    font-size: 0.7em;
+    display: none;
   }
 
   .vs-divider {
@@ -5917,14 +5847,14 @@ select.form-select {
     padding: 4px 0;
   }
 
+  .player-dropdown-option {
+    font-size: 0.9em;
+  }
+
   .form-error {
     padding: 10px;
     font-size: 13px;
     margin-bottom: 12px;
-  }
-
-  .add-matches-section {
-    min-height: 300px;
   }
 
   .add-matches-card {
@@ -5943,7 +5873,6 @@ select.form-select {
 
   .add-matches-description {
     font-size: 0.95rem;
-    margin-bottom: 28px;
   }
 
   .match-date-header-container {
@@ -5955,7 +5884,6 @@ select.form-select {
     width: 100%;
     justify-content: center;
   }
-
 
   .add-match-card {
     padding: 30px 20px;
@@ -5977,8 +5905,6 @@ select.form-select {
     display: flex;
     flex-direction: column;
   }
-
-
 
   .modal-header {
     padding: 12px 14px;
@@ -6161,7 +6087,7 @@ button.match-config-toggle.inline svg {
   }
 
   .team-section {
-    padding: 16px;
+    padding: 14px;
     gap: 12px;
   }
 
@@ -6272,10 +6198,6 @@ button.match-config-toggle.inline svg {
     margin-bottom: 10px;
   }
 
-  .add-matches-section {
-    min-height: 250px;
-  }
-
   .add-matches-card {
     padding: 28px 20px;
   }
@@ -6292,14 +6214,12 @@ button.match-config-toggle.inline svg {
 
   .add-matches-description {
     font-size: 0.9rem;
-    margin-bottom: 24px;
   }
 
   .add-matches-button {
     padding: 12px 24px;
     font-size: 0.95rem;
   }
-
 
   .add-match-card {
     padding: 24px 16px;
@@ -6320,13 +6240,12 @@ button.match-config-toggle.inline svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 16px;
+  padding: 12px 16px;
   border: 2px solid var(--gray-300);
   border-radius: 8px;
   background: white;
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 56px;
 }
 
 .player-dropdown-trigger:hover {
@@ -6341,6 +6260,7 @@ button.match-config-toggle.inline svg {
 .player-dropdown-value {
   font-weight: 600;
   color: var(--gray-900);
+  font-size: 0.9em;
 }
 
 .player-dropdown-placeholder {
@@ -6425,7 +6345,7 @@ button.match-config-toggle.inline svg {
 
 .player-dropdown-option.selected {
   background: var(--cream);
-  color: var(--sunset-orange);
+  color: var(--muted-red);
   font-weight: 700;
 }
 
@@ -6598,7 +6518,7 @@ button.match-config-toggle.inline svg {
 
 .auth-modal__input:focus {
   outline: none;
-  border-color: var(--sunset-orange);
+  border-color: var(--muted-red);
   box-shadow: 0 0 0 3px rgba(255, 120, 73, 0.15);
 }
 
@@ -6650,7 +6570,7 @@ button.match-config-toggle.inline svg {
 }
 
 .phone-input__wrapper:focus-within {
-  border-color: var(--sunset-orange);
+  border-color: var(--muted-red);
   box-shadow: 0 0 0 3px rgba(255, 120, 73, 0.15);
 }
 
@@ -6748,7 +6668,7 @@ button.match-config-toggle.inline svg {
   font-size: 1rem;
   font-weight: 700;
   color: white;
-  background: linear-gradient(135deg, var(--sunset-orange), var(--coral));
+  background: linear-gradient(135deg, var(--muted-red), var(--coral));
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   box-shadow: 0 10px 20px rgba(255, 120, 73, 0.2);
@@ -6795,7 +6715,7 @@ button.match-config-toggle.inline svg {
 
 .auth-modal__footer-link:hover {
   background: transparent !important;
-  color: var(--sunset-orange);
+  color: var(--muted-red);
   text-decoration: underline;
   transform: none !important;
   box-shadow: none !important;
@@ -6941,7 +6861,7 @@ button.match-config-toggle.inline svg {
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.5px;
-  color: var(--sunset-orange);
+  color: var(--muted-red);
 }
 
 .session-stats {
@@ -7028,7 +6948,7 @@ button.match-config-toggle.inline svg {
 }
 
 .session-btn-submit {
-  background: var(--sunset-orange);
+  background: var(--muted-red);
   color: white;
   white-space: nowrap;
   font-weight: 600;
@@ -7122,6 +7042,13 @@ button.match-config-toggle.inline svg {
     padding: 14px 24px;
     font-size: 0.95em;
     white-space: normal;
+  }
+
+  .session-btn-cancel {
+    color: white;
+    background-color: var(--ocean-gray);
+    padding: 14px 24px;
+    font-size: 0.95em;
   }
 }
 
@@ -7467,4 +7394,174 @@ button.match-config-toggle.inline svg {
 
 .team-inputs-row.reverse-layout {
   flex-direction: row-reverse;
+}
+
+/* League Messages Tab */
+.league-messages-tab {
+  margin: 14px;
+  max-width: 800px;
+}
+
+.league-messages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.league-messages-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.league-messages-refresh-btn {
+  background: transparent;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.league-messages-refresh-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.league-messages-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.league-messages-refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.league-messages-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.league-messages-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: var(--white);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.league-messages-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.league-messages-send-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+  margin-left: auto;
+}
+
+.league-messages-send-btn:hover:not(:disabled) {
+  background: var(--primary);
+}
+
+.league-messages-send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.league-messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.league-messages-loading,
+.league-messages-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--gray-500);
+  font-size: 0.95rem;
+}
+
+.league-message-item {
+  background: var(--gray-50);
+  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+}
+
+.league-message-item.own-message {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.league-message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.league-message-player {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: 0.9rem;
+}
+
+.league-message-time {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+.league-message-content {
+  color: var(--gray-700);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .league-messages-tab {
+    padding: 16px;
+  }
+
+  .league-messages-header h2 {
+    font-size: 1.25rem;
+  }
 }

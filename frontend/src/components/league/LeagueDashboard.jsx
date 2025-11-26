@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users, Swords } from 'lucide-react';
+import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users, Swords, MessageSquare } from 'lucide-react';
 import NavBar from '../layout/NavBar';
 import LeagueRankingsTab from './LeagueRankingsTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
 import LeagueDetailsTab from './LeagueDetailsTab';
 import LeagueSignUpsTab from './LeagueSignUpsTab';
+import LeagueMessagesTab from './LeagueMessagesTab';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
@@ -22,7 +23,7 @@ function LeagueDashboardContent({ leagueId }) {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const tab = urlParams.get('tab');
-      if (tab && ['rankings', 'matches', 'details', 'signups'].includes(tab)) {
+      if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
         return tab;
       }
     }
@@ -258,6 +259,14 @@ function LeagueDashboardContent({ leagueId }) {
                   <span>Sign Ups</span>
                 </button>
                 <button
+                  className={`league-sidebar-nav-item ${activeTab === 'messages' ? 'active' : ''}`}
+                  onClick={() => handleTabChange('messages')}
+                  title="Messages"
+                >
+                  <MessageSquare size={20} />
+                  <span>Messages</span>
+                </button>
+                <button
                   className={`league-sidebar-nav-item ${activeTab === 'details' ? 'active' : ''}`}
                   onClick={() => handleTabChange('details')}
                   title="Details"
@@ -412,6 +421,14 @@ function LeagueDashboardContent({ leagueId }) {
                 <span>Sign Ups</span>
               </button>
               <button
+                className={`league-sidebar-nav-item ${activeTab === 'messages' ? 'active' : ''}`}
+                onClick={() => handleTabChange('messages')}
+                title="Messages"
+              >
+                <MessageSquare size={20} />
+                <span>Messages</span>
+              </button>
+              <button
                 className={`league-sidebar-nav-item ${activeTab === 'details' ? 'active' : ''}`}
                 onClick={() => handleTabChange('details')}
                 title="Details"
@@ -503,6 +520,10 @@ function LeagueDashboardContent({ leagueId }) {
 
             {activeTab === 'signups' && (
               <LeagueSignUpsTab />
+            )}
+
+            {activeTab === 'messages' && (
+              <LeagueMessagesTab leagueId={leagueId} />
             )}
 
           </main>

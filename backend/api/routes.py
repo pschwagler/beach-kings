@@ -22,6 +22,7 @@ from backend.api.auth_dependencies import (
     make_require_league_admin_from_season,
     make_require_league_member_from_season,
     make_require_league_admin_from_schedule,
+    make_require_league_admin_from_signup,
 )
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
@@ -484,6 +485,43 @@ async def remove_league_member(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error removing member: {str(e)}")
+
+
+# League Messages endpoints
+@router.get("/api/leagues/{league_id}/messages")
+async def get_league_messages(
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get league messages (league_member)."""
+    try:
+        return await data_service.get_league_messages(session, league_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/messages")
+async def create_league_message(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Create a league message (league_member)."""
+    try:
+        body = await request.json()
+        message_text = body.get("message", "").strip()
+        if not message_text:
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+        
+        user_id = user.get("id")
+        return await data_service.create_league_message(session, league_id, user_id, message_text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
+
 
 # Location endpoints
 
@@ -1297,7 +1335,7 @@ async def get_signup(
 async def update_signup(
     signup_id: int,
     payload: SignupUpdate,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_signup()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Update a signup (admin only)."""
@@ -1333,7 +1371,7 @@ async def update_signup(
 @router.delete("/api/signups/{signup_id}")
 async def delete_signup(
     signup_id: int,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_admin_from_signup()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """Delete a signup (admin only)."""

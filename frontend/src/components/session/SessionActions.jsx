@@ -12,7 +12,6 @@ export default function SessionActions({ onAddMatchClick, onSubmitClick, onSaveC
           <button 
             className="session-btn session-btn-cancel" 
             onClick={onCancelClick}
-            style={{ backgroundColor: '#ef4444', color: 'white' }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
           >

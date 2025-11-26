@@ -899,7 +899,7 @@ function TeamSection({
   nextScoreRef
 }) {
   return (
-    <div className="team-section">
+    <div className={`team-section ${isWinner ? 'is-winner' : ''}`}>
       <div className="team-header">
         <h3>Team {teamNumber}</h3>
         {isWinner && (

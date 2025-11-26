@@ -8,7 +8,6 @@ export default function NavBrand() {
           src="/beach-league-gold-on-navy.png" 
           alt="Beach League" 
           className="navbar-brand-logo"
-          style={{ height: '40px', objectFit: 'contain' }}
         />
       </a>
     </div>

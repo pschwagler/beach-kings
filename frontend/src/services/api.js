@@ -690,5 +690,21 @@ export const getSignupEvents = async (signupId) => {
   return response.data;
 };
 
+/**
+ * Get league messages
+ */
+export const getLeagueMessages = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/messages`);
+  return response.data;
+};
+
+/**
+ * Create a league message
+ */
+export const createLeagueMessage = async (leagueId, message) => {
+  const response = await api.post(`/api/leagues/${leagueId}/messages`, { message });
+  return response.data;
+};
+
 export default api;
 

@@ -160,7 +160,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
             <th onClick={() => handleSort('Avg Pt Diff')}>
               <Tooltip text="Average point differential per game">
                 <span className="th-content">
-                  Avg Pt Diff{getSortArrow('Avg Pt Diff')}
+                  Avg +/-{getSortArrow('Avg Pt Diff')}
                 </span>
               </Tooltip>
             </th>

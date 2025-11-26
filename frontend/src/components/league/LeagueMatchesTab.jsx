@@ -327,7 +327,10 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       }
       
       await updateMatch(matchId, matchDataWithFullNames);
-      await loadLeagueMatches();
+      // Refresh season data to get updated matches
+      if (activeSeason?.id) {
+        await refreshSeasonData(activeSeason.id);
+      }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update match');
       throw err;
@@ -394,7 +397,10 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       
       // Existing match not in edit mode - delete via API
       await deleteMatch(matchId);
-      await loadLeagueMatches();
+      // Refresh season data to get updated matches
+      if (activeSeason?.id) {
+        await refreshSeasonData(activeSeason.id);
+      }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete match');
       throw err;

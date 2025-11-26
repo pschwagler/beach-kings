@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func as sql_func
 from backend.database import db
 from backend.database.models import (
-    League, LeagueMember, Season, Location, Court, Player, 
+    League, LeagueMember, LeagueMessage, Season, Location, Court, Player, User,
     Session, Match, Setting, PartnershipStats, OpponentStats, 
     EloHistory, PlayerSeasonStats, SessionStatus,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
@@ -3785,5 +3785,60 @@ async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, pl
         "created_at": signup.created_at.isoformat() if signup.created_at else None,
         "updated_at": signup.updated_at.isoformat() if signup.updated_at else None,
         "players": players  # Use pre-loaded players
+    }
+
+
+#
+# League Messages
+#
+
+async def get_league_messages(session: AsyncSession, league_id: int, limit: int = 100) -> List[Dict]:
+    """Get messages for a league with player names."""
+    result = await session.execute(
+        select(LeagueMessage, Player.full_name)
+        .join(User, LeagueMessage.user_id == User.id)
+        .outerjoin(Player, Player.user_id == User.id)
+        .where(LeagueMessage.league_id == league_id)
+        .order_by(LeagueMessage.created_at.desc())
+        .limit(limit)
+    )
+    messages = []
+    for msg, player_name in result.all():
+        messages.append({
+            "id": msg.id,
+            "league_id": msg.league_id,
+            "user_id": msg.user_id,
+            "player_name": player_name or "Unknown",
+            "message": msg.message_text,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None
+        })
+    return messages
+
+
+async def create_league_message(session: AsyncSession, league_id: int, user_id: int, message_text: str) -> Dict:
+    """Create a new league message."""
+    new_message = LeagueMessage(
+        league_id=league_id,
+        user_id=user_id,
+        message_text=message_text
+    )
+    session.add(new_message)
+    await session.commit()
+    await session.refresh(new_message)
+    
+    # Get player name
+    result = await session.execute(
+        select(Player.full_name)
+        .where(Player.user_id == user_id)
+    )
+    player_name = result.scalar_one_or_none() or "Unknown"
+    
+    return {
+        "id": new_message.id,
+        "league_id": new_message.league_id,
+        "user_id": new_message.user_id,
+        "player_name": player_name,
+        "message": new_message.message_text,
+        "created_at": new_message.created_at.isoformat() if new_message.created_at else None
     }
 

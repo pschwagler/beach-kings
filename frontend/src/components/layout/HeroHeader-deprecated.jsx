@@ -24,9 +24,6 @@ export default function HeroHeader() {
       className="hero-header" 
       style={{ "--hero-bg-image": `url(${HERO_IMAGES[currentImageIndex]})` }}
     >
-      <div className="hero-overlay">
-        <h1 className="hero-title">Beach League</h1>
-      </div>
     </div>
   );
 }

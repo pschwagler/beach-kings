@@ -548,3 +548,20 @@ class SignupWithPlayersResponse(SignupResponse):
     """Signup response with players list."""
     players: List[SignupPlayerResponse]
 
+
+# League Messages
+class LeagueMessageCreate(BaseModel):
+    """Create a league message."""
+    message: str
+
+
+class LeagueMessageResponse(BaseModel):
+    """League message response."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    league_id: int
+    user_id: int
+    player_name: str
+    message: str
+    created_at: str
+

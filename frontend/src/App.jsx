@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Crown } from 'lucide-react';
 import './App.css';
 import NavBar from './components/layout/NavBar';
-import HeroHeader from './components/layout/HeroHeader';
 import AuthModal from './components/auth/AuthModal';
 import CreateLeagueModal from './components/league/CreateLeagueModal';
 import PlayerProfileModal from './components/player/PlayerProfileModal';
@@ -194,7 +193,22 @@ function App() {
         onLeaguesMenuClick={handleLeaguesMenuClick}
       />
       <div className="container">
-        <HeroHeader />
+        <div className="homepage-video-container">
+          <video 
+            ref={(el) => {
+              if (el && !el.dataset.initialized) {
+                el.dataset.initialized = 'true';
+                setTimeout(() => el.play(), 1000);
+              }
+            }}
+            muted 
+            playsInline
+            controls
+            className="homepage-video"
+          >
+            <source src="/Brazilian_Volleyball_Pro_Offers_Crown.mp4" type="video/mp4" />
+          </video>
+        </div>
         <div className="landing-content">
           {!isAuthenticated ? (
             <div className="landing-message">

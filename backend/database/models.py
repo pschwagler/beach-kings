@@ -147,6 +147,7 @@ class League(Base):
     config = relationship("LeagueConfig", back_populates="league", uselist=False, cascade="all, delete-orphan")
     creator = relationship("Player", foreign_keys=[created_by], backref="created_leagues")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_leagues")
+    messages = relationship("LeagueMessage", back_populates="league", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index("idx_leagues_location", "location_id"),
@@ -728,5 +729,25 @@ class StatsCalculationJob(Base):
         Index("idx_stats_calculation_jobs_status", "status"),
         Index("idx_stats_calculation_jobs_type_season", "calc_type", "season_id"),
         Index("idx_stats_calculation_jobs_created_at", "created_at"),
+    )
+
+
+class LeagueMessage(Base):
+    """League messages/chat."""
+    __tablename__ = "league_messages"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message_text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    league = relationship("League", back_populates="messages")
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_league_messages_league_id", "league_id"),
+        Index("idx_league_messages_created_at", "created_at"),
     )
 
