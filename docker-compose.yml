@@ -45,7 +45,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
-      - ./frontend:/app/frontend
+      # Frontend volume removed - frontend is built into Docker image
+      # - ./frontend:/app/frontend
       - ./whatsapp-service:/app/whatsapp-service
     networks:
       - beach-kings-network
