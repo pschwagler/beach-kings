@@ -5,6 +5,12 @@ Revises:
 Create Date: 2025-11-17 17:15:00.000000
 
 Initial database schema - creates all tables from scratch.
+This consolidated migration includes all schema changes from migrations 001-006:
+- Initial schema (users, players, seasons, matches, etc.)
+- Signups tables (weekly_schedules, signups, signup_players, signup_events)
+- Stats calculation tables (stats_calculation_jobs, partnership_stats_season, opponent_stats_season)
+- League messages table
+- All enum types and indexes
 """
 from typing import Sequence, Union
 

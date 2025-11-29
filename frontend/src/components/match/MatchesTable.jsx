@@ -472,7 +472,7 @@ export default function MatchesTable({
         onClose={() => setIsEndSessionModalOpen(false)}
         onConfirm={handleLockInSession}
         title="Submit Scores"
-        message="Are you sure you want to submit these scores? Once submitted, matches will be locked in and no edits will be allowed."
+        message="Are you sure you want to submit these scores? Once submitted, matches will be locked in and only league admins will be able to edit."
         confirmText="Submit Scores"
         cancelText="Cancel"
         gameCount={activeSessionMatches.length}
