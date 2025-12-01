@@ -1,6 +1,6 @@
 #!/bin/bash
 # SSL Setup Script for beachleaguevb.com
-# This script installs nginx, certbot, and configures SSL certificates
+# This script installs nginx, certbot, and configures SSL certificates using DNS challenge
 # Run this script on your EC2 instance with sudo privileges
 
 set -e
@@ -8,157 +8,257 @@ set -e
 DOMAIN="beachleaguevb.com"
 NGINX_CONFIG_SOURCE="deployment/nginx/${DOMAIN}.conf"
 NGINX_CONFIG_DEST="/etc/nginx/sites-available/${DOMAIN}"
+HTTPS_TEMPLATE="deployment/nginx/${DOMAIN}-https.conf.template"
 
-echo "🔒 Setting up SSL for ${DOMAIN}"
-echo "=================================="
-echo ""
+# Helper functions
+log_info() {
+    echo "✅ $1"
+}
 
-# Check if running as root or with sudo
-if [ "$EUID" -ne 0 ]; then 
-    echo "❌ Error: This script must be run with sudo"
-    echo "   Usage: sudo bash deployment/setup-ssl.sh"
+log_warn() {
+    echo "⚠️  $1"
+}
+
+log_error() {
+    echo "❌ Error: $1"
     exit 1
-fi
+}
 
-# Check if we're in the correct directory
-if [ ! -f "$NGINX_CONFIG_SOURCE" ]; then
-    echo "❌ Error: nginx config file not found at ${NGINX_CONFIG_SOURCE}"
-    echo "   Make sure you're running this script from the repository root"
-    exit 1
-fi
-
-# Step 1: Update system packages
-echo "📦 Updating system packages..."
-apt-get update -qq
-
-# Step 2: Install nginx and certbot
-echo "📦 Installing nginx and certbot..."
-if ! command -v nginx &> /dev/null; then
-    apt-get install -y nginx
-    echo "✅ nginx installed"
-else
-    echo "✅ nginx already installed"
-fi
-
-if ! command -v certbot &> /dev/null; then
-    apt-get install -y certbot python3-certbot-nginx
-    echo "✅ certbot installed"
-else
-    echo "✅ certbot already installed"
-fi
-
-# Step 3: Start and enable nginx (if not already running)
-echo "🚀 Starting nginx service..."
-if systemctl is-active --quiet nginx; then
-    echo "✅ nginx is already running"
-else
-    systemctl start nginx
-    echo "✅ nginx started"
-fi
-systemctl enable nginx
-echo "✅ nginx enabled"
-
-# Step 4: Copy nginx configuration
-echo "📝 Configuring nginx..."
-if [ -f "$NGINX_CONFIG_DEST" ]; then
-    echo "⚠️  Warning: ${NGINX_CONFIG_DEST} already exists"
-    read -p "   Do you want to overwrite it? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "   Skipping nginx config copy..."
-    else
-        cp "$NGINX_CONFIG_SOURCE" "$NGINX_CONFIG_DEST"
-        echo "✅ nginx config copied"
+check_root() {
+    if [ "$EUID" -ne 0 ]; then 
+        log_error "This script must be run with sudo\n   Usage: sudo bash deployment/setup-ssl.sh"
     fi
-else
+}
+
+check_files() {
+    if [ ! -f "$NGINX_CONFIG_SOURCE" ]; then
+        log_error "nginx config file not found at ${NGINX_CONFIG_SOURCE}\n   Make sure you're running this script from the repository root"
+    fi
+    if [ ! -f "$HTTPS_TEMPLATE" ]; then
+        log_error "HTTPS template not found at ${HTTPS_TEMPLATE}"
+    fi
+}
+
+install_packages() {
+    echo "📦 Installing nginx and certbot..."
+    apt-get update -qq
+    
+    if ! command -v nginx &> /dev/null; then
+        apt-get install -y nginx
+        log_info "nginx installed"
+    else
+        log_info "nginx already installed"
+    fi
+
+    if ! command -v certbot &> /dev/null; then
+        apt-get install -y certbot python3-certbot-nginx
+        log_info "certbot installed"
+    else
+        log_info "certbot already installed"
+    fi
+}
+
+setup_nginx_service() {
+    echo "🚀 Starting nginx service..."
+    if systemctl is-active --quiet nginx; then
+        log_info "nginx is already running"
+    else
+        systemctl start nginx
+        log_info "nginx started"
+    fi
+    systemctl enable nginx
+    log_info "nginx enabled"
+}
+
+configure_nginx() {
+    echo "📝 Configuring nginx..."
+    
+    if [ -f "$NGINX_CONFIG_DEST" ]; then
+        log_warn "${NGINX_CONFIG_DEST} already exists"
+        read -p "   Do you want to overwrite it? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "   Skipping nginx config copy..."
+            return
+        fi
+    fi
+    
     cp "$NGINX_CONFIG_SOURCE" "$NGINX_CONFIG_DEST"
-    echo "✅ nginx config copied"
-fi
+    log_info "nginx config copied"
 
-# Step 5: Create symlink to enable site
-if [ ! -L "/etc/nginx/sites-enabled/${DOMAIN}" ]; then
-    ln -s "$NGINX_CONFIG_DEST" "/etc/nginx/sites-enabled/${DOMAIN}"
-    echo "✅ nginx site enabled"
-else
-    echo "✅ nginx site already enabled"
-fi
-
-# Step 6: Remove default nginx site if it exists
-if [ -L "/etc/nginx/sites-enabled/default" ]; then
-    rm /etc/nginx/sites-enabled/default
-    echo "✅ Default nginx site removed"
-fi
-
-# Step 7: Test nginx configuration
-echo "🧪 Testing nginx configuration..."
-if nginx -t; then
-    echo "✅ nginx configuration is valid"
-    systemctl reload nginx
-    echo "✅ nginx reloaded"
-else
-    echo "❌ Error: nginx configuration test failed"
-    exit 1
-fi
-
-# Step 8: Obtain SSL certificates with certbot
-echo ""
-echo "🔐 Obtaining SSL certificates from Let's Encrypt..."
-echo ""
-
-# Check if certificates already exist
-if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
-    echo "⚠️  SSL certificates already exist for ${DOMAIN}"
-    read -p "   Do you want to renew them? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        certbot renew
-        echo "✅ Certificates renewed"
-    else
-        echo "   Skipping certificate generation..."
+    # Enable site
+    if [ ! -L "/etc/nginx/sites-enabled/${DOMAIN}" ]; then
+        ln -s "$NGINX_CONFIG_DEST" "/etc/nginx/sites-enabled/${DOMAIN}"
+        log_info "nginx site enabled"
     fi
-else
-    # Prompt for email address (required by Let's Encrypt)
+
+    # Remove default site
+    if [ -L "/etc/nginx/sites-enabled/default" ]; then
+        rm /etc/nginx/sites-enabled/default
+        log_info "Default nginx site removed"
+    fi
+
+    # Test and reload
+    echo "🧪 Testing nginx configuration..."
+    if nginx -t; then
+        log_info "nginx configuration is valid"
+        systemctl reload nginx
+        log_info "nginx reloaded"
+    else
+        log_error "nginx configuration test failed"
+    fi
+}
+
+obtain_certificates() {
+    echo ""
+    echo "🔐 Obtaining SSL certificates from Let's Encrypt using DNS challenge..."
+    echo ""
+
+    # Check if certificates already exist
+    if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
+        log_warn "SSL certificates already exist for ${DOMAIN}"
+        read -p "   Do you want to renew them? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            certbot renew
+            log_info "Certificates renewed"
+            return
+        else
+            echo "   Skipping certificate generation..."
+            return
+        fi
+    fi
+
+    # Prompt for email
     echo "Let's Encrypt requires an email address for renewal notifications."
     read -p "Enter your email address: " EMAIL
     echo ""
     
-    certbot --nginx -d "${DOMAIN}" -d "www.${DOMAIN}" --non-interactive --agree-tos --email "${EMAIL}" --redirect
-    echo "✅ SSL certificates obtained and configured"
-fi
+    # Show DNS challenge instructions
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 DNS CHALLENGE INSTRUCTIONS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Certbot will now show you TXT records to add to your GoDaddy DNS."
+    echo ""
+    echo "Steps:"
+    echo "  1. Certbot will display TXT record values"
+    echo "  2. Go to GoDaddy DNS management: https://dcc.godaddy.com/manage/${DOMAIN}/dns"
+    echo "  3. Add TXT records:"
+    echo "     - Name: _acme-challenge (for ${DOMAIN})"
+    echo "     - Name: _acme-challenge.www (for www.${DOMAIN})"
+    echo "     - Value: (the value certbot shows you)"
+    echo "  4. Wait 1-2 minutes for DNS propagation"
+    echo "  5. Press Enter in this terminal to continue"
+    echo ""
+    echo "Press Enter when you're ready to start the DNS challenge..."
+    read
+    echo ""
+    
+    # Run certbot with DNS challenge
+    certbot certonly --manual --preferred-challenges dns \
+        -d "${DOMAIN}" -d "www.${DOMAIN}" \
+        --agree-tos --email "${EMAIL}" \
+        --manual-public-ip-logging-ok
+    
+    if [ $? -ne 0 ]; then
+        log_error "Certificate generation failed"
+    fi
+    
+    log_info "SSL certificates obtained successfully"
+}
 
-# Step 9: Verify auto-renewal setup
-echo ""
-echo "🔄 Verifying auto-renewal setup..."
-if systemctl is-active --quiet certbot.timer; then
-    echo "✅ certbot renewal timer is active"
-else
-    echo "⚠️  Warning: certbot timer is not active"
-    systemctl enable certbot.timer
-    systemctl start certbot.timer
-    echo "✅ certbot timer enabled and started"
-fi
+configure_nginx_ssl() {
+    echo ""
+    echo "📝 Configuring nginx with SSL certificates..."
+    
+    # Add HTTPS server block from template
+    sed "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" "$HTTPS_TEMPLATE" >> "$NGINX_CONFIG_DEST"
+    log_info "HTTPS server block added"
+    
+    # Update HTTP block to redirect to HTTPS
+    # Create a backup and use awk to replace the location block
+    cp "$NGINX_CONFIG_DEST" "${NGINX_CONFIG_DEST}.bak"
+    awk '
+    /# Initially proxy to app/ {
+        print "    # Redirect all HTTP traffic to HTTPS (updated after certificate generation)"
+        print "    location / {"
+        print "        return 301 https://$server_name$request_uri;"
+        print "    }"
+        # Skip lines until we find the closing brace of location block
+        while (getline > 0) {
+            if (/^    \}$/) break
+        }
+        next
+    }
+    { print }
+    ' "${NGINX_CONFIG_DEST}.bak" > "${NGINX_CONFIG_DEST}.new"
+    mv "${NGINX_CONFIG_DEST}.new" "$NGINX_CONFIG_DEST"
+    rm -f "${NGINX_CONFIG_DEST}.bak"
+    
+    # Test and reload nginx
+    if nginx -t; then
+        systemctl reload nginx
+        log_info "nginx configured with SSL certificates"
+    else
+        log_error "nginx configuration test failed after adding SSL"
+    fi
+}
 
-# Step 10: Test certificate renewal
-echo "🧪 Testing certificate renewal (dry-run)..."
-if certbot renew --dry-run > /dev/null 2>&1; then
-    echo "✅ Certificate renewal test passed"
-else
-    echo "⚠️  Warning: Certificate renewal test failed"
-    echo "   You may need to check your DNS configuration"
-fi
+setup_auto_renewal() {
+    echo ""
+    echo "🔄 Verifying auto-renewal setup..."
+    if systemctl is-active --quiet certbot.timer; then
+        log_info "certbot renewal timer is active"
+    else
+        log_warn "certbot timer is not active"
+        systemctl enable certbot.timer
+        systemctl start certbot.timer
+        log_info "certbot timer enabled and started"
+    fi
 
-# Final status
-echo ""
-echo "=================================="
-echo "✅ SSL setup complete!"
-echo ""
-echo "Your site should now be accessible at:"
-echo "  - https://${DOMAIN}"
-echo "  - https://www.${DOMAIN}"
-echo ""
-echo "HTTP traffic will automatically redirect to HTTPS."
-echo ""
-echo "Certificate auto-renewal is configured and will run automatically."
-echo "You can check renewal status with: sudo systemctl status certbot.timer"
-echo ""
+    echo "🧪 Testing certificate renewal (dry-run)..."
+    if certbot renew --dry-run > /dev/null 2>&1; then
+        log_info "Certificate renewal test passed"
+    else
+        log_warn "Certificate renewal test failed - you may need to check your DNS configuration"
+    fi
+}
 
+# Main execution
+main() {
+    echo "🔒 Setting up SSL for ${DOMAIN}"
+    echo "=================================="
+    echo ""
+    
+    check_root
+    check_files
+    install_packages
+    setup_nginx_service
+    configure_nginx
+    obtain_certificates
+    
+    # Only configure SSL if certificates were just obtained
+    if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
+        configure_nginx_ssl
+    fi
+    
+    setup_auto_renewal
+    
+    # Final status
+    echo ""
+    echo "=================================="
+    echo "✅ SSL setup complete!"
+    echo ""
+    echo "Your site should now be accessible at:"
+    echo "  - https://${DOMAIN}"
+    echo "  - https://www.${DOMAIN}"
+    echo ""
+    echo "HTTP traffic will automatically redirect to HTTPS."
+    echo ""
+    echo "Certificate auto-renewal is configured and will run automatically."
+    echo "You can check renewal status with: sudo systemctl status certbot.timer"
+    echo ""
+}
+
+main "$@"
