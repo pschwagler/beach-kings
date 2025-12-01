@@ -47,11 +47,16 @@ else
     echo "✅ certbot already installed"
 fi
 
-# Step 3: Start and enable nginx
+# Step 3: Start and enable nginx (if not already running)
 echo "🚀 Starting nginx service..."
-systemctl start nginx
+if systemctl is-active --quiet nginx; then
+    echo "✅ nginx is already running"
+else
+    systemctl start nginx
+    echo "✅ nginx started"
+fi
 systemctl enable nginx
-echo "✅ nginx service started and enabled"
+echo "✅ nginx enabled"
 
 # Step 4: Copy nginx configuration
 echo "📝 Configuring nginx..."
@@ -98,7 +103,6 @@ fi
 # Step 8: Obtain SSL certificates with certbot
 echo ""
 echo "🔐 Obtaining SSL certificates from Let's Encrypt..."
-echo "   This will prompt you for an email address for renewal notifications"
 echo ""
 
 # Check if certificates already exist
@@ -113,7 +117,12 @@ if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
         echo "   Skipping certificate generation..."
     fi
 else
-    certbot --nginx -d "${DOMAIN}" -d "www.${DOMAIN}" --non-interactive --agree-tos --redirect
+    # Prompt for email address (required by Let's Encrypt)
+    echo "Let's Encrypt requires an email address for renewal notifications."
+    read -p "Enter your email address: " EMAIL
+    echo ""
+    
+    certbot --nginx -d "${DOMAIN}" -d "www.${DOMAIN}" --non-interactive --agree-tos --email "${EMAIL}" --redirect
     echo "✅ SSL certificates obtained and configured"
 fi
 
