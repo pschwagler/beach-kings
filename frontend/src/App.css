@@ -788,7 +788,7 @@ h1 {
 }
 
 .landing-content {
-  margin-top: 32px;
+  margin: 32px auto;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -826,10 +826,8 @@ h1 {
   gap: 8px;
 }
 
-.landing-brand-crown {
-  color: var(--retro-yellow);
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 4px rgba(255, 214, 107, 0.4));
+.landing-brand-logo {
+  height: 100px;
 }
 
 .landing-brand-text {

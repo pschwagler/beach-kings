@@ -2412,7 +2412,7 @@ async def create_session(session: AsyncSession, date: str) -> Dict:
     if count == 0:
         name = date
     else:
-        name = f"{date} #{count + 1}"
+        name = f"{date} Session #{count + 1}"
     
     # Create the session
     new_session = Session(

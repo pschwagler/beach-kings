@@ -1,20 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Crown } from 'lucide-react';
-import './App.css';
-import NavBar from './components/layout/NavBar';
-import AuthModal from './components/auth/AuthModal';
-import CreateLeagueModal from './components/league/CreateLeagueModal';
-import PlayerProfileModal from './components/player/PlayerProfileModal';
-import { useAuth } from './contexts/AuthContext';
-import { createLeague, getUserLeagues } from './services/api';
-import { navigateTo } from './Router';
+import { useState, useEffect, useCallback } from "react";
+import { Crown } from "lucide-react";
+import "./App.css";
+import NavBar from "./components/layout/NavBar";
+import AuthModal from "./components/auth/AuthModal";
+import CreateLeagueModal from "./components/league/CreateLeagueModal";
+import PlayerProfileModal from "./components/player/PlayerProfileModal";
+import { useAuth } from "./contexts/AuthContext";
+import { createLeague, getUserLeagues } from "./services/api";
+import { navigateTo } from "./Router";
 
 function App() {
   const { isAuthenticated, user, logout, currentUserPlayer } = useAuth();
-  const [authModalMode, setAuthModalMode] = useState('sign-in');
+  const [authModalMode, setAuthModalMode] = useState("sign-in");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
-  const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] = useState(false);
+  const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] =
+    useState(false);
   const [userLeagues, setUserLeagues] = useState([]);
   const [pendingAction, setPendingAction] = useState(null);
   const [justSignedUp, setJustSignedUp] = useState(false);
@@ -23,10 +24,10 @@ function App() {
     try {
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       setIsAuthModalOpen(false);
-      navigateTo('/');
+      navigateTo("/");
     }
   };
 
@@ -42,7 +43,11 @@ function App() {
   // Check if user needs to complete profile after signup
   useEffect(() => {
     if (isAuthenticated && justSignedUp && currentUserPlayer) {
-      if (!currentUserPlayer.full_name || currentUserPlayer.full_name.trim() === '' || currentUserPlayer.full_name === ' ') {
+      if (
+        !currentUserPlayer.full_name ||
+        currentUserPlayer.full_name.trim() === "" ||
+        currentUserPlayer.full_name === " "
+      ) {
         setIsAuthModalOpen(false);
         setTimeout(() => {
           setIsPlayerProfileModalOpen(true);
@@ -67,16 +72,19 @@ function App() {
       if (isAuthModalOpen) {
         setIsAuthModalOpen(false);
       }
-      
+
       const timeoutId = setTimeout(() => {
-        if (pendingAction.type === 'create-league') {
+        if (pendingAction.type === "create-league") {
           setIsCreateLeagueModalOpen(true);
-        } else if (pendingAction.type === 'view-league' && pendingAction.leagueId) {
+        } else if (
+          pendingAction.type === "view-league" &&
+          pendingAction.leagueId
+        ) {
           navigateToLeague(pendingAction.leagueId);
         }
         setPendingAction(null);
       }, 200);
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [isAuthenticated, pendingAction, isAuthModalOpen]);
@@ -88,7 +96,7 @@ function App() {
         const leagues = await getUserLeagues();
         setUserLeagues(leagues);
       } catch (error) {
-        console.error('Error loading user leagues:', error);
+        console.error("Error loading user leagues:", error);
         setUserLeagues([]);
       }
     };
@@ -104,14 +112,14 @@ function App() {
   useEffect(() => {
     const handleShowLoginModal = (event) => {
       if (!isAuthenticated) {
-        openAuthModal('sign-in');
+        openAuthModal("sign-in");
       }
     };
 
-    window.addEventListener('show-login-modal', handleShowLoginModal);
-    
+    window.addEventListener("show-login-modal", handleShowLoginModal);
+
     return () => {
-      window.removeEventListener('show-login-modal', handleShowLoginModal);
+      window.removeEventListener("show-login-modal", handleShowLoginModal);
     };
   }, [isAuthenticated, openAuthModal]);
 
@@ -119,27 +127,27 @@ function App() {
   useEffect(() => {
     let scrollTimeout;
     const handleScroll = () => {
-      document.body.classList.add('scrolling');
+      document.body.classList.add("scrolling");
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
-        document.body.classList.remove('scrolling');
+        document.body.classList.remove("scrolling");
       }, 1000); // Hide scrollbar 1 second after scrolling stops
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
     // Also handle scroll on document and html element for better compatibility
-    document.addEventListener('scroll', handleScroll, { passive: true });
-    
+    document.addEventListener("scroll", handleScroll, { passive: true });
+
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll);
       clearTimeout(scrollTimeout);
     };
   }, []);
 
   const navigateToLeague = (leagueId) => {
-    window.history.pushState({}, '', `/league/${leagueId}`);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.history.pushState({}, "", `/league/${leagueId}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   const handleCreateLeague = async (leagueData) => {
@@ -147,8 +155,8 @@ function App() {
       const newLeague = await createLeague(leagueData);
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
-      window.history.pushState({}, '', `/league/${newLeague.id}?tab=details`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.history.pushState({}, "", `/league/${newLeague.id}?tab=details`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
       return newLeague;
     } catch (error) {
       throw error;
@@ -156,24 +164,24 @@ function App() {
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
-    if (action === 'create-league') {
+    if (action === "create-league") {
       if (!isAuthenticated) {
-        setPendingAction({ type: 'create-league' });
-        openAuthModal('sign-in');
+        setPendingAction({ type: "create-league" });
+        openAuthModal("sign-in");
         return;
       }
       setIsCreateLeagueModalOpen(true);
-    } else if (action === 'view-league' && leagueId) {
+    } else if (action === "view-league" && leagueId) {
       if (!isAuthenticated) {
-        setPendingAction({ type: 'view-league', leagueId });
-        openAuthModal('sign-in');
+        setPendingAction({ type: "view-league", leagueId });
+        openAuthModal("sign-in");
         return;
       }
       navigateToLeague(leagueId);
     } else if (leagueId) {
       if (!isAuthenticated) {
-        setPendingAction({ type: 'view-league', leagueId });
-        openAuthModal('sign-in');
+        setPendingAction({ type: "view-league", leagueId });
+        openAuthModal("sign-in");
         return;
       }
       navigateToLeague(leagueId);
@@ -187,43 +195,46 @@ function App() {
         user={user}
         currentUserPlayer={currentUserPlayer}
         onSignOut={handleSignOut}
-        onSignIn={() => openAuthModal('sign-in')}
-        onSignUp={() => openAuthModal('sign-up')}
+        onSignIn={() => openAuthModal("sign-in")}
+        onSignUp={() => openAuthModal("sign-up")}
         userLeagues={userLeagues}
         onLeaguesMenuClick={handleLeaguesMenuClick}
       />
       <div className="container">
         <div className="homepage-video-container">
-          <video 
+          <video
             ref={(el) => {
               if (el && !el.dataset.initialized) {
-                el.dataset.initialized = 'true';
+                el.dataset.initialized = "true";
                 setTimeout(() => el.play(), 1000);
               }
             }}
-            muted 
+            muted
             playsInline
             controls
             className="homepage-video"
           >
-            <source src="/Brazilian_Volleyball_Pro_Offers_Crown.mp4" type="video/mp4" />
+            <source
+              src="/Beach_Volleyball_Champion_Crown_Moment.mp4"
+              type="video/mp4"
+            />
           </video>
         </div>
         <div className="landing-content">
           {!isAuthenticated ? (
             <div className="landing-message">
               <h2 className="landing-welcome-title">
-                Welcome to{' '}
-                <span className="landing-brand">
-                  <Crown size={28} className="landing-brand-crown" />
-                  <span className="landing-brand-text">BEACH LEAGUE</span>
-                </span>
-                {' '}Beach Volleyball App
+                Welcome to{" "}
+                <img
+                  src="/beach-league-gold-on-white-cropped.png"
+                  alt="Beach League"
+                  className="landing-brand-logo"
+                />
               </h2>
               <p>Login to get started</p>
-              <button 
-                className="btn btn-primary" 
-                onClick={() => openAuthModal('sign-in')}
+              <button
+                className="btn btn-primary"
+                onClick={() => openAuthModal("sign-in")}
               >
                 Sign In
               </button>
@@ -231,16 +242,20 @@ function App() {
           ) : (
             <div className="landing-message">
               <h2 className="landing-welcome-title">
-                Welcome back{currentUserPlayer?.first_name ? ', ' + currentUserPlayer.first_name : ''}!
+                Welcome back
+                {currentUserPlayer?.first_name
+                  ? ", " + currentUserPlayer.first_name
+                  : ""}
+                !
               </h2>
               <p>Select a league from the menu above to get started.</p>
             </div>
           )}
         </div>
       </div>
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        mode={authModalMode} 
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        mode={authModalMode}
         onClose={closeAuthModal}
         onVerifySuccess={() => {
           setJustSignedUp(true);
