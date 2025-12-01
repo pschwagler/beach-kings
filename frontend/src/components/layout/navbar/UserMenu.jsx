@@ -4,7 +4,7 @@ import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 
 /**
- * Gets the first letter for the avatar from player nickname, full_name, user name, email, or defaults to a user icon
+ * Gets the first letter for the avatar from player nickname, full_name, email, or defaults to a user icon
  */
 const getAvatarInitial = (user, currentUserPlayer) => {
   // First check player nickname
@@ -14,10 +14,6 @@ const getAvatarInitial = (user, currentUserPlayer) => {
   // Then check player full_name
   if (currentUserPlayer?.full_name) {
     return currentUserPlayer.full_name.trim().charAt(0).toUpperCase();
-  }
-  // Fall back to user name
-  if (user?.name) {
-    return user.name.trim().charAt(0).toUpperCase();
   }
   // Fall back to user email
   if (user?.email) {
@@ -99,7 +95,7 @@ export default function UserMenu({
           ) : (
             <>
               <div className="navbar-dropdown-header">
-                {currentUserPlayer?.full_name || user?.name || user?.phone_number || 'Member'}
+                {currentUserPlayer?.full_name || user?.phone_number || 'Member'}
               </div>
               <NavDropdownItem icon={UserCircle} onClick={() => handleItemClick('profile')}>
                 My Profile

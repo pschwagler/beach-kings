@@ -133,14 +133,25 @@ export default function SignupList({
                   )}
                 </div>
                 <div className="league-signup-actions">
-                  {isUpcoming && isLeagueMember && signup.is_open && (
-                    <button
-                      className={`league-text-button ${isSignedUp ? 'danger' : 'primary'}`}
-                      onClick={() => isSignedUp ? onDropout(signup.id) : onSignup(signup.id)}
-                    >
-                      {isSignedUp ? 'Drop Out' : 'Sign Up'}
-                    </button>
-                  )}
+                  <div className="league-signup-actions-group">
+                    {isUpcoming && isLeagueMember && signup.is_open && (
+                      <button
+                        className={`league-text-button ${isSignedUp ? 'danger' : 'primary'}`}
+                        onClick={() => isSignedUp ? onDropout(signup.id) : onSignup(signup.id)}
+                      >
+                        {isSignedUp ? 'Drop Out' : 'Sign Up'}
+                      </button>
+                    )}
+                    {signup.players && signup.players.length > 0 && (
+                      <button
+                        className="league-text-button"
+                        onClick={getToggleHandler(signup.id)}
+                        title={isExpanded ? "Collapse players" : "Expand players"}
+                      >
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    )}
+                  </div>
                   {isUpcoming && isLeagueAdmin && (
                     <>
                       <button
@@ -159,30 +170,30 @@ export default function SignupList({
                       </button>
                     </>
                   )}
-                  {signup.players && signup.players.length > 0 && (
-                    <button
-                      className="league-text-button"
-                      onClick={getToggleHandler(signup.id)}
-                      title={isExpanded ? "Collapse players" : "Expand players"}
-                    >
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                  )}
                 </div>
               </div>
               {isExpanded && signup.players && signup.players.length > 0 && (
                 <div className="league-signup-players">
-                  {signup.players.map((player, idx) => {
-                    const isCurrentPlayer = currentUserPlayer && player.player_id === currentUserPlayer.id;
-                    return (
-                      <div key={idx} className={`league-signup-player-item ${isCurrentPlayer ? 'current-player' : ''}`}>
-                        <span className="league-signup-player-name">{player.player_name}</span>
-                        <span className="league-signup-player-time">
-                          Signed up {formatDateTimeWithTimezone(player.signed_up_at, !isUpcoming)}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {signup.players
+                    .sort((a, b) => {
+                      // Sort by signed_up_at timestamp to determine order
+                      const timeA = a.signed_up_at ? new Date(a.signed_up_at).getTime() : 0;
+                      const timeB = b.signed_up_at ? new Date(b.signed_up_at).getTime() : 0;
+                      return timeA - timeB;
+                    })
+                    .map((player, idx) => {
+                      const isCurrentPlayer = currentUserPlayer && player.player_id === currentUserPlayer.id;
+                      const signupOrder = idx + 1; // Calculate order based on sorted position
+                      return (
+                        <div key={idx} className={`league-signup-player-item ${isCurrentPlayer ? 'current-player' : ''}`}>
+                          <span className="league-signup-player-order">{signupOrder}.</span>
+                          <span className="league-signup-player-name">{player.player_name}</span>
+                          <span className="league-signup-player-time">
+                            Signed up {formatDateTimeWithTimezone(player.signed_up_at, !isUpcoming)}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>

@@ -10,6 +10,7 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+from backend.utils.datetime_utils import utcnow
 from jose import JWTError, jwt
 from twilio.rest import Client
 from dotenv import load_dotenv
@@ -89,9 +90,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+        expire = utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
@@ -244,7 +245,7 @@ def send_sms_verification(phone_number: str, code: str) -> bool:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         
         message = client.messages.create(
-            body=f"Your verification code is: {code}",
+            body=f"Beach League: Your verification code is: {code}",
             from_=TWILIO_PHONE_NUMBER,
             to=phone_number
         )

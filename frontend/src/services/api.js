@@ -492,6 +492,14 @@ export const removeLeagueMember = async (leagueId, memberId) => {
 };
 
 /**
+ * Leave a league
+ */
+export const leaveLeague = async (leagueId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/leave`);
+  return response.data;
+};
+
+/**
  * Update a league member's role
  */
 export const updateLeagueMember = async (leagueId, memberId, role) => {
@@ -538,6 +546,14 @@ export const getCurrentUserPlayer = async () => {
  */
 export const updatePlayerProfile = async (playerData) => {
   const response = await api.put('/api/users/me/player', playerData);
+  return response.data;
+};
+
+/**
+ * Update the current user's account information (name, email)
+ */
+export const updateUserProfile = async (userData) => {
+  const response = await api.put('/api/users/me', userData);
   return response.data;
 };
 

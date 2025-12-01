@@ -165,7 +165,6 @@ class SignupRequest(BaseModel):
     phone_number: str
     password: str
     full_name: str  # Required - used to create player profile
-    name: Optional[str] = None  # Optional - user display name
     email: Optional[str] = None
 
 
@@ -250,10 +249,14 @@ class UserResponse(BaseModel):
     """User information response."""
     id: int
     phone_number: str
-    name: Optional[str] = None
     email: Optional[str] = None
     is_verified: bool
     created_at: str
+
+
+class UserUpdate(BaseModel):
+    """Request to update user profile."""
+    email: Optional[str] = None
 
 
 # League-based schema models
@@ -385,7 +388,7 @@ class PlayerBase(BaseModel):
     nickname: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
-    age: Optional[int] = None
+    date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None  # 'left', 'right', etc.
     default_location_id: Optional[int] = None
@@ -404,6 +407,9 @@ class PlayerUpdate(BaseModel):
     nickname: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
+    date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
+    height: Optional[str] = None
+    preferred_side: Optional[str] = None
     default_location_id: Optional[int] = None
 
 

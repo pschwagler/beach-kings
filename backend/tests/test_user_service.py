@@ -5,6 +5,7 @@ import pytest
 import pytest_asyncio
 import asyncio
 from datetime import datetime, timedelta
+from backend.utils.datetime_utils import utcnow
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
 from backend.services import user_service
@@ -38,7 +39,6 @@ async def test_create_user(test_session):
         session=test_session,
         phone_number="+15551234567",
         password_hash="hashed_password",
-        name="Test User",
         email="test@example.com"
     )
     
@@ -48,7 +48,6 @@ async def test_create_user(test_session):
     user = await user_service.get_user_by_id(test_session, user_id)
     assert user is not None
     assert user["phone_number"] == "+15551234567"
-    assert user["name"] == "Test User"
     assert user["email"] == "test@example.com"
     assert user["is_verified"] is True
 
@@ -223,7 +222,7 @@ async def test_create_refresh_token(test_session):
         password_hash="hash"
     )
     
-    expires_at = datetime.utcnow() + timedelta(days=7)
+    expires_at = utcnow() + timedelta(days=7)
     
     success = await user_service.create_refresh_token(
         session=test_session,
@@ -254,7 +253,7 @@ async def test_delete_refresh_token(test_session):
         session=test_session,
         user_id=user_id,
         token="refresh_token_123",
-        expires_at=datetime.utcnow() + timedelta(days=7)
+        expires_at=utcnow() + timedelta(days=7)
     )
     
     # Delete token

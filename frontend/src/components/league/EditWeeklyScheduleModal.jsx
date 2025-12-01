@@ -100,7 +100,7 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Edit Weekly Schedule</h2>
+          <h2>Edit Weekly Scheduled Session</h2>
           <button className="modal-close-button" onClick={onClose}>
             <X size={20} />
           </button>
@@ -185,7 +185,7 @@ export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClo
               onChange={(e) => setFormData({ ...formData, open_signups_mode: e.target.value })}
               className="form-input"
             >
-              <option value="auto_after_last_session">Weekly signups open immediately after last session of previous week</option>
+              <option value="auto_after_last_session">Signup is available immediately after final session of previous week</option>
               <option value="specific_day_time">Weekly signups open at a specific day/time of previous week</option>
               <option value="always_open">Open for signup whenever</option>
             </select>

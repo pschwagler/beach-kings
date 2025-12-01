@@ -3,7 +3,7 @@ Data service layer for database operations.
 Handles all CRUD operations for the ELO system.
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
 import pytz
@@ -23,7 +23,9 @@ from backend.database.models import (
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
+from backend.services.stats_queue import get_stats_queue
 from backend.utils.constants import INITIAL_ELO
+from backend.utils.datetime_utils import utcnow
 import csv
 import io
 
@@ -867,7 +869,7 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
         "nickname": player.nickname,
         "gender": player.gender,
         "level": player.level,
-        "age": player.age,
+        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
         "default_location_id": player.default_location_id,
@@ -886,6 +888,9 @@ async def upsert_user_player(
     nickname: Optional[str] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
+    date_of_birth: Optional[str] = None,  # ISO date string (YYYY-MM-DD)
+    height: Optional[str] = None,
+    preferred_side: Optional[str] = None,
     default_location_id: Optional[int] = None
 ) -> Optional[Dict]:
     """
@@ -899,11 +904,23 @@ async def upsert_user_player(
         nickname: Nickname (optional)
         gender: Gender (optional)
         level: Skill level (optional)
+        date_of_birth: Date of birth as ISO date string YYYY-MM-DD (optional)
+        height: Height (optional)
+        preferred_side: Preferred side (optional)
         default_location_id: Default location ID (optional)
         
     Returns:
         Player dict, or None if error (e.g., creation without full_name)
     """
+    # Parse date_of_birth if provided
+    date_of_birth_obj = None
+    if date_of_birth:
+        try:
+            date_of_birth_obj = date.fromisoformat(date_of_birth)
+        except ValueError:
+            # Invalid date format, ignore
+            pass
+    
     # Check if player exists
     result = await session.execute(
         select(Player).where(Player.user_id == user_id)
@@ -920,6 +937,9 @@ async def upsert_user_player(
             nickname=nickname,
             gender=gender,
             level=level,
+            date_of_birth=date_of_birth_obj,
+            height=height,
+            preferred_side=preferred_side,
             default_location_id=default_location_id
         )
         session.add(player)
@@ -933,6 +953,9 @@ async def upsert_user_player(
                 "nickname": nickname,
                 "gender": gender,
                 "level": level,
+                "date_of_birth": date_of_birth_obj,
+                "height": height,
+                "preferred_side": preferred_side,
                 "default_location_id": default_location_id
             }.items() if v is not None
         }
@@ -953,7 +976,7 @@ async def upsert_user_player(
         "nickname": player.nickname,
         "gender": player.gender,
         "level": player.level,
-        "age": player.age,
+        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
         "default_location_id": player.default_location_id,
@@ -1248,7 +1271,6 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
         return None
     
     # Enqueue both global and season stats calculations
-    from backend.services.stats_queue import get_stats_queue
     queue = get_stats_queue()
     
     # Enqueue global stats calculation
@@ -2846,8 +2868,6 @@ async def upsert_player_season_stats_async(
         tracker: StatsTracker from calculation service
         season_id: Season ID
     """
-    from sqlalchemy.dialects.postgresql import insert
-    
     player_stats_list = []
     for player_name, player_stats in tracker.players.items():
         # Get player ID
@@ -3090,6 +3110,9 @@ async def create_weekly_schedule(
     # Generate signups
     await _generate_signups_from_schedule(session, schedule, season)
     
+    # Recalculate open times for all signups in the season to ensure consistency
+    await recalculate_open_signups_for_season(session, season_id)
+    
     await session.commit()
     await session.refresh(schedule)
     
@@ -3196,10 +3219,14 @@ async def update_weekly_schedule(
                 Signup.weekly_schedule_id == schedule_id,
                 Signup.scheduled_datetime > current_week_sunday_end
             )
-        )
+        ),
+        execution_options={"synchronize_session": False}
     )
     # Regenerate signups, skipping current week to preserve existing signups
     await _generate_signups_from_schedule(session, schedule, season, skip_current_week=True)
+    
+    # Recalculate open times for all signups in the season to ensure consistency
+    await recalculate_open_signups_for_season(session, schedule.season_id)
     
     await session.commit()
     await session.refresh(schedule)
@@ -3208,7 +3235,9 @@ async def update_weekly_schedule(
 
 
 async def delete_weekly_schedule(session: AsyncSession, schedule_id: int) -> bool:
-    """Delete a weekly schedule and its generated signups."""
+    """Delete a weekly schedule and its generated future signups only."""
+    now_utc = utcnow()
+    
     result = await session.execute(
         select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
     )
@@ -3216,13 +3245,21 @@ async def delete_weekly_schedule(session: AsyncSession, schedule_id: int) -> boo
     if not schedule:
         return False
     
-    # Delete generated signups (cascade will handle signup_players and signup_events)
+    # Delete only future generated signups (cascade will handle signup_players and signup_events)
+    # Past signups are preserved for historical records
     await session.execute(
-        delete(Signup).where(Signup.weekly_schedule_id == schedule_id)
+        delete(Signup).where(
+            Signup.weekly_schedule_id == schedule_id,
+            Signup.scheduled_datetime > now_utc
+        )
     )
     
     # Delete schedule
     await session.delete(schedule)
+    
+    # Recalculate open times for all signups in the season to ensure consistency
+    await recalculate_open_signups_for_season(session, schedule.season_id)
+    
     await session.commit()
     
     return True
@@ -3243,7 +3280,7 @@ async def _generate_signups_from_schedule(
         skip_current_week: If True, skip generating signups for the current week (Monday-Sunday)
     """
     utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Calculate start date
     base_start_date = max(date.today(), season.start_date)
@@ -3298,10 +3335,37 @@ async def _generate_signups_from_schedule(
                     updated_by=schedule.updated_by
                 )
                 session.add(signup)
+                # Flush to ensure this signup is visible for the next iteration's open_signups_at calculation
+                await session.flush()
         
         current_date += timedelta(days=1)
     
     await session.flush()
+
+
+def _get_previous_calendar_week_range(scheduled_datetime: datetime) -> Tuple[datetime, datetime]:
+    """
+    Calculate the start and end of the previous calendar week (Monday-Sunday)
+    relative to the scheduled_datetime.
+    
+    Returns:
+        Tuple[datetime, datetime]: (start_time, end_time) in UTC
+    """
+    utc = pytz.UTC
+    
+    # Calculate start of the current week (Monday) based on scheduled_datetime
+    # scheduled_datetime is already UTC
+    sched_date = scheduled_datetime.date()
+    days_since_monday = sched_date.weekday()
+    current_week_monday_date = sched_date - timedelta(days=days_since_monday)
+    
+    # Previous week range: [Prev Monday 00:00, Current Monday 00:00)
+    prev_week_monday_date = current_week_monday_date - timedelta(days=7)
+    
+    prev_week_start = utc.localize(datetime.combine(prev_week_monday_date, time(0, 0, 0)))
+    current_week_start = utc.localize(datetime.combine(current_week_monday_date, time(0, 0, 0)))
+    
+    return prev_week_start, current_week_start
 
 
 async def _calculate_open_signups_at(
@@ -3338,17 +3402,18 @@ async def _calculate_open_signups_at(
         return utc.localize(datetime.combine(open_date, time(open_hour, open_minute)))
     
     else:  # AUTO_AFTER_LAST_SESSION
-        # Open 3 hours after the last session of the previous week
-        # Find the previous week's last signup for this schedule
-        previous_week_start = scheduled_datetime - timedelta(days=7)
-        previous_week_end = scheduled_datetime - timedelta(seconds=1)
+        # Open immediately after the last session of the previous week
+        # We need to find the last session of the PREVIOUS CALENDAR WEEK (Mon-Sun)
+        # This ensures all signups for the current week open at the same time
+        
+        prev_week_start, current_week_start = _get_previous_calendar_week_range(scheduled_datetime)
         
         result = await session.execute(
             select(Signup)
             .where(
-                Signup.weekly_schedule_id == schedule.id,
-                Signup.scheduled_datetime >= previous_week_start,
-                Signup.scheduled_datetime < previous_week_end
+                Signup.season_id == season.id,
+                Signup.scheduled_datetime >= prev_week_start,
+                Signup.scheduled_datetime < current_week_start
             )
             .order_by(Signup.scheduled_datetime.desc())
             .limit(1)
@@ -3356,11 +3421,65 @@ async def _calculate_open_signups_at(
         last_signup = result.scalar_one_or_none()
         
         if last_signup:
-            # 3 hours after last session ends
-            return last_signup.scheduled_datetime + timedelta(hours=last_signup.duration_hours + 3)
+            # Immediately after last session ends
+            return last_signup.scheduled_datetime + timedelta(hours=last_signup.duration_hours)
         else:
             # No previous signup, open immediately (NULL means always open)
             return None
+
+
+
+
+
+async def recalculate_open_signups_for_season(
+    session: AsyncSession,
+    season_id: int
+) -> None:
+    """
+    Recalculate open_signups_at for all future signups in a season.
+    This is called when a schedule is added/updated/deleted to ensure
+    dynamic opening times are consistent across all schedules.
+    """
+    now_utc = utcnow()
+    
+    # Get all future signups for this season
+    # We also include signups from the current week to ensure consistency
+    # Start from today's date at 00:00
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    result = await session.execute(
+        select(Signup, WeeklySchedule)
+        .join(WeeklySchedule, Signup.weekly_schedule_id == WeeklySchedule.id)
+        .where(
+            Signup.season_id == season_id,
+            Signup.scheduled_datetime >= today_start
+        )
+        .order_by(Signup.scheduled_datetime.asc())
+    )
+    rows = result.all()
+    
+    # Get season for context
+    season_result = await session.execute(
+        select(Season).where(Season.id == season_id)
+    )
+    season = season_result.scalar_one_or_none()
+    if not season:
+        return
+
+    # Process each signup
+    for signup, schedule in rows:
+        # Only recalculate if mode is AUTO_AFTER_LAST_SESSION
+        if schedule.open_signups_mode == OpenSignupsMode.AUTO_AFTER_LAST_SESSION:
+            new_open_at = await _calculate_open_signups_at(
+                session, schedule, signup.scheduled_datetime, season
+            )
+            
+            # Update if changed
+            if signup.open_signups_at != new_open_at:
+                signup.open_signups_at = new_open_at
+                session.add(signup)
+    
+    await session.flush()
 
 
 def _weekly_schedule_to_dict(schedule: WeeklySchedule) -> Dict:
@@ -3394,7 +3513,7 @@ async def create_signup(
 ) -> Dict:
     """Create an ad-hoc signup."""
     utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Parse datetimes (assume UTC)
     scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace('Z', '+00:00'))
@@ -3437,8 +3556,7 @@ async def get_signups(
     include_players: bool = False
 ) -> List[Dict]:
     """Get signups for a season."""
-    utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     if include_players:
         # Single query with JOIN to get signups and players
@@ -3528,7 +3646,7 @@ async def update_signup(
 ) -> Optional[Dict]:
     """Update a signup."""
     utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     result = await session.execute(
         select(Signup).where(Signup.id == signup_id)
@@ -3589,8 +3707,7 @@ async def signup_player(
     creator_player_id: Optional[int] = None
 ) -> bool:
     """Add a player to a signup."""
-    utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Get signup and validate it's open
     result = await session.execute(
@@ -3641,8 +3758,7 @@ async def dropout_player(
     creator_player_id: Optional[int] = None
 ) -> bool:
     """Remove a player from a signup."""
-    utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Get signup and validate it's open
     result = await session.execute(
@@ -3726,7 +3842,7 @@ async def get_signup_events(session: AsyncSession, signup_id: int) -> List[Dict]
 async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players: bool = False) -> Dict:
     """Convert Signup model to dict."""
     utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Get player count
     count_result = await session.execute(
@@ -3735,10 +3851,19 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
     )
     player_count = count_result.scalar() or 0
     
+    # Handle naive datetimes (e.g. from SQLite in tests)
+    scheduled_dt = signup.scheduled_datetime
+    if scheduled_dt and scheduled_dt.tzinfo is None:
+        scheduled_dt = utc.localize(scheduled_dt)
+        
+    open_at = signup.open_signups_at
+    if open_at and open_at.tzinfo is None:
+        open_at = utc.localize(open_at)
+
     # Compute is_open and is_past
     # NULL open_signups_at means always open
-    is_open = signup.open_signups_at is None or signup.open_signups_at <= now_utc
-    is_past = signup.scheduled_datetime < now_utc
+    is_open = open_at is None or open_at <= now_utc
+    is_past = scheduled_dt < now_utc
     
     result = {
         "id": signup.id,
@@ -3763,8 +3888,7 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
 
 async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, players: List[Dict]) -> Dict:
     """Convert Signup model to dict with pre-loaded players list (optimized version)."""
-    utc = pytz.UTC
-    now_utc = datetime.now(utc)
+    now_utc = utcnow()
     
     # Compute is_open and is_past
     # NULL open_signups_at means always open

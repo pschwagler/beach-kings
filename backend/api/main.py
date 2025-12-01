@@ -20,6 +20,7 @@ from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
 from backend.database.init_defaults import init_defaults
 from backend.services import data_service, sheets_service, calculation_service
+from backend.services.stats_queue import get_stats_queue
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +53,6 @@ async def lifespan(app: FastAPI):
     
     # Start stats calculation queue worker
     try:
-        from backend.services.stats_queue import get_stats_queue
         queue = get_stats_queue()
         queue.start_background_worker()
         logger.info("✓ Stats calculation queue worker started")
@@ -67,7 +67,6 @@ async def lifespan(app: FastAPI):
     
     # Stop stats calculation queue worker
     try:
-        from backend.services.stats_queue import get_stats_queue
         queue = get_stats_queue()
         queue.stop_background_worker()
         logger.info("✓ Stats calculation queue worker stopped")

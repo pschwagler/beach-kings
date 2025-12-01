@@ -1,5 +1,5 @@
 import { Calendar, Edit2, Trash2 } from 'lucide-react';
-import { formatDate, utcTimeToLocal } from '../../../utils/dateUtils';
+import { formatDate, utcTimeToLocalWithTimezone } from '../../../utils/dateUtils';
 
 const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -29,7 +29,7 @@ export default function ScheduleList({
             <div className="league-schedule-main">
               <div className="league-schedule-details">
                 <div className="league-schedule-title">
-                  {dayNames[schedule.day_of_week]} at {utcTimeToLocal(schedule.start_time)} ({schedule.duration_hours} hours)
+                  {dayNames[schedule.day_of_week]} at {utcTimeToLocalWithTimezone(schedule.start_time)} ({schedule.duration_hours} hours)
                 </div>
                 <div className="league-schedule-meta">
                   <span>Ends: {formatDate(schedule.end_date)}</span>

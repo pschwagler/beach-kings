@@ -5,6 +5,7 @@ User service layer for user and verification code database operations.
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, delete, func, text
 from sqlalchemy.orm import selectinload
 from backend.database import db
@@ -25,7 +26,6 @@ async def create_user(
     session: AsyncSession,
     phone_number: str,
     password_hash: str,
-    name: Optional[str] = None,
     email: Optional[str] = None
 ) -> int:
     """
@@ -38,7 +38,6 @@ async def create_user(
         session: Database session
         phone_number: Phone number in E.164 format
         password_hash: Required hashed password
-        name: Optional user name
         email: Optional user email
         
     Returns:
@@ -58,7 +57,6 @@ async def create_user(
     new_user = User(
         phone_number=phone_number,
         password_hash=password_hash,
-        name=name,
         email=email,
         is_verified=True
     )
@@ -91,6 +89,40 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
     return result.rowcount > 0
 
 
+async def update_user(
+    session: AsyncSession,
+    user_id: int,
+    email: Optional[str] = None
+) -> bool:
+    """
+    Update a user's email.
+    
+    Args:
+        session: Database session
+        user_id: User ID
+        email: Optional new email (will be normalized to lowercase)
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    update_values = {"updated_at": func.now()}
+    
+    if email is not None:
+        # Normalize email to lowercase
+        update_values["email"] = email.strip().lower() if email else None
+    
+    if len(update_values) == 1:  # Only updated_at, nothing to update
+        return False
+    
+    result = await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(**update_values)
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
 async def get_user_by_phone(session: AsyncSession, phone_number: str) -> Optional[Dict]:
     """
     Get user by phone number.
@@ -111,7 +143,6 @@ async def get_user_by_phone(session: AsyncSession, phone_number: str) -> Optiona
             "id": user.id,
             "phone_number": user.phone_number,
             "password_hash": user.password_hash,
-            "name": user.name,
             "email": user.email,
             "is_verified": user.is_verified,
             "failed_verification_attempts": user.failed_verification_attempts or 0,
@@ -150,7 +181,6 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[Dict]
             "id": user.id,
             "phone_number": user.phone_number,
             "password_hash": user.password_hash,
-            "name": user.name,
             "email": user.email,
             "is_verified": user.is_verified,
             "failed_verification_attempts": user.failed_verification_attempts or 0,
@@ -180,7 +210,6 @@ async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[Dict]:
             "id": user.id,
             "phone_number": user.phone_number,
             "password_hash": user.password_hash,
-            "name": user.name,
             "email": user.email,
             "is_verified": user.is_verified,
             "failed_verification_attempts": user.failed_verification_attempts or 0,
@@ -227,14 +256,13 @@ async def create_verification_code(
         code: Verification code
         expires_in_minutes: Expiration time in minutes (default 10)
         password_hash: Optional hashed password (for signup)
-        name: Optional user name (for signup)
         email: Optional user email (for signup)
         
     Returns:
         True if successful, False otherwise
     """
     try:
-        expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
+        expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
         expires_at_str = expires_at.isoformat()
         
         # Delete old unused codes
@@ -286,7 +314,7 @@ async def verify_and_mark_code_used(session: AsyncSession, phone_number: str, co
             VerificationCode.phone_number == phone_number,
             VerificationCode.code == code,
             VerificationCode.used == False,
-            VerificationCode.expires_at > datetime.utcnow().isoformat()
+            VerificationCode.expires_at > utcnow().isoformat()
         )
     )
     verification_code = result.scalar_one_or_none()
@@ -321,7 +349,7 @@ def is_account_locked(user: Dict) -> bool:
         return False
     
     locked_until = datetime.fromisoformat(user["locked_until"])
-    if datetime.utcnow() < locked_until:
+    if utcnow() < locked_until:
         return True
     
     # Lock has expired, clear it (async call needed but this function is sync)
@@ -357,7 +385,7 @@ async def increment_failed_attempts(session: AsyncSession, phone_number: str) ->
     # Update attempts
     if new_attempts >= MAX_FAILED_ATTEMPTS:
         # Lock the account
-        locked_until = datetime.utcnow() + timedelta(minutes=LOCK_DURATION_MINUTES)
+        locked_until = utcnow() + timedelta(minutes=LOCK_DURATION_MINUTES)
         locked_until_str = locked_until.isoformat()
         user.failed_verification_attempts = new_attempts
         user.locked_until = locked_until_str
@@ -398,7 +426,7 @@ async def clear_account_lock(session: AsyncSession, user_id: int):
     user = result.scalar_one_or_none()
     if user and user.locked_until:
         locked_until = datetime.fromisoformat(user.locked_until)
-        if datetime.utcnow() >= locked_until:
+        if utcnow() >= locked_until:
             user.locked_until = None
             await session.commit()
 
@@ -561,7 +589,7 @@ async def verify_and_use_password_reset_token(session: AsyncSession, token: str)
         select(PasswordResetToken).where(
             PasswordResetToken.token == token,
             PasswordResetToken.used == False,
-            PasswordResetToken.expires_at > datetime.utcnow().isoformat()
+            PasswordResetToken.expires_at > utcnow().isoformat()
         )
     )
     reset_token = result.scalar_one_or_none()

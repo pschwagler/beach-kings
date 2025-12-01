@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Calendar, Plus, CalendarPlus, Users } from 'lucide-react';
+import { ChevronDown, Trophy, Plus, CalendarPlus, Users } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownSection from './NavDropdownSection';
 import NavDropdownItem from './NavDropdownItem';
@@ -33,7 +33,7 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Leagues menu"
       >
-        <Calendar size={20} />
+        <Trophy size={20} />
         <span className="navbar-menu-label">Leagues</span>
         <ChevronDown 
           size={16} 

@@ -5,6 +5,7 @@ Tests ensure all routes work correctly with proper mocking of dependencies.
 import pytest
 from fastapi.testclient import TestClient
 from datetime import datetime, timedelta
+from backend.utils.datetime_utils import utcnow
 from backend.api.main import app
 from backend.api import auth_dependencies
 from backend.services import auth_service, user_service, data_service
@@ -289,7 +290,7 @@ class TestAuthEndpoints:
         client = TestClient(app)
         
         async def fake_get_refresh_token(session, token):
-            expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat()
+            expires_at = (utcnow() + timedelta(days=7)).isoformat()
             return {
                 "user_id": 1,
                 "token": token,
@@ -318,7 +319,7 @@ class TestAuthEndpoints:
         client = TestClient(app)
         
         async def fake_get_refresh_token(session, token):
-            expires_at = (datetime.utcnow() - timedelta(days=1)).isoformat()
+            expires_at = (utcnow() - timedelta(days=1)).isoformat()
             return {
                 "user_id": 1,
                 "token": token,
@@ -431,7 +432,7 @@ class TestLeagueEndpoints:
     
     def test_get_league(self, monkeypatch):
         """Test getting a specific league."""
-        client = TestClient(app)
+        client, headers = make_client_with_auth(monkeypatch)
         
         async def fake_get_league(session, league_id):
             return {
@@ -447,9 +448,13 @@ class TestLeagueEndpoints:
                 "updated_at": datetime.now().isoformat()
             }
         
-        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        async def fake_has_league_role(session, user_id, league_id, role):
+            return True
         
-        response = client.get("/api/leagues/1")
+        monkeypatch.setattr(data_service, "get_league", fake_get_league, raising=True)
+        monkeypatch.setattr(auth_dependencies, "_has_league_role", fake_has_league_role, raising=True)
+        
+        response = client.get("/api/leagues/1", headers=headers)
         assert response.status_code == 200
         assert response.json()["id"] == 1
     
@@ -651,7 +656,7 @@ class TestStatsEndpoints:
     
     def test_recalculate_stats(self, monkeypatch):
         """Test recalculating statistics."""
-        from backend.services.stats_queue import get_stats_queue
+        from backend.api import routes
         
         client, headers = make_client_with_auth(monkeypatch)
         
@@ -661,7 +666,8 @@ class TestStatsEndpoints:
                 return 123
         
         fake_queue = FakeQueue()
-        monkeypatch.setattr("backend.services.stats_queue.get_stats_queue", lambda: fake_queue, raising=True)
+        # Patch in the routes module namespace since get_stats_queue is imported at the top
+        monkeypatch.setattr(routes, "get_stats_queue", lambda: fake_queue, raising=True)
         
         response = client.post("/api/calculate", headers=headers)
         assert response.status_code == 200

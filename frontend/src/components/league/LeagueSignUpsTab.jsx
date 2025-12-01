@@ -20,6 +20,7 @@ import ScheduleList from './components/ScheduleList';
 import SignupModal from './SignupModal';
 import CreateWeeklyScheduleModal from './CreateWeeklyScheduleModal';
 import EditWeeklyScheduleModal from './EditWeeklyScheduleModal';
+import ConfirmationModal from '../modal/ConfirmationModal';
 
 export default function LeagueSignUpsTab() {
   const { seasons, members, leagueId, isLeagueAdmin, showMessage } = useLeague();
@@ -37,6 +38,8 @@ export default function LeagueSignUpsTab() {
   const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState(null);
   
   // Get isLeagueMember from context
   const { isLeagueMember } = useLeague();
@@ -182,12 +185,20 @@ export default function LeagueSignUpsTab() {
     }
   };
   
-  const handleDeleteSchedule = async (scheduleId) => {
-    if (!confirm('Are you sure you want to delete this weekly schedule? All generated signups will be deleted.')) return;
+  const handleDeleteSchedule = (scheduleId) => {
+    setScheduleToDelete(scheduleId);
+    setShowDeleteScheduleModal(true);
+  };
+
+  const confirmDeleteSchedule = async () => {
+    if (!scheduleToDelete) return;
     try {
-      await deleteWeeklySchedule(scheduleId);
+      await deleteWeeklySchedule(scheduleToDelete);
+      setShowDeleteScheduleModal(false);
+      setScheduleToDelete(null);
       await loadWeeklySchedules();
       await loadSignups();
+      showMessage?.('success', 'Weekly schedule deleted successfully');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete weekly schedule');
     }
@@ -273,11 +284,11 @@ export default function LeagueSignUpsTab() {
           <div className="league-section-header">
             <h3 className="league-section-title">
               <Calendar size={18} />
-              Weekly Schedules
+              Weekly Schedule
             </h3>
             <button className="league-text-button" onClick={() => setShowCreateScheduleModal(true)}>
               <Plus size={16} />
-              Create Weekly Schedule
+              Create Weekly Scheduled Session
             </button>
           </div>
           <ScheduleList
@@ -335,6 +346,19 @@ export default function LeagueSignUpsTab() {
           onSubmit={(data) => handleUpdateSchedule(editingSchedule.id, data)}
         />
       )}
+
+      <ConfirmationModal
+        isOpen={showDeleteScheduleModal}
+        onClose={() => {
+          setShowDeleteScheduleModal(false);
+          setScheduleToDelete(null);
+        }}
+        onConfirm={confirmDeleteSchedule}
+        title="Delete Weekly Schedule"
+        message="Are you sure you want to delete this weekly schedule? All future scheduled sessions for this schedule will be deleted. Past sessions will be preserved."
+        confirmText="Delete Schedule"
+        cancelText="Cancel"
+      />
       
     </div>
   );

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from backend.services import auth_service, user_service, data_service
 from backend.database.db import get_db_session
-from backend.database.models import LeagueMember, Player
+from backend.database.models import LeagueMember, Player, Season, WeeklySchedule, Signup
 
 security = HTTPBearer()
 
@@ -213,7 +213,6 @@ def make_require_league_member_from_season():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session)
     ) -> dict:
-        from backend.database.models import Season
         # Get season to find league_id
         result = await session.execute(
             select(Season).where(Season.id == season_id)
@@ -239,7 +238,6 @@ def make_require_league_admin_from_season():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session)
     ) -> dict:
-        from backend.database.models import Season
         # Get season to find league_id
         result = await session.execute(
             select(Season).where(Season.id == season_id)
@@ -265,7 +263,6 @@ def make_require_league_admin_from_schedule():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session)
     ) -> dict:
-        from backend.database.models import WeeklySchedule, Season
         # Get schedule to find season, then league_id
         result = await session.execute(
             select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
@@ -299,7 +296,6 @@ def make_require_league_admin_from_signup():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session)
     ) -> dict:
-        from backend.database.models import Signup, WeeklySchedule, Season
         # Get signup to find weekly_schedule_id
         result = await session.execute(
             select(Signup).where(Signup.id == signup_id)

@@ -41,14 +41,25 @@ export default function SignupPlayersListModal({ signup, onClose }) {
             {signup.players.length === 0 ? (
               <p>No players signed up yet.</p>
             ) : (
-              signup.players.map((player, idx) => (
-                <div key={idx} className="signup-player-modal-item">
-                  <div className="player-modal-name">{player.player_name}</div>
-                  <div className="player-modal-time">
-                    Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
-                  </div>
-                </div>
-              ))
+              signup.players
+                .sort((a, b) => {
+                  // Sort by signed_up_at timestamp to determine order
+                  const timeA = a.signed_up_at ? new Date(a.signed_up_at).getTime() : 0;
+                  const timeB = b.signed_up_at ? new Date(b.signed_up_at).getTime() : 0;
+                  return timeA - timeB;
+                })
+                .map((player, idx) => {
+                  const signupOrder = idx + 1; // Calculate order based on sorted position
+                  return (
+                    <div key={idx} className="signup-player-modal-item">
+                      <span className="player-modal-order">{signupOrder}.</span>
+                      <div className="player-modal-name">{player.player_name}</div>
+                      <div className="player-modal-time">
+                        Signed up {formatDateTimeWithTimezone(player.signed_up_at)}
+                      </div>
+                    </div>
+                  );
+                })
             )}
           </div>
         </div>

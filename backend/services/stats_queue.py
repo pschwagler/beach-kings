@@ -11,11 +11,13 @@ import asyncio
 from typing import Optional, Dict, List
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, and_, or_
 from sqlalchemy.orm import selectinload
 from backend.database.models import (
     StatsCalculationJob, StatsCalculationJobStatus, Season
 )
+from backend.database.db import AsyncSessionLocal
 from backend.services import data_service
 
 
@@ -85,7 +87,7 @@ class StatsCalculationQueue:
                 calc_type=calc_type,
                 season_id=season_id,
                 status=StatsCalculationJobStatus.RUNNING,
-                started_at=datetime.utcnow()
+                started_at=utcnow()
             )
             session.add(job)
             await session.commit()
@@ -186,8 +188,6 @@ class StatsCalculationQueue:
     
     async def _run_calculation(self, job_id: int) -> None:
         """Run a calculation job."""
-        from backend.database.db import AsyncSessionLocal
-        
         session = AsyncSessionLocal()
         try:
             # Get job to verify it exists and get calc_type/season_id
@@ -215,7 +215,7 @@ class StatsCalculationQueue:
                     .where(StatsCalculationJob.id == job_id)
                     .values(
                         status=StatsCalculationJobStatus.COMPLETED,
-                        completed_at=datetime.utcnow()
+                        completed_at=utcnow()
                     )
                 )
                 await session.commit()
@@ -227,7 +227,7 @@ class StatsCalculationQueue:
                     .where(StatsCalculationJob.id == job_id)
                     .values(
                         status=StatsCalculationJobStatus.FAILED,
-                        completed_at=datetime.utcnow(),
+                        completed_at=utcnow(),
                         error_message=str(e)
                     )
                 )
@@ -238,8 +238,6 @@ class StatsCalculationQueue:
     
     async def _process_queue_worker(self) -> None:
         """Background worker that processes pending jobs."""
-        from backend.database.db import AsyncSessionLocal
-        
         while not self._stop_event.is_set():
             try:
                 session = AsyncSessionLocal()
@@ -253,7 +251,7 @@ class StatsCalculationQueue:
                             .where(StatsCalculationJob.id == job.id)
                             .values(
                                 status=StatsCalculationJobStatus.RUNNING,
-                                started_at=datetime.utcnow()
+                                started_at=utcnow()
                             )
                         )
                         await session.commit()

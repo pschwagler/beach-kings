@@ -3,6 +3,7 @@ import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
+import { navigateTo } from '../../Router';
 
 export default function NavBar({
   isLoggedIn = false,
@@ -44,7 +45,11 @@ export default function NavBar({
   };
 
   const handleUserMenuClick = (action) => {
-    console.log(`User menu action: ${action}`);
+    if (action === 'profile') {
+      navigateTo('/profile');
+    } else {
+      console.log(`User menu action: ${action}`);
+    }
     // Handle user menu actions (except sign-out which is handled by onSignOut)
   };
 

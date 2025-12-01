@@ -81,4 +81,26 @@ export function utcTimeToLocal(utcTimeStr) {
   return `${localHours}:${localMinutes}`;
 }
 
+/**
+ * Convert UTC time string (HH:MM) to local time string with timezone
+ * @param {string} utcTimeStr - UTC time string in HH:MM format
+ * @returns {string} Local time string with timezone (e.g., "2:00 PM PST")
+ */
+export function utcTimeToLocalWithTimezone(utcTimeStr) {
+  if (!utcTimeStr) return utcTimeStr;
+  const [hours, minutes] = utcTimeStr.split(':').map(Number);
+  // Use today as reference date to handle DST correctly
+  const today = new Date();
+  const utcDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hours, minutes));
+  
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeStr = utcDate.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    timeZone 
+  });
+  const timeZoneName = Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(utcDate).find(part => part.type === 'timeZoneName')?.value || '';
+  return `${timeStr} ${timeZoneName}`;
+}
+
 

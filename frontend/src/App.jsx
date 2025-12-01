@@ -10,7 +10,7 @@ import { createLeague, getUserLeagues } from "./services/api";
 import { navigateTo } from "./Router";
 
 function App() {
-  const { isAuthenticated, user, logout, currentUserPlayer } = useAuth();
+  const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const [authModalMode, setAuthModalMode] = useState("sign-in");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
@@ -42,12 +42,10 @@ function App() {
 
   // Check if user needs to complete profile after signup
   useEffect(() => {
-    if (isAuthenticated && justSignedUp && currentUserPlayer) {
-      if (
-        !currentUserPlayer.full_name ||
-        currentUserPlayer.full_name.trim() === "" ||
-        currentUserPlayer.full_name === " "
-      ) {
+    if (isAuthenticated && justSignedUp) {
+      // Check if profile is incomplete (missing gender or level)
+      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      if (profileIncomplete) {
         setIsAuthModalOpen(false);
         setTimeout(() => {
           setIsPlayerProfileModalOpen(true);
@@ -269,7 +267,12 @@ function App() {
       <PlayerProfileModal
         isOpen={isPlayerProfileModalOpen}
         onClose={() => setIsPlayerProfileModalOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={async () => {
+          // Refresh player data after profile update
+          if (isAuthenticated) {
+            await fetchCurrentUser();
+          }
+        }}
       />
     </>
   );

@@ -8,6 +8,7 @@ import asyncio
 import httpx
 import os
 import sys
+import traceback
 
 # Add project root to path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -225,7 +226,6 @@ async def main():
                         failed_count += 1
                 except Exception as e:
                     print(f"   ❌ Error: {str(e)}")
-                    import traceback
                     traceback.print_exc()
                     failed_count += 1
                 

@@ -9,8 +9,9 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
+from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
@@ -26,7 +27,7 @@ from backend.api.auth_dependencies import (
 )
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
-    CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse,
+    CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse, UserUpdate,
     RefreshTokenRequest, RefreshTokenResponse, ResetPasswordRequest,
     ResetPasswordVerifyRequest, ResetPasswordConfirmRequest,
     LeagueCreate, LeagueResponse, PlayerUpdate,
@@ -39,6 +40,7 @@ import logging
 import traceback
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
+from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +86,6 @@ async def is_user_admin_of_session_league(
     session_id: int
 ) -> bool:
     """Check if user is admin of the league that the session belongs to."""
-    from backend.database.models import LeagueMember
-    
     league_id = await get_league_id_from_session(session, session_id)
     if not league_id:
         return False
@@ -468,6 +468,7 @@ async def update_league_member(
         raise HTTPException(status_code=500, detail=f"Error updating member: {str(e)}")
 
 
+
 @router.delete("/api/leagues/{league_id}/members/{member_id}")
 async def remove_league_member(
     league_id: int,
@@ -485,6 +486,44 @@ async def remove_league_member(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error removing member: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/leave")
+async def leave_league(
+    league_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Leave a league (authenticated user).
+    User can only remove themselves.
+    """
+    try:
+        # Get user's player profile
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+        
+        # Check if user is a member of the league
+        is_member = await data_service.is_league_member(session, league_id, player.id)
+        if not is_member:
+            raise HTTPException(status_code=400, detail="You are not a member of this league")
+            
+        # Get the membership ID
+        member = await data_service.get_league_member_by_player(session, league_id, player.id)
+        if not member:
+             raise HTTPException(status_code=404, detail="Membership not found")
+
+        # Remove member
+        success = await data_service.remove_league_member(session, league_id, member.id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to leave league")
+            
+        return {"success": True, "message": "Successfully left the league"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error leaving league: {str(e)}")
 
 
 # League Messages endpoints
@@ -787,8 +826,6 @@ async def calculate_stats(
         dict: Job ID and status
     """
     try:
-        from backend.services.stats_queue import get_stats_queue
-        
         # Try to get body, default to empty dict if not present
         try:
             body = await request.json()
@@ -824,8 +861,6 @@ async def get_calculation_status(
         dict: Queue status with running, pending, and recent jobs
     """
     try:
-        from backend.services.stats_queue import get_stats_queue
-        
         queue = get_stats_queue()
         status = await queue.get_queue_status(session)
         
@@ -850,8 +885,6 @@ async def get_job_status(
         dict: Job status
     """
     try:
-        from backend.services.stats_queue import get_stats_queue
-        
         queue = get_stats_queue()
         job_status = await queue.get_job_status(session, job_id)
         
@@ -2207,7 +2240,6 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             "phone_number": "+15551234567",
             "password": "user_password",  // Required
             "full_name": "John Doe",  // Required - used for player profile
-            "name": "John",  // Optional - user display name
             "email": "john@example.com"  // Optional
         }
     
@@ -2262,7 +2294,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             phone_number=phone_number,
             code=code,
             password_hash=password_hash,
-            name=request.full_name.strip(),  # Store full_name in name field
+            name=request.full_name.strip(),  # Store full_name in name field temporarily
             email=email
         )
         if not success:
@@ -2353,7 +2385,7 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
-        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
         await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
@@ -2471,7 +2503,6 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest, session: A
                     session=session,
                     phone_number=phone_number,
                     password_hash=signup_data["password_hash"],
-                    name=None,  # User display name is optional
                     email=signup_data.get("email")
                 )
                 
@@ -2518,8 +2549,14 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest, session: A
         
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
-        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
         await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+        
+        # Check if player profile is complete (has gender and level)
+        profile_complete = True
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player or not player.get("gender") or not player.get("level"):
+            profile_complete = False
         
         return AuthResponse(
             access_token=access_token,
@@ -2527,7 +2564,8 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest, session: A
             token_type="bearer",
             user_id=user["id"],
             phone_number=user["phone_number"],
-            is_verified=user["is_verified"]
+            is_verified=user["is_verified"],
+            profile_complete=profile_complete
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -2641,7 +2679,7 @@ async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRe
         
         # Generate reset token
         reset_token = auth_service.generate_refresh_token()  # Reuse the same secure token generator
-        expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
+        expires_at = utcnow() + timedelta(hours=1)  # Token expires in 1 hour
         
         # Store reset token
         success = await user_service.create_password_reset_token(session, user["id"], reset_token, expires_at)
@@ -2731,7 +2769,7 @@ async def reset_password_confirm(
         
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
-        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
         await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
@@ -2799,7 +2837,7 @@ async def sms_login(
         
         # Create refresh token
         refresh_token = auth_service.generate_refresh_token()
-        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
         await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
         
         return AuthResponse(
@@ -2872,7 +2910,7 @@ async def refresh_token(
         
         # Check if token is expired
         expires_at = datetime.fromisoformat(refresh_token_record["expires_at"])
-        if datetime.utcnow() > expires_at:
+        if utcnow() > expires_at:
             # Delete expired token
             await user_service.delete_refresh_token(session, request.refresh_token)
             raise HTTPException(
@@ -2939,11 +2977,61 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     return UserResponse(
         id=current_user["id"],
         phone_number=current_user["phone_number"],
-        name=current_user["name"],
         email=current_user["email"],
         is_verified=current_user["is_verified"],
         created_at=current_user["created_at"]
     )
+
+
+@router.put("/api/users/me", response_model=UserResponse)
+async def update_current_user(
+    payload: UserUpdate,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Update the current user's account information (email).
+    Phone number cannot be changed.
+    Requires authentication.
+    
+    Request body:
+        {
+            "email": "john@example.com"  // Optional
+        }
+    
+    Returns:
+        Updated user information
+    """
+    try:
+        # Update user info
+        success = await user_service.update_user(
+            session=session,
+            user_id=current_user["id"],
+            email=payload.email
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="No fields provided to update"
+            )
+        
+        # Fetch updated user to return
+        updated_user = await user_service.get_user_by_id(session, current_user["id"])
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return UserResponse(
+            id=updated_user["id"],
+            phone_number=updated_user["phone_number"],
+            email=updated_user["email"],
+            is_verified=updated_user["is_verified"],
+            created_at=updated_user["created_at"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating user profile: {str(e)}")
 
 
 @router.get("/api/users/me/player")
@@ -2993,10 +3081,13 @@ async def update_current_user_player(
     
     Request body:
         {
-            "full_name": "John Doe",  // Required for creating new player
+            "full_name": "John Doe",  // Optional (already set from signup)
             "nickname": "Johnny",     // Optional
-            "gender": "male",         // Optional
-            "level": "beginner",      // Optional
+            "gender": "male",         // Required for profile completion
+            "level": "beginner",      // Required for profile completion
+            "date_of_birth": "1990-01-15",  // Optional (ISO date string)
+            "height": "6'0\"",        // Optional
+            "preferred_side": "left", // Optional
             "default_location_id": 1  // Optional
         }
     
@@ -3018,6 +3109,9 @@ async def update_current_user_player(
             nickname=payload.nickname,
             gender=payload.gender,
             level=payload.level,
+            date_of_birth=payload.date_of_birth,
+            height=payload.height,
+            preferred_side=payload.preferred_side,
             default_location_id=payload.default_location_id
         )
         
@@ -3035,7 +3129,7 @@ async def update_current_user_player(
             "gender": player.get("gender"),
             "level": player.get("level"),
             "nickname": player.get("nickname"),
-            "age": player.get("age"),
+            "date_of_birth": player.get("date_of_birth"),
             "height": player.get("height"),
             "preferred_side": player.get("preferred_side"),
             "default_location_id": player.get("default_location_id"),

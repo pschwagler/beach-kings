@@ -5,6 +5,7 @@ Tests enqueueing, deduplication, and job status tracking.
 import pytest
 import pytest_asyncio
 from datetime import datetime, timedelta
+from backend.utils.datetime_utils import utcnow
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from backend.database.db import Base
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus
@@ -132,7 +133,7 @@ async def test_get_queue_status_with_jobs(db_session, queue):
         calc_type="global",
         season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
-        started_at=datetime.utcnow()
+        started_at=utcnow()
     )
     db_session.add(job1)
     
@@ -147,7 +148,7 @@ async def test_get_queue_status_with_jobs(db_session, queue):
         calc_type="global",
         season_id=None,
         status=StatsCalculationJobStatus.COMPLETED,
-        completed_at=datetime.utcnow()
+        completed_at=utcnow()
     )
     db_session.add(job3)
     
@@ -209,7 +210,7 @@ async def test_deduplication_running_job(db_session, queue):
         calc_type="global",
         season_id=None,
         status=StatsCalculationJobStatus.RUNNING,
-        started_at=datetime.utcnow()
+        started_at=utcnow()
     )
     db_session.add(job)
     await db_session.commit()

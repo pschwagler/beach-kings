@@ -16,10 +16,10 @@ const SKILL_LEVEL_OPTIONS = [
 ];
 
 const defaultFormState = {
-  full_name: ' ',
   nickname: '',
-  gender: 'male',
-  level: 'beginner',
+  gender: '',
+  level: '',
+  date_of_birth: '',
   location_id: '',
 };
 
@@ -67,18 +67,22 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
     event.preventDefault();
     setErrorMessage('');
 
-    // Validate full_name (should not be empty after trim)
-    if (!formData.full_name || !formData.full_name.trim()) {
-      setErrorMessage('Full name is required');
+    // Validate required fields
+    if (!formData.gender) {
+      setErrorMessage('Gender is required');
+      return;
+    }
+
+    if (!formData.level) {
+      setErrorMessage('Skill level is required');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Prepare payload - only include non-empty optional fields
+      // Prepare payload - gender and level are required
       const payload = {
-        full_name: formData.full_name.trim(),
         gender: formData.gender,
         level: formData.level,
       };
@@ -87,15 +91,19 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
         payload.nickname = formData.nickname.trim();
       }
 
+      if (formData.date_of_birth) {
+        payload.date_of_birth = formData.date_of_birth;
+      }
+
       if (formData.location_id) {
         payload.default_location_id = parseInt(formData.location_id, 10);
       }
 
       await updatePlayerProfile(payload);
       
-      // Call onSuccess callback if provided
+      // Call onSuccess callback if provided (this will refresh player data)
       if (onSuccess) {
-        onSuccess();
+        await onSuccess();
       }
       
       // Close modal
@@ -130,7 +138,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         <p className="auth-modal__description">
-          Please fill out your player profile information to get started.
+          Please complete your player profile. Gender and skill level are required.
         </p>
 
         {errorMessage && (
@@ -142,16 +150,39 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
           <label className="auth-modal__label">
-            <span>Full Name <span style={{ color: 'red' }}>*</span></span>
-            <input
-              type="text"
-              name="full_name"
+            <span>Gender <span style={{ color: 'red' }}>*</span></span>
+            <select
+              name="gender"
               className="auth-modal__input"
-              placeholder="Enter your full name"
-              value={formData.full_name}
+              value={formData.gender}
               onChange={handleInputChange}
               required
-            />
+            >
+              <option value="">Select gender</option>
+              {GENDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="auth-modal__label">
+            <span>Skill Level <span style={{ color: 'red' }}>*</span></span>
+            <select
+              name="level"
+              className="auth-modal__input"
+              value={formData.level}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select skill level</option>
+              {SKILL_LEVEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="auth-modal__label">
@@ -167,37 +198,14 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
           </label>
 
           <label className="auth-modal__label">
-            Gender
-            <select
-              name="gender"
+            Date of Birth
+            <input
+              type="date"
+              name="date_of_birth"
               className="auth-modal__input"
-              value={formData.gender}
+              value={formData.date_of_birth}
               onChange={handleInputChange}
-              required
-            >
-              {GENDER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="auth-modal__label">
-            Skill Level
-            <select
-              name="level"
-              className="auth-modal__input"
-              value={formData.level}
-              onChange={handleInputChange}
-              required
-            >
-              {SKILL_LEVEL_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label className="auth-modal__label">

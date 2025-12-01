@@ -56,6 +56,8 @@ export const AuthProvider = ({ children }) => {
     async (authResponse) => {
       setAuthTokens(authResponse.access_token, authResponse.refresh_token);
       await fetchCurrentUser();
+      // Return profile_complete flag for use in components
+      return authResponse.profile_complete !== false;
     },
     [fetchCurrentUser]
   );
@@ -104,7 +106,8 @@ export const AuthProvider = ({ children }) => {
         phone_number: normalizePhone(phoneNumber),
         code,
       });
-      await handleAuthSuccess(response.data);
+      const profileComplete = await handleAuthSuccess(response.data);
+      return { profile_complete: profileComplete };
     },
     [handleAuthSuccess]
   );
@@ -155,6 +158,7 @@ export const AuthProvider = ({ children }) => {
     currentUserPlayer,
     isAuthenticated: Boolean(user),
     isInitializing,
+    fetchCurrentUser,
     loginWithPassword,
     loginWithSms,
     signup,

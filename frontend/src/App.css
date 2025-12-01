@@ -7191,6 +7191,56 @@ button.match-config-toggle.inline svg {
   flex-wrap: wrap;
 }
 
+.league-signup-actions > .league-signup-actions-group {
+  flex-basis: auto !important;
+  flex-grow: 0 !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+}
+
+.league-signup-actions-group {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0 !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  width: auto !important;
+  min-width: fit-content !important;
+  overflow: visible;
+  flex-direction: row !important;
+  max-width: none !important;
+}
+
+.league-signup-actions-group > * {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  flex-basis: auto !important;
+}
+
+.league-signup-actions-group .league-text-button {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  white-space: nowrap !important;
+  min-width: fit-content !important;
+  max-width: none !important;
+  display: inline-flex !important;
+  overflow: visible;
+  width: auto !important;
+  flex-basis: auto !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  flex-wrap: nowrap !important;
+}
+
+.league-signup-actions-group .league-text-button * {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  display: inline-block;
+  word-break: keep-all;
+}
+
 .league-signup-remove,
 .league-schedule-remove {
   opacity: 0;
@@ -7252,6 +7302,7 @@ button.match-config-toggle.inline svg {
   border: 1px solid transparent;
   transition: border-color 0.2s ease;
   margin-bottom: 6px;
+  gap: 8px;
 }
 
 .league-signup-player-item.current-player {
@@ -7259,10 +7310,18 @@ button.match-config-toggle.inline svg {
   background: transparent;
 }
 
+.league-signup-player-order {
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 24px;
+  font-size: 0.9em;
+}
+
 .league-signup-player-name {
   font-weight: 500;
   color: var(--gray-900);
   font-size: 0.9em;
+  flex: 1;
 }
 
 .league-signup-player-time {
@@ -7290,17 +7349,25 @@ button.match-config-toggle.inline svg {
 
 .signup-player-modal-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
   padding: 12px;
   background: var(--gray-50);
   border-radius: 8px;
+}
+
+.signup-player-modal-item .player-modal-order {
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 24px;
+  font-size: 0.9em;
 }
 
 .signup-player-modal-item .player-modal-name {
   font-weight: 600;
   color: var(--warm-brown);
   font-size: 1rem;
+  flex: 1;
 }
 
 .signup-player-modal-item .player-modal-time {
@@ -7382,6 +7449,31 @@ button.match-config-toggle.inline svg {
   .league-schedule-actions {
     width: 100%;
     justify-content: flex-start;
+    align-items: flex-start;
+  }
+
+  .league-signup-actions > .league-signup-actions-group {
+    flex-shrink: 0 !important;
+    flex-basis: auto !important;
+    width: auto !important;
+    min-width: fit-content !important;
+  }
+
+  .league-signup-actions-group {
+    flex-wrap: nowrap !important;
+    width: auto !important;
+    min-width: fit-content !important;
+    max-width: none !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+  }
+
+  .league-signup-actions-group .league-text-button {
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    white-space: nowrap !important;
+    min-width: fit-content !important;
+    max-width: none !important;
   }
 
   .league-signups-section,
@@ -7560,6 +7652,84 @@ button.match-config-toggle.inline svg {
   }
 
   .league-messages-header h2 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Profile Page Styles */
+.profile-page {
+  min-height: 100vh;
+  padding: 80px 20px 40px;
+  background: linear-gradient(135deg, #f7f8f9, #fafbfc, #f7f8f9);
+}
+
+.profile-page__container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profile-page__header {
+  margin-bottom: 32px;
+}
+
+.profile-page__header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.profile-page__section {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.profile-page__section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 20px 0;
+}
+
+.profile-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profile-page__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.profile-page__help-text {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .profile-page {
+    padding: 80px 16px 32px;
+  }
+
+  .profile-page__section {
+    padding: 20px;
+  }
+
+  .profile-page__form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-page__header h1 {
+    font-size: 1.75rem;
+  }
+
+  .profile-page__section-title {
     font-size: 1.25rem;
   }
 }

@@ -4,12 +4,14 @@ Tests critical database operations for leagues, seasons, sessions, and matches.
 """
 import pytest
 import pytest_asyncio
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import pytz
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
 from backend.database.db import Base
 from backend.database.models import (
-    League, LeagueMember, Season, Session, Match, Player, SessionStatus
+    League, LeagueMember, Season, Session, Match, Player, SessionStatus,
+    WeeklySchedule, Signup, OpenSignupsMode
 )
 from backend.services import data_service
 
@@ -369,8 +371,16 @@ async def test_get_active_session(db_session):
 
 
 @pytest.mark.asyncio
-async def test_lock_in_session(db_session):
+async def test_lock_in_session(db_session, monkeypatch):
     """Test locking in a session."""
+    # Mock the stats queue to avoid creating real async tasks
+    class FakeQueue:
+        async def enqueue_calculation(self, session, calc_type, season_id=None):
+            return 1
+    
+    fake_queue = FakeQueue()
+    monkeypatch.setattr(data_service, "get_stats_queue", lambda: fake_queue)
+    
     session = await data_service.create_session(db_session, date="2024-01-15")
     
     result = await data_service.lock_in_session(db_session, session["id"], updated_by=1)
@@ -534,4 +544,254 @@ async def test_delete_match_async(db_session, test_player):
     # Verify match was deleted
     match = await data_service.get_match_async(db_session, created_id)
     assert match is None
+
+
+# ============================================================================
+# Weekly Schedule Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, test_player):
+    """Test that deleting a weekly schedule only deletes future signups, not past ones."""
+    
+    utc = pytz.UTC
+    now_utc = datetime.now(utc)
+    
+    # Create league and season
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description="Test Description",
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=1,
+        gender="male",
+        level="Open"
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        point_system=None,
+        is_active=True
+    )
+    
+    # Create a weekly schedule
+    schedule = await data_service.create_weekly_schedule(
+        session=db_session,
+        season_id=season["id"],
+        day_of_week=0,  # Monday
+        start_time="18:00",
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_mode="auto_after_last_session",
+        open_signups_day_of_week=None,
+        open_signups_time=None,
+        end_date="2024-12-31",
+        creator_player_id=test_player.id
+    )
+    
+    schedule_id = schedule["id"]
+    
+    # Manually create past and future signups linked to this schedule
+    # Past signup (1 week ago)
+    past_datetime = now_utc - timedelta(days=7)
+    past_signup = Signup(
+        season_id=season["id"],
+        scheduled_datetime=past_datetime,
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_at=None,
+        weekly_schedule_id=schedule_id,
+        created_by=test_player.id
+    )
+    db_session.add(past_signup)
+    
+    # Future signup (1 week from now)
+    future_datetime = now_utc + timedelta(days=7)
+    future_signup = Signup(
+        season_id=season["id"],
+        scheduled_datetime=future_datetime,
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_at=None,
+        weekly_schedule_id=schedule_id,
+        created_by=test_player.id
+    )
+    db_session.add(future_signup)
+    
+    # Another future signup (2 weeks from now)
+    future_datetime2 = now_utc + timedelta(days=14)
+    future_signup2 = Signup(
+        season_id=season["id"],
+        scheduled_datetime=future_datetime2,
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_at=None,
+        weekly_schedule_id=schedule_id,
+        created_by=test_player.id
+    )
+    db_session.add(future_signup2)
+    
+    # Create a signup from a different schedule (should not be affected)
+    other_schedule = WeeklySchedule(
+        season_id=season["id"],
+        day_of_week=1,  # Tuesday
+        start_time="19:00",
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_mode=OpenSignupsMode.AUTO_AFTER_LAST_SESSION,
+        open_signups_day_of_week=None,
+        open_signups_time=None,
+        end_date=date(2024, 12, 31),
+        created_by=test_player.id
+    )
+    db_session.add(other_schedule)
+    await db_session.flush()
+    
+    other_future_signup = Signup(
+        season_id=season["id"],
+        scheduled_datetime=future_datetime,
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_at=None,
+        weekly_schedule_id=other_schedule.id,
+        created_by=test_player.id
+    )
+    db_session.add(other_future_signup)
+    
+    await db_session.commit()
+    
+    # Get signup IDs before deletion
+    past_signup_id = past_signup.id
+    future_signup_id = future_signup.id
+    future_signup2_id = future_signup2.id
+    other_future_signup_id = other_future_signup.id
+    
+    # Delete the schedule
+    result = await data_service.delete_weekly_schedule(db_session, schedule_id)
+    assert result is True
+    
+    # Verify the schedule was deleted
+    schedule_result = await db_session.execute(
+        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
+    )
+    deleted_schedule = schedule_result.scalar_one_or_none()
+    assert deleted_schedule is None
+    
+    # Verify past signup is still there
+    past_result = await db_session.execute(
+        select(Signup).where(Signup.id == past_signup_id)
+    )
+    past_signup_after = past_result.scalar_one_or_none()
+    assert past_signup_after is not None, "Past signup should be preserved"
+    # Note: The weekly_schedule_id may be set to NULL when the schedule is deleted,
+    # but the signup itself should still exist
+    
+    # Verify future signups are deleted
+    future_result = await db_session.execute(
+        select(Signup).where(Signup.id == future_signup_id)
+    )
+    future_signup_after = future_result.scalar_one_or_none()
+    assert future_signup_after is None, "Future signup should be deleted"
+    
+    future_result2 = await db_session.execute(
+        select(Signup).where(Signup.id == future_signup2_id)
+    )
+    future_signup2_after = future_result2.scalar_one_or_none()
+    assert future_signup2_after is None, "Second future signup should be deleted"
+    
+    # Verify signup from other schedule is unaffected
+    other_result = await db_session.execute(
+        select(Signup).where(Signup.id == other_future_signup_id)
+    )
+    other_signup_after = other_result.scalar_one_or_none()
+    assert other_signup_after is not None, "Signup from other schedule should be preserved"
+    assert other_signup_after.weekly_schedule_id == other_schedule.id
+
+
+@pytest.mark.asyncio
+async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session, test_player, monkeypatch):
+    """Test that deleting a weekly schedule calls recalculate_open_signups_for_season."""
+    
+    # Store original function
+    original_recalculate = data_service.recalculate_open_signups_for_season
+    
+    # Track calls to recalculate_open_signups_for_season
+    recalculate_calls = []
+    
+    async def mock_recalculate(session, season_id):
+        recalculate_calls.append(season_id)
+        # Call the original function to ensure it works
+        await original_recalculate(session, season_id)
+    
+    # Create league and season first (before patching)
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description="Test Description",
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=1,
+        gender="male",
+        level="Open"
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        point_system=None,
+        is_active=True
+    )
+    
+    # Create a weekly schedule (before patching, so it uses the real function)
+    schedule = await data_service.create_weekly_schedule(
+        session=db_session,
+        season_id=season["id"],
+        day_of_week=0,  # Monday
+        start_time="18:00",
+        duration_hours=2.0,
+        court_id=None,
+        open_signups_mode="auto_after_last_session",
+        open_signups_day_of_week=None,
+        open_signups_time=None,
+        end_date="2024-12-31",
+        creator_player_id=test_player.id
+    )
+    
+    schedule_id = schedule["id"]
+    initial_call_count = len(recalculate_calls)
+    
+    # Now patch the function to track calls from delete_weekly_schedule
+    monkeypatch.setattr(
+        data_service,
+        "recalculate_open_signups_for_season",
+        mock_recalculate,
+        raising=True
+    )
+    
+    # Delete the schedule
+    result = await data_service.delete_weekly_schedule(db_session, schedule_id)
+    assert result is True
+    
+    # Verify recalculate_open_signups_for_season was called at least once
+    # (it may have been called during create_weekly_schedule, but should definitely be called during delete)
+    assert len(recalculate_calls) > initial_call_count, "recalculate_open_signups_for_season should be called during delete"
+    # Verify it was called with the correct season_id
+    assert season["id"] in recalculate_calls, f"Should be called with season_id {season['id']}"
+
+
+@pytest.mark.asyncio
+async def test_delete_weekly_schedule_nonexistent(db_session):
+    """Test that deleting a non-existent weekly schedule returns False."""
+    result = await data_service.delete_weekly_schedule(db_session, 99999)
+    assert result is False
 
