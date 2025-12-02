@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
@@ -32,7 +32,8 @@ from backend.models.schemas import (
     ResetPasswordVerifyRequest, ResetPasswordConfirmRequest,
     LeagueCreate, LeagueResponse, PlayerUpdate,
     WeeklyScheduleCreate, WeeklyScheduleResponse, WeeklyScheduleUpdate,
-    SignupCreate, SignupResponse, SignupUpdate, SignupWithPlayersResponse
+    SignupCreate, SignupResponse, SignupUpdate, SignupWithPlayersResponse,
+    FeedbackCreate, FeedbackResponse
 )
 import httpx
 import os
@@ -3153,4 +3154,84 @@ async def get_user_leagues(
         return await data_service.get_user_leagues(session, user["id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
+
+
+@router.post("/api/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    payload: FeedbackCreate,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
+    """
+    Submit user feedback. Can be submitted by authenticated or anonymous users.
+    If authenticated, the user_id will be associated with the feedback.
+    
+    Request body:
+        {
+            "feedback_text": "Your feedback here",
+            "email": "optional@email.com"  (optional)
+        }
+    
+    Returns:
+        FeedbackResponse: The created feedback record
+    """
+    try:
+        from backend.services import email_service
+        
+        # Create feedback record
+        feedback = Feedback(
+            user_id=current_user["id"] if current_user else None,
+            feedback_text=payload.feedback_text,
+            email=payload.email,
+            is_resolved=False
+        )
+        
+        session.add(feedback)
+        await session.commit()
+        await session.refresh(feedback)
+        
+        # Send email notification (non-blocking - don't fail if email fails)
+        try:
+            user_name = None
+            user_phone = None
+            
+            if current_user:
+                # Get user's full name from their player profile
+                player_result = await session.execute(
+                    select(Player).where(Player.user_id == current_user["id"])
+                )
+                player = player_result.scalar_one_or_none()
+                if player:
+                    user_name = player.full_name
+                user_phone = current_user.get("phone_number")
+            
+            await email_service.send_feedback_email(
+                feedback_text=payload.feedback_text,
+                contact_email=payload.email,
+                user_name=user_name,
+                user_phone=user_phone,
+                timestamp=feedback.created_at
+            )
+        except Exception as email_error:
+            logger.error(f"Failed to send feedback email: {str(email_error)}")
+            # Don't fail the request if email fails
+        
+        # Build response
+        response_data = {
+            "id": feedback.id,
+            "user_id": feedback.user_id,
+            "feedback_text": feedback.feedback_text,
+            "email": feedback.email,
+            "is_resolved": feedback.is_resolved,
+            "created_at": feedback.created_at.isoformat(),
+            "user_name": user_name if current_user else None
+        }
+        
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error submitting feedback: {str(e)}")
 

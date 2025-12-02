@@ -571,3 +571,22 @@ class LeagueMessageResponse(BaseModel):
     message: str
     created_at: str
 
+
+# Feedback schemas
+class FeedbackCreate(BaseModel):
+    """Request to create feedback."""
+    feedback_text: str
+    email: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    """Feedback response."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: Optional[int] = None
+    feedback_text: str
+    email: Optional[str] = None
+    is_resolved: bool
+    created_at: str
+    user_name: Optional[str] = None  # Computed field
+

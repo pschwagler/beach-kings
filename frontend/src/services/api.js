@@ -722,5 +722,16 @@ export const createLeagueMessage = async (leagueId, message) => {
   return response.data;
 };
 
+/**
+ * Submit feedback (works for both authenticated and anonymous users)
+ */
+export const submitFeedback = async ({ feedback, email }) => {
+  const response = await api.post('/api/feedback', {
+    feedback_text: feedback,
+    email: email || undefined
+  });
+  return response.data;
+};
+
 export default api;
 

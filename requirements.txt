@@ -22,3 +22,4 @@ psycopg2-binary>=2.9.9
 greenlet>=3.0.0
 aiosqlite>=0.19.0
 pytz>=2023.3
+sendgrid>=6.11.0

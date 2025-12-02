@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { submitFeedback } from '../services/api';
 
 export default function FeedbackModal({ isOpen, onClose }) {
   const [feedback, setFeedback] = useState('');
@@ -19,12 +20,8 @@ export default function FeedbackModal({ isOpen, onClose }) {
     setErrorMessage('');
 
     try {
-      // In a real app, you would send this to your backend
-      // For now, we'll simulate a successful submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Log to console for now since we don't have a backend endpoint yet
-      console.log('Feedback submitted:', { feedback, email });
+      // Submit feedback to backend
+      await submitFeedback({ feedback, email });
       
       setStatus('success');
       setFeedback('');
@@ -38,7 +35,10 @@ export default function FeedbackModal({ isOpen, onClose }) {
     } catch (error) {
       console.error('Error submitting feedback:', error);
       setStatus('error');
-      setErrorMessage('Failed to submit feedback. Please try again.');
+      setErrorMessage(
+        error.response?.data?.detail || 
+        'Failed to submit feedback. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
