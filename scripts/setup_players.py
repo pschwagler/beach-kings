@@ -196,7 +196,7 @@ async def process_player(player: dict, db_session: AsyncSession):
 
 async def main():
     """Main function to process all players."""
-    print("🏐 Beach Kings - Complete Player Setup Script")
+    print("🏐 Beach League - Complete Player Setup Script")
     print("=" * 60)
     print(f"API URL: {API_BASE_URL}")
     print(f"Database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'N/A'}")

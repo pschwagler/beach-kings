@@ -3,7 +3,7 @@
 # Beach Volleyball ELO - Start All Services
 # This script starts both the main app and WhatsApp service
 
-echo "🏐 Beach Kings"
+echo "🏐 Beach League"
 echo "================================"
 echo ""
 echo "Starting all services..."

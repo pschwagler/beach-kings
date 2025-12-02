@@ -10,6 +10,8 @@ import { useAuth } from './contexts/AuthContext.jsx';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage.jsx';
 import TermsOfServicePage from './components/TermsOfServicePage.jsx';
 
+import Footer from './components/Footer.jsx';
+
 function RouterContent() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess } = useAuthModal();
@@ -60,15 +62,18 @@ function RouterContent() {
   }
 
   return (
-    <>
-      {pageContent}
+    <div className="app-container">
+      <div className="main-content">
+        {pageContent}
+      </div>
+      <Footer />
       <AuthModal
         isOpen={isAuthModalOpen}
         mode={authModalMode}
         onClose={closeAuthModal}
         onVerifySuccess={handleVerifySuccess}
       />
-    </>
+    </div>
   );
 }
 

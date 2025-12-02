@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { createLeagueSeason } from '../../services/api';
-import { useLeague } from '../../contexts/LeagueContext';
+import { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import { createLeagueSeason } from "../../services/api";
+import { useLeague } from "../../contexts/LeagueContext";
 
 export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
   const { leagueId, showMessage } = useLeague();
   const [formData, setFormData] = useState({
-    name: '',
-    start_date: '',
-    end_date: ''
+    name: "",
+    start_date: "",
+    end_date: "",
   });
 
   useEffect(() => {
     if (!isOpen) {
-      setFormData({ name: '', start_date: '', end_date: '' });
+      setFormData({ name: "", start_date: "", end_date: "" });
     }
   }, [isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.start_date || !formData.end_date) {
-      showMessage?.('error', 'Start date and end date are required');
+      showMessage?.("error", "Start date and end date are required");
       return;
     }
 
@@ -27,12 +27,15 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
       await createLeagueSeason(leagueId, {
         name: formData.name || undefined,
         start_date: formData.start_date,
-        end_date: formData.end_date
+        end_date: formData.end_date,
       });
       onSuccess();
       onClose();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create season');
+      showMessage?.(
+        "error",
+        err.response?.data?.detail || "Failed to create season"
+      );
     }
   };
 
@@ -54,8 +57,10 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
               id="season-name"
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Spring 2024"
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder={`e.g., Spring ${new Date().getFullYear()}`}
               className="form-input"
             />
           </div>
@@ -67,7 +72,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
               id="season-start-date"
               type="date"
               value={formData.start_date}
-              onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, start_date: e.target.value })
+              }
               className="form-input"
               required
             />
@@ -80,7 +87,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
               id="season-end-date"
               type="date"
               value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, end_date: e.target.value })
+              }
               className="form-input"
               required
             />
@@ -102,5 +111,3 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
     </div>
   );
 }
-
-

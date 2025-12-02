@@ -7984,3 +7984,117 @@ button.match-config-toggle.inline svg {
 .auth-modal__legal-text a:hover {
   color: var(--primary-dark);
 }
+
+/* App Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+}
+
+/* Footer */
+.site-footer {
+  background: white;
+  border-top: 1px solid var(--gray-200);
+  padding: 32px 24px;
+  margin-top: auto;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-link {
+  color: var(--gray-600);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-link:hover {
+  color: var(--primary);
+}
+
+.footer-separator {
+  color: var(--gray-300);
+  font-size: 0.75rem;
+}
+
+.feedback-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.footer-copyright {
+  color: var(--gray-400);
+  font-size: 0.75rem;
+}
+
+/* Feedback Modal */
+.feedback-modal {
+  width: min(500px, 100%);
+}
+
+.feedback-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.feedback-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  gap: 16px;
+}
+
+.feedback-success h3 {
+  font-size: 1.5rem;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.feedback-success p {
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.text-success {
+  color: var(--success);
+}
+
+@media (max-width: 640px) {
+  .footer-links {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .footer-separator {
+    display: none;
+  }
+}
