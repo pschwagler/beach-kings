@@ -1,26 +1,32 @@
 import { useState, useEffect, useCallback } from "react";
-import "./App.css";
-import NavBar from "./components/layout/NavBar";
-import CreateLeagueModal from "./components/league/CreateLeagueModal";
-import PlayerProfileModal from "./components/player/PlayerProfileModal";
-import MyLeaguesWidget from "./components/dashboard/MyLeaguesWidget";
-import MyMatchesWidget from "./components/dashboard/MyMatchesWidget";
-import { useAuth } from "./contexts/AuthContext";
-import { useAuthModal } from "./contexts/AuthModalContext";
-import { createLeague, getUserLeagues, getPlayerMatchHistory } from "./services/api";
-import { navigateTo } from "./Router";
+import "../App.css";
+import NavBar from "./layout/NavBar";
+import CreateLeagueModal from "./league/CreateLeagueModal";
+import PlayerProfileModal from "./player/PlayerProfileModal";
+import MyLeaguesWidget from "./dashboard/MyLeaguesWidget";
+import MyMatchesWidget from "./dashboard/MyMatchesWidget";
+import { useAuth } from "../contexts/AuthContext";
+import { useAuthModal } from "../contexts/AuthModalContext";
+import { createLeague, getUserLeagues, getPlayerMatchHistory } from "../services/api";
+import { navigateTo } from "../Router";
 
-function App() {
+export default function DashboardPage() {
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
-  const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] =
-    useState(false);
+  const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] = useState(false);
   const [userLeagues, setUserLeagues] = useState([]);
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [justSignedUp, setJustSignedUp] = useState(false);
+
+  // Redirect unauthenticated users to landing page
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigateTo("/");
+    }
+  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     try {
@@ -69,7 +75,7 @@ function App() {
     }
   }, [isAuthenticated, pendingAction]);
 
-  // Load leagues when user authenticates
+  // Load leagues when component mounts
   useEffect(() => {
     const loadUserLeagues = async () => {
       try {
@@ -83,12 +89,10 @@ function App() {
 
     if (isAuthenticated) {
       loadUserLeagues();
-    } else {
-      setUserLeagues([]);
     }
   }, [isAuthenticated]);
 
-  // Load user matches when authenticated
+  // Load user matches when component mounts
   useEffect(() => {
     const loadUserMatches = async () => {
       if (!isAuthenticated || !currentUserPlayer) return;
@@ -122,8 +126,6 @@ function App() {
 
     if (isAuthenticated && currentUserPlayer) {
       loadUserMatches();
-    } else {
-      setUserMatches([]);
     }
   }, [isAuthenticated, currentUserPlayer]);
 
@@ -150,11 +152,10 @@ function App() {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         document.body.classList.remove("scrolling");
-      }, 1000); // Hide scrollbar 1 second after scrolling stops
+      }, 1000);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    // Also handle scroll on document and html element for better compatibility
     document.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
@@ -207,6 +208,11 @@ function App() {
     }
   };
 
+  // Don't render content if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <>
       <NavBar
@@ -220,68 +226,28 @@ function App() {
         onLeaguesMenuClick={handleLeaguesMenuClick}
       />
       <div className="container">
-        {!isAuthenticated && (
-          <div className="homepage-video-container">
-            <video
-              ref={(el) => {
-                if (el && !el.dataset.initialized) {
-                  el.dataset.initialized = "true";
-                  setTimeout(() => el.play(), 1000);
-                }
-              }}
-              muted
-              playsInline
-              controls
-              className="homepage-video"
-            >
-              <source
-                src="/Beach_Volleyball_Champion_Crown_Moment.mp4"
-                type="video/mp4"
-              />
-            </video>
-          </div>
-        )}
         <div className="landing-content">
-          {!isAuthenticated ? (
-            <div className="landing-message">
-              <h2 className="landing-welcome-title">
-                Welcome to{" "}
-                <img
-                  src="/beach-league-gold-on-white-cropped.png"
-                  alt="Beach League"
-                  className="landing-brand-logo"
-                />
+          <div className="dashboard-container">
+            <div className="dashboard-welcome">
+              <h2 className="dashboard-welcome-title">
+                Welcome back
+                {currentUserPlayer?.first_name
+                  ? ", " + currentUserPlayer.first_name
+                  : ""}
+                !
               </h2>
-              <p>Log in to get started</p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => openAuthModal("sign-in", handleVerifySuccess)}
-                >
-                  Log In
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => openAuthModal("sign-up", handleVerifySuccess)}
-                >
-                  Sign Up
-                </button>
-              </div>
             </div>
-          ) : (
-            <div className="dashboard-container">
-              <div className="dashboard-widgets">
-                <MyLeaguesWidget 
-                  leagues={userLeagues}
-                  onLeagueClick={navigateToLeague}
-                />
-                <MyMatchesWidget 
-                  matches={userMatches}
-                  currentUserPlayer={currentUserPlayer}
-                />
-              </div>
+            <div className="dashboard-widgets">
+              <MyLeaguesWidget 
+                leagues={userLeagues}
+                onLeagueClick={navigateToLeague}
+              />
+              <MyMatchesWidget 
+                matches={userMatches}
+                currentUserPlayer={currentUserPlayer}
+              />
             </div>
-          )}
+          </div>
         </div>
       </div>
       <CreateLeagueModal
@@ -293,7 +259,6 @@ function App() {
         isOpen={isPlayerProfileModalOpen}
         onClose={() => setIsPlayerProfileModalOpen(false)}
         onSuccess={async () => {
-          // Refresh player data after profile update
           if (isAuthenticated) {
             await fetchCurrentUser();
           }
@@ -303,4 +268,3 @@ function App() {
   );
 }
 
-export default App;

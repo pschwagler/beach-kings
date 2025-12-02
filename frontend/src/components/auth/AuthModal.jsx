@@ -256,7 +256,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
   const renderDescription = () => {
     switch (activeMode) {
       case 'sign-up':
-        return 'Create an account to record matches, manage sessions, and send WhatsApp updates.';
+        return 'Create an account to continue.';
       case 'sms-login':
         return 'Enter your phone number and the code we send via SMS.';
       case 'verify':
@@ -268,7 +268,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
-        return 'Sign in to access leagues, record matches, and more.';
+        return 'Log in to access leagues, record matches, and more.';
     }
   };
 
@@ -404,6 +404,18 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           <button type="submit" className="auth-modal__submit" disabled={isSubmitting}>
             {isSubmitting ? 'Please wait...' : MODE_TITLES[activeMode]}
           </button>
+
+          {activeMode === 'sign-in' && (
+            <p className="auth-modal__legal-text">
+              By continuing, you agree to our <a href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a> and have read our <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            </p>
+          )}
+
+          {activeMode === 'sign-up' && (
+            <p className="auth-modal__legal-text">
+              By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. By continuing, you agree to our <a href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a> and have read our <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            </p>
+          )}
         </form>
 
           {activeMode === 'sign-in' && (

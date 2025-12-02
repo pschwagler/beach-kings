@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAuthModal } from '../../contexts/AuthModalContext';
 import { updateUserProfile, updatePlayerProfile, getLocations, getUserLeagues, leaveLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
 import { AlertCircle, CheckCircle, User, Users, PanelRightClose, PanelRightOpen, Save, Trophy, ChevronRight } from 'lucide-react';
 import NavBar from '../layout/NavBar';
+import ConfirmationModal from '../modal/ConfirmationModal';
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -27,6 +29,7 @@ const getErrorMessage = (error) => error.response?.data?.detail || error.message
 
 export default function ProfilePage() {
   const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [activeTab, setActiveTab] = useState('profile');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -54,6 +57,8 @@ export default function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [showLeaveLeagueModal, setShowLeaveLeagueModal] = useState(false);
+  const [leagueToLeave, setLeagueToLeave] = useState(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -210,15 +215,20 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLeaveLeague = async (e, leagueId, leagueName) => {
+  const handleLeaveLeague = (e, leagueId, leagueName) => {
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to leave ${leagueName}?`)) {
-      return;
-    }
+    setLeagueToLeave({ id: leagueId, name: leagueName });
+    setShowLeaveLeagueModal(true);
+  };
 
+  const confirmLeaveLeague = async () => {
+    if (!leagueToLeave) return;
+    
     try {
-      await leaveLeague(leagueId);
-      setSuccessMessage(`Successfully left ${leagueName}`);
+      await leaveLeague(leagueToLeave.id);
+      setSuccessMessage(`Successfully left ${leagueToLeave.name}`);
+      setShowLeaveLeagueModal(false);
+      setLeagueToLeave(null);
       // Refresh leagues list
       loadUserLeagues();
       // Also refresh navbar leagues by reloading page or triggering an update (optional, but good for consistency)
@@ -230,6 +240,8 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error leaving league:', error);
       setErrorMessage(getErrorMessage(error));
+      setShowLeaveLeagueModal(false);
+      setLeagueToLeave(null);
     }
   };
 
@@ -253,8 +265,8 @@ export default function ProfilePage() {
         userLeagues={userLeagues}
         onLeaguesMenuClick={handleLeaguesMenuClick}
         onSignOut={handleSignOut}
-        onSignIn={() => {}}
-        onSignUp={() => {}}
+        onSignIn={() => openAuthModal('sign-in')}
+        onSignUp={() => openAuthModal('sign-up')}
       />
       <div className="league-dashboard-container">
         <div className="league-dashboard">
@@ -263,7 +275,7 @@ export default function ProfilePage() {
             <div className="league-sidebar-header">
               <div className="league-sidebar-title-wrapper-container">
                 <div className="league-sidebar-title-wrapper" style={{ cursor: 'default' }}>
-                  <h1 className="league-sidebar-title">My Account</h1>
+                  <h1 className="league-sidebar-title">Account</h1>
                 </div>
               </div>
               <button
@@ -288,17 +300,6 @@ export default function ProfilePage() {
                 <span>Profile</span>
               </button>
               <button
-                className={`league-sidebar-nav-item ${activeTab === 'friends' ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveTab('friends');
-                  if (window.innerWidth <= 768) setSidebarCollapsed(true);
-                }}
-                title="Friends"
-              >
-                <Users size={20} />
-                <span>Friends</span>
-              </button>
-              <button
                 className={`league-sidebar-nav-item ${activeTab === 'leagues' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('leagues');
@@ -309,6 +310,17 @@ export default function ProfilePage() {
                 <Trophy size={20} />
                 <span>My Leagues</span>
               </button>
+              <button
+                className={`league-sidebar-nav-item ${activeTab === 'friends' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('friends');
+                  if (window.innerWidth <= 768) setSidebarCollapsed(true);
+                }}
+                title="Friends"
+              >
+                <Users size={20} />
+                <span>Friends</span>
+              </button>
             </nav>
           </aside>
 
@@ -317,13 +329,14 @@ export default function ProfilePage() {
             <div className="league-content-header">
               <div className="league-content-header-title">
                 <h1 className="league-content-header-text">
-                  {activeTab === 'profile' ? 'Edit Profile' : activeTab === 'friends' ? 'Friends' : 'My Leagues'}
+                  {activeTab === 'profile' ? 'Profile' : activeTab === 'friends' ? 'Friends' : 'My Leagues'}
                 </h1>
               </div>
             </div>
 
-            {activeTab === 'profile' && (
-              <div className="profile-page__section league-section" style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div className="profile-page-content">
+              {activeTab === 'profile' && (
+              <div className="profile-page__section league-section">
                 {errorMessage && (
                   <div className="auth-modal__alert error">
                     <AlertCircle size={18} />
@@ -507,7 +520,7 @@ export default function ProfilePage() {
             )}
 
             {activeTab === 'friends' && (
-              <div className="profile-page__section league-section" style={{ textAlign: 'center', padding: '48px 0', color: 'var(--gray-600)', margin: '0 auto', maxWidth: '800px' }}>
+              <div className="profile-page__section league-section" style={{ textAlign: 'center', padding: '48px 0', color: 'var(--gray-600)' }}>
                 <Users size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
                 <h3>Friends list coming soon...</h3>
                 <p>Stay tuned for updates!</p>
@@ -515,7 +528,7 @@ export default function ProfilePage() {
             )}
 
             {activeTab === 'leagues' && (
-              <div className="profile-page__section league-section" style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div className="profile-page__section league-section">
                 {errorMessage && (
                   <div className="auth-modal__alert error">
                     <AlertCircle size={18} />
@@ -629,9 +642,23 @@ export default function ProfilePage() {
                 )}
               </div>
             )}
+            </div>
           </main>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showLeaveLeagueModal}
+        onClose={() => {
+          setShowLeaveLeagueModal(false);
+          setLeagueToLeave(null);
+        }}
+        onConfirm={confirmLeaveLeague}
+        title="Leave League"
+        message={leagueToLeave ? `Are you sure you want to leave ${leagueToLeave.name}?` : ''}
+        confirmText="Leave League"
+        cancelText="Cancel"
+      />
     </>
   );
 }

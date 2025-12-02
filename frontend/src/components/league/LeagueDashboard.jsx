@@ -8,6 +8,7 @@ import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAuthModal } from '../../contexts/AuthModalContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
 import NavDropdown from '../layout/navbar/NavDropdown';
@@ -17,6 +18,7 @@ import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, League
 
 function LeagueDashboardContent({ leagueId }) {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
   // Initialize activeTab from URL params immediately
   const [activeTab, setActiveTab] = useState(() => {
@@ -179,13 +181,11 @@ function LeagueDashboardContent({ leagueId }) {
   };
 
   const handleSignIn = () => {
-    // Redirect to main page for sign in
-    navigateTo('/');
+    openAuthModal('sign-in');
   };
 
   const handleSignUp = () => {
-    // Redirect to main page for sign up
-    navigateTo('/');
+    openAuthModal('sign-up');
   };
 
   // Render appropriate skeleton based on active tab

@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
-import App from './App.jsx';
+import LandingPage from './components/LandingPage.jsx';
+import DashboardPage from './components/DashboardPage.jsx';
 import WhatsAppPage from './components/WhatsAppPage.jsx';
 import LeagueDashboard from './components/league/LeagueDashboard.jsx';
 import ProfilePage from './components/profile/ProfilePage.jsx';
+import { AuthModalProvider, useAuthModal } from './contexts/AuthModalContext.jsx';
+import AuthModal from './components/auth/AuthModal.jsx';
+import { useAuth } from './contexts/AuthContext.jsx';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage.jsx';
+import TermsOfServicePage from './components/TermsOfServicePage.jsx';
 
-function Router() {
+function RouterContent() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess } = useAuthModal();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     // Handle browser back/forward buttons
@@ -17,25 +25,59 @@ function Router() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Handle redirects based on authentication
+  useEffect(() => {
+    if (currentPath === '/' && isAuthenticated) {
+      // Redirect authenticated users from landing to dashboard
+      navigateTo('/home');
+    } else if (currentPath === '/home' && !isAuthenticated) {
+      // Redirect unauthenticated users from dashboard to landing
+      navigateTo('/');
+    }
+  }, [currentPath, isAuthenticated]);
+
   // Extract league ID from path if it matches /league/:id
   const leagueMatch = currentPath.match(/^\/league\/(\d+)$/);
   const leagueId = leagueMatch ? parseInt(leagueMatch[1]) : null;
 
   // Simple router based on pathname
+  let pageContent;
   if (currentPath === '/whatsapp') {
-    return <WhatsAppPage />;
+    pageContent = <WhatsAppPage />;
+  } else if (currentPath === '/privacy-policy') {
+    pageContent = <PrivacyPolicyPage />;
+  } else if (currentPath === '/terms-of-service') {
+    pageContent = <TermsOfServicePage />;
+  } else if (currentPath === '/profile') {
+    pageContent = <ProfilePage />;
+  } else if (currentPath === '/home') {
+    pageContent = <DashboardPage />;
+  } else if (leagueId) {
+    pageContent = <LeagueDashboard leagueId={leagueId} />;
+  } else {
+    // Default to landing page
+    pageContent = <LandingPage />;
   }
 
-  if (currentPath === '/profile') {
-    return <ProfilePage />;
-  }
+  return (
+    <>
+      {pageContent}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        mode={authModalMode}
+        onClose={closeAuthModal}
+        onVerifySuccess={handleVerifySuccess}
+      />
+    </>
+  );
+}
 
-  if (leagueId) {
-    return <LeagueDashboard leagueId={leagueId} />;
-  }
-
-  // Default to main app
-  return <App />;
+function Router() {
+  return (
+    <AuthModalProvider>
+      <RouterContent />
+    </AuthModalProvider>
+  );
 }
 
 // Export navigation helper function

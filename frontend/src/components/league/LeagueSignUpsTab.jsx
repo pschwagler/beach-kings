@@ -207,7 +207,7 @@ export default function LeagueSignUpsTab() {
   
   if (!activeSeason) {
     return (
-      <div className="league-signups-section">
+      <div className="league-section">
         <div className="league-empty-state">
           <Calendar size={40} />
           <p>No active season. Please create an active season to manage signups.</p>
@@ -220,9 +220,9 @@ export default function LeagueSignUpsTab() {
   const pastSignups = signups.filter(s => s.is_past);
   
   return (
-    <div className="league-details-new">
+    <>
       {/* Upcoming Signups Section */}
-      <div className="league-signups-section">
+      <div className="league-section">
         <div className="league-section-header">
           <h3 className="league-section-title">
             <Calendar size={18} />
@@ -254,7 +254,7 @@ export default function LeagueSignUpsTab() {
       
       {/* Past Signups Section */}
       {pastSignups.length > 0 && (
-        <div className="league-signups-section">
+        <div className="league-section">
           <div className="league-section-header">
             <h3 className="league-section-title">
               <Calendar size={18} />
@@ -280,7 +280,7 @@ export default function LeagueSignUpsTab() {
       
       {/* Weekly Schedules Section (Admin only) */}
       {isLeagueAdmin && (
-        <div className="league-schedules-section">
+        <div className="league-section">
           <div className="league-section-header">
             <h3 className="league-section-title">
               <Calendar size={18} />
@@ -360,7 +360,7 @@ export default function LeagueSignUpsTab() {
         cancelText="Cancel"
       />
       
-    </div>
+    </>
   );
 }
 

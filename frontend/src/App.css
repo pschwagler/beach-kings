@@ -875,6 +875,200 @@ h1 {
   box-shadow: var(--shadow-md);
 }
 
+/* Dashboard Styles */
+.dashboard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.dashboard-welcome {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.dashboard-widgets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.dashboard-widget {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+}
+
+.dashboard-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.dashboard-widget-header svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.dashboard-widget-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.dashboard-widget-content {
+  padding: 20px 24px;
+}
+
+.dashboard-empty-state {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--gray-600);
+}
+
+.dashboard-empty-state p {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+.dashboard-leagues-list,
+.dashboard-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboard-league-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-league-item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.dashboard-league-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-league-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 8px 0;
+}
+
+.dashboard-league-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-league-location {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.dashboard-league-members {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.dashboard-chevron {
+  color: var(--gray-400);
+  flex-shrink: 0;
+}
+
+.dashboard-match-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--gray-50);
+}
+
+.dashboard-match-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-match-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.dashboard-match-status.won {
+  background: var(--success-light);
+  color: var(--success-dark);
+}
+
+.dashboard-match-status.lost {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.dashboard-match-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-match-score {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.dashboard-match-opponent {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.dashboard-match-date {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  flex-shrink: 0;
+}
+
+.dashboard-widget-footer {
+  padding-top: 12px;
+  text-align: center;
+  border-top: 1px solid var(--gray-200);
+  margin-top: 8px;
+}
+
 /* Tables - Retro Beach Style */
 table {
   width: 100%;
@@ -2312,6 +2506,37 @@ body.drawer-open .navbar {
 
   .landing-welcome-title {
     font-size: 1.5rem;
+  }
+
+  /* Dashboard Mobile Styles */
+  .dashboard-container {
+    padding: 24px 16px;
+  }
+
+  .dashboard-widgets {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .dashboard-widget-header {
+    padding: 16px 20px;
+  }
+
+  .dashboard-widget-content {
+    padding: 16px 20px;
+  }
+
+  .dashboard-league-item,
+  .dashboard-match-item {
+    padding: 12px;
+  }
+
+  .dashboard-league-name {
+    font-size: 0.95rem;
+  }
+
+  .dashboard-league-meta {
+    font-size: 0.8rem;
   }
 
   .landing-brand-crown {
@@ -4489,7 +4714,7 @@ select.form-select {
 .league-content {
   flex: 1;
   padding: 0;
-  margin-left: 280px;
+  margin-left: 260px;
   overflow-y: auto;
   background: transparent;
   min-height: 0; /* Allow natural height, don't force minimum */
@@ -4512,7 +4737,7 @@ select.form-select {
 .league-content-header {
   background: transparent;
   border-bottom: none;
-  padding: 24px 40px;
+  padding: 24px 18px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -6412,6 +6637,9 @@ button.match-config-toggle.inline svg {
   padding: 28px;
   box-shadow: 0 25px 45px rgba(15, 23, 42, 0.25);
   border: 1px solid rgba(59, 130, 200, 0.15);
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-modal__header {
@@ -7099,6 +7327,7 @@ button.match-config-toggle.inline svg {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 350px;
 }
 
 .league-signup-row,
@@ -7110,6 +7339,7 @@ button.match-config-toggle.inline svg {
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   transition: all 0.2s ease;
+  min-width: 350px;
 }
 
 .league-signup-row:hover:not(.past):not(.closed) {
@@ -7139,17 +7369,17 @@ button.match-config-toggle.inline svg {
 
 .league-signup-main,
 .league-schedule-main {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 16px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  width: 100%;
 }
 
 .league-signup-details,
 .league-schedule-details {
-  flex: 1;
   min-width: 200px;
+  overflow: hidden; /* Prevent overflow from breaking layout */
 }
 
 .league-signup-title,
@@ -7158,6 +7388,8 @@ button.match-config-toggle.inline svg {
   color: var(--gray-900);
   font-size: 0.95em;
   margin-bottom: 6px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .league-signup-meta,
@@ -7174,6 +7406,7 @@ button.match-config-toggle.inline svg {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .league-signup-status {
@@ -7181,6 +7414,8 @@ button.match-config-toggle.inline svg {
   color: var(--gray-600);
   margin-top: 4px;
   font-style: italic;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .league-signup-actions,
@@ -7188,57 +7423,47 @@ button.match-config-toggle.inline svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: fit-content;
+  justify-self: end;
 }
 
 .league-signup-actions > .league-signup-actions-group {
-  flex-basis: auto !important;
-  flex-grow: 0 !important;
-  flex-shrink: 0 !important;
-  display: flex !important;
-  flex-wrap: nowrap !important;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .league-signup-actions-group {
-  display: flex !important;
+  display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0 !important;
-  flex-wrap: nowrap !important;
-  white-space: nowrap !important;
-  width: auto !important;
-  min-width: fit-content !important;
-  overflow: visible;
-  flex-direction: row !important;
-  max-width: none !important;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: fit-content;
 }
 
 .league-signup-actions-group > * {
-  flex-shrink: 0 !important;
-  flex-grow: 0 !important;
-  flex-basis: auto !important;
+  flex-shrink: 0;
+  flex-grow: 0;
 }
 
 .league-signup-actions-group .league-text-button {
-  flex-shrink: 0 !important;
-  flex-grow: 0 !important;
-  white-space: nowrap !important;
-  min-width: fit-content !important;
-  max-width: none !important;
-  display: inline-flex !important;
-  overflow: visible;
-  width: auto !important;
-  flex-basis: auto !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-  flex-wrap: nowrap !important;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: fit-content;
+  display: inline-flex;
+  align-items: center;
 }
 
 .league-signup-actions-group .league-text-button * {
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
+  flex-shrink: 0;
+  white-space: nowrap;
   display: inline-block;
-  word-break: keep-all;
 }
 
 .league-signup-remove,
@@ -7442,38 +7667,42 @@ button.match-config-toggle.inline svg {
 @media (max-width: 768px) {
   .league-signup-main,
   .league-schedule-main {
-    flex-direction: column;
+    gap: 12px;
+  }
+
+  .league-signup-details,
+  .league-schedule-details {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .league-signup-actions,
   .league-schedule-actions {
     width: 100%;
     justify-content: flex-start;
-    align-items: flex-start;
+    justify-self: start;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .league-signup-actions > .league-signup-actions-group {
-    flex-shrink: 0 !important;
-    flex-basis: auto !important;
-    width: auto !important;
-    min-width: fit-content !important;
+    flex-shrink: 0;
+    flex-basis: auto;
+    min-width: fit-content;
   }
 
   .league-signup-actions-group {
-    flex-wrap: nowrap !important;
-    width: auto !important;
-    min-width: fit-content !important;
-    max-width: none !important;
-    flex-shrink: 0 !important;
-    overflow: visible !important;
+    flex-wrap: nowrap;
+    min-width: fit-content;
+    flex-shrink: 0;
   }
 
   .league-signup-actions-group .league-text-button {
-    flex-shrink: 0 !important;
-    flex-grow: 0 !important;
-    white-space: nowrap !important;
-    min-width: fit-content !important;
-    max-width: none !important;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: fit-content;
   }
 
   .league-signups-section,
@@ -7679,10 +7908,14 @@ button.match-config-toggle.inline svg {
   margin: 0;
 }
 
+.profile-page-content {
+  width: 100%;
+  max-width: 100%;
+}
+
 .profile-page__section {
   background: white;
   border-radius: 20px;
-  padding: 28px;
   margin-bottom: 24px;
   box-shadow: var(--shadow-md);
 }
@@ -7732,4 +7965,22 @@ button.match-config-toggle.inline svg {
   .profile-page__section-title {
     font-size: 1.25rem;
   }
+}
+
+/* Auth Modal Legal Text */
+.auth-modal__legal-text {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  margin-top: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.auth-modal__legal-text a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.auth-modal__legal-text a:hover {
+  color: var(--primary-dark);
 }
