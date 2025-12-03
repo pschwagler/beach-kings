@@ -4,12 +4,16 @@ Revision ID: 001
 Revises: 
 Create Date: 2025-11-17 17:15:00.000000
 
-Initial database schema - creates all tables from scratch.
-This consolidated migration includes all schema changes from migrations 001-006:
-- Initial schema (users, players, seasons, matches, etc.)
-- Signups tables (weekly_schedules, signups, signup_players, signup_events)
-- Stats calculation tables (stats_calculation_jobs, partnership_stats_season, opponent_stats_season)
-- League messages table
+Complete consolidated database schema - creates all tables from scratch.
+This is the only migration file needed for fresh deployments.
+
+Creates all tables based on current models including:
+- Core tables: users, players, locations, courts, leagues, seasons, sessions, matches
+- Stats tables: player_season_stats, partnership_stats, opponent_stats, elo_history
+- Stats calculation tables: stats_calculation_jobs, partnership_stats_season, opponent_stats_season
+- Signup tables: weekly_schedules, signups, signup_players, signup_events
+- Supporting tables: friends, league_configs, league_members, league_messages, feedback
+- Auth tables: verification_codes, refresh_tokens, password_reset_tokens, settings
 - All enum types and indexes
 """
 from typing import Sequence, Union
