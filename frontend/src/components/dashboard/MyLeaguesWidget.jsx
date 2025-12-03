@@ -19,9 +19,9 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick }) {
         </div>
         <div className="dashboard-widget-content">
           <div className="dashboard-empty-state">
-            <Trophy size={40} style={{ opacity: 0.3, marginBottom: '16px' }} />
+            <Trophy size={40} className="empty-state-icon" />
             <p>No leagues found</p>
-            <p style={{ fontSize: '0.9em', color: 'var(--gray-600)', marginTop: '8px' }}>
+            <p className="empty-state-text">
               Join or create a league to get started
             </p>
           </div>
@@ -63,7 +63,7 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick }) {
           ))}
           {leagues.length > 5 && (
             <div className="dashboard-widget-footer">
-              <p style={{ fontSize: '0.9em', color: 'var(--gray-600)' }}>
+              <p className="secondary-text">
                 +{leagues.length - 5} more league{leagues.length - 5 !== 1 ? 's' : ''}
               </p>
             </div>

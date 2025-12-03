@@ -297,7 +297,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         <form className="auth-modal__form" onSubmit={handleSubmit}>
           {activeMode === 'sign-up' && (
             <label className="auth-modal__label">
-              <span>Full Name <span style={{ color: 'red' }}>*</span></span>
+              <span>Full Name <span className="required-asterisk">*</span></span>
               <input
                 type="text"
                 name="fullName"
@@ -312,7 +312,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
             <label className="auth-modal__label">
-              <span>Phone Number <span style={{ color: 'red' }}>*</span></span>
+              <span>Phone Number <span className="required-asterisk">*</span></span>
               <PhoneInput
                 value={formData.phoneNumber}
                 onChange={handlePhoneChange}
@@ -328,17 +328,16 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
               Phone Number
               <input
                 type="tel"
-                className="auth-modal__input"
+                className="auth-modal__input disabled-button"
                 value={formData.phoneNumber}
                 disabled
-                style={{ opacity: 0.6, cursor: 'not-allowed' }}
               />
             </label>
           )}
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
             <label className="auth-modal__label">
-              <span>Password <span style={{ color: 'red' }}>*</span></span>
+              <span>Password <span className="required-asterisk">*</span></span>
               <input
                 type="password"
                 name="password"
@@ -428,7 +427,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
               >
                 Sign up
               </button>
-              <span className="auth-modal__footer-text" style={{ marginLeft: '12px' }}>• </span>
+              <span className="auth-modal__footer-text footer-bullet">• </span>
               <button
                 type="button"
                 className="auth-modal__footer-link"

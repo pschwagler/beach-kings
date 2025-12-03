@@ -150,7 +150,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
           <label className="auth-modal__label">
-            <span>Gender <span style={{ color: 'red' }}>*</span></span>
+            <span>Gender <span className="required-asterisk">*</span></span>
             <select
               name="gender"
               className="auth-modal__input"
@@ -168,7 +168,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
           </label>
 
           <label className="auth-modal__label">
-            <span>Skill Level <span style={{ color: 'red' }}>*</span></span>
+            <span>Skill Level <span className="required-asterisk">*</span></span>
             <select
               name="level"
               className="auth-modal__input"

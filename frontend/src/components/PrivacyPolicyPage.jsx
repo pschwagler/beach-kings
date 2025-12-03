@@ -1,31 +1,41 @@
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { navigateTo } from '../Router';
+import NavBar from './layout/NavBar';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function PrivacyPolicyPage() {
-  return (
-    <div className="page-container">
-      <header className="page-header">
-        <button 
-          className="back-button" 
-          onClick={() => navigateTo('/')}
-          aria-label="Back to home"
-        >
-          <ArrowLeft size={24} />
-        </button>
-        <h1>Privacy Policy</h1>
-      </header>
-      
-      <main className="page-content" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        <section className="legal-section">
-          <h2>Privacy Policy</h2>
-          <p><strong>Last updated:</strong> December 2, 2025</p>
-          
-          <p>This Privacy Policy describes how Beach League, operated by Patrick Schwagler, located in Brookly, NY ("we," "us," or "our"), collects, uses, discloses, and protects your personal information when you use our beach volleyball league management platform and related services (the "Service").</p>
+  const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
 
-          <h3>1. Information We Collect</h3>
+  return (
+    <div className="legal-page-container">
+      <NavBar
+        isLoggedIn={isAuthenticated}
+        user={user}
+        currentUserPlayer={currentUserPlayer}
+        onSignOut={logout}
+      />
+      
+      <main className="legal-page-main">
+        <div className="legal-page-header">
+          <h1 className="legal-page-title">
+            Privacy Policy
+          </h1>
+          <p className="legal-page-date">
+            <strong>Last updated:</strong> December 2, 2025
+          </p>
+        </div>
+        
+        <section className="legal-section">
+          <p className="legal-intro">
+            This Privacy Policy describes how Beach League, operated by Patrick Schwagler, located in Brooklyn, NY ("we," "us," or "our"), collects, uses, discloses, and protects your personal information when you use our beach volleyball league management platform and related services (the "Service").
+          </p>
+
+          <h3>
+            1. Information We Collect
+          </h3>
           
-          <h4>1.1 Information You Provide Directly</h4>
+          <h4>
+            1.1 Information You Provide Directly
+          </h4>
           <p>We collect information you provide when you create an account, update your profile, or use the Service, including:</p>
           <ul>
             <li><strong>Account Information:</strong> Name, email address, phone number, and password</li>
@@ -86,7 +96,7 @@ export default function PrivacyPolicyPage() {
           <p>These service providers are contractually obligated to use your information only for the purposes we specify and to maintain appropriate security measures.</p>
 
           <h4>3.3 Mobile Information Protection</h4>
-          <div style={{ backgroundColor: '#f0f9ff', padding: '1rem', borderRadius: '8px', border: '1px solid #bae6fd', margin: '1rem 0' }}>
+          <div className="legal-info-box">
             <strong>Important:</strong> No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. Text messaging originator opt-in data and consent will not be shared with any third parties, except as necessary to deliver SMS verification codes through our service provider.
           </div>
 
@@ -174,7 +184,7 @@ export default function PrivacyPolicyPage() {
           <p><strong>Operator:</strong> Patrick Schwagler</p>
           <p><strong>Location:</strong> Brooklyn, NY, United States</p>
           
-          <p style={{ marginTop: '2rem', fontSize: '0.9em', color: '#666' }}>
+          <p className="legal-footer-note">
             We will respond to your inquiry within a reasonable timeframe, typically within 45 days for privacy rights requests.
           </p>
         </section>

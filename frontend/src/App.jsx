@@ -253,7 +253,7 @@ function App() {
                 />
               </h2>
               <p>Log in to get started</p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <div className="flex-center-gap">
                 <button
                   className="btn btn-primary"
                   onClick={() => openAuthModal("sign-in", handleVerifySuccess)}

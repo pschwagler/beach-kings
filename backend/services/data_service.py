@@ -2289,12 +2289,10 @@ async def get_player_match_history(session: AsyncSession, player_name: str) -> O
     result = await session.execute(
         select(Player.id).where(Player.full_name == player_name)
     )
-    player = result.scalar_one_or_none()
+    player_id = result.scalar_one_or_none()
     
-    if not player:
+    if not player_id:
         return None  # Player not found
-    
-    player_id = player.id
     
     # Create aliases for players
     p1 = aliased(Player)

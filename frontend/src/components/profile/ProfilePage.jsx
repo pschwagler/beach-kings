@@ -274,7 +274,7 @@ export default function ProfilePage() {
           <aside className={`league-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
             <div className="league-sidebar-header">
               <div className="league-sidebar-title-wrapper-container">
-                <div className="league-sidebar-title-wrapper" style={{ cursor: 'default' }}>
+                <div className="league-sidebar-title-wrapper no-pointer">
                   <h1 className="league-sidebar-title">Account</h1>
                 </div>
               </div>
@@ -353,17 +353,16 @@ export default function ProfilePage() {
 
                 <form className="profile-page__form" onSubmit={handleSubmit}>
                   {/* Account Info */}
-                  <h3 className="profile-page__section-title" style={{ marginTop: 0 }}>Account Information</h3>
+                  <h3 className="profile-page__section-title section-title-first">Account Information</h3>
                   
                   <label className="auth-modal__label">
                     <span>Phone Number</span>
                     <input
                       type="text"
-                      className="auth-modal__input"
+                      className="auth-modal__input disabled-input"
                       value={user?.phone_number || ''}
                       disabled
                       readOnly
-                      style={{ background: 'var(--gray-100)' }}
                     />
                     <small className="profile-page__help-text">Please contact us to change your phone number</small>
                   </label>
@@ -381,10 +380,10 @@ export default function ProfilePage() {
                   </label>
 
                   {/* Player Info */}
-                  <h3 className="profile-page__section-title" style={{ marginTop: '24px' }}>Player Profile</h3>
+                  <h3 className="profile-page__section-title section-title-spaced">Player Profile</h3>
 
                   <label className="auth-modal__label">
-                    <span>Full Name <span style={{ color: 'red' }}>*</span></span>
+                    <span>Full Name <span className="required-asterisk">*</span></span>
                     <input
                       type="text"
                       name="full_name"
@@ -504,12 +503,11 @@ export default function ProfilePage() {
                     </select>
                   </label>
 
-                  <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div className="form-actions">
                     <button 
                       type="submit" 
-                      className="auth-modal__submit" 
+                      className="auth-modal__submit save-button" 
                       disabled={isSubmitting}
-                      style={{ width: 'auto', padding: '12px 32px', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                       <Save size={18} />
                       {isSubmitting ? 'Saving...' : 'Save Changes'}
@@ -520,8 +518,8 @@ export default function ProfilePage() {
             )}
 
             {activeTab === 'friends' && (
-              <div className="profile-page__section league-section" style={{ textAlign: 'center', padding: '48px 0', color: 'var(--gray-600)' }}>
-                <Users size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <div className="profile-page__section league-section coming-soon-section">
+                <Users size={48} className="coming-soon-icon" />
                 <h3>Friends list coming soon...</h3>
                 <p>Stay tuned for updates!</p>
               </div>
@@ -543,8 +541,8 @@ export default function ProfilePage() {
                 )}
                 
                 {userLeagues.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--gray-600)' }}>
-                    <Trophy size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                  <div className="coming-soon-section">
+                    <Trophy size={48} className="coming-soon-icon" />
                     <h3>No leagues found</h3>
                     <p>You haven't joined any leagues yet.</p>
                   </div>
@@ -555,86 +553,29 @@ export default function ProfilePage() {
                         key={league.id} 
                         className="league-card" 
                         onClick={() => handleLeaguesMenuClick('view-league', league.id)}
-                        style={{ 
-                          background: 'white', 
-                          padding: '20px', 
-                          borderRadius: '16px', 
-                          marginBottom: '16px',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                          border: '1px solid var(--gray-200)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative',
-                          overflow: 'hidden'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.08)';
-                          e.currentTarget.style.borderColor = 'var(--primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'none';
-                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
-                          e.currentTarget.style.borderColor = 'var(--gray-200)';
-                        }}
                       >
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '700', color: 'var(--gray-900)' }}>{league.name}</h3>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ 
-                              fontSize: '13px', 
-                              color: 'var(--gray-600)', 
-                              background: 'var(--gray-100)', 
-                              padding: '4px 10px', 
-                              borderRadius: '20px',
-                              fontWeight: '500'
-                            }}>
+                        <div className="league-card-content">
+                          <h3 className="league-card-title">{league.name}</h3>
+                          <div className="league-card-meta">
+                            <span className="league-card-badge">
                               {league.location_name || 'No location'}
                             </span>
-                            <span style={{ 
-                              fontSize: '13px', 
-                              color: 'var(--gray-600)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}>
+                            <span className="league-card-members">
                               <Users size={14} />
                               {league.member_count || 0} members
                             </span>
                           </div>
                         </div>
                         
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div className="league-card-actions">
                           <button
                             onClick={(e) => handleLeaveLeague(e, league.id, league.name)}
-                            style={{
-                              padding: '8px 16px',
-                              borderRadius: '8px',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              background: 'rgba(239, 68, 68, 0.05)',
-                              color: '#ef4444',
-                              fontWeight: '600',
-                              fontSize: '13px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              zIndex: 2
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#ef4444';
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
-                              e.currentTarget.style.color = '#ef4444';
-                            }}
+                            className="league-leave-button"
                           >
                             Leave
                           </button>
                           
-                          <ChevronRight size={20} style={{ color: 'var(--gray-400)' }} />
+                          <ChevronRight size={20} className="league-card-chevron" />
                         </div>
                       </div>
                     ))}

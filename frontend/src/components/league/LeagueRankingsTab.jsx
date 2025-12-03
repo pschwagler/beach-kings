@@ -72,7 +72,7 @@ export default function LeagueRankingsTab() {
     return (
       <div className="league-section">
         <div className="empty-state">
-          <Trophy size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+          <Trophy size={48} className="large-empty-state-icon" />
           <p>No active season found. Please create an active season to view rankings.</p>
         </div>
       </div>

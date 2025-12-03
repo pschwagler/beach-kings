@@ -98,6 +98,314 @@ body {
   overscroll-behavior-y: auto;
   position: relative;
   /* Safe area for notched devices */
+
+/* Legal Pages Styling */
+.legal-page-container {
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+.legal-page-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 84px 48px;
+  background-color: white;
+  min-height: calc(100vh - 64px);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+.legal-page-header {
+  margin-bottom: 2rem;
+}
+
+.legal-page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.legal-page-date {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.legal-section {
+  line-height: 1.75;
+  color: #374151;
+}
+
+.legal-section > p {
+  margin-bottom: 1rem;
+}
+
+.legal-intro {
+  font-size: 1.05rem;
+  margin-bottom: 2rem;
+}
+
+.legal-section h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.legal-section h4 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.legal-section ul {
+  margin-left: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.legal-section ul li {
+  margin-bottom: 0.5rem;
+}
+
+.legal-info-box {
+  background-color: #f0f9ff;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  margin: 1rem 0;
+}
+
+.legal-warning-box {
+  background-color: #fef2f2;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  margin: 1rem 0;
+}
+
+.legal-disclaimer-box {
+  text-transform: uppercase;
+  background-color: #f0f0f0;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.legal-footer-note {
+  margin-top: 2rem;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.legal-liability-text {
+  text-transform: uppercase;
+}
+
+/* Utility Classes for Common Styles */
+.flex-center-gap {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.flex-align-gap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.required-asterisk {
+  color: red;
+}
+
+.disabled-button {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty-state-icon {
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+.empty-state-text {
+  font-size: 0.9em;
+  color: var(--gray-600);
+  margin-top: 8px;
+}
+
+.secondary-text {
+  font-size: 0.9em;
+  color: var(--gray-600);
+}
+
+.footer-bullet {
+  margin-left: 12px;
+}
+
+.large-empty-state-icon {
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+.pending-text {
+  font-style: italic;
+  color: var(--gray-600);
+}
+
+.loading-message {
+  margin-top: 32px;
+}
+
+.loading-submessage {
+  margin-top: 16px;
+  font-size: 0.9em;
+}
+
+/* Profile Page Utilities */
+.no-pointer {
+  cursor: default;
+}
+
+.section-title-first {
+  margin-top: 0;
+}
+
+.section-title-spaced {
+  margin-top: 24px;
+}
+
+.disabled-input {
+  background: var(--gray-100);
+}
+
+.form-actions {
+  margin-top: 32px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-button {
+  width: auto;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coming-soon-section {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--gray-600);
+}
+
+.coming-soon-icon {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* League Cards */
+.league-card {
+  background: white;
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.league-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+}
+
+.league-card-content {
+  flex: 1;
+}
+
+.league-card-title {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.league-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.league-card-badge {
+  font-size: 13px;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.league-card-members {
+  font-size: 13px;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.league-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.league-card-role-badge {
+  background: var(--gold-gradient);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(201, 166, 82, 0.3);
+}
+
+.league-card-chevron {
+  color: var(--gray-400);
+}
+
+.league-leave-button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.league-leave-button:hover {
+  background: #ef4444;
+  color: white;
+}
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   padding-top: env(safe-area-inset-top);

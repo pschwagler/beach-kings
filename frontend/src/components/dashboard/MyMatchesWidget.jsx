@@ -11,9 +11,9 @@ export default function MyMatchesWidget({ matches, currentUserPlayer }) {
         </div>
         <div className="dashboard-widget-content">
           <div className="dashboard-empty-state">
-            <Trophy size={40} style={{ opacity: 0.3, marginBottom: '16px' }} />
+            <Trophy size={40} className="empty-state-icon" />
             <p>No matches found</p>
-            <p style={{ fontSize: '0.9em', color: 'var(--gray-600)', marginTop: '8px' }}>
+            <p className="empty-state-text">
               Your recent matches will appear here
             </p>
           </div>
@@ -92,7 +92,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer }) {
           })}
           {matches.length > 5 && (
             <div className="dashboard-widget-footer">
-              <p style={{ fontSize: '0.9em', color: 'var(--gray-600)' }}>
+              <p className="secondary-text">
                 +{matches.length - 5} more match{matches.length - 5 !== 1 ? 'es' : ''}
               </p>
             </div>

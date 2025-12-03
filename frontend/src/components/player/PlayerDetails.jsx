@@ -45,10 +45,10 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
           onPlayerChange={onPlayerChange}
         />
       ) : !hasOverview && (
-        <div className="loading" style={{marginTop: '32px'}}>
+        <div className="loading loading-message">
           No stats available yet. This player's matches haven't been included in calculations.
           {matchHistory && matchHistory.length > 0 && (
-            <div style={{marginTop: '16px', fontSize: '0.9em'}}>
+            <div className="loading-submessage">
               They have {matchHistory.length} match{matchHistory.length !== 1 ? 'es' : ''} in an active session.
             </div>
           )}

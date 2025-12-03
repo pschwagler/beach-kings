@@ -76,7 +76,7 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
                 <td>{match.Score}</td>
                 <td>
                   {isActiveSession ? (
-                    <span style={{fontStyle: 'italic', color: 'var(--gray-600)'}}>Pending</span>
+                    <span className="pending-text">Pending</span>
                   ) : (
                     ratingDisplay
                   )}

@@ -97,7 +97,7 @@ export default function SignupList({
             <div className="league-signup-info">
               <div className="league-signup-main">
                 <div className="league-signup-details">
-                  <div className="league-signup-title" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div className="league-signup-title flex-align-gap">
                     <span>{formatDate(signup.scheduled_datetime)} at {formatTime(signup.scheduled_datetime)}</span>
                     {isSignedUp && (
                       <div className="signed-up-badge">

@@ -14,7 +14,7 @@ import Footer from './components/Footer.jsx';
 
 function RouterContent() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
-  const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess } = useAuthModal();
+  const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess, openAuthModal } = useAuthModal();
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -26,6 +26,23 @@ function RouterContent() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Handle /signup and /login routes
+  useEffect(() => {
+    if (currentPath === '/signup') {
+      openAuthModal('sign-up');
+      // Redirect to appropriate page based on auth status
+      const targetPath = isAuthenticated ? '/home' : '/';
+      window.history.replaceState({}, '', targetPath);
+      setCurrentPath(targetPath);
+    } else if (currentPath === '/login') {
+      openAuthModal('sign-in');
+      // Redirect to appropriate page based on auth status
+      const targetPath = isAuthenticated ? '/home' : '/';
+      window.history.replaceState({}, '', targetPath);
+      setCurrentPath(targetPath);
+    }
+  }, [currentPath, isAuthenticated, openAuthModal]);
 
   // Handle redirects based on authentication
   useEffect(() => {

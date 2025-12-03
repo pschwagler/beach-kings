@@ -75,7 +75,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
             <form className="auth-modal__form" onSubmit={handleSubmit}>
               <label className="auth-modal__label">
-                <span>Your Feedback <span style={{ color: 'red' }}>*</span></span>
+                <span>Your Feedback <span className="required-asterisk">*</span></span>
                 <textarea
                   className="auth-modal__input feedback-textarea"
                   placeholder="Tell us what you think..."
