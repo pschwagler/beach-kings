@@ -21,18 +21,21 @@ from backend.database.models import VerificationCode
 
 # Players to set up
 PLAYERS = [
-    {"full_name": "Colan Gulla", "phone": "+14012078049", "nickname": "Colan"},
-    {"full_name": "Daniel Minicucci", "phone": "+15168804085", "nickname": "Dan"},
-    {"full_name": "Roger Subervi", "phone": "+13473000141", "nickname": "Roger"},
-    {"full_name": "Chris Dedo", "phone": "+13108901973", "nickname": "Dedo"},
-    {"full_name": "Ken Fowser", "phone": "+19179457340", "nickname": "Ken"},
-    {"full_name": "Tim Cole", "phone": "+15167612182", "nickname": "Tim"},
-    {"full_name": "Sami Jindyeh", "phone": "+13479094448", "nickname": "Sami"},
-    {"full_name": "Connor Galaida", "phone": "+18604880934", "nickname": "Connor"},
-    {"full_name": "Mark Gacki", "phone": "+12017253921", "nickname": "Mark"},
-    {"full_name": "Matthew Balcer", "phone": "+15612138939", "nickname": "Matt"},
-    {"full_name": "Antoine Marthey", "phone": "+19173617509", "nickname": "Antoine"},
-    {"full_name": "Kevin Nardone", "phone": "+19177511735", "nickname": "Kevin"},
+    {"full_name": "Patrick Schwagler", "phone": "+17167831211", "nickname": "Pat", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Colan Gulla", "phone": "+14012078049", "nickname": "Colan", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Daniel Minicucci", "phone": "+15168804085", "nickname": "Dan", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Roger Subervi", "phone": "+13473000141", "nickname": "Roger", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Chris Dedo", "phone": "+13108901973", "nickname": "Dedo", "gender": "male", "preferred_side": "right"},
+    {"full_name": "Ken Fowser", "phone": "+19179457340", "nickname": "Ken", "gender": "male", "preferred_side": "right"},
+    {"full_name": "Tim Cole", "phone": "+15167612182", "nickname": "Tim", "gender": "male"},
+    {"full_name": "Sami Jindyeh", "phone": "+13479094448", "nickname": "Sami", "gender": "male", "preferred_side": "right"},
+    {"full_name": "Connor Galaida", "phone": "+18604880934", "nickname": "Connor", "gender": "male", "preferred_side": "right"},
+    {"full_name": "Mark Gacki", "phone": "+12017253921", "nickname": "Mark", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Matthew Balcer", "phone": "+15612138939", "nickname": "Matt", "gender": "male"},
+    {"full_name": "Antoine Marthey", "phone": "+19173617509", "nickname": "Antoine", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Kevin Nardone", "phone": "+19177511735", "nickname": "Kevin", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Stanley Martinez", "phone": "+19179952476", "nickname": "Stanley", "gender": "male", "preferred_side": "left"},
+    {"full_name": "Hayden Millington", "phone": "+18058860642", "nickname": "Hayden", "gender": "male"},
 ]
 
 # API base URL
