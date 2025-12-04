@@ -83,7 +83,7 @@ export default function ControlPanel({ onLoadFromSheets }) {
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleLoadFromSheets}
         title="Refresh from Google Sheets"
-        message="Are you sure you want to refresh from Google Sheets? This will replace all current data. Any matches not in the sheet will be permanently deleted. A backup CSV will be automatically downloaded before refreshing."
+        message="Are you sure you want to refresh from Google Sheets? This will replace all current data. Any games not in the sheet will be permanently deleted. A backup CSV will be automatically downloaded before refreshing."
         confirmText="Refresh Data"
         cancelText="Cancel"
       />

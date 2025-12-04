@@ -445,7 +445,7 @@ export default function AddMatchModal({
       onClose();
     } catch (error) {
       console.error('Error submitting match:', error);
-      setFormError('Failed to submit match. Please try again.');
+      setFormError('Failed to submit game. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -465,7 +465,7 @@ export default function AddMatchModal({
       onClose();
     } catch (error) {
       console.error('Error deleting match:', error);
-      setFormError('Failed to delete match. Please try again.');
+      setFormError('Failed to delete game. Please try again.');
       setShowDeleteConfirm(false);
     } finally {
       setIsSubmitting(false);
@@ -494,7 +494,7 @@ export default function AddMatchModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="drawer-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{editMatch ? 'Edit Match' : 'Add New Match'}</h2>
+          <h2>{editMatch ? 'Edit Game' : 'Add New Game'}</h2>
           <Button variant="close" onClick={onClose}>
             <X size={20} />
           </Button>
@@ -519,7 +519,7 @@ export default function AddMatchModal({
                   onClick={() => setIsConfigExpanded(!isConfigExpanded)}
                 >
                   <Settings size={16} strokeWidth={2.5} />
-                  <span className="match-info-title">Match Info</span>
+                  <span className="match-info-title">Game Info</span>
                 </button>
                 
                 <button 
@@ -708,7 +708,7 @@ export default function AddMatchModal({
             Cancel
           </Button>
           <Button type="submit" form="add-match-form" variant="success" disabled={isSubmitting}>
-            {isSubmitting ? (editMatch ? 'Updating...' : 'Adding...') : (editMatch ? 'Update Match' : 'Add Match')}
+            {isSubmitting ? (editMatch ? 'Updating...' : 'Adding...') : (editMatch ? 'Update Game' : 'Add Game')}
           </Button>
         </div>
       </div>
@@ -717,8 +717,8 @@ export default function AddMatchModal({
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
-        title="Delete Match"
-        message="Are you sure you want to delete this match? This action cannot be undone."
+        title="Delete Game"
+        message="Are you sure you want to delete this game? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />

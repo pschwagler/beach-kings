@@ -93,7 +93,7 @@ export function MatchesTableSkeleton({ isLeagueMember = false }) {
             <div className="add-matches-icon">
               <Plus size={24} />
             </div>
-            <h2 className="add-matches-title">Add Matches</h2>
+            <h2 className="add-matches-title">Add Games</h2>
             <p className="add-matches-description">
               Click to log a new match and start a session.
             </p>

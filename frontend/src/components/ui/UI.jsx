@@ -117,7 +117,7 @@ export function Tabs({ activeTab, onTabChange }) {
         onClick={() => onTabChange('matches')}
       >
         <Calendar size={18} />
-        Matches
+        Games
       </Button>
     </div>
   );

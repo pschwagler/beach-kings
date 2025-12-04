@@ -57,6 +57,11 @@ export default function UserMenu({
       case 'sign-out':
         onSignOut?.();
         break;
+      case 'profile':
+        // Navigate to /home?tab=profile
+        window.history.pushState({}, '', '/home?tab=profile');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        break;
       default:
         onMenuClick?.(action);
     }

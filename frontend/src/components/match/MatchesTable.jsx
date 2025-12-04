@@ -334,7 +334,7 @@ export default function MatchesTable({
             <div className="add-matches-icon">
               <Plus size={24} />
             </div>
-            <h2 className="add-matches-title">Add Matches</h2>
+            <h2 className="add-matches-title">Add Games</h2>
             <p className="add-matches-description">
               Click to log a new match and start a session.
             </p>
@@ -472,7 +472,7 @@ export default function MatchesTable({
         onClose={() => setIsEndSessionModalOpen(false)}
         onConfirm={handleLockInSession}
         title="Submit Scores"
-        message="Are you sure you want to submit these scores? Once submitted, matches will be locked in and only league admins will be able to edit."
+        message="Are you sure you want to submit these scores? Once submitted, games will be locked in and only league admins will be able to edit."
         confirmText="Submit Scores"
         cancelText="Cancel"
         gameCount={activeSessionMatches.length}

@@ -268,7 +268,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       case 'reset-password-new':
         return 'Enter your new password.';
       default:
-        return 'Log in to access leagues, record matches, and more.';
+        return 'Log in to access leagues, record games, and more.';
     }
   };
 
