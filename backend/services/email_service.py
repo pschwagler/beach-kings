@@ -111,4 +111,3 @@ async def send_feedback_email(
         logger.error(f"Failed to send feedback email: {str(e)}")
         # Don't raise the exception - we don't want email failures to break feedback submission
         return False
-

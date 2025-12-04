@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
+import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
 import NavDropdownItem from '../layout/navbar/NavDropdownItem';
@@ -164,9 +165,12 @@ function LeagueDashboardContent({ leagueId }) {
     setIsLeagueDropdownOpen(false);
   };
 
+  const { openDrawer } = useDrawer();
+
   const handlePlayerClick = (playerName) => {
-    // Navigate to player details - could be implemented later
-    console.log('Player clicked:', playerName);
+    openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
+      playerName
+    });
   };
 
   const handleSignOut = async () => {

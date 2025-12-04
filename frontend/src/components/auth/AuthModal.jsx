@@ -56,6 +56,20 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     }
   }, [isOpen, mode]);
 
+  // Add modal-open class to body when modal is open (for iOS z-index fix)
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen]);
+
   if (!isOpen) {
     return null;
   }

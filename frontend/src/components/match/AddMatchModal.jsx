@@ -3,7 +3,6 @@ import { X, ChevronDown, Info, Settings } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
-import { useLeague } from '../../contexts/LeagueContext';
 import { getUserLeagues, getLeagueSeasons } from '../../services/api';
 import { formatDateRange } from '../league/utils/leagueUtils';
 
@@ -88,9 +87,10 @@ export default function AddMatchModal({
   onDelete, 
   editMatch = null,
   leagueMatchOnly = false,
-  defaultLeagueId = null
+  defaultLeagueId = null,
+  members = [],
+  league = null
 }) {
-  const { members, league } = useLeague();
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -330,14 +330,7 @@ export default function AddMatchModal({
       setMatchType(leagueMatchOnly ? 'league' : 'non-league');
       setSelectedLeagueId(defaultLeagueId);
       setIsRanked(true);
-      // Prevent background scrolling
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen, leagueMatchOnly, defaultLeagueId]);
 
   // Close league dropdown when clicking outside
@@ -507,8 +500,6 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Collapsible */}
-          {/* Match Configuration Section - Collapsible */}
           {/* Match Configuration Section - Collapsible */}
           {!editMatch && (
             <div className="match-config-section">

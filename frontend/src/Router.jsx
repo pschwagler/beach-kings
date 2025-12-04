@@ -8,6 +8,10 @@ import AuthModal from './components/auth/AuthModal.jsx';
 import { useAuth } from './contexts/AuthContext.jsx';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage.jsx';
 import TermsOfServicePage from './components/TermsOfServicePage.jsx';
+import GlobalModal from './components/ui/GlobalModal.jsx';
+import GlobalDrawer from './components/ui/GlobalDrawer.jsx';
+import { ModalProvider } from './contexts/ModalContext.jsx';
+import { DrawerProvider } from './contexts/DrawerContext.jsx';
 
 import Footer from './components/Footer.jsx';
 
@@ -91,14 +95,22 @@ function RouterContent() {
         onClose={closeAuthModal}
         onVerifySuccess={handleVerifySuccess}
       />
+      <GlobalModal />
+      <GlobalDrawer />
     </div>
   );
 }
 
+
+
 function Router() {
   return (
     <AuthModalProvider>
-      <RouterContent />
+      <ModalProvider>
+        <DrawerProvider>
+          <RouterContent />
+        </DrawerProvider>
+      </ModalProvider>
     </AuthModalProvider>
   );
 }

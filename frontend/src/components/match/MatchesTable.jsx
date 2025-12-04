@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Edit2 } from 'lucide-react';
 import MatchCard from './MatchCard';
-import AddMatchModal from './AddMatchModal';
-import ConfirmationModal from '../modal/ConfirmationModal';
+
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
 import { MatchesTableSkeleton } from '../ui/Skeletons';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 function formatSessionTimestamp(timestamp) {
   if (!timestamp) return null;
@@ -78,10 +78,8 @@ export default function MatchesTable({
   pendingMatchChanges = new Map(),
   editingSessionMetadata = new Map()
 }) {
-  const { isLeagueMember } = useLeague();
-  const [isAddMatchModalOpen, setIsAddMatchModalOpen] = useState(false);
-  const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
-  const [editingMatch, setEditingMatch] = useState(null);
+  const { isLeagueMember, members, league } = useLeague();
+  const { openModal } = useModal();
   const hasRenderedMatchesRef = useRef(false);
 
   const matchesWithPendingChanges = useMemo(() => {
@@ -267,7 +265,6 @@ export default function MatchesTable({
       const isEditingSession = sessionId && editingSessions.has(sessionId);
       
       await onUpdateMatch(matchId, matchData, isEditingSession ? sessionId : undefined);
-      setEditingMatch(null);
     } else {
       const matchPayload = { ...matchData };
       const editingSessionId = editingSessions.size > 0 ? Array.from(editingSessions)[0] : null;
@@ -294,19 +291,23 @@ export default function MatchesTable({
   };
 
   const handleEditMatch = (match) => {
-    setEditingMatch(match);
-    setIsAddMatchModalOpen(true);
+    openModal(MODAL_TYPES.ADD_MATCH, {
+      editMatch: match,
+      onSubmit: handleAddMatch,
+      onDelete: onDeleteMatch,
+      allPlayerNames,
+      leagueMatchOnly: !!leagueId,
+      defaultLeagueId: leagueId,
+      members,
+      league
+    });
   };
 
-  const handleCloseModal = () => {
-    setIsAddMatchModalOpen(false);
-    setEditingMatch(null);
-  };
 
-  const handleLockInSession = async () => {
-    if (activeSession) {
-      await onEndSession(activeSession.id);
-      setIsEndSessionModalOpen(false);
+
+  const handleLockInSession = async (sessionId) => {
+    if (sessionId) {
+      await onEndSession(sessionId);
     }
   };
 
@@ -329,7 +330,15 @@ export default function MatchesTable({
         <div className="add-matches-section">
           <button 
             className="add-matches-card"
-            onClick={() => setIsAddMatchModalOpen(true)}
+            onClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
+              onSubmit: handleAddMatch,
+              onDelete: onDeleteMatch,
+              allPlayerNames,
+              leagueMatchOnly: !!leagueId,
+              defaultLeagueId: leagueId,
+              members,
+              league
+            })}
           >
             <div className="add-matches-icon">
               <Plus size={24} />
@@ -356,9 +365,26 @@ export default function MatchesTable({
           activeSession={activeSession}
           activeSessionMatches={activeSessionMatches}
           onPlayerClick={onPlayerClick}
-          onAddMatchClick={() => setIsAddMatchModalOpen(true)}
+          onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
+            onSubmit: handleAddMatch,
+            onDelete: onDeleteMatch,
+            allPlayerNames,
+            leagueMatchOnly: !!leagueId,
+            defaultLeagueId: leagueId,
+            members,
+            league
+          })}
           onEditMatch={handleEditMatch}
-          onSubmitClick={() => setIsEndSessionModalOpen(true)}
+          onSubmitClick={() => openModal(MODAL_TYPES.CONFIRMATION, {
+            title: "Submit Scores",
+            message: "Are you sure you want to submit these scores? Once submitted, games will be locked in and only league admins will be able to edit.",
+            confirmText: "Submit Scores",
+            cancelText: "Cancel",
+            onConfirm: () => handleLockInSession(activeSession.id),
+            gameCount: activeSessionMatches.length,
+            playerCount: playerCount,
+            matches: activeSessionMatches
+          })}
           onDeleteSession={onDeleteSession}
         />
       )}
@@ -380,7 +406,15 @@ export default function MatchesTable({
                 activeSession={{ id: group.id, name: group.name }}
                 activeSessionMatches={group.matches}
                 onPlayerClick={onPlayerClick}
-                onAddMatchClick={() => setIsAddMatchModalOpen(true)}
+                onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
+                  onSubmit: handleAddMatch,
+                  onDelete: onDeleteMatch,
+                  allPlayerNames,
+                  leagueMatchOnly: !!leagueId,
+                  defaultLeagueId: leagueId,
+                  members,
+                  league
+                })}
                 onEditMatch={handleEditMatch}
                 onSaveClick={() => onSaveEditedSession(group.id)}
                 onCancelClick={() => onCancelEdit(group.id)}
@@ -456,29 +490,7 @@ export default function MatchesTable({
           );
         })}
 
-      <AddMatchModal
-        isOpen={isAddMatchModalOpen}
-        onClose={handleCloseModal}
-        onSubmit={handleAddMatch}
-        onDelete={onDeleteMatch}
-        allPlayerNames={allPlayerNames}
-        editMatch={editingMatch}
-        leagueMatchOnly={!!leagueId}
-        defaultLeagueId={leagueId}
-      />
-
-      <ConfirmationModal
-        isOpen={isEndSessionModalOpen}
-        onClose={() => setIsEndSessionModalOpen(false)}
-        onConfirm={handleLockInSession}
-        title="Submit Scores"
-        message="Are you sure you want to submit these scores? Once submitted, games will be locked in and only league admins will be able to edit."
-        confirmText="Submit Scores"
-        cancelText="Cancel"
-        gameCount={activeSessionMatches.length}
-        playerCount={playerCount}
-        matches={activeSessionMatches}
-      />
+      
     </div>
   );
 }

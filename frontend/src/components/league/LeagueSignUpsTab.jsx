@@ -17,32 +17,18 @@ import {
 } from '../../services/api';
 import SignupList from './components/SignupList';
 import ScheduleList from './components/ScheduleList';
-import SignupModal from './SignupModal';
-import CreateWeeklyScheduleModal from './CreateWeeklyScheduleModal';
-import EditWeeklyScheduleModal from './EditWeeklyScheduleModal';
-import ConfirmationModal from '../modal/ConfirmationModal';
+
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 export default function LeagueSignUpsTab() {
-  const { seasons, members, leagueId, isLeagueAdmin, showMessage } = useLeague();
+  const { seasons, members, leagueId, isLeagueAdmin, showMessage, isLeagueMember } = useLeague();
   const { currentUserPlayer } = useAuth();
+  const { openModal, closeModal } = useModal();
   
   const [signups, setSignups] = useState([]);
   const [weeklySchedules, setWeeklySchedules] = useState([]);
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // Modals
-  const [showCreateSignupModal, setShowCreateSignupModal] = useState(false);
-  const [showEditSignupModal, setShowEditSignupModal] = useState(false);
-  const [editingSignup, setEditingSignup] = useState(null);
-  const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
-  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState(null);
-  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
-  const [scheduleToDelete, setScheduleToDelete] = useState(null);
-  
-  // Get isLeagueMember from context
-  const { isLeagueMember } = useLeague();
   
   // Get active season
   const activeSeason = useMemo(() => {
@@ -111,7 +97,7 @@ export default function LeagueSignUpsTab() {
     if (!activeSeason) return;
     try {
       await createSignup(activeSeason.id, signupData);
-      setShowCreateSignupModal(false);
+      closeModal();
       await loadSignups();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to create signup');
@@ -122,8 +108,7 @@ export default function LeagueSignUpsTab() {
   const handleUpdateSignup = async (signupId, signupData) => {
     try {
       await updateSignup(signupId, signupData);
-      setShowEditSignupModal(false);
-      setEditingSignup(null);
+      closeModal();
       await loadSignups();
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update signup');
@@ -163,7 +148,6 @@ export default function LeagueSignUpsTab() {
     if (!activeSeason) return;
     try {
       await createWeeklySchedule(activeSeason.id, scheduleData);
-      setShowCreateScheduleModal(false);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as new ones may have been generated
     } catch (err) {
@@ -175,8 +159,6 @@ export default function LeagueSignUpsTab() {
   const handleUpdateSchedule = async (scheduleId, scheduleData) => {
     try {
       await updateWeeklySchedule(scheduleId, scheduleData);
-      setShowEditScheduleModal(false);
-      setEditingSchedule(null);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as they may have been regenerated
     } catch (err) {
@@ -186,16 +168,19 @@ export default function LeagueSignUpsTab() {
   };
   
   const handleDeleteSchedule = (scheduleId) => {
-    setScheduleToDelete(scheduleId);
-    setShowDeleteScheduleModal(true);
+    openModal(MODAL_TYPES.CONFIRMATION, {
+      title: "Delete Weekly Schedule",
+      message: "Are you sure you want to delete this weekly schedule? All future scheduled sessions for this schedule will be deleted. Past sessions will be preserved.",
+      confirmText: "Delete Schedule",
+      cancelText: "Cancel",
+      onConfirm: () => confirmDeleteSchedule(scheduleId)
+    });
   };
 
-  const confirmDeleteSchedule = async () => {
-    if (!scheduleToDelete) return;
+  const confirmDeleteSchedule = async (scheduleId) => {
+    if (!scheduleId) return;
     try {
-      await deleteWeeklySchedule(scheduleToDelete);
-      setShowDeleteScheduleModal(false);
-      setScheduleToDelete(null);
+      await deleteWeeklySchedule(scheduleId);
       await loadWeeklySchedules();
       await loadSignups();
       showMessage?.('success', 'Weekly schedule deleted successfully');
@@ -229,7 +214,10 @@ export default function LeagueSignUpsTab() {
             Upcoming Sessions
           </h3>
           {isLeagueMember && (
-            <button className="league-text-button" onClick={() => setShowCreateSignupModal(true)}>
+            <button className="league-text-button" onClick={() => openModal(MODAL_TYPES.SIGNUP, {
+              seasonId: activeSeason.id,
+              onSubmit: handleCreateSignup
+            })}>
               <Plus size={16} />
               Schedule New Session
             </button>
@@ -245,8 +233,11 @@ export default function LeagueSignUpsTab() {
           onSignup={handleSignup}
           onDropout={handleDropout}
           onEdit={(signup) => {
-            setEditingSignup(signup);
-            setShowEditSignupModal(true);
+            openModal(MODAL_TYPES.SIGNUP, {
+              signup,
+              seasonId: activeSeason.id,
+              onSubmit: (data) => handleUpdateSignup(signup.id, data)
+            });
           }}
           onDelete={handleDeleteSignup}
         />
@@ -270,8 +261,11 @@ export default function LeagueSignUpsTab() {
             onSignup={handleSignup}
             onDropout={handleDropout}
             onEdit={(signup) => {
-              setEditingSignup(signup);
-              setShowEditSignupModal(true);
+              openModal(MODAL_TYPES.SIGNUP, {
+                signup,
+                seasonId: activeSeason.id,
+                onSubmit: (data) => handleUpdateSignup(signup.id, data)
+              });
             }}
             onDelete={handleDeleteSignup}
           />
@@ -286,7 +280,11 @@ export default function LeagueSignUpsTab() {
               <Calendar size={18} />
               Weekly Schedule
             </h3>
-            <button className="league-text-button" onClick={() => setShowCreateScheduleModal(true)}>
+            <button className="league-text-button" onClick={() => openModal(MODAL_TYPES.EDIT_SCHEDULE, {
+              seasonId: activeSeason.id,
+              seasonEndDate: activeSeason.end_date,
+              onSubmit: handleCreateSchedule
+            })}>
               <Plus size={16} />
               Create Weekly Scheduled Session
             </button>
@@ -295,70 +293,16 @@ export default function LeagueSignUpsTab() {
             schedules={weeklySchedules}
             isLeagueAdmin={isLeagueAdmin}
             onEdit={(schedule) => {
-              setEditingSchedule(schedule);
-              setShowEditScheduleModal(true);
+              openModal(MODAL_TYPES.EDIT_SCHEDULE, {
+                schedule,
+                seasonEndDate: activeSeason.end_date,
+                onSubmit: (data) => handleUpdateSchedule(schedule.id, data)
+              });
             }}
             onDelete={handleDeleteSchedule}
           />
         </div>
       )}
-      
-      {/* Modals */}
-      {(showCreateSignupModal || showEditSignupModal) && (
-        <SignupModal
-          signup={editingSignup}
-          seasonId={activeSeason.id}
-          onClose={() => {
-            setShowCreateSignupModal(false);
-            setShowEditSignupModal(false);
-            setEditingSignup(null);
-          }}
-          onSubmit={async (data) => {
-            if (editingSignup) {
-              await handleUpdateSignup(editingSignup.id, data);
-              setShowEditSignupModal(false);
-              setEditingSignup(null);
-            } else {
-              await handleCreateSignup(data);
-              setShowCreateSignupModal(false);
-            }
-          }}
-        />
-      )}
-      
-      {showCreateScheduleModal && (
-        <CreateWeeklyScheduleModal
-          seasonId={activeSeason.id}
-          seasonEndDate={activeSeason.end_date}
-          onClose={() => setShowCreateScheduleModal(false)}
-          onSubmit={handleCreateSchedule}
-        />
-      )}
-      
-      {showEditScheduleModal && editingSchedule && (
-        <EditWeeklyScheduleModal
-          schedule={editingSchedule}
-          seasonEndDate={activeSeason.end_date}
-          onClose={() => {
-            setShowEditScheduleModal(false);
-            setEditingSchedule(null);
-          }}
-          onSubmit={(data) => handleUpdateSchedule(editingSchedule.id, data)}
-        />
-      )}
-
-      <ConfirmationModal
-        isOpen={showDeleteScheduleModal}
-        onClose={() => {
-          setShowDeleteScheduleModal(false);
-          setScheduleToDelete(null);
-        }}
-        onConfirm={confirmDeleteSchedule}
-        title="Delete Weekly Schedule"
-        message="Are you sure you want to delete this weekly schedule? All future scheduled sessions for this schedule will be deleted. Past sessions will be preserved."
-        confirmText="Delete Schedule"
-        cancelText="Cancel"
-      />
       
     </>
   );

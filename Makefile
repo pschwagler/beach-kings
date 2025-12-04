@@ -91,6 +91,7 @@ dev: ensure-docker
 	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
 	@echo ""
 	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
+	@echo "📱 Or from your phone: http://<your-ip>:3000"
 	@echo "📱 WhatsApp setup: http://localhost:8000/whatsapp"
 	@echo ""
 	@echo "Press Ctrl+C to stop all services"
@@ -98,7 +99,7 @@ dev: ensure-docker
 	@trap 'docker compose down' EXIT INT TERM; \
 	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
 		"docker compose up" \
-		"npm run dev"
+		"npm run dev -- --host"
 
 dev-basic: ensure-docker
 	@echo "🚀 Starting backend + postgres + frontend (no WhatsApp)..."
@@ -106,13 +107,14 @@ dev-basic: ensure-docker
 	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
 	@echo ""
 	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
+	@echo "📱 Or from your phone: http://<your-ip>:3000"
 	@echo ""
 	@echo "Press Ctrl+C to stop"
 	@echo ""
 	@trap 'ENABLE_WHATSAPP=false docker compose down' EXIT INT TERM; \
 	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
 		"ENABLE_WHATSAPP=false docker compose up" \
-		"npm run dev"
+		"npm run dev -- --host"
 
 dev-backend: ensure-docker
 	@echo "Starting backend only with Docker Compose (auto-reload)..."

@@ -37,20 +37,20 @@ function localTimeToUTC(localTimeStr) {
   return `${utcHours}:${utcMinutes}`;
 }
 
-export default function EditWeeklyScheduleModal({ schedule, seasonEndDate, onClose, onSubmit }) {
+export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, onClose, onSubmit }) {
   // Convert UTC times from schedule to local times for display
-  const localStartTime = schedule.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
-  const localOpenSignupsTime = schedule.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
+  const localStartTime = schedule?.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
+  const localOpenSignupsTime = schedule?.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
   
   const [formData, setFormData] = useState({
-    day_of_week: schedule.day_of_week?.toString() || '0',
+    day_of_week: schedule?.day_of_week?.toString() || '0',
     start_time: localStartTime,
-    duration_hours: schedule.duration_hours?.toString() || '2.0',
-    court_id: schedule.court_id?.toString() || '',
-    open_signups_mode: schedule.open_signups_mode || 'auto_after_last_session',
-    open_signups_day_of_week: schedule.open_signups_day_of_week?.toString() || '',
+    duration_hours: schedule?.duration_hours?.toString() || '2.0',
+    court_id: schedule?.court_id?.toString() || '',
+    open_signups_mode: schedule?.open_signups_mode || 'auto_after_last_session',
+    open_signups_day_of_week: schedule?.open_signups_day_of_week?.toString() || '',
     open_signups_time: localOpenSignupsTime,
-    end_date: schedule.end_date || ''
+    end_date: schedule?.end_date || ''
   });
   
   const [showConfirmation, setShowConfirmation] = useState(false);

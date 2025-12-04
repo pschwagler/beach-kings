@@ -278,6 +278,21 @@ export const LeagueProvider = ({ children, leagueId }) => {
     // Note: Player data will be reloaded automatically by the useEffect that watches activeSeasonData
   }, [loadSeasonData]);
 
+  // Helper to update player stats from active season data
+  const updatePlayerStats = useCallback((seasonData, playerId) => {
+    if (!seasonData || !playerId) {
+      setPlayerSeasonStats(null);
+      setPlayerMatchHistory(null);
+      return;
+    }
+    
+    // Transform player data using utility function
+    const { stats, matchHistory } = transformPlayerData(seasonData, playerId);
+    
+    setPlayerSeasonStats(stats);
+    setPlayerMatchHistory(matchHistory || []);
+  }, []);
+
   // Load player data for the selected player
   const loadPlayerData = useCallback((playerId, playerName) => {
     if (!activeSeasonData || !activeSeason) {
@@ -291,19 +306,16 @@ export const LeagueProvider = ({ children, leagueId }) => {
     setSelectedPlayerId(playerId);
     setSelectedPlayerName(playerName);
     
-    // Transform player data using utility function
-    const { stats, matchHistory } = transformPlayerData(activeSeasonData, playerId);
-    
-    setPlayerSeasonStats(stats);
-    setPlayerMatchHistory(matchHistory || []);
-  }, [activeSeasonData, activeSeason]);
+    // Use helper to update stats
+    updatePlayerStats(activeSeasonData, playerId);
+  }, [activeSeasonData, activeSeason, updatePlayerStats]);
 
   // Reload player data when season data changes
   useEffect(() => {
-    if (selectedPlayerId && selectedPlayerName && activeSeasonData) {
-      loadPlayerData(selectedPlayerId, selectedPlayerName);
+    if (selectedPlayerId && activeSeasonData) {
+      updatePlayerStats(activeSeasonData, selectedPlayerId);
     }
-  }, [activeSeasonData, selectedPlayerId, selectedPlayerName, loadPlayerData]);
+  }, [activeSeasonData, selectedPlayerId, updatePlayerStats]);
 
   const value = {
     league,
