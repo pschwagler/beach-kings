@@ -10,13 +10,13 @@ import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer
 from sqlalchemy.orm import selectinload, aliased
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
 from sqlalchemy.sql import func as sql_func
 from backend.database import db
 from backend.database.models import (
     League, LeagueMember, LeagueMessage, Season, Location, Court, Player, User,
     Session, Match, Setting, PartnershipStats, OpponentStats, 
-    EloHistory, PlayerSeasonStats, SessionStatus,
+    EloHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
     OpenSignupsMode, SignupEventType,
     PartnershipStatsSeason, OpponentStatsSeason, StatsCalculationJob, StatsCalculationJobStatus
@@ -2663,74 +2663,6 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
     }
 
 
-async def recalculate_all_stats(session: AsyncSession) -> Dict:
-    """
-    Recalculate all statistics from existing database matches (finalized sessions only).
-    
-    This function:
-    1. Gets all matches from finalized (non-pending) sessions
-    2. Processes them through the calculation service
-    3. Clears old stats and saves new stats to database
-    4. Returns summary with counts
-    
-    Args:
-        session: Database session
-    
-    Returns:
-        Dict with player_count and match_count
-    """
-    # Get all matches from finalized sessions (SUBMITTED or EDITED)
-    result = await session.execute(
-        select(Match)
-        .outerjoin(Session, Match.session_id == Session.id)
-        .where(or_(
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Session.id.is_(None)
-        ))
-        .order_by(Match.id.asc())
-    )
-    matches = result.scalars().all()
-    
-    if not matches:
-        # No matches to process
-        return {"player_count": 0, "match_count": 0}
-    
-    # Get all players and create player_id_map (name -> id)
-    result = await session.execute(select(Player))
-    players = result.scalars().all()
-    player_id_map = {player.full_name: player.id for player in players}
-    
-    # Process matches through calculation service
-    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        matches,
-        player_id_map
-    )
-    
-    # Clear old stats
-    await session.execute(delete(PartnershipStats))
-    await session.execute(delete(OpponentStats))
-    await session.execute(delete(EloHistory))
-    
-    # Save new stats
-    session.add_all(partnerships)
-    session.add_all(opponents)
-    session.add_all(elo_history_list)
-    
-    # Update match ELO changes
-    for match, (team1_delta, team2_delta) in elo_deltas_map.items():
-        # Note: Match model doesn't have elo_change columns, so we skip this
-        # ELO changes are tracked in EloHistory instead
-        pass
-    
-    # Commit the stats
-    await session.commit()
-    
-    return {
-        "player_count": len(player_id_map),
-        "match_count": len(matches)
-    }
-
-
 # ============================================================================
 # Async Stats Calculation Functions
 # ============================================================================
@@ -2807,6 +2739,79 @@ async def insert_elo_history_async(session: AsyncSession, elo_history_list: List
     
     for chunk in _chunks(elo_history_list, 1000):
         session.add_all(chunk)
+
+
+async def upsert_player_global_stats_async(session: AsyncSession, elo_history_list: List[EloHistory], matches: List[Dict]) -> None:
+    """
+    Update PlayerGlobalStats based on elo_history and match data.
+    For each player, calculate:
+    - current_rating: Latest elo_after from elo_history
+    - total_games: Count of matches they participated in
+    - total_wins: Count of matches they won
+    """
+    if not elo_history_list:
+        return
+    
+    # Group elo_history by player_id and get latest rating
+    player_latest_elo = {}
+    for elo_record in elo_history_list:
+        if elo_record.player_id not in player_latest_elo:
+            player_latest_elo[elo_record.player_id] = elo_record.elo_after
+        # Since elo_history_list is ordered by match date, last one is latest
+        player_latest_elo[elo_record.player_id] = elo_record.elo_after
+    
+    # Count games and wins for each player
+    player_games = {}
+    player_wins = {}
+    
+    for match in matches:
+        team1_players = [match.get('Team 1 Player 1'), match.get('Team 1 Player 2')]
+        team2_players = [match.get('Team 2 Player 1'), match.get('Team 2 Player 2')]
+        winner = match.get('Winner')
+        
+        # Get player IDs from names
+        result = await session.execute(
+            select(Player.id, Player.full_name).where(
+                Player.full_name.in_(team1_players + team2_players)
+            )
+        )
+        name_to_id = {row.full_name: row.id for row in result.all()}
+        
+        # Count games for all 4 players
+        for player_name in team1_players + team2_players:
+            if player_name and player_name in name_to_id:
+                player_id = name_to_id[player_name]
+                player_games[player_id] = player_games.get(player_id, 0) + 1
+        
+        # Count wins for winning team
+        if winner == 'Team 1':
+            for player_name in team1_players:
+                if player_name and player_name in name_to_id:
+                    player_id = name_to_id[player_name]
+                    player_wins[player_id] = player_wins.get(player_id, 0) + 1
+        elif winner == 'Team 2':
+            for player_name in team2_players:
+                if player_name and player_name in name_to_id:
+                    player_id = name_to_id[player_name]
+                    player_wins[player_id] = player_wins.get(player_id, 0) + 1
+    
+    # Upsert PlayerGlobalStats for each player
+    for player_id in player_latest_elo.keys():
+        stmt = pg_insert(PlayerGlobalStats).values(
+            player_id=player_id,
+            current_rating=player_latest_elo[player_id],
+            total_games=player_games.get(player_id, 0),
+            total_wins=player_wins.get(player_id, 0)
+        ).on_conflict_do_update(
+            index_elements=['player_id'],
+            set_=dict(
+                current_rating=player_latest_elo[player_id],
+                total_games=player_games.get(player_id, 0),
+                total_wins=player_wins.get(player_id, 0),
+                updated_at=func.now()
+            )
+        )
+        await session.execute(stmt)
 
 
 async def insert_partnership_stats_async(session: AsyncSession, partnerships: List[PartnershipStats]) -> None:
@@ -2951,6 +2956,7 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     await insert_elo_history_async(session, elo_history_list)
     await insert_partnership_stats_async(session, partnerships)
     await insert_opponent_stats_async(session, opponents)
+    await upsert_player_global_stats_async(session, elo_history_list, matches)
     
     # Commit the transaction - readers now see new stats
     # If any error occurs, transaction rolls back and old stats remain

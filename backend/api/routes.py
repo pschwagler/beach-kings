@@ -9,8 +9,8 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback
-from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats
+from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -3045,25 +3045,38 @@ async def get_current_user_player(
     Requires authentication.
     
     Returns:
-        Player profile with gender, level, etc., or null if user has no player profile
+        Player profile with gender, level, global stats, etc., or null if user has no player profile
     """
     try:
-        player = await data_service.get_player_by_user_id(session, current_user["id"])
-        if not player:
+        # Get player with global stats
+        result = await session.execute(
+            select(Player, PlayerGlobalStats)
+            .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
+            .where(Player.user_id == current_user["id"])
+        )
+        row = result.first()
+        
+        if not row:
             return None
-        # Return only the fields we need for the frontend
-        # Handle both 'name' and 'full_name' column names for compatibility
-        player_name = player.get("full_name") or player.get("name") or ""
+        
+        player, global_stats = row
+        
+        # Return player data with global stats nested under 'stats' key
         return {
-            "id": player["id"],
-            "full_name": player_name,
-            "gender": player.get("gender"),
-            "level": player.get("level"),
-            "nickname": player.get("nickname"),
-            "age": player.get("age"),
-            "height": player.get("height"),
-            "preferred_side": player.get("preferred_side"),
-            "default_location_id": player.get("default_location_id"),
+            "id": player.id,
+            "full_name": player.full_name,
+            "gender": player.gender,
+            "level": player.level,
+            "nickname": player.nickname,
+            "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
+            "height": player.height,
+            "preferred_side": player.preferred_side,
+            "default_location_id": player.default_location_id,
+            "stats": {
+                "current_rating": global_stats.current_rating if global_stats else 1200.0,
+                "total_games": global_stats.total_games if global_stats else 0,
+                "total_wins": global_stats.total_wins if global_stats else 0,
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user player: {str(e)}")
@@ -3176,8 +3189,6 @@ async def submit_feedback(
         FeedbackResponse: The created feedback record
     """
     try:
-        from backend.services import email_service
-        
         # Create feedback record
         feedback = Feedback(
             user_id=current_user["id"] if current_user else None,

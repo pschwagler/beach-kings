@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage.jsx';
-import DashboardPage from './components/DashboardPage.jsx';
+import HomePage from './components/HomePage.jsx';
 import WhatsAppPage from './components/WhatsAppPage.jsx';
 import LeagueDashboard from './components/league/LeagueDashboard.jsx';
-import ProfilePage from './components/profile/ProfilePage.jsx';
 import { AuthModalProvider, useAuthModal } from './contexts/AuthModalContext.jsx';
 import AuthModal from './components/auth/AuthModal.jsx';
 import { useAuth } from './contexts/AuthContext.jsx';
@@ -68,9 +67,11 @@ function RouterContent() {
   } else if (currentPath === '/terms-of-service') {
     pageContent = <TermsOfServicePage />;
   } else if (currentPath === '/profile') {
-    pageContent = <ProfilePage />;
+    // Redirect /profile to /home?tab=profile
+    navigateTo('/home?tab=profile');
+    pageContent = <HomePage />;
   } else if (currentPath === '/home') {
-    pageContent = <DashboardPage />;
+    pageContent = <HomePage />;
   } else if (leagueId) {
     pageContent = <LeagueDashboard leagueId={leagueId} />;
   } else {

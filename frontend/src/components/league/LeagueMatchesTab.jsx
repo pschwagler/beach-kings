@@ -275,7 +275,7 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         await refreshSeasonData(activeSeason.id);
       }
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create match');
+      showMessage?.('error', err.response?.data?.detail || 'Failed to create game');
       throw err;
     }
   };
@@ -332,7 +332,7 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         await refreshSeasonData(activeSeason.id);
       }
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update match');
+      showMessage?.('error', err.response?.data?.detail || 'Failed to update game');
       throw err;
     }
   };
@@ -402,7 +402,7 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         await refreshSeasonData(activeSeason.id);
       }
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to delete match');
+      showMessage?.('error', err.response?.data?.detail || 'Failed to delete game');
       throw err;
     }
   };

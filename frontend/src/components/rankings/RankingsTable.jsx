@@ -97,7 +97,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
   // Only show empty state if rankings is explicitly an empty array (loaded but empty)
   // Don't show if rankings is null/undefined (not loaded yet)
   if (Array.isArray(rankings) && rankings.length === 0) {
-    return <div className="loading">No rankings available yet. Add Matches to start tracking stats.</div>;
+    return <div className="loading">No rankings available yet. Add Games to start tracking stats.</div>;
   }
 
   return (

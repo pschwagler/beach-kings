@@ -245,10 +245,10 @@ function LeagueDashboardContent({ leagueId }) {
                 <button
                   className={`league-sidebar-nav-item ${activeTab === 'matches' ? 'active' : ''}`}
                   onClick={() => handleTabChange('matches')}
-                  title="Matches"
+                  title="Games"
                 >
                   <Swords size={20} />
-                  <span>Matches</span>
+                  <span>Games</span>
                 </button>
                 <button
                   className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}
@@ -407,10 +407,10 @@ function LeagueDashboardContent({ leagueId }) {
               <button
                 className={`league-sidebar-nav-item ${activeTab === 'matches' ? 'active' : ''}`}
                 onClick={() => handleTabChange('matches')}
-                title="Matches"
+                title="Games"
               >
                 <Swords size={20} />
-                <span>Matches</span>
+                <span>Games</span>
               </button>
               <button
                 className={`league-sidebar-nav-item ${activeTab === 'signups' ? 'active' : ''}`}

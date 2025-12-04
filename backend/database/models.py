@@ -112,6 +112,7 @@ class Player(Base):
     league_memberships = relationship("LeagueMember", foreign_keys="LeagueMember.player_id", back_populates="player")
     season_stats = relationship("PlayerSeasonStats", back_populates="player")
     elo_history = relationship("EloHistory", back_populates="player")
+    global_stats = relationship("PlayerGlobalStats", back_populates="player", uselist=False)
     signup_registrations = relationship("SignupPlayer", back_populates="player")
     
     __table_args__ = (
@@ -466,6 +467,24 @@ class EloHistory(Base):
     __table_args__ = (
         Index("idx_elo_history_player", "player_id"),
         Index("idx_elo_history_match", "match_id"),
+    )
+
+
+class PlayerGlobalStats(Base):
+    """Global aggregate stats for each player (across all leagues/seasons)."""
+    __tablename__ = "player_global_stats"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    current_rating = Column(Float, default=1200.0, nullable=False)
+    total_games = Column(Integer, default=0, nullable=False)
+    total_wins = Column(Integer, default=0, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    player = relationship("Player", back_populates="global_stats")
+    
+    __table_args__ = (
+        Index("idx_player_global_stats_player", "player_id"),
     )
 
 

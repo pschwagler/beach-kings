@@ -56,7 +56,7 @@ export default function ActiveSessionPanel({
 
       <div className="session-matches-section">
         <div className="session-matches-label">
-          Session Matches
+          Session Games
         </div>
         {activeSessionMatches.length === 0 ? (
           <div className="session-empty-state">
