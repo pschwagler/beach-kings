@@ -1,21 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import "./App.css";
 import NavBar from "./components/layout/NavBar";
-import CreateLeagueModal from "./components/league/CreateLeagueModal";
-import PlayerProfileModal from "./components/player/PlayerProfileModal";
 import MyLeaguesWidget from "./components/dashboard/MyLeaguesWidget";
 import MyMatchesWidget from "./components/dashboard/MyMatchesWidget";
 import { useAuth } from "./contexts/AuthContext";
 import { useAuthModal } from "./contexts/AuthModalContext";
 import { createLeague, getUserLeagues, getPlayerMatchHistory } from "./services/api";
 import { navigateTo } from "./Router";
+import { useModal, MODAL_TYPES } from "./contexts/ModalContext";
 
 function App() {
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
-  const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] =
-    useState(false);
+  const { openModal } = useModal();
   const [userLeagues, setUserLeagues] = useState([]);
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
@@ -43,7 +40,13 @@ function App() {
       const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
       if (profileIncomplete) {
         setTimeout(() => {
-          setIsPlayerProfileModalOpen(true);
+          openModal(MODAL_TYPES.PLAYER_PROFILE, {
+            onSuccess: async () => {
+              if (isAuthenticated) {
+                await fetchCurrentUser();
+              }
+            }
+          });
         }, 200);
       }
       setJustSignedUp(false);
@@ -55,7 +58,9 @@ function App() {
     if (isAuthenticated && pendingAction) {
       const timeoutId = setTimeout(() => {
         if (pendingAction.type === "create-league") {
-          setIsCreateLeagueModalOpen(true);
+          openModal(MODAL_TYPES.CREATE_LEAGUE, {
+            onSubmit: handleCreateLeague
+          });
         } else if (
           pendingAction.type === "view-league" &&
           pendingAction.leagueId
@@ -189,7 +194,9 @@ function App() {
         openAuthModal("sign-in", handleVerifySuccess);
         return;
       }
-      setIsCreateLeagueModalOpen(true);
+      openModal(MODAL_TYPES.CREATE_LEAGUE, {
+        onSubmit: handleCreateLeague
+      });
     } else if (action === "view-league" && leagueId) {
       if (!isAuthenticated) {
         setPendingAction({ type: "view-league", leagueId });
@@ -284,21 +291,6 @@ function App() {
           )}
         </div>
       </div>
-      <CreateLeagueModal
-        isOpen={isCreateLeagueModalOpen}
-        onClose={() => setIsCreateLeagueModalOpen(false)}
-        onSubmit={handleCreateLeague}
-      />
-      <PlayerProfileModal
-        isOpen={isPlayerProfileModalOpen}
-        onClose={() => setIsPlayerProfileModalOpen(false)}
-        onSuccess={async () => {
-          // Refresh player data after profile update
-          if (isAuthenticated) {
-            await fetchCurrentUser();
-          }
-        }}
-      />
     </>
   );
 }

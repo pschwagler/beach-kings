@@ -95,7 +95,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(135deg, #f7f8f9, #fafbfc, #f7f8f9);
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 0;
   margin: 0;
   /* Chrome mobile: Use auto instead of scroll to fix mobile touch scrolling */
@@ -431,10 +431,10 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
+  z-index: 1000; /* Keep lower than modals (99999) */
   background: var(--navy-logo-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* backdrop-filter removed to fix iOS stacking context issues */
+  background: var(--navy-logo-bg);
   border-bottom: 1px solid rgba(59, 130, 200, 0.2);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
     0 1px 0 rgba(255, 120, 73, 0.1) inset;
@@ -866,11 +866,9 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   background: var(--primary);
   color: white;
   border: none;
-  padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
@@ -882,7 +880,6 @@ h1 {
   box-shadow: none;
   /* Better mobile touch */
   -webkit-tap-highlight-color: transparent;
-  min-height: 36px;
   touch-action: manipulation;
 }
 
@@ -1101,10 +1098,11 @@ h1 {
   max-height: 400px;
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
+  margin-top: 20px;
 }
 
 .landing-content {
-  margin: 32px auto;
+  margin: 32px 12px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1143,7 +1141,8 @@ h1 {
 }
 
 .landing-brand-logo {
-  height: 100px;
+  max-height: 100px;
+  max-width: 90%;
 }
 
 .landing-brand-text {
@@ -1527,11 +1526,6 @@ tbody tr:hover .sticky-col {
 }
 
 /* Ensure mobile-hide-col columns are visible on desktop */
-@media (min-width: 769px) {
-  .mobile-hide-col {
-    display: table-cell !important;
-  }
-}
 
 .rankings-table-modern thead {
   background: var(--gray-300);
@@ -1982,10 +1976,11 @@ tbody tr:hover .sticky-col {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  z-index: 9999; /* Much higher z-index to ensure it's above navbar on all devices */
+  z-index: 2002; /* Drawer z-index - above modals (2001) and navbar (1000) */
   /* Create new stacking context to ensure it's above everything */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* Removed transform: translateZ(0) - it created unwanted stacking context on iOS */
+  /* Use isolation: isolate instead for proper root-level stacking context */
+  isolation: isolate;
   animation: slideInFromRight 0.3s ease-out;
 }
 
@@ -2200,7 +2195,8 @@ tbody tr:hover .sticky-col {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 9998; /* Below drawer (9999) but above navbar (1000) */
+  z-index: 2000; /* Backdrop z-index - below drawer (2002) and modals (2001) but above navbar (1000) */
+  isolation: isolate; /* Ensure proper stacking context for iOS */
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -2216,6 +2212,27 @@ body.drawer-open {
 /* Lower navbar z-index when drawer is open to ensure drawer appears on top */
 body.drawer-open .navbar {
   z-index: 999 !important;
+}
+
+/* iOS Safari: Make navbar non-interactive when modal/drawer is open on mobile
+   Uses opacity + pointer-events instead of display: none for better UX */
+@media (max-width: 768px) {
+  body.modal-open .navbar,
+  body.drawer-open .navbar {
+    pointer-events: none !important;
+    opacity: 0.3 !important;
+    transition: opacity 0.2s ease;
+  }
+}
+
+/* On desktop, just remove backdrop-filter */
+@media (min-width: 769px) {
+  body.modal-open .navbar,
+  body.drawer-open .navbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--navy-logo-bg) !important;
+  }
 }
 
 /* Player Selector (replaces h2 in player details) - Modern Design */
@@ -2550,923 +2567,10 @@ body.drawer-open .navbar {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  body {
-    padding: 0;
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Navbar Mobile */
-  .navbar-container {
-    padding: 0 12px;
-    height: 52px;
-  }
-
-  .navbar-brand-text {
-    font-size: 1.2em;
-    letter-spacing: 0.06em;
-  }
-
-  .navbar-menu-button {
-    padding: 6px 10px;
-    font-size: 0.9em;
-  }
-
-  .navbar-menu-label {
-    display: none; /* Hide labels on mobile */
-  }
-
-  .navbar-dropdown {
-    min-width: 200px;
-  }
-
-  .navbar-dropdown-item {
-    padding: 12px 16px;
-    font-size: 0.9em;
-  }
-
-  .container {
-    margin-top: calc(
-      56px + env(safe-area-inset-top, 0)
-    ); /* Account for navbar + safe area */
-  }
-
-  /* League Dashboard Mobile */
-  .league-dashboard-container {
-    margin-top: calc(
-      56px + env(safe-area-inset-top, 0)
-    ); /* Account for navbar + safe area */
-    padding-top: 0;
-    padding-bottom: calc(
-      72px + env(safe-area-inset-bottom, 0)
-    ); /* Space for bottom nav + safe area */
-  }
-
-  .league-dashboard {
-    flex-direction: column;
-  }
-
-  /* Move sidebar to bottom on mobile - force all positioning */
-  .sidebar,
-  .league-sidebar {
-    width: 100% !important;
-    max-width: 100% !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    height: auto !important;
-    min-height: auto !important;
-    margin: 0 !important;
-    border-right: none !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    border-bottom: none !important;
-    border-left: none !important;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
-    z-index: 1000 !important;
-    background: #ffffffbf !important;
-    backdrop-filter: blur(10px) !important;
-    order: 2; /* Place after content */
-    padding-bottom: env(
-      safe-area-inset-bottom,
-      0
-    ); /* Support for iPhone home indicator */
-    overflow-y: visible !important;
-    overflow-x: visible !important;
-    transform: none !important;
-  }
-
-  .sidebar.collapsed,
-  .league-sidebar.collapsed {
-    width: 100% !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    height: auto !important;
-  }
-
-  /* Show header on mobile but hide collapse button, show title */
-  .league-sidebar-header {
-    display: flex;
-    padding: 2px !important;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    justify-content: center;
-    align-items: center;
-  }
-
-  .league-sidebar-collapse-btn {
-    display: none !important;
-    visibility: hidden !important;
-  }
-
-  .league-sidebar-title-wrapper-container {
-    display: flex !important;
-    flex: 0 0 auto;
-    width: auto;
-  }
-
-  .league-sidebar-title-wrapper {
-    display: flex !important;
-    width: auto;
-    justify-content: center;
-  }
-
-  .league-sidebar-title {
-    display: block !important;
-    font-size: 1rem;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: nowrap;
-  }
-
-  /* Make nav horizontal on mobile */
-  .league-sidebar-nav {
-    flex-direction: row !important;
-    justify-content: space-around;
-    padding: 0 !important;
-    gap: 0;
-    width: 100%;
-  }
-
-  .league-sidebar-nav-item {
-    flex: 1;
-    flex-direction: column;
-    padding: 0;
-    justify-content: center;
-    min-height: 56px;
-    border-radius: 8px;
-    gap: 2px;
-  }
-
-  .league-sidebar-nav-item span {
-    display: block !important;
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  /* Override collapsed state on mobile - always show labels */
-  .sidebar.collapsed .league-sidebar-nav-item span,
-  .league-sidebar.collapsed .league-sidebar-nav-item span {
-    display: block !important;
-  }
-
-  /* Position dropdown above on mobile since sidebar is at bottom */
-  .league-sidebar-dropdown {
-    top: auto !important;
-    bottom: calc(100% + 8px) !important;
-  }
-
-  .league-sidebar-dropdown-menu {
-    animation: slideUp 0.2s ease-out !important;
-  }
-
-  .league-sidebar-nav-item.active::before {
-    display: none;
-  }
-
-  .league-sidebar-nav-item.active {
-    background: transparent !important;
-    color: var(--primary);
-  }
-
-  .league-sidebar-nav-item svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .league-content-header {
-    padding: 8px 4px;
-  }
-
-  .league-content-header-text {
-    font-size: 1.5rem;
-  }
-
-  .home-content,
-  .league-content {
-    margin-left: 0 !important;
-    order: 1; /* Place before sidebar */
-    padding-bottom: 90px; /* Space for fixed bottom sidebar */
-  }
-
-  /* Override collapsed sidebar margin on mobile */
-  .sidebar.collapsed ~ .home-content,
-  .sidebar.collapsed ~ .league-content,
-  .league-sidebar.collapsed ~ .league-content {
-    margin-left: 0 !important;
-    margin-bottom: 90px;
-  }
-
-  .league-content > *:not(.league-content-header) {
-    padding: 8px 4px !important;
-  }
-
-  .add-matches-card {
-    padding: 24px 20px;
-  }
-
-  .add-matches-icon {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 12px;
-  }
-
-  .add-matches-icon svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .add-matches-title {
-    font-size: 1.25rem;
-  }
-
-  .add-matches-description {
-    font-size: 0.9rem;
-  }
-
-  /* League Details Mobile */
-  .league-details-new {
-    gap: 24px;
-  }
-
-  .league-description-section,
-  .league-players-section,
-  .league-seasons-section,
-  .league-info-section {
-    padding: 16px 20px;
-  }
-
-  .league-section-title {
-    font-size: 1em;
-  }
-
-  .league-seasons-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .league-table {
-    font-size: 0.9em;
-  }
-
-  .league-table th,
-  .league-table td {
-    padding: 10px 8px;
-  }
-
-  .league-empty-state {
-    padding: 32px 16px;
-  }
-
-  /* Hero Header Mobile */
-  .hero-header {
-    height: 180px;
-    border-radius: 10px 10px 0 0;
-  }
-
-  h1.hero-title {
-    padding: 0 10%;
-  }
-
-  h1 {
-    font-size: 1.75em;
-    text-align: center;
-    padding: 0 10px;
-  }
-
-  .subtitle {
-    font-size: 0.9em;
-    text-align: center;
-    padding: 0 10px;
-  }
-
-  .landing-message h2 {
-    font-size: 1.5rem;
-  }
-
-  .landing-welcome-title {
-    font-size: 1.5rem;
-  }
-
-  /* Dashboard Mobile Styles */
-  .dashboard-container {
-    padding: 24px 16px;
-  }
-
-  .dashboard-widgets {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .dashboard-widget-header {
-    padding: 16px 20px;
-  }
-
-  .dashboard-widget-content {
-    padding: 16px 20px;
-  }
-
-  .dashboard-league-item,
-  .dashboard-match-item {
-    padding: 12px;
-  }
-
-  .dashboard-league-name {
-    font-size: 0.95rem;
-  }
-
-  .dashboard-league-meta {
-    font-size: 0.8rem;
-  }
-
-  .landing-brand-crown {
-    width: 24px;
-    height: 24px;
-  }
-
-  /* Tables - Better mobile handling */
-  table {
-    font-size: 1em;
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    box-shadow: 4px 4px 0px var(--sand);
-  }
-
-  /* Override general table display:block for rankings table - it needs to be a table */
-  .rankings-table-modern {
-    display: table !important; /* Must be table, not block */
-  }
-
-  th,
-  td {
-    padding: 10px 8px;
-    min-width: 70px;
-    font-size: 1em;
-  }
-
-  th {
-    font-size: 0.875em;
-  }
-
-  /* Override general th/td rules for rankings table - must come after general rules */
-  .rankings-table-modern th,
-  .rankings-table-modern td {
-    min-width: auto !important; /* Let column-specific min-widths apply, override general rule */
-  }
-
-  /* Sticky column on mobile - make it wider for player names */
-  .sticky-col {
-    min-width: 100px !important;
-    max-width: 120px;
-  }
-
-  tbody .sticky-col {
-    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Rankings table mobile optimization */
-  .rankings-table-wrapper {
-    margin: 0;
-    border-radius: 8px;
-    border-left: 1px solid var(--gray-300);
-    border-right: 1px solid var(--gray-300);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .rankings-table-modern {
-    min-width: auto !important;
-    width: max-content;
-    font-size: 0.875em;
-    position: relative;
-    overscroll-behavior-x: none;
-    table-layout: auto;
-  }
-
-  .rankings-table-modern th {
-    padding: 12px 6px;
-    font-size: 0.72em;
-    white-space: nowrap;
-  }
-
-  .rankings-table-modern td {
-    padding: 12px 8px;
-    font-size: 0.85em;
-  }
-
-  /* No. column - narrower on mobile */
-  .rankings-table-modern th.rank-number-header {
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    padding: 12px 2px 12px 8px;
-  }
-
-  .rank-number-cell {
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    padding: 12px 2px 12px 8px;
-  }
-
-  /* Adjust sticky column position for narrower No. column */
-  .rankings-table-modern thead .sticky-col {
-    left: 40px;
-  }
-
-  .rankings-table-modern tbody .sticky-col {
-    left: 40px;
-    min-width: auto;
-    width: auto;
-  }
-
-  /* Hide player avatar on mobile */
-  .player-avatar {
-    display: none;
-  }
-
-  /* Show all columns on mobile - don't hide any */
-  .mobile-hide-col {
-    display: table-cell !important;
-  }
-
-  .rankings-name-cell {
-    min-width: auto;
-    width: auto;
-    padding: 4px 8px;
-  }
-
-  /* Sticky header column - fit to content */
-  .rankings-table-modern thead .sticky-col {
-    min-width: auto;
-    width: auto;
-  }
-
-  .rankings-stat-cell {
-    padding: 12px 3px;
-    white-space: nowrap;
-  }
-
-  /* Non-sticky stat columns - fit to content */
-  .rankings-table-modern th:nth-child(n + 3),
-  .rankings-table-modern td:nth-child(n + 3) {
-    width: auto;
-    min-width: auto;
-  }
-
-  /* First column after sticky (Points) needs more left padding */
-  .rankings-table-modern th:nth-child(3),
-  .rankings-table-modern td:nth-child(3) {
-    padding-left: 12px;
-  }
-
-  /* League section - reduce padding on mobile (league-content already has padding) */
-  .league-section {
-    padding: 0;
-    margin-bottom: 16px;
-  }
-
-  /* Controls Mobile */
-  .controls {
-    flex-direction: column;
-    width: 100%;
-    gap: 10px;
-  }
-
-  .controls button,
-  .controls a {
-    width: 100%;
-  }
-
-  .controls a button {
-    width: 100%;
-  }
-
-  button {
-    padding: 10px 20px;
-    font-size: 0.9em;
-  }
-
-  /* Tabs Mobile */
-  .tabs {
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tab {
-    font-size: 0.8em;
-    padding: 10px 16px;
-    flex: 1;
-    min-width: 120px;
-  }
-
-  /* Match Cards Mobile */
-  .match-cards {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .match-card {
-    border-width: 2px;
-  }
-
-  .match-card-header {
-    padding: 6px 10px;
-  }
-
-  .match-team {
-    padding: 10px 12px;
-  }
-
-  .match-date-header {
-    font-size: 1.1em;
-  }
-
-  .team-score {
-    font-size: 1.2em;
-  }
-
-  .team-players {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* Player Details - Full Screen on Mobile */
-  .player-details {
-    max-width: 100%;
-    top: 0; /* Full screen, covering navbar */
-    padding: 12px 16px;
-    padding-top: calc(10px + env(safe-area-inset-top));
-    border-left: none;
-    /* Safe area padding for notched devices */
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
-    z-index: 9999 !important; /* Much higher z-index to ensure it's above navbar on all mobile devices */
-    /* Create new stacking context to ensure it's above everything */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-  }
-
-  /* Note: navbar z-index lowering is handled globally above, no need to duplicate here */
-
-  .player-details h2 {
-    font-size: 1.4em;
-  }
-
-  .player-details h3 {
-    font-size: 1.1em;
-    margin-top: 24px;
-    margin-bottom: 12px;
-  }
-
-  .player-details-close-btn {
-    top: 12px;
-    right: 12px;
-    width: 40px;
-    height: 40px;
-    padding: 10px;
-  }
-
-  /* Player Selector Mobile */
-  .player-selector-container {
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    margin-top: 8px;
-  }
-
-  .player-selector-wrapper {
-    min-width: 0;
-  }
-
-  .player-selector-name {
-    font-size: 1.3em;
-  }
-
-  .player-selector-current {
-    padding: 10px 12px;
-  }
-
-  .player-selector-dropdown {
-    max-height: 300px;
-  }
-
-  /* Close button mobile */
-  .player-details > .close-btn {
-    padding: 8px 12px;
-    font-size: 0.8em;
-    margin-bottom: 0;
-  }
-
-  /* Loading states */
-  .loading {
-    padding: 24px 16px;
-    font-size: 1em;
-  }
-
-  /* Messages */
-  .error,
-  .success {
-    padding: 12px;
-    font-size: 0.9em;
-  }
-}
 
 /* Extra small devices (phones in portrait, less than 576px) */
-@media (max-width: 576px) {
-  body {
-    padding: 0;
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Navbar Extra Small */
-  .navbar-container {
-    padding: 0 12px;
-    height: 52px;
-  }
-
-  .navbar-brand-text {
-    font-size: 1.1em;
-    letter-spacing: 0.05em;
-  }
-
-  .navbar-menu-button {
-    padding: 6px 8px;
-    font-size: 0.85em;
-  }
-
-  .navbar-dropdown {
-    min-width: 180px;
-  }
-
-  .navbar-dropdown-item {
-    padding: 10px 14px;
-    font-size: 0.85em;
-  }
-
-  .container {
-    margin-top: 52px; /* Even smaller navbar on very small screens */
-    border-width: 2px;
-  }
-
-  /* League Dashboard Extra Small */
-  .league-dashboard-container {
-    margin-top: 52px;
-    padding-bottom: 68px; /* Slightly less space for very small screens */
-  }
-
-  .league-sidebar-header {
-    display: none;
-  }
-
-  .league-sidebar-nav-item {
-    padding: 6px 2px;
-    min-height: 52px;
-  }
-
-  .league-sidebar-nav-item span {
-    font-size: 0.65em;
-  }
-
-  .league-sidebar-nav-item svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .league-content-header {
-    padding: 6px 2px;
-  }
-
-  .league-content-header-text {
-    font-size: 1.25rem;
-  }
-
-  .league-content > *:not(.league-content-header) {
-    padding: 8px 4px;
-  }
-
-  .add-matches-card {
-    padding: 20px 16px;
-  }
-
-  .add-matches-icon {
-    width: 44px;
-    height: 44px;
-    margin-bottom: 10px;
-  }
-
-  .add-matches-icon svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .add-matches-title {
-    font-size: 1.1rem;
-  }
-
-  .add-matches-description {
-    font-size: 0.85rem;
-  }
-
-  h1 {
-    font-size: 1.5em;
-  }
-
-  .landing-message h2 {
-    font-size: 1.25rem;
-  }
-
-  .landing-welcome-title {
-    font-size: 1.25rem;
-  }
-
-  .landing-brand-crown {
-    width: 20px;
-    height: 20px;
-  }
-
-  .hero-header {
-    height: 150px;
-  }
-
-  /* Match cards - reduce padding */
-  .match-team {
-    padding: 10px 12px;
-  }
-
-  .team-players {
-    max-width: calc(100% - 50px);
-  }
-
-  .team-score {
-    font-size: 1.2em;
-  }
-
-  table {
-    font-size: 0.9em;
-  }
-
-  th,
-  td {
-    padding: 8px 6px;
-    min-width: 60px;
-  }
-
-  /* Override general th/td rules for rankings table - must come after general rules */
-  .rankings-table-modern th,
-  .rankings-table-modern td {
-    min-width: auto; /* Let column-specific min-widths apply */
-  }
-
-  /* Sticky column on very small screens */
-  .sticky-col {
-    min-width: 85px !important;
-    max-width: 95px;
-    padding-left: 6px;
-    padding-right: 6px;
-  }
-
-  /* Rankings table - even more compact on very small screens */
-  .rankings-table-modern {
-    font-size: 0.8em;
-  }
-
-  .rankings-table-modern th {
-    padding: 10px 5px;
-    font-size: 0.68em;
-  }
-
-  .rankings-table-modern td {
-    padding: 10px 8px;
-    font-size: 0.8em;
-  }
-
-  /* No. column - narrower on mobile */
-  .rankings-table-modern th.rank-number-header {
-    width: 35px;
-    min-width: 35px;
-    max-width: 35px;
-    padding: 10px 2px 10px 8px;
-  }
-
-  .rank-number-cell {
-    width: 35px;
-    min-width: 35px;
-    max-width: 35px;
-    padding: 10px 2px 10px 8px;
-  }
-
-  /* Adjust sticky column position for narrower No. column */
-  .rankings-table-modern thead .sticky-col {
-    left: 35px;
-  }
-
-  .rankings-table-modern tbody .sticky-col {
-    left: 35px;
-  }
-
-  /* Hide player avatar on mobile */
-  .player-avatar {
-    display: none;
-  }
-
-  .rankings-name-cell {
-    min-width: auto;
-    width: auto;
-    padding: 4px 6px;
-  }
-
-  .rankings-stat-cell {
-    padding: 10px 4px;
-    min-width: 45px;
-    max-width: none; /* Remove max-width constraint */
-    white-space: nowrap;
-  }
-
-  /* Stat columns - fit to content on very small screens */
-  .rankings-table-modern th:nth-child(n + 3),
-  .rankings-table-modern td:nth-child(n + 3) {
-    width: auto;
-    min-width: auto;
-  }
-
-  /* First column after sticky (Points) needs more left padding */
-  .rankings-table-modern th:nth-child(3),
-  .rankings-table-modern td:nth-child(3) {
-    padding-left: 12px;
-  }
-
-  /* League section - even less padding on very small screens */
-  .league-section {
-    padding: 0;
-    margin-bottom: 12px;
-  }
-
-  .tab {
-    font-size: 0.75em;
-    padding: 8px 12px;
-    min-width: 100px;
-  }
-
-  .player-selector-name {
-    font-size: 1.3em;
-  }
-
-  .match-date-header {
-    font-size: 1em;
-    padding-bottom: 6px;
-  }
-
-  .match-date-group {
-    gap: 12px;
-  }
-
-  /* Make overview stack vertically on small screens */
-  .player-overview {
-    margin: 0;
-    padding: 0;
-  }
-
-  .overview-stat {
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .overview-icon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .overview-label {
-    font-size: 0.7em;
-  }
-
-  .overview-value {
-    font-size: 1.2em;
-  }
-}
 
 /* Landscape mobile phones */
-@media (max-width: 896px) and (orientation: landscape) {
-  .hero-header {
-    height: 120px;
-  }
-
-  h1 {
-    font-size: 1.5em;
-  }
-}
 
 /* Animations */
 @keyframes fadeIn {
@@ -3650,22 +2754,21 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 /* Modal Overlay */
+/* Modal Overlay */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0; /* Use inset instead of top/left/right/bottom */
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
-  align-items: flex-end;
-  overflow: hidden;
+  align-items: flex-end; /* Keep mobile bottom-sheet style */
   justify-content: center;
-  z-index: 2000;
+  z-index: 2001 !important; /* Modal z-index - above backdrop (2000) and navbar (1000) */
   padding: 0;
   animation: fadeIn 0.2s ease-out;
+  isolation: isolate; /* Ensure proper stacking context for iOS */
+  overflow: hidden;
 }
 
 /* Modal Content */
@@ -3938,11 +3041,6 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: end;
 }
 
-@media (min-width: 769px) {
-  .match-config-top-row {
-    gap: 10px;
-  }
-}
 
 .match-config-bottom-row {
   display: flex;
@@ -4615,19 +3713,6 @@ select.form-select {
   grid-template-columns: repeat(3, 1fr);
 }
 
-@media (max-width: 768px) {
-  .radio-card-group {
-    grid-template-columns: 1fr !important;
-    gap: 10px;
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .radio-card-group.radio-card-group-2,
-  .radio-card-group.radio-card-group-3 {
-    grid-template-columns: 1fr !important;
-  }
-}
 
 .radio-card {
   display: flex;
@@ -4654,11 +3739,6 @@ select.form-select {
   transform: none;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .radio-card:hover:not(.disabled):not(:has(input:disabled)) {
-    transform: translateY(-1px);
-  }
-}
 
 .radio-card.selected {
   border-color: var(--primary);
@@ -4724,27 +3804,6 @@ select.form-select {
   user-select: none;
 }
 
-@media (min-width: 769px) {
-  .radio-card {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .radio-card-header {
-    margin-bottom: 8px;
-  }
-
-  .radio-card-description {
-    display: block;
-  }
-
-  .radio-card-title {
-    font-size: 1em;
-    white-space: normal;
-  }
-}
 
 .radio-card.selected .radio-card-description {
   color: var(--gray-800);
@@ -4808,7 +3867,7 @@ select.form-select {
 /* League Dashboard - Modern iOS Style */
 .league-dashboard-container {
   margin-top: var(--navbar-height);
-  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   background: transparent;
   padding: 0;
 }
@@ -4817,7 +3876,7 @@ select.form-select {
   display: flex;
   max-width: 1600px;
   margin: 0 auto;
-  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   background: transparent;
 }
 
@@ -4834,7 +3893,7 @@ select.form-select {
   position: fixed;
   top: var(--navbar-height);
   left: 0;
-  height: calc(100vh - var(--navbar-height));
+  height: calc(100dvh - var(--navbar-height));
   overflow-y: auto;
   z-index: 100;
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -4999,11 +4058,6 @@ select.form-select {
 }
 
 /* Show title on mobile even when collapsed */
-@media (max-width: 768px) {
-  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
-    display: flex !important;
-  }
-}
 
 /* Collapsed Sidebar */
 .sidebar.collapsed,
@@ -6266,319 +5320,9 @@ select.form-select {
 }
 
 /* Desktop modal styles */
-@media (min-width: 769px) {
-  .modal-overlay {
-    align-items: center;
-    padding: 20px;
-  }
-
-  .modal-content {
-    border-radius: 16px;
-    max-width: 650px;
-    max-height: 90vh;
-    height: auto;
-    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--gray-200);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .drawer-modal {
-    background: white;
-    border-radius: 16px;
-    max-width: 650px;
-    max-height: 90vh;
-    height: auto;
-    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    border: 1px solid var(--gray-200);
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    position: relative;
-  }
-
-  .modal-header {
-    border-radius: 20px 20px 0 0;
-    padding: 8px 12px;
-    flex-shrink: 0;
-  }
-
-  .modal-header h2 {
-    font-size: 1.1rem;
-  }
-
-  .add-match-form {
-    padding: 16px;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-  }
-
-  .modal-actions {
-    padding: 10px 12px;
-    justify-content: flex-end;
-    background: white;
-    flex-shrink: 0;
-    border-top: 1px solid var(--gray-100);
-  }
-
-  .modal-actions button {
-    min-width: auto;
-  }
-}
 
 /* Responsive modals - mobile */
-@media (max-width: 768px) {
-  .drawer-modal {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    transform: none;
-    width: 100%;
-    max-width: 100%;
-    border-radius: 20px 20px 0 0;
-    max-height: 90vh;
-    animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    border: none;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-    background: white;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
 
-  /* Force inline layout for match config on mobile */
-  .match-config-header-row {
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: auto; /* Allow scroll if absolutely needed */
-    padding-right: 4px; /* Space for scroll */
-  }
-
-  .match-config-inline-controls {
-    flex-wrap: nowrap;
-    gap: 16px;
-  }
-
-  .match-type-option.compact,
-  .ranked-toggle-option.compact {
-    padding: 6px 10px; /* Slightly smaller padding */
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
-
-  /* Ensure title doesn't shrink too much but allows controls to fit */
-  .match-config-toggle.inline {
-    flex-shrink: 0;
-  }
-
-  .modal-header {
-    padding: 8px 12px;
-  }
-
-  .modal-header h2 {
-    font-size: 1.1rem;
-  }
-
-  .add-match-form {
-    padding: 20px;
-  }
-
-  .form-group {
-    margin-bottom: 20px;
-  }
-
-  .radio-card {
-    padding: 12px 14px;
-    min-height: auto;
-  }
-
-  .radio-card-title {
-    font-size: 0.9em;
-  }
-
-  .team-section {
-    padding: 14px;
-    gap: 8px;
-  }
-
-  .player-dropdown-trigger {
-    padding: 14px 16px;
-  }
-
-  .team-inputs-row {
-    gap: 8px;
-  }
-
-  .score-input {
-    width: 60px;
-    font-size: 1.8em;
-  }
-
-  .scorecard-digit-input {
-    width: 45px;
-    height: 60px;
-    font-size: 1.8em;
-  }
-
-  .team-header {
-    position: absolute;
-    right: 12px;
-    top: 12px;
-    gap: 8px;
-    margin-bottom: 0;
-    padding-right: 21px;
-  }
-
-  .team-section {
-    position: relative;
-  }
-
-  .team-section.is-winner {
-    border: 2px solid var(--success);
-  }
-
-  .team-section h3 {
-    font-size: 0.95em;
-  }
-
-  .winner-badge {
-    display: none;
-  }
-
-  .vs-divider {
-    font-size: 1.2em;
-    padding: 4px 0;
-  }
-
-  .player-dropdown-option {
-    font-size: 0.9em;
-  }
-
-  .form-error {
-    padding: 10px;
-    font-size: 13px;
-    margin-bottom: 12px;
-  }
-
-  .add-matches-card {
-    padding: 36px 24px;
-  }
-
-  .add-matches-icon {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 20px;
-  }
-
-  .add-matches-title {
-    font-size: 1.5rem;
-  }
-
-  .add-matches-description {
-    font-size: 0.95rem;
-  }
-
-  .match-date-header-container {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .btn-end-session-header {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .add-match-card {
-    padding: 30px 20px;
-    min-height: 120px;
-    font-size: 1em;
-  }
-}
-
-@media (max-width: 576px) {
-  .modal-overlay {
-    padding: 4px;
-    padding-top: 10px;
-  }
-
-  .modal-content {
-    max-height: 92vh;
-    width: 95%;
-    border-radius: 16px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .modal-header {
-    padding: 12px 14px;
-    flex-shrink: 0;
-  }
-
-  .modal-header h2 {
-    font-size: 1em;
-  }
-
-  .modal-body {
-    padding: 12px;
-  }
-
-  .modal-stats {
-    gap: 16px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-  }
-
-  .modal-stat {
-    font-size: 0.85em;
-  }
-
-  .modal-player-stats {
-    margin: 16px 0;
-  }
-
-  .modal-stats-table {
-    font-size: 0.8rem;
-  }
-
-  .modal-stats-table th,
-  .modal-stats-table td {
-    padding: 8px 10px;
-  }
-
-  .modal-actions {
-    padding: 10px 14px;
-    gap: 8px;
-    flex-shrink: 0;
-    border-top: 1px solid var(--gray-100);
-    background: white;
-  }
-
-  .modal-actions button {
-    padding: 10px 14px;
-  }
-
-  .add-match-form {
-    padding: 16px;
-    gap: 16px;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-  }
-
-  .teams-container {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .vs-divider-column {
-    display: none;
-  }
-}
 
 /* Global Match Config Styles */
 .match-config-content {
@@ -6683,159 +5427,6 @@ button.match-config-toggle.inline svg {
   transform: rotate(180deg);
 }
 
-@media (max-width: 576px) {
-  .vs-divider {
-    display: block;
-    text-align: center;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--gray-400);
-    padding: 4px 0;
-    margin: 0;
-  }
-
-  .team-section {
-    padding: 14px;
-    gap: 12px;
-  }
-
-  .match-config-section {
-    padding: 12px 16px;
-    gap: 4px;
-    animation: slideDown 0.2s ease-out;
-  }
-
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .match-config-top-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .match-config-bottom-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding-top: 6px;
-  }
-
-  .match-config-item.compact.league-item {
-    min-width: 0;
-  }
-
-  .match-type-option.compact,
-  .ranked-toggle-option.compact {
-    padding: 4px 8px;
-    font-size: 0.6875rem;
-  }
-
-  .league-dropdown-trigger.compact {
-    padding: 4px 8px;
-    font-size: 0.6875rem;
-    min-height: 26px;
-  }
-
-  .active-season-card.compact {
-    padding: 4px 8px;
-    font-size: 0.6875rem;
-    width: 100%;
-  }
-
-  .active-season-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-
-  .ranked-toggle-note.compact {
-    font-size: 0.625rem;
-    width: 100%;
-  }
-
-  .match-config-label {
-    font-size: 0.625rem;
-  }
-
-  .team-inputs-row {
-    gap: 18px;
-  }
-
-  .score-input {
-    width: 60px;
-    font-size: 1.6em;
-    height: 50px;
-  }
-
-  .scorecard-digit-input {
-    width: 45px;
-    height: 56px;
-    font-size: 1.6em;
-  }
-
-  .team-header {
-    gap: 6px;
-    margin-bottom: 4px;
-  }
-
-  .team-section h3 {
-    font-size: 0.9em;
-  }
-
-  .winner-badge {
-    padding: 3px 8px;
-    font-size: 0.65em;
-  }
-
-  .vs-divider {
-    font-size: 1em;
-    padding: 2px 0;
-  }
-
-  .form-error {
-    padding: 8px 10px;
-    font-size: 12px;
-    margin-bottom: 10px;
-  }
-
-  .add-matches-card {
-    padding: 28px 20px;
-  }
-
-  .add-matches-icon {
-    width: 56px;
-    height: 56px;
-    margin-bottom: 16px;
-  }
-
-  .add-matches-title {
-    font-size: 1.25rem;
-  }
-
-  .add-matches-description {
-    font-size: 0.9rem;
-  }
-
-  .add-matches-button {
-    padding: 12px 24px;
-    font-size: 0.95rem;
-  }
-
-  .add-match-card {
-    padding: 24px 16px;
-    min-height: 100px;
-    font-size: 0.95em;
-    border-width: 2px;
-  }
-}
 
 /* Player Dropdown Component */
 .player-dropdown-container {
@@ -7011,8 +5602,9 @@ button.match-config-toggle.inline svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 2001; /* Modal z-index - above backdrop (2000) and navbar (1000) */
   padding: 20px;
+  isolation: isolate; /* Ensure proper stacking context for iOS */
 }
 
 .auth-modal {
@@ -7619,87 +6211,7 @@ button.match-config-toggle.inline svg {
 }
 
 /* Mobile Responsive - Active Session Panel */
-@media (max-width: 768px) {
-  .active-session-panel {
-    padding: 20px;
-  }
 
-  .session-name {
-    font-size: 1.4em;
-  }
-
-  .session-header {
-    gap: 12px;
-  }
-
-  .session-stats {
-    gap: 16px;
-  }
-
-  .session-stat {
-    font-size: 0.85em;
-  }
-
-  .session-actions {
-    gap: 10px;
-  }
-
-  .session-btn-add {
-    padding: 12px 20px;
-    font-size: 0.95em;
-  }
-
-  .session-btn-submit {
-    padding: 14px 24px;
-    font-size: 0.95em;
-    white-space: normal;
-  }
-
-  .session-btn-cancel {
-    color: white;
-    background-color: var(--ocean-gray);
-    padding: 14px 24px;
-    font-size: 0.95em;
-  }
-}
-
-@media (max-width: 576px) {
-  .active-session-panel {
-    padding: 16px;
-  }
-
-  .session-name {
-    font-size: 1.2em;
-  }
-
-  .recording-badge {
-    font-size: 0.65em;
-    padding: 4px 10px;
-  }
-
-  .session-stat {
-    font-size: 0.8em;
-  }
-
-  .session-btn-add {
-    padding: 10px 16px;
-    font-size: 0.9em;
-  }
-
-  .session-btn-submit {
-    padding: 12px 20px;
-    font-size: 0.9em;
-  }
-
-  .session-empty-state {
-    padding: 32px 16px;
-  }
-
-  .session-empty-icon {
-    width: 32px;
-    height: 32px;
-  }
-}
 
 /* Signup Components Styles - Matching Details Tab Pattern */
 .league-signups-section,
@@ -8049,52 +6561,6 @@ button.match-config-toggle.inline svg {
 }
 
 /* Responsive Signup Styles */
-@media (max-width: 768px) {
-  .league-signup-main,
-  .league-schedule-main {
-    gap: 12px;
-  }
-
-  .league-signup-details,
-  .league-schedule-details {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .league-signup-actions,
-  .league-schedule-actions {
-    width: 100%;
-    justify-content: flex-start;
-    justify-self: start;
-    align-items: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .league-signup-actions > .league-signup-actions-group {
-    flex-shrink: 0;
-    flex-basis: auto;
-    min-width: fit-content;
-  }
-
-  .league-signup-actions-group {
-    flex-wrap: nowrap;
-    min-width: fit-content;
-    flex-shrink: 0;
-  }
-
-  .league-signup-actions-group .league-text-button {
-    flex-shrink: 0;
-    white-space: nowrap;
-    min-width: fit-content;
-  }
-
-  .league-signups-section,
-  .league-schedules-section {
-    padding: 8px 4px;
-  }
-}
 
 .team-inputs-row.reverse-layout {
   flex-direction: row-reverse;
@@ -8260,15 +6726,6 @@ button.match-config-toggle.inline svg {
   word-break: break-word;
 }
 
-@media (max-width: 768px) {
-  .league-messages-tab {
-    padding: 16px;
-  }
-
-  .league-messages-header h2 {
-    font-size: 1.25rem;
-  }
-}
 
 /* Profile Page Styles */
 .profile-page {
@@ -8331,27 +6788,6 @@ button.match-config-toggle.inline svg {
   margin-top: 4px;
 }
 
-@media (max-width: 768px) {
-  .profile-page {
-    padding: 80px 16px 32px;
-  }
-
-  .profile-page__section {
-    padding: 20px;
-  }
-
-  .profile-page__form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-page__header h1 {
-    font-size: 1.75rem;
-  }
-
-  .profile-page__section-title {
-    font-size: 1.25rem;
-  }
-}
 
 /* Auth Modal Legal Text */
 .auth-modal__legal-text {
@@ -8375,7 +6811,7 @@ button.match-config-toggle.inline svg {
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .main-content {
@@ -8474,16 +6910,6 @@ button.match-config-toggle.inline svg {
   color: var(--success);
 }
 
-@media (max-width: 640px) {
-  .footer-links {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .footer-separator {
-    display: none;
-  }
-}
 
 /* ============================================================================
    Home Tab Styles
@@ -8596,12 +7022,1636 @@ button.match-config-toggle.inline svg {
 }
 
 /* Responsive */
+
+
+
+@media (min-width: 769px) {
+  .mobile-hide-col {
+    display: table-cell !important;
+  }
+}
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Navbar Mobile */
+  .navbar-container {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .navbar-brand-text {
+    font-size: 1.2em;
+    letter-spacing: 0.06em;
+  }
+
+  .navbar-menu-button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+
+  .navbar-menu-label {
+    display: none; /* Hide labels on mobile */
+  }
+
+  .navbar-dropdown {
+    min-width: 200px;
+  }
+
+  .navbar-dropdown-item {
+    padding: 12px 16px;
+    font-size: 0.9em;
+  }
+
+  .container {
+    margin-top: calc(
+      56px + env(safe-area-inset-top, 0)
+    ); /* Account for navbar + safe area */
+  }
+
+  /* League Dashboard Mobile */
+  .league-dashboard-container {
+    margin-top: calc(
+      56px + env(safe-area-inset-top, 0)
+    ); /* Account for navbar + safe area */
+    padding-top: 0;
+    padding-bottom: calc(
+      72px + env(safe-area-inset-bottom, 0)
+    ); /* Space for bottom nav + safe area */
+  }
+
+  .league-dashboard {
+    flex-direction: column;
+  }
+
+  /* Move sidebar to bottom on mobile - force all positioning */
+  .sidebar,
+  .league-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    border-right: none !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    /* backdrop-filter removed to fix iOS stacking context issues */
+    order: 2; /* Place after content */
+    padding-bottom: env(
+      safe-area-inset-bottom,
+      0
+    ); /* Support for iPhone home indicator */
+    overflow-y: visible;
+    overflow-x: visible;
+    transform: none;
+  }
+
+  .sidebar.collapsed,
+  .league-sidebar.collapsed {
+    width: 100% !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: auto !important;
+  }
+
+  /* iOS Safari Fallback: Hide bottom sidebar completely when modal/drawer is open
+     This prevents GPU layer stacking context issues on iOS devices */
+  body.modal-open .sidebar,
+  body.modal-open .league-sidebar,
+  body.drawer-open .sidebar,
+  body.drawer-open .league-sidebar {
+    display: none !important;
+  }
+
+  /* Hide header on Home Dashboard mobile */
+  .sidebar .league-sidebar-header {
+    display: none !important;
+  }
+
+  /* Show header on League Dashboard mobile */
+  .league-sidebar .league-sidebar-header {
+    display: flex !important;
+    width: 100%;
+    padding: 8px 16px 4px 16px; /* Add padding */
+    align-items: center;
+    justify-content: center; /* Center the title */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04); /* Separator */
+  }
+
+  .league-sidebar-collapse-btn {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .league-sidebar-title-wrapper-container {
+    display: flex !important;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 100%;
+    justify-content: center;
+  }
+
+  .league-sidebar-title-wrapper {
+    display: flex !important;
+    width: auto;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0
+  }
+
+  .league-sidebar-title {
+    display: block !important;
+    font-size: 1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: nowrap;
+    max-width: 80vw; /* 80% of screen width as requested */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
+
+  /* Make nav horizontal on mobile */
+  .league-sidebar-nav {
+    flex-direction: row !important;
+    justify-content: space-around;
+    padding: 0 !important;
+    gap: 0;
+    width: 100%;
+    flex: none; /* Don't flex, take full width */
+  }
+
+  .league-sidebar-nav-item {
+    flex: 1;
+    flex-direction: column;
+    padding: 0;
+    justify-content: center;
+    min-height: 56px;
+    border-radius: 8px;
+    gap: 2px;
+  }
+
+  .league-sidebar-nav-item span {
+    display: block !important;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* Override collapsed state on mobile - always show labels */
+  .sidebar.collapsed .league-sidebar-nav-item span,
+  .league-sidebar.collapsed .league-sidebar-nav-item span {
+    display: block !important;
+  }
+
+  /* Position dropdown above on mobile since sidebar is at bottom */
+  .league-sidebar-dropdown {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+  }
+
+  .league-sidebar-dropdown-menu {
+    animation: slideUp 0.2s ease-out !important;
+  }
+
+  .league-sidebar-nav-item.active::before {
+    display: none;
+  }
+
+  .league-sidebar-nav-item.active {
+    background: transparent !important;
+    color: var(--primary);
+  }
+
+  .league-sidebar-nav-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .league-content-header {
+    padding: 8px 4px;
+  }
+
+  .league-content-header-text {
+    font-size: 1.5rem;
+  }
+
+  .home-content,
+  .league-content {
+    margin-left: 0 !important;
+    order: 1; /* Place before sidebar */
+    padding-bottom: 90px; /* Space for fixed bottom sidebar */
+  }
+
+  /* Override collapsed sidebar margin on mobile */
+  .sidebar.collapsed ~ .home-content,
+  .sidebar.collapsed ~ .league-content,
+  .league-sidebar.collapsed ~ .league-content {
+    margin-left: 0 !important;
+    margin-bottom: 90px;
+  }
+
+  .league-content > *:not(.league-content-header) {
+    padding: 8px 4px !important;
+  }
+
+  .add-matches-card {
+    padding: 24px 20px;
+  }
+
+  .add-matches-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+
+  .add-matches-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .add-matches-title {
+    font-size: 1.25rem;
+  }
+
+  .add-matches-description {
+    font-size: 0.9rem;
+  }
+
+  /* League Details Mobile */
+  .league-details-new {
+    gap: 24px;
+  }
+
+  .league-description-section,
+  .league-players-section,
+  .league-seasons-section,
+  .league-info-section {
+    padding: 16px 20px;
+  }
+
+  .league-section-title {
+    font-size: 1em;
+  }
+
+  .league-seasons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .league-table {
+    font-size: 0.9em;
+  }
+
+  .league-table th,
+  .league-table td {
+    padding: 10px 8px;
+  }
+
+  .league-empty-state {
+    padding: 32px 16px;
+  }
+
+  /* Hero Header Mobile */
+  .hero-header {
+    height: 180px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  h1.hero-title {
+    padding: 0 10%;
+  }
+
+  h1 {
+    font-size: 1.75em;
+    text-align: center;
+    padding: 0 10px;
+  }
+
+  .subtitle {
+    font-size: 0.9em;
+    text-align: center;
+    padding: 0 10px;
+  }
+
+  .landing-message h2 {
+    font-size: 1.5rem;
+  }
+
+  .landing-welcome-title {
+    font-size: 1.5rem;
+  }
+
+  /* Dashboard Mobile Styles */
+  .dashboard-container {
+    padding: 24px 16px;
+  }
+
+  .dashboard-widgets {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .dashboard-widget-header {
+    padding: 16px 20px;
+  }
+
+  .dashboard-widget-content {
+    padding: 16px 20px;
+  }
+
+  .dashboard-league-item,
+  .dashboard-match-item {
+    padding: 12px;
+  }
+
+  .dashboard-league-name {
+    font-size: 0.95rem;
+  }
+
+  .dashboard-league-meta {
+    font-size: 0.8rem;
+  }
+
+  .landing-brand-crown {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Tables - Better mobile handling */
+  table {
+    font-size: 1em;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 4px 4px 0px var(--sand);
+  }
+
+  /* Override general table display:block for rankings table - it needs to be a table */
+  .rankings-table-modern {
+    display: table !important; /* Must be table, not block */
+  }
+
+  th,
+  td {
+    padding: 10px 8px;
+    min-width: 70px;
+    font-size: 1em;
+  }
+
+  th {
+    font-size: 0.875em;
+  }
+
+  /* Override general th/td rules for rankings table - must come after general rules */
+  .rankings-table-modern th,
+  .rankings-table-modern td {
+    min-width: auto !important; /* Let column-specific min-widths apply, override general rule */
+  }
+
+  /* Sticky column on mobile - make it wider for player names */
+  .sticky-col {
+    min-width: 100px !important;
+    max-width: 120px;
+  }
+
+  tbody .sticky-col {
+    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Rankings table mobile optimization */
+  .rankings-table-wrapper {
+    margin: 0;
+    border-radius: 8px;
+    border-left: 1px solid var(--gray-300);
+    border-right: 1px solid var(--gray-300);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rankings-table-modern {
+    min-width: auto !important;
+    width: max-content;
+    font-size: 0.875em;
+    position: relative;
+    overscroll-behavior-x: none;
+    table-layout: auto;
+  }
+
+  .rankings-table-modern th {
+    padding: 12px 6px;
+    font-size: 0.72em;
+    white-space: nowrap;
+  }
+
+  .rankings-table-modern td {
+    padding: 12px 8px;
+    font-size: 0.85em;
+  }
+
+  /* No. column - narrower on mobile */
+  .rankings-table-modern th.rank-number-header {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 12px 2px 12px 8px;
+  }
+
+  .rank-number-cell {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 12px 2px 12px 8px;
+  }
+
+  /* Adjust sticky column position for narrower No. column */
+  .rankings-table-modern thead .sticky-col {
+    left: 40px;
+  }
+
+  .rankings-table-modern tbody .sticky-col {
+    left: 40px;
+    min-width: auto;
+    width: auto;
+  }
+
+  /* Hide player avatar on mobile */
+  .player-avatar {
+    display: none;
+  }
+
+  /* Show all columns on mobile - don't hide any */
+  .mobile-hide-col {
+    display: table-cell !important;
+  }
+
+  .rankings-name-cell {
+    min-width: auto;
+    width: auto;
+    padding: 4px 8px;
+  }
+
+  /* Sticky header column - fit to content */
+  .rankings-table-modern thead .sticky-col {
+    min-width: auto;
+    width: auto;
+  }
+
+  .rankings-stat-cell {
+    padding: 12px 3px;
+    white-space: nowrap;
+  }
+
+  /* Non-sticky stat columns - fit to content */
+  .rankings-table-modern th:nth-child(n + 3),
+  .rankings-table-modern td:nth-child(n + 3) {
+    width: auto;
+    min-width: auto;
+  }
+
+  /* First column after sticky (Points) needs more left padding */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern td:nth-child(3) {
+    padding-left: 12px;
+  }
+
+  /* League section - reduce padding on mobile (league-content already has padding) */
+  .league-section {
+    padding: 0;
+    margin-bottom: 16px;
+  }
+
+  /* Controls Mobile */
+  .controls {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .controls button,
+  .controls a {
+    width: 100%;
+  }
+
+  .controls a button {
+    width: 100%;
+  }
+
+  button {
+    font-size: 0.9em;
+  }
+
+  .league-player-remove {
+    opacity: 1;
+  }
+
+  /* Tabs Mobile */
+  .tabs {
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    font-size: 0.8em;
+    padding: 10px 16px;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  /* Match Cards Mobile */
+  .match-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .match-card {
+    border-width: 2px;
+  }
+
+  .match-card-header {
+    padding: 6px 10px;
+  }
+
+  .match-team {
+    padding: 10px 12px;
+  }
+
+  .match-date-header {
+    font-size: 1.1em;
+  }
+
+  .team-score {
+    font-size: 1.2em;
+  }
+
+  .team-players {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Player Details - Full Screen on Mobile */
+  .player-details {
+    max-width: 100%;
+    top: 0; /* Full screen, covering navbar */
+    padding: 12px 16px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    border-left: none;
+    /* Safe area padding for notched devices */
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 2002 !important; /* Drawer z-index - above modals (2001) and navbar (1000) */
+    /* DO NOT add transform - it creates unwanted stacking context on iOS */
+    /* isolation: isolate is set in base styles */
+  }
+
+  /* Note: navbar z-index lowering is handled globally above, no need to duplicate here */
+
+  .player-details h2 {
+    font-size: 1.4em;
+  }
+
+  .player-details h3 {
+    font-size: 1.1em;
+    margin-top: 24px;
+    margin-bottom: 12px;
+  }
+
+  .player-details-close-btn {
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+  }
+
+  /* Player Selector Mobile */
+  .player-selector-container {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    margin-top: 8px;
+  }
+
+  .player-selector-wrapper {
+    min-width: 0;
+  }
+
+  .player-selector-name {
+    font-size: 1.3em;
+  }
+
+  .player-selector-current {
+    padding: 10px 12px;
+  }
+
+  .player-selector-dropdown {
+    max-height: 300px;
+  }
+
+  /* Close button mobile */
+  .player-details > .close-btn {
+    padding: 8px 12px;
+    font-size: 0.8em;
+    margin-bottom: 0;
+  }
+
+  /* Loading states */
+  .loading {
+    padding: 24px 16px;
+    font-size: 1em;
+  }
+
+  /* Messages */
+  .error,
+  .success {
+    padding: 12px;
+    font-size: 0.9em;
+  }
+}
+@media (max-width: 576px) {
+  body {
+    padding: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Navbar Extra Small */
+  .navbar-container {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .navbar-brand-text {
+    font-size: 1.1em;
+    letter-spacing: 0.05em;
+  }
+
+  .navbar-menu-button {
+    padding: 6px 8px;
+    font-size: 0.85em;
+  }
+
+  .navbar-dropdown {
+    min-width: 180px;
+  }
+
+  .navbar-dropdown-item {
+    padding: 10px 14px;
+    font-size: 0.85em;
+  }
+
+  .container {
+    margin-top: 52px; /* Even smaller navbar on very small screens */
+    border-width: 2px;
+  }
+
+  /* League Dashboard Extra Small */
+  .league-dashboard-container {
+    margin-top: 52px;
+    padding-bottom: 68px; /* Slightly less space for very small screens */
+  }
+
+  .league-sidebar-header {
+    display: none;
+  }
+
+  .league-sidebar-nav-item {
+    padding: 6px 2px;
+    min-height: 52px;
+  }
+
+  .league-sidebar-nav-item span {
+    font-size: 0.65em;
+  }
+
+  .league-sidebar-nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .league-content-header {
+    padding: 6px 2px;
+  }
+
+  .league-content-header-text {
+    font-size: 1.25rem;
+  }
+
+  .league-content > *:not(.league-content-header) {
+    padding: 8px 4px;
+  }
+
+  .add-matches-card {
+    padding: 20px 16px;
+  }
+
+  .add-matches-icon {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 10px;
+  }
+
+  .add-matches-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .add-matches-title {
+    font-size: 1.1rem;
+  }
+
+  .add-matches-description {
+    font-size: 0.85rem;
+  }
+
+  h1 {
+    font-size: 1.5em;
+  }
+
+  .landing-message h2 {
+    font-size: 1.25rem;
+  }
+
+  .landing-welcome-title {
+    font-size: 1.25rem;
+  }
+
+  .landing-brand-crown {
+    width: 20px;
+    height: 20px;
+  }
+
+  .hero-header {
+    height: 150px;
+  }
+
+  /* Match cards - reduce padding */
+  .match-team {
+    padding: 10px 12px;
+  }
+
+  .team-players {
+    max-width: calc(100% - 50px);
+  }
+
+  .team-score {
+    font-size: 1.2em;
+  }
+
+  table {
+    font-size: 0.9em;
+  }
+
+  th,
+  td {
+    padding: 8px 6px;
+    min-width: 60px;
+  }
+
+  /* Override general th/td rules for rankings table - must come after general rules */
+  .rankings-table-modern th,
+  .rankings-table-modern td {
+    min-width: auto; /* Let column-specific min-widths apply */
+  }
+
+  /* Sticky column on very small screens */
+  .sticky-col {
+    min-width: 85px !important;
+    max-width: 95px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* Rankings table - even more compact on very small screens */
+  .rankings-table-modern {
+    font-size: 0.8em;
+  }
+
+  .rankings-table-modern th {
+    padding: 10px 5px;
+    font-size: 0.68em;
+  }
+
+  .rankings-table-modern td {
+    padding: 10px 8px;
+    font-size: 0.8em;
+  }
+
+  /* No. column - narrower on mobile */
+  .rankings-table-modern th.rank-number-header {
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
+    padding: 10px 2px 10px 8px;
+  }
+
+  .rank-number-cell {
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
+    padding: 10px 2px 10px 8px;
+  }
+
+  /* Adjust sticky column position for narrower No. column */
+  .rankings-table-modern thead .sticky-col {
+    left: 35px;
+  }
+
+  .rankings-table-modern tbody .sticky-col {
+    left: 35px;
+  }
+
+  /* Hide player avatar on mobile */
+  .player-avatar {
+    display: none;
+  }
+
+  .rankings-name-cell {
+    min-width: auto;
+    width: auto;
+    padding: 4px 6px;
+  }
+
+  .rankings-stat-cell {
+    padding: 10px 4px;
+    min-width: 45px;
+    max-width: none; /* Remove max-width constraint */
+    white-space: nowrap;
+  }
+
+  /* Stat columns - fit to content on very small screens */
+  .rankings-table-modern th:nth-child(n + 3),
+  .rankings-table-modern td:nth-child(n + 3) {
+    width: auto;
+    min-width: auto;
+  }
+
+  /* First column after sticky (Points) needs more left padding */
+  .rankings-table-modern th:nth-child(3),
+  .rankings-table-modern td:nth-child(3) {
+    padding-left: 12px;
+  }
+
+  /* League section - even less padding on very small screens */
+  .league-section {
+    padding: 0;
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    font-size: 0.75em;
+    padding: 8px 12px;
+    min-width: 100px;
+  }
+
+  .player-selector-name {
+    font-size: 1.3em;
+  }
+
+  .match-date-header {
+    font-size: 1em;
+    padding-bottom: 6px;
+  }
+
+  .match-date-group {
+    gap: 12px;
+  }
+
+  /* Make overview stack vertically on small screens */
+  .player-overview {
+    margin: 0;
+    padding: 0;
+  }
+
+  .overview-stat {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .overview-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .overview-label {
+    font-size: 0.7em;
+  }
+
+  .overview-value {
+    font-size: 1.2em;
+  }
+}
+@media (max-width: 896px) and (orientation: landscape) {
+  .hero-header {
+    height: 120px;
+  }
+
+  h1 {
+    font-size: 1.5em;
+  }
+}
+@media (min-width: 769px) {
+  .match-config-top-row {
+    gap: 10px;
+  }
+}
+@media (max-width: 768px) {
+  .radio-card-group {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .radio-card-group.radio-card-group-2,
+  .radio-card-group.radio-card-group-3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .radio-card:hover:not(.disabled):not(:has(input:disabled)) {
+    transform: translateY(-1px);
+  }
+}
+@media (min-width: 769px) {
+  .radio-card {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .radio-card-header {
+    margin-bottom: 8px;
+  }
+
+  .radio-card-description {
+    display: block;
+  }
+
+  .radio-card-title {
+    font-size: 1em;
+    white-space: normal;
+  }
+}
+@media (max-width: 768px) {
+  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+    display: flex !important;
+  }
+}
+@media (min-width: 769px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 20px;
+  }
+
+  .modal-content {
+    border-radius: 16px;
+    max-width: 650px;
+    max-height: 90vh;
+    height: auto;
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .drawer-modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 650px;
+    max-height: 90vh;
+    height: auto;
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
+  }
+
+  .modal-header {
+    border-radius: 20px 20px 0 0;
+    padding: 8px 12px;
+    flex-shrink: 0;
+  }
+
+  .modal-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .add-match-form {
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .modal-actions {
+    padding: 10px 12px;
+    justify-content: flex-end;
+    background: white;
+    flex-shrink: 0;
+    border-top: 1px solid var(--gray-100);
+  }
+
+  .modal-actions button {
+    min-width: auto;
+  }
+}
+@media (max-width: 768px) {
+  .drawer-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    max-height: 90vh;
+    animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: none;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Force inline layout for match config on mobile */
+  .match-config-header-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto; /* Allow scroll if absolutely needed */
+    padding-right: 4px; /* Space for scroll */
+  }
+
+  .match-config-inline-controls {
+    flex-wrap: nowrap;
+    gap: 16px;
+  }
+
+  .match-type-option.compact,
+  .ranked-toggle-option.compact {
+    padding: 6px 10px; /* Slightly smaller padding */
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  /* Ensure title doesn't shrink too much but allows controls to fit */
+  .match-config-toggle.inline {
+    flex-shrink: 0;
+  }
+
+  .modal-header {
+    padding: 8px 12px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .add-match-form {
+    padding: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .radio-card {
+    padding: 12px 14px;
+    min-height: auto;
+  }
+
+  .radio-card-title {
+    font-size: 0.9em;
+  }
+
+  .team-section {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .player-dropdown-trigger {
+    padding: 14px 16px;
+  }
+
+  .team-inputs-row {
+    gap: 8px;
+  }
+
+  .score-input {
+    width: 60px;
+    font-size: 1.8em;
+  }
+
+  .scorecard-digit-input {
+    width: 45px;
+    height: 60px;
+    font-size: 1.8em;
+  }
+
+  .team-header {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    gap: 8px;
+    margin-bottom: 0;
+    padding-right: 21px;
+  }
+
+  .team-section {
+    position: relative;
+  }
+
+  .team-section.is-winner {
+    border: 2px solid var(--success);
+  }
+
+  .team-section h3 {
+    font-size: 0.95em;
+  }
+
+  .winner-badge {
+    display: none;
+  }
+
+  .vs-divider {
+    font-size: 1.2em;
+    padding: 4px 0;
+  }
+
+  .player-dropdown-option {
+    font-size: 0.9em;
+  }
+
+  .form-error {
+    padding: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .add-matches-card {
+    padding: 36px 24px;
+  }
+
+  .add-matches-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+  }
+
+  .add-matches-title {
+    font-size: 1.5rem;
+  }
+
+  .add-matches-description {
+    font-size: 0.95rem;
+  }
+
+  .match-date-header-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-end-session-header {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .add-match-card {
+    padding: 30px 20px;
+    min-height: 120px;
+    font-size: 1em;
+  }
+}
+@media (max-width: 576px) {
+  .modal-overlay {
+    padding: 4px;
+    padding-top: 10px;
+  }
+
+  .modal-content {
+    max-height: 92vh;
+    width: 95%;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+    flex-shrink: 0;
+  }
+
+  .modal-header h2 {
+    font-size: 1em;
+  }
+
+  .modal-body {
+    padding: 12px;
+  }
+
+  .modal-stats {
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  .modal-stat {
+    font-size: 0.85em;
+  }
+
+  .modal-player-stats {
+    margin: 16px 0;
+  }
+
+  .modal-stats-table {
+    font-size: 0.8rem;
+  }
+
+  .modal-stats-table th,
+  .modal-stats-table td {
+    padding: 8px 10px;
+  }
+
+  .modal-actions {
+    padding: 10px 14px;
+    gap: 8px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--gray-100);
+    background: white;
+  }
+
+  .modal-actions button {
+    padding: 10px 14px;
+  }
+
+  .add-match-form {
+    padding: 16px;
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .teams-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .vs-divider-column {
+    display: none;
+  }
+}
+@media (max-width: 576px) {
+  .vs-divider {
+    display: block;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-400);
+    padding: 4px 0;
+    margin: 0;
+  }
+
+  .team-section {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .match-config-section {
+    padding: 12px 16px;
+    gap: 4px;
+    animation: slideDown 0.2s ease-out;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .match-config-top-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .match-config-bottom-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding-top: 6px;
+  }
+
+  .match-config-item.compact.league-item {
+    min-width: 0;
+  }
+
+  .match-type-option.compact,
+  .ranked-toggle-option.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+  }
+
+  .league-dropdown-trigger.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+    min-height: 26px;
+  }
+
+  .active-season-card.compact {
+    padding: 4px 8px;
+    font-size: 0.6875rem;
+    width: 100%;
+  }
+
+  .active-season-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .ranked-toggle-note.compact {
+    font-size: 0.625rem;
+    width: 100%;
+  }
+
+  .match-config-label {
+    font-size: 0.625rem;
+  }
+
+  .team-inputs-row {
+    gap: 18px;
+  }
+
+  .score-input {
+    width: 60px;
+    font-size: 1.6em;
+    height: 50px;
+  }
+
+  .scorecard-digit-input {
+    width: 45px;
+    height: 56px;
+    font-size: 1.6em;
+  }
+
+  .team-header {
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .team-section h3 {
+    font-size: 0.9em;
+  }
+
+  .winner-badge {
+    padding: 3px 8px;
+    font-size: 0.65em;
+  }
+
+  .vs-divider {
+    font-size: 1em;
+    padding: 2px 0;
+  }
+
+  .form-error {
+    padding: 8px 10px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .add-matches-card {
+    padding: 28px 20px;
+  }
+
+  .add-matches-icon {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+  }
+
+  .add-matches-title {
+    font-size: 1.25rem;
+  }
+
+  .add-matches-description {
+    font-size: 0.9rem;
+  }
+
+  .add-matches-button {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+  }
+
+  .add-match-card {
+    padding: 24px 16px;
+    min-height: 100px;
+    font-size: 0.95em;
+    border-width: 2px;
+  }
+}
+@media (max-width: 768px) {
+  .active-session-panel {
+    padding: 20px;
+  }
+
+  .session-name {
+    font-size: 1.4em;
+  }
+
+  .session-header {
+    gap: 12px;
+  }
+
+  .session-stats {
+    gap: 16px;
+  }
+
+  .session-stat {
+    font-size: 0.85em;
+  }
+
+  .session-actions {
+    gap: 10px;
+  }
+
+  .session-btn-add {
+    padding: 12px 20px;
+    font-size: 0.95em;
+  }
+
+  .session-btn-submit {
+    padding: 14px 24px;
+    font-size: 0.95em;
+    white-space: normal;
+  }
+
+  .session-btn-cancel {
+    color: white;
+    background-color: var(--ocean-gray);
+    padding: 14px 24px;
+    font-size: 0.95em;
+  }
+}
+@media (max-width: 576px) {
+  .active-session-panel {
+    padding: 16px;
+  }
+
+  .session-name {
+    font-size: 1.2em;
+  }
+
+  .recording-badge {
+    font-size: 0.65em;
+    padding: 4px 10px;
+  }
+
+  .session-stat {
+    font-size: 0.8em;
+  }
+
+  .session-btn-add {
+    padding: 10px 16px;
+    font-size: 0.9em;
+  }
+
+  .session-btn-submit {
+    padding: 12px 20px;
+    font-size: 0.9em;
+  }
+
+  .session-empty-state {
+    padding: 32px 16px;
+  }
+
+  .session-empty-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+@media (max-width: 768px) {
+  .league-signup-main,
+  .league-schedule-main {
+    gap: 12px;
+  }
+
+  .league-signup-details,
+  .league-schedule-details {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .league-signup-actions,
+  .league-schedule-actions {
+    width: 100%;
+    justify-content: flex-start;
+    justify-self: start;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .league-signup-actions > .league-signup-actions-group {
+    flex-shrink: 0;
+    flex-basis: auto;
+    min-width: fit-content;
+  }
+
+  .league-signup-actions-group {
+    flex-wrap: nowrap;
+    min-width: fit-content;
+    flex-shrink: 0;
+  }
+
+  .league-signup-actions-group .league-text-button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: fit-content;
+  }
+
+  .league-signups-section,
+  .league-schedules-section {
+    padding: 8px 4px;
+  }
+}
+@media (max-width: 768px) {
+  .league-messages-tab {
+    padding: 16px;
+  }
+
+  .league-messages-header h2 {
+    font-size: 1.25rem;
+  }
+}
+@media (max-width: 768px) {
+  .profile-page {
+    padding: 80px 16px 32px;
+  }
+
+  .profile-page__section {
+    padding: 20px;
+  }
+
+  .profile-page__form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-page__header h1 {
+    font-size: 1.75rem;
+  }
+
+  .profile-page__section-title {
+    font-size: 1.25rem;
+  }
+}
+@media (max-width: 640px) {
+  .footer-links {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .footer-separator {
+    display: none;
+  }
+}
 @media (max-width: 1024px) {
   .home-content-grid {
     grid-template-columns: 1fr;
   }
 }
-
 @media (max-width: 640px) {
   .home-header-row {
     padding: 12px 16px;

@@ -44,4 +44,3 @@ server {
     access_log /var/log/nginx/DOMAIN_PLACEHOLDER.access.log;
     error_log /var/log/nginx/DOMAIN_PLACEHOLDER.error.log;
 }
-

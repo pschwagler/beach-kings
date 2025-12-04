@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerSelection } from './hooks/usePlayerSelection';
 import { useMessage } from './hooks/useMessage';
 import RankingsTable from '../rankings/RankingsTable';
-import PlayerDetailsPanel from '../player/PlayerDetailsPanel';
+
+import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
 
 export default function LeagueRankingsTab() {
   const { 
@@ -17,10 +18,9 @@ export default function LeagueRankingsTab() {
     selectedPlayerName,
     playerSeasonStats,
     playerMatchHistory,
-    isPlayerPanelOpen,
-    setIsPlayerPanelOpen,
     setSelectedPlayer
   } = useLeague();
+  const { openDrawer } = useDrawer();
   const { currentUserPlayer } = useAuth();
   const [message, showMessage] = useMessage(5000);
 
@@ -52,12 +52,18 @@ export default function LeagueRankingsTab() {
 
   const handlePlayerClick = useCallback((playerId, playerName) => {
     setSelectedPlayer(playerId, playerName);
-    setTimeout(() => setIsPlayerPanelOpen(true), 10);
-  }, [setSelectedPlayer, setIsPlayerPanelOpen]);
+    openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
+      playerName,
+      playerStats: playerSeasonStats,
+      playerMatchHistory,
+      allPlayerNames,
+      onPlayerChange: handlePlayerChange,
+      leagueName: league?.name,
+      seasonName: activeSeason?.name
+    });
+  }, [setSelectedPlayer, openDrawer, playerSeasonStats, playerMatchHistory, allPlayerNames, league, activeSeason]);
 
-  const handleClosePlayer = useCallback(() => {
-    setIsPlayerPanelOpen(false);
-  }, [setIsPlayerPanelOpen]);
+
 
   const handlePlayerChange = useCallback((newPlayerName) => {
     // Find player by name in rankings
@@ -92,20 +98,7 @@ export default function LeagueRankingsTab() {
         onPlayerClick={handlePlayerClick}
         loading={seasonDataLoading}
       />
-
-      <PlayerDetailsPanel
-        selectedPlayer={selectedPlayerName}
-        playerStats={playerSeasonStats}
-        playerMatchHistory={playerMatchHistory}
-        isPanelOpen={isPlayerPanelOpen}
-        allPlayerNames={allPlayerNames}
-        onPlayerChange={handlePlayerChange}
-        onClose={handleClosePlayer}
-        leagueName={league?.name}
-        seasonName={activeSeason?.name}
-      />
     </div>
   );
 }
-
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import MatchesTable from '../match/MatchesTable';
-import PlayerDetailsPanel from '../player/PlayerDetailsPanel';
+
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerSelection } from './hooks/usePlayerSelection';
@@ -14,6 +14,7 @@ import {
   deleteSession,
   getPlayers
 } from '../../services/api';
+import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
 
 export default function LeagueMatchesTab({ onPlayerClick }) {
   const { 
@@ -29,11 +30,10 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     selectedPlayerName,
     playerSeasonStats,
     playerMatchHistory,
-    isPlayerPanelOpen,
-    setIsPlayerPanelOpen,
     setSelectedPlayer,
     showMessage
   } = useLeague();
+  const { openDrawer } = useDrawer();
   const { currentUserPlayer } = useAuth();
   const [matches, setMatches] = useState(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
@@ -516,7 +516,15 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     const playerId = playerNameToId.get(playerName);
     if (playerId) {
       setSelectedPlayer(playerId, playerName);
-      setTimeout(() => setIsPlayerPanelOpen(true), 10);
+      openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
+        playerName,
+        playerStats: playerSeasonStats,
+        playerMatchHistory,
+        allPlayerNames,
+        onPlayerChange: handlePlayerChange,
+        leagueName: league?.name,
+        seasonName: activeSeason?.name
+      });
     } else {
       // If player not found, try to use the parent's onPlayerClick if provided
       if (onPlayerClick) {
@@ -525,9 +533,7 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     }
   };
 
-  const handleClosePlayer = () => {
-    setIsPlayerPanelOpen(false);
-  };
+
 
   const handlePlayerChange = (newPlayerName) => {
     // Find player ID from name
@@ -536,6 +542,32 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       setSelectedPlayer(playerId, newPlayerName);
     }
   };
+
+  // Update drawer when player data changes while drawer is open
+  const { isOpen, drawerType } = useDrawer();
+  
+  useEffect(() => {
+    if (isOpen && drawerType === DRAWER_TYPES.PLAYER_DETAILS && selectedPlayerName) {
+      openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
+        playerName: selectedPlayerName,
+        playerStats: playerSeasonStats,
+        playerMatchHistory: playerMatchHistory,
+        allPlayerNames,
+        onPlayerChange: handlePlayerChange,
+        leagueName: league?.name,
+        seasonName: activeSeason?.name
+      });
+    }
+  }, [
+    selectedPlayerName, 
+    playerSeasonStats, 
+    playerMatchHistory, 
+    isOpen, 
+    drawerType, 
+    allPlayerNames, 
+    league?.name, 
+    activeSeason?.name
+  ]);
 
   return (
     <div className="league-section">
@@ -561,17 +593,7 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         editingSessionMetadata={editingSessionMetadata}
       />
 
-      <PlayerDetailsPanel
-        selectedPlayer={selectedPlayerName}
-        playerStats={playerSeasonStats}
-        playerMatchHistory={playerMatchHistory}
-        isPanelOpen={isPlayerPanelOpen}
-        allPlayerNames={allPlayerNames}
-        onPlayerChange={handlePlayerChange}
-        onClose={handleClosePlayer}
-        leagueName={league?.name}
-        seasonName={activeSeason?.name}
-      />
+
     </div>
   );
 }
