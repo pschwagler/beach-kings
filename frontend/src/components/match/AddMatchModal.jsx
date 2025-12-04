@@ -231,26 +231,22 @@ export default function AddMatchModal({
       setTimeout(() => {
         switch (field) {
           case 'team1Player1':
-            // Find the trigger element in the next dropdown and focus it
-            const trigger2 = team1Player2Ref.current?.querySelector('.player-dropdown-trigger');
-            if (trigger2) {
-              trigger2.focus();
-              // Open the dropdown
-              trigger2.click();
+            // Find the input element in the next dropdown and focus it
+            const input2 = team1Player2Ref.current?.querySelector('.player-dropdown-input');
+            if (input2) {
+              input2.focus();
             }
             break;
           case 'team1Player2':
-            const trigger3 = team2Player1Ref.current?.querySelector('.player-dropdown-trigger');
-            if (trigger3) {
-              trigger3.focus();
-              trigger3.click();
+            const input3 = team2Player1Ref.current?.querySelector('.player-dropdown-input');
+            if (input3) {
+              input3.focus();
             }
             break;
           case 'team2Player1':
-            const trigger4 = team2Player2Ref.current?.querySelector('.player-dropdown-trigger');
-            if (trigger4) {
-              trigger4.focus();
-              trigger4.click();
+            const input4 = team2Player2Ref.current?.querySelector('.player-dropdown-input');
+            if (input4) {
+              input4.focus();
             }
             break;
           case 'team2Player2':
@@ -347,17 +343,14 @@ export default function AddMatchModal({
     }
   }, [isLeagueDropdownOpen]);
 
-  // Auto-focus first player dropdown when modal opens in leagueMatchOnly mode
+  // Track if modal is newly opened (for auto-open behavior)
+  const [shouldAutoOpen, setShouldAutoOpen] = useState(false);
+
   useEffect(() => {
     if (isOpen && !editMatch && leagueMatchOnly) {
-      // Delay to ensure modal animation completes before opening dropdown
-      setTimeout(() => {
-        const trigger = team1Player1Ref.current?.querySelector('.player-dropdown-trigger');
-        if (trigger) {
-          trigger.focus();
-          trigger.click();
-        }
-      }, 350);
+      setShouldAutoOpen(true);
+    } else {
+      setShouldAutoOpen(false);
     }
   }, [isOpen, editMatch, leagueMatchOnly]);
 
@@ -659,6 +652,7 @@ export default function AddMatchModal({
               player2Ref={team1Player2Ref}
               scoreRef={team1ScoreRef}
               nextScoreRef={team2ScoreRef}
+              autoOpenFirstPlayer={shouldAutoOpen}
             />
 
             <div className="vs-divider-column">VS</div>
@@ -887,7 +881,8 @@ function TeamSection({
   player1Ref,
   player2Ref,
   scoreRef,
-  nextScoreRef
+  nextScoreRef,
+  autoOpenFirstPlayer = false
 }) {
   return (
     <div className={`team-section ${isWinner ? 'is-winner' : ''}`}>
@@ -909,6 +904,7 @@ function TeamSection({
               allPlayerNames={allPlayerNames || []}
               placeholder="Player 1"
               excludePlayers={getExcludedPlayers(player1Value)}
+              autoOpen={autoOpenFirstPlayer}
             />
           </div>
           <div ref={player2Ref}>

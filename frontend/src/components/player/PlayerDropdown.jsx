@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { createPopper } from '@popperjs/core';
 
 // Helper to check if an item is an object with value/label
 const isPlayerOption = (item) => {
@@ -19,94 +19,188 @@ const getValue = (item) => {
   return isPlayerOption(item) ? item.value : item;
 };
 
-// Helper to check if two items are equal
-const itemsEqual = (a, b) => {
-  if (!a || !b) return a === b;
-  if (isPlayerOption(a) && isPlayerOption(b)) {
-    return a.value === b.value;
-  }
-  return a === b;
-};
-
-export default function PlayerDropdown({ value, onChange, allPlayerNames, placeholder = "Select player", excludePlayers = [] }) {
+export default function PlayerDropdown({ value, onChange, allPlayerNames, placeholder = "Select player", excludePlayers = [], autoOpen = false }) {
+  const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
   const dropdownRef = useRef(null);
-  const optionsRefs = useRef([]);
-  const triggerRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const menuRef = useRef(null);
-
-  // Close dropdown when clicking outside
+  const optionRefs = useRef([]);
+  const touchStartPos = useRef(null);
+  const popperInstanceRef = useRef(null);
+  
+  // Sync input with selected value
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if click is inside trigger or menu
-      const clickedTrigger = triggerRef.current && triggerRef.current.contains(event.target);
-      const clickedMenu = menuRef.current && menuRef.current.contains(event.target);
-      
-      if (!clickedTrigger && !clickedMenu) {
-        setIsOpen(false);
-        setSearchTerm('');
-        setHighlightedIndex(-1);
+    setInputValue(getDisplayValue(value));
+  }, [value]);
+
+  // Handle auto-open prop
+  useEffect(() => {
+    if (autoOpen && !hasAutoOpened && !value && inputRef.current) {
+      // Delay to wait for modal animation to complete
+      const timeoutId = setTimeout(() => {
+        inputRef.current.focus();
+        setHasAutoOpened(true);
+      }, 350);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [autoOpen, hasAutoOpened, value]);
+
+  // Setup Popper.js when dropdown opens
+  useEffect(() => {
+    if (!isOpen || !inputRef.current || !dropdownRef.current) {
+      // Cleanup popper if it exists
+      if (popperInstanceRef.current) {
+        popperInstanceRef.current.destroy();
+        popperInstanceRef.current = null;
+      }
+      return;
+    }
+
+    // Calculate max height based on available space
+    const calculateMaxHeight = () => {
+      const rect = inputRef.current.getBoundingClientRect();
+      const viewportHeight = window.visualViewport 
+        ? window.visualViewport.height 
+        : window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom - 8; // 8px padding
+      return Math.max(150, Math.min(300, spaceBelow));
+    };
+
+    // Set initial max-height
+    if (dropdownRef.current) {
+      dropdownRef.current.style.maxHeight = `${calculateMaxHeight()}px`;
+    }
+
+    // Create Popper instance
+    popperInstanceRef.current = createPopper(inputRef.current, dropdownRef.current, {
+      placement: 'bottom-start',
+      strategy: 'fixed',
+      modifiers: [
+        {
+          name: 'flip',
+          enabled: false, // Always show below, never flip above
+        },
+        {
+          name: 'preventOverflow',
+          enabled: false, // Disable - let it overflow and use CSS max-height instead
+        },
+        {
+          name: 'offset',
+          options: {
+            offset: [0, 4], // 4px gap below input
+          },
+        },
+        {
+          name: 'computeStyles',
+          options: {
+            adaptive: true, // Adapt to viewport changes
+            gpuAcceleration: false, // Better for mobile
+          },
+        },
+      ],
+    });
+
+    // Update on scroll/resize
+    const updatePopper = () => {
+      if (popperInstanceRef.current) {
+        popperInstanceRef.current.update();
+        
+        // Also update max-height when viewport changes
+        if (dropdownRef.current && inputRef.current) {
+          const rect = inputRef.current.getBoundingClientRect();
+          const viewportHeight = window.visualViewport 
+            ? window.visualViewport.height 
+            : window.innerHeight;
+          const spaceBelow = viewportHeight - rect.bottom - 8;
+          const maxHeight = Math.max(150, Math.min(300, spaceBelow));
+          dropdownRef.current.style.maxHeight = `${maxHeight}px`;
+        }
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      // Close on ANY scroll (including modal) or resize
-      // Use capture=true for scroll to catch events from children (like the modal)
-      document.addEventListener('scroll', () => setIsOpen(false), true);
-      window.addEventListener('resize', () => setIsOpen(false));
-    }
+    window.addEventListener('scroll', updatePopper, true);
+    window.addEventListener('resize', updatePopper);
     
+    // Also listen to visual viewport changes (for mobile keyboard)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updatePopper);
+      window.visualViewport.addEventListener('scroll', updatePopper);
+    }
+
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('scroll', () => setIsOpen(false), true);
-      window.removeEventListener('resize', () => setIsOpen(false));
+      window.removeEventListener('scroll', updatePopper, true);
+      window.removeEventListener('resize', updatePopper);
+      
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updatePopper);
+        window.visualViewport.removeEventListener('scroll', updatePopper);
+      }
+      
+      if (popperInstanceRef.current) {
+        popperInstanceRef.current.destroy();
+        popperInstanceRef.current = null;
+      }
     };
   }, [isOpen]);
 
-  // Update menu position when opening
-  useLayoutEffect(() => {
-    if (isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const menuHeight = 300; // max-height of menu
-      const viewportHeight = window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      
-      // If not enough space below and more space above, position above
-      const showAbove = spaceBelow < menuHeight && spaceAbove > spaceBelow;
-      
-      setMenuPosition({
-        top: showAbove ? rect.top - menuHeight - 4 : rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-        showAbove
+  // Auto-highlight first option when dropdown opens or filtered list changes
+  useEffect(() => {
+    if (isOpen && filteredPlayers.length > 0) {
+      setHighlightedIndex(0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, inputValue]); // Re-run when input changes (affects filtered list)
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && optionRefs.current[highlightedIndex]) {
+      optionRefs.current[highlightedIndex].scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth'
       });
     }
-  }, [isOpen]);
+  }, [highlightedIndex]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e) => {
+      const clickedContainer = containerRef.current && containerRef.current.contains(e.target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      
+      if (!clickedContainer && !clickedDropdown) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
+  
   // Normalize allPlayerNames to always be an array of objects with value/label
   const normalizedPlayers = (Array.isArray(allPlayerNames) && allPlayerNames.length > 0)
     ? allPlayerNames.map(player => {
         if (isPlayerOption(player)) {
           return player;
         }
-        // Convert string to object format
         return { value: player, label: player };
       })
     : [];
-
+  
+  // Filter players based on input and exclusions
   const filteredPlayers = normalizedPlayers.filter(player => {
-    const label = player.label.toLowerCase();
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = label.includes(searchLower);
-    
-    // Check if excluded (compare by value for objects, by string for legacy)
+    // Check if excluded
     const isExcluded = excludePlayers.some(excluded => {
       if (isPlayerOption(excluded)) {
         return excluded.value === player.value;
@@ -114,88 +208,65 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
       return excluded === player.value || excluded === player.label;
     });
     
-    return matchesSearch && !isExcluded;
+    if (isExcluded) return false;
+    
+    // Filter by input value
+    const label = player.label.toLowerCase();
+    const searchLower = inputValue.toLowerCase();
+    return label.includes(searchLower);
   });
-
-  // Total options is just the filtered players
-  const totalOptions = filteredPlayers.length;
-
-  // Auto-highlight first option when search term changes or dropdown opens
-  useEffect(() => {
-    if (isOpen && totalOptions > 0) {
-      setHighlightedIndex(0);
-    } else {
-      setHighlightedIndex(-1);
+  
+  const handleInputChange = (e) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    if (!isOpen) {
+      setIsOpen(true);
     }
-  }, [searchTerm, isOpen, totalOptions]);
-
-  // Focus search input when dropdown opens, clear search when it closes
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      // Small timeout to ensure element is in DOM
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 10);
-    } else if (!isOpen) {
-      setSearchTerm('');
-    }
-  }, [isOpen]);
-
-  const handleSelect = (player) => {
-    // Always pass the full object (or string for backward compatibility)
-    onChange(player);
-    setIsOpen(false);
-    setSearchTerm('');
-    setHighlightedIndex(-1);
-    // Return focus to trigger for continued tab navigation
-    setTimeout(() => {
-      triggerRef.current?.focus();
-    }, 0);
   };
 
-  // Handle keyboard navigation
+  const handleInputFocus = () => {
+    setIsOpen(true);
+    // Select all text if there's a value
+    if (inputValue && inputRef.current) {
+      inputRef.current.select();
+    }
+  };
+
   const handleKeyDown = (e) => {
-    if (!isOpen || totalOptions === 0) return;
+    if (!isOpen || filteredPlayers.length === 0) {
+      // Open dropdown on ArrowDown when closed
+      if (e.key === 'ArrowDown' && !isOpen) {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex(prev => 
-          prev < totalOptions - 1 ? prev + 1 : 0
+          prev < filteredPlayers.length - 1 ? prev + 1 : 0
         );
         break;
       
       case 'ArrowUp':
         e.preventDefault();
         setHighlightedIndex(prev => 
-          prev > 0 ? prev - 1 : totalOptions - 1
+          prev > 0 ? prev - 1 : filteredPlayers.length - 1
         );
         break;
       
       case 'Enter':
         e.preventDefault();
-        
-        if (totalOptions === 0) return;
-        
-        // Select the highlighted option (first option is auto-highlighted)
         if (highlightedIndex >= 0 && highlightedIndex < filteredPlayers.length) {
-          handleSelect(filteredPlayers[highlightedIndex]);
-        }
-        break;
-      
-      case 'Tab':
-        // Select first option on Tab if options exist and user has typed something
-        // Don't prevent default so Tab can still move to next field
-        if (totalOptions > 0 && searchTerm.trim() && filteredPlayers.length > 0) {
-            handleSelect(filteredPlayers[0]);
+          handleSelectPlayer(filteredPlayers[highlightedIndex]);
         }
         break;
       
       case 'Escape':
         e.preventDefault();
         setIsOpen(false);
-        setSearchTerm('');
-        setHighlightedIndex(-1);
         break;
       
       default:
@@ -203,112 +274,89 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     }
   };
 
-  // Scroll highlighted option into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && optionsRefs.current[highlightedIndex]) {
-      optionsRefs.current[highlightedIndex].scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth'
-      });
-    }
-  }, [highlightedIndex]);
-
-  const handleTriggerKeyDown = (e) => {
-    // Open dropdown on Enter or Space
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setIsOpen(!isOpen);
-      return;
-    }
-
-    // Open dropdown and navigate on arrow keys
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!isOpen) {
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    // Open dropdown and start typing on alphanumeric keys
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      // Open dropdown and set the initial search character
-      if (!isOpen) {
-        setIsOpen(true);
-        setSearchTerm(e.key);
-      }
-    }
+  const handleSelectPlayer = (player) => {
+    onChange(player);
+    setInputValue(getDisplayValue(player));
+    setIsOpen(false);
+  };
+  
+  const handleTouchStart = (e) => {
+    touchStartPos.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
   };
 
-  return (
-    <div className="player-dropdown-container" ref={dropdownRef}>
-      <div 
-        ref={triggerRef}
-        className={`player-dropdown-trigger ${isOpen ? 'open' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={handleTriggerKeyDown}
-        tabIndex={0}
-        role="combobox"
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-      >
-        <span className={value ? 'player-dropdown-value' : 'player-dropdown-placeholder'}>
-          {value ? getDisplayValue(value) : placeholder}
-        </span>
-        <ChevronDown size={18} className={isOpen ? 'rotate-180' : ''} />
-      </div>
+  const handleTouchEnd = (e, player) => {
+    if (!touchStartPos.current) return;
+    
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY
+    };
+    
+    // Calculate distance moved
+    const deltaX = Math.abs(touchEnd.x - touchStartPos.current.x);
+    const deltaY = Math.abs(touchEnd.y - touchStartPos.current.y);
+    
+    // If moved less than 10px, it's a tap, not a scroll
+    if (deltaX < 10 && deltaY < 10) {
+      e.preventDefault();
+      handleSelectPlayer(player);
+    }
+    
+    touchStartPos.current = null;
+  };
+  
+  const dropdownContent = isOpen && (
+    <ul 
+      ref={dropdownRef}
+      className="player-dropdown-list"
+      style={{
+        zIndex: 9999,
+        overflow: 'auto',
+      }}
+    >
+      {filteredPlayers.length > 0 ? (
+        filteredPlayers.map((player, index) => (
+          <li
+            key={getValue(player)}
+            ref={el => optionRefs.current[index] = el}
+            className={`player-dropdown-option ${highlightedIndex === index ? 'highlighted' : ''}`}
+            onClick={() => handleSelectPlayer(player)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={(e) => handleTouchEnd(e, player)}
+            onMouseEnter={() => setHighlightedIndex(index)}
+          >
+            {getDisplayValue(player)}
+          </li>
+        ))
+      ) : inputValue ? (
+        <li className="player-dropdown-option disabled">
+          No players found
+        </li>
+      ) : null}
+    </ul>
+  );
 
-      {isOpen && createPortal(
-        <div 
-          ref={menuRef}
-          className={`player-dropdown-menu ${menuPosition.showAbove ? 'above' : ''}`}
-          style={{
-            position: 'fixed', // Use fixed positioning for better reliability
-            top: menuPosition.showAbove ? 'auto' : `${menuPosition.top}px`,
-            bottom: menuPosition.showAbove ? `${window.innerHeight - menuPosition.top - 304}px` : 'auto',
-            left: `${menuPosition.left}px`,
-            width: `${menuPosition.width}px`,
-            right: 'auto', // Override any CSS right: 0
-            // Ensure it's on top of everything
-            zIndex: 9999
-          }}
-        >
-          <input
-            ref={searchInputRef}
-            type="text"
-            className="player-dropdown-search"
-            placeholder="Search players..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={handleKeyDown}
-            // No autoFocus here, we handle it in useEffect
-            onClick={(e) => e.stopPropagation()}
-          />
-          
-          <div className="player-dropdown-options">
-            {filteredPlayers.length > 0 ? (
-              filteredPlayers.map((player, index) => (
-                <div
-                  key={isPlayerOption(player) ? player.value : player}
-                  ref={el => optionsRefs.current[index] = el}
-                  className={`player-dropdown-option ${itemsEqual(player, value) ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
-                  onClick={() => handleSelect(player)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  {player.label}
-                </div>
-              ))
-            ) : (
-              <div className="player-dropdown-option disabled">
-                {searchTerm ? 'No players found' : 'No players available'}
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+  return (
+    <div className="player-dropdown-container" ref={containerRef}>
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="text"
+        value={inputValue}
+        onChange={handleInputChange}
+        onFocus={handleInputFocus}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck="false"
+        className="player-dropdown-input"
+      />
+      {dropdownContent && createPortal(dropdownContent, document.body)}
     </div>
   );
 }
-
