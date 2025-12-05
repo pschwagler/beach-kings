@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from backend.utils.datetime_utils import utcnow
 from jose import JWTError, jwt
+from jose.exceptions import ExpiredSignatureError
 from twilio.rest import Client
 from dotenv import load_dotenv
 import phonenumbers
@@ -122,7 +123,12 @@ def verify_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         return payload
+    except ExpiredSignatureError:
+        # Expired tokens are expected behavior - log at DEBUG level
+        logger.debug("JWT token has expired")
+        return None
     except JWTError as e:
+        # Other JWT errors (invalid signature, malformed token, etc.) are unexpected
         logger.warning(f"JWT verification failed: {str(e)}")
         return None
 

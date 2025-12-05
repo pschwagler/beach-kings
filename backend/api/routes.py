@@ -2306,13 +2306,12 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             )
         
         # Send SMS
-        # DISABLED FOR NOW
-        # sms_sent = auth_service.send_sms_verification(phone_number, code)
-        # if not sms_sent:
-        #     raise HTTPException(
-        #         status_code=500,
-        #         detail="Failed to send SMS. Please check Twilio configuration."
-        #     )
+        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        if not sms_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send SMS. Please check Twilio configuration."
+            )
         
         return {
             "status": "success",
@@ -2441,13 +2440,12 @@ async def send_verification(request: Request, payload: CheckPhoneRequest, sessio
             )
         
         # Send SMS
-        # DISABLED FOR NOW
-        # sms_sent = auth_service.send_sms_verification(phone_number, code)
-        # if not sms_sent:
-        #     raise HTTPException(
-        #         status_code=500,
-        #         detail="Failed to send SMS. Please check Twilio configuration."
-        #     )
+        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        if not sms_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send SMS. Please check Twilio configuration."
+            )
         
         return {
             "status": "success",

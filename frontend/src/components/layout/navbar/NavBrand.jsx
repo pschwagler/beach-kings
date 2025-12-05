@@ -1,4 +1,3 @@
-import { Crown } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { navigateTo } from '../../../Router';
 

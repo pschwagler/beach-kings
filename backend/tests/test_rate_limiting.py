@@ -274,3 +274,6 @@ def test_reset_password_rate_limit_error_message(client, mock_user_service):
     error_detail = response.json()["detail"]
     assert "rate limit" in error_detail.lower()
     assert "10/minute" in error_detail or "per phone number" in error_detail.lower()
+
+
+
