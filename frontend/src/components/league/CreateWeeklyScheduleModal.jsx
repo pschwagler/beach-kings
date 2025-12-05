@@ -65,6 +65,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
         open_signups_time: utcOpenSignupsTime,
         end_date: formData.end_date
       });
+      onClose();
     } catch (err) {
       // Error handling is done in parent
     }

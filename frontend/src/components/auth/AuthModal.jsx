@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import PhoneInput from '../ui/PhoneInput';
@@ -70,6 +70,17 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     };
   }, [isOpen]);
 
+  const handlePhoneChange = useCallback((value) => {
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumber: value,
+    }));
+  }, []);
+
+  const handlePhoneValidation = useCallback(({ isValid }) => {
+    setIsPhoneValid(isValid);
+  }, []);
+
   if (!isOpen) {
     return null;
   }
@@ -103,23 +114,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     // Validate password in real-time if it's the password field
     if (name === 'password' && (activeMode === 'sign-up' || activeMode === 'reset-password-new')) {
       setPasswordRequirements(validatePassword(value));
-    }
-  };
-
-  const handlePhoneChange = (value) => {
-    setFormData((prev) => ({
-      ...prev,
-      phoneNumber: value,
-    }));
-  };
-
-  const handlePhoneValidation = ({ isValid, value }) => {
-    setIsPhoneValid(isValid);
-    if (isValid && value) {
-      setFormData((prev) => ({
-        ...prev,
-        phoneNumber: value,
-      }));
     }
   };
 

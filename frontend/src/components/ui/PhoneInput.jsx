@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 /**
@@ -41,6 +41,12 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
   const [displayValue, setDisplayValue] = useState('');
   const [isTouched, setIsTouched] = useState(false);
   const [error, setError] = useState('');
+  const onValidationChangeRef = useRef(onValidationChange);
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onValidationChangeRef.current = onValidationChange;
+  }, [onValidationChange]);
 
   // Initialize display value from prop
   useEffect(() => {
@@ -63,8 +69,8 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
     const isValid = !hasValue ? !required : isValidPhoneNumber(displayValue);
     const e164Value = toE164(displayValue);
     
-    if (onValidationChange) {
-      onValidationChange({
+    if (onValidationChangeRef.current) {
+      onValidationChangeRef.current({
         isValid,
         value: e164Value,
         displayValue,
@@ -78,7 +84,7 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
     } else {
       setError('');
     }
-  }, [displayValue, isTouched, required, onValidationChange]);
+  }, [displayValue, isTouched, required]);
 
   const handleChange = (e) => {
     const inputValue = e.target.value;

@@ -93,6 +93,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
         end_date: formData.end_date
       });
       setShowConfirmation(false);
+      onClose();
     } catch (err) {
       // Error handling is done in parent
       setShowConfirmation(false);

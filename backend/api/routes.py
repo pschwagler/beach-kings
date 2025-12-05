@@ -5,12 +5,13 @@ API route handlers for the Beach Volleyball ELO system.
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
+from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
 from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats
-from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service
+from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -2407,7 +2408,7 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
 
 
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
-@limiter.limit("3/hour")
+@limiter.limit("10/minute")
 async def send_verification(request: Request, payload: CheckPhoneRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Send SMS verification code to phone number.
@@ -2577,7 +2578,6 @@ async def verify_phone(request: Request, payload: VerifyPhoneRequest, session: A
 
 
 @router.post("/api/auth/reset-password", response_model=Dict[str, Any])
-@limiter.limit("3/hour")
 async def reset_password(request: Request, payload: ResetPasswordRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Initiate password reset by sending verification code.
@@ -2593,6 +2593,9 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, sessio
     try:
         # Normalize phone number
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
+        
+        # Check rate limit per phone number
+        await rate_limiting_service.check_phone_rate_limit(request, phone_number)
         
         # Check if user exists
         user = await user_service.get_user_by_phone(session, phone_number)
@@ -2619,7 +2622,6 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, sessio
             )
         
         # Send SMS
-        # DISABLED FOR NOW
         sms_sent = auth_service.send_sms_verification(phone_number, code)
         if not sms_sent:
             raise HTTPException(
@@ -2638,7 +2640,6 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, sessio
 
 
 @router.post("/api/auth/reset-password-verify", response_model=Dict[str, Any])
-@limiter.limit("10/minute")
 async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Verify code for password reset and return a reset token.
@@ -2655,6 +2656,9 @@ async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRe
     try:
         # Normalize phone number
         phone_number = auth_service.normalize_phone_number(payload.phone_number)
+        
+        # Check rate limit per phone number
+        await rate_limiting_service.check_phone_rate_limit(request, phone_number)
         
         # Get user
         user = await user_service.get_user_by_phone(session, phone_number)
