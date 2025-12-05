@@ -223,7 +223,7 @@ export function LeagueDetailsSkeleton() {
                   <div className="skeleton-text" style={{ width: '120px', height: '20px' }}></div>
                 </h4>
                 <p className="league-season-dates">
-                  <div className="skeleton-text" style={{ width: '180px', height: '16px' }}></div>
+                  <span className="skeleton-text" style={{ width: '180px', height: '16px', display: 'inline-block' }}></span>
                 </p>
               </div>
               <div className="skeleton-box" style={{ width: '60px', height: '24px', borderRadius: '12px' }}></div>

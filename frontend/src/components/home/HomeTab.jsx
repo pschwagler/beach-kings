@@ -57,32 +57,63 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange })
 
   const avatarInitial = getAvatarInitial(currentUserPlayer);
   const fullName = currentUserPlayer?.full_name || 'Player';
-  const currentRating = currentUserPlayer?.stats?.current_rating || 1200;
-  const totalGames = currentUserPlayer?.stats?.total_games || 0;
 
-  // Calculate 30-day stats from match history
-  const calculate30DayStats = () => {
+  // Calculate stats from match history
+  const calculateStatsFromMatches = () => {
     if (!userMatches || userMatches.length === 0) {
-      return { gamesPlayed: 0, winRate: 0 };
+      // Fall back to global stats if available, otherwise use defaults
+      return {
+        totalGames: currentUserPlayer?.stats?.total_games ?? 0,
+        currentRating: currentUserPlayer?.stats?.current_rating ?? 0,
+        games30Days: 0,
+        winRate30Days: 0
+      };
     }
 
+    // Filter out pending matches (active sessions)
+    const completedMatches = userMatches.filter(match => {
+      const sessionStatus = match['Session Status'];
+      return sessionStatus !== 'ACTIVE';
+    });
+
+    // Calculate total games from completed matches
+    const totalGames = completedMatches.length;
+
+    // Calculate current rating from most recent completed match
+    let currentRating = currentUserPlayer?.stats?.current_rating || 1200;
+    if (completedMatches.length > 0) {
+      // Sort by date to get most recent
+      const sortedMatches = [...completedMatches].sort((a, b) => {
+        const dateA = a.Date ? new Date(a.Date).getTime() : 0;
+        const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      // Get rating from most recent match
+      const mostRecentMatch = sortedMatches[0];
+      if (mostRecentMatch['ELO After'] !== undefined && mostRecentMatch['ELO After'] !== null) {
+        currentRating = mostRecentMatch['ELO After'];
+      }
+    }
+
+    // Calculate 30-day stats
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const recentMatches = userMatches.filter(match => {
+    const recentMatches = completedMatches.filter(match => {
       if (!match.Date) return false;
       const matchDate = new Date(match.Date);
       return matchDate >= thirtyDaysAgo;
     });
 
-    const gamesPlayed = recentMatches.length;
+    const games30Days = recentMatches.length;
     const wins = recentMatches.filter(match => match.Result === 'W').length;
-    const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
+    const winRate30Days = games30Days > 0 ? Math.round((wins / games30Days) * 100) : 0;
 
-    return { gamesPlayed, winRate };
+    return { totalGames, currentRating, games30Days, winRate30Days };
   };
 
-  const { gamesPlayed: games30Days, winRate: winRate30Days } = calculate30DayStats();
+  const { totalGames, currentRating, games30Days, winRate30Days } = calculateStatsFromMatches();
 
   return (
     <div className="home-tab-container">
@@ -119,7 +150,9 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange })
         <div className="home-stat-card">
           <TrendingUp size={24} className="home-stat-icon" />
           <div className="home-stat-label">Rating</div>
-          <div className="home-stat-value">{Math.round(currentRating)}</div>
+          <div className="home-stat-value">
+            {totalGames === 0 && currentRating === 0 ? '—' : Math.round(currentRating)}
+          </div>
         </div>
         <div className="home-stat-card">
           <Target size={24} className="home-stat-icon" />

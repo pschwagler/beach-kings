@@ -2796,7 +2796,7 @@ async def insert_elo_history_async(session: AsyncSession, elo_history_list: List
         session.add_all(chunk)
 
 
-async def upsert_player_global_stats_async(session: AsyncSession, elo_history_list: List[EloHistory], matches: List[Dict]) -> None:
+async def upsert_player_global_stats_async(session: AsyncSession, elo_history_list: List[EloHistory], matches: List[Match]) -> None:
     """
     Update PlayerGlobalStats based on elo_history and match data.
     For each player, calculate:
@@ -2820,47 +2820,46 @@ async def upsert_player_global_stats_async(session: AsyncSession, elo_history_li
     player_wins = {}
     
     for match in matches:
-        team1_players = [match.get('Team 1 Player 1'), match.get('Team 1 Player 2')]
-        team2_players = [match.get('Team 2 Player 1'), match.get('Team 2 Player 2')]
-        winner = match.get('Winner')
-        
-        # Get player IDs from names
-        result = await session.execute(
-            select(Player.id, Player.full_name).where(
-                Player.full_name.in_(team1_players + team2_players)
-            )
-        )
-        name_to_id = {row.full_name: row.id for row in result.all()}
+        # Get player IDs directly from Match ORM object
+        team1_player_ids = [match.team1_player1_id, match.team1_player2_id]
+        team2_player_ids = [match.team2_player1_id, match.team2_player2_id]
+        all_player_ids = [pid for pid in team1_player_ids + team2_player_ids if pid is not None]
         
         # Count games for all 4 players
-        for player_name in team1_players + team2_players:
-            if player_name and player_name in name_to_id:
-                player_id = name_to_id[player_name]
-                player_games[player_id] = player_games.get(player_id, 0) + 1
+        for player_id in all_player_ids:
+            player_games[player_id] = player_games.get(player_id, 0) + 1
         
         # Count wins for winning team
-        if winner == 'Team 1':
-            for player_name in team1_players:
-                if player_name and player_name in name_to_id:
-                    player_id = name_to_id[player_name]
+        # winner is 1 = team1, 2 = team2, -1 = tie
+        if match.winner == 1:
+            # Team 1 won
+            for player_id in team1_player_ids:
+                if player_id is not None:
                     player_wins[player_id] = player_wins.get(player_id, 0) + 1
-        elif winner == 'Team 2':
-            for player_name in team2_players:
-                if player_name and player_name in name_to_id:
-                    player_id = name_to_id[player_name]
+        elif match.winner == 2:
+            # Team 2 won
+            for player_id in team2_player_ids:
+                if player_id is not None:
                     player_wins[player_id] = player_wins.get(player_id, 0) + 1
+        # If winner is -1 (tie), no one wins
+    
+    # Get all unique player IDs from both elo_history and matches
+    all_player_ids = set(player_latest_elo.keys()) | set(player_games.keys())
     
     # Upsert PlayerGlobalStats for each player
-    for player_id in player_latest_elo.keys():
+    for player_id in all_player_ids:
+        # Use latest ELO if available, otherwise use INITIAL_ELO
+        current_rating = player_latest_elo.get(player_id, INITIAL_ELO)
+        
         stmt = pg_insert(PlayerGlobalStats).values(
             player_id=player_id,
-            current_rating=player_latest_elo[player_id],
+            current_rating=current_rating,
             total_games=player_games.get(player_id, 0),
             total_wins=player_wins.get(player_id, 0)
         ).on_conflict_do_update(
             index_elements=['player_id'],
             set_=dict(
-                current_rating=player_latest_elo[player_id],
+                current_rating=current_rating,
                 total_games=player_games.get(player_id, 0),
                 total_wins=player_wins.get(player_id, 0),
                 updated_at=func.now()

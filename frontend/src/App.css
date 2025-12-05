@@ -4058,6 +4058,16 @@ select.form-select {
   justify-content: center;
 }
 
+/* Hide dashboard sidebar title when collapsed */
+.sidebar.collapsed .league-sidebar-title-wrapper-container {
+  display: none;
+}
+
+/* Center the collapse button when dashboard sidebar is collapsed */
+.sidebar.collapsed .league-sidebar-header {
+  justify-content: center;
+}
+
 /* Show title on mobile even when collapsed */
 
 /* Collapsed Sidebar */
@@ -4078,6 +4088,16 @@ select.form-select {
 }
 
 .league-sidebar.collapsed .league-sidebar-nav-item span {
+  display: none;
+}
+
+/* Hide dashboard sidebar nav item labels when collapsed */
+.sidebar.collapsed .league-sidebar-nav-item {
+  justify-content: center;
+  padding: 6px 12px;
+}
+
+.sidebar.collapsed .league-sidebar-nav-item span {
   display: none;
 }
 
@@ -8211,6 +8231,10 @@ button.match-config-toggle.inline svg {
 }
 @media (max-width: 768px) {
   .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+    display: flex !important;
+  }
+  
+  .sidebar.collapsed .league-sidebar-title-wrapper-container {
     display: flex !important;
   }
 }
