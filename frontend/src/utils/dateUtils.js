@@ -103,4 +103,40 @@ export function utcTimeToLocalWithTimezone(utcTimeStr) {
   return `${timeStr} ${timeZoneName}`;
 }
 
+/**
+ * Format a timestamp as a relative time string (e.g., "5 minutes ago", "Yesterday", "2 weeks ago")
+ * Falls back to a formatted date string for older timestamps
+ * @param {string|Date} timestamp - ISO date string or Date object
+ * @returns {string|null} Relative time string or formatted date, or null if timestamp is invalid
+ */
+export function formatRelativeTime(timestamp) {
+  if (!timestamp) return null;
+  
+  const date = new Date(timestamp);
+  // Check if date is valid
+  if (isNaN(date.getTime())) return null;
+  
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours === 0) {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      if (diffMins < 1) return 'Just now';
+      return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    }
+    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  } else if (diffDays === 1) {
+    return 'Yesterday';
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}
 

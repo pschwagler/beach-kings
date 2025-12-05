@@ -11,7 +11,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { getUserLeagues, updateLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
-import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
 import NavDropdownItem from '../layout/navbar/NavDropdownItem';
@@ -119,6 +118,8 @@ function LeagueDashboardContent({ leagueId }) {
     const url = new URL(window.location);
     url.searchParams.set('tab', tab);
     window.history.pushState({}, '', url);
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
 
@@ -163,14 +164,6 @@ function LeagueDashboardContent({ leagueId }) {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
     setIsLeagueDropdownOpen(false);
-  };
-
-  const { openDrawer } = useDrawer();
-
-  const handlePlayerClick = (playerName) => {
-    openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
-      playerName
-    });
   };
 
   const handleSignOut = async () => {
@@ -513,9 +506,7 @@ function LeagueDashboardContent({ leagueId }) {
             {activeTab === 'rankings' && <LeagueRankingsTab />}
 
             {activeTab === 'matches' && (
-              <LeagueMatchesTab
-                onPlayerClick={handlePlayerClick}
-              />
+              <LeagueMatchesTab />
             )}
 
             {activeTab === 'details' && (

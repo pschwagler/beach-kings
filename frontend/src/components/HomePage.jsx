@@ -88,6 +88,9 @@ export default function HomePage() {
     url.searchParams.set('tab', tab);
     window.history.pushState({}, '', url);
     
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     // Collapse sidebar on mobile after tab change
     if (window.innerWidth <= 768) {
       setSidebarCollapsed(true);

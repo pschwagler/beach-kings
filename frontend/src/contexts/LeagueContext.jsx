@@ -143,14 +143,23 @@ export const LeagueProvider = ({ children, leagueId }) => {
   }, [seasonData]);
   
   // Load season data with progressive loading
-  const loadSeasonData = useCallback(async (seasonId) => {
+  const loadSeasonData = useCallback(async (seasonId, forceReload = false) => {
     if (!seasonId) return;
     
-    // Check if already loading or loaded using refs (doesn't cause re-render)
-    if (loadingRef.current[seasonId] || dataRef.current[seasonId]) {
+    // Check if already loading - even for force reload, prevent concurrent loads
+    if (loadingRef.current[seasonId]) {
+      console.log('loadSeasonData: Already loading, skipping duplicate call', { seasonId, forceReload });
       return;
     }
     
+    // Check if already loaded using refs (doesn't cause re-render)
+    // Skip this check if forceReload is true
+    if (!forceReload && dataRef.current[seasonId]) {
+      return;
+    }
+    
+    // Mark as loading immediately to prevent concurrent calls
+    loadingRef.current[seasonId] = true;
     setSeasonDataLoading(prev => ({ ...prev, [seasonId]: true }));
     setSeasonDataError(prev => {
       const newState = { ...prev };
@@ -174,18 +183,20 @@ export const LeagueProvider = ({ children, leagueId }) => {
         }
       }
       
-      // Update with rankings first (check again to avoid race conditions)
+      // Update with rankings first (skip check if force reloading)
+      // Preserve existing matches during reload to avoid clearing them
       setSeasonData(prev => {
-        if (prev[seasonId]) {
+        if (!forceReload && prev[seasonId]) {
           return prev; // Already loaded
         }
+        const existing = prev[seasonId];
         return {
           ...prev,
           [seasonId]: {
             rankings: rankings || [],
-            matches: null,
-            player_season_stats: null,
-            partnership_opponent_stats: null
+            matches: existing?.matches || null, // Preserve existing matches during reload
+            player_season_stats: existing?.player_season_stats || null,
+            partnership_opponent_stats: existing?.partnership_opponent_stats || null
           }
         };
       });
@@ -206,10 +217,10 @@ export const LeagueProvider = ({ children, leagueId }) => {
         })
       ]);
       
-      // Update with complete data (check again to avoid race conditions)
+      // Update with complete data (skip check if force reloading)
       setSeasonData(prev => {
         const existing = prev[seasonId];
-        if (existing?.matches && existing?.player_season_stats) {
+        if (!forceReload && existing?.matches && existing?.player_season_stats) {
           // Already has complete data, don't overwrite
           return prev;
         }
@@ -245,6 +256,8 @@ export const LeagueProvider = ({ children, leagueId }) => {
         };
       });
     } finally {
+      // Clear loading flag
+      delete loadingRef.current[seasonId];
       setSeasonDataLoading(prev => {
         const newState = { ...prev };
         delete newState[seasonId];
@@ -265,16 +278,88 @@ export const LeagueProvider = ({ children, leagueId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSeason?.id]); // Only depend on activeSeason.id - loadSeasonData is stable
   
+  // Lightweight function to refresh only matches (not stats/rankings)
+  const refreshMatchData = useCallback(async (seasonId) => {
+    if (!seasonId) return;
+    
+    try {
+      // Only fetch matches - much faster than full season data refresh
+      const matches = await getSeasonMatches(seasonId).catch(err => {
+        console.error('Error loading season matches:', err);
+        return null;
+      });
+      
+      if (matches === null) return;
+      
+      // Update only matches in seasonData, preserving other data
+      setSeasonData(prev => {
+        const existing = prev[seasonId];
+        if (!existing) {
+          // If season data doesn't exist yet, initialize it
+          return {
+            ...prev,
+            [seasonId]: {
+              rankings: [],
+              matches: matches || [],
+              player_season_stats: {},
+              partnership_opponent_stats: {}
+            }
+          };
+        }
+        
+        // Update only matches, preserve everything else
+        return {
+          ...prev,
+          [seasonId]: {
+            ...existing,
+            matches: matches || []
+          }
+        };
+      });
+      
+      // Update the ref immediately
+      dataRef.current[seasonId] = {
+        ...(dataRef.current[seasonId] || {}),
+        matches: matches || []
+      };
+    } catch (err) {
+      console.error('Error refreshing match data:', err);
+    }
+  }, []);
+
   const refreshSeasonData = useCallback(async (seasonId) => {
-    // Clear existing data and reload
-    setSeasonData(prev => {
-      const newState = { ...prev };
-      delete newState[seasonId];
-      return newState;
-    });
-    // Also clear the ref so loadSeasonData doesn't skip due to stale ref value
+    if (!seasonId) return;
+    
+    // Check if already loading to prevent duplicate refreshes
+    if (loadingRef.current[seasonId]) {
+      console.log('refreshSeasonData: Already loading, skipping duplicate refresh', { seasonId });
+      return;
+    }
+    
+    // Clear the data ref so loadSeasonData will reload
+    // But keep loadingRef to prevent concurrent calls
     delete dataRef.current[seasonId];
-    await loadSeasonData(seasonId);
+    
+    // Force reload the data (this will update seasonData in place)
+    await loadSeasonData(seasonId, true);
+    
+    // Wait for the data to actually be available in state
+    // Check up to 15 times with 150ms intervals (2.25 seconds total max wait)
+    let dataLoaded = false;
+    for (let i = 0; i < 15; i++) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const currentData = dataRef.current[seasonId];
+      if (currentData?.matches !== undefined && currentData?.matches !== null) {
+        dataLoaded = true;
+        break;
+      }
+    }
+    
+    // If data loaded, wait one more cycle to ensure React has re-rendered
+    if (dataLoaded) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+    
     // Note: Player data will be reloaded automatically by the useEffect that watches activeSeasonData
   }, [loadSeasonData]);
 
@@ -330,10 +415,13 @@ export const LeagueProvider = ({ children, leagueId }) => {
     updateMember,
     activeSeason,
     activeSeasonData,
+    seasonData,
     seasonDataLoading: activeSeason ? seasonDataLoading[activeSeason.id] : false,
+    seasonDataLoadingMap: seasonDataLoading,
     seasonDataError: activeSeason ? seasonDataError[activeSeason.id] : null,
     loadSeasonData,
     refreshSeasonData,
+    refreshMatchData,
     isLeagueMember,
     isLeagueAdmin,
     // Selected player state

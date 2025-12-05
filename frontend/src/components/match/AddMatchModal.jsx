@@ -5,39 +5,12 @@ import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { getUserLeagues, getLeagueSeasons } from '../../services/api';
 import { formatDateRange } from '../league/utils/leagueUtils';
+import { useMatchFormReducer } from './useMatchFormReducer';
+import { getPlayerValue, nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
+import { formatScore, validateFormFields, validateScores } from '../../utils/matchValidation';
+import { autoAdvanceToNextField } from '../../utils/formNavigation';
 
-// Constants
-const INITIAL_FORM_STATE = {
-  team1Player1: '',
-  team1Player2: '',
-  team2Player1: '',
-  team2Player2: '',
-  team1Score: '00',
-  team2Score: '00'
-};
-
-// Helper function to convert player name to player option (for editing)
-const nameToPlayerOption = (name, nameToIdMap) => {
-  if (!name) return '';
-  const playerId = nameToIdMap.get(name);
-  if (playerId) {
-    return { value: playerId, label: name };
-  }
-  // Fallback: if name not found in map, return as object with name as both value and label
-  return { value: name, label: name };
-};
-
-// Helper function to format score as 2-digit string
-const formatScore = (score) => {
-  if (!score && score !== 0) return '00';
-  const num = parseInt(score);
-  if (isNaN(num)) return '00';
-  // Clamp to 0-99 range
-  const clamped = Math.max(0, Math.min(99, num));
-  return clamped.toString().padStart(2, '0');
-};
-
-// Helper functions
+// Helper function to map edit match to form data
 const mapEditMatchToFormData = (editMatch, nameToIdMap) => ({
   team1Player1: nameToPlayerOption(editMatch['Team 1 Player 1'] || '', nameToIdMap),
   team1Player2: nameToPlayerOption(editMatch['Team 1 Player 2'] || '', nameToIdMap),
@@ -46,38 +19,6 @@ const mapEditMatchToFormData = (editMatch, nameToIdMap) => ({
   team1Score: formatScore(editMatch['Team 1 Score']),
   team2Score: formatScore(editMatch['Team 2 Score'])
 });
-
-const validateFormFields = (formData) => {
-  if (!formData.team1Player1 || !formData.team1Player2 || !formData.team2Player1 || !formData.team2Player2) {
-    return { isValid: false, errorMessage: 'Please fill in all player fields' };
-  }
-  // Scores are always present (default to '00'), so we just need to validate they're valid numbers
-  const score1 = parseInt(formData.team1Score);
-  const score2 = parseInt(formData.team2Score);
-  if (isNaN(score1) || isNaN(score2)) {
-    return { isValid: false, errorMessage: 'Please enter valid scores' };
-  }
-  return { isValid: true, errorMessage: null };
-};
-
-const validateScores = (formData) => {
-  const score1 = parseInt(formData.team1Score);
-  const score2 = parseInt(formData.team2Score);
-  
-  if (isNaN(score1) || isNaN(score2) || score1 < 0 || score2 < 0) {
-    return { isValid: false, errorMessage: 'Please enter valid scores' };
-  }
-  
-  if (score1 === score2) {
-    return { isValid: false, errorMessage: 'Scores cannot be tied. There must be a winner.' };
-  }
-  
-  if (score1 === 0 && score2 === 0) {
-    return { isValid: false, errorMessage: 'Both scores cannot be zero' };
-  }
-  
-  return { isValid: true, errorMessage: null, score1, score2 };
-};
 
 export default function AddMatchModal({ 
   isOpen, 
@@ -91,7 +32,7 @@ export default function AddMatchModal({
   members = [],
   league = null
 }) {
-  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -162,7 +103,7 @@ export default function AddMatchModal({
 
   // Handle any field change
   const handleFieldChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    dispatchForm({ type: 'SET_PLAYER', field, player: value });
     // Clear error when user starts typing
     if (formError) setFormError(null);
   };
@@ -182,26 +123,9 @@ export default function AddMatchModal({
       formattedValue = formattedValue.padStart(2, '0');
     }
     
-    setFormData(prev => ({ ...prev, [field]: formattedValue }));
+    dispatchForm({ type: 'SET_SCORE', field, value: formattedValue });
     // Clear error when user starts typing
     if (formError) setFormError(null);
-  };
-
-  // Helper to get player value (ID) from player option
-  const getPlayerValue = (player) => {
-    if (!player) return '';
-    if (typeof player === 'object' && 'value' in player) {
-      return player.value;
-    }
-    return player;
-  };
-
-  // Helper to check if two players are equal
-  const playersEqual = (a, b) => {
-    if (!a || !b) return a === b;
-    const valA = getPlayerValue(a);
-    const valB = getPlayerValue(b);
-    return valA === valB;
   };
 
   // Handle player selection with duplicate prevention and auto-advance
@@ -209,55 +133,18 @@ export default function AddMatchModal({
     // Clear error when user starts typing
     if (formError) setFormError(null);
     
-    // If a player is selected, remove them from other positions
+    // Update form with player (reducer handles duplicate removal)
+    dispatchForm({ type: 'SET_PLAYER', field, player: newPlayer });
+    
+    // Auto-advance to next field after selection
     if (newPlayer) {
-      setFormData(prev => {
-        const updated = { ...prev, [field]: newPlayer };
-        const newPlayerValue = getPlayerValue(newPlayer);
-        
-        // Clear the player from other positions if they're already selected
-        Object.keys(updated).forEach(key => {
-          if (key !== field && key.includes('Player')) {
-            const existingValue = getPlayerValue(updated[key]);
-            if (existingValue === newPlayerValue) {
-              updated[key] = '';
-            }
-          }
-        });
-        return updated;
-      });
-      
-      // Auto-advance to next field after selection
-      setTimeout(() => {
-        switch (field) {
-          case 'team1Player1':
-            // Find the input element in the next dropdown and focus it
-            const input2 = team1Player2Ref.current?.querySelector('.player-dropdown-input');
-            if (input2) {
-              input2.focus();
-            }
-            break;
-          case 'team1Player2':
-            const input3 = team2Player1Ref.current?.querySelector('.player-dropdown-input');
-            if (input3) {
-              input3.focus();
-            }
-            break;
-          case 'team2Player1':
-            const input4 = team2Player2Ref.current?.querySelector('.player-dropdown-input');
-            if (input4) {
-              input4.focus();
-            }
-            break;
-          case 'team2Player2':
-            team1ScoreRef.current?.focus();
-            break;
-          default:
-            break;
-        }
-      }, 100);
-    } else {
-      setFormData(prev => ({ ...prev, [field]: newPlayer }));
+      const refs = {
+        team1Player2Ref,
+        team2Player1Ref,
+        team2Player2Ref,
+        team1ScoreRef
+      };
+      autoAdvanceToNextField(field, refs);
     }
   };
 
@@ -357,9 +244,12 @@ export default function AddMatchModal({
   // Pre-populate fields when editing
   useEffect(() => {
     if (editMatch) {
-      setFormData(mapEditMatchToFormData(editMatch, playerNameToIdMap));
+      dispatchForm({ 
+        type: 'LOAD_MATCH', 
+        formData: mapEditMatchToFormData(editMatch, playerNameToIdMap) 
+      });
     } else {
-      setFormData(INITIAL_FORM_STATE);
+      dispatchForm({ type: 'RESET' });
     }
     setFormError(null);
   }, [editMatch, isOpen, playerNameToIdMap]);
@@ -425,7 +315,7 @@ export default function AddMatchModal({
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
-        setFormData(INITIAL_FORM_STATE);
+        dispatchForm({ type: 'RESET' });
       }
       
       onClose();
@@ -465,7 +355,7 @@ export default function AddMatchModal({
     const allSelected = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
     return allSelected.filter(player => {
       if (!player) return false;
-      return !playersEqual(player, currentPlayer);
+      return !arePlayersEqual(player, currentPlayer);
     });
   };
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { X, Trophy, Users } from 'lucide-react';
 import { Button } from '../ui/UI';
 
@@ -75,19 +75,42 @@ export default function ConfirmationModal({
   playerCount,
   matches
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const playerStats = useMemo(() => {
     if (!matches || matches.length === 0) return [];
     return calculatePlayerStats(matches);
   }, [matches]);
 
+  const handleConfirm = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (error) {
+      console.error('Error during confirmation:', error);
+      // Keep modal open on error so user can see what happened
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
+  const handleOverlayClick = () => {
+    if (!isSubmitting) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content confirmation-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <Button variant="close" onClick={onClose}>
+          <Button variant="close" onClick={onClose} disabled={isSubmitting}>
             <X size={20} />
           </Button>
         </div>
@@ -139,11 +162,11 @@ export default function ConfirmationModal({
         </div>
 
         <div className="modal-actions">
-          <Button onClick={onClose}>
+          <Button onClick={onClose} disabled={isSubmitting}>
             {cancelText}
           </Button>
-          <Button variant="success" onClick={onConfirm}>
-            {confirmText}
+          <Button variant="success" onClick={handleConfirm} disabled={isSubmitting}>
+            {isSubmitting ? 'Submitting...' : confirmText}
           </Button>
         </div>
       </div>

@@ -38,6 +38,9 @@ function localTimeToUTC(localTimeStr) {
 }
 
 export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, onClose, onSubmit }) {
+  // Determine if this is add mode (no schedule.id) or edit mode
+  const isEditMode = schedule && schedule.id;
+  
   // Convert UTC times from schedule to local times for display
   const localStartTime = schedule?.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
   const localOpenSignupsTime = schedule?.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
@@ -50,7 +53,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     open_signups_mode: schedule?.open_signups_mode || 'auto_after_last_session',
     open_signups_day_of_week: schedule?.open_signups_day_of_week?.toString() || '',
     open_signups_time: localOpenSignupsTime,
-    end_date: schedule?.end_date || ''
+    end_date: schedule?.end_date || seasonEndDate || ''
   });
   
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -68,8 +71,8 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
       }
     }
     
-    // Show confirmation dialog
-    if (!showConfirmation) {
+    // Show confirmation dialog only for edit mode (not for new schedules)
+    if (isEditMode && !showConfirmation) {
       setShowConfirmation(true);
       return;
     }
@@ -100,13 +103,13 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Edit Weekly Scheduled Session</h2>
+          <h2>{isEditMode ? 'Edit Weekly Scheduled Session' : 'Add Weekly Scheduled Session'}</h2>
           <button className="modal-close-button" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
         <div className="modal-body">
-          {showConfirmation && (
+          {isEditMode && showConfirmation && (
             <div className="form-group" style={{ 
               backgroundColor: '#fff3cd', 
               border: '1px solid #ffc107', 
@@ -265,7 +268,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
               onClick={handleSubmit}
               disabled={!formData.day_of_week || !formData.start_time || !formData.end_date}
             >
-              Update Schedule
+              {isEditMode ? 'Update Schedule' : 'Create Schedule'}
             </button>
           )}
         </div>

@@ -423,6 +423,194 @@ async def test_delete_session_not_active(db_session):
         await data_service.delete_session(db_session, session["id"])
 
 
+@pytest.mark.asyncio
+async def test_session_numbering_for_same_date(db_session):
+    """Test that multiple sessions on the same date get numbered correctly."""
+    # First session should just be the date
+    session1 = await data_service.create_session(db_session, date="1/15/2024")
+    assert session1["name"] == "1/15/2024"
+    
+    # Submit first session so we can create another
+    await data_service.lock_in_session(db_session, session1["id"])
+    
+    # Second session should be "date Session #2"
+    session2 = await data_service.create_session(db_session, date="1/15/2024")
+    assert session2["name"] == "1/15/2024 Session #2"
+    
+    # Submit second session
+    await data_service.lock_in_session(db_session, session2["id"])
+    
+    # Third session should be "date Session #3"
+    session3 = await data_service.create_session(db_session, date="1/15/2024")
+    assert session3["name"] == "1/15/2024 Session #3"
+    
+    # Different date should start numbering at 1 again (just the date)
+    session4 = await data_service.create_session(db_session, date="1/16/2024")
+    assert session4["name"] == "1/16/2024"
+
+
+@pytest.mark.asyncio
+async def test_league_session_numbering_for_same_date(db_session, test_player):
+    """Test that multiple league sessions on the same date get numbered correctly."""
+    # Create a league with an active season
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=1
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        point_system=None,
+        is_active=True
+    )
+    
+    # First session should just be the date
+    session1 = await data_service.create_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/15/2024",
+        name=None,
+        created_by=test_player.id
+    )
+    assert session1["name"] == "1/15/2024"
+    
+    # Submit first session so we can create another
+    from backend.database.models import Session as SessionModel, SessionStatus
+    result = await db_session.execute(
+        select(SessionModel).where(SessionModel.id == session1["id"])
+    )
+    session_obj = result.scalar_one()
+    session_obj.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+    
+    # Second session should be "date Session #2"
+    session2 = await data_service.create_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/15/2024",
+        name=None,
+        created_by=test_player.id
+    )
+    assert session2["name"] == "1/15/2024 Session #2"
+    
+    # Submit second session
+    result = await db_session.execute(
+        select(SessionModel).where(SessionModel.id == session2["id"])
+    )
+    session_obj = result.scalar_one()
+    session_obj.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+    
+    # Third session should be "date Session #3"
+    session3 = await data_service.create_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/15/2024",
+        name=None,
+        created_by=test_player.id
+    )
+    assert session3["name"] == "1/15/2024 Session #3"
+    
+    # Different date should start numbering at 1 again (just the date)
+    session4 = await data_service.create_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/16/2024",
+        name=None,
+        created_by=test_player.id
+    )
+    assert session4["name"] == "1/16/2024"
+    
+    # Test that custom name is preserved
+    result = await db_session.execute(
+        select(SessionModel).where(SessionModel.id == session4["id"])
+    )
+    session_obj = result.scalar_one()
+    session_obj.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+    
+    session5 = await data_service.create_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/16/2024",
+        name="Custom Name",
+        created_by=test_player.id
+    )
+    assert session5["name"] == "Custom Name"
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_active_league_session_numbering(db_session, test_player):
+    """Test that get_or_create_active_league_session properly numbers sessions."""
+    # Create a league with an active season
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=1
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        point_system=None,
+        is_active=True
+    )
+    
+    # First call should create session with just the date
+    session1 = await data_service.get_or_create_active_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/20/2024",
+        created_by=test_player.id
+    )
+    assert session1["name"] == "1/20/2024"
+    
+    # Second call with same date should return the same session
+    session1_again = await data_service.get_or_create_active_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/20/2024",
+        created_by=test_player.id
+    )
+    assert session1_again["id"] == session1["id"]
+    assert session1_again["name"] == "1/20/2024"
+    
+    # Submit the session
+    from backend.database.models import Session as SessionModel, SessionStatus
+    result = await db_session.execute(
+        select(SessionModel).where(SessionModel.id == session1["id"])
+    )
+    session_obj = result.scalar_one()
+    session_obj.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+    
+    # Now creating a new session should number it as #2
+    session2 = await data_service.get_or_create_active_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="1/20/2024",
+        created_by=test_player.id
+    )
+    assert session2["name"] == "1/20/2024 Session #2"
+    assert session2["id"] != session1["id"]
+
+
 # ============================================================================
 # Match CRUD Tests
 # ============================================================================

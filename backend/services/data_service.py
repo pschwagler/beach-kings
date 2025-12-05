@@ -166,10 +166,27 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
 
 async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
     """Get all leagues a user is a member of (async version)."""
+    # Subquery to count members for each league
+    member_count_subq = (
+        select(
+            LeagueMember.league_id,
+            func.count(LeagueMember.id).label("member_count")
+        )
+        .group_by(LeagueMember.league_id)
+        .subquery()
+    )
+    
     result = await session.execute(
-        select(League, LeagueMember.role.label("membership_role"))
+        select(
+            League,
+            LeagueMember.role.label("membership_role"),
+            func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
+            Location.name.label("location_name")
+        )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
+        .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
+        .outerjoin(Location, Location.id == League.location_id)
         .where(Player.user_id == user_id)
         .distinct()
         .order_by(League.created_at.desc())
@@ -181,15 +198,17 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             "name": league.name,
             "description": league.description,
             "location_id": league.location_id,
+            "location_name": location_name,
             "is_open": league.is_open,
             "whatsapp_group_id": league.whatsapp_group_id,
             "gender": league.gender,
             "level": league.level,
             "membership_role": role,
+            "member_count": int(member_count) if member_count is not None else 0,
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
         }
-        for league, role in rows
+        for league, role, member_count, location_name in rows
     ]
 
 
@@ -472,7 +491,25 @@ async def get_or_create_active_league_session(
             }
     
     # No existing session found, create a new one
-    session_name = name or date
+    # Count existing sessions for this date and season to generate proper session name
+    count_result = await session.execute(
+        select(func.count(Session.id)).where(
+            and_(
+                Session.date == date,
+                Session.season_id == active_season.id
+            )
+        )
+    )
+    session_count = count_result.scalar() or 0
+    
+    # Generate session name with numbering
+    if name:
+        session_name = name
+    elif session_count == 0:
+        session_name = date
+    else:
+        session_name = f"{date} Session #{session_count + 1}"
+    
     new_session = Session(
         date=date,
         name=session_name,
@@ -537,7 +574,25 @@ async def create_league_session(
     if existing_session:
         raise ValueError(f"An active session '{existing_session.name}' already exists for this date. Please submit the current session before creating a new one.")
     
-    session_name = name or date
+    # Count existing sessions for this date and season to generate proper session name
+    count_result = await session.execute(
+        select(func.count(Session.id)).where(
+            and_(
+                Session.date == date,
+                Session.season_id == active_season.id
+            )
+        )
+    )
+    session_count = count_result.scalar() or 0
+    
+    # Generate session name with numbering
+    if name:
+        session_name = name
+    elif session_count == 0:
+        session_name = date
+    else:
+        session_name = f"{date} Session #{session_count + 1}"
+    
     new_session = Session(
         date=date,
         name=session_name,

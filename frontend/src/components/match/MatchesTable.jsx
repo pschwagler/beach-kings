@@ -6,34 +6,7 @@ import ActiveSessionPanel from '../session/ActiveSessionPanel';
 import { MatchesTableSkeleton } from '../ui/Skeletons';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-
-function formatSessionTimestamp(timestamp) {
-  if (!timestamp) return null;
-  
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours === 0) {
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      if (diffMins < 1) return 'Just now';
-      return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
-    }
-    return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-  } else if (diffDays === 1) {
-    return 'Yesterday';
-  } else if (diffDays < 7) {
-    return `${diffDays} days ago`;
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
-  } else {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-}
+import { formatRelativeTime } from '../../utils/dateUtils';
 
 function calculateWinner(team1Score, team2Score) {
   if (team1Score > team2Score) return 'Team 1';
@@ -220,7 +193,6 @@ export default function MatchesTable({
         }
       }
     });
-    
     return grouped;
   }, [matchesWithPendingChanges, Array.from(editingSessions).join(','), Array.from(editingSessionMetadata.keys()).join(','), matches]);
 
@@ -248,8 +220,46 @@ export default function MatchesTable({
     return players.size;
   }, [activeSessionMatches]);
 
+  const sessionGroups = useMemo(() => {
+    return Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
+      if (groupA.createdAt && groupB.createdAt) {
+        return new Date(groupB.createdAt) - new Date(groupA.createdAt);
+      }
+      if (groupA.createdAt && !groupB.createdAt) return -1;
+      if (!groupA.createdAt && groupB.createdAt) return 1;
+      return groupB.name.localeCompare(groupA.name);
+    });
+  }, [matchesBySession]);
+
+  const isDataReady = !loading && matches !== null && Array.isArray(matches) && 
+                      matchesWithPendingChanges !== null && Array.isArray(matchesWithPendingChanges);
+  const showAddMatchCard = isDataReady && hasRenderedMatchesRef.current;
+  
+  const shouldShowEmptyState = useMemo(() => {
+    return showAddMatchCard && 
+           hasRenderedMatchesRef.current && 
+           !matches?.length && 
+           !matchesWithPendingChanges?.length && 
+           !sessionGroups?.length && 
+           !activeSession;
+  }, [showAddMatchCard, matches, matchesWithPendingChanges, sessionGroups, activeSession]);
+
   if (loading || matches === null) {
-    return <MatchesTableSkeleton isLeagueMember={isLeagueMember} />;
+    return <MatchesTableSkeleton isLeagueMember={true} />;
+  }
+
+  // Handle non-member access - show forbidden message
+  if (!isLeagueMember) {
+    return (
+      <div className="matches-container">
+        <div className="league-error">
+          <div className="league-message error">
+            <h2>Access Denied</h2>
+            <p>You don't have access to view matches for this league. Please contact a league administrator to be added as a member.</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   Object.values(matchesBySession).forEach(group => {
@@ -303,30 +313,15 @@ export default function MatchesTable({
     });
   };
 
-
-
   const handleLockInSession = async (sessionId) => {
     if (sessionId) {
       await onEndSession(sessionId);
     }
   };
-
-  const sessionGroups = Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
-    if (groupA.createdAt && groupB.createdAt) {
-      return new Date(groupB.createdAt) - new Date(groupA.createdAt);
-    }
-    if (groupA.createdAt && !groupB.createdAt) return -1;
-    if (!groupA.createdAt && groupB.createdAt) return 1;
-    return groupB.name.localeCompare(groupA.name);
-  });
-
-  const isDataReady = !loading && matches !== null && Array.isArray(matches) && 
-                      matchesWithPendingChanges !== null && Array.isArray(matchesWithPendingChanges);
-  const showAddMatchCard = isDataReady && hasRenderedMatchesRef.current;
   
   return (
     <div className="matches-container">
-      {showAddMatchCard && isLeagueMember && !activeSession && (
+      {showAddMatchCard && !activeSession && (
         <div className="add-matches-section">
           <button 
             className="add-matches-card"
@@ -340,27 +335,24 @@ export default function MatchesTable({
               league
             })}
           >
+            <h2 className="add-matches-title">Add Games</h2>
             <div className="add-matches-icon">
               <Plus size={24} />
             </div>
-            <h2 className="add-matches-title">Add Games</h2>
             <p className="add-matches-description">
-              Click to log a new match and start a session.
+              Click to log a new game.
             </p>
           </button>
         </div>
       )}
 
-      {showAddMatchCard && hasRenderedMatchesRef.current && matches.length === 0 && 
-       matchesWithPendingChanges.length === 0 && 
-       sessionGroups.length === 0 && 
-       isLeagueMember && !activeSession && (
+      {shouldShowEmptyState && (
         <div className="add-matches-empty-state">
           <p>No matches yet. Start a session and add your first match!</p>
         </div>
       )}
 
-      {isLeagueMember && activeSession && (
+      {activeSession && (
         <ActiveSessionPanel
           activeSession={activeSession}
           activeSessionMatches={activeSessionMatches}
@@ -391,7 +383,7 @@ export default function MatchesTable({
 
       {sessionGroups
         .filter(([key, group]) => {
-          return !(isLeagueMember && activeSession && group.type === 'session' && group.id === activeSession.id);
+          return !(activeSession && group.type === 'session' && group.id === activeSession.id);
         })
         .map(([key, group]) => {
           const isEditing = group.type === 'session' && editingSessions.has(group.id);
@@ -436,27 +428,6 @@ export default function MatchesTable({
                     className="edit-session-button"
                     onClick={() => onEnterEditMode(group.id)}
                     title="Edit Session"
-                    style={{
-                      marginLeft: '10px',
-                      padding: '6px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'transparent',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      color: '#374151',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f3f4f6';
-                      e.currentTarget.style.borderColor = '#9ca3af';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.borderColor = '#d1d5db';
-                    }}
                   >
                     <Edit2 size={16} />
                   </button>
@@ -474,7 +445,7 @@ export default function MatchesTable({
               {group.lastUpdated && (
                 <div className="session-timestamp">
                   {(() => {
-                    const timestamp = formatSessionTimestamp(group.lastUpdated);
+                    const timestamp = formatRelativeTime(group.lastUpdated);
                     const user = group.updatedBy || group.createdBy;
                     if (group.status === 'EDITED' && user) {
                       return `Edited ${timestamp} by ${user}`;
@@ -489,8 +460,6 @@ export default function MatchesTable({
             </div>
           );
         })}
-
-      
     </div>
   );
 }

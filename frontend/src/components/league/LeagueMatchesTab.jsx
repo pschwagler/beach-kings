@@ -3,7 +3,7 @@ import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePlayerSelection } from './hooks/usePlayerSelection';
+import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData } from './utils/matchUtils';
 import { 
   createMatch, 
@@ -14,9 +14,8 @@ import {
   deleteSession,
   getPlayers
 } from '../../services/api';
-import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
 
-export default function LeagueMatchesTab({ onPlayerClick }) {
+export default function LeagueMatchesTab() {
   const { 
     league, 
     leagueId,
@@ -24,7 +23,9 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     members, 
     activeSeason, 
     activeSeasonData, 
+    seasonDataLoading,
     refreshSeasonData,
+    refreshMatchData,
     isLeagueAdmin,
     selectedPlayerId,
     selectedPlayerName,
@@ -33,21 +34,11 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     setSelectedPlayer,
     showMessage
   } = useLeague();
-  const { openDrawer } = useDrawer();
   const { currentUserPlayer } = useAuth();
-  const [matches, setMatches] = useState(null);
-  const [matchesLoading, setMatchesLoading] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
   const [allPlayerNames, setAllPlayerNames] = useState([]);
   const [playerNameToFullName, setPlayerNameToFullName] = useState(new Map());
-  
-  // Map player names (display names) to player IDs
   const [playerNameToId, setPlayerNameToId] = useState(new Map());
-
-  // Get isLeagueMember from context
-  const { isLeagueMember } = useLeague();
-
-  // Track which sessions are in editing mode (local state only)
   const [editingSessions, setEditingSessions] = useState(new Set());
   
   // Track pending match changes when editing a session
@@ -59,46 +50,23 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
   const [editingSessionMetadata, setEditingSessionMetadata] = useState(new Map());
 
 
-  const loadLeagueMatches = useCallback(async () => {
-    if (!leagueId || !league) return;
-    
-    // Don't load if activeSeasonData hasn't loaded yet (it will be null initially)
-    if (activeSeasonData === null || activeSeasonData === undefined) {
-      // Keep matches as null until we have season data
-      return;
-    }
-    
-    // Don't set matches if activeSeasonData.matches is undefined or null (not loaded yet)
-    // Only proceed if matches is explicitly an array (even if empty)
-    if (activeSeasonData.matches === undefined || activeSeasonData.matches === null) {
-      // Keep matches as null until matches are loaded
-      return;
-    }
-    
-    setMatchesLoading(true);
-    try {
-      // Use matches from context - now includes all matches (submitted, edited, and active sessions)
-      // Only use empty array if matches is explicitly an array (loaded but empty)
-      const contextMatches = Array.isArray(activeSeasonData.matches) ? activeSeasonData.matches : [];
-      const transformedMatches = transformMatchData(contextMatches);
-      setMatches(transformedMatches);
-    } catch (err) {
-      console.error('Error loading league matches:', err);
-      setMatches([]); // Empty array means loaded but no matches
-    } finally {
-      setMatchesLoading(false);
-    }
-  }, [leagueId, league, activeSeasonData]);
+  // Transform matches from context for display
+  const matches = useMemo(() => {
+    if (!activeSeasonData?.matches) return null;
+    return transformMatchData(activeSeasonData.matches);
+  }, [activeSeasonData?.matches]);
 
   const loadActiveSession = useCallback(async () => {
-    if (!leagueId) return;
+    if (!leagueId) return null;
     try {
       const session = await getActiveSession().catch(() => null);
       // TODO: Filter by league_id when API supports it
       setActiveSession(session);
+      return session;
     } catch (err) {
       console.error('Error loading active session:', err);
       setActiveSession(null);
+      return null;
     }
   }, [leagueId]);
 
@@ -183,32 +151,40 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
     loadLeaguePlayers();
   }, [leagueId, members]);
 
-  // Load matches and active session on mount and when dependencies change
-  // Note: loadLeagueMatches depends on activeSeasonData, so we include it in deps
+  // Load active session on mount and when dependencies change
   useEffect(() => {
     if (leagueId && league && seasons.length > 0) {
-      loadLeagueMatches();
       loadActiveSession();
     }
-  }, [leagueId, league, seasons, activeSeasonData, loadLeagueMatches, loadActiveSession]);
+  }, [leagueId, league, seasons, loadActiveSession]);
 
-  // Auto-select current user's player when player data is available (but don't open panel)
-  // Falls back to first player if current user is not in the league
-  usePlayerSelection({
-    currentUserPlayer,
-    selectedPlayerId,
-    setSelectedPlayer,
-    activeSeasonData,
-    activeSeason,
-    allPlayerNames,
-    playerNameToId,
-    members,
-  });
+  // Polling: Check for new matches every 5 seconds if there's an active session
+  // Uses refreshMatchData to update context - component will automatically update via activeSeasonData
+  useEffect(() => {
+    if (!activeSession || !activeSeason?.id) {
+      return;
+    }
+
+    const pollForNewMatches = async () => {
+      try {
+        // Refresh match data in context - component will automatically update via activeSeasonData
+        await refreshMatchData(activeSeason.id);
+      } catch (err) {
+        console.error('Error polling for new matches:', err);
+      }
+    };
+    const pollInterval = setInterval(pollForNewMatches, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [activeSession, activeSeason?.id, refreshMatchData]);
 
   const handleRefreshSession = async () => {
     // Just refresh the session state without creating a new one
     await loadActiveSession();
-    await loadLeagueMatches();
+    // Refresh match data in context
+    if (activeSeason?.id) {
+      await refreshMatchData(activeSeason.id);
+    }
   };
 
   const handleEndSession = async (sessionId) => {
@@ -216,10 +192,13 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       await lockInLeagueSession(leagueId, sessionId);
       // Clear active session first
       await loadActiveSession();
-      // Refresh season data in context to get updated matches and stats
-      // The useEffect will automatically call loadLeagueMatches when activeSeasonData updates
+      // Refresh season data in context for stats/rankings (other components may need this)
       if (activeSeason?.id) {
         await refreshSeasonData(activeSeason.id);
+      }
+      // Reload matches directly - force refresh to get latest data
+      if (activeSeason?.id) {
+        await refreshMatchData(activeSeason.id);
       }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to submit scores');
@@ -230,12 +209,15 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
   const handleDeleteSession = async (sessionId) => {
     try {
       await deleteSession(sessionId);
-      // Refresh season data to get updated matches and stats
-      // The useEffect will automatically call loadLeagueMatches when activeSeasonData updates
+      // Refresh season data in context for stats/rankings (other components may need this)
       if (activeSeason?.id) {
         await refreshSeasonData(activeSeason.id);
       }
       await loadActiveSession();
+      // Reload matches directly - force refresh to get latest data
+      if (activeSeason?.id) {
+        await refreshMatchData(activeSeason.id);
+      }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete session');
       throw err;
@@ -267,12 +249,13 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       }
       
       await createMatch(matchDataWithFullNames);
-      // Reload active session first (may have been created by the first match)
+      
+      // Reload active session (may have been created by the first match)
       await loadActiveSession();
-      // Refresh season data to get updated matches
-      // The useEffect will automatically call loadLeagueMatches when activeSeasonData updates
+      
+      // Reload matches directly - force refresh to get latest data
       if (activeSeason?.id) {
-        await refreshSeasonData(activeSeason.id);
+        await refreshMatchData(activeSeason.id);
       }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to create game');
@@ -327,9 +310,9 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       }
       
       await updateMatch(matchId, matchDataWithFullNames);
-      // Refresh season data to get updated matches
+      // Reload matches directly - force refresh to get latest data
       if (activeSeason?.id) {
-        await refreshSeasonData(activeSeason.id);
+        await refreshMatchData(activeSeason.id);
       }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update game');
@@ -397,16 +380,15 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       
       // Existing match not in edit mode - delete via API
       await deleteMatch(matchId);
-      // Refresh season data to get updated matches
+      // Reload matches directly - force refresh to get latest data
       if (activeSeason?.id) {
-        await refreshSeasonData(activeSeason.id);
+        await refreshMatchData(activeSeason.id);
       }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete game');
       throw err;
     }
   };
-
 
   const handleEnterEditMode = (sessionId) => {
     setEditingSessions(prev => new Set(prev).add(sessionId));
@@ -483,10 +465,13 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       
       // Clear active session first
       await loadActiveSession();
-      // Refresh season data in context to get updated matches and stats
-      // The useEffect will automatically call loadLeagueMatches when activeSeasonData updates
+      // Refresh season data in context for stats/rankings (other components may need this)
       if (activeSeason?.id) {
         await refreshSeasonData(activeSeason.id);
+      }
+      // Reload matches directly - force refresh to get latest data
+      if (activeSeason?.id) {
+        await refreshMatchData(activeSeason.id);
       }
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to save session');
@@ -506,75 +491,41 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
       next.delete(sessionId);
       return next;
     });
-    // Reload matches to discard any local changes
-    loadLeagueMatches();
-  };
-
-  // Handle player click from match cards
-  const handlePlayerClick = (playerName) => {
-    // Find player ID from name
-    const playerId = playerNameToId.get(playerName);
-    if (playerId) {
-      setSelectedPlayer(playerId, playerName);
-      openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
-        playerName,
-        playerStats: playerSeasonStats,
-        playerMatchHistory,
-        allPlayerNames,
-        onPlayerChange: handlePlayerChange,
-        leagueName: league?.name,
-        seasonName: activeSeason?.name
-      });
-    } else {
-      // If player not found, try to use the parent's onPlayerClick if provided
-      if (onPlayerClick) {
-        onPlayerClick(playerName);
-      }
+    // Reload matches to discard any local changes - force refresh to get latest from API
+    if (activeSeason?.id) {
+      refreshMatchData(activeSeason.id);
     }
   };
 
+  // Helper to get player ID from name using playerNameToId map
+  const getPlayerIdFromMap = useCallback((playerName) => {
+    return playerNameToId.get(playerName) || null;
+  }, [playerNameToId]);
 
-
-  const handlePlayerChange = (newPlayerName) => {
-    // Find player ID from name
-    const playerId = playerNameToId.get(newPlayerName);
-    if (playerId) {
-      setSelectedPlayer(playerId, newPlayerName);
-    }
-  };
-
-  // Update drawer when player data changes while drawer is open
-  const { isOpen, drawerType } = useDrawer();
-  
-  useEffect(() => {
-    if (isOpen && drawerType === DRAWER_TYPES.PLAYER_DETAILS && selectedPlayerName) {
-      openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
-        playerName: selectedPlayerName,
-        playerStats: playerSeasonStats,
-        playerMatchHistory: playerMatchHistory,
-        allPlayerNames,
-        onPlayerChange: handlePlayerChange,
-        leagueName: league?.name,
-        seasonName: activeSeason?.name
-      });
-    }
-  }, [
-    selectedPlayerName, 
-    playerSeasonStats, 
-    playerMatchHistory, 
-    isOpen, 
-    drawerType, 
-    allPlayerNames, 
-    league?.name, 
-    activeSeason?.name
-  ]);
+  // Use shared hook for player details drawer logic with auto-selection
+  const { handlePlayerClick, handlePlayerChange } = usePlayerDetailsDrawer({
+    seasonData: activeSeasonData,
+    getPlayerId: getPlayerIdFromMap,
+    allPlayerNames,
+    leagueName: league?.name,
+    seasonName: activeSeason?.name,
+    selectedPlayerId,
+    selectedPlayerName,
+    setSelectedPlayer,
+    precomputedStats: playerSeasonStats,
+    precomputedMatchHistory: playerMatchHistory,
+    autoSelect: true,
+    currentUserPlayer,
+    activeSeason,
+    members,
+  });
 
   return (
     <div className="league-section">
       <MatchesTable
         matches={matches}
         onPlayerClick={handlePlayerClick}
-        loading={matchesLoading}
+        loading={seasonDataLoading}
         activeSession={activeSession}
         onCreateSession={handleRefreshSession}
         onEndSession={handleEndSession}
@@ -592,8 +543,6 @@ export default function LeagueMatchesTab({ onPlayerClick }) {
         pendingMatchChanges={pendingMatchChanges}
         editingSessionMetadata={editingSessionMetadata}
       />
-
-
     </div>
   );
 }

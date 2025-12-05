@@ -2620,12 +2620,12 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, sessio
         
         # Send SMS
         # DISABLED FOR NOW
-        # sms_sent = auth_service.send_sms_verification(phone_number, code)
-        # if not sms_sent:
-        #     raise HTTPException(
-        #         status_code=500,
-        #         detail="Failed to send SMS. Please check Twilio configuration."
-        #     )
+        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        if not sms_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send SMS. Please check Twilio configuration."
+            )
         
         return {
             "status": "success",

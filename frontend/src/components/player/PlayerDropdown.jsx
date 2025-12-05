@@ -1,25 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { createPopper } from '@popperjs/core';
+import { useDropdownPopper } from '../../hooks/useDropdownPopper';
+import { useTouchSelection } from '../../hooks/useTouchSelection';
+import {
+  getDisplayValue,
+  getValue,
+  normalizePlayerNames,
+  filterPlayers,
+} from '../../utils/playerDropdownUtils';
 
-// Helper to check if an item is an object with value/label
-const isPlayerOption = (item) => {
-  return item && typeof item === 'object' && 'value' in item && 'label' in item;
-};
-
-// Helper to get display value from either string or object
-const getDisplayValue = (item) => {
-  if (!item) return '';
-  return isPlayerOption(item) ? item.label : item;
-};
-
-// Helper to get the value (ID) from either string or object
-const getValue = (item) => {
-  if (!item) return '';
-  return isPlayerOption(item) ? item.value : item;
-};
-
-export default function PlayerDropdown({ value, onChange, allPlayerNames, placeholder = "Select player", excludePlayers = [], autoOpen = false }) {
+export default function PlayerDropdown({ 
+  value, 
+  onChange, 
+  allPlayerNames, 
+  placeholder = "Select player", 
+  excludePlayers = [], 
+  autoOpen = false 
+}) {
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
@@ -29,8 +26,9 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const optionRefs = useRef([]);
-  const touchStartPos = useRef(null);
-  const popperInstanceRef = useRef(null);
+  
+  // Use custom hooks
+  useDropdownPopper(isOpen, inputRef, dropdownRef);
   
   // Sync input with selected value
   useEffect(() => {
@@ -40,7 +38,6 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   // Handle auto-open prop
   useEffect(() => {
     if (autoOpen && !hasAutoOpened && !value && inputRef.current) {
-      // Delay to wait for modal animation to complete
       const timeoutId = setTimeout(() => {
         inputRef.current.focus();
         setHasAutoOpened(true);
@@ -49,103 +46,9 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     }
   }, [autoOpen, hasAutoOpened, value]);
 
-  // Setup Popper.js when dropdown opens
-  useEffect(() => {
-    if (!isOpen || !inputRef.current || !dropdownRef.current) {
-      // Cleanup popper if it exists
-      if (popperInstanceRef.current) {
-        popperInstanceRef.current.destroy();
-        popperInstanceRef.current = null;
-      }
-      return;
-    }
-
-    // Calculate max height based on available space
-    const calculateMaxHeight = () => {
-      const rect = inputRef.current.getBoundingClientRect();
-      const viewportHeight = window.visualViewport 
-        ? window.visualViewport.height 
-        : window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom - 8; // 8px padding
-      return Math.max(150, Math.min(300, spaceBelow));
-    };
-
-    // Set initial max-height
-    if (dropdownRef.current) {
-      dropdownRef.current.style.maxHeight = `${calculateMaxHeight()}px`;
-    }
-
-    // Create Popper instance
-    popperInstanceRef.current = createPopper(inputRef.current, dropdownRef.current, {
-      placement: 'bottom-start',
-      strategy: 'fixed',
-      modifiers: [
-        {
-          name: 'flip',
-          enabled: false, // Always show below, never flip above
-        },
-        {
-          name: 'preventOverflow',
-          enabled: false, // Disable - let it overflow and use CSS max-height instead
-        },
-        {
-          name: 'offset',
-          options: {
-            offset: [0, 4], // 4px gap below input
-          },
-        },
-        {
-          name: 'computeStyles',
-          options: {
-            adaptive: true, // Adapt to viewport changes
-            gpuAcceleration: false, // Better for mobile
-          },
-        },
-      ],
-    });
-
-    // Update on scroll/resize
-    const updatePopper = () => {
-      if (popperInstanceRef.current) {
-        popperInstanceRef.current.update();
-        
-        // Also update max-height when viewport changes
-        if (dropdownRef.current && inputRef.current) {
-          const rect = inputRef.current.getBoundingClientRect();
-          const viewportHeight = window.visualViewport 
-            ? window.visualViewport.height 
-            : window.innerHeight;
-          const spaceBelow = viewportHeight - rect.bottom - 8;
-          const maxHeight = Math.max(150, Math.min(300, spaceBelow));
-          dropdownRef.current.style.maxHeight = `${maxHeight}px`;
-        }
-      }
-    };
-
-    window.addEventListener('scroll', updatePopper, true);
-    window.addEventListener('resize', updatePopper);
-    
-    // Also listen to visual viewport changes (for mobile keyboard)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updatePopper);
-      window.visualViewport.addEventListener('scroll', updatePopper);
-    }
-
-    return () => {
-      window.removeEventListener('scroll', updatePopper, true);
-      window.removeEventListener('resize', updatePopper);
-      
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updatePopper);
-        window.visualViewport.removeEventListener('scroll', updatePopper);
-      }
-      
-      if (popperInstanceRef.current) {
-        popperInstanceRef.current.destroy();
-        popperInstanceRef.current = null;
-      }
-    };
-  }, [isOpen]);
+  // Normalize and filter players
+  const normalizedPlayers = normalizePlayerNames(allPlayerNames);
+  const filteredPlayers = filterPlayers(normalizedPlayers, excludePlayers, inputValue);
 
   // Auto-highlight first option when dropdown opens or filtered list changes
   useEffect(() => {
@@ -154,7 +57,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     } else {
       setHighlightedIndex(-1);
     }
-  }, [isOpen, inputValue]); // Re-run when input changes (affects filtered list)
+  }, [isOpen, inputValue, filteredPlayers.length]);
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -187,35 +90,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isOpen]);
-  
-  // Normalize allPlayerNames to always be an array of objects with value/label
-  const normalizedPlayers = (Array.isArray(allPlayerNames) && allPlayerNames.length > 0)
-    ? allPlayerNames.map(player => {
-        if (isPlayerOption(player)) {
-          return player;
-        }
-        return { value: player, label: player };
-      })
-    : [];
-  
-  // Filter players based on input and exclusions
-  const filteredPlayers = normalizedPlayers.filter(player => {
-    // Check if excluded
-    const isExcluded = excludePlayers.some(excluded => {
-      if (isPlayerOption(excluded)) {
-        return excluded.value === player.value;
-      }
-      return excluded === player.value || excluded === player.label;
-    });
-    
-    if (isExcluded) return false;
-    
-    // Filter by input value
-    const label = player.label.toLowerCase();
-    const searchLower = inputValue.toLowerCase();
-    return label.includes(searchLower);
-  });
-  
+
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInputValue(newValue);
@@ -227,6 +102,13 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
   const handleInputFocus = () => {
     setIsOpen(true);
     // Select all text if there's a value
+    if (inputValue && inputRef.current) {
+      inputRef.current.select();
+    }
+  };
+
+  const handleInputClick = () => {
+    // Select all text when clicking if there's a value
     if (inputValue && inputRef.current) {
       inputRef.current.select();
     }
@@ -279,34 +161,9 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
     setInputValue(getDisplayValue(player));
     setIsOpen(false);
   };
-  
-  const handleTouchStart = (e) => {
-    touchStartPos.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY
-    };
-  };
 
-  const handleTouchEnd = (e, player) => {
-    if (!touchStartPos.current) return;
-    
-    const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY
-    };
-    
-    // Calculate distance moved
-    const deltaX = Math.abs(touchEnd.x - touchStartPos.current.x);
-    const deltaY = Math.abs(touchEnd.y - touchStartPos.current.y);
-    
-    // If moved less than 10px, it's a tap, not a scroll
-    if (deltaX < 10 && deltaY < 10) {
-      e.preventDefault();
-      handleSelectPlayer(player);
-    }
-    
-    touchStartPos.current = null;
-  };
+  // Use touch selection hook
+  const { handleTouchStart, handleTouchEnd } = useTouchSelection(handleSelectPlayer);
   
   const dropdownContent = isOpen && (
     <ul 
@@ -348,6 +205,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, placeh
         value={inputValue}
         onChange={handleInputChange}
         onFocus={handleInputFocus}
+        onClick={handleInputClick}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"

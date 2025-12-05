@@ -181,7 +181,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                     {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
                       <Crown size={18} className="crown-icon-modern" />
                     )}
-                    <span className="player-name-modern">{player.Name}</span>
+                    <span>{player.Name}</span>
                   </span>
                 </td>
                 <td className="rankings-stat-cell">{player.Points}</td>
