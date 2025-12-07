@@ -22,7 +22,8 @@ export default function HomePage() {
     return params.get('tab') || 'home';
   };
   
-  const [activeTab, setActiveTab] = useState(getTabFromUrl());
+  // Initialize activeTab from URL - use function form to ensure it reads on every mount
+  const [activeTab, setActiveTab] = useState(() => getTabFromUrl());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth <= 768;
@@ -66,7 +67,15 @@ export default function HomePage() {
     }
   }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
 
-  // Update tab when URL changes
+  // Sync tab with URL on mount - read from URL and update state if needed
+  useEffect(() => {
+    const urlTab = getTabFromUrl();
+    if (urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, []); // Only run on mount
+  
+  // Update tab when URL changes via browser navigation (back/forward buttons)
   useEffect(() => {
     const handlePopState = () => {
       setActiveTab(getTabFromUrl());

@@ -3315,19 +3315,29 @@ async def update_admin_config(
                     status_code=400, 
                     detail=f"Invalid log_level. Must be one of: {', '.join(valid_levels)}"
                 )
+            
+            # Apply log level change immediately at runtime BEFORE updating DB
+            # This ensures if the runtime update fails, DB won't be in inconsistent state
+            try:
+                numeric_level = getattr(logging, log_level, logging.INFO)
+                root_logger = logging.getLogger()
+                root_logger.setLevel(numeric_level)
+                # Also update all existing loggers to ensure consistency
+                for logger_name in logging.Logger.manager.loggerDict:
+                    existing_logger = logging.getLogger(logger_name)
+                    existing_logger.setLevel(numeric_level)
+                logger.info(f"Log level changed to {log_level} at runtime")
+            except Exception as e:
+                # If runtime update fails, don't update DB
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to apply log level change at runtime: {str(e)}"
+                )
+            
+            # Only update DB after successful runtime application
             await data_service.set_setting(session, "log_level", log_level)
             # Invalidate cache
             await settings_service.invalidate_settings_cache()
-            
-            # Apply log level change immediately at runtime
-            numeric_level = getattr(logging, log_level, logging.INFO)
-            root_logger = logging.getLogger()
-            root_logger.setLevel(numeric_level)
-            # Also update all existing loggers to ensure consistency
-            for logger_name in logging.Logger.manager.loggerDict:
-                existing_logger = logging.getLogger(logger_name)
-                existing_logger.setLevel(numeric_level)
-            logger.info(f"Log level changed to {log_level} at runtime")
         
         # Return updated configuration
         enable_sms = await settings_service.get_bool_setting(

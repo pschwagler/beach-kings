@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
 import { AlertCircle, CheckCircle, Save } from 'lucide-react';
 
@@ -36,26 +36,42 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     location_id: '',
   });
 
+  const [initialFormData, setInitialFormData] = useState({
+    email: '',
+    full_name: '',
+    nickname: '',
+    gender: 'male',
+    level: 'beginner',
+    date_of_birth: '',
+    height: '',
+    preferred_side: 'none',
+    location_id: '',
+  });
+
   const [locations, setLocations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [showCheckmark, setShowCheckmark] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
   // Load initial data
   useEffect(() => {
     if (user) {
+      const email = user.email || '';
       setFormData(prev => ({
         ...prev,
-        email: user.email || '',
+        email,
+      }));
+      setInitialFormData(prev => ({
+        ...prev,
+        email,
       }));
     }
   }, [user]);
 
   useEffect(() => {
     if (currentUserPlayer) {
-      setFormData(prev => ({
-        ...prev,
+      const newFormData = {
         full_name: currentUserPlayer.full_name || '',
         nickname: currentUserPlayer.nickname || '',
         gender: currentUserPlayer.gender || 'male',
@@ -63,7 +79,15 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         date_of_birth: currentUserPlayer.date_of_birth || '',
         height: currentUserPlayer.height || '',
         preferred_side: currentUserPlayer.preferred_side || 'none',
-        location_id: currentUserPlayer.default_location_id || '',
+        location_id: currentUserPlayer.default_location_id ? String(currentUserPlayer.default_location_id) : '',
+      };
+      setFormData(prev => ({
+        ...prev,
+        ...newFormData,
+      }));
+      setInitialFormData(prev => ({
+        ...prev,
+        ...newFormData,
       }));
     }
   }, [currentUserPlayer]);
@@ -91,13 +115,28 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       [name]: value,
     }));
     setErrorMessage('');
-    setSuccessMessage('');
+    setShowCheckmark(false);
+  };
+
+  // Check if form has changes
+  const hasChanges = () => {
+    return (
+      formData.email !== initialFormData.email ||
+      formData.full_name !== initialFormData.full_name ||
+      formData.nickname !== initialFormData.nickname ||
+      formData.gender !== initialFormData.gender ||
+      formData.level !== initialFormData.level ||
+      formData.date_of_birth !== initialFormData.date_of_birth ||
+      formData.height !== initialFormData.height ||
+      formData.preferred_side !== initialFormData.preferred_side ||
+      String(formData.location_id || '') !== String(initialFormData.location_id || '')
+    );
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setErrorMessage('');
-    setSuccessMessage('');
+    setShowCheckmark(false);
 
     // Validate full_name
     if (!formData.full_name || !formData.full_name.trim()) {
@@ -149,8 +188,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         await fetchCurrentUser();
       }
       
-      setSuccessMessage('Profile updated successfully');
-      setTimeout(() => setSuccessMessage(''), 5000);
+      // Update initial form data to reflect saved state
+      setInitialFormData({ ...formData });
+      
+      // Show checkmark animation
+      setShowCheckmark(true);
+      setTimeout(() => setShowCheckmark(false), 2000);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -164,13 +207,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         <div className="auth-modal__alert error">
           <AlertCircle size={18} />
           <span>{errorMessage}</span>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="auth-modal__alert success">
-          <CheckCircle size={18} />
-          <span>{successMessage}</span>
         </div>
       )}
 
@@ -328,11 +364,20 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         <div className="form-actions">
           <button 
             type="submit" 
-            className="auth-modal__submit save-button" 
-            disabled={isSubmitting}
+            className={`auth-modal__submit save-button ${showCheckmark ? 'save-success' : ''}`}
+            disabled={isSubmitting || !hasChanges()}
           >
-            <Save size={18} />
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
+            {showCheckmark ? (
+              <>
+                <CheckCircle size={18} className="checkmark-icon" />
+                <span>Saved!</span>
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </>
+            )}
           </button>
         </div>
       </form>

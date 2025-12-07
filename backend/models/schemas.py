@@ -261,12 +261,36 @@ class UserUpdate(BaseModel):
 
 # League-based schema models
 
+class RegionBase(BaseModel):
+    """Base region model."""
+    name: str
+
+
+class RegionCreate(RegionBase):
+    """Request to create a region."""
+    id: str  # lowercase_snake_case identifier
+
+
+class RegionResponse(RegionBase):
+    """Region response."""
+    id: str
+    created_at: str
+    updated_at: str
+
+
 class LocationBase(BaseModel):
     """Base location model."""
     name: str
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = "USA"
+    location_id: Optional[str] = None
+    region_id: Optional[str] = None
+    tier: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    seasonality: Optional[str] = None
+    radius_miles: Optional[float] = None
 
 
 class LocationCreate(LocationBase):
