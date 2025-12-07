@@ -230,6 +230,19 @@ body {
   color: red;
 }
 
+.info-icon {
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
+  color: var(--gray-500);
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-icon:hover {
+  color: var(--gray-700);
+}
+
 .disabled-button {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1235,6 +1248,30 @@ h1 {
   font-weight: 600;
   color: var(--gray-900);
   margin: 0;
+}
+
+.dashboard-widget-header {
+  justify-content: space-between;
+}
+
+.dashboard-widget-create-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.dashboard-widget-create-btn:hover {
+  background: rgba(44, 122, 143, 0.08);
+  color: var(--primary-darker);
 }
 
 .dashboard-widget-content {
@@ -2697,6 +2734,13 @@ body:hover ::-webkit-scrollbar-thumb {
   animation: tooltipFadeIn 0.15s ease-out;
 }
 
+.tooltip-multiline {
+  white-space: normal;
+  max-width: 220px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 .tooltip-fixed {
   position: fixed;
   transform: translate(-50%, -100%);
@@ -3022,6 +3066,19 @@ body:hover ::-webkit-scrollbar-thumb {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Create League Form */
+.create-league-form {
+  padding: 16px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  overflow-x: hidden;
 }
 
 /* Match Configuration Section - Compact */
@@ -4365,6 +4422,32 @@ select.form-select {
 
 .league-section:last-child {
   margin-bottom: 0;
+}
+
+.leagues-tab-create-btn-container {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.leagues-tab-create-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.leagues-tab-create-btn:hover {
+  background: rgba(44, 122, 143, 0.08);
+  color: var(--primary-darker);
 }
 
 /* Rankings Filters Row */
@@ -5883,6 +5966,24 @@ button.match-config-toggle.inline svg {
   font-weight: 600;
   color: var(--gray-700);
   font-size: 0.95rem;
+}
+
+.auth-modal__label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-saving {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  font-weight: normal;
+  font-style: italic;
+}
+
+.field-saved {
+  color: var(--success);
+  flex-shrink: 0;
 }
 
 .auth-modal__input {
@@ -8283,10 +8384,20 @@ button.match-config-toggle.inline svg {
 
   .add-match-form {
     padding: 16px;
-    margin-bottom: 32px;
+    margin-bottom: 0;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    overflow-x: hidden;
+  }
+
+  .create-league-form {
+    padding: 16px;
+    margin-bottom: 0;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    overflow-x: hidden;
   }
 
   .modal-actions {
@@ -8358,6 +8469,11 @@ button.match-config-toggle.inline svg {
   .add-match-form {
     padding: 20px;
     margin-bottom: 32px;
+  }
+
+  .create-league-form {
+    padding: 20px;
+    margin-bottom: 0;
   }
 
   .form-group {
@@ -8477,18 +8593,325 @@ button.match-config-toggle.inline svg {
     font-size: 1em;
   }
 }
+
+/* Admin View Styling */
+.admin-view-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.admin-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.admin-view-container h1 {
+  color: var(--gray-900);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.admin-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--gray-700);
+  padding: 0;
+}
+
+.admin-refresh-btn:hover:not(:disabled) {
+  background: var(--gray-200);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.admin-refresh-btn:active:not(:disabled) {
+  background: var(--gray-300);
+  transform: scale(0.95);
+}
+
+.admin-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.admin-view-container p {
+  color: var(--gray-600);
+}
+
+.admin-settings {
+  margin-bottom: 2rem;
+}
+
+.setting-group {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.setting-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.setting-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.setting-description {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Toggle Switch */
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toggle-wrapper:focus {
+  outline: none;
+}
+
+.toggle-wrapper:focus-visible .toggle-switch {
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.2);
+}
+
+.toggle-switch {
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+  background-color: var(--muted-red);
+  border-radius: 13px;
+  position: relative;
+  transition: background-color 0.3s;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch.active {
+  background-color: var(--success);
+}
+
+.toggle-switch.warning {
+  background-color: var(--muted-red);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background-color: white;
+  border-radius: 50%;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active::after {
+  left: 26px;
+}
+
+.toggle-switch.warning::after {
+  left: 2px;
+  box-shadow: 0 2px 6px rgba(231, 106, 65, 0.4);
+}
+
+/* Log Level Badge */
+.log-level-badge {
+  padding: 0.5rem 1rem;
+  background-color: var(--gray-100);
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  border: 1px solid var(--gray-300);
+}
+
+/* Log Level Select */
+.log-level-select {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-300);
+  background-color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.log-level-select:hover {
+  border-color: var(--primary);
+  background-color: var(--gray-50);
+}
+
+.log-level-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.1);
+}
+
+/* Admin Actions */
+.admin-actions {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.btn-primary {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  background: white;
+  color: var(--gray-700);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error and Success Messages */
+.admin-view-container .error-message {
+  padding: 1rem;
+  background-color: var(--danger-light);
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: var(--danger);
+  margin-bottom: 1rem;
+}
+
+.admin-view-container .success-message {
+  padding: 1rem;
+  background-color: var(--success-light);
+  border: 1px solid #cfc;
+  border-radius: 6px;
+  color: var(--success-dark);
+  margin-bottom: 1rem;
+}
 @media (max-width: 576px) {
   .modal-overlay {
-    padding: 4px;
-    padding-top: 10px;
+    padding: 0;
+    align-items: flex-end;
+    justify-content: flex-end;
+    /* Ensure modal doesn't extend past top */
+    padding-top: 8px;
+    max-height: 100vh;
+    overflow: hidden;
   }
 
   .modal-content {
-    max-height: 92vh;
-    width: 95%;
-    border-radius: 16px;
+    max-height: calc(100vh - 8px);
+    width: 100%;
+    border-radius: 16px 16px 0 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    /* Ensure modal content doesn't exceed viewport */
+    min-height: 0;
+  }
+
+  .add-match-form {
+    padding-bottom: 16px;
+  }
+
+  .create-league-form {
+    padding-bottom: 16px;
   }
 
   .modal-header {
@@ -8548,6 +8971,15 @@ button.match-config-toggle.inline svg {
     min-height: 0;
   }
 
+  .create-league-form {
+    padding: 16px;
+    margin-bottom: 0;
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
   .teams-container {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -8557,6 +8989,7 @@ button.match-config-toggle.inline svg {
     display: none;
   }
 }
+
 @media (max-width: 576px) {
   .vs-divider {
     display: block;
@@ -8842,6 +9275,46 @@ button.match-config-toggle.inline svg {
 
   .profile-page__section-title {
     font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-page__section {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .profile-page__section-title {
+    font-size: 1.1rem;
+    margin: 0 0 12px 0;
+  }
+
+  .profile-page__form {
+    gap: 10px;
+  }
+
+  .profile-page__form-row {
+    gap: 10px;
+  }
+
+  .profile-page__section .auth-modal__label {
+    font-size: 0.875rem;
+    gap: 4px;
+  }
+
+  .profile-page__section .auth-modal__input {
+    font-size: 0.9rem;
+    padding: 8px 10px;
+  }
+
+  .profile-page__help-text {
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+
+  .profile-page__section .auth-modal__submit {
+    font-size: 0.9rem;
+    padding: 10px;
   }
 }
 @media (max-width: 640px) {

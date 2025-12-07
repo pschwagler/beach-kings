@@ -57,7 +57,7 @@ def mock_user_service(monkeypatch):
         return True
     
     # Mock send_sms_verification - always succeeds (disable actual SMS)
-    def fake_send_sms_verification(phone_number, code):
+    async def fake_send_sms_verification(session, phone_number, code):
         return True
     
     # Mock is_account_locked - never locked

@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react';
-import { leaveLeague } from '../../services/api';
+import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import { leaveLeague, createLeague } from '../../services/api';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import ConfirmationModal from '../modal/ConfirmationModal';
 
 const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
 
 export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate }) {
+  const { openModal } = useModal();
   const [showLeaveLeagueModal, setShowLeaveLeagueModal] = useState(false);
   const [leagueToLeave, setLeagueToLeave] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -43,6 +45,29 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
     }
   };
 
+  const handleCreateLeague = async (leagueData) => {
+    try {
+      const newLeague = await createLeague(leagueData);
+      // Refresh leagues list
+      if (onLeaguesUpdate) {
+        await onLeaguesUpdate();
+      }
+      // Navigate to the newly created league
+      if (onLeagueClick) {
+        onLeagueClick('view-league', newLeague.id);
+      }
+      return newLeague;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleCreateLeagueClick = () => {
+    openModal(MODAL_TYPES.CREATE_LEAGUE, {
+      onSubmit: handleCreateLeague
+    });
+  };
+
   return (
     <>
       <div className="profile-page__section league-section">
@@ -58,6 +83,16 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
             <span>{successMessage}</span>
           </div>
         )}
+        
+        <div className="leagues-tab-create-btn-container">
+          <button
+            onClick={handleCreateLeagueClick}
+            className="leagues-tab-create-btn"
+          >
+            <Plus size={16} />
+            <span>Create League</span>
+          </button>
+        </div>
         
         {userLeagues.length === 0 ? (
           <div className="coming-soon-section">

@@ -20,6 +20,6 @@ asyncpg>=0.29.0
 alembic>=1.13.0
 psycopg2-binary>=2.9.9
 greenlet>=3.0.0
-aiosqlite>=0.19.0
 pytz>=2023.3
 sendgrid>=6.11.0
+redis>=5.0.0

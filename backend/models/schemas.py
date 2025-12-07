@@ -390,7 +390,7 @@ class PlayerBase(BaseModel):
     level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
-    preferred_side: Optional[str] = None  # 'left', 'right', etc.
+    preferred_side: Optional[str] = None  # 'left', 'right', 'none', etc.
     default_location_id: Optional[int] = None
     profile_picture_url: Optional[str] = None
     status: Optional[str] = None

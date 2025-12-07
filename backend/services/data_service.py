@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
 from sqlalchemy.sql import func as sql_func
 from backend.database import db
 from backend.database.models import (
-    League, LeagueMember, LeagueMessage, Season, Location, Court, Player, User,
+    League, LeagueMember, LeagueMessage, LeagueConfig, Season, Location, Court, Player, User,
     Session, Match, Setting, PartnershipStats, OpponentStats, 
     EloHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
@@ -23,7 +23,7 @@ from backend.database.models import (
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
-from backend.services.stats_queue import get_stats_queue
+# Lazy import to avoid circular dependency with stats_queue
 from backend.utils.constants import INITIAL_ELO
 from backend.utils.datetime_utils import utcnow
 import csv
@@ -246,7 +246,30 @@ async def update_league(
 
 
 async def delete_league(session: AsyncSession, league_id: int) -> bool:
-    """Delete a league (async version)."""
+    """Delete a league (async version).
+    
+    Deletes all related records first to avoid foreign key constraint violations:
+    - LeagueMember records
+    - LeagueMessage records
+    - LeagueConfig records
+    - Season records (and their related data)
+    - Then the League itself
+    """
+    # Delete related records first
+    await session.execute(
+        delete(LeagueMember).where(LeagueMember.league_id == league_id)
+    )
+    await session.execute(
+        delete(LeagueMessage).where(LeagueMessage.league_id == league_id)
+    )
+    await session.execute(
+        delete(LeagueConfig).where(LeagueConfig.league_id == league_id)
+    )
+    await session.execute(
+        delete(Season).where(Season.league_id == league_id)
+    )
+    
+    # Now delete the league
     result = await session.execute(
         delete(League).where(League.id == league_id)
     )
@@ -936,6 +959,38 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
     }
 
 
+async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) -> Optional[Dict]:
+    """Get player profile by user_id with global stats (async version)."""
+    result = await session.execute(
+        select(Player, PlayerGlobalStats)
+        .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
+        .where(Player.user_id == user_id)
+    )
+    row = result.first()
+    
+    if not row:
+        return None
+    
+    player, global_stats = row
+    
+    return {
+        "id": player.id,
+        "full_name": player.full_name,
+        "gender": player.gender,
+        "level": player.level,
+        "nickname": player.nickname,
+        "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
+        "height": player.height,
+        "preferred_side": player.preferred_side,
+        "default_location_id": player.default_location_id,
+        "stats": {
+            "current_rating": global_stats.current_rating if global_stats else 1200.0,
+            "total_games": global_stats.total_games if global_stats else 0,
+            "total_wins": global_stats.total_wins if global_stats else 0,
+        }
+    }
+
+
 async def upsert_user_player(
     session: AsyncSession,
     user_id: int,
@@ -1326,6 +1381,8 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
         return None
     
     # Enqueue both global and season stats calculations
+    # Lazy import to avoid circular dependency
+    from backend.services.stats_queue import get_stats_queue
     queue = get_stats_queue()
     
     # Enqueue global stats calculation
@@ -3115,6 +3172,25 @@ async def calculate_season_stats_async(session: AsyncSession, season_id: int) ->
     }
 
 
+def register_stats_queue_callbacks() -> None:
+    """
+    Register stats calculation callbacks with the stats queue.
+    
+    This function should be called during application startup, before the
+    stats queue worker is started. It registers the calculation functions
+    with the queue so they can be executed when jobs are processed.
+    
+    This breaks the circular dependency between stats_queue and data_service
+    by using dependency injection instead of direct imports.
+    """
+    from backend.services.stats_queue import get_stats_queue
+    queue = get_stats_queue()
+    queue.register_calculation_callbacks(
+        global_calc_callback=calculate_global_stats_async,
+        season_calc_callback=calculate_season_stats_async
+    )
+
+
 # Weekly Schedule functions
 
 async def create_weekly_schedule(
@@ -3909,7 +3985,7 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
     )
     player_count = count_result.scalar() or 0
     
-    # Handle naive datetimes (e.g. from SQLite in tests)
+    # Handle naive datetimes (timezone-naive datetimes)
     scheduled_dt = signup.scheduled_datetime
     if scheduled_dt and scheduled_dt.tzinfo is None:
         scheduled_dt = utc.localize(scheduled_dt)

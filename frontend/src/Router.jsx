@@ -3,6 +3,7 @@ import LandingPage from './components/LandingPage.jsx';
 import HomePage from './components/HomePage.jsx';
 import WhatsAppPage from './components/WhatsAppPage.jsx';
 import LeagueDashboard from './components/league/LeagueDashboard.jsx';
+import AdminView from './components/AdminView.jsx';
 import { AuthModalProvider, useAuthModal } from './contexts/AuthModalContext.jsx';
 import AuthModal from './components/auth/AuthModal.jsx';
 import { useAuth } from './contexts/AuthContext.jsx';
@@ -66,6 +67,8 @@ function RouterContent() {
   let pageContent;
   if (currentPath === '/whatsapp') {
     pageContent = <WhatsAppPage />;
+  } else if (currentPath === '/admin-view') {
+    pageContent = <AdminView />;
   } else if (currentPath === '/privacy-policy') {
     pageContent = <PrivacyPolicyPage />;
   } else if (currentPath === '/terms-of-service') {

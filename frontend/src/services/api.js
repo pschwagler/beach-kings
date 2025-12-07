@@ -733,5 +733,25 @@ export const submitFeedback = async ({ feedback, email }) => {
   return response.data;
 };
 
+/**
+ * Admin View API methods
+ */
+
+/**
+ * Get admin configuration settings
+ */
+export const getAdminConfig = async () => {
+  const response = await api.get('/api/admin-view/config');
+  return response.data;
+};
+
+/**
+ * Update admin configuration settings
+ */
+export const updateAdminConfig = async (config) => {
+  const response = await api.put('/api/admin-view/config', config);
+  return response.data;
+};
+
 export default api;
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
-import { getUserLeagues, leaveLeague } from '../services/api';
+import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
+import { getUserLeagues, leaveLeague, createLeague } from '../services/api';
 import { navigateTo } from '../Router';
 import { Home, User, Users, Trophy, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import NavBar from './layout/NavBar';
@@ -13,6 +14,7 @@ import FriendsTab from './home/FriendsTab';
 export default function HomePage() {
   const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const { openModal } = useModal();
   
   // Get active tab from URL query params
   const getTabFromUrl = () => {
@@ -35,6 +37,34 @@ export default function HomePage() {
       navigateTo('/');
     }
   }, [isAuthenticated]);
+
+  // Check if profile is incomplete and open modal if needed
+  // This runs every time the user visits the home page or when currentUserPlayer changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      // If currentUserPlayer hasn't loaded yet, fetch it first
+      if (currentUserPlayer === undefined) {
+        fetchCurrentUser();
+        return; // Will re-run when currentUserPlayer updates
+      }
+      
+      // Check if profile is incomplete (missing gender or level)
+      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      
+      if (profileIncomplete) {
+        // Small delay to ensure page is rendered and avoid conflicts with other modals
+        const timeoutId = setTimeout(() => {
+          openModal(MODAL_TYPES.PLAYER_PROFILE, {
+            onSuccess: async () => {
+              await fetchCurrentUser();
+            }
+          });
+        }, 500);
+        
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
 
   // Update tab when URL changes
   useEffect(() => {
@@ -97,8 +127,25 @@ export default function HomePage() {
     }
   };
 
+  const handleCreateLeague = async (leagueData) => {
+    try {
+      const newLeague = await createLeague(leagueData);
+      const leagues = await getUserLeagues();
+      setUserLeagues(leagues);
+      window.history.pushState({}, '', `/league/${newLeague.id}?tab=details`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      return newLeague;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleLeaguesMenuClick = (action, leagueId = null) => {
-    if (action === 'view-league' && leagueId) {
+    if (action === 'create-league') {
+      openModal(MODAL_TYPES.CREATE_LEAGUE, {
+        onSubmit: handleCreateLeague
+      });
+    } else if (action === 'view-league' && leagueId) {
       window.history.pushState({}, '', `/league/${leagueId}`);
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
@@ -183,6 +230,10 @@ export default function HomePage() {
                   currentUserPlayer={currentUserPlayer}
                   userLeagues={userLeagues}
                   onTabChange={handleTabChange}
+                  onLeaguesUpdate={async () => {
+                    const leagues = await getUserLeagues();
+                    setUserLeagues(leagues);
+                  }}
                 />
               )}
               

@@ -53,7 +53,7 @@ export function Alert({ type, children, className = '' }) {
 }
 
 // Tooltip Component - React-based tooltip
-export function Tooltip({ children, text }) {
+export function Tooltip({ children, text, multiline = false }) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [isVisible, setIsVisible] = useState(false);
   const tooltipRef = useRef(null);
@@ -86,7 +86,7 @@ export function Tooltip({ children, text }) {
       {isVisible && (
         <div
           ref={tooltipRef}
-          className="tooltip tooltip-fixed"
+          className={`tooltip tooltip-fixed ${multiline ? 'tooltip-multiline' : ''}`}
           style={{
             top: `${position.top}px`,
             left: `${position.left}px`,

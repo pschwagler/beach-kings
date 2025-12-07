@@ -6,37 +6,42 @@ import pytest
 import pytest_asyncio
 from datetime import date, datetime, timedelta
 import pytz
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.database.db import Base
 from backend.database.models import (
     League, LeagueMember, Season, Session, Match, Player, SessionStatus,
-    WeeklySchedule, Signup, OpenSignupsMode
+    WeeklySchedule, Signup, OpenSignupsMode, User
 )
 from backend.services import data_service
+from backend.services import user_service
+import bcrypt
+
+# db_session fixture is provided by conftest.py
 
 
 @pytest_asyncio.fixture
-async def db_session():
-    """Create a test database session."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with async_session_maker() as session:
-        yield session
-    
-    # Cleanup
-    await engine.dispose()
+async def test_user(db_session):
+    """Create a test user. Truncation should have cleared all users, so this creates fresh."""
+    password_hash = bcrypt.hashpw("test_password".encode(), bcrypt.gensalt()).decode()
+    user_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15551234567",
+        password_hash=password_hash,
+        email="test@example.com"
+    )
+    return {"id": user_id, "phone_number": "+15551234567"}
 
 
 @pytest_asyncio.fixture
-async def test_player(db_session):
-    """Create a test player."""
-    player = Player(full_name="Test Player", user_id=1)
+async def test_user_id(db_session, test_user):
+    """Provide test user ID for convenience."""
+    return test_user["id"]
+
+
+@pytest_asyncio.fixture
+async def test_player(db_session, test_user):
+    """Create a test player associated with test_user."""
+    player = Player(full_name="Test Player", user_id=test_user["id"])
     db_session.add(player)
     await db_session.commit()
     await db_session.refresh(player)
@@ -48,7 +53,7 @@ async def test_player(db_session):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_create_league(db_session, test_player):
+async def test_create_league(db_session, test_player, test_user):
     """Test creating a league."""
     league = await data_service.create_league(
         session=db_session,
@@ -57,7 +62,7 @@ async def test_create_league(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1,
+        creator_user_id=test_player.user_id,
         gender="male",
         level="Open"
     )
@@ -115,7 +120,7 @@ async def test_list_leagues(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     league2 = await data_service.create_league(
@@ -125,7 +130,7 @@ async def test_list_leagues(db_session, test_player):
         location_id=None,
         is_open=False,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     leagues = await data_service.list_leagues(db_session)
@@ -146,7 +151,7 @@ async def test_get_league(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     league = await data_service.get_league(db_session, created["id"])
@@ -174,7 +179,7 @@ async def test_update_league(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     updated = await data_service.update_league(
@@ -202,7 +207,7 @@ async def test_delete_league(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     result = await data_service.delete_league(db_session, created["id"])
@@ -227,7 +232,7 @@ async def test_create_season(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     season = await data_service.create_season(
@@ -256,7 +261,7 @@ async def test_list_seasons(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     season1 = await data_service.create_season(
@@ -297,7 +302,7 @@ async def test_update_season(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     created = await data_service.create_season(
@@ -371,19 +376,21 @@ async def test_get_active_session(db_session):
 
 
 @pytest.mark.asyncio
-async def test_lock_in_session(db_session, monkeypatch):
+async def test_lock_in_session(db_session, test_player, monkeypatch):
     """Test locking in a session."""
     # Mock the stats queue to avoid creating real async tasks
+    # Note: lock_in_session uses lazy import, so we need to patch the module function
     class FakeQueue:
         async def enqueue_calculation(self, session, calc_type, season_id=None):
             return 1
     
     fake_queue = FakeQueue()
-    monkeypatch.setattr(data_service, "get_stats_queue", lambda: fake_queue)
+    from backend.services import stats_queue
+    monkeypatch.setattr(stats_queue, "get_stats_queue", lambda: fake_queue)
     
     session = await data_service.create_session(db_session, date="2024-01-15")
     
-    result = await data_service.lock_in_session(db_session, session["id"], updated_by=1)
+    result = await data_service.lock_in_session(db_session, session["id"], updated_by=test_player.id)
     
     assert result is not None
     assert result["success"] is True
@@ -460,7 +467,7 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     season = await data_service.create_season(
@@ -559,7 +566,7 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1
+        creator_user_id=test_player.user_id
     )
     
     season = await data_service.create_season(
@@ -753,7 +760,7 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1,
+        creator_user_id=test_player.user_id,
         gender="male",
         level="Open"
     )
@@ -925,7 +932,7 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session,
         location_id=None,
         is_open=True,
         whatsapp_group_id=None,
-        creator_user_id=1,
+        creator_user_id=test_player.user_id,
         gender="male",
         level="Open"
     )

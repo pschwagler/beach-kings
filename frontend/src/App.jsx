@@ -33,25 +33,36 @@ function App() {
     setJustSignedUp(true);
   }, []);
 
-  // Check if user needs to complete profile after signup
+  // Open profile modal after signup when user becomes authenticated
   useEffect(() => {
     if (isAuthenticated && justSignedUp) {
-      // Check if profile is incomplete (missing gender or level)
-      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
-      if (profileIncomplete) {
+      // Wait a bit for user data to load, then check if profile needs completion
+      const openProfileModal = async () => {
+        // Fetch user data to get current player profile
+        await fetchCurrentUser();
+        
+        // Wait a moment for state to update, then check profile
         setTimeout(() => {
-          openModal(MODAL_TYPES.PLAYER_PROFILE, {
-            onSuccess: async () => {
-              if (isAuthenticated) {
-                await fetchCurrentUser();
+          // Check if profile is incomplete (missing gender or level)
+          const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+          
+          // Always open modal for new signups (profile will be incomplete)
+          if (profileIncomplete) {
+            openModal(MODAL_TYPES.PLAYER_PROFILE, {
+              onSuccess: async () => {
+                if (isAuthenticated) {
+                  await fetchCurrentUser();
+                }
               }
-            }
-          });
-        }, 200);
-      }
-      setJustSignedUp(false);
+            });
+          }
+          setJustSignedUp(false);
+        }, 1000);
+      };
+      
+      openProfileModal();
     }
-  }, [isAuthenticated, justSignedUp, currentUserPlayer]);
+  }, [isAuthenticated, justSignedUp, currentUserPlayer, fetchCurrentUser, openModal]);
 
   // Execute pending action after successful authentication
   useEffect(() => {

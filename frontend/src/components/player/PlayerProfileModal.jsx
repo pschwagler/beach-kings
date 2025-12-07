@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Info } from 'lucide-react';
 import { updatePlayerProfile, getLocations } from '../../services/api';
+import { Tooltip } from '../ui/UI';
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -164,7 +165,15 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
           <label className="auth-modal__label">
-            <span>Gender <span className="required-asterisk">*</span></span>
+            <span>
+              Gender <span className="required-asterisk">*</span>
+              <Tooltip 
+                text='Gender selection is required for gendered divisions (Mens/Womens). If you choose "prefer not to say", you will only be eligible for coed divisions.'
+                multiline={true}
+              >
+                <Info size={16} className="info-icon" />
+              </Tooltip>
+            </span>
             <select
               name="gender"
               className="auth-modal__input"
@@ -248,4 +257,3 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
     </div>
   );
 }
-

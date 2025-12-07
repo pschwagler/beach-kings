@@ -21,9 +21,17 @@ from backend.database import db
 from backend.database.init_defaults import init_defaults
 from backend.services import data_service, sheets_service, calculation_service
 from backend.services.stats_queue import get_stats_queue
+from backend.services import settings_service
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+# Allow log level to be configured via environment variable (default: INFO)
+# Note: Database setting will be checked after database initialization
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+numeric_level = getattr(logging, log_level, logging.INFO)
+logging.basicConfig(
+    level=numeric_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 
@@ -47,9 +55,36 @@ async def lifespan(app: FastAPI):
     try:
         await init_defaults()
         logger.info("✓ Default values initialized")
+        
+        # Check for log level setting in database and apply it
+        try:
+            from backend.database.db import AsyncSessionLocal
+            from backend.services import data_service
+            async with AsyncSessionLocal() as session:
+                log_level_setting = await data_service.get_setting(session, "log_level")
+                if log_level_setting:
+                    log_level_name = log_level_setting.upper()
+                    numeric_level = getattr(logging, log_level_name, logging.INFO)
+                    root_logger = logging.getLogger()
+                    root_logger.setLevel(numeric_level)
+                    logger.info(f"Log level set from database: {log_level_name}")
+                else:
+                    logger.info(f"Log level set from environment: {log_level}")
+        except Exception as e:
+            logger.warning(f"Could not load log level from database, using environment: {e}")
+            logger.info(f"Log level set from environment: {log_level}")
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
+    
+    # Register stats calculation callbacks (must be done before starting worker)
+    try:
+        from backend.services.data_service import register_stats_queue_callbacks
+        register_stats_queue_callbacks()
+        logger.info("✓ Stats calculation callbacks registered")
+    except Exception as e:
+        logger.error(f"Failed to register stats calculation callbacks: {e}", exc_info=True)
+        # Don't raise - allow app to start, but calculations will fail if callbacks aren't registered
     
     # Start stats calculation queue worker
     try:
@@ -72,6 +107,13 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Stats calculation queue worker stopped")
     except Exception as e:
         logger.error(f"Error stopping stats calculation queue worker: {e}", exc_info=True)
+    
+    # Close Redis connection
+    try:
+        await settings_service.close_redis_connection()
+        logger.info("✓ Redis connection closed")
+    except Exception as e:
+        logger.error(f"Error closing Redis connection: {e}", exc_info=True)
 
 
 app = FastAPI(

@@ -1,7 +1,11 @@
-import { Trophy, ChevronRight, Users } from 'lucide-react';
+import { Trophy, ChevronRight, Users, Plus } from 'lucide-react';
 import { navigateTo } from '../../Router';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
+import { createLeague } from '../../services/api';
 
-export default function MyLeaguesWidget({ leagues, onLeagueClick }) {
+export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdate }) {
+  const { openModal } = useModal();
+
   const handleLeagueClick = (leagueId) => {
     if (onLeagueClick) {
       onLeagueClick(leagueId);
@@ -10,12 +14,39 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick }) {
     }
   };
 
+  const handleCreateLeague = async (leagueData) => {
+    try {
+      await createLeague(leagueData);
+      // Refresh leagues list
+      if (onLeaguesUpdate) {
+        await onLeaguesUpdate();
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleCreateLeagueClick = () => {
+    openModal(MODAL_TYPES.CREATE_LEAGUE, {
+      onSubmit: handleCreateLeague
+    });
+  };
+
   if (!leagues || leagues.length === 0) {
     return (
       <div className="dashboard-widget">
         <div className="dashboard-widget-header">
-          <Trophy size={20} />
-          <h3 className="dashboard-widget-title">My Leagues</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Trophy size={20} />
+            <h3 className="dashboard-widget-title">My Leagues</h3>
+          </div>
+          <button
+            onClick={handleCreateLeagueClick}
+            className="dashboard-widget-create-btn"
+          >
+            <Plus size={16} />
+            <span>Create League</span>
+          </button>
         </div>
         <div className="dashboard-widget-content">
           <div className="dashboard-empty-state">
@@ -33,8 +64,17 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick }) {
   return (
     <div className="dashboard-widget">
       <div className="dashboard-widget-header">
-        <Trophy size={20} />
-        <h3 className="dashboard-widget-title">My Leagues</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Trophy size={20} />
+          <h3 className="dashboard-widget-title">My Leagues</h3>
+        </div>
+        <button
+          onClick={handleCreateLeagueClick}
+          className="dashboard-widget-create-btn"
+        >
+          <Plus size={16} />
+          <span>Create League</span>
+        </button>
       </div>
       <div className="dashboard-widget-content">
         <div className="dashboard-leagues-list">

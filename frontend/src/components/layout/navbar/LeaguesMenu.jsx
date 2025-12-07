@@ -64,12 +64,13 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
           
           {/* Action Items */}
           <NavDropdownSection>
-            <NavDropdownItem
+            {/* TODO: Add functionality for Join League button */}
+            {/* <NavDropdownItem
               icon={CalendarPlus}
               onClick={() => handleItemClick('join-league')}
             >
               Join League
-            </NavDropdownItem>
+            </NavDropdownItem> */}
             <NavDropdownItem
               icon={Plus}
               onClick={() => handleItemClick('create-league')}

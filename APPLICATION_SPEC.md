@@ -29,7 +29,7 @@ Data model todo
 - Want to find pickup leagues in your area?
 - Want to find a new beach to play at?
 
-Welcome to Beach Kings, where you can track your beach volleyball games, turn your weekly games into a league, handle sign-ups for your next session, and learn more about your game and how you stack up against other players in your area.
+Welcome to Beach League, where you can track your beach volleyball games, turn your weekly games into a league, handle sign-ups for your next session, and learn more about your game and how you stack up against other players in your area.
 
 ## Features
 
@@ -61,6 +61,9 @@ Stats, match history, and rankings:
 - [ ] See your ranking
 - [ ] See your friends' rankings
 - [ ] See your stats with each partner, against each opponent, and overall
+
+Non-League Games
+- [ ] Log games with any players
 
 Feedback
 - [ ] Widget to leave feedback about the app, or request a feature

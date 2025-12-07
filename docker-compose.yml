@@ -27,6 +27,8 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
       - "${WHATSAPP_PORT:-3001}:3001"
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres:5432/${POSTGRES_DB:-beachkings}
       - POSTGRES_HOST=postgres
@@ -39,9 +41,19 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      - ENABLE_SMS=${ENABLE_SMS:-true}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-noreply@beachleaguevb.com}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@beachleaguevb.com}
+      - ENABLE_EMAIL=${ENABLE_EMAIL:-true}
       - CREDENTIALS_JSON=${CREDENTIALS_JSON:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=${REDIS_DB:-0}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
@@ -52,10 +64,28 @@ services:
       - beach-kings-network
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: beach-kings-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - beach-kings-network
+    restart: unless-stopped
+
 networks:
   beach-kings-network:
     driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
 

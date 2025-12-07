@@ -12,9 +12,8 @@ Tests verify:
 import pytest
 import pytest_asyncio
 from datetime import date, datetime
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.database.db import Base
 from backend.database.models import (
     Player, League, Season, Session, Match, 
     PartnershipStats, OpponentStats, EloHistory,
@@ -25,22 +24,7 @@ from backend.services import data_service, calculation_service
 from backend.utils.constants import INITIAL_ELO, K
 
 
-@pytest_asyncio.fixture
-async def db_session():
-    """Create a test database session."""
-    # Use in-memory SQLite for testing
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with async_session_maker() as session:
-        yield session
-    
-    # Cleanup
-    await engine.dispose()
+# db_session fixture is provided by conftest.py
 
 
 @pytest_asyncio.fixture
@@ -491,6 +475,13 @@ async def test_stats_recalculation_removes_stale_data(db_session, test_players, 
     assert partnership1.scalar_one_or_none() is not None
     
     # Delete match1 and create match2: Alice & Charlie vs Bob & Dave
+    # First delete elo_history records that reference this match
+    elo_history_records = await db_session.execute(
+        select(EloHistory).where(EloHistory.match_id == match1.id)
+    )
+    for elo_record in elo_history_records.scalars():
+        await db_session.delete(elo_record)
+    
     await db_session.delete(match1)
     await db_session.commit()
     
@@ -679,6 +670,14 @@ async def test_empty_matches_deletes_stale_data(db_session, test_players, test_s
     assert len(partnership_result.scalars().all()) > 0
     
     # Delete the match
+    # Need to delete elo_history first due to foreign key constraint
+    from backend.database.models import EloHistory
+    elo_history_result = await db_session.execute(
+        select(EloHistory).where(EloHistory.match_id == match.id)
+    )
+    for elo_entry in elo_history_result.scalars().all():
+        await db_session.delete(elo_entry)
+    
     await db_session.delete(match)
     await db_session.commit()
     

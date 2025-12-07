@@ -9,7 +9,8 @@ import LeagueMessagesTab from './LeagueMessagesTab';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import { getUserLeagues, updateLeague } from '../../services/api';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
+import { getUserLeagues, updateLeague, createLeague } from '../../services/api';
 import { navigateTo } from '../../Router';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
@@ -19,6 +20,7 @@ import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, League
 function LeagueDashboardContent({ leagueId }) {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const { openModal } = useModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
   // Initialize activeTab from URL params immediately
   const [activeTab, setActiveTab] = useState(() => {
@@ -151,8 +153,25 @@ function LeagueDashboardContent({ leagueId }) {
     }
   };
 
+  const handleCreateLeague = async (leagueData) => {
+    try {
+      const newLeague = await createLeague(leagueData);
+      const leagues = await getUserLeagues();
+      setUserLeagues(leagues);
+      window.history.pushState({}, '', `/league/${newLeague.id}?tab=details`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      return newLeague;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleLeaguesMenuClick = (action, leagueId = null) => {
-    if (action === 'view-league' && leagueId) {
+    if (action === 'create-league') {
+      openModal(MODAL_TYPES.CREATE_LEAGUE, {
+        onSubmit: handleCreateLeague
+      });
+    } else if (action === 'view-league' && leagueId) {
       window.history.pushState({}, '', `/league/${leagueId}`);
       window.dispatchEvent(new PopStateEvent('popstate'));
     }

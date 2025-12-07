@@ -83,7 +83,9 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
     
     // Validate required fields
     if (!formData.name.trim()) {
@@ -137,7 +139,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="add-match-form">
+        <form onSubmit={handleSubmit} className="create-league-form">
           {formError && (
             <div className="form-error">
               {formError}
@@ -267,16 +269,15 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
               ))}
             </select>
           </div>
-
-          <div className="modal-actions">
-            <Button type="button" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="success" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create League'}
-            </Button>
-          </div>
         </form>
+        <div className="modal-actions">
+          <Button type="button" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="button" variant="success" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create League'}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,81 @@
+# Docker Compose configuration for running tests
+# This creates isolated test infrastructure with PostgreSQL and Redis
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: beach-kings-postgres-test
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beachkings}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-beachkings_test}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5433:5432"  # Use different port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beachkings} -d ${TEST_POSTGRES_DB:-beachkings_test}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+    networks:
+      - test-network
+    # Use regular volume instead of tmpfs for more reliable initialization
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: beach-kings-redis-test
+    ports:
+      - "6380:6379"  # Use different port to avoid conflicts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+    networks:
+      - test-network
+    # Redis doesn't need persistent storage for tests
+    # Data will be cleared between test runs
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: beach-kings-test-runner
+    environment:
+      # Test database connection
+      TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres-test:5432/${TEST_POSTGRES_DB:-beachkings_test}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres-test:5432/${TEST_POSTGRES_DB:-beachkings_test}
+      POSTGRES_HOST: postgres-test
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-beachkings}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-beachkings_test}
+      # Redis connection
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      # Disable external services in tests (prevents actual SMS/Email sends during testing)
+      ENABLE_SMS: "false"
+      ENABLE_EMAIL: "false"
+      # JWT configuration (required for auth_service to import)
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-for-testing-only-change-in-production}
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ./backend:/app/backend  # Mount backend for live code changes
+    command: ["pytest", "backend/tests/", "-v", "--tb=short"]
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:

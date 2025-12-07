@@ -18,6 +18,7 @@ const SKILL_LEVEL_OPTIONS = [
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
+  { value: 'none', label: 'No Preference' },
 ];
 
 const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
@@ -31,7 +32,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     level: 'beginner',
     date_of_birth: '',
     height: '',
-    preferred_side: '',
+    preferred_side: 'none',
     location_id: '',
   });
 
@@ -61,7 +62,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         level: currentUserPlayer.level || 'beginner',
         date_of_birth: currentUserPlayer.date_of_birth || '',
         height: currentUserPlayer.height || '',
-        preferred_side: currentUserPlayer.preferred_side || '',
+        preferred_side: currentUserPlayer.preferred_side || 'none',
         location_id: currentUserPlayer.default_location_id || '',
       }));
     }
@@ -132,7 +133,9 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       }
 
       if (formData.preferred_side && formData.preferred_side.trim()) {
-        playerPayload.preferred_side = formData.preferred_side.trim();
+        const preferredSide = formData.preferred_side.trim();
+        // Send null if "none" is selected, otherwise send the value
+        playerPayload.preferred_side = preferredSide === 'none' ? null : preferredSide;
       }
 
       if (formData.location_id) {
@@ -296,7 +299,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
             value={formData.preferred_side}
             onChange={handleInputChange}
           >
-            <option value="">Select preferred side (optional)</option>
             {PREFERRED_SIDE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

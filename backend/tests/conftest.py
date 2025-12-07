@@ -1,0 +1,146 @@
+"""
+Shared pytest configuration for backend tests.
+
+Uses PostgreSQL for consistency with production environment.
+"""
+
+import os
+import asyncio
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
+from sqlalchemy import text
+from backend.database.db import Base
+
+# Test database configuration
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    os.getenv(
+        "DATABASE_URL",
+        f"postgresql+asyncpg://{os.getenv('POSTGRES_USER', 'beachkings')}:{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'beachkings')}"
+    )
+)
+
+
+
+
+
+@pytest_asyncio.fixture(scope="session")
+async def test_engine():
+    """Create a test database engine for the entire test session."""
+    # Use NullPool to avoid connection reuse issues across event loops
+    # This is slower but prevents "Future attached to different loop" errors
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,  # No connection pooling - each operation gets a new connection
+        pool_pre_ping=True,
+    )
+    
+    # Create all tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    # Monkey-patch AsyncSessionLocal to use the test engine
+    # This ensures that code using db.AsyncSessionLocal() (like stats_queue._run_calculation)
+    # uses the same database connection as the test fixtures
+    from backend.database import db
+    test_session_maker = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    # Store original for cleanup
+    original_async_session_local = db.AsyncSessionLocal
+    # Replace with test session maker
+    db.AsyncSessionLocal = test_session_maker
+    
+    yield engine
+    
+    # Restore original AsyncSessionLocal
+    db.AsyncSessionLocal = original_async_session_local
+    
+    # Cleanup - gracefully close connections
+    try:
+        # Explicitly close all connections before disposing
+        # This helps prevent "event loop closed" errors
+        await asyncio.sleep(0.05)  # Small delay to let connections finish
+        
+        # Drop all tables first (using a fresh connection)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+        except Exception:
+            pass  # Ignore errors during cleanup
+        
+        # Dispose engine properly
+        await engine.dispose(close=True)
+    except Exception:
+        pass  # Ignore cleanup errors
+
+
+@pytest_asyncio.fixture
+async def db_session(test_engine):
+    """
+    Create a test database session with automatic cleanup.
+    Tables are truncated before each test to ensure clean state.
+    """
+    async_session_maker = async_sessionmaker(
+        test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    
+    # Truncate all tables before test to ensure clean state
+    # Use a separate connection to ensure truncation is visible
+    # Wrap in try/except to handle connection errors gracefully
+    try:
+        async with test_engine.begin() as truncate_conn:
+            # Get all table names from the database
+            result = await truncate_conn.execute(
+                text("""
+                    SELECT tablename FROM pg_tables 
+                    WHERE schemaname = 'public' 
+                    AND tablename NOT LIKE 'pg_%'
+                    AND tablename NOT LIKE 'alembic_%'
+                    ORDER BY tablename
+                """)
+            )
+            tables = [row[0] for row in result.fetchall()]
+            
+            if tables:
+                # Use CASCADE to handle foreign key constraints
+                # Disable triggers temporarily for faster truncation
+                await truncate_conn.execute(text("SET session_replication_role = 'replica'"))
+                
+                # Truncate all tables with CASCADE to handle dependencies
+                table_list = ", ".join(f'"{table}"' for table in tables)
+                await truncate_conn.execute(
+                    text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE")
+                )
+                
+                await truncate_conn.execute(text("SET session_replication_role = 'origin'"))
+            # Transaction will commit automatically when exiting the 'begin' context
+    except Exception:
+        # If truncation fails completely, just continue - test isolation may be affected
+        # but connection cleanup errors shouldn't prevent tests from running
+        pass
+    
+    # Yield session for test
+    async with async_session_maker() as session:
+        try:
+            yield session
+        finally:
+            # Ensure session is properly closed
+            # Use try/except to handle cases where session is already closed
+            try:
+                await session.rollback()
+            except Exception:
+                pass
+            try:
+                await session.close()
+            except Exception:
+                pass

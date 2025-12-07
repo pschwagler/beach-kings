@@ -14,7 +14,7 @@ const getAvatarInitial = (currentUserPlayer) => {
   return '?';
 };
 
-export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange }) {
+export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, onLeaguesUpdate }) {
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
@@ -171,6 +171,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange })
         <MyLeaguesWidget 
           leagues={userLeagues}
           onLeagueClick={navigateToLeague}
+          onLeaguesUpdate={onLeaguesUpdate}
         />
         <MyMatchesWidget 
           matches={userMatches}

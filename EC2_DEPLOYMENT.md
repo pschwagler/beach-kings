@@ -17,8 +17,9 @@
 - [ ] **Key pair:** Select your SSH key
 - [ ] **Security group:** Create new with these rules:
   - SSH (22) - Your IP only
-  - HTTP (80) - Anywhere
-  - Custom TCP (8000) - Anywhere
+  - HTTP (80) - Anywhere (required for Let's Encrypt)
+  - HTTPS (443) - Anywhere (for SSL, can add after initial setup)
+  - Custom TCP (8000) - Anywhere (optional, for direct access before SSL setup)
 - [ ] **Storage:** 20GB gp3
 - [ ] Launch instance
 
@@ -154,7 +155,113 @@ curl http://localhost:8000/api/health
 
 ---
 
-## 7. Setup Backups (Recommended)
+## 7. Setup SSL with Let's Encrypt (Recommended)
+
+**Prerequisites:**
+- Domain name (e.g., `beachleaguevb.com`) pointing to your EC2 instance's Elastic IP
+- DNS records configured (see `DOMAIN_SETUP.md` for GoDaddy setup)
+
+### Step 1: Update Security Group
+
+- [ ] Go to AWS Console → EC2 → Security Groups
+- [ ] Add inbound rule: **HTTPS (443)** from anywhere (0.0.0.0/0)
+- [ ] Ensure **HTTP (80)** is open (required for Let's Encrypt validation)
+
+### Step 2: Run SSL Setup Script
+
+**On your EC2 instance:**
+
+```bash
+ssh -i your-key.pem ubuntu@<PUBLIC_IP>
+cd beach-kings
+
+# Run the automated SSL setup script
+sudo bash deployment/setup-ssl.sh
+```
+
+The script will:
+- Install nginx and certbot
+- Configure nginx as a reverse proxy to your Docker container
+- Obtain SSL certificates from Let's Encrypt
+- Set up automatic certificate renewal
+- Test the configuration
+
+**Manual setup (if you prefer):**
+
+```bash
+# Install nginx and certbot
+sudo apt-get update
+sudo apt-get install -y nginx certbot python3-certbot-nginx
+
+# Copy nginx config
+sudo cp deployment/nginx/beachleaguevb.com.conf /etc/nginx/sites-available/beachleaguevb.com
+
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/beachleaguevb.com /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default  # Remove default site
+
+# Test nginx config
+sudo nginx -t
+sudo systemctl reload nginx
+
+# Obtain SSL certificates
+sudo certbot --nginx -d beachleaguevb.com -d www.beachleaguevb.com
+
+# Verify auto-renewal
+sudo certbot renew --dry-run
+sudo systemctl status certbot.timer
+```
+
+- [ ] SSL certificates obtained
+- [ ] Site accessible at `https://beachleaguevb.com`
+- [ ] HTTP redirects to HTTPS
+- [ ] Auto-renewal verified
+
+### How It Works
+
+- **nginx** runs on the EC2 host (not in Docker) and listens on ports 80 and 443
+- **Docker container** continues running on port 8000 (internal only)
+- **nginx** acts as a reverse proxy, forwarding requests to `localhost:8000`
+- **Let's Encrypt** certificates are stored in `/etc/letsencrypt/`
+- **Auto-renewal** runs via systemd timer (checks twice daily, renews when <30 days remaining)
+
+### Troubleshooting SSL Setup
+
+| Issue | Solution |
+|-------|----------|
+| "Domain not pointing to this server" | Verify DNS records: `nslookup beachleaguevb.com` |
+| "Port 80 not accessible" | Check security group allows HTTP (80) from anywhere |
+| "nginx test fails" | Check nginx config: `sudo nginx -t` |
+| "Certbot fails" | Ensure domain DNS has propagated (can take up to 24 hours) |
+| "Can't access site after SSL" | Check security group allows HTTPS (443), verify nginx is running: `sudo systemctl status nginx` |
+| "Certificate renewal fails" | Check DNS still points to server, verify port 80 is accessible |
+
+### Useful SSL Commands
+
+```bash
+# Check certificate status
+sudo certbot certificates
+
+# Manually renew certificates
+sudo certbot renew
+
+# Test renewal (dry-run)
+sudo certbot renew --dry-run
+
+# Check renewal timer status
+sudo systemctl status certbot.timer
+
+# View nginx logs
+sudo tail -f /var/log/nginx/beachleaguevb.com.error.log
+sudo tail -f /var/log/nginx/beachleaguevb.com.access.log
+
+# Reload nginx after config changes
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
+## 8. Setup Backups (Recommended)
 
 ```bash
 # Create backup directory
@@ -211,7 +318,8 @@ gunzip -c ~/backups/db_TIMESTAMP.sql.gz | docker exec -i beach-kings-postgres ps
 |-------|----------|
 | "Permission denied" on docker | Run `sudo usermod -aG docker ubuntu` then log out/in |
 | Container won't start | Check logs: `docker-compose logs backend` |
-| Can't connect to app | Verify security group allows port 8000 |
+| Can't connect to app | Verify security group allows port 8000 (or 443 if using SSL) |
 | Database connection error | Wait for postgres healthcheck, check `docker-compose logs postgres` |
+| SSL certificate issues | See SSL troubleshooting section above |
 
 

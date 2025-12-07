@@ -11,13 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
 from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats
-from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service
+from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
     require_user,
     require_system_admin,
+    require_admin_phone,
     make_require_league_admin,
     make_require_league_member,
     make_require_league_member_with_403_auth,
@@ -944,7 +945,7 @@ async def list_players(session: AsyncSession = Depends(get_db_session)):
                 "id": player.id,
                 "full_name": player.full_name,
                 "nickname": player.nickname,
-                "name": player.nickname or player.full_name,  # For backward compatibility
+                "name": player.nickname or player.full_name,
                 "gender": player.gender,
                 "level": player.level,
                 "user_id": player.user_id,
@@ -2306,7 +2307,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             )
         
         # Send SMS
-        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
             raise HTTPException(
                 status_code=500,
@@ -2440,7 +2441,7 @@ async def send_verification(request: Request, payload: CheckPhoneRequest, sessio
             )
         
         # Send SMS
-        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
             raise HTTPException(
                 status_code=500,
@@ -2620,7 +2621,7 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, sessio
             )
         
         # Send SMS
-        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
             raise HTTPException(
                 status_code=500,
@@ -3050,37 +3051,12 @@ async def get_current_user_player(
         Player profile with gender, level, global stats, etc., or null if user has no player profile
     """
     try:
-        # Get player with global stats
-        result = await session.execute(
-            select(Player, PlayerGlobalStats)
-            .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
-            .where(Player.user_id == current_user["id"])
-        )
-        row = result.first()
-        
-        if not row:
-            return None
-        
-        player, global_stats = row
-        
-        # Return player data with global stats nested under 'stats' key
-        return {
-            "id": player.id,
-            "full_name": player.full_name,
-            "gender": player.gender,
-            "level": player.level,
-            "nickname": player.nickname,
-            "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
-            "height": player.height,
-            "preferred_side": player.preferred_side,
-            "default_location_id": player.default_location_id,
-            "stats": {
-                "current_rating": global_stats.current_rating if global_stats else 1200.0,
-                "total_games": global_stats.total_games if global_stats else 0,
-                "total_wins": global_stats.total_wins if global_stats else 0,
-            }
-        }
+        player = await data_service.get_player_by_user_id_with_stats(session, current_user["id"])
+        return player
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error getting user player: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting user player: {str(e)}")
 
 
@@ -3103,7 +3079,7 @@ async def update_current_user_player(
             "level": "beginner",      // Required for profile completion
             "date_of_birth": "1990-01-15",  // Optional (ISO date string)
             "height": "6'0\"",        // Optional
-            "preferred_side": "left", // Optional
+            "preferred_side": "left", // Optional: 'left', 'right', or 'none'
             "default_location_id": 1  // Optional
         }
     
@@ -3223,7 +3199,8 @@ async def submit_feedback(
                 contact_email=payload.email,
                 user_name=user_name,
                 user_phone=user_phone,
-                timestamp=feedback.created_at
+                timestamp=feedback.created_at,
+                session=session
             )
         except Exception as email_error:
             logger.error(f"Failed to send feedback email: {str(email_error)}")
@@ -3247,4 +3224,137 @@ async def submit_feedback(
     except Exception as e:
         logger.error(f"Error submitting feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error submitting feedback: {str(e)}")
+
+
+# Admin view endpoints
+
+@router.get("/api/admin-view/config")
+async def get_admin_config(
+    user: dict = Depends(require_admin_phone),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get admin configuration settings.
+    Only accessible to user with phone number +17167831211.
+    
+    Returns:
+        dict: Current configuration including enable_sms, enable_email, log_level
+    """
+    try:
+        # Get settings from database first, then fall back to env vars
+        enable_sms = await settings_service.get_bool_setting(
+            session, "enable_sms", env_var="ENABLE_SMS", default=True
+        )
+        enable_email = await settings_service.get_bool_setting(
+            session, "enable_email", env_var="ENABLE_EMAIL", default=True
+        )
+        
+        # Get current log level (from database setting first, then root logger)
+        log_level_setting = await data_service.get_setting(session, "log_level")
+        if log_level_setting:
+            log_level_name = log_level_setting.upper()
+        else:
+            root_logger = logging.getLogger()
+            log_level_name = logging.getLevelName(root_logger.level)
+        
+        return {
+            "enable_sms": enable_sms,
+            "enable_email": enable_email,
+            "log_level": log_level_name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting admin config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting admin config: {str(e)}")
+
+
+@router.put("/api/admin-view/config")
+async def update_admin_config(
+    request: Request,
+    user: dict = Depends(require_admin_phone),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Update admin configuration settings.
+    Only accessible to user with phone number +17167831211.
+    
+    Request body (all optional):
+        {
+            "enable_sms": bool,
+            "enable_email": bool,
+            "log_level": str  # One of: DEBUG, INFO, WARNING, ERROR
+        }
+    
+    Returns:
+        dict: Updated configuration
+    """
+    try:
+        body = await request.json()
+        
+        # Update enable_sms if provided
+        if "enable_sms" in body:
+            enable_sms = bool(body["enable_sms"])
+            await data_service.set_setting(session, "enable_sms", "true" if enable_sms else "false")
+            # Invalidate cache
+            await settings_service.invalidate_settings_cache()
+        
+        # Update enable_email if provided
+        if "enable_email" in body:
+            enable_email = bool(body["enable_email"])
+            await data_service.set_setting(session, "enable_email", "true" if enable_email else "false")
+            # Invalidate cache
+            await settings_service.invalidate_settings_cache()
+        
+        # Update log_level if provided (applies immediately at runtime)
+        if "log_level" in body:
+            log_level = str(body["log_level"]).upper()
+            valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+            if log_level not in valid_levels:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid log_level. Must be one of: {', '.join(valid_levels)}"
+                )
+            await data_service.set_setting(session, "log_level", log_level)
+            # Invalidate cache
+            await settings_service.invalidate_settings_cache()
+            
+            # Apply log level change immediately at runtime
+            numeric_level = getattr(logging, log_level, logging.INFO)
+            root_logger = logging.getLogger()
+            root_logger.setLevel(numeric_level)
+            # Also update all existing loggers to ensure consistency
+            for logger_name in logging.Logger.manager.loggerDict:
+                existing_logger = logging.getLogger(logger_name)
+                existing_logger.setLevel(numeric_level)
+            logger.info(f"Log level changed to {log_level} at runtime")
+        
+        # Return updated configuration
+        enable_sms = await settings_service.get_bool_setting(
+            session, "enable_sms", env_var="ENABLE_SMS", default=True
+        )
+        enable_email = await settings_service.get_bool_setting(
+            session, "enable_email", env_var="ENABLE_EMAIL", default=True
+        )
+        
+        # Get current log level (from database setting or root logger)
+        log_level_setting = await data_service.get_setting(session, "log_level")
+        if log_level_setting:
+            log_level_name = log_level_setting
+        else:
+            root_logger = logging.getLogger()
+            log_level_name = logging.getLevelName(root_logger.level)
+        
+        return {
+            "enable_sms": enable_sms,
+            "enable_email": enable_email,
+            "log_level": log_level_name
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error updating admin config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
 

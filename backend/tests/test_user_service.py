@@ -6,30 +6,17 @@ import pytest_asyncio
 import asyncio
 from datetime import datetime, timedelta
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.services import user_service
 from backend.database import models
-from backend.database.db import Base
 from backend.database.models import VerificationCode
 
-
+# db_session fixture is provided by conftest.py - using test_session as alias for compatibility
 @pytest_asyncio.fixture
-async def test_session():
-    """Create a test database session."""
-    # Use in-memory SQLite for testing
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with async_session_maker() as session:
-        yield session
-    
-    # Cleanup
-    await engine.dispose()
+async def test_session(db_session):
+    """Alias for db_session for backward compatibility with existing tests."""
+    return db_session
 
 
 @pytest.mark.asyncio

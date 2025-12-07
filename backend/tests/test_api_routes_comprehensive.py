@@ -551,18 +551,30 @@ class TestPlayerEndpoints:
         """Test getting current user's player profile."""
         client, headers = make_client_with_auth(monkeypatch)
         
-        async def fake_get_player_by_user_id(session, user_id):
+        async def fake_get_player_by_user_id_with_stats(session, user_id):
             return {
                 "id": 1,
                 "user_id": user_id,
                 "full_name": "Test User",
-                "level": "Open"
+                "level": "Open",
+                "gender": "male",
+                "nickname": None,
+                "date_of_birth": None,
+                "height": None,
+                "preferred_side": None,
+                "default_location_id": None,
+                "stats": {
+                    "current_rating": 1200.0,
+                    "total_games": 0,
+                    "total_wins": 0,
+                }
             }
         
-        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id_with_stats", fake_get_player_by_user_id_with_stats, raising=True)
         
         response = client.get("/api/users/me/player", headers=headers)
         assert response.status_code == 200
+        assert response.json() is not None
         assert response.json()["full_name"] == "Test User"
     
     def test_update_user_player(self, monkeypatch):

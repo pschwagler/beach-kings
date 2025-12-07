@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-docker migrate
+.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test test-local test-clean whatsapp whatsapp-install ensure-docker migrate
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -31,7 +31,8 @@ help:
 	@echo "  make clean             - Remove build artifacts and Docker containers/volumes"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
-	@echo "  make test              - Run tests"
+	@echo "  make test              - Run tests in Docker containers"
+	@echo "  make test-local        - Run tests locally (requires venv)"
 	@echo ""
 	@echo "WhatsApp Integration:"
 	@echo "  make whatsapp-install  - Install WhatsApp service dependencies"
@@ -140,6 +141,7 @@ clean:
 	@echo "Cleaning up..."
 	@echo "Stopping and removing Docker containers and volumes..."
 	@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || true
+	@docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
 	@if [ -n "$$(docker ps -a --filter 'name=beach-kings' --format '{{.ID}}' 2>/dev/null)" ]; then \
 		docker ps -a --filter "name=beach-kings" --format "{{.ID}}" | xargs docker rm -f 2>/dev/null || true; \
 	fi
@@ -171,9 +173,25 @@ migrate:
 	@docker exec beach-kings-backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
 
-test:
-	@echo "Running tests..."
-	./venv/bin/pytest backend/tests/ -v
+test: ensure-docker
+	@echo "🧪 Running tests in Docker containers..."
+	@echo "This will start PostgreSQL and Redis containers for testing..."
+	@echo ""
+	@docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
+	@docker compose -f docker-compose.test.yml down
+
+test-local:
+	@echo "Running tests locally (requires venv and local PostgreSQL/Redis)..."
+	@if [ ! -d "venv" ]; then \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+		exit 1; \
+	fi
+	@./venv/bin/pytest backend/tests/ -v
+
+test-clean:
+	@echo "Cleaning up test containers and volumes..."
+	@docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	@echo "✅ Test cleanup complete!"
 
 whatsapp:
 	@echo "🚀 Starting WhatsApp service..."

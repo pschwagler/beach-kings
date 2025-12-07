@@ -10,6 +10,7 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
@@ -17,11 +18,34 @@ from twilio.rest import Client
 from dotenv import load_dotenv
 import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
+from backend.services import settings_service
 
 # Load environment variables
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def get_bool_env(key: str, default: bool = True) -> bool:
+    """
+    Parse a boolean environment variable from a string value.
+    
+    .env files store all values as strings, so this function converts string
+    values like "true", "True", "TRUE", "1", "yes" to True, and everything
+    else (including "false", "False", "0", "no", empty string) to False.
+    
+    Args:
+        key: Environment variable name
+        default: Default value if the variable is not set
+        
+    Returns:
+        bool: Parsed boolean value
+    """
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes")
+
 
 # JWT Configuration
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -38,6 +62,7 @@ REFRESH_TOKEN_EXPIRATION_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+ENABLE_SMS = get_bool_env("ENABLE_SMS", default=True)
 
 # Verification code configuration
 VERIFICATION_CODE_LENGTH = 4
@@ -75,6 +100,29 @@ def verify_password(password: str, password_hash: str) -> bool:
     except Exception as e:
         logger.error(f"Error verifying password: {str(e)}")
         return False
+
+
+async def is_sms_enabled(session: Optional[AsyncSession] = None) -> bool:
+    """
+    Check if SMS is enabled, checking database first.
+    
+    Args:
+        session: Optional database session for checking database settings
+        
+    Returns:
+        True if SMS is enabled, False otherwise
+    """
+    try:
+        return await settings_service.get_bool_setting(
+            session,
+            "enable_sms",
+            env_var="ENABLE_SMS",
+            default=True,
+            fallback_to_cache=True
+        )
+    except Exception as e:
+        logger.warning(f"Error getting ENABLE_SMS from settings, using default: {e}")
+        return ENABLE_SMS
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -232,17 +280,24 @@ def normalize_email(email: str) -> str:
     return email
 
 
-def send_sms_verification(phone_number: str, code: str) -> bool:
+async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
     """
     Send SMS verification code via Twilio.
     
     Args:
+        session: Database session for checking database settings
         phone_number: Phone number in E.164 format
         code: Verification code to send
         
     Returns:
         True if SMS sent successfully, False otherwise
     """
+    # Check if SMS is disabled (database setting first, then env var)
+    enable_sms = await is_sms_enabled(session)
+    if not enable_sms:
+        logger.warning(f"SMS sending is disabled. Skipping SMS to {phone_number}.")
+        return True  # Return True to not break the flow, but log that SMS was skipped
+    
     if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
         logger.error("Twilio credentials not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables.")
         return False

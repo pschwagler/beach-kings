@@ -8,7 +8,8 @@ Handles async stats calculation jobs with a database-backed queue that:
 """
 
 import asyncio
-from typing import Optional, Dict, List
+import logging
+from typing import Optional, Dict, List, Callable, Awaitable
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
@@ -17,8 +18,9 @@ from sqlalchemy.orm import selectinload
 from backend.database.models import (
     StatsCalculationJob, StatsCalculationJobStatus, Season
 )
-from backend.database.db import AsyncSessionLocal
-from backend.services import data_service
+from backend.database import db
+
+logger = logging.getLogger(__name__)
 
 
 class StatsCalculationQueue:
@@ -28,6 +30,8 @@ class StatsCalculationQueue:
         self._worker_task: Optional[asyncio.Task] = None
         self._running = False
         self._stop_event = asyncio.Event()
+        self._global_calc_callback: Optional[Callable[[AsyncSession], Awaitable[Dict]]] = None
+        self._season_calc_callback: Optional[Callable[[AsyncSession, int], Awaitable[Dict]]] = None
     
     async def enqueue_calculation(
         self, 
@@ -186,9 +190,40 @@ class StatsCalculationQueue:
         await session.refresh(job)
         return job.id
     
+    def register_calculation_callbacks(
+        self,
+        global_calc_callback: Callable[[AsyncSession], Awaitable[Dict]],
+        season_calc_callback: Callable[[AsyncSession, int], Awaitable[Dict]]
+    ) -> None:
+        """
+        Register callbacks for stats calculation functions.
+        
+        This method must be called before any calculations can be executed.
+        Typically called during application startup.
+        
+        Args:
+            global_calc_callback: Async function that takes a session and calculates global stats
+            season_calc_callback: Async function that takes a session and season_id and calculates season stats
+            
+        Raises:
+            TypeError: If callbacks are not callable
+        """
+        if not callable(global_calc_callback):
+            raise TypeError("global_calc_callback must be callable")
+        if not callable(season_calc_callback):
+            raise TypeError("season_calc_callback must be callable")
+        
+        # Allow re-registration (useful for testing), but log a warning
+        if self._global_calc_callback is not None or self._season_calc_callback is not None:
+            logger.warning("Re-registering calculation callbacks (previous callbacks will be replaced)")
+        
+        self._global_calc_callback = global_calc_callback
+        self._season_calc_callback = season_calc_callback
+        logger.info("Stats calculation callbacks registered successfully")
+    
     async def _run_calculation(self, job_id: int) -> None:
         """Run a calculation job."""
-        session = AsyncSessionLocal()
+        session = db.AsyncSessionLocal()
         try:
             # Get job to verify it exists and get calc_type/season_id
             result = await session.execute(
@@ -198,14 +233,21 @@ class StatsCalculationQueue:
             if not job:
                 return
             
+            # Validate callbacks are registered
+            if self._global_calc_callback is None or self._season_calc_callback is None:
+                raise RuntimeError(
+                    "Calculation callbacks not registered. "
+                    "Call register_calculation_callbacks() before starting the queue worker."
+                )
+            
             # Run the calculation
             try:
                 if job.calc_type == 'global':
-                    await data_service.calculate_global_stats_async(session)
+                    await self._global_calc_callback(session)
                 elif job.calc_type == 'season':
                     if not job.season_id:
                         raise ValueError("season_id required for season calculation")
-                    await data_service.calculate_season_stats_async(session, job.season_id)
+                    await self._season_calc_callback(session, job.season_id)
                 else:
                     raise ValueError(f"Unknown calc_type: {job.calc_type}")
                 
@@ -240,7 +282,7 @@ class StatsCalculationQueue:
         """Background worker that processes pending jobs."""
         while not self._stop_event.is_set():
             try:
-                session = AsyncSessionLocal()
+                session = db.AsyncSessionLocal()
                 try:
                     # Get first pending job
                     job = await self._get_first_queued_job(session)

@@ -203,12 +203,15 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
       }
 
       if (activeMode === 'verify') {
-        await verifyPhone(formData.phoneNumber, formData.code);
-        // If this was a signup flow, notify parent to show player profile modal
-        // Wait a bit for auth state to update
+        const result = await verifyPhone(formData.phoneNumber, formData.code);
+        // If this was a signup flow, close modal first, then notify parent to show player profile modal
         if (isSignupFlow && onVerifySuccess) {
+          handleClose();
+          // Wait a bit for auth state to update and modal to close
           setTimeout(() => {
-            onVerifySuccess();
+            // result is { profile_complete: boolean }
+            // Always call onVerifySuccess for signups - the handler will decide whether to open modal
+            onVerifySuccess(result?.profile_complete);
           }, 300);
         } else {
           // Not signup flow, close modal normally

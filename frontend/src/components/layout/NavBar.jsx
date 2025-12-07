@@ -59,9 +59,10 @@ export default function NavBar({
         <NavBrand />
         
         <div className="navbar-right">
-          <RecordGamesButton onClick={handleRecordGamesClick} />
+          {/* TODO: Add functionality for Record Games and Players buttons */}
+          {/* <RecordGamesButton onClick={handleRecordGamesClick} /> */}
           
-          <PlayersButton onClick={handlePlayersClick} />
+          {/* <PlayersButton onClick={handlePlayersClick} /> */}
           
           <LeaguesMenu
             isLoggedIn={isLoggedIn}
