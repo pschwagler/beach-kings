@@ -695,6 +695,8 @@ async def list_locations(session: AsyncSession) -> List[Dict]:
             "city": l.city,
             "state": l.state,
             "country": l.country,
+            "latitude": l.latitude,
+            "longitude": l.longitude,
             "created_at": l.created_at.isoformat() if l.created_at else None,
             "updated_at": l.updated_at.isoformat() if l.updated_at else None,
         }
@@ -983,6 +985,11 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "height": player.height,
         "preferred_side": player.preferred_side,
         "default_location_id": player.default_location_id,
+        "city": player.city,
+        "state": player.state,
+        "city_latitude": player.city_latitude,
+        "city_longitude": player.city_longitude,
+        "distance_to_location": player.distance_to_location,
         "stats": {
             "current_rating": global_stats.current_rating if global_stats else 1200.0,
             "total_games": global_stats.total_games if global_stats else 0,
@@ -1001,7 +1008,12 @@ async def upsert_user_player(
     date_of_birth: Optional[str] = None,  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None,
     preferred_side: Optional[str] = None,
-    default_location_id: Optional[int] = None
+    default_location_id: Optional[int] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    city_latitude: Optional[float] = None,
+    city_longitude: Optional[float] = None,
+    distance_to_location: Optional[float] = None
 ) -> Optional[Dict]:
     """
     Upsert (create or update) player profile linked to a user (async version).
@@ -1018,6 +1030,11 @@ async def upsert_user_player(
         height: Height (optional)
         preferred_side: Preferred side (optional)
         default_location_id: Default location ID (optional)
+        city: City name (optional)
+        state: State name or abbreviation (optional)
+        city_latitude: City latitude coordinate (optional)
+        city_longitude: City longitude coordinate (optional)
+        distance_to_location: Distance to default location in miles (optional)
         
     Returns:
         Player dict, or None if error (e.g., creation without full_name)
@@ -1050,7 +1067,12 @@ async def upsert_user_player(
             date_of_birth=date_of_birth_obj,
             height=height,
             preferred_side=preferred_side,
-            default_location_id=default_location_id
+            default_location_id=default_location_id,
+            city=city,
+            state=state,
+            city_latitude=city_latitude,
+            city_longitude=city_longitude,
+            distance_to_location=distance_to_location
         )
         session.add(player)
         await session.commit()
@@ -1066,7 +1088,12 @@ async def upsert_user_player(
                 "date_of_birth": date_of_birth_obj,
                 "height": height,
                 "preferred_side": preferred_side,
-                "default_location_id": default_location_id
+                "default_location_id": default_location_id,
+                "city": city,
+                "state": state,
+                "city_latitude": city_latitude,
+                "city_longitude": city_longitude,
+                "distance_to_location": distance_to_location
             }.items() if v is not None
         }
         
@@ -1090,6 +1117,11 @@ async def upsert_user_player(
         "height": player.height,
         "preferred_side": player.preferred_side,
         "default_location_id": player.default_location_id,
+        "city": player.city,
+        "state": player.state,
+        "city_latitude": player.city_latitude,
+        "city_longitude": player.city_longitude,
+        "distance_to_location": player.distance_to_location,
         "profile_picture_url": player.profile_picture_url,
         "avp_playerProfileId": player.avp_playerProfileId,
         "status": player.status,

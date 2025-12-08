@@ -1,19 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
 import { AlertCircle, CheckCircle, Save } from 'lucide-react';
-
-const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-];
-
-const SKILL_LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'AA', label: 'AA' },
-  { value: 'Open', label: 'Open' },
-];
+import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
+import PlayerProfileFields from '../player/PlayerProfileFields';
 
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
@@ -33,7 +22,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     date_of_birth: '',
     height: '',
     preferred_side: 'none',
+    city: '',
+    state: '',
+    city_latitude: null,
+    city_longitude: null,
     location_id: '',
+    distance_to_location: null,
   });
 
   const [initialFormData, setInitialFormData] = useState({
@@ -45,14 +39,26 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     date_of_birth: '',
     height: '',
     preferred_side: 'none',
+    city: '',
+    state: '',
+    city_latitude: null,
+    city_longitude: null,
     location_id: '',
+    distance_to_location: null,
   });
 
-  const [locations, setLocations] = useState([]);
+  const [allLocations, setAllLocations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showCheckmark, setShowCheckmark] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+
+  const {
+    locations,
+    handleCitySelect: handleCitySelectWithLocation,
+    handleLocationChange,
+    updateLocationsWithDistances,
+  } = useLocationAutoSelect(setFormData, setErrorMessage);
 
   // Load initial data
   useEffect(() => {
@@ -71,6 +77,11 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
   useEffect(() => {
     if (currentUserPlayer) {
+      // Format city display value
+      const cityDisplay = currentUserPlayer.city 
+        ? (currentUserPlayer.state ? `${currentUserPlayer.city}, ${currentUserPlayer.state}` : currentUserPlayer.city)
+        : '';
+      
       const newFormData = {
         full_name: currentUserPlayer.full_name || '',
         nickname: currentUserPlayer.nickname || '',
@@ -79,7 +90,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         date_of_birth: currentUserPlayer.date_of_birth || '',
         height: currentUserPlayer.height || '',
         preferred_side: currentUserPlayer.preferred_side || 'none',
+        city: cityDisplay,
+        state: currentUserPlayer.state || '',
+        city_latitude: currentUserPlayer.city_latitude || null,
+        city_longitude: currentUserPlayer.city_longitude || null,
         location_id: currentUserPlayer.default_location_id ? String(currentUserPlayer.default_location_id) : '',
+        distance_to_location: currentUserPlayer.distance_to_location || null,
       };
       setFormData(prev => ({
         ...prev,
@@ -100,7 +116,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     setIsLoadingLocations(true);
     try {
       const locationsData = await getLocations();
-      setLocations(locationsData || []);
+      setAllLocations(locationsData || []);
+      updateLocationsWithDistances(locationsData || []);
     } catch (error) {
       console.error('Error loading locations:', error);
     } finally {
@@ -129,7 +146,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       formData.date_of_birth !== initialFormData.date_of_birth ||
       formData.height !== initialFormData.height ||
       formData.preferred_side !== initialFormData.preferred_side ||
-      String(formData.location_id || '') !== String(initialFormData.location_id || '')
+      formData.city !== initialFormData.city ||
+      formData.state !== initialFormData.state ||
+      formData.city_latitude !== initialFormData.city_latitude ||
+      formData.city_longitude !== initialFormData.city_longitude ||
+      String(formData.location_id || '') !== String(initialFormData.location_id || '') ||
+      formData.distance_to_location !== initialFormData.distance_to_location
     );
   };
 
@@ -177,8 +199,28 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         playerPayload.preferred_side = preferredSide === 'none' ? null : preferredSide;
       }
 
+      if (formData.city) {
+        playerPayload.city = formData.city;
+      }
+
+      if (formData.state) {
+        playerPayload.state = formData.state;
+      }
+
+      if (formData.city_latitude !== null && formData.city_latitude !== undefined) {
+        playerPayload.city_latitude = formData.city_latitude;
+      }
+
+      if (formData.city_longitude !== null && formData.city_longitude !== undefined) {
+        playerPayload.city_longitude = formData.city_longitude;
+      }
+
       if (formData.location_id) {
-        playerPayload.default_location_id = parseInt(formData.location_id, 10);
+        playerPayload.location_id = parseInt(formData.location_id, 10);
+      }
+
+      if (formData.distance_to_location !== null && formData.distance_to_location !== undefined) {
+        playerPayload.distance_to_location = formData.distance_to_location;
       }
 
       await updatePlayerProfile(playerPayload);
@@ -266,41 +308,20 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           />
         </label>
 
-        <div className="profile-page__form-row">
-          <label className="auth-modal__label">
-            <span>Gender</span>
-            <select
-              name="gender"
-              className="auth-modal__input"
-              value={formData.gender}
-              onChange={handleInputChange}
-              required
-            >
-              {GENDER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="auth-modal__label">
-            <span>Skill Level</span>
-            <select
-              name="level"
-              className="auth-modal__input"
-              value={formData.level}
-              onChange={handleInputChange}
-              required
-            >
-              {SKILL_LEVEL_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <PlayerProfileFields
+          formData={formData}
+          onInputChange={handleInputChange}
+          onCitySelect={(cityData) => {
+            handleCitySelectWithLocation(cityData, allLocations);
+            setShowCheckmark(false);
+          }}
+          onLocationChange={(locationId) => {
+            handleLocationChange(locationId);
+            setShowCheckmark(false);
+          }}
+          locations={locations}
+          isLoadingLocations={isLoadingLocations}
+        />
 
         <div className="profile-page__form-row">
           <label className="auth-modal__label">
@@ -338,24 +359,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
             {PREFERRED_SIDE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="auth-modal__label">
-          <span>Default Location</span>
-          <select
-            name="location_id"
-            className="auth-modal__input"
-            value={formData.location_id}
-            onChange={handleInputChange}
-            disabled={isLoadingLocations}
-          >
-            <option value="">Select a location (optional)</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
               </option>
             ))}
           </select>

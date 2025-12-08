@@ -10,6 +10,7 @@ import HomeTab from './home/HomeTab';
 import ProfileTab from './home/ProfileTab';
 import LeaguesTab from './home/LeaguesTab';
 import FriendsTab from './home/FriendsTab';
+import { isProfileIncomplete } from '../utils/playerUtils';
 
 export default function HomePage() {
   const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
@@ -49,13 +50,14 @@ export default function HomePage() {
         return; // Will re-run when currentUserPlayer updates
       }
       
-      // Check if profile is incomplete (missing gender or level)
-      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      // Check if profile is incomplete (missing gender, level, or city)
+      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
       
       if (profileIncomplete) {
         // Small delay to ensure page is rendered and avoid conflicts with other modals
         const timeoutId = setTimeout(() => {
           openModal(MODAL_TYPES.PLAYER_PROFILE, {
+            currentUserPlayer: currentUserPlayer,
             onSuccess: async () => {
               await fetchCurrentUser();
             }

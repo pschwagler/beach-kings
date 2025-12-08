@@ -126,6 +126,11 @@ class Player(Base):
     height = Column(String, nullable=True)
     preferred_side = Column(String, nullable=True)
     default_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    city_latitude = Column(Float, nullable=True)  # City latitude coordinate
+    city_longitude = Column(Float, nullable=True)  # City longitude coordinate
+    distance_to_location = Column(Float, nullable=True)  # Distance in miles
     profile_picture_url = Column(String, nullable=True)
     avatar = Column(String, nullable=True)  # Can store initials (e.g., "JD") or image URL
     avp_playerProfileId = Column(Integer, nullable=True)

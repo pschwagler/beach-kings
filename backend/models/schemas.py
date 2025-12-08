@@ -434,7 +434,12 @@ class PlayerUpdate(BaseModel):
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None
-    default_location_id: Optional[int] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    city_latitude: Optional[float] = None
+    city_longitude: Optional[float] = None
+    location_id: Optional[int] = None  # Optional: manually override auto-matched location
+    distance_to_location: Optional[float] = None  # Optional: pre-calculated distance from frontend
 
 
 class PlayerResponse(PlayerBase):

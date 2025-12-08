@@ -8,6 +8,7 @@ import { useAuthModal } from "./contexts/AuthModalContext";
 import { createLeague, getUserLeagues, getPlayerMatchHistory } from "./services/api";
 import { navigateTo } from "./Router";
 import { useModal, MODAL_TYPES } from "./contexts/ModalContext";
+import { isProfileIncomplete } from "./utils/playerUtils";
 
 function App() {
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
@@ -43,12 +44,13 @@ function App() {
         
         // Wait a moment for state to update, then check profile
         setTimeout(() => {
-          // Check if profile is incomplete (missing gender or level)
-          const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+          // Check if profile is incomplete (missing gender, level, or city)
+          const profileIncomplete = isProfileIncomplete(currentUserPlayer);
           
           // Always open modal for new signups (profile will be incomplete)
           if (profileIncomplete) {
             openModal(MODAL_TYPES.PLAYER_PROFILE, {
+              currentUserPlayer: currentUserPlayer,
               onSuccess: async () => {
                 if (isAuthenticated) {
                   await fetchCurrentUser();

@@ -1,46 +1,75 @@
 import { useState, useEffect } from 'react';
-import { X, AlertCircle, Info } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { updatePlayerProfile, getLocations } from '../../services/api';
-import { Tooltip } from '../ui/UI';
-
-const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-];
-
-const SKILL_LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'AA', label: 'AA' },
-  { value: 'Open', label: 'Open' },
-];
+import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
+import PlayerProfileFields from './PlayerProfileFields';
 
 const defaultFormState = {
   nickname: '',
   gender: '',
   level: '',
   date_of_birth: '',
+  city: '',
+  state: '',
+  city_latitude: null,
+  city_longitude: null,
   location_id: '',
+  distance_to_location: null,
 };
 
 const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
 
-export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
+export default function PlayerProfileModal({ isOpen, onClose, onSuccess, currentUserPlayer }) {
   const [formData, setFormData] = useState(defaultFormState);
-  const [locations, setLocations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [allLocations, setAllLocations] = useState([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  
+  const {
+    locations,
+    handleCitySelect: handleCitySelectWithLocation,
+    handleLocationChange,
+    updateLocationsWithDistances,
+  } = useLocationAutoSelect(setFormData, setErrorMessage);
 
   useEffect(() => {
     if (isOpen) {
-      // Reset form when modal opens
-      setFormData(defaultFormState);
+      // Pre-populate form with existing player data if available
+      if (currentUserPlayer) {
+        setFormData({
+          nickname: currentUserPlayer.nickname || '',
+          gender: currentUserPlayer.gender || '',
+          level: currentUserPlayer.level || '',
+          date_of_birth: currentUserPlayer.date_of_birth || '',
+          city: currentUserPlayer.city || '',
+          state: currentUserPlayer.state || '',
+          city_latitude: currentUserPlayer.city_latitude || null,
+          city_longitude: currentUserPlayer.city_longitude || null,
+          location_id: currentUserPlayer.default_location_id ? String(currentUserPlayer.default_location_id) : '',
+          distance_to_location: currentUserPlayer.distance_to_location || null,
+        });
+      } else {
+        // Reset form when modal opens if no player data
+        setFormData(defaultFormState);
+      }
       setErrorMessage('');
       loadLocations();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUserPlayer]);
+
+  const loadLocations = async () => {
+    setIsLoadingLocations(true);
+    try {
+      const locationsData = await getLocations();
+      setAllLocations(locationsData || []);
+      updateLocationsWithDistances(locationsData || []);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    } finally {
+      setIsLoadingLocations(false);
+    }
+  };
 
   // Add modal-open class to body when modal is open (for iOS z-index fix)
   useEffect(() => {
@@ -55,19 +84,6 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
       document.body.classList.remove('modal-open');
     };
   }, [isOpen]);
-
-  const loadLocations = async () => {
-    setIsLoadingLocations(true);
-    try {
-      const locationsData = await getLocations();
-      setLocations(locationsData || []);
-    } catch (error) {
-      console.error('Error loading locations:', error);
-      // Don't show error, just continue without locations
-    } finally {
-      setIsLoadingLocations(false);
-    }
-  };
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -93,6 +109,16 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
       return;
     }
 
+    if (!formData.city) {
+      setErrorMessage('City is required');
+      return;
+    }
+
+    if (!formData.location_id) {
+      setErrorMessage('Location is required');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -110,8 +136,28 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
         payload.date_of_birth = formData.date_of_birth;
       }
 
+      if (formData.city) {
+        payload.city = formData.city;
+      }
+
+      if (formData.state) {
+        payload.state = formData.state;
+      }
+
+      if (formData.city_latitude !== null && formData.city_latitude !== undefined) {
+        payload.city_latitude = formData.city_latitude;
+      }
+
+      if (formData.city_longitude !== null && formData.city_longitude !== undefined) {
+        payload.city_longitude = formData.city_longitude;
+      }
+
       if (formData.location_id) {
-        payload.default_location_id = parseInt(formData.location_id, 10);
+        payload.location_id = parseInt(formData.location_id, 10);
+      }
+
+      if (formData.distance_to_location !== null && formData.distance_to_location !== undefined) {
+        payload.distance_to_location = formData.distance_to_location;
       }
 
       await updatePlayerProfile(payload);
@@ -153,7 +199,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         <p className="auth-modal__description">
-          Please complete your player profile. Gender and skill level are required.
+          Please complete your player profile. Gender, skill level, city, and location are required.
         </p>
 
         {errorMessage && (
@@ -164,90 +210,20 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess }) {
         )}
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
-          <label className="auth-modal__label">
-            <span>
-              Gender <span className="required-asterisk">*</span>
-              <Tooltip 
-                text='Gender selection is required for gendered divisions (Mens/Womens). If you choose "prefer not to say", you will only be eligible for coed divisions.'
-                multiline={true}
-              >
-                <Info size={16} className="info-icon" />
-              </Tooltip>
-            </span>
-            <select
-              name="gender"
-              className="auth-modal__input"
-              value={formData.gender}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Select gender</option>
-              {GENDER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="auth-modal__label">
-            <span>Skill Level <span className="required-asterisk">*</span></span>
-            <select
-              name="level"
-              className="auth-modal__input"
-              value={formData.level}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Select skill level</option>
-              {SKILL_LEVEL_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="auth-modal__label">
-            Nickname
-            <input
-              type="text"
-              name="nickname"
-              className="auth-modal__input"
-              placeholder="Optional"
-              value={formData.nickname}
-              onChange={handleInputChange}
-            />
-          </label>
-
-          <label className="auth-modal__label">
-            Date of Birth
-            <input
-              type="date"
-              name="date_of_birth"
-              className="auth-modal__input"
-              value={formData.date_of_birth}
-              onChange={handleInputChange}
-            />
-          </label>
-
-          <label className="auth-modal__label">
-            Location
-            <select
-              name="location_id"
-              className="auth-modal__input"
-              value={formData.location_id}
-              onChange={handleInputChange}
-              disabled={isLoadingLocations}
-            >
-              <option value="">Select a location (optional)</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <PlayerProfileFields
+            formData={formData}
+            onInputChange={(e) => {
+              handleInputChange(e);
+              setErrorMessage('');
+            }}
+            onCitySelect={(cityData) => {
+              handleCitySelectWithLocation(cityData, allLocations);
+            }}
+            onLocationChange={handleLocationChange}
+            locations={locations}
+            isLoadingLocations={isLoadingLocations}
+            showTooltips={true}
+          />
 
           <button type="submit" className="auth-modal__submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save Profile'}

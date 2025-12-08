@@ -5911,7 +5911,7 @@ button.match-config-toggle.inline svg {
   padding: 28px;
   box-shadow: 0 25px 45px rgba(15, 23, 42, 0.25);
   border: 1px solid rgba(59, 130, 200, 0.15);
-  max-height: 90vh;
+  max-height: 95vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

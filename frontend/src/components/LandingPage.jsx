@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { createLeague, getUserLeagues } from "../services/api";
 import { navigateTo } from "../Router";
+import { isProfileIncomplete } from "../utils/playerUtils";
 
 export default function LandingPage() {
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
@@ -41,8 +42,8 @@ export default function LandingPage() {
   // Check if user needs to complete profile after signup
   useEffect(() => {
     if (isAuthenticated && justSignedUp) {
-      // Check if profile is incomplete (missing gender or level)
-      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      // Check if profile is incomplete (missing gender, level, or city)
+      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
       if (profileIncomplete) {
         setTimeout(() => {
           setIsPlayerProfileModalOpen(true);
@@ -237,6 +238,7 @@ export default function LandingPage() {
       <PlayerProfileModal
         isOpen={isPlayerProfileModalOpen}
         onClose={() => setIsPlayerProfileModalOpen(false)}
+        currentUserPlayer={currentUserPlayer}
         onSuccess={async () => {
           if (isAuthenticated) {
             await fetchCurrentUser();
