@@ -10,10 +10,10 @@ A modern web application for tracking beach volleyball player rankings using an 
 - **⚔️ Opponent Analysis** - Track win rates against specific opponents
 - **📅 Match History** - Complete game-by-game breakdown for each player
 - **🎨 Modern UI** - React-based interface with vintage Malibu beach theme
-- **🔄 Google Sheets Integration** - Easy data entry via spreadsheet
+- **💾 Database-Driven** - PostgreSQL database for reliable data storage
 - **🎮 Live Session Management** - Create sessions and add matches in real-time
 - **📱 WhatsApp Integration** - Send notifications and updates via WhatsApp
-- **🚀 Live Deployment** - Hosted on Railway with automatic updates
+- **🚀 Docker Deployment** - Containerized deployment with Docker Compose
 
 ## 🎯 How It Works
 
@@ -60,56 +60,76 @@ For each player:
 **Backend:**
 - **Python 3.11** - Core calculation engine
 - **FastAPI** - REST API framework
-- **Pandas** - Data processing
-- **Google Sheets API** - Data input/integration
+- **PostgreSQL** - Primary database
+- **SQLAlchemy** - ORM for database operations
+- **Alembic** - Database migrations
 
 **Frontend:**
-- **React 18** - UI framework
-- **Vite** - Build tool
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
 - **Lucide React** - Modern icon library
 - **Vanilla CSS** - Vintage Malibu beach theme
 
 **Deployment:**
-- **Railway.app** - Hosting platform
 - **Docker** - Containerization
-- **JSON Files** - Data storage (no database needed)
+- **PostgreSQL** - Database
+- **Redis** - Caching and rate limiting
 
 ### Project Structure
 
 ```
-beach-volleyball-elo/
-├── api.py                    # FastAPI REST server
-├── elo_calculator.py         # Core ELO calculation logic
-├── match.py                  # Google Sheets integration (local use)
-├── frontend/                 # React application
+beach-kings/
+├── backend/                 # FastAPI backend
+│   ├── api/                 # API routes and main app
+│   ├── services/            # Business logic services
+│   ├── database/            # Database models and setup
+│   └── alembic/             # Database migrations
+├── frontend/                # Next.js application
+│   ├── app/                 # Next.js App Router pages
 │   ├── src/
-│   │   ├── App.jsx          # Main component
-│   │   ├── App.css          # Vintage Malibu styling
-│   │   ├── components/      # UI components
-│   │   └── services/        # API client
-│   └── dist/                # Production build
-├── output/                   # Generated JSON data
-├── Dockerfile               # Railway deployment
+│   │   ├── components/      # React components
+│   │   ├── contexts/        # React context providers
+│   │   ├── services/        # API client
+│   │   └── utils/           # Utility functions
+│   ├── public/              # Static assets
+│   └── next.config.js       # Next.js configuration
+├── whatsapp-service/        # WhatsApp integration service
+├── Dockerfile               # Main Dockerfile
+├── Dockerfile.backend       # Backend-specific Dockerfile
+├── Dockerfile.frontend      # Frontend-specific Dockerfile
+├── docker-compose.yml       # Docker Compose configuration
 └── requirements.txt         # Python dependencies
 ```
 
 ## 🚀 Quick Start
 
-### Option 1: Use the Live App (Recommended)
+### Option 1: Quick Start with Docker (Recommended)
 
-Visit the deployed application on Railway:
-**[Your Railway URL here]**
+The easiest way to get started is using Docker Compose:
 
-1. Click **"Recalculate Stats"** to pull latest data from Google Sheets
-2. View **Rankings** or **Matches** tabs
-3. Click any player name to see detailed stats
+```bash
+# Install dependencies
+make install
+
+# Start all services (backend + frontend + database)
+make dev
+```
+
+This will start:
+- Backend API on http://localhost:8000
+- Frontend (Next.js) on http://localhost:3000
+- PostgreSQL database
+- Redis cache
+
+Visit http://localhost:3000 to use the application.
 
 ### Option 2: Run Locally
 
 #### Prerequisites
-- Python 3.7+ (3.11 recommended)
+- Python 3.8+ (3.11 recommended)
 - Node.js 18+
-- Google Sheets API credentials
+- PostgreSQL (or use Docker Compose which includes it)
+- Redis (or use Docker Compose which includes it)
 
 #### Setup
 
@@ -126,80 +146,49 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. **Build the React frontend:**
+3. **Install frontend dependencies:**
 ```bash
 cd frontend
-npm install
-npm run build
+npm install --legacy-peer-deps
 cd ..
 ```
 
-4. **Set up Google Sheets credentials:**
-   - Follow instructions in [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md)
-   - Place `credentials.json` in the project root
-
-5. **Run the server:**
+4. **Run the backend server:**
 ```bash
+source venv/bin/activate
 uvicorn backend.api.main:app --reload
 ```
 
+5. **In a separate terminal, run the frontend dev server:**
+```bash
+cd frontend
+npm run dev
+```
+
 6. **Visit the app:**
-   - Open http://localhost:8000 in your browser
+   - Frontend: http://localhost:3000 (Next.js dev server)
+   - Backend API: http://localhost:8000
 
-### Optional: WhatsApp Integration
 
-To enable WhatsApp notifications:
+### Database Setup
 
-**Option A - Automatic (recommended):**
-```bash
-./start-all.sh
-```
-This starts both the main app and WhatsApp service together.
+The application uses PostgreSQL for data storage. If you're using Docker Compose (recommended), the database is automatically set up. For local development without Docker:
 
-**Option B - Manual:**
-```bash
-# Install WhatsApp service dependencies
-make whatsapp-install
+1. **Install PostgreSQL** and create a database
+2. **Set environment variables:**
+   ```bash
+   export DATABASE_URL="postgresql://user:password@localhost:5432/beachkings"
+   ```
+3. **Run migrations:**
+   ```bash
+   make migrate
+   # Or manually:
+   cd backend && alembic upgrade head
+   ```
 
-# In a separate terminal, start the WhatsApp service
-make whatsapp
-```
+### Export to Google Sheets (Optional)
 
-Then visit `/whatsapp` in the app to connect. See [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) for detailed instructions.
-
-### Option 3: Legacy Google Sheets Script
-
-You can still use the original Python script to update Google Sheets directly:
-
-```bash
-source venv/bin/activate
-python match.py
-```
-
-This will:
-- Read from the "Matches" worksheet
-- Calculate all statistics
-- Update "Points", "ELO Timeline", and individual player worksheets
-
-## 📊 Google Sheets Setup
-
-### Required Worksheets
-
-1. **Matches** - Input data with columns:
-   - `DATE` - Match date
-   - `T1P1`, `T1P2` - Team 1 players
-   - `T2P1`, `T2P2` - Team 2 players
-   - `T1SCORE`, `T2SCORE` - Final scores
-   - `Team 1 ELO +/-`, `Team 2 ELO +/-` - Auto-filled by script
-
-2. **Points** - Auto-generated rankings (sorted by points)
-3. **ELO Timeline** - Historical ratings by date (for graphing)
-4. **Rank Changes** - ELO after each match
-5. **[Player Names]** - Individual player worksheets (auto-created)
-
-### Template
-
-Use this [Google Sheets template](https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing) as a starting point.
+The system can export match data to CSV format compatible with Google Sheets. This is useful for backup or analysis in spreadsheets. See the API documentation for export endpoints.
 
 ## 🔧 API Endpoints
 
@@ -207,7 +196,7 @@ The FastAPI server exposes these endpoints:
 
 ### Main Endpoints
 
-- `POST /api/calculate` - Recalculate all statistics from Google Sheets
+- `POST /api/calculate` - Recalculate all statistics (for database-stored matches)
 - `GET /api/rankings` - Get current points rankings
 - `GET /api/matches` - Get all matches (sorted by date)
 - `GET /api/players` - List all players
@@ -254,7 +243,7 @@ def points(self):
 
 ### Customize UI Theme
 
-Edit `frontend/src/App.css` to change colors:
+Edit `frontend/src/App.css` to change colors (Note: With Next.js, you may need to import this in your layout or pages):
 
 ```css
 :root {
@@ -267,189 +256,64 @@ Edit `frontend/src/App.css` to change colors:
 
 ### Change Google Sheets Link
 
-Edit `frontend/src/components/ControlPanel.jsx`:
+Edit the relevant component that displays the Google Sheets link (if applicable).
 
-```javascript
-const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit';
-```
+## 🚢 Deployment
 
-## 🚢 Deployment to Railway
+### Docker Deployment
 
-### Prerequisites
-- GitHub account
-- Railway.app account (free tier works)
-- Google Sheets API credentials
+The application uses Docker for containerized deployment. See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed instructions.
 
-### Deploy Steps
-
-1. **Push code to GitHub:**
+**Quick deployment:**
 ```bash
-git add .
-git commit -m "Initial commit"
-git push origin main
+# Build all Docker images
+make docker-build
+
+# Start all services
+make docker-up
+
+# Or build and start in one command
+make start
 ```
 
-2. **Create Railway project:**
-   - Visit [railway.app](https://railway.app)
-   - Click "Start a New Project"
-   - Select "Deploy from GitHub repo"
-   - Choose your repository
+### EC2 Deployment
 
-3. **Configure environment variables:**
-   - In Railway dashboard → Variables tab
-   - Add variable `CREDENTIALS_JSON`
-   - Paste entire contents of your `credentials.json` file
-
-4. **Deploy:**
-   - Railway automatically builds using the Dockerfile
-   - Get your public URL from Settings → Domains
-
-5. **Use your app:**
-   - Visit your Railway URL
-   - Click "Recalculate Stats" to sync from Google Sheets
-   - Share the URL with your teammates!
+For deploying to AWS EC2, see [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) for step-by-step instructions.
 
 ### Deployment Details
 
 The app uses Docker for deployment:
-- Python 3.11 runtime
-- Node.js 20 for building React frontend
-- Automatic builds on git push
-- Free tier: 500 hours/month (plenty for personal use)
+- **Backend**: Python 3.11 with FastAPI
+- **Frontend**: Next.js 15 (built at container build time)
+- **Database**: PostgreSQL
+- **Cache**: Redis
+- Separate Dockerfiles for backend and frontend for optimized builds
 
 ## 📖 Usage
 
-### Web Interface
+### Database Management
 
-1. **View Rankings:**
-   - Default view shows all players sorted by Points
-   - Click column headers to sort
-   - Click player names for detailed stats
-
-2. **View Matches:**
-   - Click "Matches" tab
-   - See all games by date (newest first)
-   - Click any player name to see their stats
-
-3. **Player Details:**
-   - Shows overall stats
-   - Partnership breakdown (who you play best with)
-   - Opponent breakdown (who you beat most)
-   - Complete match history (color-coded wins/losses)
-
-4. **Update Data:**
-   - Add new matches to Google Sheets
-   - Click "Recalculate Stats" in the web app
-   - Rankings automatically refresh
-
-### Live Session Management (New! 🎮)
-
-Add the `?gameon` parameter to the URL to enable real-time match entry:
-
-```
-http://localhost:8000/?gameon
-```
-
-**Features:**
-- **Create Sessions** - Start a new gaming session (automatically named by date)
-- **Add Matches** - Add matches on-the-fly during gameplay
-- **End Sessions** - Close sessions when done (prevents further edits)
-- **Player Autocomplete** - Existing players suggested, new players auto-created
-
-**Workflow:**
-1. Navigate to app with `?gameon` parameter
-2. Click "Start New Session"
-3. Click "Add Match" to record games as they happen
-4. Enter player names and scores
-5. Click "End Session" when done playing
-
-Multiple sessions on the same date are automatically numbered (e.g., "11/7/2025 #2").
-
-See [SESSION_FEATURE.md](SESSION_FEATURE.md) for detailed documentation.
-
-### Local Script
-
-For bulk operations or automation:
+For database operations:
 
 ```bash
-source venv/bin/activate
-python match.py
+# Run migrations
+make migrate
+
+# Access database directly (if using Docker)
+docker exec -it beach-kings-postgres psql -U beachkings -d beachkings
 ```
 
-This updates all Google Sheets worksheets directly.
-
-## 🧮 Rating System Details
-
-### How Ratings Change
-
-The ELO formula:
-
-```
-New Rating = Old Rating + K × (Actual Score - Expected Score)
-```
-
-Where:
-- **K** = 40 (how much ratings can change)
-- **Actual Score** = 1.0 for win, 0.0 for loss (or calculated from point differential)
-- **Expected Score** = Probability of winning based on rating difference
-
-**Example:**
-- Player A (Rating: 1200) and Player B (Rating: 1200) vs Player C (Rating: 1100) and Player D (Rating: 1100)
-- Team 1 avg: 1200, Team 2 avg: 1100
-- Expected: Team 1 has ~64% chance to win
-- If Team 1 wins: Both A and B gain ~+14 rating, C and D lose ~-14
-- If Team 2 wins (upset): C and D gain ~+26, A and B lose ~-26
-
-### Why Team-Based?
-
-Traditional ELO is 1v1. For 2v2:
-- Both teammates get the same rating change
-- Team strength = average of both players
-- Encourages balanced partnerships
-
-### Points vs Rating
-
-- **Points** = Cumulative score (rewards participation and winning)
-- **Rating** = Skill indicator (relative strength, can go up or down)
-
-Points determine **leaderboard position**, Rating indicates **skill level**.
 
 ## 📚 Additional Documentation
 
-- [SESSION_FEATURE.md](SESSION_FEATURE.md) - Live session management guide (New!)
-- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Technical implementation details
-- [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md) - Google Sheets API setup
-- [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) - Detailed deployment guide
-- [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) - WhatsApp local development guide
-- [RAILWAY_WHATSAPP.md](RAILWAY_WHATSAPP.md) - WhatsApp production deployment
-- [QUICKSTART_WHATSAPP.md](QUICKSTART_WHATSAPP.md) - WhatsApp quick start
-- [REACT_SETUP.md](REACT_SETUP.md) - Frontend development guide (if exists)
-- [API_README.md](API_README.md) - Complete API documentation (if exists)
+- [APPLICATION_SPEC.md] - Design for app
+- [DOCKER_SETUP.md](DOCKER_SETUP.md) - Docker setup and deployment guide
+- [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) - EC2 deployment instructions
+- [frontend/README.md](frontend/README.md) - Next.js frontend documentation
+- [backend/DATABASE_SCHEMA.md](backend/DATABASE_SCHEMA.md) - Database schema documentation
 
 ## 🛠️ Development
 
-### Frontend Development (with hot reload)
-
-**Terminal 1 - Backend:**
-```bash
-source venv/bin/activate
-uvicorn api:app --reload
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-Visit http://localhost:3000 for instant hot-reload during development.
-
-### Project Components
-
-- `elo_calculator.py` - Core rating logic (data source agnostic)
-- `match.py` - Google Sheets integration
-- `api.py` - REST API server
-- `frontend/` - React application
 
 ## 🤝 Contributing
 
@@ -457,21 +321,21 @@ Feel free to:
 - Report bugs
 - Suggest features
 - Submit pull requests
-- Fork for your own league
 
 ## 📝 License
 
-MIT License - See [LICENSE](LICENSE) file for details.
+Apache 2.0 License - See [LICENSE](LICENSE) file for details.
 
 ## 🏆 Credits
 
-Originally based on [google-sheets-elo-system](https://github.com/Eddykasp/google-sheets-elo-system) by Eddykasp.
+Original ELO calculation was based on [google-sheets-elo-system](https://github.com/Eddykasp/google-sheets-elo-system) by Eddykasp.
 
 Extended with:
-- Modern React frontend
-- REST API
+- Next.js frontend with App Router
+- REST API with FastAPI
+- PostgreSQL database
 - Enhanced statistics
-- Railway deployment
+- Docker deployment
 - Points system
 - Match history tracking
 - Partnership and opponent analytics
