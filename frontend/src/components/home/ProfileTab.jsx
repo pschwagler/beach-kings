@@ -1,5 +1,6 @@
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
-import { useBlocker, useNavigate } from 'react-router-dom';
 import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
 import { AlertCircle, CheckCircle, Save } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
@@ -168,33 +169,9 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     hasUnsavedChangesRef.current = hasChanges;
   }, [formData, initialFormData]);
   
-  // Use React Router's useBlocker hook to block navigation when there are unsaved changes
-  const navigate = useNavigate();
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => {
-      // Block if there are unsaved changes and we're navigating away from /home?tab=profile
-      const currentTab = new URLSearchParams(currentLocation.search).get('tab');
-      const nextTab = new URLSearchParams(nextLocation.search).get('tab');
-      const isLeavingProfileTab = currentTab === 'profile' && nextTab !== 'profile';
-      const isLeavingHomePage = currentLocation.pathname === '/home' && nextLocation.pathname !== '/home';
-      
-      return hasUnsavedChangesRef.current && (isLeavingProfileTab || isLeavingHomePage);
-    }
-  );
-  
-  // Show confirmation modal when navigation is blocked
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setShowConfirmLeaveModal(true);
-      setPendingNavigation(() => () => {
-        blocker.proceed();
-      });
-    } else if (blocker.state === 'proceeding') {
-      // Navigation is proceeding, close modal
-      setShowConfirmLeaveModal(false);
-      setPendingNavigation(null);
-    }
-  }, [blocker]);
+  // Note: Next.js doesn't have useBlocker equivalent
+  // Navigation blocking for programmatic navigation would need custom implementation
+  // For now, we only handle browser refresh/close with beforeunload
 
 
   // Handle browser refresh/close (beforeunload) - useBlocker doesn't handle this
@@ -306,17 +283,14 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const handleConfirmLeave = () => {
     hasUnsavedChangesRef.current = false;
     setShowConfirmLeaveModal(false);
-    if (blocker.state === 'blocked') {
-      blocker.proceed();
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
     }
-    setPendingNavigation(null);
   };
 
   const handleCancelLeave = () => {
     setShowConfirmLeaveModal(false);
-    if (blocker.state === 'blocked') {
-      blocker.reset();
-    }
     setPendingNavigation(null);
   };
 

@@ -8924,6 +8924,215 @@ button.match-config-toggle.inline svg {
   color: var(--success-dark);
   margin-bottom: 1rem;
 }
+
+.admin-feedback-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.admin-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.admin-section-header h2 {
+  color: var(--gray-900);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admin-feedback-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--gray-50);
+  border-radius: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.feedback-filter-group {
+  display: flex;
+  align-items: center;
+}
+
+.feedback-search-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  min-width: 250px;
+  flex: 1;
+}
+
+.feedback-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.feedback-filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.feedback-filter-checkbox input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.feedback-resolve-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feedback-resolve-toggle:hover .toggle-switch {
+  opacity: 0.8;
+}
+
+.feedback-resolve-toggle .toggle-switch {
+  width: 2.5rem;
+  height: 1.25rem;
+  background-color: var(--gray-300);
+  border-radius: 0.625rem;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.feedback-resolve-toggle .toggle-switch.active {
+  background-color: var(--success);
+}
+
+.feedback-resolve-toggle .toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background-color: white;
+  top: 0.125rem;
+  left: 0.125rem;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.feedback-resolve-toggle .toggle-switch.active::after {
+  transform: translateX(1.25rem);
+}
+
+.admin-feedback-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background-color: white;
+}
+
+.admin-feedback-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-feedback-table thead {
+  background-color: var(--gray-50);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.admin-feedback-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.admin-feedback-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+
+.admin-feedback-table tbody tr:hover {
+  background-color: var(--gray-50);
+}
+
+.admin-feedback-table tbody tr.resolved {
+  opacity: 0.7;
+}
+
+.admin-feedback-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.feedback-status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.feedback-status.pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.feedback-status.resolved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.feedback-text-cell {
+  max-width: 400px;
+}
+
+.feedback-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .admin-feedback-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .feedback-search-input {
+    min-width: 100%;
+  }
+  
+  .admin-feedback-table {
+    font-size: 0.85rem;
+  }
+  
+  .admin-feedback-table th,
+  .admin-feedback-table td {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .feedback-text-cell {
+    max-width: 200px;
+  }
+}
+
 @media (max-width: 576px) {
   .modal-overlay {
     padding: 0;

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getCityAutocomplete } from '../../services/api';
 import { useDebounce } from '../../utils/debounce';
@@ -227,4 +229,5 @@ export default function CityAutocomplete({
     </div>
   );
 }
+
 

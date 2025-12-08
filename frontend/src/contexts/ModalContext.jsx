@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useCallback } from 'react';
 
 const ModalContext = createContext(null);
@@ -12,7 +14,9 @@ export const ModalProvider = ({ children }) => {
     setModalProps(props);
     setIsOpen(true);
     // Add modal-open class to body for iOS z-index fix
-    document.body.classList.add('modal-open');
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      document.body.classList.add('modal-open');
+    }
   }, []);
 
   const closeModal = useCallback(() => {
@@ -20,7 +24,9 @@ export const ModalProvider = ({ children }) => {
     setModalType(null);
     setModalProps({});
     // Remove modal-open class
-    document.body.classList.remove('modal-open');
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      document.body.classList.remove('modal-open');
+    }
   }, []);
 
   const value = {

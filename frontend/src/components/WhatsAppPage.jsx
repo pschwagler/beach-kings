@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from "react";
 import { useWhatsAppStatus } from "../hooks/useWhatsAppStatus";
 import ErrorAlert from "./whatsapp/ErrorAlert";

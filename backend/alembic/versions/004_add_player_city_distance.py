@@ -46,3 +46,4 @@ def downgrade() -> None:
     op.drop_column('players', 'state')
     op.drop_column('players', 'city')
 
+

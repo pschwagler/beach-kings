@@ -1,4 +1,7 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import PhoneInput from '../ui/PhoneInput';
@@ -417,13 +420,13 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {activeMode === 'sign-in' && (
             <p className="auth-modal__legal-text">
-              By continuing, you agree to our <a href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a> and have read our <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+              By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
             </p>
           )}
 
           {activeMode === 'sign-up' && (
             <p className="auth-modal__legal-text">
-              By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. By continuing, you agree to our <a href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a> and have read our <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+              By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
             </p>
           )}
         </form>

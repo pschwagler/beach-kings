@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
 import { User, LogIn, UserPlus, UserCircle, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 
@@ -31,6 +34,7 @@ export default function UserMenu({
   onSignUp,
   onSignOut,
 }) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -59,8 +63,7 @@ export default function UserMenu({
         break;
       case 'profile':
         // Navigate to /home?tab=profile
-        window.history.pushState({}, '', '/home?tab=profile');
-        window.dispatchEvent(new PopStateEvent('popstate'));
+        router.push('/home?tab=profile');
         break;
       default:
         onMenuClick?.(action);

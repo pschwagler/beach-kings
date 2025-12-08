@@ -1,14 +1,18 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { useAuth } from '../../contexts/AuthContext';
+import { useApp } from '../../contexts/AppContext';
 
 const INITIAL_FORM_STATE = {
   name: '',
   description: '',
   is_open: true,
   gender: 'male', // Default to Men's
-  level: ''
+  level: '',
+  location_id: ''
 };
 
 // Gender options - Mixed is disabled as it's not supported yet
@@ -32,6 +36,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const { isAuthenticated, currentUserPlayer } = useAuth();
+  const { locations } = useApp();
 
   // Load current user's player data and reset form when modal opens
   useEffect(() => {
@@ -56,7 +61,8 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
         setFormData(prev => ({
           ...prev,
           gender: currentUserPlayer.gender || 'male', // Default to Men's if not known
-          level: normalizedLevel || '' // Default to player's level if it matches an option
+          level: normalizedLevel || '', // Default to player's level if it matches an option
+          location_id: currentUserPlayer.location_id ? String(currentUserPlayer.location_id) : '' // Default to player's location if it exists
         }));
       }
     }
@@ -64,6 +70,8 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
 
   // Add modal-open class to body when modal is open (for iOS z-index fix)
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    
     if (isOpen) {
       document.body.classList.add('modal-open');
     } else {
@@ -72,7 +80,9 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
     
     // Cleanup on unmount
     return () => {
-      document.body.classList.remove('modal-open');
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('modal-open');
+      }
     };
   }, [isOpen]);
 
@@ -111,6 +121,10 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
 
       if (formData.level) {
         payload.level = formData.level;
+      }
+
+      if (formData.location_id) {
+        payload.location_id = formData.location_id;
       }
 
       await onSubmit(payload);
@@ -265,6 +279,24 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
               {LEVEL_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="league-location">Location</label>
+            <select
+              id="league-location"
+              value={formData.location_id}
+              onChange={(e) => handleFieldChange('location_id', e.target.value)}
+              className="form-input form-select"
+              disabled={isSubmitting}
+            >
+              <option value="">None</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={String(loc.id)}>
+                  {loc.name}
                 </option>
               ))}
             </select>

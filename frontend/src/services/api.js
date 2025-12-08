@@ -5,7 +5,11 @@
 import axios from 'axios';
 
 // Base URL - empty string for same-origin, or set to API URL for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// In Next.js, we use process.env.NEXT_PUBLIC_API_URL for client-side env vars
+// eslint-disable-next-line no-undef
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_API_URL || '')
+  : '';
 
 const ACCESS_TOKEN_KEY = 'beach_access_token';
 const REFRESH_TOKEN_KEY = 'beach_refresh_token';
@@ -409,6 +413,10 @@ export const deleteMatch = async (matchId) => {
  * Export all matches to CSV
  */
 export const exportMatchesToCSV = async () => {
+  if (typeof window === 'undefined') {
+    throw new Error('exportMatchesToCSV can only be called in the browser');
+  }
+  
   const response = await api.get('/api/matches/export', {
     responseType: 'blob'
   });
@@ -589,14 +597,10 @@ export const getCityAutocomplete = async (text) => {
  * Logout the current user by invalidating refresh tokens
  */
 export const logout = async () => {
-  try {
-    const response = await api.post('/api/auth/logout');
-    return response.data;
-  } catch (error) {
-    // Even if the logout request fails, we still want to clear local tokens
-    // The user is already logged out from the client side
-    throw error;
-  }
+  // Even if the logout request fails, we still want to clear local tokens
+  // The user is already logged out from the client side
+  const response = await api.post('/api/auth/logout');
+  return response.data;
 };
 
 /**
@@ -770,6 +774,24 @@ export const getAdminConfig = async () => {
  */
 export const updateAdminConfig = async (config) => {
   const response = await api.put('/api/admin-view/config', config);
+  return response.data;
+};
+
+/**
+ * Get all feedback submissions (admin only)
+ */
+export const getAdminFeedback = async () => {
+  const response = await api.get('/api/admin-view/feedback');
+  return response.data;
+};
+
+/**
+ * Update feedback resolution status (admin only)
+ */
+export const updateFeedbackResolution = async (feedbackId, isResolved) => {
+  const response = await api.patch(`/api/admin-view/feedback/${feedbackId}/resolve`, {
+    is_resolved: isResolved
+  });
   return response.data;
 };
 

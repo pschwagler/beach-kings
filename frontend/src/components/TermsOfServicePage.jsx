@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import NavBar from './layout/NavBar';
 import { useAuth } from '../contexts/AuthContext';

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { updatePlayerProfile, getLocations } from '../../services/api';
@@ -73,6 +75,8 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
 
   // Add modal-open class to body when modal is open (for iOS z-index fix)
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    
     if (isOpen) {
       document.body.classList.add('modal-open');
     } else {
@@ -81,7 +85,9 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
     
     // Cleanup on unmount
     return () => {
-      document.body.classList.remove('modal-open');
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('modal-open');
+      }
     };
   }, [isOpen]);
 

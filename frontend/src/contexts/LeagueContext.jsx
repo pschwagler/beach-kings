@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getLeague, getLeagueSeasons, getLeagueMembers, getRankings, getSeasonMatches, getAllPlayerSeasonStats, getAllSeasonPartnershipOpponentStats } from '../services/api';
 import { useAuth } from './AuthContext';

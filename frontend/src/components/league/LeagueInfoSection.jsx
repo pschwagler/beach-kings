@@ -20,7 +20,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
-      showMessage?.('success', 'Skill level updated');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update skill level');
       // Reset to original value on error
@@ -29,7 +28,7 @@ export default function LeagueInfoSection({ league, onUpdate }) {
   };
 
   const handleLocationChange = async (e) => {
-    const newLocationId = e.target.value ? parseInt(e.target.value) : null;
+    const newLocationId = e.target.value || null;
     try {
       const updatedLeague = await updateLeague(leagueId, {
         name: league?.name || '',
@@ -41,11 +40,10 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
-      showMessage?.('success', 'Location updated');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update location');
       // Reset to original value on error
-      e.target.value = league?.location_id || '';
+      e.target.value = league?.location_id ? String(league.location_id) : '';
     }
   };
 
@@ -62,7 +60,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
-      showMessage?.('success', 'Access updated');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to update access');
       // Reset to original value on error
@@ -114,14 +111,14 @@ export default function LeagueInfoSection({ league, onUpdate }) {
           <span className="league-info-label">Location:</span>
           {isLeagueAdmin ? (
             <select
-              value={league?.location_id || ''}
+              value={league?.location_id ? String(league.location_id) : ''}
               onChange={handleLocationChange}
               className="league-info-select"
               onClick={(e) => e.stopPropagation()}
             >
               <option value="">None</option>
               {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                <option key={loc.id} value={String(loc.id)}>{loc.name}</option>
               ))}
             </select>
           ) : (

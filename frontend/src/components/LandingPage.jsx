@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import "../App.css";
 import NavBar from "./layout/NavBar";
 import CreateLeagueModal from "./league/CreateLeagueModal";
@@ -10,7 +13,7 @@ import { createLeague, getUserLeagues } from "../services/api";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
@@ -22,9 +25,9 @@ export default function LandingPage() {
   // Redirect authenticated users to /home
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/home");
+      router.push("/home");
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, router]);
 
   const handleSignOut = async () => {
     try {
@@ -32,13 +35,17 @@ export default function LandingPage() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      navigate("/");
+      router.push("/");
     }
   };
 
   const handleVerifySuccess = useCallback(() => {
     setJustSignedUp(true);
   }, []);
+
+  const navigateToLeague = useCallback((leagueId) => {
+    router.push(`/league/${leagueId}`);
+  }, [router]);
 
   // Check if user needs to complete profile after signup
   useEffect(() => {
@@ -71,7 +78,7 @@ export default function LandingPage() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, pendingAction]);
+  }, [isAuthenticated, pendingAction, navigateToLeague]);
 
   // Load leagues when user authenticates
   useEffect(() => {
@@ -94,7 +101,7 @@ export default function LandingPage() {
 
   // Listen for 403 forbidden errors to show login modal
   useEffect(() => {
-    const handleShowLoginModal = (event) => {
+    const handleShowLoginModal = () => {
       if (!isAuthenticated) {
         openAuthModal("sign-in");
       }
@@ -109,13 +116,17 @@ export default function LandingPage() {
 
   // Auto-hide scrollbar when scrolling stops
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     let scrollTimeout;
     const handleScroll = () => {
-      document.body.classList.add("scrolling");
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        document.body.classList.remove("scrolling");
-      }, 1000);
+      if (typeof document !== 'undefined') {
+        document.body.classList.add("scrolling");
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          document.body.classList.remove("scrolling");
+        }, 1000);
+      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -128,22 +139,12 @@ export default function LandingPage() {
     };
   }, []);
 
-  const navigateToLeague = (leagueId) => {
-    window.history.pushState({}, "", `/league/${leagueId}`);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-
   const handleCreateLeague = async (leagueData) => {
-    try {
-      const newLeague = await createLeague(leagueData);
-      const leagues = await getUserLeagues();
-      setUserLeagues(leagues);
-      window.history.pushState({}, "", `/league/${newLeague.id}?tab=details`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-      return newLeague;
-    } catch (error) {
-      throw error;
-    }
+    const newLeague = await createLeague(leagueData);
+    const leagues = await getUserLeagues();
+    setUserLeagues(leagues);
+    router.push(`/league/${newLeague.id}?tab=details`);
+    return newLeague;
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
@@ -207,9 +208,11 @@ export default function LandingPage() {
           <div className="landing-message">
             <h2 className="landing-welcome-title">
               Welcome to{" "}
-              <img
+              <Image
                 src="/beach-league-gold-on-white-cropped.png"
                 alt="Beach League"
+                width={200}
+                height={50}
                 className="landing-brand-logo"
               />
             </h2>

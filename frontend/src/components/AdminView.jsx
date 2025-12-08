@@ -1,7 +1,9 @@
+'use client';
+
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
-import { getAdminConfig, updateAdminConfig } from '../services/api';
+import { getAdminConfig, updateAdminConfig, getAdminFeedback, updateFeedbackResolution } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { getUserLeagues } from '../services/api';
@@ -9,7 +11,7 @@ import NavBar from './layout/NavBar';
 import '../App.css';
 
 function AdminView() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [config, setConfig] = useState(null);
@@ -18,6 +20,10 @@ function AdminView() {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [userLeagues, setUserLeagues] = useState([]);
+  const [feedback, setFeedback] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSearch, setFeedbackSearch] = useState('');
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   
   // Form state
   const [enableSms, setEnableSms] = useState(false);
@@ -44,6 +50,7 @@ function AdminView() {
   // Load configuration on mount
   useEffect(() => {
     loadConfig();
+    loadFeedback();
   }, []);
 
   // Load user leagues for navbar
@@ -68,13 +75,13 @@ function AdminView() {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      navigate('/');
+      router.push('/');
     }
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
     if (action === 'view-league' && leagueId) {
-      navigate(`/league/${leagueId}`);
+      router.push(`/league/${leagueId}`);
     }
   };
   
@@ -106,6 +113,76 @@ function AdminView() {
       setLoading(false);
     }
   };
+  
+  const loadFeedback = async () => {
+    try {
+      setFeedbackLoading(true);
+      const data = await getAdminFeedback();
+      setFeedback(data);
+    } catch (err) {
+      console.error('Error loading feedback:', err);
+      // Don't show error for feedback loading, just log it
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
+  const handleToggleResolved = async (feedbackId, currentStatus) => {
+    try {
+      const newStatus = !currentStatus;
+      const updated = await updateFeedbackResolution(feedbackId, newStatus);
+      
+      // Update the feedback in the local state
+      setFeedback(prev => prev.map(item => 
+        item.id === feedbackId ? updated : item
+      ));
+    } catch (err) {
+      console.error('Error updating feedback resolution:', err);
+      // Optionally show an error message to the user
+    }
+  };
+  
+  // Filter feedback based on search and unresolved filter
+  const filteredFeedback = useMemo(() => {
+    return feedback.filter(item => {
+      // Filter by unresolved only if enabled
+      if (showUnresolvedOnly && item.is_resolved) {
+        return false;
+      }
+      
+      // Filter by search term
+      if (feedbackSearch.trim()) {
+        const searchLower = feedbackSearch.toLowerCase();
+        const matchesSearch = 
+          item.feedback_text.toLowerCase().includes(searchLower) ||
+          (item.user_name && item.user_name.toLowerCase().includes(searchLower)) ||
+          (item.email && item.email.toLowerCase().includes(searchLower)) ||
+          item.id.toString().includes(searchLower);
+        
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [feedback, feedbackSearch, showUnresolvedOnly]);
   
   const handleSave = async () => {
     try {
@@ -308,6 +385,97 @@ function AdminView() {
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
+        </div>
+        
+        <div className="admin-feedback-section">
+          <div className="admin-section-header">
+            <h2>Feedback</h2>
+            <button
+              onClick={loadFeedback}
+              disabled={feedbackLoading}
+              className="admin-refresh-btn"
+              aria-label="Refresh feedback"
+              title="Refresh feedback"
+            >
+              <RefreshCw size={18} className={feedbackLoading ? 'spinning' : ''} />
+            </button>
+          </div>
+          
+          {/* Filter Panel */}
+          <div className="admin-feedback-filters">
+            <div className="feedback-filter-group">
+              <input
+                type="text"
+                placeholder="Search feedback, user, email, or ID..."
+                value={feedbackSearch}
+                onChange={(e) => setFeedbackSearch(e.target.value)}
+                className="feedback-search-input"
+              />
+            </div>
+            <div className="feedback-filter-group">
+              <label className="feedback-filter-checkbox">
+                <input
+                  type="checkbox"
+                  checked={showUnresolvedOnly}
+                  onChange={(e) => setShowUnresolvedOnly(e.target.checked)}
+                />
+                <span>Show unresolved only</span>
+              </label>
+            </div>
+          </div>
+          
+          {feedbackLoading ? (
+            <p>Loading feedback...</p>
+          ) : feedback.length === 0 ? (
+            <p>No feedback submitted yet.</p>
+          ) : filteredFeedback.length === 0 ? (
+            <p>No feedback matches your filters.</p>
+          ) : (
+            <div className="admin-feedback-table-container">
+              <table className="admin-feedback-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Resolved</th>
+                    <th>Feedback</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFeedback.map((item) => (
+                    <tr key={item.id} className={item.is_resolved ? 'resolved' : ''}>
+                      <td>{item.id}</td>
+                      <td>{formatDate(item.created_at)}</td>
+                      <td>{item.user_name || (item.user_id ? `User ${item.user_id}` : 'Anonymous')}</td>
+                      <td>{item.email || 'N/A'}</td>
+                      <td>
+                        <span className={`feedback-status ${item.is_resolved ? 'resolved' : 'pending'}`}>
+                          {item.is_resolved ? 'Resolved' : 'Pending'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="feedback-resolve-toggle"
+                          onClick={() => handleToggleResolved(item.id, item.is_resolved)}
+                          aria-label={item.is_resolved ? 'Mark as unresolved' : 'Mark as resolved'}
+                          title={item.is_resolved ? 'Mark as unresolved' : 'Mark as resolved'}
+                        >
+                          <span className={`toggle-switch ${item.is_resolved ? 'active' : ''}`} />
+                        </button>
+                      </td>
+                      <td className="feedback-text-cell">
+                        <div className="feedback-text">{item.feedback_text}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         </div>
       </div>

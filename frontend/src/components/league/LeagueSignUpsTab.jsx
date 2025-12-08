@@ -183,7 +183,6 @@ export default function LeagueSignUpsTab() {
       await deleteWeeklySchedule(scheduleId);
       await loadWeeklySchedules();
       await loadSignups();
-      showMessage?.('success', 'Weekly schedule deleted successfully');
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to delete weekly schedule');
     }

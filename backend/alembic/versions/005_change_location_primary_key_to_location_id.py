@@ -174,3 +174,4 @@ def downgrade() -> None:
     
     raise NotImplementedError("Downgrade not implemented - this migration changes primary key structure")
 
+

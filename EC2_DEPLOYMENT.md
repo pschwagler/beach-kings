@@ -19,7 +19,8 @@
   - SSH (22) - Your IP only
   - HTTP (80) - Anywhere (required for Let's Encrypt)
   - HTTPS (443) - Anywhere (for SSL, can add after initial setup)
-  - Custom TCP (8000) - Anywhere (optional, for direct access before SSL setup)
+  - Custom TCP (3000) - Anywhere (optional, for direct frontend access before SSL setup)
+  - Custom TCP (8000) - Anywhere (optional, for direct backend API access before SSL setup)
 - [ ] **Storage:** 20GB gp3
 - [ ] Launch instance
 
@@ -151,7 +152,8 @@ curl http://localhost:8000/api/health
 
 - [ ] All containers showing "Up"
 - [ ] Health check returns OK
-- [ ] App accessible at `http://<PUBLIC_IP>:8000`
+- [ ] Frontend accessible at `http://<PUBLIC_IP>:3000`
+- [ ] Backend API accessible at `http://<PUBLIC_IP>:8000/api/health`
 
 ---
 
@@ -220,8 +222,11 @@ sudo systemctl status certbot.timer
 ### How It Works
 
 - **nginx** runs on the EC2 host (not in Docker) and listens on ports 80 and 443
-- **Docker container** continues running on port 8000 (internal only)
-- **nginx** acts as a reverse proxy, forwarding requests to `localhost:8000`
+- **Frontend container** (Next.js) runs on port 3000 (internal only)
+- **Backend container** (FastAPI) runs on port 8000 (internal only)
+- **nginx** acts as a reverse proxy:
+  - `/api/*` requests → `localhost:8000` (backend)
+  - All other requests → `localhost:3000` (frontend)
 - **Let's Encrypt** certificates are stored in `/etc/letsencrypt/`
 - **Auto-renewal** runs via systemd timer (checks twice daily, renews when <30 days remaining)
 
@@ -318,7 +323,7 @@ gunzip -c ~/backups/db_TIMESTAMP.sql.gz | docker exec -i beach-kings-postgres ps
 |-------|----------|
 | "Permission denied" on docker | Run `sudo usermod -aG docker ubuntu` then log out/in |
 | Container won't start | Check logs: `docker-compose logs backend` |
-| Can't connect to app | Verify security group allows port 8000 (or 443 if using SSL) |
+| Can't connect to app | Verify security group allows ports 3000/8000 (or 443 if using SSL) |
 | Database connection error | Wait for postgres healthcheck, check `docker-compose logs postgres` |
 | SSL certificate issues | See SSL troubleshooting section above |
 

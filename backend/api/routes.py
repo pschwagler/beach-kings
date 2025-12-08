@@ -12,7 +12,7 @@ from sqlalchemy import select, and_
 from backend.database.db import get_db_session
 from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
-from backend.services import geocoding_service, location_service
+from backend.services import location_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -45,6 +45,7 @@ import traceback
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from backend.utils.datetime_utils import utcnow
+from backend.utils.geo_utils import calculate_distance_miles
 
 logger = logging.getLogger(__name__)
 
@@ -621,45 +622,7 @@ async def get_location_distances(
         Array of objects: [{"id": str, "name": str, "distance_miles": float}, ...]
     """
     try:
-        from backend.utils.geo_utils import calculate_distance_miles
-        from backend.database.models import Location
-        from sqlalchemy import select
-        
-        # Query all locations that have coordinates
-        result = await session.execute(
-            select(Location)
-            .where(Location.latitude.isnot(None))
-            .where(Location.longitude.isnot(None))
-        )
-        locations = result.scalars().all()
-        
-        if not locations:
-            return []
-        
-        # Calculate distance to each location
-        locations_with_distances = []
-        for location in locations:
-            if location.latitude is None or location.longitude is None:
-                continue
-            
-            distance = calculate_distance_miles(
-                lat,
-                lon,
-                location.latitude,
-                location.longitude
-            )
-            
-            locations_with_distances.append({
-                "id": location.id,
-                "name": location.name,
-                "distance_miles": round(distance, 2)
-            })
-        
-        # Sort by distance (closest first)
-        locations_with_distances.sort(key=lambda x: x["distance_miles"])
-        
-        return locations_with_distances
-        
+        return await location_service.get_all_location_distances(session, lat, lon)
     except Exception as e:
         logger.error(f"Error getting location distances: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting location distances: {str(e)}")
@@ -680,29 +643,10 @@ async def geocode_autocomplete(
     Returns:
         Geoapify autocomplete response
     """
-    if not text or len(text.strip()) < 2:
-        return {"features": []}
-    
     try:
-        geoapify_key = os.getenv("GEOAPIFY_API_KEY")
-        if not geoapify_key:
-            raise HTTPException(status_code=500, detail="Geoapify API key not configured")
-        
-        url = "https://api.geoapify.com/v1/geocode/autocomplete"
-        params = {
-            "text": text.strip(),
-            "apiKey": geoapify_key,
-            "limit": 10,
-            "type": "city",
-            "filter": "countrycode:us",  # Filter to US cities only
-            "lang": "en"  # English language
-        }
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-            
+        return await location_service.autocomplete(text)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except httpx.HTTPStatusError as e:
         raise HTTPException(
             status_code=e.response.status_code,
@@ -3184,12 +3128,8 @@ async def update_current_user_player(
     Creates user and player if they don't exist (for signup flow).
     Requires authentication.
     
-    Location matching logic:
-    - If city_latitude/city_longitude are provided and different from existing values:
-      → Recalculates location_id (closest location) and distance_to_location
-    - If only location_id is provided (coordinates unchanged):
-      → Only recalculates distance_to_location from existing coordinates to new location
-    - If distance_to_location is provided, uses it directly (no recalculation)
+    Location values (location_id, distance_to_location, city_latitude, city_longitude)
+    are handled by the client and passed through directly.
     
     Request body:
         {
@@ -3204,8 +3144,8 @@ async def update_current_user_player(
             "state": "CA",            // Optional
             "city_latitude": 34.0522, // Optional (from autocomplete selection)
             "city_longitude": -118.2437, // Optional (from autocomplete selection)
-            "location_id": "socal_la",  // Required when city coordinates are provided (string, e.g., "socal_la")
-            "distance_to_location": 2.5  // Optional (frontend sends pre-calculated distance)
+            "location_id": "socal_la",  // Optional (string, e.g., "socal_la")
+            "distance_to_location": 2.5  // Optional (pre-calculated by client)
         }
     
     Returns:
@@ -3218,86 +3158,8 @@ async def update_current_user_player(
             # This shouldn't happen if auth is working, but handle it
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Handle city-based location matching
-        # Get existing player to compare coordinates
-        existing_player = await data_service.get_player_by_user_id(session, current_user["id"])
-        
-        # Tolerance for coordinate comparison (in degrees, ~0.01 degrees ≈ 1.1 km)
-        COORDINATE_TOLERANCE = 0.01
-        
-        city_value = payload.city
-        state_value = payload.state
-        city_latitude = payload.city_latitude
-        city_longitude = payload.city_longitude
-        requested_location_id = payload.location_id  # This is now a string (location_id)
-        distance_to_location = payload.distance_to_location  # Use distance from frontend if provided
-        location_id_value = None
-        
-        # Validate: if city coordinates are provided, location_id is required
-        if city_latitude is not None and city_longitude is not None:
-            if requested_location_id is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="location_id is required when city coordinates are provided"
-                )
-        
-        # Only process location matching if coordinates are provided
-        if city_latitude is not None and city_longitude is not None:
-            # Check if coordinates changed from existing values
-            coordinates_changed = False
-            if existing_player:
-                existing_lat = existing_player.get("city_latitude")
-                existing_lon = existing_player.get("city_longitude")
-                # Check if coordinates are different (with tolerance for floating point)
-                if existing_lat is None or existing_lon is None:
-                    coordinates_changed = True
-                elif abs(existing_lat - city_latitude) > COORDINATE_TOLERANCE or abs(existing_lon - city_longitude) > COORDINATE_TOLERANCE:
-                    coordinates_changed = True
-            else:
-                # New player, coordinates are new
-                coordinates_changed = True
-            
-            # Use the requested location_id
-            location_id_value = requested_location_id
-            
-            # If distance_to_location was provided by frontend, use it directly
-            # Otherwise, calculate it
-            if distance_to_location is None:
-                # If coordinates changed, recalculate distance
-                if coordinates_changed:
-                    # Find closest location to new coordinates to get distance
-                    closest_location = await location_service.find_closest_location(
-                        session,
-                        city_latitude,
-                        city_longitude
-                    )
-                    
-                    if closest_location:
-                        distance_to_location = closest_location["distance_miles"]
-                # Else, if only location_id changed (coordinates same), recalculate distance only
-                elif existing_player:
-                    # Coordinates haven't changed, but location_id might have been manually updated
-                    # Recalculate distance from existing coordinates to new location
-                    existing_lat = existing_player.get("city_latitude")
-                    existing_lon = existing_player.get("city_longitude")
-                    
-                    if existing_lat is not None and existing_lon is not None:
-                        # Get the location to calculate distance
-                        result = await session.execute(
-                            select(Location).where(Location.id == location_id_value)
-                        )
-                        location = result.scalar_one_or_none()
-                        
-                        if location and location.latitude is not None and location.longitude is not None:
-                            from backend.utils.geo_utils import calculate_distance_miles
-                            distance_to_location = calculate_distance_miles(
-                                existing_lat,
-                                existing_lon,
-                                location.latitude,
-                                location.longitude
-                            )
-        
         # Update or create player profile
+        # Location values are handled by the client and passed through directly
         player = await data_service.upsert_user_player(
             session=session,
             user_id=current_user["id"],
@@ -3308,12 +3170,12 @@ async def update_current_user_player(
             date_of_birth=payload.date_of_birth,
             height=payload.height,
             preferred_side=payload.preferred_side,
-            location_id=location_id_value,
-            city=city_value,
-            state=state_value,
-            city_latitude=city_latitude,
-            city_longitude=city_longitude,
-            distance_to_location=distance_to_location
+            location_id=payload.location_id,
+            city=payload.city,
+            state=payload.state,
+            city_latitude=payload.city_latitude,
+            city_longitude=payload.city_longitude,
+            distance_to_location=payload.distance_to_location
         )
         
         if not player:
@@ -3438,6 +3300,121 @@ async def submit_feedback(
     except Exception as e:
         logger.error(f"Error submitting feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error submitting feedback: {str(e)}")
+
+
+@router.get("/api/admin-view/feedback", response_model=List[FeedbackResponse])
+async def get_all_feedback(
+    user: dict = Depends(require_admin_phone),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get all feedback submissions.
+    Only accessible to user with phone number +17167831211.
+    
+    Returns:
+        List[FeedbackResponse]: List of all feedback records, ordered by created_at descending
+    """
+    try:
+        # Get all feedback, ordered by most recent first
+        result = await session.execute(
+            select(Feedback).order_by(Feedback.created_at.desc())
+        )
+        feedback_list = result.scalars().all()
+        
+        # Build response with user names
+        response_data = []
+        for feedback in feedback_list:
+            user_name = None
+            if feedback.user_id:
+                # Get user's full name from their player profile
+                player_result = await session.execute(
+                    select(Player).where(Player.user_id == feedback.user_id)
+                )
+                player = player_result.scalar_one_or_none()
+                if player:
+                    user_name = player.full_name
+            
+            response_data.append({
+                "id": feedback.id,
+                "user_id": feedback.user_id,
+                "feedback_text": feedback.feedback_text,
+                "email": feedback.email,
+                "is_resolved": feedback.is_resolved,
+                "created_at": feedback.created_at.isoformat(),
+                "user_name": user_name
+            })
+        
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting feedback: {str(e)}")
+
+
+@router.patch("/api/admin-view/feedback/{feedback_id}/resolve")
+async def update_feedback_resolution(
+    feedback_id: int,
+    request: Request,
+    user: dict = Depends(require_admin_phone),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Update feedback resolution status.
+    Only accessible to user with phone number +17167831211.
+    
+    Body: { "is_resolved": true } to mark feedback as resolved
+    
+    Args:
+        feedback_id: ID of the feedback to update
+        
+    Returns:
+        FeedbackResponse: Updated feedback record
+    """
+    try:
+        body = await request.json()
+        is_resolved = body.get("is_resolved", False)
+        
+        # Get feedback record
+        result = await session.execute(
+            select(Feedback).where(Feedback.id == feedback_id)
+        )
+        feedback = result.scalar_one_or_none()
+        
+        if not feedback:
+            raise HTTPException(status_code=404, detail="Feedback not found")
+        
+        # Update resolution status
+        feedback.is_resolved = is_resolved
+        await session.commit()
+        await session.refresh(feedback)
+        
+        # Get user name if available
+        user_name = None
+        if feedback.user_id:
+            player_result = await session.execute(
+                select(Player).where(Player.user_id == feedback.user_id)
+            )
+            player = player_result.scalar_one_or_none()
+            if player:
+                user_name = player.full_name
+        
+        return {
+            "id": feedback.id,
+            "user_id": feedback.user_id,
+            "feedback_text": feedback.feedback_text,
+            "email": feedback.email,
+            "is_resolved": feedback.is_resolved,
+            "created_at": feedback.created_at.isoformat(),
+            "user_name": user_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating feedback resolution: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating feedback resolution: {str(e)}")
 
 
 # Admin view endpoints

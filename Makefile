@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test test-local test-clean whatsapp whatsapp-install ensure-docker migrate
+.PHONY: help install dev dev-basic dev-backend dev-frontend build docker-build docker-up start clean clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -25,9 +25,11 @@ help:
 	@echo "  make dev               - Start ALL services (backend + postgres + WhatsApp + frontend dev server)"
 	@echo "  make dev-basic         - Start backend + postgres + frontend dev server (no WhatsApp)"
 	@echo "  make dev-backend       - Start backend only with Docker Compose"
-	@echo "  make watch             - Watch and rebuild frontend only"
+	@echo "  make dev-frontend      - Start frontend dev server only (requires backend running)"
 	@echo "  make build             - Build frontend for production"
-	@echo "  make start             - Build frontend + start backend"
+	@echo "  make start             - Build frontend + start all services with Docker Compose"
+	@echo "  make docker-build      - Build all Docker images"
+	@echo "  make docker-up         - Start all services with Docker Compose"
 	@echo "  make clean             - Remove build artifacts and Docker containers/volumes"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
@@ -73,7 +75,7 @@ install:
 	./venv/bin/pip install --upgrade pip
 	./venv/bin/pip install -r requirements.txt
 	@echo "Installing frontend dependencies..."
-	cd frontend && npm install
+	cd frontend && npm install --legacy-peer-deps
 	@echo "Installing WhatsApp service dependencies..."
 	cd whatsapp-service && npm install
 	@echo "✅ All dependencies installed!"
@@ -85,11 +87,16 @@ whatsapp-install:
 	cd whatsapp-service && npm install
 	@echo "✅ WhatsApp service dependencies installed!"
 
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	cd frontend && npm install --legacy-peer-deps
+	@echo "✅ Frontend dependencies installed!"
+
 dev: ensure-docker
 	@echo "🚀 Starting ALL services (backend + postgres + WhatsApp + frontend)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "📱 WhatsApp: http://localhost:3001"
-	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
+	@echo "🎨 Frontend: http://localhost:3000 (Next.js dev server)"
 	@echo ""
 	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
 	@echo "📱 Or from your phone: http://<your-ip>:3000"
@@ -97,45 +104,72 @@ dev: ensure-docker
 	@echo ""
 	@echo "Press Ctrl+C to stop all services"
 	@echo ""
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "⚠️  Frontend dependencies not found. Installing..."; \
+		cd frontend && npm install --legacy-peer-deps; \
+	fi
 	@trap 'docker compose down' EXIT INT TERM; \
 	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
-		"docker compose up" \
-		"npm run dev -- --host"
+		"docker compose up postgres redis backend" \
+		"npm run dev" || true; \
+	docker compose down
 
 dev-basic: ensure-docker
 	@echo "🚀 Starting backend + postgres + frontend (no WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
-	@echo "🎨 Frontend: http://localhost:3000 (Vite dev server)"
+	@echo "🎨 Frontend: http://localhost:3000 (Next.js dev server)"
 	@echo ""
 	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
 	@echo "📱 Or from your phone: http://<your-ip>:3000"
 	@echo ""
 	@echo "Press Ctrl+C to stop"
 	@echo ""
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "⚠️  Frontend dependencies not found. Installing..."; \
+		cd frontend && npm install --legacy-peer-deps; \
+	fi
 	@trap 'ENABLE_WHATSAPP=false docker compose down' EXIT INT TERM; \
 	cd frontend && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
-		"ENABLE_WHATSAPP=false docker compose up" \
-		"npm run dev -- --host"
+		"ENABLE_WHATSAPP=false docker compose up postgres redis backend" \
+		"npm run dev" || true; \
+	ENABLE_WHATSAPP=false docker compose down
 
 dev-backend: ensure-docker
 	@echo "Starting backend only with Docker Compose (auto-reload)..."
 	@echo "Visit: http://localhost:8000"
 	@docker compose up backend
 
-watch:
-	@echo "Watching frontend files and rebuilding on changes..."
+dev-frontend:
+	@echo "Starting frontend dev server (Next.js)..."
 	@echo "Backend must be running (make dev-backend in another terminal)"
-	@echo "Visit: http://localhost:8000 (refresh browser after changes)"
-	cd frontend && npm run build -- --watch
+	@echo "Visit: http://localhost:3000"
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "⚠️  Frontend dependencies not found. Installing..."; \
+		cd frontend && npm install --legacy-peer-deps; \
+	fi
+	cd frontend && npm run dev
 
 build:
-	@echo "Building frontend..."
+	@echo "Building frontend for production..."
+	@if [ ! -d "frontend/node_modules" ]; then \
+		echo "⚠️  Frontend dependencies not found. Installing..."; \
+		cd frontend && npm install --legacy-peer-deps; \
+	fi
 	cd frontend && npm run build
 	@echo "✅ Frontend built!"
 
-start: ensure-docker build
-	@echo "Starting production server with Docker Compose..."
-	@ENV=production docker compose up
+docker-build:
+	@echo "Building all Docker images..."
+	docker compose build
+	@echo "✅ Docker images built!"
+
+docker-up: ensure-docker
+	@echo "Starting all services with Docker Compose..."
+	docker compose up
+
+start: ensure-docker
+	@echo "Building and starting all services in production mode..."
+	@NODE_ENV=production docker compose up --build
 
 clean:
 	@echo "Cleaning up..."
@@ -153,6 +187,8 @@ clean:
 	fi
 	@echo "Removing build artifacts..."
 	rm -rf frontend/dist
+	rm -rf frontend/.next
+	rm -rf frontend/out
 	rm -rf **/__pycache__
 	rm -rf backend/**/__pycache__
 	@echo "✅ Cleanup complete!"

@@ -19,10 +19,31 @@ services:
       - beach-kings-network
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: beach-kings-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      # NEXT_PUBLIC_API_URL is used by the browser, so it must be accessible from host
+      # Use localhost since the backend port is exposed to the host
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NODE_ENV=${NODE_ENV:-production}
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - beach-kings-network
+    restart: unless-stopped
+
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.backend
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -58,8 +79,6 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
-      # Frontend volume removed - frontend is built into Docker image
-      # - ./frontend:/app/frontend
       - ./whatsapp-service:/app/whatsapp-service
     networks:
       - beach-kings-network
