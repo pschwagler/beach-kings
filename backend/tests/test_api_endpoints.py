@@ -127,10 +127,10 @@ def test_settings_put_get_system_admin(monkeypatch):
 def test_locations_crud_system_admin(monkeypatch):
     client, headers = make_client_with_auth(monkeypatch)
     
-    loc_id = 1
+    loc_id = "1"
     # Mock location operations
-    async def fake_create_location(session, name, city, state, **kwargs):
-        return {"id": loc_id, "name": name, "city": city, "state": state}
+    async def fake_create_location(session, location_id, name, city=None, state=None, **kwargs):
+        return {"id": location_id, "name": name, "city": city, "state": state}
     async def fake_list_locations(session):
         return [{"id": loc_id, "name": "LA", "city": "Los Angeles", "state": "CA"}]
     async def fake_update_location(session, location_id, **kwargs):
@@ -144,7 +144,7 @@ def test_locations_crud_system_admin(monkeypatch):
     monkeypatch.setattr(data_service, "delete_location", fake_delete_location, raising=True)
     
     # create
-    r = client.post("/api/locations", json={"name": "LA", "city": "Los Angeles", "state": "CA"}, headers=headers)
+    r = client.post("/api/locations", json={"id": loc_id, "name": "LA", "city": "Los Angeles", "state": "CA"}, headers=headers)
     assert r.status_code == 200
     location = r.json()
     assert location["id"] == loc_id
@@ -163,11 +163,11 @@ def test_locations_crud_system_admin(monkeypatch):
 def test_courts_crud_system_admin(monkeypatch):
     client, headers = make_client_with_auth(monkeypatch)
     
-    loc_id = 1
+    loc_id = "1"
     court_id = 1
     # Mock location and court operations
-    async def fake_create_location(session, name, city, state, **kwargs):
-        return {"id": loc_id, "name": name, "city": city, "state": state}
+    async def fake_create_location(session, location_id, name, city=None, state=None, **kwargs):
+        return {"id": location_id, "name": name, "city": city, "state": state}
     async def fake_create_court(session, name, location_id, **kwargs):
         return {"id": court_id, "name": name, "location_id": location_id}
     async def fake_list_courts(session, location_id):
@@ -184,7 +184,7 @@ def test_courts_crud_system_admin(monkeypatch):
     monkeypatch.setattr(data_service, "delete_court", fake_delete_court, raising=True)
     
     # need a location
-    loc = client.post("/api/locations", json={"name": "OC", "city": "Newport", "state": "CA"}, headers=headers).json()
+    loc = client.post("/api/locations", json={"id": loc_id, "name": "OC", "city": "Newport", "state": "CA"}, headers=headers).json()
     assert loc["id"] == loc_id
     # create court
     r = client.post("/api/courts", json={"name": "Court A", "location_id": loc_id}, headers=headers)

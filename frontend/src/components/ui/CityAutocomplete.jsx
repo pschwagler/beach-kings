@@ -65,7 +65,7 @@ export default function CityAutocomplete({
           let city = props.city || props.name || '';
           const district = props.district || props.suburb || '';
           
-          if (city === 'New York' && district) {
+          if (city === 'New York' && district && district !== 'Manhattan') {
             city = district;
           }
           
