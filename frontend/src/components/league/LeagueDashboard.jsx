@@ -11,13 +11,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { getUserLeagues, updateLeague, createLeague } from '../../services/api';
-import { navigateTo } from '../../Router';
+import { useNavigate, useParams } from 'react-router-dom';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
 import NavDropdownItem from '../layout/navbar/NavDropdownItem';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton, LeagueSidebarTitleSkeleton } from '../ui/Skeletons';
 
 function LeagueDashboardContent({ leagueId }) {
+  const navigate = useNavigate();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
@@ -192,7 +193,7 @@ function LeagueDashboardContent({ leagueId }) {
       console.error('Logout error:', error);
     } finally {
       // Navigate to landing page after sign out
-      navigateTo('/');
+      navigate('/');
     }
   };
 
@@ -547,7 +548,9 @@ function LeagueDashboardContent({ leagueId }) {
   );
 }
 
-export default function LeagueDashboard({ leagueId }) {
+export default function LeagueDashboard() {
+  const { id } = useParams();
+  const leagueId = id ? parseInt(id, 10) : null;
   return (
     <LeagueProvider leagueId={leagueId}>
       <LeagueDashboardContent leagueId={leagueId} />

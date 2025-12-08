@@ -14,3 +14,4 @@ export const SKILL_LEVEL_OPTIONS = [
   { value: 'AA', label: 'AA' },
   { value: 'Open', label: 'Open' },
 ];
+

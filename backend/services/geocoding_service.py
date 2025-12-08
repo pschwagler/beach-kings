@@ -105,3 +105,4 @@ async def geocode_city(city: str, state: Optional[str] = None) -> Optional[Dict]
     except Exception as e:
         logger.error(f"Unexpected error geocoding city '{city}': {str(e)}")
         return None
+

@@ -562,7 +562,7 @@ class TestPlayerEndpoints:
                 "date_of_birth": None,
                 "height": None,
                 "preferred_side": None,
-                "default_location_id": None,
+                "location_id": None,
                 "stats": {
                     "current_rating": 1200.0,
                     "total_games": 0,

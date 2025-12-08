@@ -125,7 +125,6 @@ export default function CityAutocomplete({
   };
 
   const handleSuggestionClick = (suggestion) => {
-    console.log('suggestion', suggestion);
     setInputValue(suggestion.formatted);
     setSelectedCity(suggestion);
     setShowSuggestions(false);
@@ -228,3 +227,4 @@ export default function CityAutocomplete({
     </div>
   );
 }
+

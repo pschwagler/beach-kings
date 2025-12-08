@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage.jsx';
 import HomePage from './components/HomePage.jsx';
 import WhatsAppPage from './components/WhatsAppPage.jsx';
@@ -13,83 +13,36 @@ import GlobalModal from './components/ui/GlobalModal.jsx';
 import GlobalDrawer from './components/ui/GlobalDrawer.jsx';
 import { ModalProvider } from './contexts/ModalContext.jsx';
 import { DrawerProvider } from './contexts/DrawerContext.jsx';
-
+import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import Footer from './components/Footer.jsx';
 
-function RouterContent() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+// Layout component that wraps all routes with context providers
+function Layout() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess, openAuthModal } = useAuthModal();
   const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    // Handle browser back/forward buttons
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
   // Handle /signup and /login routes
   useEffect(() => {
-    if (currentPath === '/signup') {
+    if (location.pathname === '/signup') {
       openAuthModal('sign-up');
       // Redirect to appropriate page based on auth status
       const targetPath = isAuthenticated ? '/home' : '/';
-      window.history.replaceState({}, '', targetPath);
-      setCurrentPath(targetPath);
-    } else if (currentPath === '/login') {
+      navigate(targetPath, { replace: true });
+    } else if (location.pathname === '/login') {
       openAuthModal('sign-in');
       // Redirect to appropriate page based on auth status
       const targetPath = isAuthenticated ? '/home' : '/';
-      window.history.replaceState({}, '', targetPath);
-      setCurrentPath(targetPath);
+      navigate(targetPath, { replace: true });
     }
-  }, [currentPath, isAuthenticated, openAuthModal]);
-
-  // Handle redirects based on authentication
-  useEffect(() => {
-    if (currentPath === '/' && isAuthenticated) {
-      // Redirect authenticated users from landing to dashboard
-      navigateTo('/home');
-    } else if (currentPath === '/home' && !isAuthenticated) {
-      // Redirect unauthenticated users from dashboard to landing
-      navigateTo('/');
-    }
-  }, [currentPath, isAuthenticated]);
-
-  // Extract league ID from path if it matches /league/:id
-  const leagueMatch = currentPath.match(/^\/league\/(\d+)$/);
-  const leagueId = leagueMatch ? parseInt(leagueMatch[1]) : null;
-
-  // Simple router based on pathname
-  let pageContent;
-  if (currentPath === '/whatsapp') {
-    pageContent = <WhatsAppPage />;
-  } else if (currentPath === '/admin-view') {
-    pageContent = <AdminView />;
-  } else if (currentPath === '/privacy-policy') {
-    pageContent = <PrivacyPolicyPage />;
-  } else if (currentPath === '/terms-of-service') {
-    pageContent = <TermsOfServicePage />;
-  } else if (currentPath === '/profile') {
-    // Redirect /profile to /home?tab=profile
-    navigateTo('/home?tab=profile');
-    pageContent = <HomePage />;
-  } else if (currentPath === '/home') {
-    pageContent = <HomePage />;
-  } else if (leagueId) {
-    pageContent = <LeagueDashboard leagueId={leagueId} />;
-  } else {
-    // Default to landing page
-    pageContent = <LandingPage />;
-  }
+  }, [location.pathname, isAuthenticated, openAuthModal, navigate]);
 
   return (
     <div className="app-container">
       <div className="main-content">
-        {pageContent}
+        <Outlet />
       </div>
       <Footer />
       <AuthModal
@@ -104,25 +57,114 @@ function RouterContent() {
   );
 }
 
-
-
-function Router() {
-  return (
-    <AuthModalProvider>
-      <ModalProvider>
-        <DrawerProvider>
-          <RouterContent />
-        </DrawerProvider>
-      </ModalProvider>
-    </AuthModalProvider>
-  );
+// Protected route wrapper
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? children : <Navigate to="/" replace />;
 }
 
-// Export navigation helper function
-export const navigateTo = (path) => {
-  window.history.pushState({}, '', path);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-};
+// Public route wrapper that redirects authenticated users
+function PublicRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Navigate to="/home" replace /> : children;
+}
+
+// Profile route that redirects to home with tab
+function ProfileRoute() {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+  return <Navigate to="/home?tab=profile" replace />;
+}
+
+// Create the router with future flags to suppress warnings
+const router = createBrowserRouter(
+  [
+    {
+      element: (
+        <AuthModalProvider>
+          <ModalProvider>
+            <DrawerProvider>
+              <Layout />
+            </DrawerProvider>
+          </ModalProvider>
+        </AuthModalProvider>
+      ),
+      children: [
+        {
+          path: '/privacy-policy',
+          element: <PrivacyPolicyPage />,
+        },
+        {
+          path: '/terms-of-service',
+          element: <TermsOfServicePage />,
+        },
+        {
+          path: '/home',
+          element: (
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: '/profile',
+          element: <ProfileRoute />,
+        },
+        {
+          path: '/league/:id',
+          element: (
+            <ProtectedRoute>
+              <LeagueDashboard />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: '/whatsapp',
+          element: (
+            <ProtectedRoute>
+              <WhatsAppPage />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: '/admin-view',
+          element: (
+            <ProtectedRoute>
+              <AdminView />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: '/',
+          element: (
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          ),
+        },
+        {
+          path: '*',
+          element: (
+            <ProtectedRoute>
+              <Navigate to="/home" replace />
+            </ProtectedRoute>
+          ),
+        },
+      ],
+    },
+  ],
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    },
+  }
+);
+
+function Router() {
+  return <RouterProvider router={router} />;
+}
 
 export default Router;
-

@@ -1,9 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import NavBrand from './navbar/NavBrand';
 import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
-import { navigateTo } from '../../Router';
 
 export default function NavBar({
   isLoggedIn = false,
@@ -17,8 +17,9 @@ export default function NavBar({
   onLeaguesMenuClick,
   onPlayersClick,
 }) {
+  const navigate = useNavigate();
+
   const handleRecordGamesClick = () => {
-    console.log('Navigate to Record Games');
     // Handle navigation to record games page
   };
 
@@ -26,29 +27,18 @@ export default function NavBar({
     // Handle players button click
     if (onPlayersClick) {
       onPlayersClick();
-    } else {
-      console.log('Players button clicked');
     }
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
     if (onLeaguesMenuClick) {
       onLeaguesMenuClick(action, leagueId);
-    } else {
-      // Fallback to console log if handler not provided
-      if (leagueId) {
-        console.log(`Navigate to league: ${leagueId}`);
-      } else {
-        console.log(`League action: ${action}`);
-      }
     }
   };
 
   const handleUserMenuClick = (action) => {
     if (action === 'profile') {
-      navigateTo('/profile');
-    } else {
-      console.log(`User menu action: ${action}`);
+      navigate('/profile');
     }
     // Handle user menu actions (except sign-out which is handled by onSignOut)
   };

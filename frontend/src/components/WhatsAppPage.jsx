@@ -61,7 +61,6 @@ function WhatsAppPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ group_id: newGroupId }),
         });
-        console.log("Group configuration saved");
       } catch (err) {
         console.error("Error saving config:", err);
       }

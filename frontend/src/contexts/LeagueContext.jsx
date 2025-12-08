@@ -148,7 +148,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
     
     // Check if already loading - even for force reload, prevent concurrent loads
     if (loadingRef.current[seasonId]) {
-      console.log('loadSeasonData: Already loading, skipping duplicate call', { seasonId, forceReload });
       return;
     }
     
@@ -176,7 +175,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
       } catch (err) {
         // If 404 or empty, use empty array - don't fail the whole load
         if (err.response?.status === 404) {
-          console.log('No rankings found for season', seasonId, '- using empty array');
           rankings = [];
         } else {
           throw err; // Re-throw other errors
@@ -332,7 +330,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
     
     // Check if already loading to prevent duplicate refreshes
     if (loadingRef.current[seasonId]) {
-      console.log('refreshSeasonData: Already loading, skipping duplicate refresh', { seasonId });
       return;
     }
     

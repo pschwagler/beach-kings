@@ -36,3 +36,4 @@ def calculate_distance_miles(lat1: float, lon1: float, lat2: float, lon2: float)
     distance = R * c
     
     return distance
+

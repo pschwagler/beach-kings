@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useBlocker, useNavigate } from 'react-router-dom';
 import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
 import { AlertCircle, CheckCircle, Save } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import PlayerProfileFields from '../player/PlayerProfileFields';
+import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
@@ -52,6 +54,10 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const [errorMessage, setErrorMessage] = useState('');
   const [showCheckmark, setShowCheckmark] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [showConfirmLeaveModal, setShowConfirmLeaveModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+  // Store whether there are unsaved changes in a ref so navigation blocker callback can access it
+  const hasUnsavedChangesRef = useRef(false);
 
   const {
     locations,
@@ -94,7 +100,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         state: currentUserPlayer.state || '',
         city_latitude: currentUserPlayer.city_latitude || null,
         city_longitude: currentUserPlayer.city_longitude || null,
-        location_id: currentUserPlayer.default_location_id ? String(currentUserPlayer.default_location_id) : '',
+        location_id: currentUserPlayer.location_id ? String(currentUserPlayer.location_id) : '',
         distance_to_location: currentUserPlayer.distance_to_location || null,
       };
       setFormData(prev => ({
@@ -135,25 +141,77 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     setShowCheckmark(false);
   };
 
-  // Check if form has changes
-  const hasChanges = () => {
+  // Helper function to check if form data has changed
+  // Takes formData and initialFormData as parameters so it can work with refs or state
+  const checkHasChanges = (formDataToCheck, initialFormDataToCheck) => {
     return (
-      formData.email !== initialFormData.email ||
-      formData.full_name !== initialFormData.full_name ||
-      formData.nickname !== initialFormData.nickname ||
-      formData.gender !== initialFormData.gender ||
-      formData.level !== initialFormData.level ||
-      formData.date_of_birth !== initialFormData.date_of_birth ||
-      formData.height !== initialFormData.height ||
-      formData.preferred_side !== initialFormData.preferred_side ||
-      formData.city !== initialFormData.city ||
-      formData.state !== initialFormData.state ||
-      formData.city_latitude !== initialFormData.city_latitude ||
-      formData.city_longitude !== initialFormData.city_longitude ||
-      String(formData.location_id || '') !== String(initialFormData.location_id || '') ||
-      formData.distance_to_location !== initialFormData.distance_to_location
+      formDataToCheck.email !== initialFormDataToCheck.email ||
+      formDataToCheck.full_name !== initialFormDataToCheck.full_name ||
+      formDataToCheck.nickname !== initialFormDataToCheck.nickname ||
+      formDataToCheck.gender !== initialFormDataToCheck.gender ||
+      formDataToCheck.level !== initialFormDataToCheck.level ||
+      formDataToCheck.date_of_birth !== initialFormDataToCheck.date_of_birth ||
+      formDataToCheck.height !== initialFormDataToCheck.height ||
+      formDataToCheck.preferred_side !== initialFormDataToCheck.preferred_side ||
+      formDataToCheck.city !== initialFormDataToCheck.city ||
+      formDataToCheck.state !== initialFormDataToCheck.state ||
+      formDataToCheck.city_latitude !== initialFormDataToCheck.city_latitude ||
+      formDataToCheck.city_longitude !== initialFormDataToCheck.city_longitude ||
+      formDataToCheck.location_id !== initialFormDataToCheck.location_id ||
+      formDataToCheck.distance_to_location !== initialFormDataToCheck.distance_to_location
     );
   };
+
+  // Update the ref whenever formData or initialFormData changes
+  useEffect(() => {
+    const hasChanges = checkHasChanges(formData, initialFormData);
+    hasUnsavedChangesRef.current = hasChanges;
+  }, [formData, initialFormData]);
+  
+  // Use React Router's useBlocker hook to block navigation when there are unsaved changes
+  const navigate = useNavigate();
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => {
+      // Block if there are unsaved changes and we're navigating away from /home?tab=profile
+      const currentTab = new URLSearchParams(currentLocation.search).get('tab');
+      const nextTab = new URLSearchParams(nextLocation.search).get('tab');
+      const isLeavingProfileTab = currentTab === 'profile' && nextTab !== 'profile';
+      const isLeavingHomePage = currentLocation.pathname === '/home' && nextLocation.pathname !== '/home';
+      
+      return hasUnsavedChangesRef.current && (isLeavingProfileTab || isLeavingHomePage);
+    }
+  );
+  
+  // Show confirmation modal when navigation is blocked
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      setShowConfirmLeaveModal(true);
+      setPendingNavigation(() => () => {
+        blocker.proceed();
+      });
+    } else if (blocker.state === 'proceeding') {
+      // Navigation is proceeding, close modal
+      setShowConfirmLeaveModal(false);
+      setPendingNavigation(null);
+    }
+  }, [blocker]);
+
+
+  // Handle browser refresh/close (beforeunload) - useBlocker doesn't handle this
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChangesRef.current) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return ''; // For older browsers
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -216,7 +274,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       }
 
       if (formData.location_id) {
-        playerPayload.location_id = parseInt(formData.location_id, 10);
+        playerPayload.location_id = formData.location_id;  // location_id is now a string
       }
 
       if (formData.distance_to_location !== null && formData.distance_to_location !== undefined) {
@@ -232,6 +290,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       
       // Update initial form data to reflect saved state
       setInitialFormData({ ...formData });
+      hasUnsavedChangesRef.current = false;
       
       // Show checkmark animation
       setShowCheckmark(true);
@@ -243,8 +302,32 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     }
   };
 
+  // Handle navigation confirmation
+  const handleConfirmLeave = () => {
+    hasUnsavedChangesRef.current = false;
+    setShowConfirmLeaveModal(false);
+    if (blocker.state === 'blocked') {
+      blocker.proceed();
+    }
+    setPendingNavigation(null);
+  };
+
+  const handleCancelLeave = () => {
+    setShowConfirmLeaveModal(false);
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+    setPendingNavigation(null);
+  };
+
   return (
     <div className="profile-page__section league-section">
+      <ConfirmLeaveModal
+        isOpen={showConfirmLeaveModal}
+        onClose={handleCancelLeave}
+        onConfirm={handleConfirmLeave}
+      />
+      
       {errorMessage && (
         <div className="auth-modal__alert error">
           <AlertCircle size={18} />
@@ -256,29 +339,31 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         {/* Account Info */}
         <h3 className="profile-page__section-title section-title-first">Account Information</h3>
         
-        <label className="auth-modal__label">
-          <span>Phone Number</span>
-          <input
-            type="text"
-            className="auth-modal__input disabled-input"
-            value={user?.phone_number || ''}
-            disabled
-            readOnly
-          />
-          <small className="profile-page__help-text">Please contact us to change your phone number</small>
-        </label>
+        <div className="profile-page__form-row">
+          <label className="auth-modal__label">
+            <span>Phone Number</span>
+            <input
+              type="text"
+              className="auth-modal__input disabled-input"
+              value={user?.phone_number || ''}
+              disabled
+              readOnly
+            />
+            <small className="profile-page__help-text">Please contact us to change your phone number</small>
+          </label>
 
-        <label className="auth-modal__label">
-          <span>Email</span>
-          <input
-            type="email"
-            name="email"
-            className="auth-modal__input"
-            placeholder="Enter your email"
-            value={formData.email}
-            onChange={handleInputChange}
-          />
-        </label>
+          <label className="auth-modal__label">
+            <span>Email</span>
+            <input
+              type="email"
+              name="email"
+              className="auth-modal__input"
+              placeholder="Enter your email"
+              value={formData.email}
+              onChange={handleInputChange}
+            />
+          </label>
+        </div>
 
         {/* Player Info */}
         <h3 className="profile-page__section-title section-title-spaced">Player Profile</h3>
@@ -293,18 +378,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
             value={formData.full_name}
             onChange={handleInputChange}
             required
-          />
-        </label>
-
-        <label className="auth-modal__label">
-          <span>Nickname</span>
-          <input
-            type="text"
-            name="nickname"
-            className="auth-modal__input"
-            placeholder="Optional"
-            value={formData.nickname}
-            onChange={handleInputChange}
           />
         </label>
 
@@ -323,30 +396,17 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           isLoadingLocations={isLoadingLocations}
         />
 
-        <div className="profile-page__form-row">
-          <label className="auth-modal__label">
-            <span>Date of Birth</span>
-            <input
-              type="date"
-              name="date_of_birth"
-              className="auth-modal__input"
-              value={formData.date_of_birth}
-              onChange={handleInputChange}
-            />
-          </label>
-
-          <label className="auth-modal__label">
-            <span>Height</span>
-            <input
-              type="text"
-              name="height"
-              className="auth-modal__input"
-              placeholder="e.g., 6'2&quot;"
-              value={formData.height}
-              onChange={handleInputChange}
-            />
-          </label>
-        </div>
+        <label className="auth-modal__label">
+          <span>Height</span>
+          <input
+            type="text"
+            name="height"
+            className="auth-modal__input"
+            placeholder="e.g., 6'2&quot;"
+            value={formData.height}
+            onChange={handleInputChange}
+          />
+        </label>
 
         <label className="auth-modal__label">
           <span>Preferred Side</span>
@@ -368,7 +428,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           <button 
             type="submit" 
             className={`auth-modal__submit save-button ${showCheckmark ? 'save-success' : ''}`}
-            disabled={isSubmitting || !hasChanges()}
+            disabled={isSubmitting || !checkHasChanges(formData, initialFormData)}
           >
             {showCheckmark ? (
               <>

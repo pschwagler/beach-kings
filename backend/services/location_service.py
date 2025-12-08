@@ -24,7 +24,7 @@ async def find_closest_location(session: AsyncSession, user_lat: float, user_lon
         Dictionary with keys: "location_id", "distance_miles"
         Returns None if no locations found or all locations lack coordinates
     """
-    logger.warning(f"Finding closest location for user_lat: {user_lat}, user_lon: {user_lon}")
+    logger.info(f"Finding closest location for user_lat: {user_lat}, user_lon: {user_lon}")
     try:
         # Query all locations that have coordinates
         result = await session.execute(
@@ -68,3 +68,4 @@ async def find_closest_location(session: AsyncSession, user_lat: float, user_lon
     except Exception as e:
         logger.error(f"Error finding closest location: {str(e)}")
         return None
+

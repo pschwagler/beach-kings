@@ -46,7 +46,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
           state: currentUserPlayer.state || '',
           city_latitude: currentUserPlayer.city_latitude || null,
           city_longitude: currentUserPlayer.city_longitude || null,
-          location_id: currentUserPlayer.default_location_id ? String(currentUserPlayer.default_location_id) : '',
+          location_id: currentUserPlayer.location_id ? String(currentUserPlayer.location_id) : '',
           distance_to_location: currentUserPlayer.distance_to_location || null,
         });
       } else {
@@ -153,7 +153,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
       }
 
       if (formData.location_id) {
-        payload.location_id = parseInt(formData.location_id, 10);
+        payload.location_id = formData.location_id;  // location_id is now a string
       }
 
       if (formData.distance_to_location !== null && formData.distance_to_location !== undefined) {

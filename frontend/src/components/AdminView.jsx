@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { getAdminConfig, updateAdminConfig } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { getUserLeagues } from '../services/api';
-import { navigateTo } from '../Router';
 import NavBar from './layout/NavBar';
 import '../App.css';
 
 function AdminView() {
+  const navigate = useNavigate();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [config, setConfig] = useState(null);
@@ -67,13 +68,13 @@ function AdminView() {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      navigateTo('/');
+      navigate('/');
     }
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
     if (action === 'view-league' && leagueId) {
-      navigateTo(`/league/${leagueId}`);
+      navigate(`/league/${leagueId}`);
     }
   };
   

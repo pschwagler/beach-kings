@@ -579,6 +579,7 @@ async def create_location(
         body = await request.json()
         location = await data_service.create_location(
             session=session,
+            location_id=body["id"],  # id is the primary key (hub_id from CSV)
             name=body["name"],
             city=body.get("city"),
             state=body.get("state"),
@@ -617,7 +618,7 @@ async def get_location_distances(
         lon: Longitude
     
     Returns:
-        Array of objects: [{"id": int, "name": str, "distance_miles": float}, ...]
+        Array of objects: [{"id": str, "name": str, "distance_miles": float}, ...]
     """
     try:
         from backend.utils.geo_utils import calculate_distance_miles
@@ -715,7 +716,7 @@ async def geocode_autocomplete(
 
 @router.put("/api/locations/{location_id}")
 async def update_location(
-    location_id: int,
+    location_id: str,
     request: Request,
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
@@ -742,7 +743,7 @@ async def update_location(
 
 @router.delete("/api/locations/{location_id}")
 async def delete_location(
-    location_id: int,
+    location_id: str,
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -786,7 +787,7 @@ async def create_court(
 
 @router.get("/api/courts")
 async def list_courts(
-    location_id: Optional[int] = None,
+    location_id: Optional[str] = None,
     session: AsyncSession = Depends(get_db_session)
 ):
     """List courts, optionally filtered by location (public)."""
@@ -3203,7 +3204,7 @@ async def update_current_user_player(
             "state": "CA",            // Optional
             "city_latitude": 34.0522, // Optional (from autocomplete selection)
             "city_longitude": -118.2437, // Optional (from autocomplete selection)
-            "location_id": 1,         // Required when city coordinates are provided
+            "location_id": "socal_la",  // Required when city coordinates are provided (string, e.g., "socal_la")
             "distance_to_location": 2.5  // Optional (frontend sends pre-calculated distance)
         }
     
@@ -3228,9 +3229,9 @@ async def update_current_user_player(
         state_value = payload.state
         city_latitude = payload.city_latitude
         city_longitude = payload.city_longitude
-        requested_location_id = payload.location_id
+        requested_location_id = payload.location_id  # This is now a string (location_id)
         distance_to_location = payload.distance_to_location  # Use distance from frontend if provided
-        default_location_id = None
+        location_id_value = None
         
         # Validate: if city coordinates are provided, location_id is required
         if city_latitude is not None and city_longitude is not None:
@@ -3257,7 +3258,7 @@ async def update_current_user_player(
                 coordinates_changed = True
             
             # Use the requested location_id
-            default_location_id = requested_location_id
+            location_id_value = requested_location_id
             
             # If distance_to_location was provided by frontend, use it directly
             # Otherwise, calculate it
@@ -3283,7 +3284,7 @@ async def update_current_user_player(
                     if existing_lat is not None and existing_lon is not None:
                         # Get the location to calculate distance
                         result = await session.execute(
-                            select(Location).where(Location.id == default_location_id)
+                            select(Location).where(Location.id == location_id_value)
                         )
                         location = result.scalar_one_or_none()
                         
@@ -3307,7 +3308,7 @@ async def update_current_user_player(
             date_of_birth=payload.date_of_birth,
             height=payload.height,
             preferred_side=payload.preferred_side,
-            default_location_id=default_location_id,
+            location_id=location_id_value,
             city=city_value,
             state=state_value,
             city_latitude=city_latitude,
@@ -3332,7 +3333,7 @@ async def update_current_user_player(
             "date_of_birth": player.get("date_of_birth"),
             "height": player.get("height"),
             "preferred_side": player.get("preferred_side"),
-            "default_location_id": player.get("default_location_id"),  # Keep for backward compatibility
+            "location_id": player.get("location_id"),
             "city": player.get("city"),
             "state": player.get("state"),
             "city_latitude": player.get("city_latitude"),

@@ -45,7 +45,7 @@ async def seed_locations():
             
             # Collect location data
             locations_data.append({
-                'location_id': row['hub_id'],
+                'id': row['hub_id'],  # This will be the primary key
                 'name': row['display_name'],
                 'city': row['center_city'],
                 'state': row['state'],
@@ -93,21 +93,21 @@ async def seed_locations():
         locations_existing = 0
         
         for loc_data in locations_data:
-            # Check if location already exists (by location_id)
-            if loc_data['location_id']:
+            # Check if location already exists (by id, which is the primary key)
+            if loc_data['id']:
                 result = await session.execute(
-                    select(Location).where(Location.location_id == loc_data['location_id'])
+                    select(Location).where(Location.id == loc_data['id'])
                 )
                 existing_location = result.scalar_one_or_none()
                 
                 if existing_location:
-                    print(f"   ⏭️  Location already exists: {loc_data['name']} ({loc_data['location_id']})")
+                    print(f"   ⏭️  Location already exists: {loc_data['name']} ({loc_data['id']})")
                     locations_existing += 1
                     continue
             
             # Create new location
             location = Location(
-                location_id=loc_data['location_id'],
+                id=loc_data['id'],  # Primary key: hub_id from CSV
                 name=loc_data['name'],
                 city=loc_data['city'],
                 state=loc_data['state'],
@@ -120,7 +120,7 @@ async def seed_locations():
                 radius_miles=loc_data['radius_miles']
             )
             session.add(location)
-            print(f"   ✓ Created location: {loc_data['name']} ({loc_data['location_id']})")
+            print(f"   ✓ Created location: {loc_data['name']} ({loc_data['id']})")
             locations_created += 1
         
         await session.commit()

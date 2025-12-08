@@ -55,8 +55,7 @@ class Location(Base):
     """Metropolitan areas."""
     __tablename__ = "locations"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    location_id = Column(String, nullable=True, unique=True)  # Identifier from CSV hub_id column (e.g., "hi_oahu", "socal_la")
+    id = Column(String, primary_key=True)  # Primary key: Identifier from CSV hub_id column (e.g., "hi_oahu", "socal_la")
     name = Column(String, nullable=False)
     city = Column(String, nullable=True)
     state = Column(String, nullable=True)
@@ -74,7 +73,7 @@ class Location(Base):
     
     # Relationships
     region = relationship("Region", back_populates="locations")
-    players = relationship("Player", primaryjoin="Location.id == Player.default_location_id", back_populates="default_location")
+    players = relationship("Player", primaryjoin="Location.id == Player.location_id", back_populates="location")
     leagues = relationship("League", back_populates="location")
     courts = relationship("Court", back_populates="location")
     creator = relationship("Player", foreign_keys=[created_by], backref="created_locations")
@@ -82,7 +81,6 @@ class Location(Base):
     
     __table_args__ = (
         Index("idx_locations_name", "name"),
-        Index("idx_locations_location_id", "location_id"),
         Index("idx_locations_region_id", "region_id"),
     )
 
@@ -125,7 +123,7 @@ class Player(Base):
     date_of_birth = Column(Date, nullable=True)
     height = Column(String, nullable=True)
     preferred_side = Column(String, nullable=True)
-    default_location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    location_id = Column(String, ForeignKey("locations.id"), nullable=True)
     city = Column(String, nullable=True)
     state = Column(String, nullable=True)
     city_latitude = Column(Float, nullable=True)  # City latitude coordinate
@@ -140,7 +138,7 @@ class Player(Base):
     
     # Relationships
     user = relationship("User", back_populates="players")
-    default_location = relationship("Location", foreign_keys=[default_location_id], back_populates="players")
+    location = relationship("Location", foreign_keys=[location_id], back_populates="players")
     league_memberships = relationship("LeagueMember", foreign_keys="LeagueMember.player_id", back_populates="player")
     season_stats = relationship("PlayerSeasonStats", back_populates="player")
     elo_history = relationship("EloHistory", back_populates="player")
@@ -150,7 +148,7 @@ class Player(Base):
     __table_args__ = (
         Index("idx_players_name", "full_name"),
         Index("idx_players_user", "user_id"),
-        Index("idx_players_location", "default_location_id"),
+        Index("idx_players_location", "location_id"),
         Index("idx_players_avp_id", "avp_playerProfileId"),
     )
 
@@ -162,7 +160,7 @@ class League(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    location_id = Column(String, ForeignKey("locations.id"), nullable=True)
     is_open = Column(Boolean, default=True, nullable=False)
     whatsapp_group_id = Column(String, nullable=True)
     gender = Column(String, nullable=True)  # 'male', 'female', 'mixed'
@@ -269,7 +267,7 @@ class Court(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     address = Column(String, nullable=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    location_id = Column(String, ForeignKey("locations.id"), nullable=False)
     geoJson = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

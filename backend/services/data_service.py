@@ -67,7 +67,7 @@ async def create_league(
     session: AsyncSession,
     name: str,
     description: Optional[str],
-    location_id: Optional[int],
+    location_id: Optional[str],
     is_open: bool,
     whatsapp_group_id: Optional[str],
     creator_user_id: int,
@@ -217,7 +217,7 @@ async def update_league(
     league_id: int,
     name: str,
     description: Optional[str],
-    location_id: Optional[int],
+    location_id: Optional[str],
     is_open: bool,
     whatsapp_group_id: Optional[str],
     gender: Optional[str] = None,
@@ -661,10 +661,15 @@ async def create_location(
     name: str,
     city: Optional[str],
     state: Optional[str],
-    country: str = "USA"
+    country: str = "USA",
+    location_id: Optional[str] = None
 ) -> Dict:
     """Create a location (async version)."""
+    if not location_id:
+        raise ValueError("location_id is required when creating a location")
+    
     location = Location(
+        id=location_id,
         name=name,
         city=city,
         state=state,
@@ -675,6 +680,7 @@ async def create_location(
     await session.refresh(location)
     return {
         "id": location.id,
+        "location_id": location.id,  # Keep for backward compatibility in API responses
         "name": location.name,
         "city": location.city,
         "state": location.state,
@@ -691,6 +697,7 @@ async def list_locations(session: AsyncSession) -> List[Dict]:
     return [
         {
             "id": l.id,
+            "location_id": l.id,  # Keep for backward compatibility in API responses
             "name": l.name,
             "city": l.city,
             "state": l.state,
@@ -706,7 +713,7 @@ async def list_locations(session: AsyncSession) -> List[Dict]:
 
 async def update_location(
     session: AsyncSession,
-    location_id: int,
+    location_id: str,
     name: Optional[str],
     city: Optional[str],
     state: Optional[str],
@@ -739,6 +746,7 @@ async def update_location(
         return None
     return {
         "id": location.id,
+        "location_id": location.id,  # Keep for backward compatibility in API responses
         "name": location.name,
         "city": location.city,
         "state": location.state,
@@ -748,7 +756,7 @@ async def update_location(
     }
 
 
-async def delete_location(session: AsyncSession, location_id: int) -> bool:
+async def delete_location(session: AsyncSession, location_id: str) -> bool:
     """Delete a location (async version)."""
     result = await session.execute(
         delete(Location).where(Location.id == location_id)
@@ -761,7 +769,7 @@ async def create_court(
     session: AsyncSession,
     name: str,
     address: Optional[str],
-    location_id: int,
+    location_id: str,
     geoJson: Optional[str]
 ) -> Dict:
     """Create a court (async version)."""
@@ -785,7 +793,7 @@ async def create_court(
     }
 
 
-async def list_courts(session: AsyncSession, location_id: Optional[int] = None) -> List[Dict]:
+async def list_courts(session: AsyncSession, location_id: Optional[str] = None) -> List[Dict]:
     """List courts, optionally filtered by location (async version)."""
     query = select(Court).order_by(Court.name.asc())
     if location_id is not None:
@@ -812,7 +820,7 @@ async def update_court(
     court_id: int,
     name: Optional[str],
     address: Optional[str],
-    location_id: Optional[int],
+    location_id: Optional[str],
     geoJson: Optional[str]
 ) -> Optional[Dict]:
     """Update a court (async version)."""
@@ -952,7 +960,7 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
         "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
-        "default_location_id": player.default_location_id,
+        "location_id": player.location_id,
         "profile_picture_url": player.profile_picture_url,
         "avp_playerProfileId": player.avp_playerProfileId,
         "status": player.status,
@@ -984,7 +992,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
-        "default_location_id": player.default_location_id,
+        "location_id": player.location_id,
         "city": player.city,
         "state": player.state,
         "city_latitude": player.city_latitude,
@@ -1008,7 +1016,7 @@ async def upsert_user_player(
     date_of_birth: Optional[str] = None,  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None,
     preferred_side: Optional[str] = None,
-    default_location_id: Optional[int] = None,
+    location_id: Optional[str] = None,
     city: Optional[str] = None,
     state: Optional[str] = None,
     city_latitude: Optional[float] = None,
@@ -1029,7 +1037,7 @@ async def upsert_user_player(
         date_of_birth: Date of birth as ISO date string YYYY-MM-DD (optional)
         height: Height (optional)
         preferred_side: Preferred side (optional)
-        default_location_id: Default location ID (optional)
+        location_id: Location ID (optional)
         city: City name (optional)
         state: State name or abbreviation (optional)
         city_latitude: City latitude coordinate (optional)
@@ -1067,7 +1075,7 @@ async def upsert_user_player(
             date_of_birth=date_of_birth_obj,
             height=height,
             preferred_side=preferred_side,
-            default_location_id=default_location_id,
+            location_id=location_id,
             city=city,
             state=state,
             city_latitude=city_latitude,
@@ -1088,7 +1096,7 @@ async def upsert_user_player(
                 "date_of_birth": date_of_birth_obj,
                 "height": height,
                 "preferred_side": preferred_side,
-                "default_location_id": default_location_id,
+                "location_id": location_id,
                 "city": city,
                 "state": state,
                 "city_latitude": city_latitude,
@@ -1116,7 +1124,7 @@ async def upsert_user_player(
         "date_of_birth": player.date_of_birth.isoformat() if player.date_of_birth else None,
         "height": player.height,
         "preferred_side": player.preferred_side,
-        "default_location_id": player.default_location_id,
+        "location_id": player.location_id,
         "city": player.city,
         "state": player.state,
         "city_latitude": player.city_latitude,
