@@ -566,6 +566,26 @@ export const getLocations = async () => {
 };
 
 /**
+ * Get all locations with distances from given coordinates, sorted by closest first
+ */
+export const getLocationDistances = async (lat, lon) => {
+  const response = await api.get('/api/locations/distances', {
+    params: { lat, lon }
+  });
+  return response.data;
+};
+
+/**
+ * Get city autocomplete suggestions from Geoapify (proxied through backend)
+ */
+export const getCityAutocomplete = async (text) => {
+  const response = await api.get('/api/geocode/autocomplete', {
+    params: { text }
+  });
+  return response.data;
+};
+
+/**
  * Logout the current user by invalidating refresh tokens
  */
 export const logout = async () => {

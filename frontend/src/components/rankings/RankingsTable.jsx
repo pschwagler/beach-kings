@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Crown } from 'lucide-react';
 import { Tooltip } from '../ui/UI';
-import { getFirstPlacePlayer, sortPlayersDefault } from '../../utils/playerUtils';
+import { getFirstPlacePlayer } from '../../utils/playerUtils';
 import { RankingsTableSkeleton } from '../ui/Skeletons';
 
 // Helper function to check if avatar is an image URL

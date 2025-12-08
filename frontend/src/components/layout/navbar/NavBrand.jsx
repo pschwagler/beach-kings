@@ -1,12 +1,13 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { navigateTo } from '../../../Router';
 
 export default function NavBrand() {
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
   const handleClick = (e) => {
     e.preventDefault();
-    navigateTo(isAuthenticated ? '/home' : '/');
+    navigate(isAuthenticated ? '/home' : '/');
   };
 
   return (

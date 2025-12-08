@@ -71,3 +71,21 @@ export const getFirstPlacePlayer = (rankings) => {
   if (!rankings || rankings.length === 0) return null;
   return [...rankings].sort(sortPlayersDefault)[0];
 };
+
+/**
+ * Check if a player profile is incomplete.
+ * A profile is considered incomplete if it's missing required fields:
+ * - gender (required for gendered divisions)
+ * - level (required skill level)
+ * - city (required for location matching)
+ * 
+ * @param {Object} player - The player object to check
+ * @returns {boolean} True if profile is incomplete, false otherwise
+ */
+export function isProfileIncomplete(player) {
+  if (!player) {
+    return true;
+  }
+  
+  return !player.gender || !player.level || !player.city;
+}

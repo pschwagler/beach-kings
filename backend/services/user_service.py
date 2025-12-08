@@ -6,9 +6,7 @@ from typing import Optional, Dict
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy import select, update, delete, func, text
-from sqlalchemy.orm import selectinload
-from backend.database import db
+from sqlalchemy import select, update, delete, func
 from backend.database.models import User, VerificationCode, RefreshToken, PasswordResetToken
 import logging
 

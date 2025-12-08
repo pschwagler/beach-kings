@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Mail } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
-import { navigateTo } from '../Router';
 
 export default function Footer() {
+  const navigate = useNavigate();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   const handleNavigation = (e, path) => {
     e.preventDefault();
-    navigateTo(path);
+    navigate(path);
   };
 
   return (

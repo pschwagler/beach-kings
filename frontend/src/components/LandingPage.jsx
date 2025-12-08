@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "../App.css";
 import NavBar from "./layout/NavBar";
 import CreateLeagueModal from "./league/CreateLeagueModal";
@@ -6,9 +7,10 @@ import PlayerProfileModal from "./player/PlayerProfileModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { createLeague, getUserLeagues } from "../services/api";
-import { navigateTo } from "../Router";
+import { isProfileIncomplete } from "../utils/playerUtils";
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
@@ -20,9 +22,9 @@ export default function LandingPage() {
   // Redirect authenticated users to /home
   useEffect(() => {
     if (isAuthenticated) {
-      navigateTo("/home");
+      navigate("/home");
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   const handleSignOut = async () => {
     try {
@@ -30,7 +32,7 @@ export default function LandingPage() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      navigateTo("/");
+      navigate("/");
     }
   };
 
@@ -41,8 +43,8 @@ export default function LandingPage() {
   // Check if user needs to complete profile after signup
   useEffect(() => {
     if (isAuthenticated && justSignedUp) {
-      // Check if profile is incomplete (missing gender or level)
-      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      // Check if profile is incomplete (missing gender, level, or city)
+      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
       if (profileIncomplete) {
         setTimeout(() => {
           setIsPlayerProfileModalOpen(true);
@@ -237,6 +239,7 @@ export default function LandingPage() {
       <PlayerProfileModal
         isOpen={isPlayerProfileModalOpen}
         onClose={() => setIsPlayerProfileModalOpen(false)}
+        currentUserPlayer={currentUserPlayer}
         onSuccess={async () => {
           if (isAuthenticated) {
             await fetchCurrentUser();

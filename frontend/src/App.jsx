@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "./App.css";
 import NavBar from "./components/layout/NavBar";
 import MyLeaguesWidget from "./components/dashboard/MyLeaguesWidget";
@@ -6,10 +7,11 @@ import MyMatchesWidget from "./components/dashboard/MyMatchesWidget";
 import { useAuth } from "./contexts/AuthContext";
 import { useAuthModal } from "./contexts/AuthModalContext";
 import { createLeague, getUserLeagues, getPlayerMatchHistory } from "./services/api";
-import { navigateTo } from "./Router";
 import { useModal, MODAL_TYPES } from "./contexts/ModalContext";
+import { isProfileIncomplete } from "./utils/playerUtils";
 
 function App() {
+  const navigate = useNavigate();
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
@@ -25,7 +27,7 @@ function App() {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      navigateTo("/");
+      navigate("/");
     }
   };
 
@@ -43,12 +45,13 @@ function App() {
         
         // Wait a moment for state to update, then check profile
         setTimeout(() => {
-          // Check if profile is incomplete (missing gender or level)
-          const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+          // Check if profile is incomplete (missing gender, level, or city)
+          const profileIncomplete = isProfileIncomplete(currentUserPlayer);
           
           // Always open modal for new signups (profile will be incomplete)
           if (profileIncomplete) {
             openModal(MODAL_TYPES.PLAYER_PROFILE, {
+              currentUserPlayer: currentUserPlayer,
               onSuccess: async () => {
                 if (isAuthenticated) {
                   await fetchCurrentUser();
@@ -181,8 +184,7 @@ function App() {
   }, []);
 
   const navigateToLeague = (leagueId) => {
-    window.history.pushState({}, "", `/league/${leagueId}`);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    navigate(`/league/${leagueId}`);
   };
 
   const handleCreateLeague = async (leagueData) => {
@@ -190,8 +192,7 @@ function App() {
       const newLeague = await createLeague(leagueData);
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
-      window.history.pushState({}, "", `/league/${newLeague.id}?tab=details`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      navigate(`/league/${newLeague.id}?tab=details`);
       return newLeague;
     } catch (error) {
       throw error;

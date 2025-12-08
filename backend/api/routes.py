@@ -10,8 +10,9 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
+from backend.services import geocoding_service, location_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
     get_current_user,
@@ -578,6 +579,7 @@ async def create_location(
         body = await request.json()
         location = await data_service.create_location(
             session=session,
+            location_id=body["id"],  # id is the primary key (hub_id from CSV)
             name=body["name"],
             city=body.get("city"),
             state=body.get("state"),
@@ -601,9 +603,120 @@ async def list_locations(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error listing locations: {str(e)}")
 
 
+@router.get("/api/locations/distances")
+async def get_location_distances(
+    lat: float,
+    lon: float,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get all locations with distances from given coordinates, sorted by closest first.
+    Public endpoint.
+    
+    Args:
+        lat: Latitude
+        lon: Longitude
+    
+    Returns:
+        Array of objects: [{"id": str, "name": str, "distance_miles": float}, ...]
+    """
+    try:
+        from backend.utils.geo_utils import calculate_distance_miles
+        from backend.database.models import Location
+        from sqlalchemy import select
+        
+        # Query all locations that have coordinates
+        result = await session.execute(
+            select(Location)
+            .where(Location.latitude.isnot(None))
+            .where(Location.longitude.isnot(None))
+        )
+        locations = result.scalars().all()
+        
+        if not locations:
+            return []
+        
+        # Calculate distance to each location
+        locations_with_distances = []
+        for location in locations:
+            if location.latitude is None or location.longitude is None:
+                continue
+            
+            distance = calculate_distance_miles(
+                lat,
+                lon,
+                location.latitude,
+                location.longitude
+            )
+            
+            locations_with_distances.append({
+                "id": location.id,
+                "name": location.name,
+                "distance_miles": round(distance, 2)
+            })
+        
+        # Sort by distance (closest first)
+        locations_with_distances.sort(key=lambda x: x["distance_miles"])
+        
+        return locations_with_distances
+        
+    except Exception as e:
+        logger.error(f"Error getting location distances: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting location distances: {str(e)}")
+
+
+@router.get("/api/geocode/autocomplete")
+async def geocode_autocomplete(
+    text: str,
+    current_user: dict = Depends(get_current_user_optional)  # Optional auth for rate limiting
+):
+    """
+    Proxy autocomplete requests to Geoapify API.
+    Keeps API key secure on backend.
+    
+    Args:
+        text: Search text for city autocomplete
+    
+    Returns:
+        Geoapify autocomplete response
+    """
+    if not text or len(text.strip()) < 2:
+        return {"features": []}
+    
+    try:
+        geoapify_key = os.getenv("GEOAPIFY_API_KEY")
+        if not geoapify_key:
+            raise HTTPException(status_code=500, detail="Geoapify API key not configured")
+        
+        url = "https://api.geoapify.com/v1/geocode/autocomplete"
+        params = {
+            "text": text.strip(),
+            "apiKey": geoapify_key,
+            "limit": 10,
+            "type": "city",
+            "filter": "countrycode:us",  # Filter to US cities only
+            "lang": "en"  # English language
+        }
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Geoapify API error: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Geoapify API request error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching autocomplete: {str(e)}")
+
+
 @router.put("/api/locations/{location_id}")
 async def update_location(
-    location_id: int,
+    location_id: str,
     request: Request,
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
@@ -630,7 +743,7 @@ async def update_location(
 
 @router.delete("/api/locations/{location_id}")
 async def delete_location(
-    location_id: int,
+    location_id: str,
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -674,7 +787,7 @@ async def create_court(
 
 @router.get("/api/courts")
 async def list_courts(
-    location_id: Optional[int] = None,
+    location_id: Optional[str] = None,
     session: AsyncSession = Depends(get_db_session)
 ):
     """List courts, optionally filtered by location (public)."""
@@ -3071,6 +3184,13 @@ async def update_current_user_player(
     Creates user and player if they don't exist (for signup flow).
     Requires authentication.
     
+    Location matching logic:
+    - If city_latitude/city_longitude are provided and different from existing values:
+      → Recalculates location_id (closest location) and distance_to_location
+    - If only location_id is provided (coordinates unchanged):
+      → Only recalculates distance_to_location from existing coordinates to new location
+    - If distance_to_location is provided, uses it directly (no recalculation)
+    
     Request body:
         {
             "full_name": "John Doe",  // Optional (already set from signup)
@@ -3080,7 +3200,12 @@ async def update_current_user_player(
             "date_of_birth": "1990-01-15",  // Optional (ISO date string)
             "height": "6'0\"",        // Optional
             "preferred_side": "left", // Optional: 'left', 'right', or 'none'
-            "default_location_id": 1  // Optional
+            "city": "Los Angeles",    // Optional
+            "state": "CA",            // Optional
+            "city_latitude": 34.0522, // Optional (from autocomplete selection)
+            "city_longitude": -118.2437, // Optional (from autocomplete selection)
+            "location_id": "socal_la",  // Required when city coordinates are provided (string, e.g., "socal_la")
+            "distance_to_location": 2.5  // Optional (frontend sends pre-calculated distance)
         }
     
     Returns:
@@ -3093,6 +3218,85 @@ async def update_current_user_player(
             # This shouldn't happen if auth is working, but handle it
             raise HTTPException(status_code=404, detail="User not found")
         
+        # Handle city-based location matching
+        # Get existing player to compare coordinates
+        existing_player = await data_service.get_player_by_user_id(session, current_user["id"])
+        
+        # Tolerance for coordinate comparison (in degrees, ~0.01 degrees ≈ 1.1 km)
+        COORDINATE_TOLERANCE = 0.01
+        
+        city_value = payload.city
+        state_value = payload.state
+        city_latitude = payload.city_latitude
+        city_longitude = payload.city_longitude
+        requested_location_id = payload.location_id  # This is now a string (location_id)
+        distance_to_location = payload.distance_to_location  # Use distance from frontend if provided
+        location_id_value = None
+        
+        # Validate: if city coordinates are provided, location_id is required
+        if city_latitude is not None and city_longitude is not None:
+            if requested_location_id is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="location_id is required when city coordinates are provided"
+                )
+        
+        # Only process location matching if coordinates are provided
+        if city_latitude is not None and city_longitude is not None:
+            # Check if coordinates changed from existing values
+            coordinates_changed = False
+            if existing_player:
+                existing_lat = existing_player.get("city_latitude")
+                existing_lon = existing_player.get("city_longitude")
+                # Check if coordinates are different (with tolerance for floating point)
+                if existing_lat is None or existing_lon is None:
+                    coordinates_changed = True
+                elif abs(existing_lat - city_latitude) > COORDINATE_TOLERANCE or abs(existing_lon - city_longitude) > COORDINATE_TOLERANCE:
+                    coordinates_changed = True
+            else:
+                # New player, coordinates are new
+                coordinates_changed = True
+            
+            # Use the requested location_id
+            location_id_value = requested_location_id
+            
+            # If distance_to_location was provided by frontend, use it directly
+            # Otherwise, calculate it
+            if distance_to_location is None:
+                # If coordinates changed, recalculate distance
+                if coordinates_changed:
+                    # Find closest location to new coordinates to get distance
+                    closest_location = await location_service.find_closest_location(
+                        session,
+                        city_latitude,
+                        city_longitude
+                    )
+                    
+                    if closest_location:
+                        distance_to_location = closest_location["distance_miles"]
+                # Else, if only location_id changed (coordinates same), recalculate distance only
+                elif existing_player:
+                    # Coordinates haven't changed, but location_id might have been manually updated
+                    # Recalculate distance from existing coordinates to new location
+                    existing_lat = existing_player.get("city_latitude")
+                    existing_lon = existing_player.get("city_longitude")
+                    
+                    if existing_lat is not None and existing_lon is not None:
+                        # Get the location to calculate distance
+                        result = await session.execute(
+                            select(Location).where(Location.id == location_id_value)
+                        )
+                        location = result.scalar_one_or_none()
+                        
+                        if location and location.latitude is not None and location.longitude is not None:
+                            from backend.utils.geo_utils import calculate_distance_miles
+                            distance_to_location = calculate_distance_miles(
+                                existing_lat,
+                                existing_lon,
+                                location.latitude,
+                                location.longitude
+                            )
+        
         # Update or create player profile
         player = await data_service.upsert_user_player(
             session=session,
@@ -3104,7 +3308,12 @@ async def update_current_user_player(
             date_of_birth=payload.date_of_birth,
             height=payload.height,
             preferred_side=payload.preferred_side,
-            default_location_id=payload.default_location_id
+            location_id=location_id_value,
+            city=city_value,
+            state=state_value,
+            city_latitude=city_latitude,
+            city_longitude=city_longitude,
+            distance_to_location=distance_to_location
         )
         
         if not player:
@@ -3124,7 +3333,12 @@ async def update_current_user_player(
             "date_of_birth": player.get("date_of_birth"),
             "height": player.get("height"),
             "preferred_side": player.get("preferred_side"),
-            "default_location_id": player.get("default_location_id"),
+            "location_id": player.get("location_id"),
+            "city": player.get("city"),
+            "state": player.get("state"),
+            "city_latitude": player.get("city_latitude"),
+            "city_longitude": player.get("city_longitude"),
+            "distance_to_location": player.get("distance_to_location"),
         }
     except HTTPException:
         raise

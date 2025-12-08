@@ -34,7 +34,6 @@ export function useWhatsAppStatus() {
 
       if (data.success) {
         setGroups(data.groups);
-        console.log(`Loaded ${data.groups.length} groups`);
       }
     } catch (err) {
       console.error("Error fetching groups:", err);

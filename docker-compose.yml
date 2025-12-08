@@ -46,6 +46,7 @@ services:
       - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-noreply@beachleaguevb.com}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@beachleaguevb.com}
       - ENABLE_EMAIL=${ENABLE_EMAIL:-true}
+      - GEOAPIFY_API_KEY=${GEOAPIFY_API_KEY:-}
       - CREDENTIALS_JSON=${CREDENTIALS_JSON:-}
       - REDIS_HOST=redis
       - REDIS_PORT=6379

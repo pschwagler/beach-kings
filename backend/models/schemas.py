@@ -284,7 +284,6 @@ class LocationBase(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = "USA"
-    location_id: Optional[str] = None
     region_id: Optional[str] = None
     tier: Optional[int] = None
     latitude: Optional[float] = None
@@ -295,12 +294,12 @@ class LocationBase(BaseModel):
 
 class LocationCreate(LocationBase):
     """Request to create a location."""
-    pass
+    id: str  # Primary key: hub_id from CSV (e.g., "socal_la", "hi_oahu")
 
 
 class LocationResponse(LocationBase):
     """Location response."""
-    id: int
+    id: str  # Primary key: hub_id from CSV (e.g., "socal_la", "hi_oahu")
     created_at: str
     updated_at: str
 
@@ -309,7 +308,7 @@ class CourtBase(BaseModel):
     """Base court model."""
     name: str
     address: Optional[str] = None
-    location_id: int
+    location_id: str
     geoJson: Optional[str] = None
 
 
@@ -347,7 +346,7 @@ class LeagueBase(BaseModel):
     """Base league model."""
     name: str
     description: Optional[str] = None
-    location_id: Optional[int] = None
+    location_id: Optional[str] = None
     is_open: bool = True
     whatsapp_group_id: Optional[str] = None
     gender: Optional[str] = None  # 'male', 'female', 'mixed'
@@ -415,7 +414,7 @@ class PlayerBase(BaseModel):
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None  # 'left', 'right', 'none', etc.
-    default_location_id: Optional[int] = None
+    location_id: Optional[str] = None
     profile_picture_url: Optional[str] = None
     status: Optional[str] = None
 
@@ -434,7 +433,12 @@ class PlayerUpdate(BaseModel):
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None
-    default_location_id: Optional[int] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    city_latitude: Optional[float] = None
+    city_longitude: Optional[float] = None
+    location_id: Optional[str] = None  # Optional: manually override auto-matched location (location_id string, e.g., "socal_la")
+    distance_to_location: Optional[float] = None  # Optional: pre-calculated distance from frontend
 
 
 class PlayerResponse(PlayerBase):

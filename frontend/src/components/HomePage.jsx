@@ -1,29 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
 import { getUserLeagues, leaveLeague, createLeague } from '../services/api';
-import { navigateTo } from '../Router';
 import { Home, User, Users, Trophy, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import NavBar from './layout/NavBar';
 import HomeTab from './home/HomeTab';
 import ProfileTab from './home/ProfileTab';
 import LeaguesTab from './home/LeaguesTab';
 import FriendsTab from './home/FriendsTab';
+import { isProfileIncomplete } from '../utils/playerUtils';
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   
   // Get active tab from URL query params
-  const getTabFromUrl = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('tab') || 'home';
-  };
-  
-  // Initialize activeTab from URL - use function form to ensure it reads on every mount
-  const [activeTab, setActiveTab] = useState(() => getTabFromUrl());
+  const activeTab = searchParams.get('tab') || 'home';
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth <= 768;
@@ -35,9 +32,9 @@ export default function HomePage() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      navigateTo('/');
+      navigate('/');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   // Check if profile is incomplete and open modal if needed
   // This runs every time the user visits the home page or when currentUserPlayer changes
@@ -49,13 +46,14 @@ export default function HomePage() {
         return; // Will re-run when currentUserPlayer updates
       }
       
-      // Check if profile is incomplete (missing gender or level)
-      const profileIncomplete = !currentUserPlayer?.gender || !currentUserPlayer?.level;
+      // Check if profile is incomplete (missing gender, level, or city)
+      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
       
       if (profileIncomplete) {
         // Small delay to ensure page is rendered and avoid conflicts with other modals
         const timeoutId = setTimeout(() => {
           openModal(MODAL_TYPES.PLAYER_PROFILE, {
+            currentUserPlayer: currentUserPlayer,
             onSuccess: async () => {
               await fetchCurrentUser();
             }
@@ -67,22 +65,7 @@ export default function HomePage() {
     }
   }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
 
-  // Sync tab with URL on mount - read from URL and update state if needed
-  useEffect(() => {
-    const urlTab = getTabFromUrl();
-    if (urlTab !== activeTab) {
-      setActiveTab(urlTab);
-    }
-  }, []); // Only run on mount
-  
-  // Update tab when URL changes via browser navigation (back/forward buttons)
-  useEffect(() => {
-    const handlePopState = () => {
-      setActiveTab(getTabFromUrl());
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  // Navigation blocking is now handled by ProfileTab using useBlocker hook
 
   // Handle window resize
   useEffect(() => {
@@ -116,16 +99,15 @@ export default function HomePage() {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      navigateTo('/');
+      navigate('/');
     }
   };
 
   const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    // Update URL without page reload
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tab);
-    window.history.pushState({}, '', url);
+    // Update URL with new tab using React Router
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', tab);
+    navigate(`/home?${newSearchParams.toString()}`, { replace: false });
     
     // Scroll to top of the page
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -141,8 +123,7 @@ export default function HomePage() {
       const newLeague = await createLeague(leagueData);
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
-      window.history.pushState({}, '', `/league/${newLeague.id}?tab=details`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      navigate(`/league/${newLeague.id}?tab=details`);
       return newLeague;
     } catch (error) {
       throw error;
@@ -155,8 +136,7 @@ export default function HomePage() {
         onSubmit: handleCreateLeague
       });
     } else if (action === 'view-league' && leagueId) {
-      window.history.pushState({}, '', `/league/${leagueId}`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      navigate(`/league/${leagueId}`);
     }
   };
 
@@ -247,7 +227,7 @@ export default function HomePage() {
               )}
               
               {activeTab === 'profile' && (
-                <ProfileTab 
+                <ProfileTab
                   user={user}
                   currentUserPlayer={currentUserPlayer}
                   fetchCurrentUser={fetchCurrentUser}
