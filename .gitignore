@@ -85,3 +85,5 @@ Thumbs.db
 thirdparty
 
 *.backup
+
+db_dump.sql

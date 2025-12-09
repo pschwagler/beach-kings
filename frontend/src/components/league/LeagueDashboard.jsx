@@ -36,13 +36,8 @@ function LeagueDashboardContent({ leagueId }) {
   });
   const { message, showMessage } = useLeague();
   const [userLeagues, setUserLeagues] = useState([]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Start collapsed on mobile screens
-    if (typeof window !== 'undefined') {
-      return window.innerWidth <= 768;
-    }
-    return false;
-  });
+  // Initialize to false to avoid hydration mismatch - will be set correctly in useEffect
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState(false);
   const leagueDropdownRef = useRef(null);
   
@@ -82,6 +77,14 @@ function LeagueDashboardContent({ leagueId }) {
       setLeagueName(league.name || '');
     }
   }, [league]);
+
+  // Set initial collapsed state based on screen size (client-side only)
+  useEffect(() => {
+    // Set initial state based on screen size to avoid hydration mismatch
+    if (window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
 
   // Handle window resize to auto-collapse on mobile
   useEffect(() => {

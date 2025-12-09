@@ -23,12 +23,8 @@ export default function HomePage() {
   
   // Get active tab from URL query params
   const activeTab = searchParams?.get('tab') || 'home';
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth <= 768;
-    }
-    return false;
-  });
+  // Initialize to false to avoid hydration mismatch - will be set correctly in useEffect
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userLeagues, setUserLeagues] = useState([]);
 
   // Redirect if not authenticated
@@ -68,6 +64,14 @@ export default function HomePage() {
   }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
 
   // Navigation blocking is now handled by ProfileTab using useBlocker hook
+
+  // Set initial collapsed state based on screen size (client-side only)
+  useEffect(() => {
+    // Set initial state based on screen size to avoid hydration mismatch
+    if (window.innerWidth <= 768) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
 
   // Handle window resize
   useEffect(() => {

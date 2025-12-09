@@ -106,7 +106,11 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
         <thead>
           <tr>
             <th className="rank-number-header" onClick={() => handleSort('season_rank')}>
-              <span className="th-content">No.{getSortArrow('season_rank')}</span>
+              <span className="th-content">
+                <span className="desktop-label">No</span>
+                <span className="mobile-label">No</span>
+                {getSortArrow('season_rank')}
+              </span>
             </th>
             <th className="sticky-col" onClick={() => handleSort('Name')}>
               <Tooltip text="Player's name">
@@ -118,21 +122,36 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
             <th onClick={() => handleSort('Points')}>
               <Tooltip text="Season points: +3 for each win, +1 for each loss">
                 <span className="th-content">
-                  Points{getSortArrow('Points')}
-                </span>
-              </Tooltip>
-            </th>
-            <th onClick={() => handleSort('ELO')}>
-              <Tooltip text="Current skill rating (higher is better)">
-                <span className="th-content">
-                  Rating{getSortArrow('ELO')}
+                  <span className="desktop-label">Points</span>
+                  <span className="mobile-label">PTS</span>
+                  {getSortArrow('Points')}
                 </span>
               </Tooltip>
             </th>
             <th onClick={() => handleSort('Games')}>
               <Tooltip text="Total number of games played this season">
                 <span className="th-content">
-                  Games{getSortArrow('Games')}
+                  <span className="desktop-label">Games</span>
+                  <span className="mobile-label">GP</span>
+                  {getSortArrow('Games')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('Wins')}>
+              <Tooltip text="Total number of wins">
+                <span className="th-content">
+                  <span className="desktop-label">Wins</span>
+                  <span className="mobile-label">W</span>
+                  {getSortArrow('Wins')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('Losses')}>
+              <Tooltip text="Total number of losses">
+                <span className="th-content">
+                  <span className="desktop-label">Losses</span>
+                  <span className="mobile-label">L</span>
+                  {getSortArrow('Losses')}
                 </span>
               </Tooltip>
             </th>
@@ -143,24 +162,17 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Wins')}>
-              <Tooltip text="Total number of wins">
-                <span className="th-content">
-                  Wins{getSortArrow('Wins')}
-                </span>
-              </Tooltip>
-            </th>
-            <th onClick={() => handleSort('Losses')}>
-              <Tooltip text="Total number of losses">
-                <span className="th-content">
-                  Losses{getSortArrow('Losses')}
-                </span>
-              </Tooltip>
-            </th>
             <th onClick={() => handleSort('Avg Pt Diff')}>
               <Tooltip text="Average point differential per game">
                 <span className="th-content">
                   Avg +/-{getSortArrow('Avg Pt Diff')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('ELO')}>
+              <Tooltip text="Current skill rating (higher is better)">
+                <span className="th-content">
+                  Rating{getSortArrow('ELO')}
                 </span>
               </Tooltip>
             </th>
@@ -179,18 +191,18 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                   <span className="player-name-modern">
                     <PlayerAvatar avatar={player.avatar} playerName={player.Name} />
                     {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
-                      <Crown size={18} className="crown-icon-modern" />
+                      <Crown size={15} className="crown-icon-modern" />
                     )}
                     <span>{player.Name}</span>
                   </span>
                 </td>
                 <td className="rankings-stat-cell">{player.Points}</td>
-              <td className="rankings-stat-cell">{Math.round(player.ELO)}</td>
-              <td className="rankings-stat-cell">{player.Games}</td>
-              <td className="rankings-stat-cell">{(player['Win Rate'] * 100).toFixed(1)}%</td>
-              <td className="rankings-stat-cell">{player.Wins}</td>
-              <td className="rankings-stat-cell">{player.Losses}</td>
-              <td className="rankings-stat-cell">{formatPtDiff(player['Avg Pt Diff'])}</td>
+                <td className="rankings-stat-cell">{player.Games}</td>
+                <td className="rankings-stat-cell">{player.Wins}</td>
+                <td className="rankings-stat-cell">{player.Losses}</td>
+                <td className="rankings-stat-cell">{(player['Win Rate'] * 100).toFixed(1)}%</td>
+                <td className="rankings-stat-cell">{formatPtDiff(player['Avg Pt Diff'])}</td>
+                <td className="rankings-stat-cell">{Math.round(player.ELO)}</td>
               </tr>
             );
           })}
