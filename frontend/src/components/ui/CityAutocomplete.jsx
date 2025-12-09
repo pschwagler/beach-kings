@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getCityAutocomplete } from '../../services/api';
 import { useDebounce } from '../../utils/debounce';
@@ -63,7 +65,7 @@ export default function CityAutocomplete({
           let city = props.city || props.name || '';
           const district = props.district || props.suburb || '';
           
-          if (city === 'New York' && district) {
+          if (city === 'New York' && district && district !== 'Manhattan') {
             city = district;
           }
           
@@ -227,4 +229,5 @@ export default function CityAutocomplete({
     </div>
   );
 }
+
 

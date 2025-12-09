@@ -1,3 +1,5 @@
+'use client';
+
 import { Info } from "lucide-react";
 import { Tooltip } from "../ui/UI";
 import CityAutocomplete from "../ui/CityAutocomplete";
@@ -120,7 +122,7 @@ export default function PlayerProfileFields({
           type="text"
           name="nickname"
           className="auth-modal__input"
-          placeholder="Optional"
+          placeholder=""
           value={formData.nickname}
           onChange={onInputChange}
         />
@@ -139,4 +141,5 @@ export default function PlayerProfileFields({
     </>
   );
 }
+
 

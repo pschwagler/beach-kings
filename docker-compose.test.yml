@@ -79,3 +79,4 @@ networks:
 
 volumes:
   postgres_test_data:
+

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Trophy, Search } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useMessage } from './hooks/useMessage';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import RankingsTable from '../rankings/RankingsTable';
 import { formatDateRange } from './utils/leagueUtils';
@@ -12,16 +11,15 @@ export default function LeagueRankingsTab() {
     league,
     seasons,
     activeSeason, 
-    activeSeasonData,
     seasonData,
     seasonDataLoadingMap,
     loadSeasonData,
     selectedPlayerId,
     selectedPlayerName,
-    setSelectedPlayer
+    setSelectedPlayer,
+    message,
   } = useLeague();
   const { currentUserPlayer } = useAuth();
-  const [message, showMessage] = useMessage(5000);
   
   // State for selected season (defaults to active season)
   const [selectedSeasonId, setSelectedSeasonId] = useState(null);

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronDown, Info, Settings } from 'lucide-react';
 import { Button } from '../ui/UI';

@@ -1,8 +1,10 @@
-import React from 'react';
-import NavBar from './layout/NavBar';
-import { useAuth } from '../contexts/AuthContext';
+'use client';
 
-export default function PrivacyPolicyPage() {
+import React from 'react';
+import NavBar from '../../src/components/layout/NavBar';
+import { useAuth } from '../../src/contexts/AuthContext';
+
+export default function PrivacyPolicyPageRoute() {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
 
   return (

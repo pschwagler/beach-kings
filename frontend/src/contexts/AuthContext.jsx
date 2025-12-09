@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer } from '../services/api';
 

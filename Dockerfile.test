@@ -21,3 +21,4 @@ ENV PYTHONPATH=/app
 
 # Default command (can be overridden)
 CMD ["pytest", "backend/tests/", "-v"]
+

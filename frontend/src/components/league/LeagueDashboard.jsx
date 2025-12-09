@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Calendar, Trophy, Settings, Edit2, Check, X, Menu, X as XIcon, PanelRightClose, PanelRightOpen, ChevronDown, Users, Swords, MessageSquare } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import NavBar from '../layout/NavBar';
 import LeagueRankingsTab from './LeagueRankingsTab';
 import LeagueMatchesTab from './LeagueMatchesTab';
@@ -11,26 +14,23 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { getUserLeagues, updateLeague, createLeague } from '../../services/api';
-import { useNavigate, useParams } from 'react-router-dom';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
 import NavDropdownItem from '../layout/navbar/NavDropdownItem';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton, LeagueSidebarTitleSkeleton } from '../ui/Skeletons';
 
 function LeagueDashboardContent({ leagueId }) {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
   // Initialize activeTab from URL params immediately
   const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tab = urlParams.get('tab');
-      if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
-        return tab;
-      }
+    const tab = searchParams?.get('tab');
+    if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
+      return tab;
     }
     return 'rankings';
   });
@@ -55,12 +55,11 @@ function LeagueDashboardContent({ leagueId }) {
 
   // Get tab from URL query parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tab = urlParams.get('tab');
-    if (tab && ['rankings', 'matches', 'details', 'signups'].includes(tab)) {
+    const tab = searchParams?.get('tab');
+    if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
       setActiveTab(tab);
     }
-  }, []);
+  }, [searchParams]);
 
   // Load user leagues for the navbar
   useEffect(() => {
@@ -111,16 +110,15 @@ function LeagueDashboardContent({ leagueId }) {
   }, [isLeagueDropdownOpen]);
 
   const handleBack = () => {
-    window.history.pushState({}, '', '/');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    router.push('/');
   };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    // Update URL without reload
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tab);
-    window.history.pushState({}, '', url);
+    // Update URL with Next.js router
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.set('tab', tab);
+    router.push(`/league/${leagueId}?${params.toString()}`);
     // Scroll to top of the page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -159,8 +157,7 @@ function LeagueDashboardContent({ leagueId }) {
       const newLeague = await createLeague(leagueData);
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
-      window.history.pushState({}, '', `/league/${newLeague.id}?tab=details`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      router.push(`/league/${newLeague.id}?tab=details`);
       return newLeague;
     } catch (error) {
       throw error;
@@ -173,15 +170,13 @@ function LeagueDashboardContent({ leagueId }) {
         onSubmit: handleCreateLeague
       });
     } else if (action === 'view-league' && leagueId) {
-      window.history.pushState({}, '', `/league/${leagueId}`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      router.push(`/league/${leagueId}`);
     }
   };
 
   const handleLeagueSelect = (selectedLeagueId) => {
     if (selectedLeagueId !== leagueId) {
-      window.history.pushState({}, '', `/league/${selectedLeagueId}`);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      router.push(`/league/${selectedLeagueId}`);
     }
     setIsLeagueDropdownOpen(false);
   };
@@ -193,7 +188,7 @@ function LeagueDashboardContent({ leagueId }) {
       console.error('Logout error:', error);
     } finally {
       // Navigate to landing page after sign out
-      navigate('/');
+      router.push('/');
     }
   };
 
@@ -548,12 +543,9 @@ function LeagueDashboardContent({ leagueId }) {
   );
 }
 
-export default function LeagueDashboard() {
-  const { id } = useParams();
-  const leagueId = id ? parseInt(id, 10) : null;
+export default function LeagueDashboard({ leagueId }) {
+  // leagueId is passed from the Next.js page component
   return (
-    <LeagueProvider leagueId={leagueId}>
-      <LeagueDashboardContent leagueId={leagueId} />
-    </LeagueProvider>
+    <LeagueDashboardContent leagueId={leagueId} />
   );
 }

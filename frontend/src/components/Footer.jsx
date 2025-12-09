@@ -1,15 +1,18 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { MessageSquare, Mail } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 
 export default function Footer() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   const handleNavigation = (e, path) => {
     e.preventDefault();
-    navigate(path);
+    router.push(path);
   };
 
   return (
@@ -17,21 +20,21 @@ export default function Footer() {
       <footer className="site-footer">
         <div className="footer-content">
           <div className="footer-links">
-            <a 
+            <Link 
               href="/terms-of-service" 
               className="footer-link"
               onClick={(e) => handleNavigation(e, '/terms-of-service')}
             >
               Terms of Service
-            </a>
+            </Link>
             <span className="footer-separator">•</span>
-            <a 
+            <Link 
               href="/privacy-policy" 
               className="footer-link"
               onClick={(e) => handleNavigation(e, '/privacy-policy')}
             >
               Privacy Policy
-            </a>
+            </Link>
             <span className="footer-separator">•</span>
             <a href="mailto:beachleaguevb@gmail.com?subject=Inquiry%20from%20Beach%20League" className="footer-link contact-link">
               <Mail size={14} />

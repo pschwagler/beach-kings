@@ -1,17 +1,19 @@
+'use client';
+
 import { Trophy, ChevronRight, Users, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { createLeague } from '../../services/api';
 
 export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdate }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { openModal } = useModal();
 
   const handleLeagueClick = (leagueId) => {
     if (onLeagueClick) {
       onLeagueClick(leagueId);
     } else {
-      navigate(`/league/${leagueId}`);
+      router.push(`/league/${leagueId}`);
     }
   };
 

@@ -1,0 +1,24 @@
+# Frontend Dockerfile for Next.js
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy package files
+COPY frontend/package*.json ./
+# Use legacy-peer-deps to handle React 19 compatibility during transition
+RUN npm install --legacy-peer-deps
+
+# Copy frontend source code
+COPY frontend ./
+
+# Build Next.js application
+# Note: Build happens at container build time, not runtime
+RUN npm run build
+
+# Expose port (Next.js default is 3000)
+EXPOSE 3000
+
+# Start Next.js production server
+# This runs the production server from .next directory
+CMD ["npm", "start"]
+

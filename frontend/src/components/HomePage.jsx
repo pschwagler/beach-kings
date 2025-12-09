@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
-import { getUserLeagues, leaveLeague, createLeague } from '../services/api';
+import { getUserLeagues, createLeague } from '../services/api';
 import { Home, User, Users, Trophy, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import NavBar from './layout/NavBar';
 import HomeTab from './home/HomeTab';
@@ -13,14 +15,14 @@ import FriendsTab from './home/FriendsTab';
 import { isProfileIncomplete } from '../utils/playerUtils';
 
 export default function HomePage() {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   
   // Get active tab from URL query params
-  const activeTab = searchParams.get('tab') || 'home';
+  const activeTab = searchParams?.get('tab') || 'home';
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth <= 768;
@@ -32,9 +34,9 @@ export default function HomePage() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/');
+      router.push('/');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, router]);
 
   // Check if profile is incomplete and open modal if needed
   // This runs every time the user visits the home page or when currentUserPlayer changes
@@ -99,15 +101,15 @@ export default function HomePage() {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      navigate('/');
+      router.push('/');
     }
   };
 
   const handleTabChange = (tab) => {
-    // Update URL with new tab using React Router
-    const newSearchParams = new URLSearchParams(searchParams);
+    // Update URL with new tab using Next.js router
+    const newSearchParams = new URLSearchParams(searchParams?.toString() || '');
     newSearchParams.set('tab', tab);
-    navigate(`/home?${newSearchParams.toString()}`, { replace: false });
+    router.push(`/home?${newSearchParams.toString()}`);
     
     // Scroll to top of the page
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -119,15 +121,11 @@ export default function HomePage() {
   };
 
   const handleCreateLeague = async (leagueData) => {
-    try {
-      const newLeague = await createLeague(leagueData);
-      const leagues = await getUserLeagues();
-      setUserLeagues(leagues);
-      navigate(`/league/${newLeague.id}?tab=details`);
-      return newLeague;
-    } catch (error) {
-      throw error;
-    }
+    const newLeague = await createLeague(leagueData);
+    const leagues = await getUserLeagues();
+    setUserLeagues(leagues);
+    router.push(`/league/${newLeague.id}?tab=details`);
+    return newLeague;
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
@@ -136,7 +134,7 @@ export default function HomePage() {
         onSubmit: handleCreateLeague
       });
     } else if (action === 'view-league' && leagueId) {
-      navigate(`/league/${leagueId}`);
+      router.push(`/league/${leagueId}`);
     }
   };
 

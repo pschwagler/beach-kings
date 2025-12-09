@@ -1,4 +1,7 @@
+'use client';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, Target, Award, HelpCircle } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
@@ -15,6 +18,7 @@ const getAvatarInitial = (currentUserPlayer) => {
 };
 
 export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, onLeaguesUpdate }) {
+  const router = useRouter();
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
@@ -51,8 +55,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   }, [currentUserPlayer]);
 
   const navigateToLeague = (leagueId) => {
-    window.history.pushState({}, '', `/league/${leagueId}`);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    router.push(`/league/${leagueId}`);
   };
 
   const avatarInitial = getAvatarInitial(currentUserPlayer);

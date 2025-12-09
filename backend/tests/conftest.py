@@ -26,7 +26,7 @@ TEST_DATABASE_URL = os.getenv(
 
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Create a test database engine for the entire test session."""
     # Use NullPool to avoid connection reuse issues across event loops
@@ -98,32 +98,34 @@ async def db_session(test_engine):
     # Use a separate connection to ensure truncation is visible
     # Wrap in try/except to handle connection errors gracefully
     try:
-        async with test_engine.begin() as truncate_conn:
-            # Get all table names from the database
-            result = await truncate_conn.execute(
-                text("""
-                    SELECT tablename FROM pg_tables 
-                    WHERE schemaname = 'public' 
-                    AND tablename NOT LIKE 'pg_%'
-                    AND tablename NOT LIKE 'alembic_%'
-                    ORDER BY tablename
-                """)
-            )
-            tables = [row[0] for row in result.fetchall()]
-            
-            if tables:
-                # Use CASCADE to handle foreign key constraints
-                # Disable triggers temporarily for faster truncation
-                await truncate_conn.execute(text("SET session_replication_role = 'replica'"))
-                
-                # Truncate all tables with CASCADE to handle dependencies
-                table_list = ", ".join(f'"{table}"' for table in tables)
-                await truncate_conn.execute(
-                    text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE")
+        # Create a fresh connection for truncation
+        async with test_engine.connect() as truncate_conn:
+            async with truncate_conn.begin():
+                # Get all table names from the database
+                result = await truncate_conn.execute(
+                    text("""
+                        SELECT tablename FROM pg_tables 
+                        WHERE schemaname = 'public' 
+                        AND tablename NOT LIKE 'pg_%'
+                        AND tablename NOT LIKE 'alembic_%'
+                        ORDER BY tablename
+                    """)
                 )
+                tables = [row[0] for row in result.fetchall()]
                 
-                await truncate_conn.execute(text("SET session_replication_role = 'origin'"))
-            # Transaction will commit automatically when exiting the 'begin' context
+                if tables:
+                    # Use CASCADE to handle foreign key constraints
+                    # Disable triggers temporarily for faster truncation
+                    await truncate_conn.execute(text("SET session_replication_role = 'replica'"))
+                    
+                    # Truncate all tables with CASCADE to handle dependencies
+                    table_list = ", ".join(f'"{table}"' for table in tables)
+                    await truncate_conn.execute(
+                        text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE")
+                    )
+                    
+                    await truncate_conn.execute(text("SET session_replication_role = 'origin'"))
+            # Connection is closed when exiting the context
     except Exception:
         # If truncation fails completely, just continue - test isolation may be affected
         # but connection cleanup errors shouldn't prevent tests from running

@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import { useRouter } from 'next/navigation';
 import NavBrand from './navbar/NavBrand';
 import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
@@ -17,7 +19,7 @@ export default function NavBar({
   onLeaguesMenuClick,
   onPlayersClick,
 }) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleRecordGamesClick = () => {
     // Handle navigation to record games page
@@ -38,13 +40,13 @@ export default function NavBar({
 
   const handleUserMenuClick = (action) => {
     if (action === 'profile') {
-      navigate('/profile');
+      router.push('/profile');
     }
     // Handle user menu actions (except sign-out which is handled by onSignOut)
   };
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" data-nextjs-scroll-focus-boundary>
       <div className="navbar-container">
         <NavBrand />
         

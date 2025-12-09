@@ -7,9 +7,7 @@ FastAPI server that provides REST endpoints for ELO calculations and statistics.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from fastapi.responses import HTMLResponse
 import logging
 import os
 import uvicorn
@@ -142,62 +140,30 @@ app.include_router(router)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Serve the React frontend."""
-    try:
-        # Try to serve React build first
-        with open("frontend/dist/index.html", "r") as f:
-            return HTMLResponse(content=f.read())
-    except FileNotFoundError:
-        # Fallback to simple HTML
-        return HTMLResponse(content="""
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>Beach Volleyball ELO</title>
-                    <style>
-                        body { font-family: sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-                        h1 { color: #667eea; }
-                        a { color: #667eea; }
-                    </style>
-                </head>
-                <body>
-                    <h1>🏐 Beach Volleyball ELO API</h1>
-                    <p>API is running successfully!</p>
-                    <h2>Available Resources:</h2>
-                    <ul>
-                        <li><a href="/docs">📚 API Documentation</a> - Interactive API docs</li>
-                        <li><a href="/api/health">❤️ Health Check</a> - System status</li>
-                    </ul>
-                    <p><em>Note: Run frontend build to see the web interface.</em></p>
-                </body>
-            </html>
-        """)
-
-
-# Mount static assets from React build
-try:
-    # Mount assets directory
-    app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
-except:
-    # Assets directory might not exist yet (before build)
-    pass
-
-
-# Serve static files (images, etc.) from dist - must be after all API routes
-@app.get("/{file_path:path}")
-async def serve_static_files(file_path: str):
-    """Serve static files from frontend/dist directory."""
-    # Don't serve API routes through this catch-all
-    if file_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="Not found")
-    
-    # Try to serve the requested file
-    full_path = Path(f"frontend/dist/{file_path}")
-    if full_path.is_file():
-        return FileResponse(full_path)
-    
-    # If file not found, serve index.html (for React Router)
-    return FileResponse("frontend/dist/index.html")
+    """API root endpoint - frontend is served separately."""
+    return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Beach Volleyball ELO API</title>
+                <style>
+                    body { font-family: sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+                    h1 { color: #667eea; }
+                    a { color: #667eea; }
+                </style>
+            </head>
+            <body>
+                <h1>🏐 Beach Volleyball ELO API</h1>
+                <p>API is running successfully!</p>
+                <h2>Available Resources:</h2>
+                <ul>
+                    <li><a href="/docs">📚 API Documentation</a> - Interactive API docs</li>
+                    <li><a href="/api/health">❤️ Health Check</a> - System status</li>
+                </ul>
+                <p><em>Note: Frontend is served separately by Next.js service.</em></p>
+            </body>
+        </html>
+    """)
 
 
 if __name__ == "__main__":

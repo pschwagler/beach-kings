@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useDropdownPopper } from '../../hooks/useDropdownPopper';
@@ -214,7 +216,7 @@ export default function PlayerDropdown({
         spellCheck="false"
         className="player-dropdown-input"
       />
-      {dropdownContent && createPortal(dropdownContent, document.body)}
+      {typeof window !== 'undefined' && dropdownContent && createPortal(dropdownContent, document.body)}
     </div>
   );
 }

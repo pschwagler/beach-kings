@@ -1,4 +1,7 @@
+'use client';
+
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { RefreshCw, ExternalLink, Loader2, MessageCircle, Download } from 'lucide-react';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -7,6 +10,7 @@ import { exportMatchesToCSV } from '../../services/api';
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 
 export default function ControlPanel({ onLoadFromSheets }) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -28,7 +32,7 @@ export default function ControlPanel({ onLoadFromSheets }) {
   };
 
   const handleWhatsAppClick = () => {
-    window.location.href = '/whatsapp';
+    router.push('/whatsapp');
   };
 
   const handleExportCSV = async () => {

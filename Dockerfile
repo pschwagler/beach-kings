@@ -37,12 +37,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy frontend and build
-COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm install
-
-COPY frontend ./frontend
-RUN cd frontend && npm run build
+# Frontend build removed - handled by separate frontend service
 
 # Copy WhatsApp service and install dependencies
 COPY whatsapp-service/package*.json ./whatsapp-service/

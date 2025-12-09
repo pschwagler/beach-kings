@@ -316,7 +316,7 @@ def make_require_league_admin_from_signup():
         user: dict = Depends(get_current_user),
         session: AsyncSession = Depends(get_db_session)
     ) -> dict:
-        # Get signup to find weekly_schedule_id
+        # Get signup to find season_id
         result = await session.execute(
             select(Signup).where(Signup.id == signup_id)
         )
@@ -324,17 +324,11 @@ def make_require_league_admin_from_signup():
         if not signup:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signup not found")
         
-        # Get weekly schedule to find season_id
-        schedule_result = await session.execute(
-            select(WeeklySchedule).where(WeeklySchedule.id == signup.weekly_schedule_id)
-        )
-        schedule = schedule_result.scalar_one_or_none()
-        if not schedule:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly schedule not found")
-        
         # Get season to find league_id
+        # For ad-hoc signups (weekly_schedule_id is None), get season_id directly from signup
+        # For scheduled signups, we could also get it from signup.season_id, but we'll use the same approach
         season_result = await session.execute(
-            select(Season).where(Season.id == schedule.season_id)
+            select(Season).where(Season.id == signup.season_id)
         )
         season = season_result.scalar_one_or_none()
         if not season:

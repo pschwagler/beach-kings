@@ -45,7 +45,7 @@ export default function LeagueDetailsTab() {
   };
 
   const handleRemoveMember = async (memberId, playerName) => {
-    if (!window.confirm(`Are you sure you want to remove ${playerName} from this league?`)) {
+    if (typeof window === 'undefined' || !window.confirm(`Are you sure you want to remove ${playerName} from this league?`)) {
       return;
     }
 

@@ -14,6 +14,8 @@ export default function PlayerDetailsPanel({
 }) {
   // Prevent body scrolling when drawer is open
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    
     if (isPanelOpen) {
       document.body.classList.add('drawer-open');
     } else {
@@ -22,7 +24,9 @@ export default function PlayerDetailsPanel({
     
     // Cleanup on unmount
     return () => {
-      document.body.classList.remove('drawer-open');
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('drawer-open');
+      }
     };
   }, [isPanelOpen]);
 

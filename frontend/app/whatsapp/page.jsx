@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
-import { useWhatsAppStatus } from "../hooks/useWhatsAppStatus";
-import ErrorAlert from "./whatsapp/ErrorAlert";
-import LoadingSpinner from "./whatsapp/LoadingSpinner";
-import ConnectionStatus from "./whatsapp/ConnectionStatus";
-import GroupSelector from "./whatsapp/GroupSelector";
-import QRCodeDisplay from "./whatsapp/QRCodeDisplay";
-import "../App.css";
-import "./WhatsAppPage.css";
+'use client';
 
-function WhatsAppPage() {
+import { useState, useEffect } from "react";
+import { useWhatsAppStatus } from "../../src/hooks/useWhatsAppStatus";
+import ErrorAlert from "../../src/components/whatsapp/ErrorAlert";
+import LoadingSpinner from "../../src/components/whatsapp/LoadingSpinner";
+import ConnectionStatus from "../../src/components/whatsapp/ConnectionStatus";
+import GroupSelector from "../../src/components/whatsapp/GroupSelector";
+import QRCodeDisplay from "../../src/components/whatsapp/QRCodeDisplay";
+import "../../src/App.css";
+import "../../src/components/WhatsAppPage.css";
+
+export default function WhatsAppPageRoute() {
   // Use custom hook for status management
   const {
     qrCode,
@@ -131,5 +133,3 @@ function WhatsAppPage() {
     </>
   );
 }
-
-export default WhatsAppPage;
