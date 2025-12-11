@@ -34,6 +34,7 @@ rank_changes.csv
 # Database
 **/*.db
 *.db
+apps/backend/database/*.db
 backend/database/*.db
 *.db-shm
 *.db-wal
@@ -46,21 +47,27 @@ credentials.json
 
 # Node / Frontend
 node_modules/
-frontend/dist/
-frontend/node_modules/
-frontend/.next/
-frontend/out/
+apps/web/dist/
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/node_modules/
+packages/*/node_modules/
+packages/*/dist/
+services/*/node_modules/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.turbo/
 
 # WhatsApp Service
-whatsapp-service/node_modules/
-whatsapp-service/.wwebjs_auth/
-whatsapp-service/.wwebjs_cache/
+services/whatsapp/.wwebjs_auth/
+services/whatsapp/.wwebjs_cache/
 .wwebjs_auth/
 .wwebjs_cache/
 

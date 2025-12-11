@@ -122,3 +122,8 @@ def downgrade() -> None:
     op.drop_constraint('uq_regions_name', 'regions', type_='unique')
     op.drop_table('regions')
 
+
+
+
+
+

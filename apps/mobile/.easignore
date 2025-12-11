@@ -1,0 +1,10 @@
+# EAS Build ignore file
+node_modules/
+.expo/
+dist/
+*.log
+.env.local
+.DS_Store
+
+
+

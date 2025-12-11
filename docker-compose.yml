@@ -47,7 +47,7 @@ services:
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-      - "${WHATSAPP_PORT:-3001}:3001"
+      # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
     environment:
@@ -57,7 +57,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-beachkings}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-beachkings}
       - POSTGRES_DB=${POSTGRES_DB:-beachkings}
-      - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}
+      # - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}  # WhatsApp service is inactive
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
@@ -78,8 +78,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend:/app/backend
-      - ./whatsapp-service:/app/whatsapp-service
+      - ./apps/backend:/app/apps/backend
+      # - ./services/whatsapp:/app/services/whatsapp  # WhatsApp service is inactive
     networks:
       - beach-kings-network
     restart: unless-stopped

@@ -3,16 +3,26 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
-# Use legacy-peer-deps to handle React 19 compatibility during transition
+# Copy root package.json and turbo.json for monorepo setup
+COPY package.json turbo.json ./
+COPY package-lock.json* ./
+
+# Copy all package.json files for workspace dependencies
+COPY apps/web/package*.json ./apps/web/
+COPY packages/*/package.json ./packages/*/
+
+# Install dependencies at root level (workspace-aware)
 RUN npm install --legacy-peer-deps
 
 # Copy frontend source code
-COPY frontend ./
+COPY apps/web ./apps/web
+
+# Copy shared packages
+COPY packages ./packages
 
 # Build Next.js application
 # Note: Build happens at container build time, not runtime
+WORKDIR /app/apps/web
 RUN npm run build
 
 # Expose port (Next.js default is 3000)
@@ -21,4 +31,5 @@ EXPOSE 3000
 # Start Next.js production server
 # This runs the production server from .next directory
 CMD ["npm", "start"]
+
 
