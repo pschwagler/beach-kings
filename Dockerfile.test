@@ -13,8 +13,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code (tests need access to all backend code)
-COPY backend ./backend
+# Copy backend code (from apps/backend to maintain backend.* import structure)
+COPY apps/backend ./backend
 
 # Set PYTHONPATH so imports work
 ENV PYTHONPATH=/app

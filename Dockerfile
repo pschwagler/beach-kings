@@ -46,8 +46,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 
 # COPY services/whatsapp ./services/whatsapp
 
-# Copy backend code
-COPY backend ./backend
+# Copy backend code (from apps/backend to maintain backend.* import structure)
+COPY apps/backend ./backend
 
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh

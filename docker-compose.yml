@@ -23,15 +23,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # NEXT_PUBLIC_API_URL must be set at build time for Next.js
+        # It's used by the browser, so it must be accessible from host
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     container_name: beach-kings-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
-      # NEXT_PUBLIC_API_URL is used by the browser, so it must be accessible from host
-      # Use localhost since the backend port is exposed to the host
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - NODE_ENV=${NODE_ENV:-production}
     depends_on:
       backend:

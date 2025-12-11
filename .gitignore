@@ -94,3 +94,5 @@ thirdparty
 *.backup
 
 db_dump.sql
+
+out/

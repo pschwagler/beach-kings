@@ -243,7 +243,7 @@ test-local:
 		echo "❌ Virtual environment not found. Run 'make install' first."; \
 		exit 1; \
 	fi
-	@./venv/bin/pytest backend/tests/ -v
+	@./venv/bin/pytest apps/backend/tests/ -v
 
 test-clean:
 	@echo "Cleaning up test containers and volumes..."

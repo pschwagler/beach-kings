@@ -70,7 +70,7 @@ services:
     networks:
       - test-network
     volumes:
-      - ./backend:/app/backend  # Mount backend for live code changes
+      - ./apps/backend:/app/backend  # Mount apps/backend as backend for live code changes
     command: ["pytest", "backend/tests/", "-v", "--tb=short"]
 
 networks:

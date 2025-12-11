@@ -2,6 +2,7 @@
 const nextConfig = {
   // Enable React strict mode
   reactStrictMode: true,
+  output: 'standalone',
   
   
   // Configure API rewrites for development (proxy to FastAPI backend)
