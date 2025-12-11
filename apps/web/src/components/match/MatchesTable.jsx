@@ -272,11 +272,11 @@ export default function MatchesTable({
       const normalizedDateA = normalizeToDate(dateA);
       const normalizedDateB = normalizeToDate(dateB);
       
-      // Compare by date first
+      // Compare by date first (newest first)
       if (normalizedDateA && normalizedDateB) {
         // Compare date strings (YYYY-MM-DD format is sortable)
-        // Negate for descending order (newer dates first)
-        const dateDiff = -normalizedDateB.localeCompare(normalizedDateA);
+        // Negate to get descending order (newest first)
+        const dateDiff = normalizedDateA.localeCompare(normalizedDateB);
         // If dates are the same, sort by creation time or session number
         if (dateDiff === 0) {
           // Prefer creation time if available (newer sessions first)
@@ -293,8 +293,8 @@ export default function MatchesTable({
             return sessionNumB - sessionNumA; // Higher session numbers first
           }
         }
-        // Return negative/positive/zero based on string comparison
-        return dateDiff;
+        // Return negative/positive/zero based on string comparison (negated for descending)
+        return -dateDiff;
       }
       if (normalizedDateA && !normalizedDateB) return -1;
       if (!normalizedDateA && normalizedDateB) return 1;
