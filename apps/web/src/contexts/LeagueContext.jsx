@@ -8,7 +8,7 @@ import { transformPlayerData } from '../components/league/utils/playerDataUtils'
 const LeagueContext = createContext(null);
 
 export const LeagueProvider = ({ children, leagueId }) => {
-  const { currentUserPlayer } = useAuth();
+  const { currentUserPlayer, isInitializing: isAuthInitializing } = useAuth();
   const [league, setLeague] = useState(null);
   const [seasons, setSeasons] = useState([]);
   const [members, setMembers] = useState([]);
@@ -66,6 +66,11 @@ export const LeagueProvider = ({ children, leagueId }) => {
       return;
     }
 
+    // Don't load if auth is still initializing
+    if (isAuthInitializing) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -91,11 +96,15 @@ export const LeagueProvider = ({ children, leagueId }) => {
     } finally {
       setLoading(false);
     }
-  }, [leagueId]);
+  }, [leagueId, isAuthInitializing]);
 
   useEffect(() => {
-    loadLeagueData();
-  }, [loadLeagueData]);
+    // Wait for auth to finish initializing before loading league data
+    // This prevents race conditions where API calls are made before tokens are set
+    if (!isAuthInitializing) {
+      loadLeagueData();
+    }
+  }, [loadLeagueData, isAuthInitializing]);
 
   const refreshLeague = useCallback(() => {
     return loadLeagueData();

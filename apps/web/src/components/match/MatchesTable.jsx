@@ -222,11 +222,84 @@ export default function MatchesTable({
 
   const sessionGroups = useMemo(() => {
     return Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
-      if (groupA.createdAt && groupB.createdAt) {
-        return new Date(groupB.createdAt) - new Date(groupA.createdAt);
+      // Helper to parse date from name (e.g., "12/11/2024" or "12/11")
+      const parseDateFromName = (name) => {
+        if (!name) return null;
+        // Try to parse formats like "12/11/2024" or "12/11"
+        const dateMatch = name.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+        if (dateMatch) {
+          const [, month, day, year] = dateMatch;
+          const currentYear = new Date().getFullYear();
+          const parsedYear = year ? parseInt(year) : currentYear;
+          // Create date in local timezone
+          const date = new Date(parsedYear, parseInt(month) - 1, parseInt(day));
+          return isNaN(date.getTime()) ? null : date;
+        }
+        return null;
+      };
+      
+      // Helper to extract session number from name (e.g., "12/11/2024 Session #2" -> 2)
+      const extractSessionNumber = (name) => {
+        if (!name) return 0;
+        const match = name.match(/Session #(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      
+      // Helper to normalize a date to just the date part (no time)
+      const normalizeToDate = (dateStr) => {
+        if (!dateStr) return null;
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return null;
+        // Return date string in YYYY-MM-DD format for comparison
+        return date.toISOString().split('T')[0];
+      };
+      
+      // Get dates for comparison - prefer createdAt, then lastUpdated, then parse from name
+      let dateA = groupA.createdAt || groupA.lastUpdated;
+      let dateB = groupB.createdAt || groupB.lastUpdated;
+      
+      // If we don't have explicit dates, try to parse from names
+      if (!dateA) {
+        const parsed = parseDateFromName(groupA.name);
+        if (parsed) dateA = parsed.toISOString();
       }
-      if (groupA.createdAt && !groupB.createdAt) return -1;
-      if (!groupA.createdAt && groupB.createdAt) return 1;
+      if (!dateB) {
+        const parsed = parseDateFromName(groupB.name);
+        if (parsed) dateB = parsed.toISOString();
+      }
+      
+      // Normalize dates to just the date part (no time) for comparison
+      const normalizedDateA = normalizeToDate(dateA);
+      const normalizedDateB = normalizeToDate(dateB);
+      
+      // Compare by date first
+      if (normalizedDateA && normalizedDateB) {
+        // Compare date strings (YYYY-MM-DD format is sortable)
+        // Negate for descending order (newer dates first)
+        const dateDiff = -normalizedDateB.localeCompare(normalizedDateA);
+        // If dates are the same, sort by creation time or session number
+        if (dateDiff === 0) {
+          // Prefer creation time if available (newer sessions first)
+          if (groupA.createdAt && groupB.createdAt) {
+            const timeDiff = new Date(groupB.createdAt) - new Date(groupA.createdAt);
+            if (timeDiff !== 0) {
+              return timeDiff;
+            }
+          }
+          // If creation times are same or unavailable, sort by session number (higher numbers first)
+          const sessionNumA = extractSessionNumber(groupA.name);
+          const sessionNumB = extractSessionNumber(groupB.name);
+          if (sessionNumA !== sessionNumB) {
+            return sessionNumB - sessionNumA; // Higher session numbers first
+          }
+        }
+        // Return negative/positive/zero based on string comparison
+        return dateDiff;
+      }
+      if (normalizedDateA && !normalizedDateB) return -1;
+      if (!normalizedDateA && normalizedDateB) return 1;
+      
+      // Final fallback to alphabetical
       return groupB.name.localeCompare(groupA.name);
     });
   }, [matchesBySession]);
