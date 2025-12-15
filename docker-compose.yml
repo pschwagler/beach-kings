@@ -23,15 +23,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # NEXT_PUBLIC_API_URL must be set at build time for Next.js
+        # - For production with nginx: use empty string (frontend paths already include /api)
+        # - For local dev without nginx: use http://localhost:8000
+        # Note: Frontend API calls already include /api prefix, so don't add it here
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
     container_name: beach-kings-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
-      # NEXT_PUBLIC_API_URL is used by the browser, so it must be accessible from host
-      # Use localhost since the backend port is exposed to the host
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - NODE_ENV=${NODE_ENV:-production}
     depends_on:
       backend:
@@ -47,7 +50,7 @@ services:
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-      - "${WHATSAPP_PORT:-3001}:3001"
+      # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
     environment:
@@ -57,7 +60,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-beachkings}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-beachkings}
       - POSTGRES_DB=${POSTGRES_DB:-beachkings}
-      - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}
+      # - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}  # WhatsApp service is inactive
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
@@ -78,8 +81,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend:/app/backend
-      - ./whatsapp-service:/app/whatsapp-service
+      - ./apps/backend:/app/backend
+      # - ./services/whatsapp:/app/services/whatsapp  # WhatsApp service is inactive
     networks:
       - beach-kings-network
     restart: unless-stopped

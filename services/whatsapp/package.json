@@ -1,0 +1,18 @@
+{
+  "name": "@beach-kings/whatsapp-service",
+  "version": "1.0.0",
+  "description": "WhatsApp Web.js service for Beach League App [INACTIVE - whatsapp-web.js uninstalled]",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "echo 'Service is inactive. whatsapp-web.js has been uninstalled.' && exit 1",
+    "dev": "echo 'Service is inactive. whatsapp-web.js has been uninstalled.' && exit 1",
+    "clean": "rm -rf .wwebjs_auth .wwebjs_cache"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

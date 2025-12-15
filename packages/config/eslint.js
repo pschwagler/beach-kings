@@ -1,0 +1,9 @@
+module.exports = {
+  extends: ['next/core-web-vitals', 'next/typescript'],
+  rules: {
+    // Add shared ESLint rules here
+  },
+};
+
+
+

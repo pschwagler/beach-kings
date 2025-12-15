@@ -1,24 +1,61 @@
 # Frontend Dockerfile for Next.js
-FROM node:20-slim
+# Uses turbo prune to create a minimal monorepo subset for Docker builds
 
+# Stage 1: Prune the monorepo
+FROM node:20-slim AS pruner
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
-# Use legacy-peer-deps to handle React 19 compatibility during transition
-RUN npm install --legacy-peer-deps
+# Copy the entire monorepo so turbo prune can analyze the full graph
+COPY . .
 
-# Copy frontend source code
-COPY frontend ./
+# Run turbo prune to create a pruned subset for apps/web
+# This creates a ./out directory with only the dependencies needed
+RUN npx turbo prune --scope=@beach-kings/web --docker
+
+# Stage 2: Install dependencies and build
+FROM node:20-slim AS builder
+WORKDIR /app
+
+# Accept build argument for API URL
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Copy the pruned monorepo from the pruner stage
+# json/ contains package.json files, full/ contains source code
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/turbo.json ./turbo.json
+
+# Install dependencies (workspace-aware, only what's needed)
+RUN npm install
 
 # Build Next.js application
-# Note: Build happens at container build time, not runtime
-RUN npm run build
+# This will generate the standalone output in apps/web/.next/standalone
+RUN npx turbo run build --filter=@beach-kings/web...
 
-# Expose port (Next.js default is 3000)
+# Stage 3: Production runtime
+FROM node:20-slim AS runner
+WORKDIR /app
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Don't run as root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy standalone output
+# The standalone output includes the necessary node_modules and server.js
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
+# Expose port
 EXPOSE 3000
 
-# Start Next.js production server
-# This runs the production server from .next directory
-CMD ["npm", "start"]
+# Start Next.js standalone server
+CMD ["node", "apps/web/server.js"]
+
 

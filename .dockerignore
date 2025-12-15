@@ -22,5 +22,9 @@ dist/
 build/
 *.egg-info/
 
+# Mobile app - exclude from Docker builds (not needed for web/backend)
+# turbo prune will handle dependency analysis without needing mobile source
+apps/mobile/
+
 
 
