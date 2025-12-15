@@ -44,11 +44,12 @@ export function formatPlayerSeasonStats(seasonStats, partnershipOpponentStats) {
   }
   
   // Format season stats for PlayerDetails component
+  // Note: current_elo is now global (league/season agnostic), not season-specific
   return {
     overview: {
       ranking: seasonStats.rank,
       points: seasonStats.points,
-      rating: seasonStats.current_elo,
+      rating: seasonStats.current_elo, // Global ELO rating
       games: seasonStats.games,
       wins: seasonStats.wins,
       losses: seasonStats.losses,

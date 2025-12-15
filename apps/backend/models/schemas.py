@@ -455,7 +455,6 @@ class PlayerSeasonStatsResponse(BaseModel):
     id: int
     player_id: int
     season_id: int
-    current_elo: float
     games: int
     wins: int
     points: int

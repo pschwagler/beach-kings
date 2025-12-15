@@ -113,7 +113,6 @@ erDiagram
         int id PK
         int player_id FK
         int season_id FK
-        real current_elo
         int games
         int wins
         int points
@@ -214,9 +213,21 @@ Seasons within a league. When a league is created, a season should also be creat
 Season-specific player statistics. This replaces the denormalized stats in the old `players` table. Each row represents a player's stats for a specific season.
 
 **Key Fields:**
-- `current_elo`: Player's current ELO rating for this season
-- `games`, `wins`, `points`: Game statistics
+- `games`, `wins`, `points`: Game statistics (season-specific)
 - Unique constraint on (player_id, season_id)
+
+**Note:** ELO ratings are now league/season agnostic and stored in `player_global_stats.current_rating`. ELO tracks across all ranked games regardless of league or season, while points remain season-specific.
+
+#### player_global_stats
+Global player statistics across all leagues and seasons. Stores league/season agnostic ELO ratings and aggregate game statistics.
+
+**Key Fields:**
+- `current_rating`: Player's current global ELO rating (league/season agnostic)
+- `total_games`: Total number of ranked games played across all leagues/seasons
+- `total_wins`: Total number of wins across all leagues/seasons
+- Unique constraint on `player_id` (one-to-one with players)
+
+**Note:** ELO ratings are calculated from all ranked matches across all leagues and seasons, providing a continuous skill rating that doesn't reset between seasons.
 
 #### locations
 Metropolitan areas based on player cities. Used to organize leagues, courts, and player default locations.

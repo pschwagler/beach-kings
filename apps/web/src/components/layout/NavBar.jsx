@@ -35,6 +35,10 @@ export default function NavBar({
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
+    if (action === 'find-leagues') {
+      router.push('/find-leagues');
+      return;
+    }
     if (onLeaguesMenuClick) {
       onLeaguesMenuClick(action, leagueId);
     }

@@ -315,7 +315,6 @@ class PlayerSeasonStats(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False)
-    current_elo = Column(Float, default=1200.0, nullable=False)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
     points = Column(Integer, default=0, nullable=False)

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Trophy, Plus, CalendarPlus, Users } from 'lucide-react';
+import { ChevronDown, Trophy, Plus, Search, Users } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownSection from './NavDropdownSection';
 import NavDropdownItem from './NavDropdownItem';
@@ -65,7 +65,7 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
           {/* Action Items */}
           <NavDropdownSection>
             <NavDropdownItem
-              icon={CalendarPlus}
+              icon={Search}
               onClick={() => handleItemClick('find-leagues')}
             >
               Find Leagues

@@ -312,7 +312,7 @@ async def test_calculate_season_stats(db_session, test_players, test_league_and_
     assert alice_season_stats.wins == 2
     assert alice_season_stats.win_rate == 1.0
     assert alice_season_stats.points == 6  # 2 wins * 3 points
-    assert alice_season_stats.current_elo > INITIAL_ELO  # Should have gained ELO
+    # Note: current_elo is no longer stored in player_season_stats (removed - ELO is now global)
 
 
 @pytest.mark.asyncio

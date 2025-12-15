@@ -1574,8 +1574,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             PlayerSeasonStats.games,
             PlayerSeasonStats.wins,
             PlayerSeasonStats.win_rate,
-            PlayerSeasonStats.avg_point_diff,
-            PlayerSeasonStats.current_elo
+            PlayerSeasonStats.avg_point_diff
         ).join(
             latest_id_subq,
             and_(
@@ -1593,6 +1592,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         stats_subq = stats_subq.subquery()
         
         # Main query with COALESCE for defaults
+        # Join with PlayerGlobalStats to get current ELO rating (league/season agnostic)
         query = select(
             Player.id.label("player_id"),
             Player.full_name.label("name"),
@@ -1603,11 +1603,13 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             func.coalesce(stats_subq.c.wins, 0).label("wins"),
             func.coalesce(stats_subq.c.win_rate, 0.0).label("win_rate"),
             func.coalesce(stats_subq.c.avg_point_diff, 0.0).label("avg_point_diff"),
-            func.coalesce(stats_subq.c.current_elo, 1200.0).label("current_elo")
+            func.coalesce(PlayerGlobalStats.current_rating, INITIAL_ELO).label("current_elo")
         ).select_from(
             Player
         ).outerjoin(
             stats_subq, Player.id == stats_subq.c.player_id
+        ).outerjoin(
+            PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id
         ).order_by(
             func.coalesce(stats_subq.c.points, 0).desc(),
             Player.full_name.asc()
@@ -2289,10 +2291,15 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     
     player_name = player.full_name or player.nickname or f"Player {player_id}"
     
-    # Get latest season stats or calculate from player_season_stats
-    # For now, use a simplified approach - get from player_season_stats if available
-    # Otherwise use default values
-    current_elo = INITIAL_ELO
+    # Get global ELO rating (league/season agnostic)
+    result = await session.execute(
+        select(PlayerGlobalStats)
+        .where(PlayerGlobalStats.player_id == player.id)
+    )
+    global_stats = result.scalar_one_or_none()
+    current_elo = global_stats.current_rating if global_stats else INITIAL_ELO
+    
+    # Get latest season stats for games, wins, points, etc. (season-specific)
     games = 0
     wins = 0
     points = 0
@@ -2308,7 +2315,6 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     )
     season_stats = result.scalar_one_or_none()
     if season_stats:
-        current_elo = season_stats.current_elo
         games = season_stats.games
         wins = season_stats.wins
         points = season_stats.points
@@ -2539,15 +2545,28 @@ async def get_all_player_season_stats(
         if "player_id" in ranking:
             player_rank_map[ranking["player_id"]] = idx + 1
     
+    # Get global ELO ratings for all players (league/season agnostic)
+    player_ids = [row[0].player_id for row in rows]
+    global_elo_map = {}
+    if player_ids:
+        result = await session.execute(
+            select(PlayerGlobalStats)
+            .where(PlayerGlobalStats.player_id.in_(player_ids))
+        )
+        for global_stat in result.scalars().all():
+            global_elo_map[global_stat.player_id] = global_stat.current_rating
+    
     # Build result dict
     player_stats = {}
     for row in rows:
         season_stats, player_name = row
+        # Use global ELO rating (league/season agnostic)
+        current_elo = global_elo_map.get(season_stats.player_id, INITIAL_ELO)
         player_stats[season_stats.player_id] = {
             "player_id": season_stats.player_id,
             "player_name": player_name,
             "season_id": season_id,
-            "current_elo": round(season_stats.current_elo),
+            "current_elo": round(current_elo),
             "games": season_stats.games,
             "wins": season_stats.wins,
             "losses": season_stats.games - season_stats.wins,
@@ -3460,7 +3479,6 @@ async def upsert_player_season_stats_async(
         player_stats_list.append({
             "player_id": player.id,
             "season_id": season_id,
-            "current_elo": round(player_stats.elo, 1),
             "games": player_stats.game_count,
             "wins": player_stats.win_count,
             "points": player_stats.points,
@@ -3476,7 +3494,6 @@ async def upsert_player_season_stats_async(
     stmt = stmt.on_conflict_do_update(
         index_elements=['player_id', 'season_id'],
         set_=dict(
-            current_elo=stmt.excluded.current_elo,
             games=stmt.excluded.games,
             wins=stmt.excluded.wins,
             points=stmt.excluded.points,
