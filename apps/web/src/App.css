@@ -10229,6 +10229,10 @@ button.match-config-toggle.inline svg {
     gap: 8px;
   }
 
+  .dashboard-widget-title {
+    font-size: 1.15rem;
+  }
+
   .team-section {
     padding: 14px;
     gap: 12px;

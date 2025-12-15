@@ -69,14 +69,14 @@ echo "📡 Starting Backend API on port 8000..."
 # Use --reload in development (when ENV is not production)
 if [ "${ENV:-development}" != "production" ]; then
     echo "🔄 Auto-reload enabled (development mode)"
-    echo "   Watching: /app/apps/backend for changes..."
+    echo "   Watching: /app/backend for changes..."
     # Use --reload-dir to explicitly watch the backend directory
     # This ensures file changes in the mounted volume trigger reload
     exec uvicorn backend.api.main:app \
         --host 0.0.0.0 \
         --port 8000 \
         --reload \
-        --reload-dir /app/apps/backend
+        --reload-dir /app/backend
 else
     echo "⚡ Production mode (no reload)"
     exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000

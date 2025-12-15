@@ -60,6 +60,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-beachkings}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-beachkings}
       - POSTGRES_DB=${POSTGRES_DB:-beachkings}
+      - ENV=${ENV:-development}
       # - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-true}  # WhatsApp service is inactive
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
