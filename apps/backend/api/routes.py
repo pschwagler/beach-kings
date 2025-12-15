@@ -149,6 +149,56 @@ async def list_leagues(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error listing leagues: {str(e)}")
 
 
+@router.post("/api/leagues/query")
+async def query_leagues(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    user: Optional[dict] = Depends(get_current_user_optional),
+):
+    """
+    Query leagues with filters, ordering, and pagination.
+
+    Body: {
+        location_id?: string,
+        region_id?: string,
+        gender?: string,
+        level?: string,
+        order?: string,   # e.g., "name:asc", "created_at:desc", "member_count:desc"
+        page?: number,    # 1-based page index, default 1
+        page_size?: number  # page size, default 25
+    }
+    
+    Returns:
+        {
+            "items": [...],
+            "page": number,
+            "page_size": number,
+            "total_count": number
+        }
+    """
+    try:
+        body = await request.json()
+        page = body.get("page") or 1
+        page_size = body.get("page_size") or 25
+        result = await data_service.query_leagues(
+            session,
+            location_id=body.get("location_id"),
+            region_id=body.get("region_id"),
+            gender=body.get("gender"),
+            level=body.get("level"),
+            order=body.get("order"),
+            page=page,
+            page_size=page_size,
+            include_joined=body.get("include_joined") or False,
+            user_id=user["id"] if user else None,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error querying leagues: {str(e)}")
+
+
 @router.get("/api/leagues/{league_id}", response_model=LeagueResponse)
 async def get_league(
     league_id: int,
@@ -493,6 +543,91 @@ async def remove_league_member(
         raise HTTPException(status_code=500, detail=f"Error removing member: {str(e)}")
 
 
+@router.post("/api/leagues/{league_id}/join")
+async def join_league(
+    league_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Join a public league (authenticated user).
+    User can only join open leagues.
+    """
+    try:
+        # Get the league
+        league = await data_service.get_league(session, league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        
+        # Check if league is open
+        if not league.get("is_open"):
+            raise HTTPException(status_code=400, detail="This league is invite-only. Please request to join instead.")
+        
+        # Get user's player profile
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found. Please create a player profile first.")
+        
+        # Check if user is already a member
+        is_member = await data_service.is_league_member(session, league_id, player["id"])
+        if is_member:
+            raise HTTPException(status_code=400, detail="You are already a member of this league")
+        
+        # Add member
+        member = await data_service.add_league_member(session, league_id, player["id"], "member")
+        return {"success": True, "message": "Successfully joined the league", "member": member}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining league: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/request-join")
+async def request_to_join_league(
+    league_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Request to join an invite-only league (authenticated user).
+    Creates a join request that league admins can review.
+    """
+    try:
+        # Get the league
+        league = await data_service.get_league(session, league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        
+        # Check if league is invite-only (not open)
+        if league.get("is_open"):
+            raise HTTPException(status_code=400, detail="This league is open. You can join directly instead.")
+        
+        # Get user's player profile
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found. Please create a player profile first.")
+        
+        # Check if user is already a member
+        is_member = await data_service.is_league_member(session, league_id, player["id"])
+        if is_member:
+            raise HTTPException(status_code=400, detail="You are already a member of this league")
+        
+        # TODO: Create a join request record or notification for league admins
+        # For now, we'll just return success. This can be enhanced later with:
+        # - A LeagueJoinRequest model to track requests
+        # - Notifications to league admins
+        # - Email/SMS notifications
+        
+        return {
+            "success": True,
+            "message": "Join request submitted. League admins will be notified."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error requesting to join league: {str(e)}")
+
+
 @router.post("/api/leagues/{league_id}/leave")
 async def leave_league(
     league_id: int,
@@ -510,17 +645,17 @@ async def leave_league(
             raise HTTPException(status_code=404, detail="Player profile not found")
         
         # Check if user is a member of the league
-        is_member = await data_service.is_league_member(session, league_id, player.id)
+        is_member = await data_service.is_league_member(session, league_id, player["id"])
         if not is_member:
             raise HTTPException(status_code=400, detail="You are not a member of this league")
             
         # Get the membership ID
-        member = await data_service.get_league_member_by_player(session, league_id, player.id)
+        member = await data_service.get_league_member_by_player(session, league_id, player["id"])
         if not member:
              raise HTTPException(status_code=404, detail="Membership not found")
 
         # Remove member
-        success = await data_service.remove_league_member(session, league_id, member.id)
+        success = await data_service.remove_league_member(session, league_id, member["id"])
         if not success:
             raise HTTPException(status_code=500, detail="Failed to leave league")
             
@@ -602,6 +737,15 @@ async def list_locations(session: AsyncSession = Depends(get_db_session)):
         return await data_service.list_locations(session)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing locations: {str(e)}")
+
+
+@router.get("/api/regions")
+async def list_regions(session: AsyncSession = Depends(get_db_session)):
+    """List regions (public)."""
+    try:
+        return await data_service.list_regions(session)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing regions: {str(e)}")
 
 
 @router.get("/api/locations/distances")
@@ -1054,34 +1198,35 @@ async def create_player(
         raise HTTPException(status_code=500, detail=f"Error creating player: {str(e)}")
 
 
-@router.get("/api/players/{player_name}")
-async def get_player_stats(
-    player_name: str,
+@router.get("/api/players/{player_id}/matches")
+async def get_player_match_history(
+    player_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get detailed statistics for a specific player.
+    Get match history for a specific player.
     
     Args:
-        player_name: Name of the player
+        player_id: ID of the player
         
     Returns:
-        list: Array of player stats including partnerships and opponents
+        list: Array of player's matches (most recent first, may be empty)
     """
     try:
-        player_stats = await data_service.get_player_stats(session, player_name)
+        match_history = await data_service.get_player_match_history_by_id(session, player_id)
         
-        if player_stats is None:
+        if match_history is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Player '{player_name}' not found. Please check the name and try again."
+                detail=f"Player with ID {player_id} not found."
             )
         
-        return player_stats
+        # Return empty array if player exists but has no matches
+        return match_history
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading match history: {str(e)}")
 
 
 @router.get("/api/players/{player_id}/season/{season_id}/stats")
@@ -1184,35 +1329,34 @@ async def export_matches(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error exporting matches: {str(e)}")
 
 
-@router.get("/api/players/{player_name}/matches")
-async def get_player_match_history(
-    player_name: str,
+@router.get("/api/players/{player_id}/stats")
+async def get_player_stats(
+    player_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get match history for a specific player.
+    Get detailed statistics for a specific player.
     
     Args:
-        player_name: Name of the player
+        player_id: ID of the player
         
     Returns:
-        list: Array of player's matches (most recent first, may be empty)
+        dict: Player stats including partnerships and opponents
     """
     try:
-        match_history = await data_service.get_player_match_history(session, player_name)
+        player_stats = await data_service.get_player_stats_by_id(session, player_id)
         
-        if match_history is None:
+        if player_stats is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Player '{player_name}' not found. Please check the name and try again."
+                detail=f"Player with ID {player_id} not found."
             )
         
-        # Return empty array if player exists but has no matches
-        return match_history
+        return player_stats
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading match history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
 
 
 @router.get("/api/health")

@@ -223,6 +223,40 @@ const themes = {
     textSecondary: tokens.color.textSecondary,
     textLight: tokens.color.textLight,
     textWhite: tokens.color.textWhite,
+    // Add functional colors
+    danger: tokens.color.danger,
+    success: tokens.color.success,
+    successDark: tokens.color.successDark,
+    // Add background colors
+    white: tokens.color.white,
+    gray600: tokens.color.gray600,
+  },
+  dark: {
+    background: tokens.color.gray900,
+    backgroundHover: tokens.color.gray700,
+    backgroundPress: tokens.color.gray600,
+    backgroundFocus: tokens.color.gray700,
+    color: tokens.color.textWhite,
+    colorHover: tokens.color.textLight,
+    colorPress: tokens.color.textWhite,
+    colorFocus: tokens.color.textWhite,
+    borderColor: tokens.color.gray700,
+    borderColorHover: tokens.color.gray600,
+    borderColorPress: tokens.color.gray700,
+    borderColorFocus: tokens.color.gray600,
+    placeholderColor: tokens.color.gray600,
+    // Add text colors as direct theme properties for easier access
+    textPrimary: tokens.color.textWhite,
+    textSecondary: tokens.color.textLight,
+    textLight: tokens.color.gray600,
+    textWhite: tokens.color.textWhite,
+    // Add functional colors
+    danger: tokens.color.danger,
+    success: tokens.color.success,
+    successDark: tokens.color.successDark,
+    // Add background colors
+    white: tokens.color.gray900,
+    gray600: tokens.color.gray600,
   },
 };
 

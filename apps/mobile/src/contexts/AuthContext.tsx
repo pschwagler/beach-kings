@@ -51,43 +51,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchCurrentUser = useCallback(async () => {
     try {
-      // Get current user from /api/auth/me
-      // Use getCurrentUser method if available, otherwise use axios directly
-      if ((api as any).getCurrentUser) {
-        const userData = await (api as any).getCurrentUser();
-        setUser(userData);
-      } else if ((api as any).axios) {
-        const response = await (api as any).axios.get('/api/auth/me');
-        setUser(response.data);
-      } else {
-        // Fallback: try to access axios instance through various paths
-        const axiosInstance = (api as any).client?.axiosInstance || (api as any).api || (api as any);
-        const response = await axiosInstance.get('/api/auth/me');
-        setUser(response.data);
+      console.log('[AuthContext] fetchCurrentUser: Starting...');
+      
+      // Verify tokens before making request
+      const storedTokens = await api.getStoredTokens();
+      console.log('[AuthContext] fetchCurrentUser: Stored tokens:', {
+        accessToken: storedTokens.accessToken ? 'present' : 'missing',
+        refreshToken: storedTokens.refreshToken ? 'present' : 'missing',
+      });
+      
+      if (!storedTokens.accessToken) {
+        console.error('[AuthContext] fetchCurrentUser: No access token available!');
+        throw new Error('No access token available');
       }
+      
+      // Get current user from /api/auth/me
+      let userData = null;
+      if ((api as any).getCurrentUser) {
+        console.log('[AuthContext] Using getCurrentUser method from api');
+        userData = await (api as any).getCurrentUser();
+      } else {
+        console.log('[AuthContext] Using axios.get /api/auth/me');
+        // Use the custom axios that reads from storage
+        const axiosInstance = (api as any).axios;
+        console.log('[AuthContext] Axios instance available:', !!axiosInstance);
+        if (!axiosInstance) {
+          throw new Error('Axios instance not available');
+        }
+        const response = await axiosInstance.get('/api/auth/me');
+        userData = response.data;
+      }
+      
+      console.log('[AuthContext] fetchCurrentUser: User data received:', userData);
+      setUser(userData);
       
       // Also fetch the current user's player profile
       try {
+        console.log('[AuthContext] Fetching current user player...');
         const player = await api.getCurrentUserPlayer();
+        console.log('[AuthContext] Player data received:', player);
         player.first_name = player.nickname ? player.nickname : player.full_name?.split(' ')[0];
         setCurrentUserPlayer(player);
       } catch (playerError: any) {
         // Player might not exist yet, that's okay
         if (playerError.response?.status !== 404) {
-          console.error('Error fetching current user player:', playerError);
+          console.error('[AuthContext] Error fetching current user player:', playerError);
+          console.error('[AuthContext] Player error details:', playerError.response?.data || playerError.message);
+        } else {
+          console.log('[AuthContext] Player not found (404) - this is okay for new users');
         }
         setCurrentUserPlayer(null);
       }
     } catch (error: any) {
+      console.error('[AuthContext] Error in fetchCurrentUser:', error);
+      console.error('[AuthContext] Error response:', error.response?.data || error.message);
+      console.error('[AuthContext] Error status:', error.response?.status);
+      
       // Only clear tokens on 401 (unauthorized) - don't clear on network errors, 500s, etc.
       const isUnauthorized = error.response?.status === 401;
       if (isUnauthorized) {
+        console.log('[AuthContext] 401 Unauthorized - clearing tokens');
         await api.clearAuthTokens();
         setUser(null);
         setCurrentUserPlayer(null);
       } else {
         // For other errors (network, 500, etc.), keep user logged in but log the error
-        console.error('Error fetching current user (non-401):', error);
+        console.error('[AuthContext] Non-401 error - keeping tokens but user not set');
       }
     }
   }, []);
@@ -108,8 +137,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleAuthSuccess = useCallback(
     async (authResponse: any) => {
+      console.log('[AuthContext] handleAuthSuccess: Setting tokens...');
+      console.log('[AuthContext] handleAuthSuccess: Access token:', authResponse.access_token ? 'present' : 'missing');
+      console.log('[AuthContext] handleAuthSuccess: Refresh token:', authResponse.refresh_token ? 'present' : 'missing');
+      
       await api.setAuthTokens(authResponse.access_token, authResponse.refresh_token);
+      console.log('[AuthContext] handleAuthSuccess: Tokens set');
+      
+      // Verify tokens were stored
+      const storedTokens = await api.getStoredTokens();
+      console.log('[AuthContext] handleAuthSuccess: Stored tokens verified:', {
+        accessToken: storedTokens.accessToken ? 'present' : 'missing',
+        refreshToken: storedTokens.refreshToken ? 'present' : 'missing',
+      });
+      
+      // Small delay to ensure axios interceptor has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('[AuthContext] handleAuthSuccess: Fetching user...');
       await fetchCurrentUser();
+      console.log('[AuthContext] handleAuthSuccess: User fetch complete');
       // Return profile_complete flag for use in components
       return authResponse.profile_complete !== false;
     },
@@ -213,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUserPlayer(null);
     }
   }, []);
+
+  // Debug logging for auth state changes
+  useEffect(() => {
+    console.log('[AuthContext] Auth state changed - user:', user ? 'exists' : 'null', 'isAuthenticated:', Boolean(user));
+  }, [user]);
 
   const value = {
     user,

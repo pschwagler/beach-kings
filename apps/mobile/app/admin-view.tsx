@@ -10,7 +10,7 @@ export default function AdminView() {
       flex={1}
       alignItems="center"
       justifyContent="center"
-      backgroundColor="$sand"
+      backgroundColor="$background"
       padding="$5"
     >
       <Text

@@ -1,13 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Linking } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { YStack, XStack, Button as TamaguiButton, ScrollView, useTheme, getTokens } from 'tamagui';
-import { ChevronLeft, AlertCircle } from 'lucide-react-native';
+import { AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import PhoneInput from '../src/components/PhoneInput';
 import { Input } from '../src/components/ui/Input';
 import { Text } from '../src/components/ui/Text';
+import { Header } from '../src/components/ui/Header';
 
 const getErrorMessage = (error: any) => 
   error.response?.data?.detail || error.message || 'Something went wrong';
@@ -18,15 +19,6 @@ export default function LoginScreen() {
   const theme = useTheme();
   const tokens = getTokens();
   
-  // Get token values for colors
-  const colors = {
-    textPrimary: tokens.color.textPrimary.val,
-    textSecondary: tokens.color.textSecondary.val,
-    textWhite: tokens.color.textWhite.val,
-    danger: tokens.color.danger.val,
-    success: tokens.color.success.val,
-  };
-  
   const [formData, setFormData] = useState({
     phoneNumber: '',
     password: '',
@@ -36,6 +28,21 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const passwordRef = useRef<any>(null);
+  const scrollViewRef = useRef<any>(null);
+
+  // Scroll to top when error message appears
+  useEffect(() => {
+    if (errorMessage) {
+      // Use setTimeout to ensure the error message is rendered before scrolling
+      const timer = setTimeout(() => {
+        if (scrollViewRef.current) {
+          scrollViewRef.current.scrollTo({ y: 0, animated: true });
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   const handlePhoneValidation = (validation: { isValid: boolean; value: string; displayValue: string; error?: string }) => {
     setPhoneValidation(validation);
@@ -71,46 +78,26 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f4e4c1' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.white.val }}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <YStack flex={1} backgroundColor="$sand">
-          {/* Header with back button */}
-          <XStack
-            padding="$4"
-            paddingTop="$2"
-            paddingBottom="$3"
-            alignItems="center"
-            gap="$3"
-            borderBottomWidth={1}
-            borderBottomColor="$borderLight"
-            backgroundColor="$background"
-            minHeight={60}
-          >
-            <TamaguiButton
-              size="$4"
-              circular
-              icon={ChevronLeft}
-              onPress={() => router.back()}
-              backgroundColor="$backgroundLight"
-              color={colors.textPrimary}
-              pressStyle={{ opacity: 0.7 }}
-            />
-            <Text fontSize={28} fontWeight="700" color={colors.textPrimary} flex={1}>
-              Log In
-            </Text>
-          </XStack>
+        <YStack flex={1} backgroundColor="$white">
+          <Header onBack={() => router.back()} />
 
         <ScrollView 
+          ref={scrollViewRef}
           flex={1}
           padding="$lg"
-          paddingTop="$xl"
+          paddingTop="$md"
           paddingBottom={150}
           showsVerticalScrollIndicator={false}
         >
           <YStack space="$lg" paddingBottom={80}>
+            <Text fontSize={14} fontWeight="500" color="$textPrimary" marginBottom="$xs">
+              Log in
+            </Text>
             {errorMessage && (
               <XStack
                 padding="$md"
@@ -120,16 +107,16 @@ export default function LoginScreen() {
                 alignItems="center"
                 marginBottom="$xs"
               >
-                <AlertCircle size={18} color={colors.danger} />
-                <Text fontSize="$2" color={colors.danger} flex={1}>
+                <AlertCircle size={18} color={theme.danger.val} />
+                <Text fontSize="$2" color="$danger" flex={1}>
                   {errorMessage}
                 </Text>
               </XStack>
             )}
 
             <YStack space="$sm">
-              <Text fontSize={15} fontWeight="600" color={colors.textPrimary}>
-                Phone Number <Text color={colors.danger}>*</Text>
+              <Text fontSize={15} fontWeight="600" color="$textPrimary">
+                Phone Number <Text color="$danger">*</Text>
               </Text>
               <PhoneInput
                 value={formData.phoneNumber}
@@ -142,8 +129,8 @@ export default function LoginScreen() {
             </YStack>
 
             <YStack space="$sm" marginTop="$md">
-              <Text fontSize={15} fontWeight="600" color={colors.textPrimary}>
-                Password <Text color={colors.danger}>*</Text>
+              <Text fontSize={15} fontWeight="600" color="$textPrimary">
+                Password <Text color="$danger">*</Text>
               </Text>
               <Input
                 ref={passwordRef}
@@ -173,7 +160,7 @@ export default function LoginScreen() {
               </TamaguiButton>
 
               <YStack space={0} marginTop="$md" alignItems="center" paddingHorizontal="$md">
-                <Text fontSize={12} color={colors.textSecondary} textAlign="center" lineHeight={16.8}>
+                <Text fontSize={12} color="$textSecondary" textAlign="center" lineHeight={16.8}>
                   By continuing, you agree to our{' '}
                   <Text 
                     fontSize={12} 
@@ -197,7 +184,7 @@ export default function LoginScreen() {
               </YStack>
 
               <XStack space="$xs" justifyContent="center" alignItems="center" flexWrap="wrap" marginTop="$sm" marginBottom={60}>
-                <Text fontSize={14.4} color={colors.textSecondary}>
+                <Text fontSize={14.4} color="$textSecondary">
                   Don't have an account?{' '}
                 </Text>
                 <TamaguiButton
@@ -212,7 +199,7 @@ export default function LoginScreen() {
                 >
                   Sign up
                 </TamaguiButton>
-                <Text fontSize={14.4} color={colors.textSecondary}>
+                <Text fontSize={14.4} color="$textSecondary">
                   {' '}•{' '}
                 </Text>
                 <TamaguiButton

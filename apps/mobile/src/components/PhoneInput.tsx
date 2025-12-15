@@ -1,67 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Input as TamaguiInput, XStack, YStack, Text, getTokens } from 'tamagui';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { XStack, YStack, getTokens } from 'tamagui';
 import { AlertCircle } from 'lucide-react-native';
-
-/**
- * Formats a US phone number to (XXX) XXX-XXXX format
- */
-const formatPhoneNumber = (value: string): string => {
-  // Remove all non-digits
-  const digits = value.replace(/\D/g, '');
-  
-  // Limit to 10 digits
-  const limited = digits.slice(0, 10);
-  
-  // Format based on length
-  if (limited.length === 0) return '';
-  if (limited.length <= 3) return `(${limited}`;
-  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
-  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
-};
-
-/**
- * Parses phone input that may include country code
- * Returns { countryCode: string, localNumber: string }
- */
-const parsePhoneInput = (input: string): { countryCode: string; localNumber: string } => {
-  // Remove all non-digit and non-plus characters
-  const cleaned = input.replace(/[^\d+]/g, '');
-  
-  // Check if it starts with +1
-  if (cleaned.startsWith('+1')) {
-    const localDigits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
-    return { countryCode: '+1', localNumber: localDigits };
-  }
-  
-  // Check if it starts with 1 (without +)
-  if (cleaned.startsWith('1') && cleaned.length > 10) {
-    const localDigits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
-    return { countryCode: '+1', localNumber: localDigits };
-  }
-  
-  // Otherwise, treat as local number
-  const localDigits = cleaned.replace(/\D/g, '').slice(0, 10);
-  return { countryCode: '+1', localNumber: localDigits };
-};
-
-/**
- * Converts to E.164 format (+15551234567)
- */
-const toE164 = (countryCode: string, localNumber: string): string => {
-  const digits = localNumber.replace(/\D/g, '');
-  if (digits.length === 10 && countryCode === '+1') {
-    return `+1${digits}`;
-  }
-  return '';
-};
-
-/**
- * Validates if a phone number is complete and valid (+1 country code required)
- */
-const isValidPhoneNumber = (countryCode: string, localNumber: string): boolean => {
-  const digits = localNumber.replace(/\D/g, '');
-  return countryCode === '+1' && digits.length === 10;
-};
+import { Input } from './ui/Input';
+import { Text as UIText } from './ui/Text';
 
 interface PhoneInputProps {
   value: string;
@@ -73,181 +14,239 @@ interface PhoneInputProps {
   onSubmitEditing?: () => void;
 }
 
-export default function PhoneInput({ 
-  value, 
-  onChange, 
-  onValidationChange, 
-  required = false, 
-  placeholder = '+1 (555) 123-4567',
+/**
+ * Formats phone number to (XXX) XXX-XXXX
+ */
+const formatPhone = (digits: string): string => {
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+};
+
+/**
+ * Extracts digits from phone input, handling country code
+ */
+const getDigits = (text: string): string => {
+  // Remove all non-digits
+  const allDigits = text.replace(/\D/g, '');
+  
+  // If we have 11 digits and it starts with 1, it's likely +1 country code
+  // Strip the leading 1 to get the 10-digit number
+  if (allDigits.length === 11 && allDigits.startsWith('1')) {
+    return allDigits.slice(1);
+  }
+  
+  // If text contains +1, we know the country code is there
+  // Extract digits and if we get 11 starting with 1, take last 10
+  if (text.includes('+1') || text.includes('+ 1')) {
+    if (allDigits.length >= 11 && allDigits.startsWith('1')) {
+      return allDigits.slice(1, 11);
+    }
+  }
+  
+  // Otherwise, just take the last 10 digits (handles edge cases)
+  return allDigits.slice(-10);
+};
+
+/**
+ * Converts to E.164 format (+15551234567)
+ */
+const toE164 = (digits: string): string => {
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  return '';
+};
+
+const PhoneInputComponent = forwardRef<any, PhoneInputProps>(({
+  value,
+  onChange,
+  onValidationChange,
+  required = false,
+  placeholder = '(555) 123-4567',
   returnKeyType = 'next',
   onSubmitEditing,
-}: PhoneInputProps) {
-  const tokens = getTokens();
-  const [inputValue, setInputValue] = useState('');
-  const [countryCode, setCountryCode] = useState('+1');
+}, ref) => {
   const [displayValue, setDisplayValue] = useState('');
-  const [isTouched, setIsTouched] = useState(false);
-  const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
+  const inputRef = useRef<any>(null);
+  
+  // Use refs to avoid including callbacks in useEffect dependencies
+  const onChangeRef = useRef(onChange);
   const onValidationChangeRef = useRef(onValidationChange);
+  const lastE164ValueRef = useRef('');
 
-  // Keep the ref updated with the latest callback
+  // Expose focus method to parent via ref
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
+
+  // Keep refs updated
   useEffect(() => {
+    onChangeRef.current = onChange;
     onValidationChangeRef.current = onValidationChange;
-  }, [onValidationChange]);
+  }, [onChange, onValidationChange]);
 
-  // Initialize from prop value
+  // Initialize from prop value only on mount or when value changes externally
+  // (not from our own onChange calls)
+  const prevValueRef = useRef(value);
+  
   useEffect(() => {
-    if (value) {
-      // If value is in E.164 format, parse it
-      if (value.startsWith('+1')) {
-        const localDigits = value.slice(2).replace(/\D/g, '');
-        setCountryCode('+1');
-        setInputValue(localDigits);
-        setDisplayValue(formatPhoneNumber(localDigits));
-      } else {
-        // Try to parse as full input
-        const parsed = parsePhoneInput(value);
-        setCountryCode(parsed.countryCode);
-        setInputValue(parsed.localNumber);
-        setDisplayValue(formatPhoneNumber(parsed.localNumber));
+    // Only sync if value prop changed externally (not from our onChange)
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value;
+      
+      if (value) {
+        // If value is in E.164 format (+1...), extract digits
+        const digits = value.startsWith('+1') ? value.slice(2).replace(/\D/g, '') : value.replace(/\D/g, '');
+        const formatted = formatPhone(digits);
+        if (formatted !== displayValue) {
+          setDisplayValue(formatted);
+        }
+      } else if (displayValue !== '') {
+        setDisplayValue('');
       }
-    } else {
-      setInputValue('');
-      setDisplayValue('');
-      setCountryCode('+1');
     }
   }, [value]);
 
-  // Validate and notify parent
+  // Validate and notify parent (only when displayValue or validation state changes)
   useEffect(() => {
-    const hasValue = inputValue.trim().length > 0;
-    const isValid = !hasValue ? !required : isValidPhoneNumber(countryCode, inputValue);
-    const e164Value = toE164(countryCode, inputValue);
-    
-    let validationError = '';
-    if (isTouched && hasValue) {
-      if (countryCode !== '+1') {
-        validationError = 'Only +1 (US/Canada) country code is supported';
-      } else if (inputValue.replace(/\D/g, '').length !== 10) {
-        validationError = 'Please enter a valid 10-digit phone number';
+    const digits = getDigits(displayValue);
+    const isValid = digits.length === 10;
+    const e164Value = toE164(digits);
+    const hasValue = digits.length > 0;
+
+    let error = '';
+    if (isTouched) {
+      if (required && !hasValue) {
+        error = 'Phone number is required';
+      } else if (hasValue && !isValid) {
+        error = 'Please enter a valid 10-digit phone number';
       }
-    } else if (isTouched && required && !hasValue) {
-      validationError = 'Phone number is required';
     }
-    
-    setError(validationError);
-    
+
+    // Only call validation callback
     if (onValidationChangeRef.current) {
       onValidationChangeRef.current({
-        isValid: isValid && !validationError,
+        isValid: isValid && hasValue,
         value: e164Value,
-        displayValue: countryCode === '+1' ? displayValue : `${countryCode} ${displayValue}`,
-        error: validationError || undefined,
+        displayValue: displayValue || placeholder,
+        error: error || undefined,
       });
     }
-  }, [inputValue, countryCode, displayValue, isTouched, required]);
+  }, [displayValue, isTouched, required, placeholder]);
 
   const handleChange = (text: string) => {
-    // Parse the input to extract country code and local number
-    const parsed = parsePhoneInput(text);
+    // Handle autocomplete input that might include +1 prefix
+    // If text already has formatting like "+1 (716) 783-1211", extract just the 10 digits
+    const digits = getDigits(text);
+    const formatted = formatPhone(digits);
+    setDisplayValue(formatted);
+    setIsTouched(true);
     
-    setCountryCode(parsed.countryCode);
-    setInputValue(parsed.localNumber);
-    setDisplayValue(formatPhoneNumber(parsed.localNumber));
-    setIsTouched(true);
-
-    // Convert to E.164 and notify parent
-    const e164Value = toE164(parsed.countryCode, parsed.localNumber);
-    if (onChange) {
-      onChange(e164Value || (parsed.countryCode === '+1' ? formatPhoneNumber(parsed.localNumber) : `${parsed.countryCode} ${parsed.localNumber}`));
+    // Call onChange with E.164 value when user types
+    const e164Value = toE164(digits);
+    if (e164Value !== lastE164ValueRef.current) {
+      lastE164ValueRef.current = e164Value;
+      prevValueRef.current = e164Value;
+      if (onChangeRef.current) {
+        onChangeRef.current(e164Value);
+      }
+    } else if (digits.length === 0 && lastE164ValueRef.current !== '') {
+      // Handle clearing
+      lastE164ValueRef.current = '';
+      prevValueRef.current = '';
+      if (onChangeRef.current) {
+        onChangeRef.current('');
+      }
     }
-  };
-
-  const handleBlur = () => {
-    setIsTouched(true);
-    setIsFocused(false);
   };
 
   const handleFocus = () => {
     setIsFocused(true);
   };
 
-  const hasError = isTouched && error;
+  const handleBlur = () => {
+    setIsFocused(false);
+    setIsTouched(true);
+  };
 
-  // Build the full display value for the input
-  const fullDisplayValue = countryCode === '+1' 
-    ? displayValue 
-    : `${countryCode} ${displayValue}`;
-
-  // Determine border color based on state
-  const borderColor = hasError 
-    ? tokens.color.danger.val
-    : isFocused 
-      ? tokens.color.mutedRed.val
-      : 'rgba(59, 130, 200, 0.25)';
+  const digits = getDigits(displayValue);
+  const isValid = digits.length === 10;
+  const hasError = isTouched && ((required && digits.length === 0) || (digits.length > 0 && !isValid));
+  const tokens = getTokens();
+  const dangerColor = (tokens.color as any)?.danger?.val || '#ef4444';
 
   return (
-    <YStack space="$xs">
+    <>
       <XStack
-        alignItems="stretch"
-        borderRadius={10}
+        alignItems="center"
         borderWidth={1}
-        borderColor={borderColor}
+        borderColor={hasError ? '$danger' : isFocused ? '$primary' : '$border'}
+        borderRadius={10}
+        backgroundColor="$background"
+        minHeight={38}
         overflow="hidden"
-        backgroundColor="white"
-        minHeight={44}
       >
         <XStack
-          backgroundColor="rgba(59, 130, 200, 0.05)"
-          paddingHorizontal={12}
-          paddingVertical={10}
-          borderTopLeftRadius={10}
-          borderBottomLeftRadius={10}
+          paddingHorizontal="$3"
+          backgroundColor="$gray200"
           borderRightWidth={1}
-          borderRightColor="rgba(59, 130, 200, 0.25)"
-          minWidth={50}
-          minHeight={44}
+          borderRightColor="$border"
           justifyContent="center"
+          alignItems="center"
+          minWidth={50}
+          height={38}
         >
-          <Text fontSize="$2" color="$textSecondary" fontWeight="500">
-            {countryCode}
-          </Text>
+          <UIText fontSize="$3" color="$textSecondary" fontWeight="500">
+            +1
+          </UIText>
         </XStack>
-        <XStack flex={1} position="relative" alignItems="center">
-          <TamaguiInput
-            flex={1}
-            borderWidth={0}
-            paddingHorizontal={12}
-            paddingVertical={10}
-            fontSize="$3"
-            color="$textPrimary"
-            backgroundColor="transparent"
-            value={fullDisplayValue}
+        <XStack flex={1} alignItems="center">
+          <Input
+            ref={inputRef}
+            value={displayValue}
             onChangeText={handleChange}
-            onBlur={handleBlur}
             onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder={placeholder}
-            placeholderTextColor={tokens.color.textLight.val}
             keyboardType="phone-pad"
             autoComplete="tel"
             textContentType="telephoneNumber"
-            editable={true}
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
+            borderWidth={0}
+            backgroundColor="$background"
+            paddingHorizontal="$sm"
+            paddingVertical={0}
+            minHeight={38}
+            flex={1}
+            placeholderTextColor="$textSecondary"
+            color="$textPrimary"
           />
           {hasError && (
-            <XStack position="absolute" right="$sm" alignItems="center">
-              <AlertCircle size={16} color={tokens.color.danger.val} />
+            <XStack paddingRight="$3">
+              <AlertCircle size={16} color={dangerColor} />
             </XStack>
           )}
         </XStack>
       </XStack>
       {hasError && (
-        <Text fontSize="$1" color="$danger" paddingLeft="$sm">
-          {error}
-        </Text>
+        <UIText fontSize="$1" color="$danger" marginTop="$xs" marginLeft="$3">
+          {required && digits.length === 0
+            ? 'Phone number is required'
+            : 'Please enter a valid 10-digit phone number'}
+        </UIText>
       )}
-    </YStack>
+    </>
   );
-}
+});
+
+PhoneInputComponent.displayName = 'PhoneInput';
+
+export default PhoneInputComponent;
+

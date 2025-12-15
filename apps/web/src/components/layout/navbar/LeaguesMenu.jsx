@@ -33,7 +33,7 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Leagues menu"
       >
-        <Trophy size={20} />
+        <Trophy size={16} />
         <span className="navbar-menu-label">Leagues</span>
         <ChevronDown 
           size={16} 
@@ -64,13 +64,12 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
           
           {/* Action Items */}
           <NavDropdownSection>
-            {/* TODO: Add functionality for Join League button */}
-            {/* <NavDropdownItem
+            <NavDropdownItem
               icon={CalendarPlus}
-              onClick={() => handleItemClick('join-league')}
+              onClick={() => handleItemClick('find-leagues')}
             >
-              Join League
-            </NavDropdownItem> */}
+              Find Leagues
+            </NavDropdownItem>
             <NavDropdownItem
               icon={Plus}
               onClick={() => handleItemClick('create-league')}

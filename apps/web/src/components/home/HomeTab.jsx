@@ -29,13 +29,13 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
       
       setLoadingMatches(true);
       try {
-        const playerName = currentUserPlayer.full_name || currentUserPlayer.nickname;
-        if (!playerName) {
+        const playerId = currentUserPlayer.id;
+        if (!playerId) {
           setUserMatches([]);
           return;
         }
 
-        const matches = await getPlayerMatchHistory(playerName);
+        const matches = await getPlayerMatchHistory(playerId);
         const sortedMatches = (matches || [])
           .sort((a, b) => {
             const dateA = a.Date ? new Date(a.Date).getTime() : 0;

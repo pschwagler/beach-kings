@@ -81,7 +81,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./apps/backend:/app/apps/backend
+      - ./apps/backend:/app/backend
       # - ./services/whatsapp:/app/services/whatsapp  # WhatsApp service is inactive
     networks:
       - beach-kings-network

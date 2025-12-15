@@ -3,10 +3,11 @@
  * Uses expo-secure-store for secure token storage
  */
 
-import { initApiClient, setStorageAdapter, createApiClient } from '@beach-kings/api-client';
+import { initApiClient, setStorageAdapter } from '@beach-kings/api-client';
 import { mobileStorageAdapter } from '../adapters/storage';
+import axios from 'axios';
 
-// Set mobile storage adapter
+// Set mobile storage adapter - this ensures all API clients use the same storage
 setStorageAdapter(mobileStorageAdapter);
 
 // Get API base URL from environment
@@ -20,20 +21,7 @@ console.log(`[API] Using base URL: ${API_BASE_URL}`);
 console.log(`[API] To change this, set EXPO_PUBLIC_API_URL environment variable`);
 console.log(`[API] Make sure backend is running: make dev-backend`);
 
-// Initialize API client with mobile-specific options
-// We use createApiClient directly to get access to the axios instance
-const { api: axiosInstance, setAuthTokens, clearAuthTokens, getStoredTokens } = createApiClient(API_BASE_URL, {
-  onTokenRefresh: (token: string) => {
-    // Optional: Handle token refresh events
-    console.log('Token refreshed');
-  },
-  onAuthError: (error: any) => {
-    // Optional: Handle auth errors (e.g., navigate to login)
-    console.error('Auth error:', error);
-  },
-});
-
-// Initialize the API methods using initApiClient
+// Initialize API client - this creates a single instance with all methods
 const apiMethods = initApiClient(API_BASE_URL, {
   onTokenRefresh: (token: string) => {
     console.log('Token refreshed');
@@ -43,24 +31,44 @@ const apiMethods = initApiClient(API_BASE_URL, {
   },
 });
 
-// Export API with both methods and axios instance
+// Create a custom axios instance that reads tokens from storage on each request
+// This ensures it always has the latest token, even if setAuthTokens was called
+// on a different instance (they all share the same storage)
+const customAxios = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to read token from storage and add to headers
+customAxios.interceptors.request.use(
+  async (config) => {
+    try {
+      const tokens = await apiMethods.getStoredTokens();
+      if (tokens.accessToken) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        console.log('[API] Added token to request:', config.url);
+      } else {
+        console.log('[API] No token available for request:', config.url);
+      }
+    } catch (error) {
+      console.error('[API] Error reading tokens for request:', error);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Export API with methods from initApiClient and custom axios that reads from storage
 export const api = {
   ...apiMethods,
-  // Expose axios instance for custom calls
-  axios: axiosInstance,
-  // Also expose token management methods
-  setAuthTokens,
-  clearAuthTokens,
-  getStoredTokens,
+  // Expose custom axios instance that reads tokens from storage on each request
+  axios: customAxios,
 } as typeof apiMethods & { 
-  axios: any;
-  setAuthTokens: typeof setAuthTokens;
-  clearAuthTokens: typeof clearAuthTokens;
-  getStoredTokens: typeof getStoredTokens;
+  axios: typeof customAxios;
 };
 
 // Re-export all API methods for convenience
 export * from '@beach-kings/api-client';
-
-
-

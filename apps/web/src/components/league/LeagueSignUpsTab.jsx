@@ -271,19 +271,23 @@ export default function LeagueSignUpsTab() {
         </div>
       )}
       
-      {/* Weekly Schedules Section (Admin only) */}
-      {isLeagueAdmin && (
+      {/* Weekly Schedules Section */}
+      {isLeagueMember && (
         <div className="league-section">
           <div className="league-section-header">
             <h3 className="league-section-title">
               <Calendar size={18} />
               Weekly Schedule
             </h3>
-            <button className="league-text-button" onClick={() => openModal(MODAL_TYPES.EDIT_SCHEDULE, {
-              seasonId: activeSeason.id,
-              seasonEndDate: activeSeason.end_date,
-              onSubmit: handleCreateSchedule
-            })}>
+            <button 
+              className="league-text-button" 
+              onClick={() => openModal(MODAL_TYPES.EDIT_SCHEDULE, {
+                seasonId: activeSeason.id,
+                seasonEndDate: activeSeason.end_date,
+                onSubmit: handleCreateSchedule
+              })}
+              disabled={!isLeagueAdmin}
+            >
               <Plus size={16} />
               Create Weekly Scheduled Session
             </button>

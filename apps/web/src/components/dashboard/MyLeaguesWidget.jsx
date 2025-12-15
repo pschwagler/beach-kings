@@ -1,6 +1,6 @@
 'use client';
 
-import { Trophy, ChevronRight, Users, Plus } from 'lucide-react';
+import { Trophy, ChevronRight, Users, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { createLeague } from '../../services/api';
@@ -35,21 +35,34 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
     });
   };
 
+  const handleFindLeaguesClick = () => {
+    router.push('/find-leagues');
+  };
+
   if (!leagues || leagues.length === 0) {
     return (
       <div className="dashboard-widget">
         <div className="dashboard-widget-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="dashboard-widget-header-title">
             <Trophy size={20} />
-            <h3 className="dashboard-widget-title">My Leagues</h3>
+            <h3 className="dashboard-widget-title">Leagues</h3>
           </div>
-          <button
-            onClick={handleCreateLeagueClick}
-            className="dashboard-widget-create-btn"
-          >
-            <Plus size={16} />
-            <span>Create League</span>
-          </button>
+          <div className="dashboard-widget-header-actions">
+            <button
+              onClick={handleFindLeaguesClick}
+              className="dashboard-widget-create-btn"
+            >
+              <Search size={16} />
+              <span>Find Leagues</span>
+            </button>
+            <button
+              onClick={handleCreateLeagueClick}
+              className="dashboard-widget-create-btn"
+            >
+              <Plus size={16} />
+              <span>Create League</span>
+            </button>
+          </div>
         </div>
         <div className="dashboard-widget-content">
           <div className="dashboard-empty-state">
@@ -67,17 +80,26 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
   return (
     <div className="dashboard-widget">
       <div className="dashboard-widget-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="dashboard-widget-header-title">
           <Trophy size={20} />
           <h3 className="dashboard-widget-title">My Leagues</h3>
         </div>
-        <button
-          onClick={handleCreateLeagueClick}
-          className="dashboard-widget-create-btn"
-        >
-          <Plus size={16} />
-          <span>Create League</span>
-        </button>
+        <div className="dashboard-widget-header-actions">
+          <button
+            onClick={handleFindLeaguesClick}
+            className="dashboard-widget-create-btn"
+          >
+            <Search size={16} />
+            <span>Find Leagues</span>
+          </button>
+          <button
+            onClick={handleCreateLeagueClick}
+            className="dashboard-widget-create-btn"
+          >
+            <Plus size={16} />
+            <span>Create League</span>
+          </button>
+        </div>
       </div>
       <div className="dashboard-widget-content">
         <div className="dashboard-leagues-list">

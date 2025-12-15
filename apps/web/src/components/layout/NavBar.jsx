@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../contexts/AuthContext';
 import NavBrand from './navbar/NavBrand';
 import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
@@ -20,6 +21,7 @@ export default function NavBar({
   onPlayersClick,
 }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
   const handleRecordGamesClick = () => {
     // Handle navigation to record games page
@@ -45,10 +47,40 @@ export default function NavBar({
     // Handle user menu actions (except sign-out which is handled by onSignOut)
   };
 
+  const handleHomeClick = () => {
+    router.push(isAuthenticated ? '/home' : '/');
+  };
+
   return (
     <nav className="navbar" data-nextjs-scroll-focus-boundary>
       <div className="navbar-container">
-        <NavBrand />
+        <div className="navbar-left">
+          <button
+            type="button"
+            className="navbar-home-button"
+            onClick={handleHomeClick}
+            aria-label="Home"
+          >
+            <svg
+              className="navbar-home-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 11.5L12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5a.5.5 0 0 1-.5-.5V15a2 2 0 0 0-4 0v5.5a.5.5 0 0 1-.5.5H5a1 1 0 0 1-1-1v-8.5Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="navbar-center">
+          <NavBrand />
+        </div>
         
         <div className="navbar-right">
           {/* TODO: Add functionality for Record Games and Players buttons */}

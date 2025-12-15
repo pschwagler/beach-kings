@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { YStack, XStack, Text, ScrollView } from 'tamagui';
+import { YStack, XStack, Text, ScrollView, useTheme, getTokens } from 'tamagui';
 import { Target, TrendingUp, Award, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { MyLeaguesWidget } from '../dashboard/MyLeaguesWidget';
@@ -26,25 +27,45 @@ const getAvatarInitial = (currentUserPlayer: any) => {
 
 export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLeaguesUpdate }: HomeTabProps) {
   const router = useRouter();
+  const theme = useTheme();
+  const tokens = getTokens();
   const [userMatches, setUserMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  
+  // Get color values for icons (icons need actual color values, not theme tokens)
+  const oceanBlue = (tokens.color as any)?.oceanBlue?.val || '#4a90a4';
+  const primaryDark = (tokens.color as any)?.primaryDark?.val || '#205e6f';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[HomeTab] currentUserPlayer:', currentUserPlayer);
+    console.log('[HomeTab] userLeagues:', userLeagues);
+  }, [currentUserPlayer, userLeagues]);
 
   // Load user matches
   useEffect(() => {
     const loadUserMatches = async () => {
-      if (!currentUserPlayer) return;
+      if (!currentUserPlayer) {
+        console.log('[HomeTab] No currentUserPlayer, skipping matches load');
+        return;
+      }
 
       setLoadingMatches(true);
       try {
-        const playerName = currentUserPlayer.full_name || currentUserPlayer.nickname;
-        if (!playerName) {
+        const playerId = currentUserPlayer.id;
+        console.log('[HomeTab] Loading matches for player ID:', playerId);
+        
+        if (!playerId) {
+          console.warn('[HomeTab] No player ID found in currentUserPlayer:', currentUserPlayer);
           setUserMatches([]);
           return;
         }
 
-        // Use axios directly to match web app behavior (playerName instead of playerId)
-        const response = await api.axios.get(`/api/players/${encodeURIComponent(playerName)}/matches`);
+        // Use axios directly to get matches by player ID
+        const response = await api.axios.get(`/api/players/${playerId}/matches`);
         const matches = response.data;
+        console.log('[HomeTab] Loaded matches:', matches?.length || 0);
+        
         const sortedMatches = (matches || [])
           .sort((a: any, b: any) => {
             const dateA = a.Date ? new Date(a.Date).getTime() : 0;
@@ -52,8 +73,9 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             return dateB - dateA;
           });
         setUserMatches(sortedMatches);
-      } catch (error) {
-        console.error('Error loading user matches:', error);
+      } catch (error: any) {
+        console.error('[HomeTab] Error loading user matches:', error);
+        console.error('[HomeTab] Error details:', error.response?.data || error.message);
         setUserMatches([]);
       } finally {
         setLoadingMatches(false);
@@ -68,7 +90,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
   };
 
   const avatarInitial = getAvatarInitial(currentUserPlayer);
-  const fullName = currentUserPlayer?.full_name || 'Player';
+  const fullName = currentUserPlayer?.full_name || currentUserPlayer?.nickname || currentUserPlayer?.name || 'Player';
 
   // Calculate stats from match history
   const calculateStatsFromMatches = () => {
@@ -125,7 +147,8 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
   const { totalGames, currentRating, games30Days, winRate30Days } = calculateStatsFromMatches();
 
   return (
-    <ScrollView flex={1} backgroundColor="$sand">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+    <ScrollView flex={1} backgroundColor="$background" marginTop="$6">
       <YStack padding="$5" gap="$4">
         {/* Top Header Row */}
         <XStack alignItems="center" justifyContent="space-between">
@@ -139,8 +162,8 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             <YStack
               width={48}
               height={48}
-              borderRadius="$10"
-              backgroundColor="$oceanBlue"
+              borderRadius="$round"
+              backgroundColor={oceanBlue}
               alignItems="center"
               justifyContent="center"
             >
@@ -158,7 +181,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
               pressStyle={{ opacity: 0.8 }}
               cursor="pointer"
             >
-              <Users size={22} color="$oceanBlue" />
+              <Users size={22} color={oceanBlue} />
             </XStack>
           )}
         </XStack>
@@ -173,7 +196,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             borderRadius="$4"
             gap="$2"
           >
-            <Target size={24} color="$oceanBlue" />
+            <Target size={24} color={primaryDark} />
             <Text fontSize="$3" color="$textSecondary">
               Total Games Played
             </Text>
@@ -190,7 +213,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             borderRadius="$4"
             gap="$2"
           >
-            <TrendingUp size={24} color="$oceanBlue" />
+            <TrendingUp size={24} color={oceanBlue} />
             <Text fontSize="$3" color="$textSecondary">
               Rating
             </Text>
@@ -207,7 +230,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             borderRadius="$4"
             gap="$2"
           >
-            <Target size={24} color="$oceanBlue" />
+            <Target size={24} color={oceanBlue} />
             <Text fontSize="$3" color="$textSecondary">
               Games (Last 30 days)
             </Text>
@@ -224,7 +247,7 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
             borderRadius="$4"
             gap="$2"
           >
-            <Award size={24} color="$oceanBlue" />
+            <Award size={24} color={oceanBlue} />
             <Text fontSize="$3" color="$textSecondary">
               Win Rate (Last 30 days)
             </Text>
@@ -245,5 +268,6 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
         </YStack>
       </YStack>
     </ScrollView>
+    </SafeAreaView>
   );
 }

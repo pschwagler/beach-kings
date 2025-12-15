@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { leaveLeague, createLeague } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -8,6 +9,7 @@ const getErrorMessage = (error) => error.response?.data?.detail || error.message
 
 export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate }) {
   const { openModal } = useModal();
+  const router = useRouter();
   const [showLeaveLeagueModal, setShowLeaveLeagueModal] = useState(false);
   const [leagueToLeave, setLeagueToLeave] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -68,6 +70,10 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
     });
   };
 
+  const handleFindLeaguesClick = () => {
+    router.push('/find-leagues');
+  };
+
   return (
     <>
       <div className="profile-page__section league-section">
@@ -85,6 +91,13 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
         )}
         
         <div className="leagues-tab-create-btn-container">
+          <button
+            onClick={handleFindLeaguesClick}
+            className="dashboard-widget-create-btn"
+          >
+            <Search size={16} />
+            <span>Find Leagues</span>
+          </button>
           <button
             onClick={handleCreateLeagueClick}
             className="leagues-tab-create-btn"

@@ -7,22 +7,37 @@ import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 
 /**
- * Gets the first letter for the avatar from player nickname, full_name, email, or defaults to a user icon
+ * Gets the avatar image URL and fallback initial for the navbar.
+ * Prefers player avatar (backend-provided initials or URL), then email initial.
  */
-const getAvatarInitial = (user, currentUserPlayer) => {
-  // First check player nickname
+const getAvatarData = (user, currentUserPlayer) => {
+  // Prefer avatar coming from player API (can be URL or initials string)
+  if (currentUserPlayer?.avatar) {
+    // If it looks like a URL or path, treat as image, otherwise as initials
+    const avatar = currentUserPlayer.avatar;
+    const isImage =
+      typeof avatar === 'string' &&
+      (avatar.startsWith('http://') ||
+        avatar.startsWith('https://') ||
+        avatar.startsWith('/'));
+    if (isImage) {
+      return { imageUrl: avatar, initial: null };
+    }
+    return { imageUrl: null, initial: avatar.trim().charAt(0).toUpperCase() };
+  }
+
+  // Fall back to nickname / full_name / email for initial only
   if (currentUserPlayer?.nickname) {
-    return currentUserPlayer.nickname.trim().charAt(0).toUpperCase();
+    return { imageUrl: null, initial: currentUserPlayer.nickname.trim().charAt(0).toUpperCase() };
   }
-  // Then check player full_name
   if (currentUserPlayer?.full_name) {
-    return currentUserPlayer.full_name.trim().charAt(0).toUpperCase();
+    return { imageUrl: null, initial: currentUserPlayer.full_name.trim().charAt(0).toUpperCase() };
   }
-  // Fall back to user email
   if (user?.email) {
-    return user.email.trim().charAt(0).toUpperCase();
+    return { imageUrl: null, initial: user.email.trim().charAt(0).toUpperCase() };
   }
-  return null; // Will show default icon
+
+  return { imageUrl: null, initial: null };
 };
 
 export default function UserMenu({
@@ -70,7 +85,9 @@ export default function UserMenu({
     }
   };
 
-  const avatarInitial = isLoggedIn ? getAvatarInitial(user, currentUserPlayer) : null;
+  const { imageUrl: avatarImageUrl, initial: avatarInitial } = isLoggedIn
+    ? getAvatarData(user, currentUserPlayer)
+    : { imageUrl: null, initial: null };
 
   return (
     <div className="navbar-menu-group" ref={menuRef}>
@@ -79,10 +96,18 @@ export default function UserMenu({
         onClick={() => setIsOpen(!isOpen)}
         aria-label="User menu"
       >
-        {isLoggedIn && avatarInitial ? (
-          <div className="navbar-avatar" aria-hidden="true">
-            {avatarInitial}
-          </div>
+        {isLoggedIn ? (
+          avatarImageUrl ? (
+            <div className="navbar-avatar navbar-avatar-image" aria-hidden="true">
+              <img src={avatarImageUrl} alt={currentUserPlayer?.full_name || 'User'} />
+            </div>
+          ) : avatarInitial ? (
+            <div className="navbar-avatar" aria-hidden="true">
+              {avatarInitial}
+            </div>
+          ) : (
+            <User size={20} />
+          )
         ) : (
           <User size={20} />
         )}

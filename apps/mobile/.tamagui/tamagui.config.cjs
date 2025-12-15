@@ -30383,36 +30383,26 @@ var colors = {
   sunsetOrange: "#ff6b35",
   // Maps to sunsetDark but keeping original for now
   oceanBlue: "#4a90a4",
-  // Similar to primary, keeping for compatibility
   deepBlue: "#2c5f7a",
-  // Maps to primaryDark
   lightBlue: "#7fb3c3",
-  // Similar to primaryLight
   cream: "#faf8f3",
-  // Similar to sandLight
   darkSand: "#e8d4a8",
-  // Similar to sandDark
   // Text colors
   textPrimary: "#333333",
-  textSecondary: "#666666",
-  textLight: "#999999",
+  textSecondary: "#757575",
+  textLight: "#e0e0e0",
   textWhite: "#ffffff",
   // Status colors (legacy)
   error: "#f44336",
-  // Maps to danger
   warning: "#ff9800",
   info: "#2196f3",
   // Background colors
-  background: "#f4e4c1",
-  // Maps to sand
-  backgroundLight: "#faf8f3",
-  // Maps to sandLight
-  backgroundDark: "#e8d4a8",
-  // Maps to sandDark
+  background: "#ffffff",
+  backgroundLight: "#fdfdfd",
+  backgroundDark: "#fafafa",
   // Border colors
-  border: "#d4c4a0",
-  borderLight: "#e8d4a8",
-  // Maps to sandDark
+  border: "#eeeeee",
+  borderLight: "#f5f5f5",
   // Shadow
   shadow: "rgba(0, 0, 0, 0.1)"
 };
@@ -30734,7 +30724,41 @@ var themes = {
     textPrimary: tokens2.color.textPrimary,
     textSecondary: tokens2.color.textSecondary,
     textLight: tokens2.color.textLight,
-    textWhite: tokens2.color.textWhite
+    textWhite: tokens2.color.textWhite,
+    // Add functional colors
+    danger: tokens2.color.danger,
+    success: tokens2.color.success,
+    successDark: tokens2.color.successDark,
+    // Add background colors
+    white: tokens2.color.white,
+    gray600: tokens2.color.gray600
+  },
+  dark: {
+    background: tokens2.color.gray900,
+    backgroundHover: tokens2.color.gray700,
+    backgroundPress: tokens2.color.gray600,
+    backgroundFocus: tokens2.color.gray700,
+    color: tokens2.color.textWhite,
+    colorHover: tokens2.color.textLight,
+    colorPress: tokens2.color.textWhite,
+    colorFocus: tokens2.color.textWhite,
+    borderColor: tokens2.color.gray700,
+    borderColorHover: tokens2.color.gray600,
+    borderColorPress: tokens2.color.gray700,
+    borderColorFocus: tokens2.color.gray600,
+    placeholderColor: tokens2.color.gray600,
+    // Add text colors as direct theme properties for easier access
+    textPrimary: tokens2.color.textWhite,
+    textSecondary: tokens2.color.textLight,
+    textLight: tokens2.color.gray600,
+    textWhite: tokens2.color.textWhite,
+    // Add functional colors
+    danger: tokens2.color.danger,
+    success: tokens2.color.success,
+    successDark: tokens2.color.successDark,
+    // Add background colors
+    white: tokens2.color.gray900,
+    gray600: tokens2.color.gray600
   }
 };
 var config = createTamagui({

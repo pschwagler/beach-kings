@@ -73,31 +73,31 @@ export const colors = {
   // Legacy mobile app color mappings (for backward compatibility)
   // These map to the above unified tokens
   sunsetOrange: '#ff6b35', // Maps to sunsetDark but keeping original for now
-  oceanBlue: '#4a90a4', // Similar to primary, keeping for compatibility
-  deepBlue: '#2c5f7a', // Maps to primaryDark
-  lightBlue: '#7fb3c3', // Similar to primaryLight
-  cream: '#faf8f3', // Similar to sandLight
-  darkSand: '#e8d4a8', // Similar to sandDark
+  oceanBlue: '#4a90a4',
+  deepBlue: '#2c5f7a',
+  lightBlue: '#7fb3c3',
+  cream: '#faf8f3',
+  darkSand: '#e8d4a8',
 
   // Text colors
   textPrimary: '#333333',
-  textSecondary: '#666666',
-  textLight: '#999999',
+  textSecondary: '#757575',
+  textLight: '#e0e0e0',
   textWhite: '#ffffff',
 
   // Status colors (legacy)
-  error: '#f44336', // Maps to danger
+  error: '#f44336',
   warning: '#ff9800',
   info: '#2196f3',
 
   // Background colors
-  background: '#f4e4c1', // Maps to sand
-  backgroundLight: '#faf8f3', // Maps to sandLight
-  backgroundDark: '#e8d4a8', // Maps to sandDark
+  background: '#ffffff',
+  backgroundLight: '#fdfdfd',
+  backgroundDark: '#fafafa',
 
   // Border colors
-  border: '#d4c4a0',
-  borderLight: '#e8d4a8', // Maps to sandDark
+  border: '#eeeeee',
+  borderLight: '#f5f5f5',
 
   // Shadow
   shadow: 'rgba(0, 0, 0, 0.1)',

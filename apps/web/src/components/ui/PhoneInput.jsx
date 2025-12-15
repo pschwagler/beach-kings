@@ -4,27 +4,44 @@ import { useState, useEffect, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 /**
- * Formats a US phone number to (XXX) XXX-XXXX format
+ * Formats phone number to (XXX) XXX-XXXX
  */
-const formatPhoneNumber = (value) => {
-  // Remove all non-digits
-  const digits = value.replace(/\D/g, '');
-  
-  // Limit to 10 digits
-  const limited = digits.slice(0, 10);
-  
-  // Format based on length
-  if (limited.length === 0) return '';
-  if (limited.length <= 3) return `(${limited}`;
-  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
-  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+const formatPhone = (digits) => {
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 };
 
 /**
- * Converts formatted phone number to E.164 format (+15551234567)
+ * Extracts digits from phone input, handling country code
  */
-const toE164 = (formattedValue) => {
-  const digits = formattedValue.replace(/\D/g, '');
+const getDigits = (text) => {
+  // Remove all non-digits
+  const allDigits = text.replace(/\D/g, '');
+  
+  // If we have 11 digits and it starts with 1, it's likely +1 country code
+  // Strip the leading 1 to get the 10-digit number
+  if (allDigits.length === 11 && allDigits.startsWith('1')) {
+    return allDigits.slice(1);
+  }
+  
+  // If text contains +1, we know the country code is there
+  // Extract digits and if we get 11 starting with 1, take last 10
+  if (text.includes('+1') || text.includes('+ 1')) {
+    if (allDigits.length >= 11 && allDigits.startsWith('1')) {
+      return allDigits.slice(1, 11);
+    }
+  }
+  
+  // Otherwise, just take the last 10 digits (handles edge cases)
+  return allDigits.slice(-10);
+};
+
+/**
+ * Converts to E.164 format (+15551234567)
+ */
+const toE164 = (digits) => {
   if (digits.length === 10) {
     return `+1${digits}`;
   }
@@ -34,8 +51,7 @@ const toE164 = (formattedValue) => {
 /**
  * Validates if a phone number is complete and valid
  */
-const isValidPhoneNumber = (formattedValue) => {
-  const digits = formattedValue.replace(/\D/g, '');
+const isValidPhoneNumber = (digits) => {
   return digits.length === 10;
 };
 
@@ -56,9 +72,10 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
       // If value is in E.164 format, convert to display format
       if (value.startsWith('+1')) {
         const digits = value.slice(2).replace(/\D/g, '');
-        setDisplayValue(formatPhoneNumber(digits));
+        setDisplayValue(formatPhone(digits));
       } else {
-        setDisplayValue(formatPhoneNumber(value));
+        const digits = getDigits(value);
+        setDisplayValue(formatPhone(digits));
       }
     } else {
       setDisplayValue('');
@@ -67,37 +84,43 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
 
   // Validate and notify parent
   useEffect(() => {
-    const hasValue = displayValue.trim().length > 0;
-    const isValid = !hasValue ? !required : isValidPhoneNumber(displayValue);
-    const e164Value = toE164(displayValue);
+    const digits = getDigits(displayValue);
+    const hasValue = digits.length > 0;
+    const isValid = isValidPhoneNumber(digits);
+    const e164Value = toE164(digits);
     
     if (onValidationChangeRef.current) {
       onValidationChangeRef.current({
-        isValid,
+        isValid: isValid && hasValue,
         value: e164Value,
-        displayValue,
+        displayValue: displayValue || placeholder,
       });
     }
 
-    if (isTouched && hasValue && !isValidPhoneNumber(displayValue)) {
-      setError('Please enter a valid phone number');
-    } else if (isTouched && required && !hasValue) {
-      setError('Phone number is required');
+    if (isTouched) {
+      if (required && !hasValue) {
+        setError('Phone number is required');
+      } else if (hasValue && !isValid) {
+        setError('Please enter a valid 10-digit phone number');
+      } else {
+        setError('');
+      }
     } else {
       setError('');
     }
-  }, [displayValue, isTouched, required]);
+  }, [displayValue, isTouched, required, placeholder]);
 
   const handleChange = (e) => {
     const inputValue = e.target.value;
-    const formatted = formatPhoneNumber(inputValue);
+    const digits = getDigits(inputValue);
+    const formatted = formatPhone(digits);
     setDisplayValue(formatted);
     setIsTouched(true);
 
     // Convert to E.164 and notify parent
-    const e164Value = toE164(formatted);
+    const e164Value = toE164(digits);
     if (onChange) {
-      onChange(e164Value || formatted);
+      onChange(e164Value || '');
     }
   };
 

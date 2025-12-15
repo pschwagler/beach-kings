@@ -2,6 +2,7 @@ import { Users, Plus, X } from 'lucide-react';
 import { getPlayerDisplayName } from './utils/leagueUtils';
 import { ROLE_OPTIONS } from './utils/leagueUtils';
 import { useLeague } from '../../contexts/LeagueContext';
+import { formatRelativeTime } from '../../utils/dateUtils';
 
 export default function PlayersSection({
   sortedMembers,
@@ -11,6 +12,22 @@ export default function PlayersSection({
   onRemoveMember
 }) {
   const { isLeagueAdmin } = useLeague();
+
+  const formatJoinDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const relative = formatRelativeTime(dateString);
+    return relative || 'Unknown';
+  };
+
+  const isImageUrl = (avatar) => {
+    if (!avatar) return false;
+    return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
+  };
+
+  const getAvatarInitial = (playerName) => {
+    if (!playerName) return '?';
+    return playerName.trim().charAt(0).toUpperCase();
+  };
   return (
     <div className="league-players-section">
       <div className="league-section-header">
@@ -34,15 +51,42 @@ export default function PlayersSection({
       ) : (
         <div className="league-players-list">
           {sortedMembers.map((member) => {
-            const isCurrentUser = currentUserPlayer && member.player_id === currentUserPlayer.id;
+            const isCurrentUser =
+              currentUserPlayer && member.player_id === currentUserPlayer.id;
             const playerName = member.player_name || `Player ${member.player_id}`;
             const displayName = getPlayerDisplayName(member, isCurrentUser);
             const canEdit = isLeagueAdmin && !isCurrentUser;
 
             return (
-              <div key={member.id} className={`league-player-row ${!canEdit ? 'disabled' : ''}`}>
+              <div
+                key={member.id}
+                className={`league-player-row ${!canEdit ? 'disabled' : ''}`}
+              >
                 <div className="league-player-info">
-                  <span className="league-player-name">{displayName}</span>
+                  <div className="league-member-avatar">
+                    {isImageUrl(member.player_avatar) ? (
+                      <div className="player-avatar player-avatar-image">
+                        <img
+                          src={member.player_avatar}
+                          alt={member.player_name || 'Player'}
+                        />
+                      </div>
+                    ) : (
+                      <div className="player-avatar player-avatar-initials">
+                        <span className="player-avatar-text">
+                          {member.player_avatar || getAvatarInitial(member.player_name)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="league-member-left">
+                    <span className="league-member-name">{displayName}</span>
+                    {member.joined_at && (
+                      <span className="league-member-joined">
+                        Joined {formatJoinDate(member.joined_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="league-player-actions">
                   <span className="league-player-role">
@@ -53,14 +97,16 @@ export default function PlayersSection({
                         className="league-role-select"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {ROLE_OPTIONS.map(option => (
+                        {ROLE_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      <span className="league-role-badge">{member.role}</span>
+                      <span className={`league-role-badge ${member.role === 'admin' ? 'league-role-badge-admin' : ''}`}>
+                        {member.role}
+                      </span>
                     )}
                   </span>
                   {canEdit && (

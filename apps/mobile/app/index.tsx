@@ -45,9 +45,9 @@ export default function LandingPage() {
       resizeMode: 'contain',
     },
     logoText: {
-      fontSize: theme.fontSize['3xl'],
+      fontSize: theme.fontSize['4xl'],
       fontWeight: theme.fontWeight.bold,
-      color: theme.colors.oceanBlue,
+      color: theme.colors.primaryDark,
       marginTop: theme.spacing.md,
     },
     slideshowSection: {
@@ -79,14 +79,14 @@ export default function LandingPage() {
       paddingHorizontal: theme.spacing.xl,
       borderRadius: theme.radius.md,
       borderWidth: 1,
-      borderColor: theme.colors.oceanBlue,
+      borderColor: theme.colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
     signInButtonText: {
       fontSize: theme.fontSize.base,
       fontWeight: theme.fontWeight.semibold,
-      color: theme.colors.oceanBlue,
+      color: theme.colors.primary,
     },
   });
 

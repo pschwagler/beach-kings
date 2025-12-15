@@ -1,36 +1,35 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../contexts/AuthContext';
-import { useAuthModal } from '../contexts/AuthModalContext';
-import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
-import { getUserLeagues, createLeague } from '../services/api';
-import { Home, User, Users, Trophy, PanelRightClose, PanelRightOpen } from 'lucide-react';
-import NavBar from './layout/NavBar';
-import HomeTab from './home/HomeTab';
-import ProfileTab from './home/ProfileTab';
-import LeaguesTab from './home/LeaguesTab';
-import FriendsTab from './home/FriendsTab';
-import { isProfileIncomplete } from '../utils/playerUtils';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "../contexts/AuthContext";
+import { useAuthModal } from "../contexts/AuthModalContext";
+import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
+import { getUserLeagues, createLeague } from "../services/api";
+import NavBar from "./layout/NavBar";
+import HomeTab from "./home/HomeTab";
+import ProfileTab from "./home/ProfileTab";
+import LeaguesTab from "./home/LeaguesTab";
+import FriendsTab from "./home/FriendsTab";
+import HomeMenuBar from "./home/HomeMenuBar";
+import { isProfileIncomplete } from "../utils/playerUtils";
 
 export default function HomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } = useAuth();
+  const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } =
+    useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  
+
   // Get active tab from URL query params
-  const activeTab = searchParams?.get('tab') || 'home';
-  // Initialize to false to avoid hydration mismatch - will be set correctly in useEffect
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const activeTab = searchParams?.get("tab") || "home";
   const [userLeagues, setUserLeagues] = useState([]);
 
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/');
+      router.push("/");
     }
   }, [isAuthenticated, router]);
 
@@ -43,10 +42,10 @@ export default function HomePage() {
         fetchCurrentUser();
         return; // Will re-run when currentUserPlayer updates
       }
-      
+
       // Check if profile is incomplete (missing gender, level, or city)
       const profileIncomplete = isProfileIncomplete(currentUserPlayer);
-      
+
       if (profileIncomplete) {
         // Small delay to ensure page is rendered and avoid conflicts with other modals
         const timeoutId = setTimeout(() => {
@@ -54,35 +53,16 @@ export default function HomePage() {
             currentUserPlayer: currentUserPlayer,
             onSuccess: async () => {
               await fetchCurrentUser();
-            }
+            },
           });
         }, 500);
-        
+
         return () => clearTimeout(timeoutId);
       }
     }
   }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
 
   // Navigation blocking is now handled by ProfileTab using useBlocker hook
-
-  // Set initial collapsed state based on screen size (client-side only)
-  useEffect(() => {
-    // Set initial state based on screen size to avoid hydration mismatch
-    if (window.innerWidth <= 768) {
-      setSidebarCollapsed(true);
-    }
-  }, []);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        setSidebarCollapsed(true);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Load user leagues
   useEffect(() => {
@@ -92,7 +72,7 @@ export default function HomePage() {
           const leagues = await getUserLeagues();
           setUserLeagues(leagues);
         } catch (err) {
-          console.error('Error loading user leagues:', err);
+          console.error("Error loading user leagues:", err);
         }
       }
     };
@@ -103,24 +83,21 @@ export default function HomePage() {
     try {
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
-      router.push('/');
+      router.push("/");
     }
   };
 
   const handleTabChange = (tab) => {
     // Update URL with new tab using Next.js router
-    const newSearchParams = new URLSearchParams(searchParams?.toString() || '');
-    newSearchParams.set('tab', tab);
+    const newSearchParams = new URLSearchParams(searchParams?.toString() || "");
+    newSearchParams.set("tab", tab);
     router.push(`/home?${newSearchParams.toString()}`);
-    
+
     // Scroll to top of the page
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Collapse sidebar on mobile after tab change
-    if (window.innerWidth <= 768) {
-      setSidebarCollapsed(true);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -133,12 +110,14 @@ export default function HomePage() {
   };
 
   const handleLeaguesMenuClick = (action, leagueId = null) => {
-    if (action === 'create-league') {
+    if (action === "create-league") {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSubmit: handleCreateLeague
+        onSubmit: handleCreateLeague,
       });
-    } else if (action === 'view-league' && leagueId) {
+    } else if (action === "view-league" && leagueId) {
       router.push(`/league/${leagueId}`);
+    } else if (action === "find-leagues") {
+      router.push("/find-leagues");
     }
   };
 
@@ -155,69 +134,18 @@ export default function HomePage() {
         userLeagues={userLeagues}
         onLeaguesMenuClick={handleLeaguesMenuClick}
         onSignOut={handleSignOut}
-        onSignIn={() => openAuthModal('sign-in')}
-        onSignUp={() => openAuthModal('sign-up')}
+        onSignIn={() => openAuthModal("sign-in")}
+        onSignUp={() => openAuthModal("sign-up")}
       />
       <div className="league-dashboard-container">
         <div className="league-dashboard">
-          {/* Left Sidebar Navigation */}
-          <aside className={`sidebar sidebar--home ${sidebarCollapsed ? 'collapsed' : ''}`}>
-            <div className="league-sidebar-header">
-              <div className="league-sidebar-title-wrapper-container">
-                <div className="league-sidebar-title-wrapper no-pointer">
-                  <h1 className="league-sidebar-title">Dashboard</h1>
-                </div>
-              </div>
-              <button
-                className="league-sidebar-collapse-btn"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                {sidebarCollapsed ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-              </button>
-            </div>
-            
-            <nav className="league-sidebar-nav">
-              <button
-                className={`league-sidebar-nav-item ${activeTab === 'home' ? 'active' : ''}`}
-                onClick={() => handleTabChange('home')}
-                title="Home"
-              >
-                <Home size={20} />
-                <span>Home</span>
-              </button>
-              <button
-                className={`league-sidebar-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                onClick={() => handleTabChange('profile')}
-                title="Profile"
-              >
-                <User size={20} />
-                <span>Profile</span>
-              </button>
-              <button
-                className={`league-sidebar-nav-item ${activeTab === 'leagues' ? 'active' : ''}`}
-                onClick={() => handleTabChange('leagues')}
-                title="My Leagues"
-              >
-                <Trophy size={20} />
-                <span>My Leagues</span>
-              </button>
-              <button
-                className={`league-sidebar-nav-item ${activeTab === 'friends' ? 'active' : ''}`}
-                onClick={() => handleTabChange('friends')}
-                title="Friends"
-              >
-                <Users size={20} />
-                <span>Friends</span>
-              </button>
-            </nav>
-          </aside>
+          <HomeMenuBar activeTab={activeTab} />
 
           {/* Main Content Area */}
           <main className="home-content">
             <div className="profile-page-content">
-              {activeTab === 'home' && (
-                <HomeTab 
+              {activeTab === "home" && (
+                <HomeTab
                   currentUserPlayer={currentUserPlayer}
                   userLeagues={userLeagues}
                   onTabChange={handleTabChange}
@@ -227,17 +155,17 @@ export default function HomePage() {
                   }}
                 />
               )}
-              
-              {activeTab === 'profile' && (
+
+              {activeTab === "profile" && (
                 <ProfileTab
                   user={user}
                   currentUserPlayer={currentUserPlayer}
                   fetchCurrentUser={fetchCurrentUser}
                 />
               )}
-              
-              {activeTab === 'leagues' && (
-                <LeaguesTab 
+
+              {activeTab === "leagues" && (
+                <LeaguesTab
                   userLeagues={userLeagues}
                   onLeagueClick={handleLeaguesMenuClick}
                   onLeaguesUpdate={async () => {
@@ -246,10 +174,8 @@ export default function HomePage() {
                   }}
                 />
               )}
-              
-              {activeTab === 'friends' && (
-                <FriendsTab />
-              )}
+
+              {activeTab === "friends" && <FriendsTab />}
             </div>
           </main>
         </div>
@@ -257,4 +183,3 @@ export default function HomePage() {
     </>
   );
 }
-

@@ -253,8 +253,8 @@ export const createPlayer = async (name) => {
 /**
  * Get detailed stats for a specific player
  */
-export const getPlayerStats = async (playerName) => {
-  const response = await api.get(`/api/players/${encodeURIComponent(playerName)}`);
+export const getPlayerStats = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/stats`);
   return response.data;
 };
 
@@ -325,8 +325,8 @@ export const queryMatches = async (queryParams) => {
 /**
  * Get match history for a specific player
  */
-export const getPlayerMatchHistory = async (playerName) => {
-  const response = await api.get(`/api/players/${encodeURIComponent(playerName)}/matches`);
+export const getPlayerMatchHistory = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/matches`);
   return response.data;
 };
 
@@ -445,6 +445,33 @@ export const createLeague = async (leagueData) => {
  */
 export const listLeagues = async () => {
   const response = await api.get('/api/leagues');
+  return response.data;
+};
+
+/**
+ * Query leagues with filters, ordering, and limit
+ */
+export const queryLeagues = async (filters = {}) => {
+  const response = await api.post('/api/leagues/query', filters);
+  return response.data;
+};
+
+// Note: we can derive regions from getLocations response (which now includes region info),
+// so a dedicated getRegions helper isn't strictly required for the Find Leagues page.
+
+/**
+ * Join a public league
+ */
+export const joinLeague = async (leagueId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/join`);
+  return response.data;
+};
+
+/**
+ * Request to join an invite-only league
+ */
+export const requestToJoinLeague = async (leagueId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/request-join`);
   return response.data;
 };
 

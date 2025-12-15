@@ -5,13 +5,6 @@ import '../src/App.css';
 export const metadata = {
   title: 'Beach League Volleyball',
   description: 'Beach League Volleyball',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1.0,
-    maximumScale: 5.0,
-    minimumScale: 1.0,
-    viewportFit: 'cover',
-  },
   icons: {
     icon: '/favicon.ico',
   },
@@ -19,6 +12,14 @@ export const metadata = {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1.0,
+  maximumScale: 5.0,
+  minimumScale: 1.0,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }) {

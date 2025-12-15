@@ -8,11 +8,11 @@ import { Input as TamaguiInput, styled } from 'tamagui';
 export const Input = styled(TamaguiInput, {
   name: 'Input',
   fontFamily: '$body',
-  fontSize: '$3', // base (16px) - 1rem
-  paddingVertical: 10,
+  fontSize: '$3',
+  paddingVertical: 8,
   paddingHorizontal: 12,
   borderRadius: 10,
-  minHeight: 44, // Ensures consistent height and good touch target
-  backgroundColor: '$backgroundLight',
+  minHeight: 38,
+  backgroundColor: '$background',
   borderColor: '$border',
 });
