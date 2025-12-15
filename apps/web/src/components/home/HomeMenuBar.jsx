@@ -63,7 +63,7 @@ export default function HomeMenuBar({ activeTab }) {
     },
     {
       id: 'leagues',
-      label: 'Leagues',
+      label: 'My Leagues',
       icon: Trophy,
       active: activeTab === 'leagues',
       onClick: () => handleTabChange('leagues'),

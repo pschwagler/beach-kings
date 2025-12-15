@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Users, MapPin, Award, LogIn, UserRoundPlus } from "lucide-react";
+import { Users, MapPin, Award, LogIn, UserRoundPlus, Plus } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
 import LeagueMembersModal from "./LeagueMembersModal";
 import NavBar from "../layout/NavBar";
@@ -343,6 +343,15 @@ export default function FindLeaguesPage() {
               <div className="league-section find-leagues-page">
                 <div className="section-header">
                   <h1 className="section-title">Find Leagues</h1>
+                  {isAuthenticated && (
+                    <button
+                      className="league-text-button"
+                      onClick={() => handleLeaguesMenuClick("create-league")}
+                    >
+                      <Plus size={16} />
+                      Create League
+                    </button>
+                  )}
                 </div>
 
                 {message && (

@@ -45,7 +45,7 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
         <div className="dashboard-widget-header">
           <div className="dashboard-widget-header-title">
             <Trophy size={20} />
-            <h3 className="dashboard-widget-title">Leagues</h3>
+            <h3 className="dashboard-widget-title">My Leagues</h3>
           </div>
           <div className="dashboard-widget-header-actions">
             <button
