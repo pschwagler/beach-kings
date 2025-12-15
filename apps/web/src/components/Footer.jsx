@@ -36,6 +36,14 @@ export default function Footer() {
               Privacy Policy
             </Link>
             <span className="footer-separator">•</span>
+            <Link 
+              href="/contribute" 
+              className="footer-link"
+              onClick={(e) => handleNavigation(e, '/contribute')}
+            >
+              Contribute
+            </Link>
+            <span className="footer-separator">•</span>
             <a href="mailto:beachleaguevb@gmail.com?subject=Inquiry%20from%20Beach%20League" className="footer-link contact-link">
               <Mail size={14} />
               Contact Us

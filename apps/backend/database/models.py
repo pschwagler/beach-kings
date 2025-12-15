@@ -800,6 +800,29 @@ class LeagueMessage(Base):
     )
 
 
+class LeagueRequest(Base):
+    """Join requests for invite-only leagues."""
+    __tablename__ = "league_requests"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    status = Column(String, default="pending", nullable=False)  # 'pending', 'approved', 'rejected'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    league = relationship("League", backref="join_requests")
+    player = relationship("Player", foreign_keys=[player_id], backref="league_requests")
+    
+    __table_args__ = (
+        UniqueConstraint("league_id", "player_id", name="uq_league_request_league_player"),
+        Index("idx_league_requests_league_id", "league_id"),
+        Index("idx_league_requests_player_id", "player_id"),
+        Index("idx_league_requests_status", "status"),
+    )
+
+
 class Feedback(Base):
     """User feedback submissions."""
     __tablename__ = "feedback"

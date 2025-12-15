@@ -612,16 +612,17 @@ async def request_to_join_league(
         if is_member:
             raise HTTPException(status_code=400, detail="You are already a member of this league")
         
-        # TODO: Create a join request record or notification for league admins
-        # For now, we'll just return success. This can be enhanced later with:
-        # - A LeagueJoinRequest model to track requests
-        # - Notifications to league admins
-        # - Email/SMS notifications
-        
-        return {
-            "success": True,
-            "message": "Join request submitted. League admins will be notified."
-        }
+        # Create a join request record
+        try:
+            request = await data_service.create_league_request(session, league_id, player["id"])
+            return {
+                "success": True,
+                "message": "Join request submitted. League admins will be notified.",
+                "request_id": request["id"]
+            }
+        except ValueError as e:
+            # Handle case where request already exists
+            raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

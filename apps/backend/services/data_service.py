@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
 from sqlalchemy.sql import func as sql_func
 from backend.database import db
 from backend.database.models import (
-    League, LeagueMember, LeagueMessage, LeagueConfig, Season, Location, Court, Player, User,
+    League, LeagueMember, LeagueMessage, LeagueConfig, LeagueRequest, Season, Location, Court, Player, User,
     Session, Match, Setting, PartnershipStats, OpponentStats, 
     EloHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
@@ -1231,6 +1231,46 @@ async def remove_league_member(
     )
     await session.commit()
     return result.rowcount > 0
+
+
+async def create_league_request(
+    session: AsyncSession,
+    league_id: int,
+    player_id: int
+) -> Dict:
+    """Create a join request for an invite-only league."""
+    # Check if a pending request already exists
+    existing_request = await session.execute(
+        select(LeagueRequest)
+        .where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.player_id == player_id,
+                LeagueRequest.status == "pending"
+            )
+        )
+    )
+    if existing_request.scalar_one_or_none():
+        raise ValueError("A pending join request already exists for this league")
+    
+    # Create new request
+    request = LeagueRequest(
+        league_id=league_id,
+        player_id=player_id,
+        status="pending"
+    )
+    session.add(request)
+    await session.commit()
+    await session.refresh(request)
+    
+    return {
+        "id": request.id,
+        "league_id": request.league_id,
+        "player_id": request.player_id,
+        "status": request.status,
+        "created_at": request.created_at.isoformat() if request.created_at else None,
+        "updated_at": request.updated_at.isoformat() if request.updated_at else None,
+    }
 
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:
