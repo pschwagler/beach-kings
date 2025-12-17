@@ -30,10 +30,11 @@ export default function LeagueSignUpsTab() {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Get active season
+  // Get active season (date-based)
+  const { isSeasonActive } = useLeague();
   const activeSeason = useMemo(() => {
-    return seasons.find(s => s.is_active === true || s.is_active === 1);
-  }, [seasons]);
+    return seasons.find(s => isSeasonActive(s));
+  }, [seasons, isSeasonActive]);
   
   // Load signups and schedules
   useEffect(() => {

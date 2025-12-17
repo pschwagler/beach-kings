@@ -242,13 +242,11 @@ async def test_create_season(db_session, test_player):
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     assert season["id"] > 0
     assert season["name"] == "Test Season"
     assert season["league_id"] == league["id"]
-    assert season["is_active"] is True
 
 
 @pytest.mark.asyncio
@@ -271,7 +269,6 @@ async def test_list_seasons(db_session, test_player):
         start_date="2024-01-01",
         end_date="2024-06-30",
         point_system=None,
-        is_active=True
     )
     
     season2 = await data_service.create_season(
@@ -281,7 +278,6 @@ async def test_list_seasons(db_session, test_player):
         start_date="2024-07-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=False
     )
     
     seasons = await data_service.list_seasons(db_session, league["id"])
@@ -312,18 +308,15 @@ async def test_update_season(db_session, test_player):
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     updated = await data_service.update_season(
         session=db_session,
         season_id=created["id"],
         name="New Name",
-        is_active=False
     )
     
     assert updated["name"] == "New Name"
-    assert updated["is_active"] is False
 
 
 # ============================================================================
@@ -340,7 +333,6 @@ async def test_create_session(db_session):
     
     assert session["id"] > 0
     assert session["date"] == "2024-01-15"
-    assert session["is_active"] is True
 
 
 @pytest.mark.asyncio
@@ -477,7 +469,6 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     # First session should just be the date
@@ -576,7 +567,6 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     # First call should create session with just the date
@@ -772,7 +762,6 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     # Create a weekly schedule
@@ -944,7 +933,6 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session,
         start_date="2024-01-01",
         end_date="2024-12-31",
         point_system=None,
-        is_active=True
     )
     
     # Create a weekly schedule (before patching, so it uses the real function)

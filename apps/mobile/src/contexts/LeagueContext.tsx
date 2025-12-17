@@ -29,7 +29,19 @@ export function LeagueProvider({ children, leagueId }: { children: ReactNode; le
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const activeSeason = seasons.find((s: any) => s.is_active === true) || null;
+  // Helper to check if season is active based on dates
+  const isSeasonActive = (season: any) => {
+    if (!season || !season.start_date || !season.end_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(season.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(season.end_date);
+    endDate.setHours(0, 0, 0, 0);
+    return today >= startDate && today <= endDate;
+  };
+  
+  const activeSeason = seasons.find(isSeasonActive) || null;
 
   const isLeagueMember = members.some((m: any) => 
     String(m.player_id) === String(user?.player_id)

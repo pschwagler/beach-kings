@@ -66,6 +66,7 @@
   --success: #10b981;
   --success-dark: #059669;
   --success-light: #e8fbf0;
+  --success-lighter: #f4fdf8; /* 50% whiter than success-light */
   --danger: #ef4444;
   --danger-light: #ffeceb;
 
@@ -1996,6 +1997,27 @@ tbody tr:hover .sticky-col {
   letter-spacing: 1px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--primary-darker);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.match-date-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.match-date-header-stats {
+  margin-left: auto;
+  gap: 12px;
+}
+
+.match-date-header-stats .session-stat {
+  font-size: 0.85em;
+  gap: 6px;
 }
 
 .edit-session-button {
@@ -3000,6 +3022,18 @@ body:hover ::-webkit-scrollbar-thumb {
   top: 0;
   z-index: 10;
   flex-shrink: 0;
+  gap: 0.75rem;
+}
+
+.modal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.modal-header .season-badge {
+  margin-right: 0;
 }
 
 .modal-header-actions {
@@ -3263,6 +3297,10 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
+}
+
+.season-dropdown-container {
+  position: relative;
 }
 
 .active-season-inline-text {
@@ -4751,8 +4789,8 @@ select.form-select {
 .season-selector-wrapper {
   position: relative;
   flex: 1;
-  max-width: 45%;
-  min-width: 0;
+  max-width: fit-content;
+  min-width: fit-content;
   box-sizing: border-box;
 }
 
@@ -5661,12 +5699,16 @@ select.form-select {
 
 .season-badge,
 .member-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.8em;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #e5e7eb;
+  color: var(--gray-900);
+  text-transform: none;
+  letter-spacing: 0;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .season-badge.active {
@@ -7185,14 +7227,13 @@ button.match-config-toggle.inline svg {
   padding: 28px;
   background: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 32px;
+  margin-bottom: 12px;
 }
 
 .session-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -7272,6 +7313,15 @@ button.match-config-toggle.inline svg {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+.session-stats-clickable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.session-stats-clickable:hover {
+  opacity: 0.8;
 }
 
 .session-stat {
@@ -7377,6 +7427,127 @@ button.match-config-toggle.inline svg {
 }
 
 /* Session Matches Section */
+/* Session Season Selector */
+.session-season-selector {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 16px;
+}
+
+.session-season-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.season-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Season selector wrapper for inline usage (e.g., in MatchesTable) */
+.season-selector-wrapper-inline {
+  display: inline-flex;
+  align-self: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Season filter dropdown (select element) */
+.season-filter-dropdown {
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: none;
+}
+
+/* Active season options in dropdown */
+.season-filter-dropdown option[data-active="true"] {
+  background-color: var(--success-lighter);
+}
+
+/* Chevron icon for season filter dropdown */
+.season-filter-chevron {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #666;
+}
+
+.season-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #f3f4f6;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.season-dropdown-trigger.error {
+  border: 1px solid red;
+}
+
+.season-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 3001; /* Above modals (2001) - high enough to appear above modal content */
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.season-dropdown-option {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.season-dropdown-option.selected {
+  background-color: #f3f4f6;
+}
+
+.season-dropdown-option:not(.selected):hover {
+  background-color: #f9fafb;
+}
+
+.season-name {
+  font-weight: 400;
+}
+
+.season-dropdown-option.selected .season-name {
+  font-weight: 600;
+}
+
+.season-dates {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.season-id-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
 .session-matches-section {
   margin-top: 24px;
 }
@@ -8811,8 +8982,8 @@ button.match-config-toggle.inline svg {
 
   .season-selector-wrapper {
     flex: 1;
-    min-width: 0;
-    max-width: none;
+    max-width: fit-content;
+    min-width: fit-content;
   }
 
   .season-selector-wrapper::before {
@@ -9397,6 +9568,7 @@ button.match-config-toggle.inline svg {
     background: white;
     flex-shrink: 0;
     border-top: 1px solid var(--gray-100);
+    border-radius: 10px;
   }
 
   .modal-actions button {
@@ -10156,6 +10328,7 @@ button.match-config-toggle.inline svg {
     flex-shrink: 0;
     border-top: 1px solid var(--gray-100);
     background: white;
+    border-radius: 10px;
   }
 
   .modal-actions button {

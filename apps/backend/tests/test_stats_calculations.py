@@ -18,6 +18,7 @@ from backend.database.models import (
     Player, League, Season, Session, Match, 
     PartnershipStats, OpponentStats, EloHistory,
     PartnershipStatsSeason, OpponentStatsSeason, PlayerSeasonStats,
+    PartnershipStatsLeague, OpponentStatsLeague, PlayerLeagueStats,
     SessionStatus
 )
 from backend.services import data_service, calculation_service
@@ -59,7 +60,6 @@ async def test_league_and_season(db_session: AsyncSession, test_players):
         name="Test Season",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        is_active=True,
         created_by=test_players[0].id
     )
     db_session.add(season)
@@ -256,8 +256,8 @@ async def test_calculate_global_stats_multiple_matches(db_session, test_players,
 
 
 @pytest.mark.asyncio
-async def test_calculate_season_stats(db_session, test_players, test_league_and_season, test_session):
-    """Test season-specific stats calculation."""
+async def test_calculate_league_stats(db_session, test_players, test_league_and_season, test_session):
+    """Test league-specific stats calculation (includes all seasons)."""
     alice, bob, charlie, dave = test_players
     league, season = test_league_and_season
     
@@ -265,7 +265,75 @@ async def test_calculate_season_stats(db_session, test_players, test_league_and_
     await create_match(db_session, test_session, alice, bob, charlie, dave, 21, 19, is_ranked=True)
     await create_match(db_session, test_session, alice, charlie, bob, dave, 21, 17, is_ranked=True)
     
-    # Calculate season stats
+    # Calculate league stats (this should also calculate season stats)
+    result = await data_service.calculate_league_stats_async(db_session, league.id)
+    
+    assert result["league_match_count"] == 2
+    assert season.id in result["season_counts"]
+    assert result["season_counts"][season.id]["match_count"] == 2
+    
+    # Check league-specific partnership stats
+    partnership_result = await db_session.execute(
+        select(PartnershipStatsLeague)
+        .where(PartnershipStatsLeague.league_id == league.id)
+    )
+    league_partnerships = partnership_result.scalars().all()
+    
+    assert len(league_partnerships) > 0
+    
+    alice_bob_league = next(
+        (p for p in league_partnerships if p.player_id == alice.id and p.partner_id == bob.id),
+        None
+    )
+    assert alice_bob_league is not None
+    assert alice_bob_league.games == 1
+    assert alice_bob_league.wins == 1
+    assert alice_bob_league.league_id == league.id
+    
+    # Check league-specific opponent stats
+    opponent_result = await db_session.execute(
+        select(OpponentStatsLeague)
+        .where(OpponentStatsLeague.league_id == league.id)
+    )
+    league_opponents = opponent_result.scalars().all()
+    
+    assert len(league_opponents) > 0
+    
+    # Check player league stats
+    player_stats_result = await db_session.execute(
+        select(PlayerLeagueStats)
+        .where(PlayerLeagueStats.league_id == league.id)
+    )
+    player_stats = player_stats_result.scalars().all()
+    
+    assert len(player_stats) == 4  # All 4 players
+    
+    alice_league_stats = next((s for s in player_stats if s.player_id == alice.id), None)
+    assert alice_league_stats is not None
+    assert alice_league_stats.games == 2
+    assert alice_league_stats.wins == 2
+    assert alice_league_stats.win_rate == 1.0
+    assert alice_league_stats.points == 6  # 2 wins * 3 points
+    
+    # Also check that season stats were calculated
+    season_partnership_result = await db_session.execute(
+        select(PartnershipStatsSeason)
+        .where(PartnershipStatsSeason.season_id == season.id)
+    )
+    season_partnerships = season_partnership_result.scalars().all()
+    assert len(season_partnerships) > 0
+
+
+async def test_calculate_season_stats(db_session, test_players, test_league_and_season, test_session):
+    """Test season-specific stats calculation (backward compatibility)."""
+    alice, bob, charlie, dave = test_players
+    league, season = test_league_and_season
+    
+    # Create matches in the season
+    await create_match(db_session, test_session, alice, bob, charlie, dave, 21, 19, is_ranked=True)
+    await create_match(db_session, test_session, alice, charlie, bob, dave, 21, 17, is_ranked=True)
+    
+    # Calculate season stats (backward compatibility function)
     result = await data_service.calculate_season_stats_async(db_session, season.id)
     
     assert result["match_count"] == 2
@@ -312,7 +380,6 @@ async def test_calculate_season_stats(db_session, test_players, test_league_and_
     assert alice_season_stats.wins == 2
     assert alice_season_stats.win_rate == 1.0
     assert alice_season_stats.points == 6  # 2 wins * 3 points
-    # Note: current_elo is no longer stored in player_season_stats (removed - ELO is now global)
 
 
 @pytest.mark.asyncio
@@ -334,8 +401,8 @@ async def test_global_vs_season_stats_separation(db_session, test_players, test_
     global_partnerships_list = global_partnerships_result.scalars().all()
     assert len(global_partnerships_list) > 0
     
-    # Calculate season stats
-    await data_service.calculate_season_stats_async(db_session, season.id)
+    # Calculate league stats (which also calculates season stats)
+    await data_service.calculate_league_stats_async(db_session, league.id)
     
     # Check both global and season stats exist (need fresh queries)
     global_partnerships_after_result = await db_session.execute(
@@ -528,7 +595,6 @@ async def test_multiple_seasons_separate_stats(db_session, test_players, test_le
         name="Season 2",
         start_date=date(2025, 1, 1),
         end_date=date(2025, 12, 31),
-        is_active=True,
         created_by=test_players[0].id
     )
     db_session.add(season2)
@@ -550,9 +616,8 @@ async def test_multiple_seasons_separate_stats(db_session, test_players, test_le
     # Create match in season 2
     await create_match(db_session, session2, alice, charlie, bob, dave, 21, 17, is_ranked=True)
     
-    # Calculate stats for both seasons
-    await data_service.calculate_season_stats_async(db_session, season1.id)
-    await data_service.calculate_season_stats_async(db_session, season2.id)
+    # Calculate stats for the league (which calculates stats for both seasons)
+    await data_service.calculate_league_stats_async(db_session, league.id)
     
     # Check season 1 stats
     season1_stats = await db_session.execute(
@@ -766,7 +831,6 @@ async def test_season_calculation_only_includes_season_matches(db_session, test_
         name="Season 2",
         start_date=date(2025, 1, 1),
         end_date=date(2025, 12, 31),
-        is_active=True,
         created_by=test_players[0].id
     )
     db_session.add(season2)
@@ -793,8 +857,11 @@ async def test_season_calculation_only_includes_season_matches(db_session, test_
         db_session, session2, alice, charlie, bob, dave, 21, 17, is_ranked=True
     )
     
-    # Calculate stats for season 1 only
-    result = await data_service.calculate_season_stats_async(db_session, season1.id)
+    # Calculate stats for the league (which calculates stats for all seasons including season1)
+    result = await data_service.calculate_league_stats_async(db_session, league.id)
+    # Extract season1 result from league result
+    season1_result = result["season_counts"].get(season1.id, {})
+    assert season1_result["match_count"] == 2
     
     assert result["match_count"] == 1
     

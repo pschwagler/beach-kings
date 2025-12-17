@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -41,9 +41,31 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
   // Determine if this is add mode (no schedule.id) or edit mode
   const isEditMode = schedule && schedule.id;
   
+  // Calculate maximum allowed date: 6 months from today or season end date, whichever is sooner
+  const maxEndDate = useMemo(() => {
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+    const sixMonthsStr = sixMonthsFromNow.toISOString().split('T')[0];
+    
+    if (!seasonEndDate) {
+      return sixMonthsStr;
+    }
+    
+    return sixMonthsStr < seasonEndDate ? sixMonthsStr : seasonEndDate;
+  }, [seasonEndDate]);
+
   // Convert UTC times from schedule to local times for display
   const localStartTime = schedule?.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
   const localOpenSignupsTime = schedule?.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
+  
+  // Initialize end_date, ensuring it doesn't exceed the maximum
+  const initialEndDate = useMemo(() => {
+    const existingDate = schedule?.end_date || seasonEndDate || '';
+    if (existingDate && existingDate > maxEndDate) {
+      return maxEndDate;
+    }
+    return existingDate;
+  }, [schedule?.end_date, seasonEndDate, maxEndDate]);
   
   const [formData, setFormData] = useState({
     day_of_week: schedule?.day_of_week?.toString() || '0',
@@ -53,7 +75,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     open_signups_mode: schedule?.open_signups_mode || 'auto_after_last_session',
     open_signups_day_of_week: schedule?.open_signups_day_of_week?.toString() || '',
     open_signups_time: localOpenSignupsTime,
-    end_date: schedule?.end_date || seasonEndDate || ''
+    end_date: initialEndDate
   });
   
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -230,12 +252,22 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
               id="end-date"
               type="date"
               value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              onChange={(e) => {
+                const selectedDate = e.target.value;
+                // Automatically adjust if date exceeds maximum
+                const adjustedDate = selectedDate > maxEndDate ? maxEndDate : selectedDate;
+                setFormData({ ...formData, end_date: adjustedDate });
+              }}
               className="form-input"
-              max={seasonEndDate}
+              max={maxEndDate}
               required
             />
-            <small>Cannot exceed season end date ({seasonEndDate}) or 6 months from today</small>
+            <small>
+              Maximum: {maxEndDate} 
+              {seasonEndDate && maxEndDate !== seasonEndDate && ` (6 months from today or season end date ${seasonEndDate}, whichever is sooner)`}
+              {seasonEndDate && maxEndDate === seasonEndDate && ` (season end date)`}
+              {!seasonEndDate && ` (6 months from today)`}
+            </small>
           </div>
         </div>
         <div className="modal-actions">

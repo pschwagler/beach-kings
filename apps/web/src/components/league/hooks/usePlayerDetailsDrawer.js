@@ -25,6 +25,7 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  * @param {Object|null} config.activeSeason - Active season object (for auto-selection)
  * @param {Array|null} config.rankings - Rankings array (for rankings-based auto-selection)
  * @param {Array|null} config.members - League members array (for matches tab auto-selection)
+ * @param {number|null} config.selectedSeasonId - Currently selected season ID (null = "All Seasons")
  * 
  * @returns {Object} Object with handlePlayerClick and handlePlayerChange functions
  */
@@ -46,6 +47,7 @@ export function usePlayerDetailsDrawer({
   activeSeason = null,
   rankings = null,
   members = null,
+  selectedSeasonId = null,
 }) {
   const { openDrawer, isOpen, drawerType } = useDrawer();
 
@@ -178,6 +180,9 @@ export function usePlayerDetailsDrawer({
 
     const stats = computePlayerStats(playerId);
     const matchHistory = computePlayerMatchHistory(playerId);
+    
+    // If "All Seasons" is selected, don't show season name
+    const displaySeasonName = selectedSeasonId === null ? null : seasonName;
 
     openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
       playerName,
@@ -186,9 +191,9 @@ export function usePlayerDetailsDrawer({
       allPlayerNames,
       onPlayerChange: handlePlayerChange,
       leagueName,
-      seasonName,
+      seasonName: displaySeasonName,
     });
-  }, [computePlayerStats, computePlayerMatchHistory, allPlayerNames, leagueName, seasonName, openDrawer, handlePlayerChange]);
+  }, [computePlayerStats, computePlayerMatchHistory, allPlayerNames, leagueName, seasonName, openDrawer, handlePlayerChange, selectedSeasonId]);
 
   // Handle player click - can take either (playerId, playerName) or just (playerName)
   const handlePlayerClick = useCallback((playerIdOrName, playerName = null) => {

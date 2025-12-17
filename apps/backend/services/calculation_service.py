@@ -98,23 +98,23 @@ def normalize_score(team1_score: int, team2_score: int, winner: int) -> float:
 class PlayerStats:
     """Encapsulates all statistics for a single player."""
     
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, player_id: int):
+        self.player_id = player_id
         self.elo = INITIAL_ELO
         self.game_count = 0
         self.win_count = 0
-        self.wins_with: Dict[str, int] = {}      # wins partnered with each player
-        self.games_with: Dict[str, int] = {}      # games partnered with each player
-        self.wins_against: Dict[str, int] = {}   # wins against each player
-        self.games_against: Dict[str, int] = {}  # games against each player
+        self.wins_with: Dict[int, int] = {}      # wins partnered with each player (by ID)
+        self.games_with: Dict[int, int] = {}      # games partnered with each player (by ID)
+        self.wins_against: Dict[int, int] = {}   # wins against each player (by ID)
+        self.games_against: Dict[int, int] = {}  # games against each player (by ID)
         self.elo_history: List[float] = []
         self.date_history: List[Optional[str]] = []   # dates corresponding to elo_history
         self.match_elo_history: List[Tuple[int, float, float, Optional[str]]] = []  # (match_id, elo_after, elo_change, date)
         
         # Point differential tracking
         self.total_point_diff = 0
-        self.point_diff_with: Dict[str, int] = {}    # point differential with each partner
-        self.point_diff_against: Dict[str, int] = {} # point differential against each opponent
+        self.point_diff_with: Dict[int, int] = {}    # point differential with each partner (by ID)
+        self.point_diff_against: Dict[int, int] = {} # point differential against each opponent (by ID)
     
     @property
     def win_rate(self) -> float:
@@ -136,33 +136,33 @@ class PlayerStats:
         losses = self.game_count - self.win_count
         return (self.win_count * 3) + (losses * 1)
     
-    def _increment_dict(self, d: Dict[str, int], key: str, amount: int = 1) -> None:
+    def _increment_dict(self, d: Dict[int, int], key: int, amount: int = 1) -> None:
         """Helper to increment a value in a dictionary, initializing if needed."""
         d[key] = d.get(key, 0) + amount
     
-    def record_game_with(self, partner: str) -> None:
+    def record_game_with(self, partner_id: int) -> None:
         """Record a game played with a partner."""
-        self._increment_dict(self.games_with, partner)
+        self._increment_dict(self.games_with, partner_id)
     
-    def record_win_with(self, partner: str) -> None:
+    def record_win_with(self, partner_id: int) -> None:
         """Record a win with a partner."""
-        self._increment_dict(self.wins_with, partner)
+        self._increment_dict(self.wins_with, partner_id)
     
-    def record_game_against(self, opponent: str) -> None:
+    def record_game_against(self, opponent_id: int) -> None:
         """Record a game played against an opponent."""
-        self._increment_dict(self.games_against, opponent)
+        self._increment_dict(self.games_against, opponent_id)
     
-    def record_win_against(self, opponent: str) -> None:
+    def record_win_against(self, opponent_id: int) -> None:
         """Record a win against an opponent."""
-        self._increment_dict(self.wins_against, opponent)
+        self._increment_dict(self.wins_against, opponent_id)
     
-    def record_point_diff_with(self, partner: str, diff: int) -> None:
+    def record_point_diff_with(self, partner_id: int, diff: int) -> None:
         """Record point differential with a partner."""
-        self._increment_dict(self.point_diff_with, partner, diff)
+        self._increment_dict(self.point_diff_with, partner_id, diff)
     
-    def record_point_diff_against(self, opponent: str, diff: int) -> None:
+    def record_point_diff_against(self, opponent_id: int, diff: int) -> None:
         """Record point differential against an opponent."""
-        self._increment_dict(self.point_diff_against, opponent, diff)
+        self._increment_dict(self.point_diff_against, opponent_id, diff)
     
     def update_elo(self, delta: float, date: Optional[str] = None, match_id: Optional[int] = None) -> None:
         """Update ELO rating and record history."""
@@ -181,13 +181,13 @@ class StatsTracker:
     """Tracks statistics for all players across multiple matches."""
     
     def __init__(self):
-        self.players: Dict[str, PlayerStats] = {}
+        self.players: Dict[int, PlayerStats] = {}
     
-    def get_player(self, name: str) -> PlayerStats:
+    def get_player(self, player_id: int) -> PlayerStats:
         """Get or create a player's stats."""
-        if name not in self.players:
-            self.players[name] = PlayerStats(name)
-        return self.players[name]
+        if player_id not in self.players:
+            self.players[player_id] = PlayerStats(player_id)
+        return self.players[player_id]
     
     def process_match(self, match: Match) -> Tuple[float, float]:
         """
@@ -200,9 +200,9 @@ class StatsTracker:
             Tuple of (team1_elo_delta, team2_elo_delta)
         """
         # Ensure all players exist
-        all_players = match.players[0] + match.players[1]
-        for player_name in all_players:
-            self.get_player(player_name)
+        all_player_ids = match.player_ids[0] + match.player_ids[1]
+        for player_id in all_player_ids:
+            self.get_player(player_id)
         
         # Record games and partnerships
         self._record_games_and_partnerships(match)
@@ -222,43 +222,43 @@ class StatsTracker:
     
     def _record_games_and_partnerships(self, match: Match) -> None:
         """Record games played and partnerships."""
-        teams = match.players
+        teams = match.player_ids
         for team_idx, team in enumerate(teams):
             opponent_team = teams[(team_idx + 1) % 2]
             
-            for player_name in team:
-                player = self.get_player(player_name)
+            for player_id in team:
+                player = self.get_player(player_id)
                 player.game_count += 1
                 
                 # Record partnership
-                partner = team[1] if player_name == team[0] else team[0]
-                player.record_game_with(partner)
+                partner_id = team[1] if player_id == team[0] else team[0]
+                player.record_game_with(partner_id)
                 
                 # Record games against opponents
-                for opponent in opponent_team:
-                    player.record_game_against(opponent)
+                for opponent_id in opponent_team:
+                    player.record_game_against(opponent_id)
     
     def _record_wins(self, match: Match, winner: int) -> None:
         """Record wins for the winning team."""
         winning_team_idx = 0 if winner == 1 else 1
         losing_team_idx = 1 if winner == 1 else 0
         
-        teams = match.players
+        teams = match.player_ids
         winning_team = teams[winning_team_idx]
         losing_team = teams[losing_team_idx]
         
         # Record wins for each player on winning team
-        for player_name in winning_team:
-            player = self.get_player(player_name)
+        for player_id in winning_team:
+            player = self.get_player(player_id)
             player.win_count += 1
             
             # Record win with partner
-            partner = winning_team[1] if player_name == winning_team[0] else winning_team[0]
-            player.record_win_with(partner)
+            partner_id = winning_team[1] if player_id == winning_team[0] else winning_team[0]
+            player.record_win_with(partner_id)
             
             # Record wins against opponents
-            for opponent in losing_team:
-                player.record_win_against(opponent)
+            for opponent_id in losing_team:
+                player.record_win_against(opponent_id)
     
     def _record_point_differentials(self, match: Match) -> None:
         """Record point differentials for all players."""
@@ -266,39 +266,39 @@ class StatsTracker:
         point_diff_team1 = match.team1_score - match.team2_score
         point_diff_team2 = match.team2_score - match.team1_score
         
-        teams = match.players
+        teams = match.player_ids
         team1 = teams[0]
         team2 = teams[1]
         
         # Record for team 1
-        for player_name in team1:
-            player = self.get_player(player_name)
+        for player_id in team1:
+            player = self.get_player(player_id)
             player.total_point_diff += point_diff_team1
             
             # Record with partner
-            partner = team1[1] if player_name == team1[0] else team1[0]
-            player.record_point_diff_with(partner, point_diff_team1)
+            partner_id = team1[1] if player_id == team1[0] else team1[0]
+            player.record_point_diff_with(partner_id, point_diff_team1)
             
             # Record against opponents
-            for opponent in team2:
-                player.record_point_diff_against(opponent, point_diff_team1)
+            for opponent_id in team2:
+                player.record_point_diff_against(opponent_id, point_diff_team1)
         
         # Record for team 2
-        for player_name in team2:
-            player = self.get_player(player_name)
+        for player_id in team2:
+            player = self.get_player(player_id)
             player.total_point_diff += point_diff_team2
             
             # Record with partner
-            partner = team2[1] if player_name == team2[0] else team2[0]
-            player.record_point_diff_with(partner, point_diff_team2)
+            partner_id = team2[1] if player_id == team2[0] else team2[0]
+            player.record_point_diff_with(partner_id, point_diff_team2)
             
             # Record against opponents
-            for opponent in team1:
-                player.record_point_diff_against(opponent, point_diff_team2)
+            for opponent_id in team1:
+                player.record_point_diff_against(opponent_id, point_diff_team2)
     
     def _update_elos(self, match: Match, winner: int) -> Tuple[float, float]:
         """Calculate and apply ELO changes for all players in the match."""
-        teams = match.players
+        teams = match.player_ids
         
         # Calculate team average ELOs
         team_elos = []
@@ -317,7 +317,7 @@ class StatsTracker:
         ]
         
         # Calculate K-factor based on average games played
-        avg_games = sum(self.get_player(p).game_count for team in teams for p in team) / 4
+        avg_games = sum(self.get_player(p_id).game_count for team in teams for p_id in team) / 4
         k = k_factor(avg_games, K)
         
         # Calculate normalized score
@@ -331,8 +331,8 @@ class StatsTracker:
         
         # Apply ELO changes
         for team_idx, team in enumerate(teams):
-            for player_name in team:
-                player = self.get_player(player_name)
+            for player_id in team:
+                player = self.get_player(player_id)
                 player.update_elo(deltas[team_idx], match.date, match.id)
         
         return (deltas[0], deltas[1])
@@ -344,14 +344,14 @@ class StatsTracker:
 
 def process_matches(
     match_list: List[Match], 
-    player_id_map: Dict[str, int]
+    player_id_map: Optional[Dict[str, int]] = None
 ) -> Tuple[Dict[Match, Tuple[float, float]], List[PartnershipStats], List[OpponentStats], List[EloHistory]]:
     """
     Process a list of matches and return computed statistics as ORM instances.
     
     Args:
         match_list: List of Match ORM objects (from database.models)
-        player_id_map: Dictionary mapping player names to player IDs
+        player_id_map: Optional dictionary mapping player names to player IDs (deprecated, kept for compatibility)
         
     Returns:
         Tuple of:
@@ -370,21 +370,13 @@ def process_matches(
     
     # Build PartnershipStats instances
     partnerships = []
-    for player_name, player_stats in tracker.players.items():
-        player_id = player_id_map.get(player_name)
-        if not player_id:
-            continue
-            
-        for partner_name, games in player_stats.games_with.items():
-            partner_id = player_id_map.get(partner_name)
-            if not partner_id:
-                continue
-                
-            wins = player_stats.wins_with.get(partner_name, 0)
+    for player_id, player_stats in tracker.players.items():
+        for partner_id, games in player_stats.games_with.items():
+            wins = player_stats.wins_with.get(partner_id, 0)
             losses = games - wins
             win_rate = wins / games if games > 0 else 0
             points = (wins * 3) + (losses * 1)
-            total_pt_diff = player_stats.point_diff_with.get(partner_name, 0)
+            total_pt_diff = player_stats.point_diff_with.get(partner_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
             
             partnership = PartnershipStats(
@@ -400,21 +392,13 @@ def process_matches(
     
     # Build OpponentStats instances
     opponents = []
-    for player_name, player_stats in tracker.players.items():
-        player_id = player_id_map.get(player_name)
-        if not player_id:
-            continue
-            
-        for opponent_name, games in player_stats.games_against.items():
-            opponent_id = player_id_map.get(opponent_name)
-            if not opponent_id:
-                continue
-                
-            wins = player_stats.wins_against.get(opponent_name, 0)
+    for player_id, player_stats in tracker.players.items():
+        for opponent_id, games in player_stats.games_against.items():
+            wins = player_stats.wins_against.get(opponent_id, 0)
             losses = games - wins
             win_rate = wins / games if games > 0 else 0
             points = (wins * 3) + (losses * 1)
-            total_pt_diff = player_stats.point_diff_against.get(opponent_name, 0)
+            total_pt_diff = player_stats.point_diff_against.get(opponent_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
             
             opponent = OpponentStats(
@@ -430,11 +414,7 @@ def process_matches(
     
     # Build EloHistory instances
     elo_history_list = []
-    for player_name, player_stats in tracker.players.items():
-        player_id = player_id_map.get(player_name)
-        if not player_id:
-            continue
-            
+    for player_id, player_stats in tracker.players.items():
         for match_id, elo_after, elo_change, date in player_stats.match_elo_history:
             elo_history = EloHistory(
                 player_id=player_id,

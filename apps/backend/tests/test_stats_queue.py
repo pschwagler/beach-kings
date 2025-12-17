@@ -23,12 +23,12 @@ def queue():
     async def mock_global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def mock_season_calc(session, season_id):
+    async def mock_league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     q.register_calculation_callbacks(
         global_calc_callback=mock_global_calc,
-        season_calc_callback=mock_season_calc
+        league_calc_callback=mock_season_calc
     )
     return q
 
@@ -52,7 +52,7 @@ async def test_enqueue_global_calculation(db_session, queue):
 
 @pytest.mark.asyncio
 async def test_enqueue_season_calculation(db_session, queue):
-    """Test enqueueing a season-specific stats calculation."""
+    """Test enqueueing a league-specific stats calculation."""
     # Create league and season first
     from backend.database.models import League, Season
     from datetime import date
@@ -66,13 +66,12 @@ async def test_enqueue_season_calculation(db_session, queue):
         name="Test Season",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        is_active=True
     )
     db_session.add(season)
     await db_session.flush()
     
-    season_id = season.id
-    job_id = await queue.enqueue_calculation(db_session, "season", season_id)
+    league_id = league.id
+    job_id = await queue.enqueue_calculation(db_session, "league", league_id)
     
     assert job_id > 0
     
@@ -82,8 +81,8 @@ async def test_enqueue_season_calculation(db_session, queue):
     )
     job = result.fetchone()
     assert job is not None
-    assert job.calc_type == "season"
-    assert job.season_id == season_id
+    assert job.calc_type == "league"
+    assert job.league_id == league_id
 
 
 @pytest.mark.asyncio
@@ -121,7 +120,6 @@ async def test_deduplication_different_seasons(db_session, queue):
         name="Season 1",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 6, 30),
-        is_active=True
     )
     db_session.add(season1)
     await db_session.flush()
@@ -131,7 +129,6 @@ async def test_deduplication_different_seasons(db_session, queue):
         name="Season 2",
         start_date=date(2024, 7, 1),
         end_date=date(2024, 12, 31),
-        is_active=True
     )
     db_session.add(season2)
     await db_session.flush()
@@ -166,7 +163,6 @@ async def test_deduplication_global_vs_season(db_session, queue):
         name="Test Season",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        is_active=True
     )
     db_session.add(season)
     await db_session.flush()
@@ -205,7 +201,6 @@ async def test_get_queue_status_with_jobs(db_session, queue):
         name="Test Season",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        is_active=True
     )
     db_session.add(season)
     await db_session.flush()
@@ -220,8 +215,8 @@ async def test_get_queue_status_with_jobs(db_session, queue):
     db_session.add(job1)
     
     job2 = StatsCalculationJob(
-        calc_type="season",
-        season_id=season.id,
+        calc_type="league",
+        league_id=league.id,
         status=StatsCalculationJobStatus.PENDING
     )
     db_session.add(job2)
@@ -316,7 +311,7 @@ async def test_register_callbacks_with_valid_functions():
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     # Should not raise
@@ -331,7 +326,7 @@ async def test_register_callbacks_with_non_callable_global():
     """Test that registering non-callable global callback raises TypeError."""
     queue = StatsCalculationQueue()
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     with pytest.raises(TypeError, match="global_calc_callback must be callable"):
@@ -352,7 +347,7 @@ async def test_register_callbacks_with_non_callable_season():
     with pytest.raises(TypeError, match="season_calc_callback must be callable"):
         queue.register_calculation_callbacks(
             global_calc_callback=global_calc,
-            season_calc_callback="not a function"
+            league_calc_callback="not a function"
         )
 
 
@@ -364,7 +359,7 @@ async def test_register_callbacks_re_registration():
     async def global_calc1(session):
         return {"player_count": 1, "match_count": 1}
     
-    async def season_calc1(session, season_id):
+    async def league_calc1(session, league_id):
         return {"player_count": 1, "match_count": 1}
     
     async def global_calc2(session):
@@ -376,13 +371,13 @@ async def test_register_callbacks_re_registration():
     # First registration
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc1,
-        season_calc_callback=season_calc1
+        league_calc_callback=league_calc1
     )
     
     # Re-registration should work (with warning logged)
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc2,
-        season_calc_callback=season_calc2
+        league_calc_callback=league_calc2
     )
 
 
@@ -426,7 +421,7 @@ async def test_run_calculation_global_callback_executed(db_session):
         callback_session = session
         return {"player_count": 5, "match_count": 10}
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     queue.register_calculation_callbacks(
@@ -467,26 +462,26 @@ async def test_run_calculation_global_callback_executed(db_session):
 
 @pytest.mark.asyncio
 async def test_run_calculation_season_callback_executed(db_session):
-    """Test that season calculation callback is executed correctly."""
+    """Test that league calculation callback is executed correctly."""
     queue = StatsCalculationQueue()
     
     callback_called = False
     callback_session = None
-    callback_season_id = None
+    callback_league_id = None
     
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def season_calc(session, season_id):
-        nonlocal callback_called, callback_session, callback_season_id
+    async def league_calc(session, league_id):
+        nonlocal callback_called, callback_session, callback_league_id
         callback_called = True
         callback_session = session
-        callback_season_id = season_id
-        return {"player_count": 3, "match_count": 7}
+        callback_league_id = league_id
+        return {"league_player_count": 3, "league_match_count": 7, "season_counts": {}}
     
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
     
     # Create league and season first
@@ -502,16 +497,15 @@ async def test_run_calculation_season_callback_executed(db_session):
         name="Test Season",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        is_active=True
     )
     db_session.add(season)
     await db_session.flush()
     
-    # Create and run a season calculation job
-    season_id = season.id
+    # Create and run a league calculation job
+    league_id = league.id
     job = StatsCalculationJob(
-        calc_type="season",
-        season_id=season_id,
+        calc_type="league",
+        league_id=league_id,
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow()
     )
@@ -525,7 +519,7 @@ async def test_run_calculation_season_callback_executed(db_session):
     # Verify callback was called with correct parameters
     assert callback_called is True
     assert callback_session is not None
-    assert callback_season_id == season_id
+    assert callback_league_id == league_id
     
     # Verify job was marked as completed
     # Rollback the test session to start a fresh transaction that will see the committed changes
@@ -548,7 +542,7 @@ async def test_run_calculation_season_without_season_id_raises_error(db_session)
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     queue.register_calculation_callbacks(
@@ -556,10 +550,10 @@ async def test_run_calculation_season_without_season_id_raises_error(db_session)
         season_calc_callback=season_calc
     )
     
-    # Create a season job without season_id
+    # Create a league job without league_id
     job = StatsCalculationJob(
-        calc_type="season",
-        season_id=None,  # Missing season_id
+        calc_type="league",
+        league_id=None,  # Missing league_id
         status=StatsCalculationJobStatus.RUNNING,
         started_at=utcnow()
     )
@@ -569,7 +563,7 @@ async def test_run_calculation_season_without_season_id_raises_error(db_session)
     
     job_id = job.id  # Store ID before rollback
     # Should raise ValueError
-    with pytest.raises(ValueError, match="season_id required for season calculation"):
+    with pytest.raises(ValueError, match="league_id required for league calculation"):
         await queue._run_calculation(job_id)
     
     # Rollback the test session to start a fresh transaction that will see the committed changes
@@ -594,7 +588,7 @@ async def test_run_calculation_callback_exception_marks_job_failed(db_session):
     async def global_calc(session):
         raise ValueError("Test error from callback")
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     queue.register_calculation_callbacks(
@@ -640,7 +634,7 @@ async def test_run_calculation_unknown_calc_type_raises_error(db_session):
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     queue.register_calculation_callbacks(
@@ -686,7 +680,7 @@ async def test_run_calculation_nonexistent_job_returns_early(db_session):
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
     
-    async def season_calc(session, season_id):
+    async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
     
     queue.register_calculation_callbacks(
@@ -708,13 +702,13 @@ async def test_integration_with_real_calculation_functions(db_session):
     """Test integration with actual data_service calculation functions."""
     from backend.services.data_service import (
         calculate_global_stats_async,
-        calculate_season_stats_async
+        calculate_league_stats_async
     )
     
     queue = StatsCalculationQueue()
     queue.register_calculation_callbacks(
         global_calc_callback=calculate_global_stats_async,
-        season_calc_callback=calculate_season_stats_async
+        league_calc_callback=calculate_league_stats_async
     )
     
     # Create a global calculation job
@@ -751,13 +745,13 @@ async def test_integration_enqueue_and_execute_global_calculation(db_session):
     """Test full integration: enqueue a job and verify it can be executed."""
     from backend.services.data_service import (
         calculate_global_stats_async,
-        calculate_season_stats_async
+        calculate_league_stats_async
     )
     
     queue = StatsCalculationQueue()
     queue.register_calculation_callbacks(
         global_calc_callback=calculate_global_stats_async,
-        season_calc_callback=calculate_season_stats_async
+        league_calc_callback=calculate_league_stats_async
     )
     
     # Enqueue a calculation

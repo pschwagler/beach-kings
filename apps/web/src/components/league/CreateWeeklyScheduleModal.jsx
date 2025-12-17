@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -12,6 +12,28 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onClose, onSubmit }) {
+  // Calculate maximum allowed date: 6 months from today or season end date, whichever is sooner
+  const maxEndDate = useMemo(() => {
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+    const sixMonthsStr = sixMonthsFromNow.toISOString().split('T')[0];
+    
+    if (!seasonEndDate) {
+      return sixMonthsStr;
+    }
+    
+    return sixMonthsStr < seasonEndDate ? sixMonthsStr : seasonEndDate;
+  }, [seasonEndDate]);
+
+  // Initialize end_date, ensuring it doesn't exceed the maximum
+  const initialEndDate = useMemo(() => {
+    const defaultDate = seasonEndDate || '';
+    if (defaultDate && defaultDate > maxEndDate) {
+      return maxEndDate;
+    }
+    return defaultDate;
+  }, [seasonEndDate, maxEndDate]);
+
   const [formData, setFormData] = useState({
     day_of_week: '0',
     start_time: '18:00',
@@ -20,7 +42,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
     open_signups_mode: 'auto_after_last_session',
     open_signups_day_of_week: '',
     open_signups_time: '',
-    end_date: seasonEndDate || ''
+    end_date: initialEndDate
   });
   
   const handleSubmit = async () => {
@@ -181,12 +203,22 @@ export default function CreateWeeklyScheduleModal({ seasonId, seasonEndDate, onC
               id="end-date"
               type="date"
               value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              onChange={(e) => {
+                const selectedDate = e.target.value;
+                // Automatically adjust if date exceeds maximum
+                const adjustedDate = selectedDate > maxEndDate ? maxEndDate : selectedDate;
+                setFormData({ ...formData, end_date: adjustedDate });
+              }}
               className="form-input"
-              max={seasonEndDate}
+              max={maxEndDate}
               required
             />
-            <small>Cannot exceed season end date ({seasonEndDate}) or 6 months from today</small>
+            <small>
+              Maximum: {maxEndDate} 
+              {seasonEndDate && maxEndDate !== seasonEndDate && ` (6 months from today or season end date ${seasonEndDate}, whichever is sooner)`}
+              {seasonEndDate && maxEndDate === seasonEndDate && ` (season end date)`}
+              {!seasonEndDate && ` (6 months from today)`}
+            </small>
           </div>
         </div>
         <div className="modal-actions">

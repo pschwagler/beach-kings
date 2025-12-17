@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getLeague, getLeagueSeasons, getLeagueMembers, getRankings, getSeasonMatches, getAllPlayerSeasonStats, getAllSeasonPartnershipOpponentStats } from '../services/api';
+import { getLeague, getLeagueSeasons, getLeagueMembers, getRankings, getSeasonMatches, getMatchesWithElo, getAllPlayerSeasonStats, getAllSeasonPartnershipOpponentStats, getAllPlayerStats, getAllPartnershipOpponentStats } from '../services/api';
 import { useAuth } from './AuthContext';
 import { transformPlayerData } from '../components/league/utils/playerDataUtils';
 
@@ -21,6 +21,10 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const [seasonDataLoading, setSeasonDataLoading] = useState({}); // Maps season_id to loading state
   const [seasonDataError, setSeasonDataError] = useState({}); // Maps season_id to error
   
+  // Selected season state (shared across tabs)
+  // null = "All Seasons", number = specific season ID
+  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+  
   // Selected player state (persists across tabs)
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [selectedPlayerName, setSelectedPlayerName] = useState(null);
@@ -28,10 +32,85 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
   const [isPlayerPanelOpen, setIsPlayerPanelOpen] = useState(false);
   
-  // Find active season
+  // Helper function to check if a season is active based on dates
+  const isSeasonActive = useCallback((season) => {
+    if (!season || !season.start_date || !season.end_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    const startDate = new Date(season.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(season.end_date);
+    endDate.setHours(0, 0, 0, 0);
+    
+    return today >= startDate && today <= endDate;
+  }, []);
+
+  // Helper function to check if a season is past
+  const isSeasonPast = useCallback((season) => {
+    if (!season || !season.end_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(season.end_date);
+    endDate.setHours(0, 0, 0, 0);
+    
+    return today > endDate;
+  }, []);
+
+  // Find active seasons (date-based)
+  const activeSeasons = useMemo(() => {
+    if (!seasons) return [];
+    return seasons.filter(isSeasonActive);
+  }, [seasons, isSeasonActive]);
+
+  // Find the most recent active season (for backward compatibility)
   const activeSeason = useMemo(() => {
-    return seasons?.find(s => s.is_active === true) || null;
+    if (activeSeasons.length === 0) return null;
+    // Sort by created_at descending and take the first one
+    return [...activeSeasons].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA;
+    })[0];
+  }, [activeSeasons]);
+
+  // Find season with latest end_date for default selection
+  const seasonWithLatestEndDate = useMemo(() => {
+    if (!seasons || seasons.length === 0) return null;
+    
+    // Filter seasons that have end_date
+    const seasonsWithEndDate = seasons.filter(s => s.end_date);
+    
+    if (seasonsWithEndDate.length > 0) {
+      // Sort by end_date descending and take the first one
+      return [...seasonsWithEndDate].sort((a, b) => {
+        const dateA = new Date(a.end_date);
+        const dateB = new Date(b.end_date);
+        return dateB - dateA;
+      })[0];
+    }
+    
+    // Fall back to most recently created season if no end_date
+    return [...seasons].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA;
+    })[0];
   }, [seasons]);
+
+  // Use ref to track if we've initialized the season selection
+  const hasInitializedSeasonRef = useRef(false);
+
+  // Initialize selectedSeasonId to season with latest end_date when seasons first load
+  // Only initialize once - don't reset if user has explicitly selected "All Seasons"
+  useEffect(() => {
+    if (!hasInitializedSeasonRef.current && selectedSeasonId === null && seasonWithLatestEndDate?.id) {
+      setSelectedSeasonId(seasonWithLatestEndDate.id);
+      hasInitializedSeasonRef.current = true;
+    }
+  }, [seasonWithLatestEndDate, selectedSeasonId]);
 
   // Compute isLeagueMember from members
   const isLeagueMember = useMemo(() => {
@@ -59,6 +138,39 @@ export const LeagueProvider = ({ children, leagueId }) => {
     if (!activeSeason) return null;
     return seasonData[activeSeason.id] || null;
   }, [activeSeason, seasonData]);
+
+  // Compute selectedSeasonData once for all tabs to use
+  // This ensures consistency across RankingsTab and MatchesTab
+  const selectedSeasonData = useMemo(() => {
+    if (!selectedSeasonId) {
+      // "All Seasons" selected - use league stats data from 'all-seasons' key
+      const allSeasonsData = seasonData['all-seasons'];
+      if (allSeasonsData) {
+        // Combine matches from all individual season data
+        const allMatches = [];
+        Object.keys(seasonData).forEach(key => {
+          if (key !== 'all-seasons' && seasonData[key]?.matches) {
+            allMatches.push(...seasonData[key].matches);
+          }
+        });
+        
+        // Sort matches by date descending (newest first)
+        allMatches.sort((a, b) => {
+          const dateA = new Date(a.date || 0);
+          const dateB = new Date(b.date || 0);
+          return dateB - dateA;
+        });
+        
+        return {
+          ...allSeasonsData,
+          matches: allMatches.length > 0 ? allMatches : allSeasonsData.matches
+        };
+      }
+      return null;
+    }
+    // Get data from seasonData map for specific season
+    return seasonData[selectedSeasonId] || null;
+  }, [selectedSeasonId, seasonData]);
 
   const loadLeagueData = useCallback(async () => {
     if (!leagueId) {
@@ -214,6 +326,11 @@ export const LeagueProvider = ({ children, leagueId }) => {
       const [matches, playerStats, partnershipOpponentStats] = await Promise.all([
         getSeasonMatches(seasonId).catch(err => {
           console.error('Error loading season matches:', err);
+          // Return empty array for 404 (season has no matches) instead of null
+          // This allows the add matches card to show
+          if (err.response?.status === 404) {
+            return [];
+          }
           return null;
         }),
         getAllPlayerSeasonStats(seasonId).catch(err => {
@@ -288,13 +405,23 @@ export const LeagueProvider = ({ children, leagueId }) => {
   }, [activeSeason?.id]); // Only depend on activeSeason.id - loadSeasonData is stable
   
   // Lightweight function to refresh only matches (not stats/rankings)
-  const refreshMatchData = useCallback(async (seasonId) => {
+  const refreshMatchData = useCallback(async (seasonId, forceClear = false) => {
     if (!seasonId) return;
     
     try {
+      // If forceClear is true, clear the cached data to force a fresh fetch
+      if (forceClear && dataRef.current[seasonId]) {
+        delete dataRef.current[seasonId].matches;
+      }
+      
       // Only fetch matches - much faster than full season data refresh
       const matches = await getSeasonMatches(seasonId).catch(err => {
         console.error('Error loading season matches:', err);
+        // Return empty array for 404 (season has no matches or doesn't exist yet) instead of null
+        // This allows the add matches card to show
+        if (err.response?.status === 404) {
+          return [];
+        }
         return null;
       });
       
@@ -371,6 +498,128 @@ export const LeagueProvider = ({ children, leagueId }) => {
     // Note: Player data will be reloaded automatically by the useEffect that watches activeSeasonData
   }, [loadSeasonData]);
 
+  // Load rankings for all seasons in the league (when "All Seasons" is selected)
+  const loadAllSeasonsRankings = useCallback(async () => {
+    if (!leagueId) return;
+    
+    const allSeasonsKey = 'all-seasons';
+    
+    // Check if already loading
+    if (loadingRef.current[allSeasonsKey]) {
+      return;
+    }
+    
+    // Check if already loaded using refs
+    if (dataRef.current[allSeasonsKey]?.rankings !== undefined) {
+      return;
+    }
+    
+    // Mark as loading
+    loadingRef.current[allSeasonsKey] = true;
+    setSeasonDataLoading(prev => ({ ...prev, [allSeasonsKey]: true }));
+    
+    try {
+      // Load rankings and stats for all seasons (using league stats)
+      const [rankings, playerStats, partnershipOpponentStats] = await Promise.all([
+        getRankings({ league_id: leagueId }).catch(err => {
+          console.error('Error loading all seasons rankings:', err);
+          return [];
+        }),
+        getAllPlayerStats({ league_id: leagueId }).catch(err => {
+          console.error('Error loading all seasons player stats:', err);
+          return null;
+        }),
+        getAllPartnershipOpponentStats({ league_id: leagueId }).catch(err => {
+          console.error('Error loading all seasons partnership/opponent stats:', err);
+          return null;
+        })
+      ]);
+      
+      // Load all league matches directly (consistent with league stats)
+      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch(err => {
+        console.error('Error loading all seasons matches:', err);
+        // Fallback: combine matches from already loaded season data
+        const fallbackMatches = [];
+        Object.keys(seasonData).forEach(key => {
+          if (key !== allSeasonsKey && seasonData[key]?.matches) {
+            fallbackMatches.push(...seasonData[key].matches);
+          }
+        });
+        return fallbackMatches;
+      });
+      
+      // Sort matches by date descending (newest first)
+      const sortedMatches = Array.isArray(allMatches) ? [...allMatches] : [];
+      sortedMatches.sort((a, b) => {
+        const dateA = new Date(a.date || 0);
+        const dateB = new Date(b.date || 0);
+        return dateB - dateA;
+      });
+      
+      // Update seasonData with all-seasons data
+      setSeasonData(prev => ({
+        ...prev,
+        [allSeasonsKey]: {
+          rankings: rankings || [],
+          matches: sortedMatches,
+          player_season_stats: playerStats || {},
+          partnership_opponent_stats: partnershipOpponentStats || {}
+        }
+      }));
+      
+      // Update ref
+      dataRef.current[allSeasonsKey] = {
+        rankings: rankings || [],
+        matches: sortedMatches,
+        player_season_stats: playerStats || {},
+        partnership_opponent_stats: partnershipOpponentStats || {}
+      };
+    } catch (err) {
+      console.error('Error loading all seasons data:', err);
+      
+      // Combine matches from all seasons that are already loaded
+      const allMatches = [];
+      Object.keys(seasonData).forEach(key => {
+        if (key !== allSeasonsKey && seasonData[key]?.matches) {
+          allMatches.push(...seasonData[key].matches);
+        }
+      });
+      
+      // Sort matches by date descending (newest first)
+      allMatches.sort((a, b) => {
+        const dateA = new Date(a.date || 0);
+        const dateB = new Date(b.date || 0);
+        return dateB - dateA;
+      });
+      
+      setSeasonData(prev => ({
+        ...prev,
+        [allSeasonsKey]: {
+          rankings: [],
+          matches: allMatches,
+          player_season_stats: {},
+          partnership_opponent_stats: {}
+        }
+      }));
+      
+      // Update ref
+      dataRef.current[allSeasonsKey] = {
+        rankings: [],
+        matches: allMatches,
+        player_season_stats: {},
+        partnership_opponent_stats: {}
+      };
+    } finally {
+      delete loadingRef.current[allSeasonsKey];
+      setSeasonDataLoading(prev => {
+        const newState = { ...prev };
+        delete newState[allSeasonsKey];
+        return newState;
+      });
+    }
+  }, [leagueId]);
+
+
   // Helper to update player stats from active season data
   const updatePlayerStats = useCallback((seasonData, playerId) => {
     if (!seasonData || !playerId) {
@@ -422,7 +671,11 @@ export const LeagueProvider = ({ children, leagueId }) => {
     updateLeague,
     updateMember,
     activeSeason,
+    activeSeasons,
+    isSeasonActive,
+    isSeasonPast,
     activeSeasonData,
+    selectedSeasonData,
     seasonData,
     seasonDataLoading: activeSeason ? seasonDataLoading[activeSeason.id] : false,
     seasonDataLoadingMap: seasonDataLoading,
@@ -430,8 +683,12 @@ export const LeagueProvider = ({ children, leagueId }) => {
     loadSeasonData,
     refreshSeasonData,
     refreshMatchData,
+    loadAllSeasonsRankings,
     isLeagueMember,
     isLeagueAdmin,
+    // Selected season state
+    selectedSeasonId,
+    setSelectedSeasonId,
     // Selected player state
     selectedPlayerId,
     selectedPlayerName,

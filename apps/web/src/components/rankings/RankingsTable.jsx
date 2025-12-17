@@ -27,7 +27,7 @@ const PlayerAvatar = ({ avatar, playerName }) => {
   );
 };
 
-export default function RankingsTable({ rankings, onPlayerClick, loading }) {
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false }) {
   // Default sort by season_rank (ascending - 1, 2, 3...)
   const [sortConfig, setSortConfig] = useState({ column: 'season_rank', ascending: true });
 
@@ -186,7 +186,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                 className="rankings-row clickable-row"
                 onClick={() => onPlayerClick(player.player_id, player.Name)}
               >
-                <td className="rank-number-cell">{player.season_rank || idx + 1}</td>
+                <td className="rank-number-cell">{isAllSeasons ? '-' : (player.season_rank || idx + 1)}</td>
                 <td className="sticky-col rankings-name-cell">
                   <span className="player-name-modern">
                     <PlayerAvatar avatar={player.avatar} playerName={player.Name} />
@@ -196,7 +196,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
                     <span>{player.Name}</span>
                   </span>
                 </td>
-                <td className="rankings-stat-cell">{player.Points}</td>
+                <td className="rankings-stat-cell">{isAllSeasons ? '-' : player.Points}</td>
                 <td className="rankings-stat-cell">{player.Games}</td>
                 <td className="rankings-stat-cell">{player.Wins}</td>
                 <td className="rankings-stat-cell">{player.Losses}</td>

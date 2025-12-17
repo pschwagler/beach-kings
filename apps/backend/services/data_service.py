@@ -3,11 +3,14 @@ Data service layer for database operations.
 Handles all CRUD operations for the ELO system.
 """
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
 import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
 from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer
 from sqlalchemy.orm import selectinload, aliased
 from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
@@ -19,7 +22,9 @@ from backend.database.models import (
     EloHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
     OpenSignupsMode, SignupEventType,
-    PartnershipStatsSeason, OpponentStatsSeason, StatsCalculationJob, StatsCalculationJobStatus,
+    PartnershipStatsSeason, OpponentStatsSeason, 
+    PlayerLeagueStats, PartnershipStatsLeague, OpponentStatsLeague,
+    StatsCalculationJob, StatsCalculationJobStatus,
     Region
 )
 # MatchData removed - now using Match ORM model directly
@@ -518,6 +523,13 @@ async def is_database_empty(session: AsyncSession) -> bool:
     return count == 0
 
 
+def _is_season_active(season: Season, current_date: Optional[date] = None) -> bool:
+    """Check if a season is active based on date range."""
+    if current_date is None:
+        current_date = date.today()
+    return season.start_date <= current_date <= season.end_date
+
+
 async def create_season(
     session: AsyncSession,
     league_id: int,
@@ -525,7 +537,6 @@ async def create_season(
     start_date: str,
     end_date: str,
     point_system: Optional[str],
-    is_active: bool
 ) -> Dict:
     """Create a season."""
     season = Season(
@@ -534,11 +545,11 @@ async def create_season(
         start_date=datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date,
         end_date=datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date,
         point_system=point_system,
-        is_active=is_active
     )
     session.add(season)
     await session.commit()
     await session.refresh(season)
+    current_date = date.today()
     return {
         "id": season.id,
         "league_id": season.league_id,
@@ -546,7 +557,6 @@ async def create_season(
         "start_date": season.start_date.isoformat() if season.start_date else None,
         "end_date": season.end_date.isoformat() if season.end_date else None,
         "point_system": season.point_system,
-        "is_active": season.is_active,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
     }
@@ -560,6 +570,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
         .order_by(Season.start_date.desc())
     )
     seasons = result.scalars().all()
+    current_date = date.today()
     return [
         {
             "id": s.id,
@@ -568,7 +579,6 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "start_date": s.start_date.isoformat() if s.start_date else None,
             "end_date": s.end_date.isoformat() if s.end_date else None,
             "point_system": s.point_system,
-            "is_active": s.is_active,
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         }
@@ -591,7 +601,6 @@ async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
         "start_date": season.start_date.isoformat() if season.start_date else None,
         "end_date": season.end_date.isoformat() if season.end_date else None,
         "point_system": season.point_system,
-        "is_active": season.is_active,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
     }
@@ -663,7 +672,8 @@ async def get_or_create_active_league_session(
     league_id: int,
     date: str,
     name: Optional[str] = None,
-    created_by: Optional[int] = None
+    created_by: Optional[int] = None,
+    season_id: Optional[int] = None
 ) -> Dict:
     """
     Get or create an active session for a league and date atomically.
@@ -675,6 +685,7 @@ async def get_or_create_active_league_session(
         date: Session date
         name: Optional session name
         created_by: Optional player ID who created the session
+        season_id: Optional season ID - if provided, use this season instead of finding active season
         
     Returns:
         Dict with session info
@@ -687,17 +698,35 @@ async def get_or_create_active_league_session(
     if not league:
         raise ValueError(f"League {league_id} not found")
     
-    # Find the most recent active season for this league
-    season_result = await session.execute(
-        select(Season)
-        .where(and_(Season.league_id == league_id, Season.is_active == True))
-        .order_by(Season.created_at.desc())
-        .limit(1)
-    )
-    active_season = season_result.scalar_one_or_none()
-    
-    if not active_season:
-        raise ValueError(f"League {league_id} does not have an active season. Please create and activate a season first.")
+    # Use provided season_id, or find the most recent active season for this league
+    if season_id:
+        season_result = await session.execute(
+            select(Season).where(
+                and_(Season.id == season_id, Season.league_id == league_id)
+            )
+        )
+        active_season = season_result.scalar_one_or_none()
+        if not active_season:
+            raise ValueError(f"Season {season_id} not found or does not belong to league {league_id}")
+    else:
+        # Find the most recent active season for this league (based on date range)
+        current_date = date.today()
+        season_result = await session.execute(
+            select(Season)
+            .where(
+                and_(
+                    Season.league_id == league_id,
+                    Season.start_date <= current_date,
+                    Season.end_date >= current_date
+                )
+            )
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        active_season = season_result.scalar_one_or_none()
+        
+        if not active_season:
+            raise ValueError(f"League {league_id} does not have an active season. Please create a season with dates that include today's date.")
     
     # Try to get existing active session for this date and season
     # Use SELECT FOR UPDATE to lock the row and prevent race conditions
@@ -805,17 +834,24 @@ async def create_league_session(
     if not league:
         raise ValueError(f"League {league_id} not found")
     
-    # Find the most recent active season for this league
+    # Find the most recent active season for this league (based on date range)
+    current_date = date.today()
     season_result = await session.execute(
         select(Season)
-        .where(and_(Season.league_id == league_id, Season.is_active == True))
+        .where(
+            and_(
+                Season.league_id == league_id,
+                Season.start_date <= current_date,
+                Season.end_date >= current_date
+            )
+        )
         .order_by(Season.created_at.desc())
         .limit(1)
     )
     active_season = season_result.scalar_one_or_none()
     
     if not active_season:
-        raise ValueError(f"League {league_id} does not have an active season. Please create and activate a season first.")
+        raise ValueError(f"League {league_id} does not have an active season. Please create a season with dates that include today's date.")
     
     # Check if active session already exists for this date and season
     result = await session.execute(
@@ -1491,7 +1527,8 @@ async def get_or_create_player(session: AsyncSession, name: str) -> int:
     result = await session.execute(
         select(Player.id).where(Player.full_name == name)
     )
-    player_id = result.scalar_one_or_none()
+    # Use first() instead of scalar_one_or_none() to handle duplicate names gracefully
+    player_id = result.scalars().first()
     
     if player_id:
         return player_id
@@ -1504,6 +1541,38 @@ async def get_or_create_player(session: AsyncSession, name: str) -> int:
     return player.id
 
 
+def _sort_rankings_all_seasons(rankings: List[Dict]) -> List[Dict]:
+    """
+    Sort rankings for "All Seasons" view.
+    Sort by: Wins (desc) → Win Rate (desc) → Avg Pt Diff (desc) → ELO (desc)
+    """
+    return sorted(
+        rankings,
+        key=lambda p: (
+            -(p.get("Wins") or 0),  # Negative for descending
+            -(p.get("Win Rate") or 0.0),
+            -(p.get("Avg Pt Diff") or 0.0),
+            -(p.get("ELO") or 0)
+        )
+    )
+
+
+def _sort_rankings_single_season(rankings: List[Dict]) -> List[Dict]:
+    """
+    Sort rankings for single season view.
+    Sort by: Points (desc) → Avg Pt Diff (desc) → Win Rate (desc) → ELO (desc)
+    """
+    return sorted(
+        rankings,
+        key=lambda p: (
+            -(p.get("Points") or 0),  # Negative for descending
+            -(p.get("Avg Pt Diff") or 0.0),
+            -(p.get("Win Rate") or 0.0),
+            -(p.get("ELO") or 0)
+        )
+    )
+
+
 async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> List[Dict]:
     """
     Get current player rankings ordered by points.
@@ -1512,6 +1581,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         session: Database session
         body: Optional query parameters dict with:
             - season_id: Optional[int] - filter by season (if not provided, gets latest stats across all seasons)
+            - league_id: Optional[int] - filter by league (when season_id is not provided, gets stats across all seasons in the league)
     
     Returns:
         List of player rankings with stats
@@ -1520,76 +1590,89 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         body = {}
     
     season_id = body.get("season_id")
+    league_id = body.get("league_id")
     
-    # For now, use the sync function via compatibility layer until calculate_stats is converted
-    # This is a temporary solution - rankings will be empty until calculate_stats runs
-    # TODO: Convert calculate_stats to async and update players table or query from player_season_stats
     try:
-        # Create subqueries for latest stats per player
-        # Get the most recent stats for each player (by updated_at, then by id as tiebreaker)
-        
-        # Subquery to get the latest stat row ID for each player
-        # Using ROW_NUMBER equivalent: get max updated_at, then max id as tiebreaker
-        latest_stats_subq = select(
-            PlayerSeasonStats.player_id,
-            func.max(PlayerSeasonStats.updated_at).label("max_updated_at")
-        )
-        
-        # Filter by season if provided
-        if season_id is not None:
-            latest_stats_subq = latest_stats_subq.where(
-                PlayerSeasonStats.season_id == int(season_id)
+        # If league_id is provided (and season_id is not), use PlayerLeagueStats
+        if league_id is not None and season_id is None:
+            # Query PlayerLeagueStats directly for league-level stats
+            stats_subq = select(
+                PlayerLeagueStats.player_id,
+                PlayerLeagueStats.points,
+                PlayerLeagueStats.games,
+                PlayerLeagueStats.wins,
+                PlayerLeagueStats.win_rate,
+                PlayerLeagueStats.avg_point_diff
+            ).where(
+                PlayerLeagueStats.league_id == int(league_id)
+            ).subquery()
+        else:
+            # Use PlayerSeasonStats (existing logic for season_id or default)
+            # Create subqueries for latest stats per player
+            # Get the most recent stats for each player (by updated_at, then by id as tiebreaker)
+            
+            # Subquery to get the latest stat row ID for each player
+            # Using ROW_NUMBER equivalent: get max updated_at, then max id as tiebreaker
+            latest_stats_subq = select(
+                PlayerSeasonStats.player_id,
+                func.max(PlayerSeasonStats.updated_at).label("max_updated_at")
             )
-        
-        latest_stats_subq = latest_stats_subq.group_by(
-            PlayerSeasonStats.player_id
-        ).subquery()
-        
-        # Get the max id for each player with max updated_at (to handle ties)
-        latest_id_subq = select(
-            PlayerSeasonStats.player_id,
-            func.max(PlayerSeasonStats.id).label("max_id")
-        ).join(
-            latest_stats_subq,
-            and_(
-                PlayerSeasonStats.player_id == latest_stats_subq.c.player_id,
-                PlayerSeasonStats.updated_at == latest_stats_subq.c.max_updated_at
+            
+            # Filter by season if provided
+            if season_id is not None:
+                latest_stats_subq = latest_stats_subq.where(
+                    PlayerSeasonStats.season_id == int(season_id)
+                )
+            
+            latest_stats_subq = latest_stats_subq.group_by(
+                PlayerSeasonStats.player_id
+            ).subquery()
+            
+            # Get the max id for each player with max updated_at (to handle ties)
+            latest_id_subq = select(
+                PlayerSeasonStats.player_id,
+                func.max(PlayerSeasonStats.id).label("max_id")
+            ).join(
+                latest_stats_subq,
+                and_(
+                    PlayerSeasonStats.player_id == latest_stats_subq.c.player_id,
+                    PlayerSeasonStats.updated_at == latest_stats_subq.c.max_updated_at
+                )
             )
-        )
-        
-        # Apply season filter to the join if provided
-        if season_id is not None:
-            latest_id_subq = latest_id_subq.where(
-                PlayerSeasonStats.season_id == int(season_id)
+            
+            # Apply season filter to the join if provided
+            if season_id is not None:
+                latest_id_subq = latest_id_subq.where(
+                    PlayerSeasonStats.season_id == int(season_id)
+                )
+            
+            latest_id_subq = latest_id_subq.group_by(
+                PlayerSeasonStats.player_id
+            ).subquery()
+            
+            # Join with actual stats using both player_id and id
+            stats_subq = select(
+                PlayerSeasonStats.player_id,
+                PlayerSeasonStats.points,
+                PlayerSeasonStats.games,
+                PlayerSeasonStats.wins,
+                PlayerSeasonStats.win_rate,
+                PlayerSeasonStats.avg_point_diff
+            ).join(
+                latest_id_subq,
+                and_(
+                    PlayerSeasonStats.player_id == latest_id_subq.c.player_id,
+                    PlayerSeasonStats.id == latest_id_subq.c.max_id
+                )
             )
-        
-        latest_id_subq = latest_id_subq.group_by(
-            PlayerSeasonStats.player_id
-        ).subquery()
-        
-        # Join with actual stats using both player_id and id
-        stats_subq = select(
-            PlayerSeasonStats.player_id,
-            PlayerSeasonStats.points,
-            PlayerSeasonStats.games,
-            PlayerSeasonStats.wins,
-            PlayerSeasonStats.win_rate,
-            PlayerSeasonStats.avg_point_diff
-        ).join(
-            latest_id_subq,
-            and_(
-                PlayerSeasonStats.player_id == latest_id_subq.c.player_id,
-                PlayerSeasonStats.id == latest_id_subq.c.max_id
-            )
-        )
-        
-        # Apply season filter if provided
-        if season_id is not None:
-            stats_subq = stats_subq.where(
-                PlayerSeasonStats.season_id == int(season_id)
-            )
-        
-        stats_subq = stats_subq.subquery()
+            
+            # Apply season filter if provided
+            if season_id is not None:
+                stats_subq = stats_subq.where(
+                    PlayerSeasonStats.season_id == int(season_id)
+                )
+            
+            stats_subq = stats_subq.subquery()
         
         # Main query with COALESCE for defaults
         # Join with PlayerGlobalStats to get current ELO rating (league/season agnostic)
@@ -1635,16 +1718,13 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             for row in rows if row.points > 0 or row.games > 0  # Only return players with stats
         ]
         
-        # Sort by default ranking logic: Points → Avg Pt Diff → Win Rate → ELO (all descending)
-        rankings_sorted = sorted(
-            rankings,
-            key=lambda p: (
-                -(p["Points"] or 0),  # Negative for descending
-                -(p["Avg Pt Diff"] or 0.0),
-                -(p["Win Rate"] or 0.0),
-                -(p["ELO"] or 0)
-            )
-        )
+        # Sort by different logic depending on whether filtering by season or league
+        if league_id is not None and season_id is None:
+            # "All Seasons" selected: Wins → Win Rate → Avg Pt Diff → ELO (all descending)
+            rankings_sorted = _sort_rankings_all_seasons(rankings)
+        else:
+            # Single season: Points → Avg Pt Diff → Win Rate → ELO (all descending)
+            rankings_sorted = _sort_rankings_single_season(rankings)
         
         # Add season_rank (1-indexed) based on default sorting
         for idx, player in enumerate(rankings_sorted):
@@ -1769,7 +1849,7 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
     if result.rowcount == 0:
         return None
     
-    # Enqueue both global and season stats calculations
+    # Enqueue both global and league stats calculations
     # Lazy import to avoid circular dependency
     from backend.services.stats_queue import get_stats_queue
     queue = get_stats_queue()
@@ -1777,16 +1857,110 @@ async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Op
     # Enqueue global stats calculation
     global_job_id = await queue.enqueue_calculation(session, "global", None)
     
-    # Enqueue season stats calculation if session has a season
-    season_job_id = None
+    # Enqueue league stats calculation if session has a season (get league_id from season)
+    league_job_id = None
     if season_id:
-        season_job_id = await queue.enqueue_calculation(session, "season", season_id)
+        # Get league_id from season
+        season_result = await session.execute(
+            select(Season).where(Season.id == season_id)
+        )
+        season_obj = season_result.scalar_one_or_none()
+        if season_obj:
+            league_job_id = await queue.enqueue_calculation(session, "league", season_obj.league_id)
     
     return {
         "success": True,
         "season_id": season_id,
         "global_job_id": global_job_id,
-        "season_job_id": season_job_id
+        "league_job_id": league_job_id
+    }
+
+
+async def update_session(
+    session: AsyncSession, 
+    session_id: int, 
+    name: Optional[str] = None,
+    date: Optional[str] = None,
+    season_id: Optional[int] = None,
+    update_season_id: bool = False
+) -> Optional[Dict]:
+    """
+    Update a session's fields (name, date, season_id).
+    
+    Args:
+        session: Database session
+        session_id: ID of session to update
+        name: New session name (optional)
+        date: New session date (optional)
+        season_id: New season_id (optional, can be None to remove season)
+        update_season_id: If True, update season_id even if it's None (to allow removing season)
+    
+    Returns:
+        Dict with updated session info, or None if session not found
+    
+    Raises:
+        ValueError: If season_id is provided but season doesn't exist
+    """
+    # Get current session to verify it exists
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    session_obj = result.scalar_one_or_none()
+    
+    if not session_obj:
+        return None
+    
+    # Build update values dict (only include fields that are provided)
+    update_values = {}
+    if name is not None:
+        update_values["name"] = name
+    if date is not None:
+        update_values["date"] = date
+    if update_season_id or season_id is not None:
+        # Verify season exists if season_id is provided (not None)
+        if season_id is not None:
+            season_result = await session.execute(
+                select(Season).where(Season.id == season_id)
+            )
+            season_obj = season_result.scalar_one_or_none()
+            if not season_obj:
+                raise ValueError(f"Season {season_id} not found")
+        update_values["season_id"] = season_id
+    
+    # If no fields to update, return current session
+    if not update_values:
+        return {
+            "id": session_obj.id,
+            "season_id": session_obj.season_id,
+            "status": session_obj.status.value if session_obj.status else None,
+            "name": session_obj.name,
+            "date": session_obj.date
+        }
+    
+    # Update the session
+    update_values["updated_at"] = func.now()
+    await session.execute(
+        update(Session)
+        .where(Session.id == session_id)
+        .values(**update_values)
+    )
+    await session.commit()
+    
+    # Return updated session info
+    result = await session.execute(
+        select(Session).where(Session.id == session_id)
+    )
+    updated_session = result.scalar_one_or_none()
+    
+    if not updated_session:
+        return None
+    
+    return {
+        "id": updated_session.id,
+        "season_id": updated_session.season_id,
+        "status": updated_session.status.value if updated_session.status else None,
+        "name": updated_session.name,
+        "date": updated_session.date
     }
 
 
@@ -1832,15 +2006,17 @@ async def update_season(
     **fields
 ) -> Optional[Dict]:
     """Update a season - async version."""
-    allowed = {"name", "start_date", "end_date", "point_system", "is_active"}
+    allowed = {"name", "start_date", "end_date", "point_system"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     
     if not updates:
         return await get_season(session, season_id)
     
-    # Convert is_active boolean to int if present
-    if "is_active" in updates:
-        updates["is_active"] = bool(updates["is_active"])
+    # Convert date strings to date objects if needed
+    if "start_date" in updates and isinstance(updates["start_date"], str):
+        updates["start_date"] = datetime.fromisoformat(updates["start_date"]).date()
+    if "end_date" in updates and isinstance(updates["end_date"], str):
+        updates["end_date"] = datetime.fromisoformat(updates["end_date"]).date()
     
     await session.execute(
         update(Season)
@@ -1850,39 +2026,6 @@ async def update_season(
     await session.commit()
     
     return await get_season(session, season_id)
-
-
-async def activate_season(
-    session: AsyncSession,
-    league_id: int,
-    season_id: int
-) -> bool:
-    """Activate a season - async version."""
-    # Ensure season belongs to league
-    result = await session.execute(
-        select(Season).where(
-            and_(Season.id == season_id, Season.league_id == league_id)
-        )
-    )
-    if not result.scalar_one_or_none():
-        return False
-    
-    # Deactivate all other seasons in the league
-    await session.execute(
-        update(Season)
-        .where(and_(Season.league_id == league_id, Season.id != season_id))
-        .values(is_active=False)
-    )
-    
-    # Activate this season
-    await session.execute(
-        update(Season)
-        .where(Season.id == season_id)
-        .values(is_active=True)
-    )
-    
-    await session.commit()
-    return True
 
 
 async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
@@ -1997,6 +2140,7 @@ async def get_season_matches_with_elo(
         Match.session_id,
         Session.name.label("session_name"),
         Session.status.label("session_status"),
+        Session.season_id.label("session_season_id"),
         Match.team1_player1_id,
         Match.team1_player2_id,
         Match.team2_player1_id,
@@ -2071,6 +2215,129 @@ async def get_season_matches_with_elo(
             "session_id": row.session_id,
             "session_name": row.session_name,
             "session_status": row.session_status.value if row.session_status else None,
+            "session_season_id": row.session_season_id,
+            "team1_player1_id": row.team1_player1_id,
+            "team1_player1_name": row.team1_player1_name,
+            "team1_player2_id": row.team1_player2_id,
+            "team1_player2_name": row.team1_player2_name,
+            "team2_player1_id": row.team2_player1_id,
+            "team2_player1_name": row.team2_player1_name,
+            "team2_player2_id": row.team2_player2_id,
+            "team2_player2_name": row.team2_player2_name,
+            "team1_score": row.team1_score,
+            "team2_score": row.team2_score,
+            "winner": row.winner,
+            "elo_changes": elo_by_match.get(row.id, {})
+        }
+        matches.append(match_data)
+    
+    return matches
+
+
+async def get_league_matches_with_elo(
+    session: AsyncSession,
+    league_id: int
+) -> List[Dict]:
+    """
+    Get all matches for a league (across all seasons) with ELO changes per player.
+    
+    Args:
+        session: Database session
+        league_id: League ID to filter matches
+        
+    Returns:
+        List of match dictionaries with ELO changes per player
+    """
+    # Create aliases for players
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    
+    # Build the query for matches - filter by league through Season
+    query = select(
+        Match.id,
+        Match.date,
+        Match.session_id,
+        Session.name.label("session_name"),
+        Session.status.label("session_status"),
+        Session.season_id.label("session_season_id"),
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+        p1.full_name.label("team1_player1_name"),
+        p2.full_name.label("team1_player2_name"),
+        p3.full_name.label("team2_player1_name"),
+        p4.full_name.label("team2_player2_name"),
+        Match.team1_score,
+        Match.team2_score,
+        Match.winner
+    ).select_from(
+        Match
+    ).outerjoin(
+        Session, Match.session_id == Session.id
+    ).outerjoin(
+        Season, Session.season_id == Season.id
+    ).outerjoin(
+        p1, Match.team1_player1_id == p1.id
+    ).outerjoin(
+        p2, Match.team1_player2_id == p2.id
+    ).outerjoin(
+        p3, Match.team2_player1_id == p3.id
+    ).outerjoin(
+        p4, Match.team2_player2_id == p4.id
+    ).where(
+        Season.league_id == league_id
+        # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
+    ).order_by(
+        Match.id.desc()
+    )
+    
+    # Execute query
+    result = await session.execute(query)
+    match_rows = result.all()
+    
+    # Get all match IDs
+    match_ids = [row.id for row in match_rows]
+    
+    # Query ELO history for all matches
+    elo_history_query = select(
+        EloHistory.match_id,
+        EloHistory.player_id,
+        EloHistory.elo_after,
+        EloHistory.elo_change
+    ).where(
+        EloHistory.match_id.in_(match_ids)
+    )
+    
+    elo_result = await session.execute(elo_history_query)
+    elo_rows = elo_result.all()
+    
+    # Group ELO changes by match_id
+    elo_by_match = {}
+    for elo_row in elo_rows:
+        match_id = elo_row.match_id
+        if match_id not in elo_by_match:
+            elo_by_match[match_id] = {}
+        # Calculate elo_before from elo_after - elo_change
+        elo_before = elo_row.elo_after - elo_row.elo_change
+        elo_by_match[match_id][elo_row.player_id] = {
+            "elo_before": round(elo_before, 1),
+            "elo_after": round(elo_row.elo_after, 1),
+            "elo_change": round(elo_row.elo_change, 1)
+        }
+    
+    # Build result list
+    matches = []
+    for row in match_rows:
+        match_data = {
+            "id": row.id,
+            "date": row.date,
+            "session_id": row.session_id,
+            "session_name": row.session_name,
+            "session_status": row.session_status.value if row.session_status else None,
+            "session_season_id": row.session_season_id,
             "team1_player1_id": row.team1_player1_id,
             "team1_player1_name": row.team1_player1_name,
             "team1_player2_id": row.team1_player2_id,
@@ -2388,45 +2655,6 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     }
 
 
-async def get_player_stats(session: AsyncSession, player_name: str) -> Optional[Dict]:
-    """
-    Get detailed stats for a player by name - async version.
-    DEPRECATED: Use get_player_stats_by_id instead.
-    
-    Returns dict with structure:
-    {
-        "name": str,
-        "current_elo": float,
-        "games": int,
-        "wins": int,
-        "losses": int,
-        "win_rate": float,
-        "points": int,
-        "avg_point_diff": float,
-        "rank": int,
-        "partnerships": [...],
-        "opponents": [...],
-        "match_history": [...]
-    }
-    """
-    # Get player ID by name
-    result = await session.execute(
-        select(Player.id).where(
-            or_(
-                Player.full_name == player_name,
-                Player.nickname == player_name
-            )
-        ).limit(1)
-    )
-    player_id = result.scalar_one_or_none()
-    
-    if not player_id:
-        return None
-    
-    # Use the ID-based function
-    return await get_player_stats_by_id(session, player_id)
-
-
 async def get_player_season_partnership_opponent_stats(
     session: AsyncSession,
     player_id: int,
@@ -2740,11 +2968,18 @@ async def get_player_season_stats(
             rank = idx + 1
             break
     
+    # Get global ELO rating (league/season agnostic)
+    result = await session.execute(
+        select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
+    )
+    global_stat = result.scalar_one_or_none()
+    current_elo = global_stat.current_rating if global_stat else INITIAL_ELO
+    
     return {
         "player_id": player_id,
         "player_name": player.full_name,
         "season_id": season_id,
-        "current_elo": round(season_stats.current_elo),
+        "current_elo": round(current_elo),
         "games": season_stats.games,
         "wins": season_stats.wins,
         "losses": season_stats.games - season_stats.wins,
@@ -2753,6 +2988,318 @@ async def get_player_season_stats(
         "avg_point_diff": season_stats.avg_point_diff,
         "rank": rank
     }
+
+
+async def get_player_league_stats(
+    session: AsyncSession, 
+    player_id: int, 
+    league_id: int
+) -> Optional[Dict]:
+    """
+    Get player stats for a specific league - async version.
+    
+    Returns dict with structure:
+    {
+        "player_id": int,
+        "player_name": str,
+        "league_id": int,
+        "current_elo": float,
+        "games": int,
+        "wins": int,
+        "losses": int,
+        "win_rate": float,
+        "points": int,
+        "avg_point_diff": float,
+        "rank": int (optional)
+    }
+    """
+    # Get player
+    result = await session.execute(
+        select(Player).where(Player.id == player_id)
+    )
+    player = result.scalar_one_or_none()
+    
+    if not player:
+        return None
+    
+    # Get league stats
+    result = await session.execute(
+        select(PlayerLeagueStats)
+        .where(
+            and_(
+                PlayerLeagueStats.player_id == player_id,
+                PlayerLeagueStats.league_id == league_id
+            )
+        )
+        .order_by(PlayerLeagueStats.updated_at.desc())
+        .limit(1)
+    )
+    league_stats = result.scalar_one_or_none()
+    
+    if not league_stats:
+        # Return default values if no stats found
+        return {
+            "player_id": player_id,
+            "player_name": player.full_name,
+            "league_id": league_id,
+            "current_elo": INITIAL_ELO,
+            "games": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "points": 0,
+            "avg_point_diff": 0.0,
+            "rank": None
+        }
+    
+    # Get global ELO rating (league/season agnostic)
+    result = await session.execute(
+        select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
+    )
+    global_stat = result.scalar_one_or_none()
+    current_elo = global_stat.current_rating if global_stat else INITIAL_ELO
+    
+    # Calculate rank by getting position in rankings for this league
+    rankings = await get_rankings(session, {"league_id": league_id})
+    rank = None
+    for idx, ranking in enumerate(rankings):
+        if ranking.get("player_id") == player_id:
+            rank = idx + 1
+            break
+    
+    return {
+        "player_id": player_id,
+        "player_name": player.full_name,
+        "league_id": league_id,
+        "current_elo": round(current_elo),
+        "games": league_stats.games,
+        "wins": league_stats.wins,
+        "losses": league_stats.games - league_stats.wins,
+        "win_rate": league_stats.win_rate,
+        "points": league_stats.points,
+        "avg_point_diff": league_stats.avg_point_diff,
+        "rank": rank
+    }
+
+
+async def get_all_player_league_stats(
+    session: AsyncSession,
+    league_id: int
+) -> Dict[int, Dict]:
+    """
+    Get all player league stats for a specific league.
+    
+    Args:
+        session: Database session
+        league_id: League ID
+        
+    Returns:
+        Dict mapping player_id to league stats
+    """
+    # Get all player league stats for this league
+    result = await session.execute(
+        select(
+            PlayerLeagueStats,
+            Player.full_name.label("player_name")
+        )
+        .join(Player, PlayerLeagueStats.player_id == Player.id)
+        .where(PlayerLeagueStats.league_id == league_id)
+    )
+    rows = result.all()
+    
+    # Get rankings to calculate rank
+    rankings = await get_rankings(session, {"league_id": league_id})
+    
+    # Create a map of player_id to rank
+    player_rank_map = {}
+    for idx, ranking in enumerate(rankings):
+        if "player_id" in ranking:
+            player_rank_map[ranking["player_id"]] = idx + 1
+    
+    # Get global ELO ratings for all players (league/season agnostic)
+    player_ids = [row[0].player_id for row in rows]
+    global_elo_map = {}
+    if player_ids:
+        result = await session.execute(
+            select(PlayerGlobalStats)
+            .where(PlayerGlobalStats.player_id.in_(player_ids))
+        )
+        for global_stat in result.scalars().all():
+            global_elo_map[global_stat.player_id] = global_stat.current_rating
+    
+    # Build result dict
+    player_stats = {}
+    for row in rows:
+        league_stats, player_name = row
+        # Use global ELO rating (league/season agnostic)
+        current_elo = global_elo_map.get(league_stats.player_id, INITIAL_ELO)
+        player_stats[league_stats.player_id] = {
+            "player_id": league_stats.player_id,
+            "player_name": player_name,
+            "league_id": league_id,
+            "current_elo": round(current_elo),
+            "games": league_stats.games,
+            "wins": league_stats.wins,
+            "losses": league_stats.games - league_stats.wins,
+            "win_rate": league_stats.win_rate,
+            "points": league_stats.points,
+            "avg_point_diff": league_stats.avg_point_diff,
+            "rank": player_rank_map.get(league_stats.player_id)
+        }
+    
+    return player_stats
+
+
+async def get_player_league_partnership_opponent_stats(
+    session: AsyncSession,
+    player_id: int,
+    league_id: int
+) -> Dict:
+    """
+    Get partnership and opponent stats for a player in a league.
+    
+    Args:
+        session: Database session
+        player_id: Player ID
+        league_id: League ID
+        
+    Returns:
+        Dict with partnership_stats and opponent_stats
+    """
+    # Get partnership stats
+    result = await session.execute(
+        select(PartnershipStatsLeague)
+        .where(PartnershipStatsLeague.player_id == player_id)
+        .where(PartnershipStatsLeague.league_id == league_id)
+    )
+    partnership_rows = result.scalars().all()
+    
+    # Get opponent stats
+    result = await session.execute(
+        select(OpponentStatsLeague)
+        .where(OpponentStatsLeague.player_id == player_id)
+        .where(OpponentStatsLeague.league_id == league_id)
+    )
+    opponent_rows = result.scalars().all()
+    
+    # Get player names for partnerships
+    partner_ids = [ps.partner_id for ps in partnership_rows]
+    opponent_ids = [os.opponent_id for os in opponent_rows]
+    all_player_ids = list(set(partner_ids + opponent_ids))
+    
+    player_name_map = {}
+    if all_player_ids:
+        result = await session.execute(
+            select(Player).where(Player.id.in_(all_player_ids))
+        )
+        for player in result.scalars().all():
+            player_name_map[player.id] = player.full_name
+    
+    partnership_stats = []
+    for ps in partnership_rows:
+        partnership_stats.append({
+            "partner_id": ps.partner_id,
+            "partner_name": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
+            "games": ps.games,
+            "wins": ps.wins,
+            "points": ps.points,
+            "win_rate": ps.win_rate,
+            "avg_point_diff": ps.avg_point_diff
+        })
+    
+    opponent_stats = []
+    for os in opponent_rows:
+        opponent_stats.append({
+            "opponent_id": os.opponent_id,
+            "opponent_name": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
+            "games": os.games,
+            "wins": os.wins,
+            "points": os.points,
+            "win_rate": os.win_rate,
+            "avg_point_diff": os.avg_point_diff
+        })
+    
+    return {
+        "partnership_stats": partnership_stats,
+        "opponent_stats": opponent_stats
+    }
+
+
+async def get_all_player_league_partnership_opponent_stats(
+    session: AsyncSession,
+    league_id: int
+) -> Dict[int, Dict]:
+    """
+    Get all partnership and opponent stats for all players in a league.
+    
+    Args:
+        session: Database session
+        league_id: League ID
+        
+    Returns:
+        Dict mapping player_id to partnership and opponent stats
+    """
+    # Get all partnership stats for this league
+    result = await session.execute(
+        select(PartnershipStatsLeague)
+        .where(PartnershipStatsLeague.league_id == league_id)
+    )
+    partnership_rows = result.scalars().all()
+    
+    # Get all opponent stats for this league
+    result = await session.execute(
+        select(OpponentStatsLeague)
+        .where(OpponentStatsLeague.league_id == league_id)
+    )
+    opponent_rows = result.scalars().all()
+    
+    # Get all player IDs and names
+    player_ids = set()
+    for ps in partnership_rows:
+        player_ids.add(ps.player_id)
+        player_ids.add(ps.partner_id)
+    for os in opponent_rows:
+        player_ids.add(os.player_id)
+        player_ids.add(os.opponent_id)
+    
+    player_name_map = {}
+    if player_ids:
+        result = await session.execute(
+            select(Player).where(Player.id.in_(player_ids))
+        )
+        for player in result.scalars().all():
+            player_name_map[player.id] = player.full_name
+    
+    # Group by player_id - match format of season stats
+    result_dict = {}
+    
+    for ps in partnership_rows:
+        if ps.player_id not in result_dict:
+            result_dict[ps.player_id] = {"partnerships": [], "opponents": []}
+        result_dict[ps.player_id]["partnerships"].append({
+            "Partner/Opponent": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
+            "Points": ps.points,
+            "Games": ps.games,
+            "Wins": ps.wins,
+            "Losses": ps.games - ps.wins,
+            "Win Rate": ps.win_rate,
+            "Avg Pt Diff": ps.avg_point_diff
+        })
+    
+    for os in opponent_rows:
+        if os.player_id not in result_dict:
+            result_dict[os.player_id] = {"partnerships": [], "opponents": []}
+        result_dict[os.player_id]["opponents"].append({
+            "Partner/Opponent": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
+            "Points": os.points,
+            "Games": os.games,
+            "Wins": os.wins,
+            "Losses": os.games - os.wins,
+            "Win Rate": os.win_rate,
+            "Avg Pt Diff": os.avg_point_diff
+        })
+    
+    return result_dict
 
 
 async def export_matches_to_csv(session: AsyncSession) -> str:
@@ -2959,41 +3506,6 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
     return results
 
 
-async def get_player_match_history(session: AsyncSession, player_name: str) -> Optional[List[Dict]]:
-    """
-    Get match history for a specific player by name - async version.
-    DEPRECATED: Use get_player_match_history_by_id instead.
-    
-    Args:
-        session: Database session
-        player_name: Name of the player
-    
-    Returns:
-        List of matches if player found (may be empty)
-        None if player not found
-    """
-    # Get player ID - check both full_name and nickname
-    # Prefer player with user_id (authenticated user) if multiple matches exist
-    query = select(Player.id).where(
-        or_(
-            Player.full_name == player_name,
-            Player.nickname == player_name
-        )
-    ).order_by(
-        # Prefer players with user_id (authenticated users) first
-        Player.user_id.desc().nulls_last()
-    ).limit(1)
-    
-    result = await session.execute(query)
-    player_id = result.scalars().first()
-    
-    if not player_id:
-        return None  # Player not found
-    
-    # Use the ID-based function
-    return await get_player_match_history_by_id(session, player_id)
-
-
 async def create_session(session: AsyncSession, date: str) -> Dict:
     """
     Create a new session.
@@ -3045,67 +3557,49 @@ async def create_session(session: AsyncSession, date: str) -> Dict:
         "id": new_session.id,
         "date": new_session.date,
         "name": new_session.name,
-        "is_active": True,
+        "status": new_session.status.value if new_session.status else None,
         "created_at": new_session.created_at.isoformat() if new_session.created_at else ""
     }
 
 
 async def create_match_async(
     session: AsyncSession,
+    match_request: 'CreateMatchRequest',
     session_id: int,
-    date: str,
-    team1_player1: str,
-    team1_player2: str,
-    team2_player1: str,
-    team2_player2: str,
-    team1_score: int,
-    team2_score: int,
-    is_public: bool = True
+    date: str
 ) -> int:
     """
     Create a new match in a session - async version.
     
     Args:
         session: Database session
+        match_request: CreateMatchRequest schema with player IDs
         session_id: Session ID
         date: Match date
-        team1_player1: Team 1 player 1 name
-        team1_player2: Team 1 player 2 name
-        team2_player1: Team 2 player 1 name
-        team2_player2: Team 2 player 2 name
-        team1_score: Team 1 score
-        team2_score: Team 2 score
-        is_public: Whether match is public
         
     Returns:
         Match ID
     """
-    # Get or create player IDs
-    team1_p1_id = await get_or_create_player(session, team1_player1)
-    team1_p2_id = await get_or_create_player(session, team1_player2)
-    team2_p1_id = await get_or_create_player(session, team2_player1)
-    team2_p2_id = await get_or_create_player(session, team2_player2)
-    
     # Determine winner
-    if team1_score > team2_score:
+    if match_request.team1_score > match_request.team2_score:
         winner = 1
-    elif team2_score > team1_score:
+    elif match_request.team2_score > match_request.team1_score:
         winner = 2
     else:
         winner = -1  # Tie
     
-    # Create match
+    # Create match using player IDs directly from the request
     new_match = Match(
         session_id=session_id,
         date=date,
-        team1_player1_id=team1_p1_id,
-        team1_player2_id=team1_p2_id,
-        team2_player1_id=team2_p1_id,
-        team2_player2_id=team2_p2_id,
-        team1_score=team1_score,
-        team2_score=team2_score,
+        team1_player1_id=match_request.team1_player1_id,
+        team1_player2_id=match_request.team1_player2_id,
+        team2_player1_id=match_request.team2_player1_id,
+        team2_player2_id=match_request.team2_player2_id,
+        team1_score=match_request.team1_score,
+        team2_score=match_request.team2_score,
         winner=winner,
-        is_public=is_public
+        is_public=match_request.is_public if match_request.is_public is not None else True
     )
     session.add(new_match)
     await session.flush()
@@ -3118,13 +3612,7 @@ async def create_match_async(
 async def update_match_async(
     session: AsyncSession,
     match_id: int,
-    team1_player1: str,
-    team1_player2: str,
-    team2_player1: str,
-    team2_player2: str,
-    team1_score: int,
-    team2_score: int,
-    is_public: Optional[bool] = None,
+    match_request: 'UpdateMatchRequest',
     updated_by: Optional[int] = None
 ) -> bool:
     """
@@ -3133,13 +3621,8 @@ async def update_match_async(
     Args:
         session: Database session
         match_id: Match ID to update
-        team1_player1: Team 1 player 1 name
-        team1_player2: Team 1 player 2 name
-        team2_player1: Team 2 player 1 name
-        team2_player2: Team 2 player 2 name
-        team1_score: Team 1 score
-        team2_score: Team 2 score
-        is_public: Whether match is public (optional)
+        match_request: UpdateMatchRequest schema with player IDs
+        updated_by: Player ID who updated the match (optional)
         
     Returns:
         True if successful, False if match not found
@@ -3152,30 +3635,24 @@ async def update_match_async(
     if not match:
         return False
     
-    # Get or create player IDs
-    team1_p1_id = await get_or_create_player(session, team1_player1)
-    team1_p2_id = await get_or_create_player(session, team1_player2)
-    team2_p1_id = await get_or_create_player(session, team2_player1)
-    team2_p2_id = await get_or_create_player(session, team2_player2)
-    
     # Determine winner
-    if team1_score > team2_score:
+    if match_request.team1_score > match_request.team2_score:
         winner = 1
-    elif team2_score > team1_score:
+    elif match_request.team2_score > match_request.team1_score:
         winner = 2
     else:
         winner = -1  # Tie
     
-    # Update match
-    match.team1_player1_id = team1_p1_id
-    match.team1_player2_id = team1_p2_id
-    match.team2_player1_id = team2_p1_id
-    match.team2_player2_id = team2_p2_id
-    match.team1_score = team1_score
-    match.team2_score = team2_score
+    # Update match using player IDs directly from the request
+    match.team1_player1_id = match_request.team1_player1_id
+    match.team1_player2_id = match_request.team1_player2_id
+    match.team2_player1_id = match_request.team2_player1_id
+    match.team2_player2_id = match_request.team2_player2_id
+    match.team1_score = match_request.team1_score
+    match.team2_score = match_request.team2_score
     match.winner = winner
-    if is_public is not None:
-        match.is_public = is_public
+    if match_request.is_public is not None:
+        match.is_public = match_request.is_public
     if updated_by is not None:
         match.updated_by = updated_by
     
@@ -3265,7 +3742,8 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
 
 async def load_ranked_matches_async(
     session: AsyncSession, 
-    season_id: Optional[int] = None
+    season_id: Optional[int] = None,
+    league_id: Optional[int] = None
 ) -> List[Match]:
     """
     Load ranked matches from database.
@@ -3275,27 +3753,32 @@ async def load_ranked_matches_async(
     Args:
         session: Database session
         season_id: Optional season ID to filter by
+        league_id: Optional league ID to filter by (filters through Session -> Season -> league_id)
         
     Returns:
         List of Match objects
     """
-    query = (
-        select(Match)
-        .outerjoin(Session, Match.session_id == Session.id)
-        .where(
-            and_(
-                Match.is_ranked == True,
-                or_(
-                    Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-                    Session.id.is_(None)
-                )
-            )
+    conditions = [
+        Match.is_ranked == True,
+        or_(
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Session.id.is_(None)
         )
-    )
+    ]
     
+    # Build query with necessary joins
+    query = select(Match).outerjoin(Session, Match.session_id == Session.id)
+    
+    # Add league_id filtering if provided (requires joining Season table)
+    if league_id is not None:
+        query = query.outerjoin(Season, Session.season_id == Season.id)
+        conditions.append(Season.league_id == league_id)
+    
+    # Add season_id filtering if provided
     if season_id is not None:
-        query = query.where(Session.season_id == season_id)
+        conditions.append(Session.season_id == season_id)
     
+    query = query.where(and_(*conditions))
     query = query.order_by(Match.id.asc())
     
     result = await session.execute(query)
@@ -3320,6 +3803,38 @@ async def delete_season_stats_async(session: AsyncSession, season_id: int) -> No
     await session.execute(
         delete(PlayerSeasonStats).where(PlayerSeasonStats.season_id == season_id)
     )
+
+
+async def delete_league_stats_async(session: AsyncSession, league_id: int) -> None:
+    """Delete all league-specific stats for a given league."""
+    await session.execute(
+        delete(PartnershipStatsLeague).where(PartnershipStatsLeague.league_id == league_id)
+    )
+    await session.execute(
+        delete(OpponentStatsLeague).where(OpponentStatsLeague.league_id == league_id)
+    )
+    await session.execute(
+        delete(PlayerLeagueStats).where(PlayerLeagueStats.league_id == league_id)
+    )
+
+
+async def delete_all_stats_async(session: AsyncSession) -> None:
+    """Delete all stats from all tables (global, league, and season stats)."""
+    # Delete global stats
+    await session.execute(delete(EloHistory))
+    await session.execute(delete(PartnershipStats))
+    await session.execute(delete(OpponentStats))
+    await session.execute(delete(PlayerGlobalStats))
+    
+    # Delete all league stats
+    await session.execute(delete(PartnershipStatsLeague))
+    await session.execute(delete(OpponentStatsLeague))
+    await session.execute(delete(PlayerLeagueStats))
+    
+    # Delete all season stats
+    await session.execute(delete(PartnershipStatsSeason))
+    await session.execute(delete(OpponentStatsSeason))
+    await session.execute(delete(PlayerSeasonStats))
 
 
 def _chunks(lst, n):
@@ -3453,6 +3968,35 @@ async def insert_opponent_stats_season_async(
         session.add_all(chunk)
 
 
+async def insert_partnership_stats_league_async(
+    session: AsyncSession, 
+    partnerships: List[PartnershipStatsLeague], 
+    league_id: int
+) -> None:
+    """Bulk insert league-specific partnership stats in chunks."""
+    if not partnerships:
+        return
+    
+    for chunk in _chunks(partnerships, 1000):
+        session.add_all(chunk)
+
+
+async def insert_opponent_stats_league_async(
+    session: AsyncSession, 
+    opponents: List[OpponentStatsLeague], 
+    league_id: int
+) -> None:
+    """Bulk insert league-specific opponent stats in chunks."""
+    if not opponents:
+        return
+    
+    for chunk in _chunks(opponents, 1000):
+        session.add_all(chunk)
+    
+    for chunk in _chunks(opponents, 1000):
+        session.add_all(chunk)
+
+
 async def upsert_player_season_stats_async(
     session: AsyncSession, 
     tracker: 'calculation_service.StatsTracker', 
@@ -3467,17 +4011,9 @@ async def upsert_player_season_stats_async(
         season_id: Season ID
     """
     player_stats_list = []
-    for player_name, player_stats in tracker.players.items():
-        # Get player ID
-        result = await session.execute(
-            select(Player).where(Player.full_name == player_name)
-        )
-        player = result.scalar_one_or_none()
-        if not player:
-            continue
-        
+    for player_id, player_stats in tracker.players.items():
         player_stats_list.append({
-            "player_id": player.id,
+            "player_id": player_id,
             "season_id": season_id,
             "games": player_stats.game_count,
             "wins": player_stats.win_count,
@@ -3513,10 +4049,12 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     This function:
     1. Loads all ranked matches
     2. Processes them through calculation service
-    3. Deletes all global stats
-    4. Inserts new global stats
+    3. Calculates all stats in memory first
+    4. Deletes all global stats
+    5. Inserts new global stats
     
     All operations happen within a single transaction to ensure consistency.
+    If calculation fails, old stats remain visible.
     
     Args:
         session: Database session
@@ -3527,23 +4065,20 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     # Load all ranked matches
     matches = await load_ranked_matches_async(session)
     
-    # Delete all global stats first (even if no matches, to remove stale data)
-    await delete_global_stats_async(session)
-    
     if not matches:
+        # No matches - delete stats and return
+        await delete_global_stats_async(session)
         await session.commit()
         return {"player_count": 0, "match_count": 0}
     
-    # Get all players and create player_id_map (name -> id)
-    result = await session.execute(select(Player))
-    players = result.scalars().all()
-    player_id_map = {player.full_name: player.id for player in players}
-    
     # Process matches through calculation service (in-memory, fast)
+    # Note: player_id_map is no longer needed since we use IDs directly
     elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        matches,
-        player_id_map
+        matches
     )
+    
+    # Now delete old stats and insert new ones (all calculated, so if this fails, transaction rolls back)
+    await delete_global_stats_async(session)
     
     # Insert new stats (within same transaction)
     await insert_elo_history_async(session, elo_history_list)
@@ -3555,55 +4090,51 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     # If any error occurs, transaction rolls back and old stats remain
     await session.commit()
     
+    # Count unique players from matches
+    unique_players = set()
+    for match in matches:
+        unique_players.add(match.team1_player1_id)
+        unique_players.add(match.team1_player2_id)
+        unique_players.add(match.team2_player1_id)
+        unique_players.add(match.team2_player2_id)
+    
     return {
-        "player_count": len(player_id_map),
+        "player_count": len(unique_players),
         "match_count": len(matches)
     }
 
 
-async def calculate_season_stats_async(session: AsyncSession, season_id: int) -> Dict:
+async def _calculate_season_stats_from_matches(
+    session: AsyncSession, 
+    season_id: int, 
+    season_matches: List[Match]
+) -> Dict:
     """
-    Calculate season-specific stats from ranked matches in a season.
-    
-    This function:
-    1. Loads ranked matches for the season
-    2. Processes them through calculation service
-    3. Deletes all season-specific stats for that season
-    4. Inserts new season-specific stats
-    
-    All operations happen within a single transaction to ensure consistency.
+    Helper function to calculate season stats from a list of matches.
+    Used internally by calculate_league_stats_async.
     
     Args:
         session: Database session
         season_id: Season ID
+        season_matches: List of matches for this season
         
     Returns:
         Dict with player_count and match_count
     """
-    # Load ranked matches for this season
-    matches = await load_ranked_matches_async(session, season_id)
-    
-    # Delete all season-specific stats for this season first (even if no matches, to remove stale data)
-    await delete_season_stats_async(session, season_id)
-    
-    if not matches:
-        await session.commit()
+    if not season_matches:
+        # No matches - delete stats and return
+        await delete_season_stats_async(session, season_id)
         return {"player_count": 0, "match_count": 0}
     
-    # Get all players and create player_id_map (name -> id)
-    result = await session.execute(select(Player))
-    players = result.scalars().all()
-    player_id_map = {player.full_name: player.id for player in players}
-    
     # Process matches through calculation service (in-memory, fast)
+    # Note: player_id_map is no longer needed since we use IDs directly
     elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        matches,
-        player_id_map
+        season_matches
     )
     
     # Create tracker for player season stats (process matches again to get player-level stats)
     tracker = calculation_service.StatsTracker()
-    for match in matches:
+    for match in season_matches:
         tracker.process_match(match)
     
     # Convert partnerships and opponents to season-specific models
@@ -3637,21 +4168,264 @@ async def calculate_season_stats_async(session: AsyncSession, season_id: int) ->
             )
         )
     
+    # Prepare player season stats list (calculate first, before deleting)
+    player_stats_list = []
+    for player_id, player_stats in tracker.players.items():
+        player_stats_list.append({
+            "player_id": player_id,
+            "season_id": season_id,
+            "games": player_stats.game_count,
+            "wins": player_stats.win_count,
+            "points": player_stats.points,
+            "win_rate": round(player_stats.win_rate, 3),
+            "avg_point_diff": round(player_stats.avg_point_diff, 1)
+        })
+    
+    # Now delete old stats and insert new ones (all calculated, so if this fails, transaction rolls back)
+    await delete_season_stats_async(session, season_id)
+    
     # Insert new season-specific stats (within same transaction)
     await insert_partnership_stats_season_async(session, partnership_season_list, season_id)
     await insert_opponent_stats_season_async(session, opponent_season_list, season_id)
     
-    # Update player season stats using the tracker
-    await upsert_player_season_stats_async(session, tracker, season_id)
+    # Insert player season stats
+    if player_stats_list:
+        stmt = insert(PlayerSeasonStats).values(player_stats_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['player_id', 'season_id'],
+            set_=dict(
+                games=stmt.excluded.games,
+                wins=stmt.excluded.wins,
+                points=stmt.excluded.points,
+                win_rate=stmt.excluded.win_rate,
+                avg_point_diff=stmt.excluded.avg_point_diff,
+                updated_at=sql_func.now()
+            )
+        )
+        await session.execute(stmt)
     
-    # Commit the transaction - readers now see new stats
-    # If any error occurs, transaction rolls back and old stats remain
+    # Count unique players in this season
+    unique_players = set()
+    for match in season_matches:
+        if match.team1_player1_id:
+            unique_players.add(match.team1_player1_id)
+        if match.team1_player2_id:
+            unique_players.add(match.team1_player2_id)
+        if match.team2_player1_id:
+            unique_players.add(match.team2_player1_id)
+        if match.team2_player2_id:
+            unique_players.add(match.team2_player2_id)
+    
+    return {
+        "player_count": len(unique_players),
+        "match_count": len(season_matches)
+    }
+
+
+async def calculate_league_stats_async(session: AsyncSession, league_id: int) -> Dict:
+    """
+    Calculate league-level stats and all season stats for a league.
+    
+    This function:
+    1. Loads all ranked matches for the league (across all seasons) - single query
+    2. Gets all seasons for the league
+    3. Processes all matches through calculation service to get league-level stats
+    4. Calculates league-level stats (partnerships, opponents, player stats)
+    5. Deletes old league stats
+    6. Inserts new league stats
+    7. For each season in the league:
+       - Filters matches by season_id (in-memory, already loaded)
+       - Calculates season stats from filtered matches
+       - Deletes old season stats
+       - Inserts new season stats
+    
+    All operations happen within a single transaction to ensure consistency.
+    If calculation fails, old stats remain visible.
+    
+    This approach is efficient because:
+    - Single database query loads all matches
+    - In-memory filtering by season (fast)
+    - All calculations happen in one transaction
+    
+    Args:
+        session: Database session
+        league_id: League ID
+        
+    Returns:
+        Dict with league_player_count, league_match_count, and season_counts
+    """
+    # Load all ranked matches for the league (across all seasons) - single query
+    all_matches = await load_ranked_matches_async(session, league_id=league_id)
+    
+    # Get all seasons for the league
+    seasons = await list_seasons(session, league_id)
+    season_ids = [s["id"] for s in seasons]
+    
+    if not all_matches:
+        # No matches - delete all stats and return
+        await delete_league_stats_async(session, league_id)
+        for season_id in season_ids:
+            await delete_season_stats_async(session, season_id)
+        await session.commit()
+        return {
+            "league_player_count": 0,
+            "league_match_count": 0,
+            "season_counts": {season_id: {"player_count": 0, "match_count": 0} for season_id in season_ids}
+        }
+    
+    # Get session_id -> season_id mapping for all matches
+    # Query all sessions for matches that have session_id
+    session_ids = {m.session_id for m in all_matches if m.session_id}
+    session_to_season_map = {}
+    if session_ids:
+        sessions_result = await session.execute(
+            select(Session.id, Session.season_id).where(Session.id.in_(session_ids))
+        )
+        for sess_id, sess_season_id in sessions_result:
+            if sess_season_id:
+                session_to_season_map[sess_id] = sess_season_id
+    
+    # Process all matches through calculation service to get league-level stats
+    # Note: player_id_map is no longer needed since we use IDs directly
+    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+        all_matches
+    )
+    
+    # Create tracker for player league stats (process all matches to get player-level stats)
+    league_tracker = calculation_service.StatsTracker()
+    for match in all_matches:
+        league_tracker.process_match(match)
+    
+    # Convert partnerships and opponents to league-specific models
+    partnership_league_list = []
+    for ps in partnerships:
+        partnership_league_list.append(
+            PartnershipStatsLeague(
+                player_id=ps.player_id,
+                partner_id=ps.partner_id,
+                league_id=league_id,
+                games=ps.games,
+                wins=ps.wins,
+                points=ps.points,
+                win_rate=ps.win_rate,
+                avg_point_diff=ps.avg_point_diff
+            )
+        )
+    
+    opponent_league_list = []
+    for os in opponents:
+        opponent_league_list.append(
+            OpponentStatsLeague(
+                player_id=os.player_id,
+                opponent_id=os.opponent_id,
+                league_id=league_id,
+                games=os.games,
+                wins=os.wins,
+                points=os.points,
+                win_rate=os.win_rate,
+                avg_point_diff=os.avg_point_diff
+            )
+        )
+    
+    # Prepare player league stats list
+    player_league_stats_list = []
+    for player_id, player_stats in league_tracker.players.items():
+        player_league_stats_list.append({
+            "player_id": player_id,
+            "league_id": league_id,
+            "games": player_stats.game_count,
+            "wins": player_stats.win_count,
+            "points": player_stats.points,
+            "win_rate": round(player_stats.win_rate, 3),
+            "avg_point_diff": round(player_stats.avg_point_diff, 1)
+        })
+    
+    # Now delete old league stats and insert new ones
+    await delete_league_stats_async(session, league_id)
+    
+    # Insert new league-specific stats (within same transaction)
+    await insert_partnership_stats_league_async(session, partnership_league_list, league_id)
+    await insert_opponent_stats_league_async(session, opponent_league_list, league_id)
+    
+    # Insert player league stats
+    if player_league_stats_list:
+        stmt = insert(PlayerLeagueStats).values(player_league_stats_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['player_id', 'league_id'],
+            set_=dict(
+                games=stmt.excluded.games,
+                wins=stmt.excluded.wins,
+                points=stmt.excluded.points,
+                win_rate=stmt.excluded.win_rate,
+                avg_point_diff=stmt.excluded.avg_point_diff,
+                updated_at=sql_func.now()
+            )
+        )
+        await session.execute(stmt)
+    
+    # Now calculate stats for each season
+    # Group matches by season_id for efficient processing
+    matches_by_season: Dict[int, List[Match]] = {}
+    for match in all_matches:
+        season_id = session_to_season_map.get(match.session_id) if match.session_id else None
+        if season_id and season_id in season_ids:
+            if season_id not in matches_by_season:
+                matches_by_season[season_id] = []
+            matches_by_season[season_id].append(match)
+    
+    # Calculate stats for each season
+    season_counts = {}
+    for season_id in season_ids:
+        season_matches = matches_by_season.get(season_id, [])
+        season_result = await _calculate_season_stats_from_matches(session, season_id, season_matches)
+        season_counts[season_id] = season_result
+    
+    # Count unique players in league
+    unique_league_players = set()
+    for match in all_matches:
+        if match.team1_player1_id:
+            unique_league_players.add(match.team1_player1_id)
+        if match.team1_player2_id:
+            unique_league_players.add(match.team1_player2_id)
+        if match.team2_player1_id:
+            unique_league_players.add(match.team2_player1_id)
+        if match.team2_player2_id:
+            unique_league_players.add(match.team2_player2_id)
+    
     await session.commit()
     
     return {
-        "player_count": len(player_id_map),
-        "match_count": len(matches)
+        "league_player_count": len(unique_league_players),
+        "league_match_count": len(all_matches),
+        "season_counts": season_counts
     }
+
+
+# Keep calculate_season_stats_async for backward compatibility, but it now calls the helper
+async def calculate_season_stats_async(session: AsyncSession, season_id: int) -> Dict:
+    """
+    Calculate season-specific stats from ranked matches in a season.
+    
+    This is a backward compatibility wrapper that calls the helper function.
+    For new code, use calculate_league_stats_async instead.
+    
+    Args:
+        session: Database session
+        season_id: Season ID
+        
+    Returns:
+        Dict with player_count and match_count
+    """
+    # Load ranked matches for this season
+    matches = await load_ranked_matches_async(session, season_id=season_id)
+    
+    # Use the helper function to calculate season stats
+    result = await _calculate_season_stats_from_matches(session, season_id, matches)
+    
+    # Commit the transaction
+    await session.commit()
+    
+    return result
 
 
 def register_stats_queue_callbacks() -> None:
@@ -3669,7 +4443,7 @@ def register_stats_queue_callbacks() -> None:
     queue = get_stats_queue()
     queue.register_calculation_callbacks(
         global_calc_callback=calculate_global_stats_async,
-        season_calc_callback=calculate_season_stats_async
+        league_calc_callback=calculate_league_stats_async
     )
 
 

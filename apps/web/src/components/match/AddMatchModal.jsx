@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, ChevronDown, Info, Settings } from 'lucide-react';
 import { Button } from '../ui/UI';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
-import { getUserLeagues, getLeagueSeasons } from '../../services/api';
+import { getUserLeagues, getLeagueSeasons, getActiveSession } from '../../services/api';
 import { formatDateRange } from '../league/utils/leagueUtils';
 import { useMatchFormReducer } from './useMatchFormReducer';
 import { getPlayerValue, nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
@@ -32,7 +32,11 @@ export default function AddMatchModal({
   leagueMatchOnly = false,
   defaultLeagueId = null,
   members = [],
-  league = null
+  league = null,
+  sessionId = null,
+  sessionSeasonId = null,
+  defaultSeasonId = null,
+  onSeasonChange = null
 }) {
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,11 +49,18 @@ export default function AddMatchModal({
   const [isRanked, setIsRanked] = useState(true);
   const [availableLeagues, setAvailableLeagues] = useState([]);
   const [activeSeason, setActiveSeason] = useState(null);
+  const [activeSeasons, setActiveSeasons] = useState([]);
+  const [allSeasons, setAllSeasons] = useState([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+  const [hasActiveSession, setHasActiveSession] = useState(true); // Assume true initially
+  const [isSeasonDisabled, setIsSeasonDisabled] = useState(false); // Disable season when opened from a session
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingSeason, setLoadingSeason] = useState(false);
   const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState(false);
+  const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
   const [isConfigExpanded, setIsConfigExpanded] = useState(true);
   const leagueDropdownRef = useRef(null);
+  const seasonDropdownRef = useRef(null);
   
   // Refs for auto-focusing next fields
   const team1Player1Ref = useRef(null);
@@ -187,27 +198,112 @@ export default function AddMatchModal({
     }
   }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league]);
 
-  // Load active season when league is selected
+  // Helper to check if season is active based on dates
+  const isSeasonActive = useCallback((season) => {
+    if (!season || !season.start_date || !season.end_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(season.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(season.end_date);
+    endDate.setHours(0, 0, 0, 0);
+    return today >= startDate && today <= endDate;
+  }, []);
+
+  // Load seasons when league is selected
   useEffect(() => {
     if (selectedLeagueId && matchType === 'league') {
-      const loadActiveSeason = async () => {
+      const loadSeasons = async () => {
         setLoadingSeason(true);
         try {
-          const seasons = await getLeagueSeasons(selectedLeagueId);
-          const active = seasons?.find(s => s.is_active === true);
-          setActiveSeason(active || null);
+          // If sessionSeasonId is provided, we're opening from an active session
+          // Pre-populate and disable the season dropdown
+          if (sessionSeasonId) {
+            setSelectedSeasonId(sessionSeasonId);
+            setIsSeasonDisabled(true);
+            setHasActiveSession(true);
+            
+            const seasons = await getLeagueSeasons(selectedLeagueId);
+            const active = seasons?.filter(isSeasonActive) || [];
+            setActiveSeasons(active);
+            setAllSeasons(seasons || []);
+            
+            // Find and set the active season
+            const season = seasons.find(s => s.id === sessionSeasonId);
+            if (season) {
+              setActiveSeason(season);
+            }
+          } else {
+            // No session provided - check if there's an active session
+            let hasActive = true;
+            try {
+              const activeSession = await getActiveSession().catch(() => null);
+              hasActive = !!activeSession;
+              setHasActiveSession(hasActive);
+            } catch (err) {
+              // If we can't check, assume there's an active session
+              setHasActiveSession(true);
+            }
+            
+            setIsSeasonDisabled(false); // Allow selection when not from a session
+            
+            const seasons = await getLeagueSeasons(selectedLeagueId);
+            const active = seasons?.filter(isSeasonActive) || [];
+            setActiveSeasons(active);
+            setAllSeasons(seasons || []);
+            
+            // Use defaultSeasonId if provided, otherwise use active seasons logic
+            if (defaultSeasonId !== null && defaultSeasonId !== undefined) {
+              // Use the provided default season
+              setSelectedSeasonId(defaultSeasonId);
+              const season = seasons.find(s => s.id === defaultSeasonId);
+              if (season) {
+                setActiveSeason(season);
+              }
+            } else if (hasActive) {
+              // If there's an active session, use active seasons logic
+              // If exactly one active season, select it automatically
+              if (active.length === 1) {
+                setSelectedSeasonId(active[0].id);
+                setActiveSeason(active[0]);
+              } else {
+                // Multiple or no active seasons - clear selection
+                setSelectedSeasonId(null);
+                setActiveSeason(null);
+              }
+            } else {
+              // No active session - allow selecting any season
+              // If exactly one season total, select it automatically
+              if (seasons.length === 1) {
+                setSelectedSeasonId(seasons[0].id);
+                setActiveSeason(seasons[0]);
+              } else {
+                // Multiple seasons - clear selection (user must choose)
+                setSelectedSeasonId(null);
+                setActiveSeason(null);
+              }
+            }
+          }
         } catch (error) {
-          console.error('Error loading active season:', error);
+          console.error('Error loading seasons:', error);
+          setActiveSeasons([]);
+          setAllSeasons([]);
           setActiveSeason(null);
+          setSelectedSeasonId(null);
         } finally {
           setLoadingSeason(false);
         }
       };
-      loadActiveSeason();
+      loadSeasons();
     } else {
+      setActiveSeasons([]);
+      setAllSeasons([]);
       setActiveSeason(null);
+      setSelectedSeasonId(null);
+      setHasActiveSession(true);
+      setIsSeasonDisabled(false);
     }
-  }, [selectedLeagueId, matchType]);
+  }, [selectedLeagueId, matchType, sessionSeasonId]);
 
   // Reset match type when modal opens/closes
   useEffect(() => {
@@ -215,8 +311,15 @@ export default function AddMatchModal({
       setMatchType(leagueMatchOnly ? 'league' : 'non-league');
       setSelectedLeagueId(defaultLeagueId);
       setIsRanked(true);
+      // Reset season disabled state - will be set based on sessionSeasonId in the season loading effect
+      setIsSeasonDisabled(false);
+      // If defaultSeasonId is provided and no sessionSeasonId, use it as initial value
+      // (The season loading effect will handle it, but we set it here for immediate feedback)
+      if (defaultSeasonId !== null && defaultSeasonId !== undefined && !sessionSeasonId) {
+        setSelectedSeasonId(defaultSeasonId);
+      }
     }
-  }, [isOpen, leagueMatchOnly, defaultLeagueId]);
+  }, [isOpen, leagueMatchOnly, defaultLeagueId, defaultSeasonId, sessionSeasonId]);
 
   // Close league dropdown when clicking outside
   useEffect(() => {
@@ -224,13 +327,16 @@ export default function AddMatchModal({
       if (leagueDropdownRef.current && !leagueDropdownRef.current.contains(event.target)) {
         setIsLeagueDropdownOpen(false);
       }
+      if (seasonDropdownRef.current && !seasonDropdownRef.current.contains(event.target)) {
+        setIsSeasonDropdownOpen(false);
+      }
     };
 
-    if (isLeagueDropdownOpen) {
+    if (isLeagueDropdownOpen || isSeasonDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isLeagueDropdownOpen]);
+  }, [isLeagueDropdownOpen, isSeasonDropdownOpen]);
 
   // Track if modal is newly opened (for auto-open behavior)
   const [shouldAutoOpen, setShouldAutoOpen] = useState(false);
@@ -256,6 +362,13 @@ export default function AddMatchModal({
     setFormError(null);
   }, [editMatch, isOpen, playerNameToIdMap]);
 
+  // Open season dropdown and show error state when "Please select a season" error occurs
+  useEffect(() => {
+    if (formError === 'Please select a season' && !isSeasonDropdownOpen) {
+      setIsSeasonDropdownOpen(true);
+    }
+  }, [formError, isSeasonDropdownOpen]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -279,38 +392,78 @@ export default function AddMatchModal({
       return;
     }
 
+    // Validate season selection for league matches
+    if (!editMatch && matchType === 'league' && selectedLeagueId) {
+      const seasonsToCheck = hasActiveSession ? activeSeasons : allSeasons;
+      if (seasonsToCheck.length > 1 && !selectedSeasonId) {
+        setFormError('Please select a season');
+        return;
+      }
+      if (seasonsToCheck.length === 1 && !selectedSeasonId) {
+        // Auto-select the single season
+        setSelectedSeasonId(seasonsToCheck[0].id);
+        setActiveSeason(seasonsToCheck[0]);
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // Convert player options (with player_id) to player names for API
-      const getPlayerName = (playerOption) => {
-        if (!playerOption) return '';
+      const getPlayerId = (playerOption) => {
+        if (!playerOption) return null;
         
-        // If it's an object with value/label, get the name from the map or use label
+        // If it's an object with value/label, use the value (player_id)
         if (typeof playerOption === 'object' && 'value' in playerOption) {
-          const playerId = playerOption.value;
-          const playerName = playerIdToNameMap.get(playerId);
-          // If found in map, use it; otherwise use label (for new players)
-          return playerName || playerOption.label || '';
+          return playerOption.value;
         }
         
-        // Legacy: if it's a string, return as-is
-        return playerOption;
+        // Legacy: if it's a string, try to find the ID from the map
+        if (typeof playerOption === 'string') {
+          return playerNameToIdMap.get(playerOption) || null;
+        }
+        
+        return null;
       };
 
-      // Submit the match with player names (API expects names)
+      // Submit the match with player IDs (API expects IDs)
+      const team1_p1_id = getPlayerId(formData.team1Player1);
+      const team1_p2_id = getPlayerId(formData.team1Player2);
+      const team2_p1_id = getPlayerId(formData.team2Player1);
+      const team2_p2_id = getPlayerId(formData.team2Player2);
+      
+      // Validate all player IDs are provided
+      if (!team1_p1_id || !team1_p2_id || !team2_p1_id || !team2_p2_id) {
+        setFormError('Please select all four players');
+        setIsSubmitting(false);
+        return;
+      }
+      
       const matchPayload = {
-        team1_player1: getPlayerName(formData.team1Player1),
-        team1_player2: getPlayerName(formData.team1Player2),
-        team2_player1: getPlayerName(formData.team2Player1),
-        team2_player2: getPlayerName(formData.team2Player2),
+        team1_player1_id: team1_p1_id,
+        team1_player2_id: team1_p2_id,
+        team2_player1_id: team2_p1_id,
+        team2_player2_id: team2_p2_id,
         team1_score: scoresValidation.score1,
         team2_score: scoresValidation.score2,
         is_ranked: isRanked
       };
 
-      // Add league_id only for league matches
+      // Add league_id and season_id for league matches
       if (matchType === 'league' && selectedLeagueId) {
         matchPayload.league_id = selectedLeagueId;
+        // Always include season_id if available
+        if (selectedSeasonId) {
+          matchPayload.season_id = selectedSeasonId;
+        } else if (activeSeason) {
+          // Fallback to activeSeason if set
+          matchPayload.season_id = activeSeason.id;
+        } else {
+          // If no season selected, try to get from allSeasons or activeSeasons
+          const seasonsToCheck = hasActiveSession ? activeSeasons : allSeasons;
+          if (seasonsToCheck.length === 1) {
+            matchPayload.season_id = seasonsToCheck[0].id;
+          }
+        }
       }
 
       await onSubmit(matchPayload, editMatch ? editMatch.id : null);
@@ -505,20 +658,108 @@ export default function AddMatchModal({
                       )}
                     </div>
                     {selectedLeagueId && (
-                      <span className="active-season-inline-text">
+                      <div className="season-dropdown-container compact" ref={seasonDropdownRef}>
                         {loadingSeason ? (
-                          'Loading...'
-                        ) : activeSeason ? (
-                          <>
-                            <span className="season-name">{activeSeason.name}</span>
-                            {activeSeason.start_date && activeSeason.end_date && (
-                              <span className="season-dates">{formatDateRange(activeSeason.start_date, activeSeason.end_date)}</span>
-                            )}
-                          </>
-                        ) : (
-                          'No active season'
-                        )}
-                      </span>
+                          <span className="active-season-inline-text">Loading...</span>
+                        ) : (() => {
+                          // Determine which seasons to show
+                          const seasonsToShow = hasActiveSession ? activeSeasons : allSeasons;
+                          const selectedSeason = seasonsToShow.find(s => s.id === selectedSeasonId) || 
+                                                 (hasActiveSession && activeSeason) ||
+                                                 allSeasons.find(s => s.id === selectedSeasonId);
+                          
+                          // If no active session and no seasons at all
+                          if (!hasActiveSession && allSeasons.length === 0) {
+                            return <span className="active-season-inline-text">No seasons available</span>;
+                          }
+                          
+                          // If no active session and exactly one season, show it
+                          if (!hasActiveSession && allSeasons.length === 1) {
+                            const season = allSeasons[0];
+                            return (
+                              <span className="active-season-inline-text">
+                                <span className="season-name">{season.name || `Season ${season.id}`}</span>
+                                {season.start_date && season.end_date && (
+                                  <span className="season-dates">{formatDateRange(season.start_date, season.end_date)}</span>
+                                )}
+                              </span>
+                            );
+                          }
+                          
+                          // If has active session and exactly one active season, show it
+                          if (hasActiveSession && activeSeasons.length === 1) {
+                            return (
+                              <span className="active-season-inline-text">
+                                <span className="season-name">{activeSeason.name}</span>
+                                {activeSeason.start_date && activeSeason.end_date && (
+                                  <span className="season-dates">{formatDateRange(activeSeason.start_date, activeSeason.end_date)}</span>
+                                )}
+                              </span>
+                            );
+                          }
+                          
+                          // If season is disabled (from session), show as text
+                          if (isSeasonDisabled && selectedSeasonId) {
+                            const season = allSeasons.find(s => s.id === selectedSeasonId) || activeSeason;
+                            if (season) {
+                              return (
+                                <span className="active-season-inline-text">
+                                  <span className="season-name">{season.name || `Season ${selectedSeasonId}`}</span>
+                                  {season.start_date && season.end_date && (
+                                    <span className="season-dates">{formatDateRange(season.start_date, season.end_date)}</span>
+                                  )}
+                                </span>
+                              );
+                            }
+                          }
+                          
+                          // Multiple seasons or no active session - show dropdown
+                          return (
+                            <>
+                              <div
+                                className={`season-dropdown-trigger compact ${isSeasonDropdownOpen ? 'open' : ''} ${!selectedSeasonId ? 'placeholder required' : ''} ${formError === 'Please select a season' ? 'error' : ''} ${isSeasonDisabled ? 'disabled' : ''}`}
+                                onClick={() => !isSeasonDisabled && setIsSeasonDropdownOpen(!isSeasonDropdownOpen)}
+                              >
+                                {selectedSeasonId
+                                    ? <span>{selectedSeason?.name || `Season ${selectedSeasonId}`}</span>
+                                    : <div><span>Select season</span><span className="required-asterisk">*</span></div>}
+                                {!isSeasonDisabled && <ChevronDown size={14} className={isSeasonDropdownOpen ? 'rotate-180' : ''} />}
+                              </div>
+                              {isSeasonDropdownOpen && !isSeasonDisabled && (
+                                <div className="season-dropdown-menu">
+                                  {seasonsToShow.map((season) => {
+                                    const isActive = isSeasonActive(season);
+                                    return (
+                                      <div
+                                        key={season.id}
+                                        className={`season-dropdown-option ${selectedSeasonId === season.id ? 'selected' : ''}`}
+                                        onClick={() => {
+                                          setSelectedSeasonId(season.id);
+                                          setActiveSeason(season);
+                                          setIsSeasonDropdownOpen(false);
+                                          // Update context season selection when user changes season in modal
+                                          if (onSeasonChange) {
+                                            onSeasonChange(season.id);
+                                          }
+                                          // Clear error when season is selected
+                                          if (formError === 'Please select a season') {
+                                            setFormError(null);
+                                          }
+                                        }}
+                                      >
+                                        <span className="season-name">{season.name || `Season ${season.id}`}</span>
+                                        {season.start_date && season.end_date && (
+                                          <span className="season-dates">{formatDateRange(season.start_date, season.end_date)}</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                     )}
                   </div>
                 </div>

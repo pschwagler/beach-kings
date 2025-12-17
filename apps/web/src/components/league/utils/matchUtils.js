@@ -44,6 +44,7 @@ export function transformMatchData(matches) {
       'Session ID': match.session_id,
       'Session Name': match.session_name || match.date,
       'Session Status': match.session_status || null,
+      'Session Season ID': match.session_season_id || null,
       'Session Created At': match.session_created_at || null,
       'Session Updated At': match.session_updated_at || null,
       'Session Created By': match.session_created_by_name || null,

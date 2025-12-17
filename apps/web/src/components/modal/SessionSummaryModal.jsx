@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { X, Trophy, Users } from 'lucide-react';
 import { Button } from '../ui/UI';
 
@@ -63,47 +63,24 @@ function calculatePlayerStats(matches) {
   return Object.values(playerStats).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export default function ConfirmationModal({ 
+export default function SessionSummaryModal({ 
   isOpen, 
   onClose, 
-  onConfirm, 
-  title, 
-  message, 
-  confirmText = 'Confirm', 
-  cancelText = 'Cancel',
+  title = 'Session Summary',
   gameCount,
   playerCount,
   matches,
   season
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const playerStats = useMemo(() => {
     if (!matches || matches.length === 0) return [];
     return calculatePlayerStats(matches);
   }, [matches]);
 
-  const handleConfirm = async () => {
-    if (isSubmitting) return;
-    
-    setIsSubmitting(true);
-    try {
-      await onConfirm();
-      onClose();
-    } catch (error) {
-      console.error('Error during confirmation:', error);
-      // Keep modal open on error so user can see what happened
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   const handleOverlayClick = () => {
-    if (!isSubmitting) {
-      onClose();
-    }
+    onClose();
   };
 
   return (
@@ -117,7 +94,7 @@ export default function ConfirmationModal({
                 {season.name || `Season ${season.id}`}
               </span>
             )}
-            <Button variant="close" onClick={onClose} disabled={isSubmitting}>
+            <Button variant="close" onClick={onClose}>
               <X size={20} />
             </Button>
           </div>
@@ -165,21 +142,14 @@ export default function ConfirmationModal({
               </table>
             </div>
           )}
-          
-          <p>{message}</p>
         </div>
 
         <div className="modal-actions">
-          <Button onClick={onClose} disabled={isSubmitting}>
-            {cancelText}
-          </Button>
-          <Button variant="success" onClick={handleConfirm} disabled={isSubmitting}>
-            {isSubmitting ? 'Submitting...' : confirmText}
+          <Button onClick={onClose}>
+            Close
           </Button>
         </div>
       </div>
     </div>
   );
 }
-
-

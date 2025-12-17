@@ -109,14 +109,18 @@ class EndSessionRequest(BaseModel):
 
 class CreateMatchRequest(BaseModel):
     """Request to create a new match."""
-    session_id: int
-    team1_player1: str
-    team1_player2: str
-    team2_player1: str
-    team2_player2: str
+    session_id: Optional[int] = None
+    league_id: Optional[int] = None
+    season_id: Optional[int] = None
+    date: Optional[str] = None
+    team1_player1_id: int
+    team1_player2_id: int
+    team2_player1_id: int
+    team2_player2_id: int
     team1_score: int
     team2_score: int
     is_public: Optional[bool] = True
+    is_ranked: Optional[bool] = True
 
 
 class CreateMatchResponse(BaseModel):
@@ -129,13 +133,14 @@ class CreateMatchResponse(BaseModel):
 
 class UpdateMatchRequest(BaseModel):
     """Request to update an existing match."""
-    team1_player1: str
-    team1_player2: str
-    team2_player1: str
-    team2_player2: str
+    team1_player1_id: int
+    team1_player2_id: int
+    team2_player1_id: int
+    team2_player2_id: int
     team1_score: int
     team2_score: int
     is_public: Optional[bool] = None
+    is_ranked: Optional[bool] = None
 
 
 class MatchesQueryRequest(BaseModel):
@@ -156,6 +161,7 @@ class MatchesQueryRequest(BaseModel):
 class RankingsQueryRequest(BaseModel):
     """Body for rankings query endpoint."""
     season_id: Optional[int] = None
+    league_id: Optional[int] = None
 
 
 # Authentication schemas
@@ -389,7 +395,6 @@ class SeasonBase(BaseModel):
     start_date: str  # ISO date string
     end_date: str  # ISO date string
     point_system: Optional[str] = None
-    is_active: bool = True
 
 
 class SeasonCreate(SeasonBase):

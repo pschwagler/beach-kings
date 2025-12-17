@@ -56,4 +56,5 @@ export const MODAL_TYPES = {
   EDIT_SCHEDULE: 'EDIT_SCHEDULE',
   SIGNUP: 'SIGNUP',
   CONFIRMATION: 'CONFIRMATION', // Optional, if we want to use it globally
+  SESSION_SUMMARY: 'SESSION_SUMMARY',
 };

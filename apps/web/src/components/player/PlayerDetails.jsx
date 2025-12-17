@@ -24,7 +24,7 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
 
       {(leagueName || seasonName) && (
         <div className="player-details-season-name">
-          {leagueName && seasonName ? `${leagueName} - ${seasonName}` : leagueName || seasonName}
+          {`${leagueName} - ${seasonName || 'All seasons'}`}
         </div>
       )}
 

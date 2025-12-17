@@ -9,11 +9,17 @@ import { formatDateRange } from './utils/leagueUtils';
 export default function LeagueRankingsTab() {
   const { 
     league,
+    leagueId,
     seasons,
-    activeSeason, 
+    activeSeason,
+    isSeasonActive,
     seasonData,
     seasonDataLoadingMap,
     loadSeasonData,
+    loadAllSeasonsRankings,
+    selectedSeasonId,
+    setSelectedSeasonId,
+    selectedSeasonData,
     selectedPlayerId,
     selectedPlayerName,
     setSelectedPlayer,
@@ -21,48 +27,44 @@ export default function LeagueRankingsTab() {
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   
-  // State for selected season (defaults to active season)
-  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
-  
   // State for player search filter
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   
-  // Set initial selected season when activeSeason loads
-  useEffect(() => {
-    if (activeSeason?.id && !selectedSeasonId) {
-      setSelectedSeasonId(activeSeason.id);
-    }
-  }, [activeSeason, selectedSeasonId]);
-  
-  // Get the currently selected season
+  // Get the currently selected season (null if "All Seasons" is selected)
   const selectedSeason = useMemo(() => {
-    if (!selectedSeasonId || !seasons) return activeSeason;
-    return seasons.find(s => s.id === selectedSeasonId) || activeSeason;
-  }, [selectedSeasonId, seasons, activeSeason]);
+    if (!selectedSeasonId || !seasons) return null;
+    return seasons.find(s => s.id === selectedSeasonId) || null;
+  }, [selectedSeasonId, seasons]);
   
-  // Get data for the selected season
-  const selectedSeasonData = useMemo(() => {
-    if (!selectedSeason) return null;
-    // Get data from seasonData map
-    return seasonData[selectedSeason.id] || null;
-  }, [selectedSeason, seasonData]);
+  // Use selectedSeasonData from context (computed once for consistency)
   
   // Load season data when selected season changes
   useEffect(() => {
-    if (selectedSeasonId && selectedSeasonId !== activeSeason?.id) {
+    if (selectedSeasonId) {
       loadSeasonData(selectedSeasonId);
+    } else {
+      // "All Seasons" selected - load rankings for all seasons in the league
+      loadAllSeasonsRankings();
     }
-  }, [selectedSeasonId, activeSeason, loadSeasonData]);
+  }, [selectedSeasonId, loadSeasonData, loadAllSeasonsRankings]);
 
-  // Get rankings from selected season data
+  // Get rankings from selected season data or all seasons
   // Return null if rankings hasn't loaded yet (undefined), only return [] if explicitly empty array
   const allRankings = useMemo(() => {
+    if (!selectedSeasonId) {
+      // "All Seasons" selected - get from all-seasons key
+      const allSeasonsData = seasonData['all-seasons'];
+      if (!allSeasonsData) return null;
+      if (allSeasonsData.rankings === undefined) return null;
+      return Array.isArray(allSeasonsData.rankings) ? allSeasonsData.rankings : [];
+    }
+    
     if (!selectedSeasonData) return null;
     // If rankings is undefined, data hasn't loaded yet - return null
     if (selectedSeasonData.rankings === undefined) return null;
     // If rankings is explicitly an array (even if empty), return it
     return Array.isArray(selectedSeasonData.rankings) ? selectedSeasonData.rankings : [];
-  }, [selectedSeasonData]);
+  }, [selectedSeasonData, selectedSeasonId, seasonData]);
   
   // Filter rankings by search term
   const rankings = useMemo(() => {
@@ -102,6 +104,7 @@ export default function LeagueRankingsTab() {
     currentUserPlayer,
     activeSeason: selectedSeason,
     rankings,
+    selectedSeasonId,
   });
 
   if (!seasons || seasons.length === 0) {
@@ -143,12 +146,16 @@ export default function LeagueRankingsTab() {
           <select
             id="season-select"
             value={selectedSeasonId || ''}
-            onChange={(e) => setSelectedSeasonId(Number(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedSeasonId(value ? Number(value) : null);
+            }}
             className="season-selector-dropdown"
           >
+            <option value="">All Seasons</option>
             {seasons.map(season => (
               <option key={season.id} value={season.id}>
-                {season.name} {season.is_active ? '(Active)' : ''}
+                {season.name} {isSeasonActive(season) ? '(Active)' : ''}
                 {season.start_date && season.end_date ? ` - ${formatDateRange(season.start_date, season.end_date)}` : ''}
               </option>
             ))}
@@ -159,7 +166,11 @@ export default function LeagueRankingsTab() {
       <RankingsTable
         rankings={rankings}
         onPlayerClick={handlePlayerClick}
-        loading={selectedSeasonId ? seasonDataLoadingMap[selectedSeasonId] : false}
+        loading={selectedSeasonId 
+          ? (seasonDataLoadingMap[selectedSeasonId] || false)
+          : (seasonDataLoadingMap['all-seasons'] || false)
+        }
+        isAllSeasons={!selectedSeasonId}
       />
     </div>
   );

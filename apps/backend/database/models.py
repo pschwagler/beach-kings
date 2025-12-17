@@ -239,7 +239,6 @@ class Season(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     point_system = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the season
@@ -256,7 +255,6 @@ class Season(Base):
     
     __table_args__ = (
         Index("idx_seasons_league", "league_id"),
-        Index("idx_seasons_active", "is_active"),
     )
 
 
@@ -418,6 +416,14 @@ class Match(Base):
         return [
             [self.team1_player1_name, self.team1_player2_name],
             [self.team2_player1_name, self.team2_player2_name]
+        ]
+    
+    @property
+    def player_ids(self) -> List[List[int]]:
+        """Get player IDs as list of teams (for calculation service)."""
+        return [
+            [self.team1_player1_id, self.team1_player2_id],
+            [self.team2_player1_id, self.team2_player2_id]
         ]
     
     @property
@@ -748,6 +754,82 @@ class OpponentStatsSeason(Base):
     )
 
 
+class PlayerLeagueStats(Base):
+    """League-specific player stats."""
+    __tablename__ = "player_league_stats"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    player = relationship("Player")
+    league = relationship("League")
+    
+    __table_args__ = (
+        UniqueConstraint("player_id", "league_id"),
+        Index("idx_player_league_stats_player", "player_id"),
+        Index("idx_player_league_stats_league", "league_id"),
+    )
+
+
+class PartnershipStatsLeague(Base):
+    """How each player performs WITH each partner (league-specific stats)."""
+    __tablename__ = "partnership_stats_league"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    partner_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, primary_key=True)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    partner = relationship("Player", foreign_keys=[partner_id])
+    league = relationship("League", foreign_keys=[league_id])
+    
+    __table_args__ = (
+        Index("idx_partnership_stats_league_player", "player_id"),
+        Index("idx_partnership_stats_league_partner", "partner_id"),
+        Index("idx_partnership_stats_league_league", "league_id"),
+    )
+
+
+class OpponentStatsLeague(Base):
+    """How each player performs AGAINST each opponent (league-specific stats)."""
+    __tablename__ = "opponent_stats_league"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    opponent_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, primary_key=True)
+    games = Column(Integer, default=0, nullable=False)
+    wins = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)
+    win_rate = Column(Float, default=0.0, nullable=False)
+    avg_point_diff = Column(Float, default=0.0, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id])
+    opponent = relationship("Player", foreign_keys=[opponent_id])
+    league = relationship("League", foreign_keys=[league_id])
+    
+    __table_args__ = (
+        Index("idx_opponent_stats_league_player", "player_id"),
+        Index("idx_opponent_stats_league_opponent", "opponent_id"),
+        Index("idx_opponent_stats_league_league", "league_id"),
+    )
+
+
 class StatsCalculationJobStatus(str, enum.Enum):
     """Stats calculation job status enum."""
     PENDING = "pending"
@@ -761,8 +843,9 @@ class StatsCalculationJob(Base):
     __tablename__ = "stats_calculation_jobs"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    calc_type = Column(String, nullable=False)  # 'global' or 'season'
-    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
+    calc_type = Column(String, nullable=False)  # 'global' or 'league'
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)  # Deprecated, kept for backward compatibility
     status = Column(Enum(StatsCalculationJobStatus), default=StatsCalculationJobStatus.PENDING, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
@@ -770,11 +853,12 @@ class StatsCalculationJob(Base):
     error_message = Column(Text, nullable=True)
     
     # Relationships
-    season = relationship("Season", foreign_keys=[season_id])
+    league = relationship("League", foreign_keys=[league_id])
+    season = relationship("Season", foreign_keys=[season_id])  # Deprecated
     
     __table_args__ = (
         Index("idx_stats_calculation_jobs_status", "status"),
-        Index("idx_stats_calculation_jobs_type_season", "calc_type", "season_id"),
+        Index("idx_stats_calculation_jobs_type_league", "calc_type", "league_id"),
         Index("idx_stats_calculation_jobs_created_at", "created_at"),
     )
 

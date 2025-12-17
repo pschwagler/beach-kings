@@ -267,19 +267,35 @@ export const getPlayerSeasonStats = async (playerId, seasonId) => {
 };
 
 /**
- * Get all matches for a season with ELO changes
+ * Get all matches for a season or league with ELO changes
+ * @param {Object} params - {season_id?: number, league_id?: number}
  */
-export const getSeasonMatches = async (seasonId) => {
-  const response = await api.get(`/api/seasons/${seasonId}/matches`);
+export const getMatchesWithElo = async (params) => {
+  const response = await api.post('/api/matches', params);
   return response.data;
 };
 
 /**
- * Get all player season stats for a season
+ * Get all matches for a season with ELO changes (backward compatibility)
+ */
+export const getSeasonMatches = async (seasonId) => {
+  return getMatchesWithElo({ season_id: seasonId });
+};
+
+/**
+ * Get all player stats for a season or league
+ * @param {Object} params - {season_id?: number, league_id?: number}
+ */
+export const getAllPlayerStats = async (params) => {
+  const response = await api.post('/api/player-stats', params);
+  return response.data;
+};
+
+/**
+ * Get all player season stats for a season (backward compatibility)
  */
 export const getAllPlayerSeasonStats = async (seasonId) => {
-  const response = await api.get(`/api/seasons/${seasonId}/player-stats`);
-  return response.data;
+  return getAllPlayerStats({ season_id: seasonId });
 };
 
 /**
@@ -291,11 +307,49 @@ export const getPlayerSeasonPartnershipOpponentStats = async (playerId, seasonId
 };
 
 /**
- * Get all partnership and opponent stats for all players in a season
+ * Get all partnership and opponent stats for all players in a season or league
+ * @param {Object} params - {season_id?: number, league_id?: number}
+ */
+export const getAllPartnershipOpponentStats = async (params) => {
+  const response = await api.post('/api/partnership-opponent-stats', params);
+  return response.data;
+};
+
+/**
+ * Get all partnership and opponent stats for all players in a season (backward compatibility)
  */
 export const getAllSeasonPartnershipOpponentStats = async (seasonId) => {
-  const response = await api.get(`/api/seasons/${seasonId}/partnership-opponent-stats`);
+  return getAllPartnershipOpponentStats({ season_id: seasonId });
+};
+
+/**
+ * Get player stats for a specific league
+ */
+export const getPlayerLeagueStats = async (playerId, leagueId) => {
+  const response = await api.get(`/api/players/${playerId}/league/${leagueId}/stats`);
   return response.data;
+};
+
+/**
+ * Get all player league stats for a league (backward compatibility)
+ */
+export const getAllPlayerLeagueStats = async (leagueId) => {
+  return getAllPlayerStats({ league_id: leagueId });
+};
+
+/**
+ * Get partnership and opponent stats for a player in a league
+ */
+export const getPlayerLeaguePartnershipOpponentStats = async (playerId, leagueId) => {
+  const response = await api.get(`/api/players/${playerId}/league/${leagueId}/partnership-opponent-stats`);
+  return response.data;
+};
+
+/**
+ * Get all partnership and opponent stats for all players in a league (backward compatibility)
+ */
+export const getAllLeaguePartnershipOpponentStats = async (leagueId) => {
+  return getAllPartnershipOpponentStats({ league_id: leagueId });
 };
 
 /**
@@ -384,6 +438,27 @@ export const lockInLeagueSession = async (leagueId, sessionId) => {
 export const deleteSession = async (sessionId) => {
   const response = await api.delete(`/api/sessions/${sessionId}`);
   return response.data;
+};
+
+/**
+ * Update a session's fields (name, date, season_id)
+ * @param {number} sessionId - ID of session to update
+ * @param {Object} updates - Object with optional fields: name, date, season_id
+ * @returns {Promise} Updated session data
+ */
+export const updateSession = async (sessionId, updates) => {
+  const response = await api.patch(`/api/sessions/${sessionId}`, updates);
+  return response.data;
+};
+
+/**
+ * Update a session's season_id (convenience function)
+ * @param {number} sessionId - ID of session to update
+ * @param {number|null} seasonId - New season_id (can be null to remove season)
+ * @returns {Promise} Updated session data
+ */
+export const updateSessionSeason = async (sessionId, seasonId) => {
+  return updateSession(sessionId, { season_id: seasonId });
 };
 
 
@@ -549,6 +624,14 @@ export const updateLeagueMember = async (leagueId, memberId, role) => {
  */
 export const createLeagueSeason = async (leagueId, seasonData) => {
   const response = await api.post(`/api/leagues/${leagueId}/seasons`, seasonData);
+  return response.data;
+};
+
+/**
+ * Update a season
+ */
+export const updateSeason = async (seasonId, seasonData) => {
+  const response = await api.put(`/api/seasons/${seasonId}`, seasonData);
   return response.data;
 };
 

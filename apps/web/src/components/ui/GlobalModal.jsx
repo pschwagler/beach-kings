@@ -5,6 +5,7 @@ import AddMatchModal from '../match/AddMatchModal';
 import EditWeeklyScheduleModal from '../league/EditWeeklyScheduleModal';
 import SignupModal from '../league/SignupModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
+import SessionSummaryModal from '../modal/SessionSummaryModal';
 import ErrorBoundary from './ErrorBoundary';
 
 const MODAL_COMPONENTS = {
@@ -14,6 +15,7 @@ const MODAL_COMPONENTS = {
   [MODAL_TYPES.EDIT_SCHEDULE]: EditWeeklyScheduleModal,
   [MODAL_TYPES.SIGNUP]: SignupModal,
   [MODAL_TYPES.CONFIRMATION]: ConfirmationModal,
+  [MODAL_TYPES.SESSION_SUMMARY]: SessionSummaryModal,
 };
 
 export default function GlobalModal() {

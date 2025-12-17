@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Edit2, Trophy, Users, ChevronDown } from 'lucide-react';
 import MatchCard from './MatchCard';
 
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
@@ -35,6 +35,7 @@ export default function MatchesTable({
   onPlayerClick, 
   loading, 
   activeSession, 
+  allSessions = [],
   onCreateSession, 
   onEndSession,
   onDeleteSession, 
@@ -49,7 +50,14 @@ export default function MatchesTable({
   onSaveEditedSession,
   onCancelEdit,
   pendingMatchChanges = new Map(),
-  editingSessionMetadata = new Map()
+  editingSessionMetadata = new Map(),
+  seasons = [],
+  selectedSeasonId = null,
+  onUpdateSessionSeason = null,
+  activeSessionMatchesOverride = null,
+  activeSeasons = [],
+  sessionToScrollRef = null,
+  onSeasonChange = null
 }) {
   const { isLeagueMember, members, league } = useLeague();
   const { openModal } = useModal();
@@ -112,6 +120,15 @@ export default function MatchesTable({
     return updatedMatches;
   }, [matches, pendingMatchChanges]);
 
+  // Create a map of sessionId -> session data for quick lookup
+  const sessionsMap = useMemo(() => {
+    const map = new Map();
+    allSessions.forEach(session => {
+      map.set(session.id, session);
+    });
+    return map;
+  }, [allSessions]);
+
   const matchesBySession = useMemo(() => {
     if (matchesWithPendingChanges === null) return {};
 
@@ -121,11 +138,17 @@ export default function MatchesTable({
       if (sessionId != null) {
         const key = `session-${sessionId}`;
         if (!acc[key]) {
+          // Get session data from allSessions if available, otherwise use match data
+          const sessionData = sessionsMap.get(sessionId);
+          const sessionCreatedAt = sessionData?.created_at || match['Session Created At'];
+          const sessionName = sessionData?.name || match['Session Name'];
+          const sessionStatus = sessionData?.status || match['Session Status'];
+          
           acc[key] = createSessionGroup(
             sessionId,
-            match['Session Name'],
-            match['Session Status'],
-            match['Session Created At'],
+            sessionName,
+            sessionStatus,
+            sessionCreatedAt,
             match['Session Updated At'],
             match['Session Created By'],
             match['Session Updated By']
@@ -168,11 +191,15 @@ export default function MatchesTable({
       if (!grouped[key]) {
         const sessionMetadata = editingSessionMetadata.get(sessionId);
         if (sessionMetadata) {
+          // Use session data from allSessions if available
+          const sessionData = sessionsMap.get(sessionId);
+          const sessionCreatedAt = sessionData?.created_at || sessionMetadata.createdAt;
+          
           grouped[key] = createSessionGroup(
             sessionId,
             sessionMetadata.name || `Session ${sessionId}`,
             sessionMetadata.status || 'SUBMITTED',
-            sessionMetadata.createdAt,
+            sessionCreatedAt,
             sessionMetadata.updatedAt,
             sessionMetadata.createdBy,
             sessionMetadata.updatedBy
@@ -180,11 +207,15 @@ export default function MatchesTable({
         } else {
           const sessionMatch = matches?.find(m => m['Session ID'] === sessionId);
           if (sessionMatch) {
+            // Use session data from allSessions if available
+            const sessionData = sessionsMap.get(sessionId);
+            const sessionCreatedAt = sessionData?.created_at || sessionMatch['Session Created At'];
+            
             grouped[key] = createSessionGroup(
               sessionId,
               sessionMatch['Session Name'] || `Session ${sessionId}`,
               sessionMatch['Session Status'] || 'SUBMITTED',
-              sessionMatch['Session Created At'],
+              sessionCreatedAt,
               sessionMatch['Session Updated At'],
               sessionMatch['Session Created By'],
               sessionMatch['Session Updated By']
@@ -194,7 +225,7 @@ export default function MatchesTable({
       }
     });
     return grouped;
-  }, [matchesWithPendingChanges, Array.from(editingSessions).join(','), Array.from(editingSessionMetadata.keys()).join(','), matches]);
+  }, [matchesWithPendingChanges, Array.from(editingSessions).join(','), Array.from(editingSessionMetadata.keys()).join(','), matches, sessionsMap]);
 
   useEffect(() => {
     if (!loading && matches !== null && Array.isArray(matches) && matchesWithPendingChanges !== null) {
@@ -204,10 +235,40 @@ export default function MatchesTable({
     }
   }, [loading, matches, matchesWithPendingChanges]);
 
+  // Scroll session into view when sessionToScrollRef changes
+  useEffect(() => {
+    if (sessionToScrollRef?.current) {
+      const sessionId = sessionToScrollRef.current;
+      // Clear the ref so we don't scroll again on next render
+      sessionToScrollRef.current = null;
+      
+      // Wait for DOM to update after filter change and data to load
+      // Use a longer timeout to ensure matches are rendered
+      const scrollTimeout = setTimeout(() => {
+        // Try to find the session element by data attribute
+        const sessionElement = document.querySelector(`[data-session-id="${sessionId}"]`);
+        if (sessionElement) {
+          sessionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      
+      return () => clearTimeout(scrollTimeout);
+    }
+  }, [sessionToScrollRef, matchesWithPendingChanges]);
+
   const activeSessionMatches = useMemo(() => {
-    if (!activeSession || !matchesWithPendingChanges) return [];
+    if (!activeSession) return [];
+    
+    // If we have an override (matches from the session's season), use those
+    if (activeSessionMatchesOverride) {
+      return activeSessionMatchesOverride.filter(match => match['Session ID'] === activeSession.id);
+    }
+    
+    // Otherwise, get matches from the current matches list
+    if (!matchesWithPendingChanges) return [];
+    
     return matchesWithPendingChanges.filter(match => match['Session ID'] === activeSession.id);
-  }, [activeSession, matchesWithPendingChanges]);
+  }, [activeSession, matchesWithPendingChanges, activeSessionMatchesOverride]);
 
   const playerCount = useMemo(() => {
     const players = new Set();
@@ -222,91 +283,32 @@ export default function MatchesTable({
 
   const sessionGroups = useMemo(() => {
     return Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
-      // Helper to parse date from name (e.g., "12/11/2024" or "12/11")
-      const parseDateFromName = (name) => {
-        if (!name) return null;
-        // Try to parse formats like "12/11/2024" or "12/11"
-        const dateMatch = name.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
-        if (dateMatch) {
-          const [, month, day, year] = dateMatch;
-          const currentYear = new Date().getFullYear();
-          const parsedYear = year ? parseInt(year) : currentYear;
-          // Create date in local timezone
-          const date = new Date(parsedYear, parseInt(month) - 1, parseInt(day));
-          return isNaN(date.getTime()) ? null : date;
+      // Sort by created_at (newest first)
+      // Use createdAt if available, otherwise fall back to lastUpdated
+      const dateA = groupA.createdAt || groupA.lastUpdated;
+      const dateB = groupB.createdAt || groupB.lastUpdated;
+      
+      if (dateA && dateB) {
+        // Compare timestamps directly (newest first = descending order)
+        const timeDiff = new Date(dateB) - new Date(dateA);
+        if (timeDiff !== 0) {
+          return timeDiff;
         }
-        return null;
-      };
-      
-      // Helper to extract session number from name (e.g., "12/11/2024 Session #2" -> 2)
-      const extractSessionNumber = (name) => {
-        if (!name) return 0;
-        const match = name.match(/Session #(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      
-      // Helper to normalize a date to just the date part (no time)
-      const normalizeToDate = (dateStr) => {
-        if (!dateStr) return null;
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return null;
-        // Return date string in YYYY-MM-DD format for comparison
-        return date.toISOString().split('T')[0];
-      };
-      
-      // Get dates for comparison - prefer createdAt, then lastUpdated, then parse from name
-      let dateA = groupA.createdAt || groupA.lastUpdated;
-      let dateB = groupB.createdAt || groupB.lastUpdated;
-      
-      // If we don't have explicit dates, try to parse from names
-      if (!dateA) {
-        const parsed = parseDateFromName(groupA.name);
-        if (parsed) dateA = parsed.toISOString();
-      }
-      if (!dateB) {
-        const parsed = parseDateFromName(groupB.name);
-        if (parsed) dateB = parsed.toISOString();
       }
       
-      // Normalize dates to just the date part (no time) for comparison
-      const normalizedDateA = normalizeToDate(dateA);
-      const normalizedDateB = normalizeToDate(dateB);
+      // If one has a date and the other doesn't, prioritize the one with a date
+      if (dateA && !dateB) return -1;
+      if (!dateA && dateB) return 1;
       
-      // Compare by date first (newest first)
-      if (normalizedDateA && normalizedDateB) {
-        // Compare date strings (YYYY-MM-DD format is sortable)
-        // Negate to get descending order (newest first)
-        const dateDiff = normalizedDateA.localeCompare(normalizedDateB);
-        // If dates are the same, sort by creation time or session number
-        if (dateDiff === 0) {
-          // Prefer creation time if available (newer sessions first)
-          if (groupA.createdAt && groupB.createdAt) {
-            const timeDiff = new Date(groupB.createdAt) - new Date(groupA.createdAt);
-            if (timeDiff !== 0) {
-              return timeDiff;
-            }
-          }
-          // If creation times are same or unavailable, sort by session number (higher numbers first)
-          const sessionNumA = extractSessionNumber(groupA.name);
-          const sessionNumB = extractSessionNumber(groupB.name);
-          if (sessionNumA !== sessionNumB) {
-            return sessionNumB - sessionNumA; // Higher session numbers first
-          }
-        }
-        // Return negative/positive/zero based on string comparison (negated for descending)
-        return -dateDiff;
-      }
-      if (normalizedDateA && !normalizedDateB) return -1;
-      if (!normalizedDateA && normalizedDateB) return 1;
-      
-      // Final fallback to alphabetical
+      // Final fallback to alphabetical (descending)
       return groupB.name.localeCompare(groupA.name);
     });
   }, [matchesBySession]);
 
   const isDataReady = !loading && matches !== null && Array.isArray(matches) && 
                       matchesWithPendingChanges !== null && Array.isArray(matchesWithPendingChanges);
-  const showAddMatchCard = isDataReady && hasRenderedMatchesRef.current;
+  // Show add match card when data is ready (even for empty/old seasons) and there's no active session
+  const showAddMatchCard = isDataReady && !activeSession;
   
   const shouldShowEmptyState = useMemo(() => {
     return showAddMatchCard && 
@@ -350,6 +352,7 @@ export default function MatchesTable({
       await onUpdateMatch(matchId, matchData, isEditingSession ? sessionId : undefined);
     } else {
       const matchPayload = { ...matchData };
+      // Preserve season_id if it's in matchData (from AddMatchModal)
       const editingSessionId = editingSessions.size > 0 ? Array.from(editingSessions)[0] : null;
       
       if (editingSessionId) {
@@ -358,6 +361,7 @@ export default function MatchesTable({
         matchPayload.session_id = activeSession.id;
       } else if (leagueId) {
         matchPayload.league_id = leagueId;
+        // season_id should already be in matchData from AddMatchModal, but ensure it's preserved
       } else {
         throw new Error('leagueId is required to create a match');
       }
@@ -382,7 +386,9 @@ export default function MatchesTable({
       leagueMatchOnly: !!leagueId,
       defaultLeagueId: leagueId,
       members,
-      league
+      league,
+      defaultSeasonId: selectedSeasonId,
+      onSeasonChange: onSeasonChange
     });
   };
 
@@ -405,7 +411,9 @@ export default function MatchesTable({
               leagueMatchOnly: !!leagueId,
               defaultLeagueId: leagueId,
               members,
-              league
+              league,
+              defaultSeasonId: selectedSeasonId,
+              onSeasonChange: onSeasonChange
             })}
           >
             <h2 className="add-matches-title">Add Games</h2>
@@ -426,9 +434,10 @@ export default function MatchesTable({
       )}
 
       {activeSession && (
-        <ActiveSessionPanel
-          activeSession={activeSession}
-          activeSessionMatches={activeSessionMatches}
+        <div data-session-id={activeSession.id}>
+          <ActiveSessionPanel
+            activeSession={activeSession}
+            activeSessionMatches={activeSessionMatches}
           onPlayerClick={onPlayerClick}
           onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
             onSubmit: handleAddMatch,
@@ -437,21 +446,53 @@ export default function MatchesTable({
             leagueMatchOnly: !!leagueId,
             defaultLeagueId: leagueId,
             members,
-            league
+            league,
+            sessionId: activeSession?.id,
+            sessionSeasonId: activeSession?.season_id,
+            defaultSeasonId: selectedSeasonId,
+            onSeasonChange: onSeasonChange
           })}
           onEditMatch={handleEditMatch}
-          onSubmitClick={() => openModal(MODAL_TYPES.CONFIRMATION, {
-            title: "Submit Scores",
-            message: "Are you sure you want to submit these scores? Once submitted, games will be locked in and only league admins will be able to edit.",
-            confirmText: "Submit Scores",
-            cancelText: "Cancel",
-            onConfirm: () => handleLockInSession(activeSession.id),
-            gameCount: activeSessionMatches.length,
-            playerCount: playerCount,
-            matches: activeSessionMatches
-          })}
+          onSubmitClick={() => {
+            // Get season for the active session
+            const sessionSeasonId = activeSession?.season_id;
+            const sessionSeason = sessionSeasonId && seasons.length > 0 
+              ? seasons.find(s => s.id === sessionSeasonId) 
+              : null;
+            
+            openModal(MODAL_TYPES.CONFIRMATION, {
+              title: "Submit Scores",
+              message: "Are you sure you want to submit these scores? Once submitted, games will be locked in and only league admins will be able to edit.",
+              confirmText: "Submit Scores",
+              cancelText: "Cancel",
+              onConfirm: () => handleLockInSession(activeSession.id),
+              gameCount: activeSessionMatches.length,
+              playerCount: playerCount,
+              matches: activeSessionMatches,
+              season: sessionSeason
+            });
+          }}
+          onStatsClick={() => {
+            // Get season for the active session
+            const sessionSeasonId = activeSession?.season_id;
+            const sessionSeason = sessionSeasonId && seasons.length > 0 
+              ? seasons.find(s => s.id === sessionSeasonId) 
+              : null;
+            
+            openModal(MODAL_TYPES.SESSION_SUMMARY, {
+              title: activeSession?.name || "Session Summary",
+              gameCount: activeSessionMatches.length,
+              playerCount: playerCount,
+              matches: activeSessionMatches,
+              season: sessionSeason
+            });
+          }}
           onDeleteSession={onDeleteSession}
+          onUpdateSessionSeason={onUpdateSessionSeason}
+          seasons={seasons}
+          selectedSeasonId={selectedSeasonId}
         />
+        </div>
       )}
 
       {sessionGroups
@@ -465,10 +506,13 @@ export default function MatchesTable({
                          !isEditing;
           
           if (isEditing && group.type === 'session') {
+            // Get season_id from the first match in the group, or from session metadata
+            const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
+            const seasonId = sessionMatch?.['Session Season ID'] || null;
             return (
-              <ActiveSessionPanel
-                key={key}
-                activeSession={{ id: group.id, name: group.name }}
+              <div data-session-id={group.id} key={key}>
+                <ActiveSessionPanel
+                  activeSession={{ id: group.id, name: group.name, season_id: seasonId }}
                 activeSessionMatches={group.matches}
                 onPlayerClick={onPlayerClick}
                 onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
@@ -478,32 +522,115 @@ export default function MatchesTable({
                   leagueMatchOnly: !!leagueId,
                   defaultLeagueId: leagueId,
                   members,
-                  league
+                  league,
+                  sessionId: group.id,
+                  sessionSeasonId: seasonId,
+                  defaultSeasonId: selectedSeasonId,
+                  onSeasonChange: onSeasonChange
                 })}
                 onEditMatch={handleEditMatch}
                 onSaveClick={() => onSaveEditedSession(group.id)}
                 onCancelClick={() => onCancelEdit(group.id)}
                 onDeleteSession={onDeleteSession}
+                onUpdateSessionSeason={onUpdateSessionSeason}
+                onStatsClick={() => {
+                  // Get season for this session
+                  const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
+                  const seasonId = sessionMatch?.['Session Season ID'];
+                  const sessionSeason = seasonId && seasons.length > 0 
+                    ? seasons.find(s => s.id === seasonId) 
+                    : null;
+                  
+                  const sessionGameCount = group.matches?.length || 0;
+                  const sessionPlayers = new Set();
+                  group.matches?.forEach(match => {
+                    if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
+                    if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
+                    if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
+                    if (match['Team 2 Player 2']) sessionPlayers.add(match['Team 2 Player 2']);
+                  });
+                  const sessionPlayerCount = sessionPlayers.size;
+                  
+                  openModal(MODAL_TYPES.SESSION_SUMMARY, {
+                    title: group.name || "Session Summary",
+                    gameCount: sessionGameCount,
+                    playerCount: sessionPlayerCount,
+                    matches: group.matches,
+                    season: sessionSeason
+                  });
+                }}
                 isEditing={true}
+                seasons={seasons}
+                selectedSeasonId={selectedSeasonId}
               />
+              </div>
             );
           }
+          
+          // Calculate stats for this session group
+          const sessionGameCount = group.matches?.length || 0;
+          const sessionPlayers = new Set();
+          group.matches?.forEach(match => {
+            if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
+            if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
+            if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
+            if (match['Team 2 Player 2']) sessionPlayers.add(match['Team 2 Player 2']);
+          });
+          const sessionPlayerCount = sessionPlayers.size;
+          
+          // Get season for this session group
+          const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
+          const seasonId = sessionMatch?.['Session Season ID'];
+          const sessionSeason = seasonId && seasons.length > 0 
+            ? seasons.find(s => s.id === seasonId) 
+            : null;
           
           return (
             <div 
               key={key} 
               className="match-date-group"
+              data-session-id={group.type === 'session' ? group.id : undefined}
             >
               <h3 className="match-date-header">
-                {group.name}
-                {canEdit && (
-                  <button
-                    className="edit-session-button"
-                    onClick={() => onEnterEditMode(group.id)}
-                    title="Edit Session"
+                <span className="match-date-header-left">
+                  {group.name}
+                  {canEdit && (
+                    <button
+                      className="edit-session-button"
+                      onClick={() => onEnterEditMode(group.id)}
+                      title="Edit Session"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                  )}
+                  {sessionSeason && (
+                    <span className="season-badge">
+                      {sessionSeason.name || `Season ${sessionSeason.id}`}
+                    </span>
+                  )}
+                </span>
+                {group.type === 'session' && sessionGameCount > 0 && (
+                  <div 
+                    className="session-stats session-stats-clickable match-date-header-stats"
+                    onClick={() => {
+                      openModal(MODAL_TYPES.SESSION_SUMMARY, {
+                        title: group.name || "Session Summary",
+                        gameCount: sessionGameCount,
+                        playerCount: sessionPlayerCount,
+                        matches: group.matches,
+                        season: sessionSeason
+                      });
+                    }}
                   >
-                    <Edit2 size={16} />
-                  </button>
+                    <div className="session-stat">
+                      <Trophy size={16} />
+                      {sessionGameCount} {sessionGameCount === 1 ? 'game' : 'games'}
+                    </div>
+                    <div className="session-stat">
+                      <Users size={16} />
+                      {sessionPlayerCount} {sessionPlayerCount === 1 ? 'player' : 'players'}
+                    </div>
+                  </div>
                 )}
               </h3>
               <div className="match-cards">

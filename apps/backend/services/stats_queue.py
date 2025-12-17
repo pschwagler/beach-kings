@@ -16,7 +16,7 @@ from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, and_, or_
 from sqlalchemy.orm import selectinload
 from backend.database.models import (
-    StatsCalculationJob, StatsCalculationJobStatus, Season
+    StatsCalculationJob, StatsCalculationJobStatus, Season, League
 )
 from backend.database import db
 
@@ -31,32 +31,32 @@ class StatsCalculationQueue:
         self._running = False
         self._stop_event = asyncio.Event()
         self._global_calc_callback: Optional[Callable[[AsyncSession], Awaitable[Dict]]] = None
-        self._season_calc_callback: Optional[Callable[[AsyncSession, int], Awaitable[Dict]]] = None
+        self._league_calc_callback: Optional[Callable[[AsyncSession, int], Awaitable[Dict]]] = None
     
     async def enqueue_calculation(
         self, 
         session: AsyncSession, 
         calc_type: str, 
-        season_id: Optional[int] = None
+        league_id: Optional[int] = None
     ) -> int:
         """
         Enqueue a stats calculation job.
         
         Deduplication logic:
-        - If same (calc_type, season_id) already pending/running, return existing job_id
+        - If same (calc_type, league_id) already pending/running, return existing job_id
         - If calculation is running and more than 1 request comes in, only queue 1 additional
         - Otherwise, start immediately or queue as pending
         
         Args:
             session: Database session
-            calc_type: 'global' or 'season'
-            season_id: Optional season ID for season calculations
+            calc_type: 'global' or 'league'
+            league_id: Optional league ID for league calculations
             
         Returns:
             Job ID
         """
         # Check for existing pending/running job of same type
-        existing = await self._find_existing_job(session, calc_type, season_id)
+        existing = await self._find_existing_job(session, calc_type, league_id)
         if existing and existing.status in [StatsCalculationJobStatus.PENDING, StatsCalculationJobStatus.RUNNING]:
             return existing.id
         
@@ -64,7 +64,7 @@ class StatsCalculationQueue:
         running_job = await self._get_running_job(session)
         if running_job:
             # Check if same type already queued
-            queued = await self._find_queued_job(session, calc_type, season_id)
+            queued = await self._find_queued_job(session, calc_type, league_id)
             if queued:
                 return queued.id
             
@@ -74,7 +74,7 @@ class StatsCalculationQueue:
                 # No jobs queued, add this one
                 job = StatsCalculationJob(
                     calc_type=calc_type,
-                    season_id=season_id,
+                    league_id=league_id,
                     status=StatsCalculationJobStatus.PENDING
                 )
                 session.add(job)
@@ -84,12 +84,12 @@ class StatsCalculationQueue:
             else:
                 # Already have one queued, return the first one
                 first_queued = await self._get_first_queued_job(session)
-                return first_queued.id if first_queued else await self._create_pending_job(session, calc_type, season_id)
+                return first_queued.id if first_queued else await self._create_pending_job(session, calc_type, league_id)
         else:
             # No calculation running, start immediately
             job = StatsCalculationJob(
                 calc_type=calc_type,
-                season_id=season_id,
+                league_id=league_id,
                 status=StatsCalculationJobStatus.RUNNING,
                 started_at=utcnow()
             )
@@ -105,14 +105,14 @@ class StatsCalculationQueue:
         self, 
         session: AsyncSession, 
         calc_type: str, 
-        season_id: Optional[int]
+        league_id: Optional[int]
     ) -> Optional[StatsCalculationJob]:
-        """Find existing job with same calc_type and season_id."""
+        """Find existing job with same calc_type and league_id."""
         conditions = [StatsCalculationJob.calc_type == calc_type]
-        if season_id is None:
-            conditions.append(StatsCalculationJob.season_id.is_(None))
+        if league_id is None:
+            conditions.append(StatsCalculationJob.league_id.is_(None))
         else:
-            conditions.append(StatsCalculationJob.season_id == season_id)
+            conditions.append(StatsCalculationJob.league_id == league_id)
         
         result = await session.execute(
             select(StatsCalculationJob)
@@ -135,17 +135,17 @@ class StatsCalculationQueue:
         self, 
         session: AsyncSession, 
         calc_type: str, 
-        season_id: Optional[int]
+        league_id: Optional[int]
     ) -> Optional[StatsCalculationJob]:
-        """Find queued job with same calc_type and season_id."""
+        """Find queued job with same calc_type and league_id."""
         conditions = [
             StatsCalculationJob.status == StatsCalculationJobStatus.PENDING,
             StatsCalculationJob.calc_type == calc_type
         ]
-        if season_id is None:
-            conditions.append(StatsCalculationJob.season_id.is_(None))
+        if league_id is None:
+            conditions.append(StatsCalculationJob.league_id.is_(None))
         else:
-            conditions.append(StatsCalculationJob.season_id == season_id)
+            conditions.append(StatsCalculationJob.league_id == league_id)
         
         result = await session.execute(
             select(StatsCalculationJob)
@@ -177,12 +177,12 @@ class StatsCalculationQueue:
         self, 
         session: AsyncSession, 
         calc_type: str, 
-        season_id: Optional[int]
+        league_id: Optional[int]
     ) -> int:
         """Create a pending job and return its ID."""
         job = StatsCalculationJob(
             calc_type=calc_type,
-            season_id=season_id,
+            league_id=league_id,
             status=StatsCalculationJobStatus.PENDING
         )
         session.add(job)
@@ -193,7 +193,7 @@ class StatsCalculationQueue:
     def register_calculation_callbacks(
         self,
         global_calc_callback: Callable[[AsyncSession], Awaitable[Dict]],
-        season_calc_callback: Callable[[AsyncSession, int], Awaitable[Dict]]
+        league_calc_callback: Callable[[AsyncSession, int], Awaitable[Dict]]
     ) -> None:
         """
         Register callbacks for stats calculation functions.
@@ -203,22 +203,22 @@ class StatsCalculationQueue:
         
         Args:
             global_calc_callback: Async function that takes a session and calculates global stats
-            season_calc_callback: Async function that takes a session and season_id and calculates season stats
+            league_calc_callback: Async function that takes a session and league_id and calculates league stats
             
         Raises:
             TypeError: If callbacks are not callable
         """
         if not callable(global_calc_callback):
             raise TypeError("global_calc_callback must be callable")
-        if not callable(season_calc_callback):
-            raise TypeError("season_calc_callback must be callable")
+        if not callable(league_calc_callback):
+            raise TypeError("league_calc_callback must be callable")
         
         # Allow re-registration (useful for testing), but log a warning
-        if self._global_calc_callback is not None or self._season_calc_callback is not None:
+        if self._global_calc_callback is not None or self._league_calc_callback is not None:
             logger.warning("Re-registering calculation callbacks (previous callbacks will be replaced)")
         
         self._global_calc_callback = global_calc_callback
-        self._season_calc_callback = season_calc_callback
+        self._league_calc_callback = league_calc_callback
         logger.info("Stats calculation callbacks registered successfully")
     
     async def _run_calculation(self, job_id: int) -> None:
@@ -234,7 +234,7 @@ class StatsCalculationQueue:
                 return
             
             # Validate callbacks are registered
-            if self._global_calc_callback is None or self._season_calc_callback is None:
+            if self._global_calc_callback is None or self._league_calc_callback is None:
                 raise RuntimeError(
                     "Calculation callbacks not registered. "
                     "Call register_calculation_callbacks() before starting the queue worker."
@@ -244,10 +244,22 @@ class StatsCalculationQueue:
             try:
                 if job.calc_type == 'global':
                     await self._global_calc_callback(session)
+                elif job.calc_type == 'league':
+                    if not job.league_id:
+                        raise ValueError("league_id required for league calculation")
+                    await self._league_calc_callback(session, job.league_id)
                 elif job.calc_type == 'season':
+                    # Backward compatibility: convert season_id to league_id
                     if not job.season_id:
                         raise ValueError("season_id required for season calculation")
-                    await self._season_calc_callback(session, job.season_id)
+                    # Get league_id from season
+                    season_result = await session.execute(
+                        select(Season).where(Season.id == job.season_id)
+                    )
+                    season = season_result.scalar_one_or_none()
+                    if not season:
+                        raise ValueError(f"Season {job.season_id} not found")
+                    await self._league_calc_callback(session, season.league_id)
                 else:
                     raise ValueError(f"Unknown calc_type: {job.calc_type}")
                 
@@ -357,14 +369,16 @@ class StatsCalculationQueue:
             "running": {
                 "id": running.id,
                 "calc_type": running.calc_type,
-                "season_id": running.season_id,
+                "league_id": running.league_id,
+                "season_id": running.season_id,  # Deprecated, kept for backward compatibility
                 "started_at": running.started_at.isoformat() if running.started_at else None
             } if running else None,
             "pending": [
                 {
                     "id": j.id,
                     "calc_type": j.calc_type,
-                    "season_id": j.season_id,
+                    "league_id": j.league_id,
+                    "season_id": j.season_id,  # Deprecated
                     "created_at": j.created_at.isoformat() if j.created_at else None
                 }
                 for j in pending
@@ -373,7 +387,8 @@ class StatsCalculationQueue:
                 {
                     "id": j.id,
                     "calc_type": j.calc_type,
-                    "season_id": j.season_id,
+                    "league_id": j.league_id,
+                    "season_id": j.season_id,  # Deprecated
                     "completed_at": j.completed_at.isoformat() if j.completed_at else None
                 }
                 for j in recent_completed
@@ -382,7 +397,8 @@ class StatsCalculationQueue:
                 {
                     "id": j.id,
                     "calc_type": j.calc_type,
-                    "season_id": j.season_id,
+                    "league_id": j.league_id,
+                    "season_id": j.season_id,  # Deprecated
                     "error_message": j.error_message,
                     "completed_at": j.completed_at.isoformat() if j.completed_at else None
                 }
@@ -402,7 +418,8 @@ class StatsCalculationQueue:
         return {
             "id": job.id,
             "calc_type": job.calc_type,
-            "season_id": job.season_id,
+            "league_id": job.league_id,
+            "season_id": job.season_id,  # Deprecated, kept for backward compatibility
             "status": job.status.value,
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "started_at": job.started_at.isoformat() if job.started_at else None,
