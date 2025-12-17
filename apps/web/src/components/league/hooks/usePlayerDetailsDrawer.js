@@ -8,7 +8,7 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  * Handles auto-selection, opening drawer, player changes, and auto-updating drawer when data changes
  * 
  * @param {Object} config - Configuration object
- * @param {Object} config.seasonData - Season data to use for stats (selectedSeasonData or activeSeasonData)
+ * @param {Object} config.seasonData - Season data to use for stats (selectedSeasonData)
  * @param {Function} config.getPlayerStats - Function to get player stats: (playerId, seasonData) => stats object OR null if using pre-computed
  * @param {Function} config.getPlayerMatchHistory - Function to get match history: (playerId, seasonData) => match history array OR null if using pre-computed
  * @param {Function} config.getPlayerId - Function to get player ID from name: (playerName) => playerId
@@ -22,7 +22,6 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  * @param {Array|null} config.precomputedMatchHistory - Pre-computed match history (if not computing on-the-fly)
  * @param {boolean} config.autoSelect - Enable auto-selection of default player (default: false)
  * @param {Object|null} config.currentUserPlayer - Current user's player object (for auto-selection)
- * @param {Object|null} config.activeSeason - Active season object (for auto-selection)
  * @param {Array|null} config.rankings - Rankings array (for rankings-based auto-selection)
  * @param {Array|null} config.members - League members array (for matches tab auto-selection)
  * @param {number|null} config.selectedSeasonId - Currently selected season ID (null = "All Seasons")
@@ -44,7 +43,6 @@ export function usePlayerDetailsDrawer({
   precomputedMatchHistory = null,
   autoSelect = false,
   currentUserPlayer = null,
-  activeSeason = null,
   rankings = null,
   members = null,
   selectedSeasonId = null,
@@ -59,7 +57,7 @@ export function usePlayerDetailsDrawer({
     if (selectedPlayerId) return;
     
     // Need season data to proceed
-    if (!seasonData?.player_season_stats || !seasonData?.partnership_opponent_stats || !activeSeason) return;
+    if (!seasonData?.player_season_stats || !seasonData?.partnership_opponent_stats) return;
 
     // Case 1: Rankings-based selection (for RankingsTab)
     if (rankings && rankings.length > 0) {
@@ -127,7 +125,6 @@ export function usePlayerDetailsDrawer({
     autoSelect,
     selectedPlayerId,
     seasonData,
-    activeSeason,
     rankings,
     allPlayerNames,
     getPlayerId,

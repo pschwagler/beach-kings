@@ -131,21 +131,21 @@ export function formatPlayerMatchHistory(matches, playerId) {
 /**
  * Transform player data from season data
  * Combines stats and match history formatting
- * @param {Object} activeSeasonData - Active season data from context
+ * @param {Object} seasonData - Season data (selectedSeasonData from context)
  * @param {number} playerId - Player ID
  * @returns {Object} Object with formatted stats and match history, or null if no data
  */
-export function transformPlayerData(activeSeasonData, playerId) {
-  if (!activeSeasonData || !playerId) {
+export function transformPlayerData(seasonData, playerId) {
+  if (!seasonData || !playerId) {
     return {
       stats: null,
       matchHistory: []
     };
   }
 
-  const seasonStats = activeSeasonData.player_season_stats?.[playerId];
-  const partnershipOpponentStats = activeSeasonData.partnership_opponent_stats?.[playerId] || { partnerships: [], opponents: [] };
-  const matches = activeSeasonData.matches || [];
+  const seasonStats = seasonData.player_season_stats?.[playerId];
+  const partnershipOpponentStats = seasonData.partnership_opponent_stats?.[playerId] || { partnerships: [], opponents: [] };
+  const matches = seasonData.matches || [];
 
   const formattedStats = formatPlayerSeasonStats(seasonStats, partnershipOpponentStats);
   const matchHistory = formatPlayerMatchHistory(matches, playerId);

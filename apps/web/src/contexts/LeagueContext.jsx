@@ -19,7 +19,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
   // Season data state
   const [seasonData, setSeasonData] = useState({}); // Maps season_id to data
   const [seasonDataLoading, setSeasonDataLoading] = useState({}); // Maps season_id to loading state
-  const [seasonDataError, setSeasonDataError] = useState({}); // Maps season_id to error
   
   // Selected season state (shared across tabs)
   // null = "All Seasons", number = specific season ID
@@ -30,7 +29,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const [selectedPlayerName, setSelectedPlayerName] = useState(null);
   const [playerSeasonStats, setPlayerSeasonStats] = useState(null);
   const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
-  const [isPlayerPanelOpen, setIsPlayerPanelOpen] = useState(false);
   
   // Helper function to check if a season is active based on dates
   const isSeasonActive = useCallback((season) => {
@@ -64,17 +62,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
     if (!seasons) return [];
     return seasons.filter(isSeasonActive);
   }, [seasons, isSeasonActive]);
-
-  // Find the most recent active season (for backward compatibility)
-  const activeSeason = useMemo(() => {
-    if (activeSeasons.length === 0) return null;
-    // Sort by created_at descending and take the first one
-    return [...activeSeasons].sort((a, b) => {
-      const dateA = new Date(a.created_at || 0);
-      const dateB = new Date(b.created_at || 0);
-      return dateB - dateA;
-    })[0];
-  }, [activeSeasons]);
 
   // Find season with latest end_date for default selection
   const seasonWithLatestEndDate = useMemo(() => {
@@ -133,38 +120,16 @@ export const LeagueProvider = ({ children, leagueId }) => {
     return userMember?.role?.toLowerCase() === 'admin';
   }, [currentUserPlayer, members]);
   
-  // Get active season data
-  const activeSeasonData = useMemo(() => {
-    if (!activeSeason) return null;
-    return seasonData[activeSeason.id] || null;
-  }, [activeSeason, seasonData]);
-
   // Compute selectedSeasonData once for all tabs to use
   // This ensures consistency across RankingsTab and MatchesTab
   const selectedSeasonData = useMemo(() => {
     if (!selectedSeasonId) {
       // "All Seasons" selected - use league stats data from 'all-seasons' key
+      // loadAllSeasonsRankings already loads all matches via getMatchesWithElo
       const allSeasonsData = seasonData['all-seasons'];
       if (allSeasonsData) {
-        // Combine matches from all individual season data
-        const allMatches = [];
-        Object.keys(seasonData).forEach(key => {
-          if (key !== 'all-seasons' && seasonData[key]?.matches) {
-            allMatches.push(...seasonData[key].matches);
-          }
-        });
-        
-        // Sort matches by date descending (newest first)
-        allMatches.sort((a, b) => {
-          const dateA = new Date(a.date || 0);
-          const dateB = new Date(b.date || 0);
-          return dateB - dateA;
-        });
-        
-        return {
-          ...allSeasonsData,
-          matches: allMatches.length > 0 ? allMatches : allSeasonsData.matches
-        };
+        // Use matches directly from all-seasons data (already contains all matches)
+        return allSeasonsData;
       }
       return null;
     }
@@ -218,6 +183,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     }
   }, [loadLeagueData, isAuthInitializing]);
 
+  // refreshLeague is just an alias for loadLeagueData - kept for backward compatibility
   const refreshLeague = useCallback(() => {
     return loadLeagueData();
   }, [loadLeagueData]);
@@ -283,11 +249,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
     // Mark as loading immediately to prevent concurrent calls
     loadingRef.current[seasonId] = true;
     setSeasonDataLoading(prev => ({ ...prev, [seasonId]: true }));
-    setSeasonDataError(prev => {
-      const newState = { ...prev };
-      delete newState[seasonId];
-      return newState;
-    });
     
     try {
       // Load rankings immediately (fast, show first)
@@ -362,10 +323,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
       });
     } catch (err) {
       console.error('Error loading season data:', err);
-      setSeasonDataError(prev => ({
-        ...prev,
-        [seasonId]: err.response?.data?.detail || 'Failed to load season data'
-      }));
       // Set empty data structure on error to prevent retries
       setSeasonData(prev => {
         if (prev[seasonId]) {
@@ -391,18 +348,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
       });
     }
   }, []); // Empty deps - function is stable, uses refs for state checks
-  
-  // Auto-load season data when active season changes
-  useEffect(() => {
-    if (activeSeason?.id) {
-      // Check using refs to avoid infinite loop
-      const seasonId = activeSeason.id;
-      if (!loadingRef.current[seasonId] && !dataRef.current[seasonId]) {
-        loadSeasonData(seasonId);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSeason?.id]); // Only depend on activeSeason.id - loadSeasonData is stable
   
   // Lightweight function to refresh only matches (not stats/rankings)
   const refreshMatchData = useCallback(async (seasonId, forceClear = false) => {
@@ -495,7 +440,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     
-    // Note: Player data will be reloaded automatically by the useEffect that watches activeSeasonData
+    // Note: Player data will be reloaded automatically when selectedSeasonData changes
   }, [loadSeasonData]);
 
   // Load rankings for all seasons in the league (when "All Seasons" is selected)
@@ -635,9 +580,10 @@ export const LeagueProvider = ({ children, leagueId }) => {
     setPlayerMatchHistory(matchHistory || []);
   }, []);
 
-  // Load player data for the selected player
-  const loadPlayerData = useCallback((playerId, playerName) => {
-    if (!activeSeasonData || !activeSeason) {
+  // Load player data for the selected player (internal use only)
+  const loadPlayerData = useCallback((playerId, playerName, seasonDataToUse = null) => {
+    const dataToUse = seasonDataToUse || selectedSeasonData;
+    if (!dataToUse) {
       setSelectedPlayerId(null);
       setSelectedPlayerName(null);
       setPlayerSeasonStats(null);
@@ -649,15 +595,15 @@ export const LeagueProvider = ({ children, leagueId }) => {
     setSelectedPlayerName(playerName);
     
     // Use helper to update stats
-    updatePlayerStats(activeSeasonData, playerId);
-  }, [activeSeasonData, activeSeason, updatePlayerStats]);
+    updatePlayerStats(dataToUse, playerId);
+  }, [selectedSeasonData, updatePlayerStats]);
 
-  // Reload player data when season data changes
+  // Reload player data when selected season data changes
   useEffect(() => {
-    if (selectedPlayerId && activeSeasonData) {
-      updatePlayerStats(activeSeasonData, selectedPlayerId);
+    if (selectedPlayerId && selectedSeasonData) {
+      updatePlayerStats(selectedSeasonData, selectedPlayerId);
     }
-  }, [activeSeasonData, selectedPlayerId, updatePlayerStats]);
+  }, [selectedSeasonData, selectedPlayerId, updatePlayerStats]);
 
   const value = {
     league,
@@ -670,16 +616,12 @@ export const LeagueProvider = ({ children, leagueId }) => {
     refreshMembers,
     updateLeague,
     updateMember,
-    activeSeason,
     activeSeasons,
     isSeasonActive,
     isSeasonPast,
-    activeSeasonData,
     selectedSeasonData,
     seasonData,
-    seasonDataLoading: activeSeason ? seasonDataLoading[activeSeason.id] : false,
     seasonDataLoadingMap: seasonDataLoading,
-    seasonDataError: activeSeason ? seasonDataError[activeSeason.id] : null,
     loadSeasonData,
     refreshSeasonData,
     refreshMatchData,
@@ -694,22 +636,12 @@ export const LeagueProvider = ({ children, leagueId }) => {
     selectedPlayerName,
     playerSeasonStats,
     playerMatchHistory,
-    isPlayerPanelOpen,
-    setIsPlayerPanelOpen,
-    loadPlayerData,
     setSelectedPlayer: (playerId, playerName) => {
       setSelectedPlayerId(playerId);
       setSelectedPlayerName(playerName);
       if (playerId && playerName) {
         loadPlayerData(playerId, playerName);
       }
-    },
-    clearSelectedPlayer: () => {
-      setSelectedPlayerId(null);
-      setSelectedPlayerName(null);
-      setPlayerSeasonStats(null);
-      setPlayerMatchHistory(null);
-      setIsPlayerPanelOpen(false);
     },
     // League ID and message utilities
     leagueId,

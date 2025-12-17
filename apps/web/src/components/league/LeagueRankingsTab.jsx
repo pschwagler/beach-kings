@@ -11,7 +11,6 @@ export default function LeagueRankingsTab() {
     league,
     leagueId,
     seasons,
-    activeSeason,
     isSeasonActive,
     seasonData,
     seasonDataLoadingMap,
@@ -102,7 +101,6 @@ export default function LeagueRankingsTab() {
     setSelectedPlayer,
     autoSelect: true,
     currentUserPlayer,
-    activeSeason: selectedSeason,
     rankings,
     selectedSeasonId,
   });

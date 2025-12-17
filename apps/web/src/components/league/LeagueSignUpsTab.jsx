@@ -21,7 +21,7 @@ import ScheduleList from './components/ScheduleList';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 export default function LeagueSignUpsTab() {
-  const { seasons, members, leagueId, isLeagueAdmin, showMessage, isLeagueMember } = useLeague();
+  const { seasons, members, leagueId, isLeagueAdmin, showMessage, isLeagueMember, selectedSeasonId } = useLeague();
   const { currentUserPlayer } = useAuth();
   const { openModal, closeModal } = useModal();
   
@@ -30,19 +30,13 @@ export default function LeagueSignUpsTab() {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Get active season (date-based)
-  const { isSeasonActive } = useLeague();
-  const activeSeason = useMemo(() => {
-    return seasons.find(s => isSeasonActive(s));
-  }, [seasons, isSeasonActive]);
-  
-  // Load signups and schedules
+  // Load signups and schedules from all seasons or selected season
   useEffect(() => {
-    if (activeSeason) {
+    if (seasons && seasons.length > 0) {
       loadSignups();
       loadWeeklySchedules();
     }
-  }, [activeSeason]);
+  }, [seasons, selectedSeasonId]);
   
   // Load courts
   useEffect(() => {
@@ -65,16 +59,38 @@ export default function LeagueSignUpsTab() {
   };
   
   const loadSignups = async () => {
-    if (!activeSeason) return;
+    if (!seasons || seasons.length === 0) return;
     setLoading(true);
     try {
-      // Load signups with players in a single request
-      const data = await getSignups(activeSeason.id, { 
-        upcoming_only: false,
-        include_players: true 
+      // Load signups from all seasons or selected season
+      const seasonsToLoad = selectedSeasonId 
+        ? seasons.filter(s => s.id === selectedSeasonId)
+        : seasons;
+      
+      const allSignups = [];
+      for (const season of seasonsToLoad) {
+        try {
+          const data = await getSignups(season.id, { 
+            upcoming_only: false,
+            include_players: true 
+          });
+          if (Array.isArray(data)) {
+            allSignups.push(...data);
+          }
+        } catch (err) {
+          console.error(`Error loading signups for season ${season.id}:`, err);
+          // Continue loading other seasons even if one fails
+        }
+      }
+      
+      // Sort by date (newest first)
+      allSignups.sort((a, b) => {
+        const dateA = new Date(a.date || 0);
+        const dateB = new Date(b.date || 0);
+        return dateB - dateA;
       });
-      setSignups(data);
-      // Signups are expanded by default, so we don't need to initialize expandedSignups
+      
+      setSignups(allSignups);
     } catch (err) {
       console.error('Error loading signups:', err);
       showMessage?.('error', 'Failed to load signups');
@@ -84,10 +100,27 @@ export default function LeagueSignUpsTab() {
   };
   
   const loadWeeklySchedules = async () => {
-    if (!activeSeason) return;
+    if (!seasons || seasons.length === 0) return;
     try {
-      const data = await getWeeklySchedules(activeSeason.id);
-      setWeeklySchedules(data);
+      // Load schedules from all seasons or selected season
+      const seasonsToLoad = selectedSeasonId 
+        ? seasons.filter(s => s.id === selectedSeasonId)
+        : seasons;
+      
+      const allSchedules = [];
+      for (const season of seasonsToLoad) {
+        try {
+          const data = await getWeeklySchedules(season.id);
+          if (Array.isArray(data)) {
+            allSchedules.push(...data);
+          }
+        } catch (err) {
+          console.error(`Error loading schedules for season ${season.id}:`, err);
+          // Continue loading other seasons even if one fails
+        }
+      }
+      
+      setWeeklySchedules(allSchedules);
     } catch (err) {
       console.error('Error loading weekly schedules:', err);
       showMessage?.('error', 'Failed to load weekly schedules');
@@ -95,9 +128,14 @@ export default function LeagueSignUpsTab() {
   };
   
   const handleCreateSignup = async (signupData) => {
-    if (!activeSeason) return;
+    // Use selectedSeasonId or first season if none selected
+    const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
+    if (!seasonId) {
+      showMessage?.('error', 'Please select a season to create a signup');
+      return;
+    }
     try {
-      await createSignup(activeSeason.id, signupData);
+      await createSignup(seasonId, signupData);
       closeModal();
       await loadSignups();
     } catch (err) {
@@ -146,9 +184,15 @@ export default function LeagueSignUpsTab() {
   };
   
   const handleCreateSchedule = async (scheduleData) => {
-    if (!activeSeason) return;
+    // Use selectedSeasonId or first season if none selected
+    const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
+    if (!seasonId) {
+      showMessage?.('error', 'Please select a season to create a schedule');
+      return;
+    }
+    const season = seasons.find(s => s.id === seasonId);
     try {
-      await createWeeklySchedule(activeSeason.id, scheduleData);
+      await createWeeklySchedule(seasonId, scheduleData);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as new ones may have been generated
     } catch (err) {
@@ -189,20 +233,13 @@ export default function LeagueSignUpsTab() {
     }
   };
   
-  
-  if (!activeSeason) {
-    return (
-      <div className="league-section">
-        <div className="league-empty-state">
-          <Calendar size={40} />
-          <p>No active season. Please create an active season to manage signups.</p>
-        </div>
-      </div>
-    );
-  }
-  
   const upcomingSignups = signups.filter(s => !s.is_past);
   const pastSignups = signups.filter(s => s.is_past);
+  
+  // Get season for creating signups/schedules (use selectedSeasonId or first season)
+  const seasonForCreation = selectedSeasonId 
+    ? seasons.find(s => s.id === selectedSeasonId)
+    : (seasons && seasons.length > 0 ? seasons[0] : null);
   
   return (
     <>
@@ -213,9 +250,9 @@ export default function LeagueSignUpsTab() {
             <Calendar size={18} />
             Upcoming Sessions
           </h3>
-          {isLeagueMember && (
+          {isLeagueMember && seasonForCreation && (
             <button className="league-text-button" onClick={() => openModal(MODAL_TYPES.SIGNUP, {
-              seasonId: activeSeason.id,
+              seasonId: seasonForCreation.id,
               onSubmit: handleCreateSignup
             })}>
               <Plus size={16} />
@@ -233,9 +270,15 @@ export default function LeagueSignUpsTab() {
           onSignup={handleSignup}
           onDropout={handleDropout}
           onEdit={(signup) => {
+            // Use signup's season_id if available, otherwise use seasonForCreation
+            const seasonId = signup.season_id || (seasonForCreation?.id);
+            if (!seasonId) {
+              showMessage?.('error', 'Unable to determine season for this signup');
+              return;
+            }
             openModal(MODAL_TYPES.SIGNUP, {
               signup,
-              seasonId: activeSeason.id,
+              seasonId: seasonId,
               onSubmit: (data) => handleUpdateSignup(signup.id, data)
             });
           }}
@@ -261,9 +304,15 @@ export default function LeagueSignUpsTab() {
             onSignup={handleSignup}
             onDropout={handleDropout}
             onEdit={(signup) => {
+              // Use signup's season_id if available, otherwise use seasonForCreation
+              const seasonId = signup.season_id || (seasonForCreation?.id);
+              if (!seasonId) {
+                showMessage?.('error', 'Unable to determine season for this signup');
+                return;
+              }
               openModal(MODAL_TYPES.SIGNUP, {
                 signup,
-                seasonId: activeSeason.id,
+                seasonId: seasonId,
                 onSubmit: (data) => handleUpdateSignup(signup.id, data)
               });
             }}
@@ -282,12 +331,18 @@ export default function LeagueSignUpsTab() {
             </h3>
             <button 
               className="league-text-button" 
-              onClick={() => openModal(MODAL_TYPES.EDIT_SCHEDULE, {
-                seasonId: activeSeason.id,
-                seasonEndDate: activeSeason.end_date,
-                onSubmit: handleCreateSchedule
-              })}
-              disabled={!isLeagueAdmin}
+              onClick={() => {
+                if (!seasonForCreation) {
+                  showMessage?.('error', 'Please select a season to create a schedule');
+                  return;
+                }
+                openModal(MODAL_TYPES.EDIT_SCHEDULE, {
+                  seasonId: seasonForCreation.id,
+                  seasonEndDate: seasonForCreation.end_date,
+                  onSubmit: handleCreateSchedule
+                });
+              }}
+              disabled={!isLeagueAdmin || !seasonForCreation}
             >
               <Plus size={16} />
               Create Weekly Scheduled Session
@@ -297,9 +352,16 @@ export default function LeagueSignUpsTab() {
             schedules={weeklySchedules}
             isLeagueAdmin={isLeagueAdmin}
             onEdit={(schedule) => {
+              // Use schedule's season_id if available, otherwise use seasonForCreation
+              const scheduleSeasonId = schedule.season_id || (seasonForCreation?.id);
+              const scheduleSeason = scheduleSeasonId ? seasons.find(s => s.id === scheduleSeasonId) : seasonForCreation;
+              if (!scheduleSeason) {
+                showMessage?.('error', 'Unable to determine season for this schedule');
+                return;
+              }
               openModal(MODAL_TYPES.EDIT_SCHEDULE, {
                 schedule,
-                seasonEndDate: activeSeason.end_date,
+                seasonEndDate: scheduleSeason.end_date,
                 onSubmit: (data) => handleUpdateSchedule(schedule.id, data)
               });
             }}
