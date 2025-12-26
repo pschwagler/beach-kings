@@ -8,7 +8,14 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
   const overview = stats?.overview || {};
   const playerStats = stats?.stats || [];
   const hasStats = playerStats.length > 0;
-  const hasOverview = overview && (overview.ranking !== undefined || overview.points !== undefined || overview.rating !== undefined);
+  // Determine if this is a season view (has seasonName) or league view (All Seasons)
+  const isSeason = !!seasonName;
+  // For season: check for ranking/points. For league: check for games/win_rate
+  const hasOverview = overview && (
+    isSeason 
+      ? (overview.ranking !== undefined || overview.points !== undefined || overview.rating !== undefined)
+      : (overview.games !== undefined || overview.win_rate !== undefined || overview.rating !== undefined)
+  );
 
   return (
     <div className="player-details">
@@ -29,7 +36,7 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
       )}
 
       {hasOverview && (
-        <PlayerOverview overview={overview} />
+        <PlayerOverview overview={overview} isSeason={isSeason} />
       )}
 
       {matchHistory && matchHistory.length > 0 && (

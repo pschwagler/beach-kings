@@ -9,7 +9,6 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
     name: "",
     start_date: "",
     end_date: "",
-    point_system: "",
   });
 
   useEffect(() => {
@@ -18,7 +17,6 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
         name: season.name || "",
         start_date: season.start_date || "",
         end_date: season.end_date || "",
-        point_system: season.point_system || "",
       });
     }
   }, [isOpen, season]);
@@ -52,7 +50,6 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
         name: formData.name || undefined,
         start_date: formData.start_date,
         end_date: formData.end_date,
-        point_system: formData.point_system || undefined,
       });
       onSuccess();
       onClose();
@@ -119,19 +116,6 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
               required
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="season-point-system">Point System (Optional)</label>
-            <input
-              id="season-point-system"
-              type="text"
-              value={formData.point_system}
-              onChange={(e) =>
-                setFormData({ ...formData, point_system: e.target.value })
-              }
-              placeholder="Point system configuration"
-              className="form-input"
-            />
-          </div>
         </div>
         <div className="modal-actions">
           <button className="league-text-button" onClick={onClose}>
@@ -149,4 +133,6 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
     </div>
   );
 }
+
+
 

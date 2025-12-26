@@ -159,3 +159,5 @@ def downgrade() -> None:
     op.drop_index('idx_stats_calculation_jobs_type_league', table_name='stats_calculation_jobs')
     op.drop_constraint('fk_stats_calculation_jobs_league', 'stats_calculation_jobs', type_='foreignkey')
     op.drop_column('stats_calculation_jobs', 'league_id')
+
+

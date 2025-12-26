@@ -2225,6 +2225,11 @@ tbody tr:hover .sticky-col {
   display: table;
 }
 
+/* Player stats table - allow narrower on mobile */
+.player-details table.player-stats-table {
+  min-width: 600px;
+}
+
 .player-details table thead {
   background: linear-gradient(
     135deg,
@@ -2306,6 +2311,36 @@ tbody tr:hover .sticky-col {
 .player-details table .spacer-row td {
   padding: 8px;
   background: transparent;
+}
+
+/* Player Stats Table Styling */
+.player-stats-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.player-stats-table th .th-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.player-stats-table th .desktop-label {
+  display: inline;
+}
+
+.player-stats-table th .mobile-label {
+  display: none;
+}
+
+.player-stats-name-col {
+  position: relative;
+}
+
+.player-stats-stat-cell {
+  text-align: left;
 }
 
 .player-details table tbody tr.overall-row {
@@ -3818,6 +3853,24 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .form-group:last-child {
   margin-bottom: 0;
+}
+
+.form-group-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-group-row .form-field {
+  flex: 1;
+}
+
+.form-group-row .form-field label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.95em;
+  line-height: 1.4;
 }
 
 .form-group label {
@@ -5837,8 +5890,8 @@ select.form-select {
 }
 
 .league-text-button:hover:not(:disabled) {
-  background: var(--gray-50);
-  color: var(--primary);
+  background: var(--primary-dark);
+  color: white;
 }
 
 .league-text-button:active:not(:disabled) {
@@ -5850,13 +5903,6 @@ select.form-select {
   background: var(--primary);
 }
 
-.league-text-button.primary:hover {
-  background: var(--deep-ocean);
-}
-
-.league-text-button.primary:active {
-  background: var(--deep-ocean);
-}
 
 .league-text-button:disabled {
   opacity: 0.5;
@@ -8949,6 +8995,88 @@ button.match-config-toggle.inline svg {
     padding-left: 12px;
   }
 
+  /* Player Stats Table Mobile Styling */
+  .player-details table.player-stats-table {
+    min-width: auto;
+  }
+
+  .player-stats-table {
+    min-width: 100%;
+    width: 100%;
+    font-size: 0.875em;
+  }
+
+  .player-stats-table th {
+    padding: 12px 4px;
+    font-size: 0.72em;
+    white-space: nowrap;
+  }
+
+  .player-stats-table td {
+    padding: 12px 4px;
+    font-size: 0.85em;
+  }
+
+  /* Show mobile labels, hide desktop labels on mobile */
+  .player-stats-table th .desktop-label {
+    display: none;
+  }
+
+  .player-stats-table th .mobile-label {
+    display: inline;
+  }
+
+  /* Make name column sticky and narrower on mobile */
+  .player-stats-table th.player-stats-name-col {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: linear-gradient(
+      135deg,
+      var(--primary-darker) 0%,
+      var(--primary-dark) 100%
+    );
+    min-width: 100px;
+    max-width: 120px;
+    box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
+    padding: 12px 6px;
+  }
+
+  .player-stats-table td.player-stats-name-col {
+    position: sticky;
+    left: 0;
+    z-index: 9;
+    background: white;
+    min-width: 100px;
+    max-width: 120px;
+    box-shadow: 2px 0 2px rgba(0, 0, 0, 0.03);
+    padding: 12px 6px;
+  }
+
+  /* Alternate sticky column background to match row colors */
+  .player-stats-table tbody tr.row-gray td.player-stats-name-col {
+    background: var(--gray-50);
+  }
+
+  .player-stats-table tbody tr:hover td.player-stats-name-col {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  /* Make stat columns narrower and closer together */
+  .player-stats-table th:not(.player-stats-name-col),
+  .player-stats-table td.player-stats-stat-cell {
+    padding: 12px 3px;
+    white-space: nowrap;
+    min-width: auto;
+    width: auto;
+  }
+
+  /* First stat column after sticky name column needs more left padding */
+  .player-stats-table th:nth-child(2),
+  .player-stats-table td:nth-child(2) {
+    padding-left: 8px;
+  }
+
   /* League section - reduce padding on mobile (league-content already has padding) */
   .league-section {
     padding: 0;
@@ -10297,6 +10425,19 @@ button.match-config-toggle.inline svg {
 
   .modal-body {
     padding: 12px;
+  }
+
+  .form-group-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .form-group-row .form-field {
+    margin-bottom: 24px;
+  }
+
+  .form-group-row .form-field:last-child {
+    margin-bottom: 0;
   }
 
   .modal-stats {

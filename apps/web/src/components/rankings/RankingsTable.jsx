@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Crown } from 'lucide-react';
 import { Tooltip } from '../ui/UI';
 import { getFirstPlacePlayer } from '../../utils/playerUtils';
@@ -27,9 +28,28 @@ const PlayerAvatar = ({ avatar, playerName }) => {
   );
 };
 
-export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false }) {
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  
   // Default sort by season_rank (ascending - 1, 2, 3...)
   const [sortConfig, setSortConfig] = useState({ column: 'season_rank', ascending: true });
+  
+  const handleNavigateToMatches = () => {
+    if (onNavigateToMatches) {
+      onNavigateToMatches();
+    } else if (pathname && router) {
+      // Navigate to matches tab by updating URL
+      const url = new URL(pathname, window.location.origin);
+      url.searchParams.set('tab', 'matches');
+      router.push(url.pathname + url.search);
+    } else if (typeof window !== 'undefined') {
+      // Fallback: try to update the current URL
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('tab', 'matches');
+      window.location.href = currentUrl.toString();
+    }
+  };
 
   // All hooks must be called before any early returns
   const sortedRankings = useMemo(() => {
@@ -97,7 +117,27 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
   // Only show empty state if rankings is explicitly an empty array (loaded but empty)
   // Don't show if rankings is null/undefined (not loaded yet)
   if (Array.isArray(rankings) && rankings.length === 0) {
-    return <div className="loading">No rankings available yet. Add Games to start tracking stats.</div>;
+    return (
+      <div className="loading">
+        No rankings available yet.{' '}
+        <button
+          onClick={handleNavigateToMatches}
+          className="link-button"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--primary)',
+            textDecoration: 'underline',
+            cursor: 'pointer',
+            padding: 0,
+            font: 'inherit',
+          }}
+        >
+          Add Games
+        </button>
+        {' '}to start tracking stats.
+      </div>
+    );
   }
 
   return (

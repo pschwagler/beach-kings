@@ -504,6 +504,7 @@ class WeeklyScheduleBase(BaseModel):
     open_signups_mode: str = "auto_after_last_session"  # 'auto_after_last_session', 'specific_day_time', 'always_open'
     open_signups_day_of_week: Optional[int] = None  # For specific_day_time mode
     open_signups_time: Optional[str] = None  # HH:MM format for specific_day_time mode
+    start_date: str  # ISO date string - when to start generating signups
     end_date: str  # ISO date string
 
 
@@ -520,6 +521,7 @@ class WeeklyScheduleUpdate(BaseModel):
     open_signups_mode: Optional[str] = None
     open_signups_day_of_week: Optional[int] = None
     open_signups_time: Optional[str] = None
+    start_date: Optional[str] = None
     end_date: Optional[str] = None
 
 

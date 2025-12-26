@@ -36,3 +36,5 @@ def downgrade() -> None:
     # Recreate the index
     op.create_index('idx_seasons_active', 'seasons', ['is_active'])
 
+
+

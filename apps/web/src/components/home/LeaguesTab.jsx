@@ -54,10 +54,8 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
       if (onLeaguesUpdate) {
         await onLeaguesUpdate();
       }
-      // Navigate to the newly created league
-      if (onLeagueClick) {
-        onLeagueClick('view-league', newLeague.id);
-      }
+      // Navigate to the newly created league details page
+      router.push(`/league/${newLeague.id}?tab=details`);
       return newLeague;
     } catch (error) {
       throw error;
