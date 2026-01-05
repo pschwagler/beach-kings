@@ -8,7 +8,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "rm -rf .next out dist"
+    "clean": "rm -rf .next out dist",
+    "test:e2e:setup": "node tests/e2e/setup/ensure-test-infra.js",
+    "test:e2e": "npm run test:e2e:setup && playwright test",
+    "test:e2e:ui": "npm run test:e2e:setup && playwright test --ui",
+    "test:e2e:debug": "npm run test:e2e:setup && playwright test --debug",
+    "test:e2e:headed": "npm run test:e2e:setup && playwright test --headed",
+    "test:e2e:file": "npm run test:e2e:setup && playwright test",
+    "test:e2e:grep": "npm run test:e2e:setup && playwright test --grep"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
@@ -19,10 +26,15 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
+    "axios": "^1.13.1",
     "concurrently": "^9.1.0",
     "eslint": "^9.36.0",
-    "eslint-config-next": "^16.0.8"
+    "eslint-config-next": "^16.0.8",
+    "libphonenumber-js": "^1.12.33",
+    "pg": "^8.13.1",
+    "playwright": "^1.48.0"
   }
 }

@@ -392,6 +392,7 @@ export default function LeagueMatchesTab() {
           <div className="season-selector-wrapper">
             <select
               id="season-select-matches"
+              data-testid="season-select-matches"
               value={selectedSeasonId || ''}
               onChange={(e) => {
                 const value = e.target.value;

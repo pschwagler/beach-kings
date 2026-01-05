@@ -52,7 +52,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Rate limiter instance shared with FastAPI app
-limiter = Limiter(key_func=get_remote_address)
+# In test environments, rate limiting is effectively disabled
+IS_TEST_ENV = os.getenv("ENV", "").lower() == "test"
+if IS_TEST_ENV:
+    # In test mode, create a limiter and override its limit method to be a no-op
+    # This allows the @limiter.limit() decorators to remain in the code
+    # but they won't actually apply any rate limiting in test environments
+    limiter = Limiter(key_func=get_remote_address)
+    
+    # Store the original limit method
+    original_limit = limiter.limit
+    
+    # Create a no-op decorator that does nothing
+    def no_op_limit(*args, **kwargs):
+        """No-op decorator for test mode - doesn't apply any rate limiting."""
+        def decorator(func):
+            return func
+        return decorator
+    
+    # Override the limit method to return a no-op decorator in test mode
+    limiter.limit = lambda *args, **kwargs: no_op_limit()
+else:
+    limiter = Limiter(key_func=get_remote_address)
 
 # WhatsApp service URL
 WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001")

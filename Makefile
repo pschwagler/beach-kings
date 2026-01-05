@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-basic dev-backend dev-frontend build docker-build docker-up start clean clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -34,7 +34,6 @@ help:
 	@echo "🌐 Web App:"
 	@echo "  make install           - Install all dependencies (Python + Frontend)"
 	@echo "  make dev               - Start ALL services (backend + postgres + frontend dev server)"
-	@echo "  make dev-basic         - Start backend + postgres + frontend dev server"
 	@echo "  make dev-backend       - Start backend only with Docker Compose"
 	@echo "  make dev-frontend      - Start frontend dev server only (requires backend running)"
 	@echo "  make build             - Build frontend for production"
@@ -123,31 +122,12 @@ dev: ensure-docker
 		echo "⚠️  Frontend dependencies not found. Installing..."; \
 		cd apps/web && npm install --legacy-peer-deps; \
 	fi
-	@trap 'docker compose down' EXIT INT TERM; \
+	@trap 'pkill -f "next dev" 2>/dev/null || true; docker compose down' EXIT INT TERM; \
 	cd apps/web && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
 		"docker compose up postgres redis backend" \
 		"npm run dev" || true; \
+	pkill -f "next dev" 2>/dev/null || true; \
 	docker compose down
-
-dev-basic: ensure-docker
-	@echo "🚀 Starting backend + postgres + frontend..."
-	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
-	@echo "🎨 Frontend: http://localhost:3000 (Next.js dev server)"
-	@echo ""
-	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
-	@echo "📱 Or from your phone: http://<your-ip>:3000"
-	@echo ""
-	@echo "Press Ctrl+C to stop"
-	@echo ""
-	@if [ ! -d "apps/web/node_modules" ]; then \
-		echo "⚠️  Frontend dependencies not found. Installing..."; \
-		cd apps/web && npm install --legacy-peer-deps; \
-	fi
-	@trap 'ENABLE_WHATSAPP=false docker compose down' EXIT INT TERM; \
-	cd apps/web && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
-		"ENABLE_WHATSAPP=false docker compose up postgres redis backend" \
-		"npm run dev" || true; \
-	ENABLE_WHATSAPP=false docker compose down
 
 dev-backend: ensure-docker
 	@echo "Starting backend only with Docker Compose (auto-reload)..."

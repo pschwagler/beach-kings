@@ -418,6 +418,7 @@ export default function MatchesTable({
         <div className="add-matches-section">
           <button 
             className="add-matches-card"
+            data-testid="add-matches-card"
             onClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
               onSubmit: handleAddMatch,
               onDelete: onDeleteMatch,
@@ -448,7 +449,7 @@ export default function MatchesTable({
       )}
 
       {activeSession && (
-        <div data-session-id={activeSession.id}>
+        <div data-session-id={activeSession.id} data-testid="active-session">
           <ActiveSessionPanel
             activeSession={activeSession}
             activeSessionMatches={activeSessionMatches}
@@ -604,6 +605,7 @@ export default function MatchesTable({
               key={key} 
               className="match-date-group"
               data-session-id={group.type === 'session' ? group.id : undefined}
+              data-testid="session-group"
             >
               <h3 className="match-date-header">
                 <span className="match-date-header-left">
@@ -613,6 +615,7 @@ export default function MatchesTable({
                       className="edit-session-button"
                       onClick={() => onEnterEditMode(group.id)}
                       title="Edit Session"
+                      data-testid="edit-session-button"
                     >
                       <Edit2 size={16} />
                     </button>

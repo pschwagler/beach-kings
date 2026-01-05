@@ -63,7 +63,7 @@ export default function ActiveSessionPanel({
   };
 
   return (
-    <div className="active-session-panel">
+    <div className="active-session-panel" data-testid="active-session-panel">
       <SessionHeader 
         sessionName={activeSession.name}
         gameCount={gameCount}

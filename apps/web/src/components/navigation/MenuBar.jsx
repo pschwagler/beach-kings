@@ -110,6 +110,7 @@ export default function MenuBar({
               aria-current={active ? 'page' : undefined}
               type="button"
               ref={id === 'more' ? moreButtonRef : undefined}
+              data-testid={`${id}-tab`}
             >
               {Icon && <Icon size={20} />}
               <span>{label}</span>
@@ -122,6 +123,7 @@ export default function MenuBar({
     </aside>
   );
 }
+
 
 
 

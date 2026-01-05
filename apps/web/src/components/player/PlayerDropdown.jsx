@@ -186,6 +186,7 @@ export default function PlayerDropdown({
             onTouchStart={handleTouchStart}
             onTouchEnd={(e) => handleTouchEnd(e, player)}
             onMouseEnter={() => setHighlightedIndex(index)}
+            data-testid="player-dropdown-option"
           >
             {getDisplayValue(player)}
           </li>
@@ -199,7 +200,7 @@ export default function PlayerDropdown({
   );
 
   return (
-    <div className="player-dropdown-container" ref={containerRef}>
+    <div className="player-dropdown-container" ref={containerRef} data-testid="player-dropdown-container">
       <input
         ref={inputRef}
         type="text"

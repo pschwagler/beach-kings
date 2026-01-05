@@ -19,6 +19,7 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
     <div 
       className={`match-card ${showEdit ? 'editable' : ''}`}
       onClick={handleCardClick}
+      data-testid="match-card"
     >
       {/* Edit icon for active session matches */}
       {showEdit && onEdit && (

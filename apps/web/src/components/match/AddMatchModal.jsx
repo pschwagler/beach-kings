@@ -259,8 +259,8 @@ export default function AddMatchModal({
   const team2IsWinner = hasValidScores && score2 > score1;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="drawer-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} data-testid="add-match-modal-overlay">
+      <div className="drawer-modal" onClick={(e) => e.stopPropagation()} data-testid="add-match-modal">
         <div className="modal-header">
           <h2>{editMatch ? 'Edit Game' : 'Add New Game'}</h2>
           <Button variant="close" onClick={onClose}>
@@ -268,7 +268,7 @@ export default function AddMatchModal({
           </Button>
         </div>
 
-        <form id="add-match-form" onSubmit={handleSubmit} className="add-match-form">
+        <form id="add-match-form" onSubmit={handleSubmit} className="add-match-form" data-testid="add-match-form">
           {formError && (
             <div className="form-error">
               {formError}
@@ -615,7 +615,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
   };
   
   return (
-    <div className="scorecard-container">
+    <div className="scorecard-container" data-testid={`team-${teamNumber}-score-container`}>
       <input
         ref={input1Ref}
         type="text"
@@ -629,6 +629,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
         className="scorecard-digit-input"
         style={{ backgroundColor: bgColor }}
         aria-label={`Team ${teamNumber} score first digit`}
+        data-testid={`team-${teamNumber}-score-digit-1`}
       />
       <input
         ref={input2Ref}
@@ -643,6 +644,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
         className="scorecard-digit-input"
         style={{ backgroundColor: bgColor }}
         aria-label={`Team ${teamNumber} score second digit`}
+        data-testid={`team-${teamNumber}-score-digit-2`}
       />
     </div>
   );
@@ -669,7 +671,7 @@ function TeamSection({
   autoOpenFirstPlayer = false
 }) {
   return (
-    <div className={`team-section ${isWinner ? 'is-winner' : ''}`}>
+    <div className={`team-section ${isWinner ? 'is-winner' : ''}`} data-testid={`team-${teamNumber}-section`}>
       <div className="team-header">
         <h3>Team {teamNumber}</h3>
         {isWinner && (

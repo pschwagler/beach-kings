@@ -844,7 +844,8 @@ async def create_league_session(
         raise ValueError(f"League {league_id} not found")
     
     # Find the most recent active season for this league (based on date range)
-    current_date = date.today()
+    from datetime import date as date_type
+    current_date = date_type.today()
     season_result = await session.execute(
         select(Season)
         .where(

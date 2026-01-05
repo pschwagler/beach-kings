@@ -142,7 +142,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
 
   return (
     <div className="rankings-table-wrapper">
-      <table className="rankings-table-modern">
+      <table className="rankings-table-modern" data-testid="rankings-table">
         <thead>
           <tr>
             <th className="rank-number-header" onClick={() => handleSort('season_rank')}>
@@ -225,6 +225,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 key={player.player_id || idx} 
                 className="rankings-row clickable-row"
                 onClick={() => onPlayerClick(player.player_id, player.Name)}
+                data-testid="rankings-row"
               >
                 <td className="rank-number-cell">{isAllSeasons ? '-' : (player.season_rank || idx + 1)}</td>
                 <td className="sticky-col rankings-name-cell">

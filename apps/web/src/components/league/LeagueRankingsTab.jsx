@@ -198,6 +198,7 @@ export default function LeagueRankingsTab() {
         <div className="season-selector-wrapper">
           <select
             id="season-select"
+            data-testid="season-select"
             value={selectedSeasonId || ''}
             onChange={(e) => {
               const value = e.target.value;

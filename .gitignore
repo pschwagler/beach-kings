@@ -87,6 +87,8 @@ Thumbs.db
 
 # Environment variables
 .env
+.env.local
+.env*.local
 
 # local data
 thirdparty
@@ -96,3 +98,5 @@ thirdparty
 db_dump.sql
 
 out/
+
+**/test-results/

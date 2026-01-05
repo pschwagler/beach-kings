@@ -79,8 +79,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 async def init_database():
     """Initialize the database by creating all tables."""
     async with engine.begin() as conn:
-        # Create all tables
-        await conn.run_sync(Base.metadata.create_all)
+        # Create all tables (checkfirst=True means it won't error if tables already exist)
+        def create_tables(sync_conn):
+            Base.metadata.create_all(bind=sync_conn, checkfirst=True)
+        await conn.run_sync(create_tables)
     
 
 
