@@ -19,16 +19,41 @@ export function createApiClient(token = null) {
 
 /**
  * Create a test user via API
+ * This function is idempotent - if the user already exists, it will return successfully
+ * without throwing an error. This makes tests more resilient to parallel execution and
+ * cleanup timing issues.
  */
 export async function createTestUser({ phoneNumber, password, fullName, email }) {
   const api = createApiClient();
-  const response = await api.post('/api/auth/signup', {
-    phone_number: phoneNumber,
-    password,
-    full_name: fullName,
-    email,
-  });
-  return response.data;
+  try {
+    const response = await api.post('/api/auth/signup', {
+      phone_number: phoneNumber,
+      password,
+      full_name: fullName,
+      email,
+    });
+    return response.data;
+  } catch (error) {
+    // If user already exists (400 error), that's okay - return a success-like response
+    // This makes the function idempotent and prevents flaky tests
+    if (error.response?.status === 400) {
+      const errorDetail = error.response?.data?.detail || '';
+      // Check if the error is about user already existing
+      if (typeof errorDetail === 'string' && 
+          (errorDetail.toLowerCase().includes('already') || 
+           errorDetail.toLowerCase().includes('exists') ||
+           errorDetail.toLowerCase().includes('registered'))) {
+        // User already exists - return a mock response to indicate "success"
+        // The test can continue as if the user was just created
+        return {
+          phone_number: phoneNumber,
+          message: 'User already exists (idempotent create)'
+        };
+      }
+    }
+    // Re-throw other errors (network errors, validation errors, etc.)
+    throw error;
+  }
 }
 
 /**

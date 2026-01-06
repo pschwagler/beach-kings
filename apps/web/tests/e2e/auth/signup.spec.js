@@ -26,29 +26,22 @@ test.describe('Signup Flow', () => {
     const homePage = new HomePage(page);
     const authPage = new AuthPage(page);
 
-    // Navigate to home page
+    // Navigate to home page (already waits for page to be ready)
     await homePage.goto();
-    
-    // Wait for page to settle
-    await page.waitForTimeout(500);
 
     // Click sign up button - this should open the auth modal
     await homePage.clickSignUp();
 
-    // Wait for auth modal to be fully visible
+    // Wait for auth modal to be fully visible (waitForModal already waits for visibility)
     await authPage.waitForModal();
-    await page.waitForTimeout(300); // Give modal time to fully render
 
     // Fill in signup form
+    // fillPhoneNumber already includes waits for phone validation to complete
     await authPage.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await authPage.fillPassword(testPassword);
     await authPage.fillFullName(testFullName);
 
-    // Wait for form validation to complete
-    // PhoneInput validates asynchronously via useEffect - need to wait for React state update
-    await page.waitForTimeout(2000);
-
-    // Verify form fields are filled
+    // Verify form fields are filled (this also serves as a wait for inputs to be ready)
     const phoneValue = await page.locator('input[type="tel"]').first().inputValue();
     const passwordValue = await page.locator('input[type="password"]').first().inputValue();
     const fullNameValue = await page.locator('input[name="fullName"]').first().inputValue();
@@ -70,10 +63,8 @@ test.describe('Signup Flow', () => {
       { timeout: 20000 }
     );
 
-    // Submit form - use JavaScript click to ensure it fires
-    const submitButton = page.locator('.auth-modal__submit').first();
-    await submitButton.waitFor({ state: 'visible' });
-    await submitButton.evaluate((el) => el.click());
+    // Submit form
+    await authPage.submit();
     
     // Wait for signup response
     const signupResponse = await responsePromise;
@@ -86,7 +77,7 @@ test.describe('Signup Flow', () => {
     }
 
     // Wait for verification code step UI to appear (indicates successful signup)
-    await page.waitForSelector('input[name="code"]', { timeout: 5000 });
+    await page.waitForSelector('input[name="code"]', { state: 'visible', timeout: 5000 });
 
     // Get verification code from database
     const code = await getVerificationCodeForPhone(testPhoneNumber);
@@ -135,44 +126,27 @@ test.describe('Signup Flow', () => {
     await authPage.fillPassword('weak'); // Too short, no number
     await authPage.fillFullName(testFullName);
 
-    // Wait for form validation
-    await page.waitForTimeout(1500);
-
-    // The form might show client-side validation error, or submit and get server error
-    // Set up response listener (might not fire if client-side validation blocks)
+    // Client-side password validation happens synchronously on submit in handleSubmit
+    // Set up response listener in case validation somehow doesn't catch it (shouldn't happen)
     const responsePromise = page.waitForResponse(
       response => response.url().includes('/api/auth/signup'),
-      { timeout: 5000 }
-    ).catch(() => null); // If no response (client-side validation), that's okay
+      { timeout: 2000 }
+    ).catch(() => null); // No response expected due to client-side validation
 
-    // Submit form
+    // Submit form - client-side validation should catch the weak password
     await authPage.submit();
     
-    // Wait for response or check for client-side error
-    await page.waitForTimeout(1000);
+    // Wait for client-side validation error to appear (validation is synchronous, so error appears immediately)
+    await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
     
-    // Check if there's a client-side validation error (form shows error without API call)
-    const hasClientError = await authPage.hasError();
-    if (hasClientError) {
-      const errorMessage = await authPage.getAlertMessage();
-      expect(errorMessage).toBeTruthy();
-      expect(errorMessage.toLowerCase()).toMatch(/password|8|character/);
-      return; // Client-side validation caught it, no API call needed
-    }
+    // Verify error is shown
+    expect(await authPage.hasError()).toBeTruthy();
+    const errorMessage = await authPage.getAlertMessage();
+    expect(errorMessage).toBeTruthy();
+    expect(errorMessage.toLowerCase()).toMatch(/password|8|character/);
     
-    // If no client-side error, check API response
-    if (responsePromise) {
-      const signupResponse = await responsePromise;
-      const status = signupResponse.status();
-      
-      // Should get 400 error for invalid password
-      expect(status).toBe(400);
-      
-      // Verify error message in response
-      const responseData = await signupResponse.json().catch(() => ({}));
-      expect(responseData.detail).toBeTruthy();
-      expect(responseData.detail.toLowerCase()).toMatch(/password|8|character/);
-    }
+    // Verify no API call was made (client-side validation should prevent it)
+    expect(await responsePromise).toBeNull();
   });
 
   test('should show error for missing full name', async ({ page }) => {
@@ -193,25 +167,14 @@ test.describe('Signup Flow', () => {
     await authPage.fillPassword(testPassword);
     // Don't fill full name
 
-    // Wait for form validation
-    await page.waitForTimeout(1500);
-
-    // Submit form - validation happens on submit, not before
-    // The button should be enabled, and clicking it will trigger validation
+    // Submit form - validation happens synchronously in handleSubmit
     await authPage.submit();
 
-    // Wait for error message to appear (validation happens in handleSubmit)
-    // The error should appear immediately after submit
-    await page.waitForSelector('.auth-modal__alert.error', { timeout: 5000 }).catch(() => {
-      // If error doesn't appear, wait a bit more
-    });
-    
-    await page.waitForTimeout(2000);
+    // Wait for error message to appear (validation happens synchronously, error appears immediately)
+    await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
 
     // Verify error is shown
-    const hasError = await authPage.hasError();
-    expect(hasError).toBeTruthy();
-    
+    expect(await authPage.hasError()).toBeTruthy();
     const errorMessage = await authPage.getAlertMessage();
     expect(errorMessage).toBeTruthy();
     expect(errorMessage.toLowerCase()).toMatch(/name|required|full name/);
@@ -231,12 +194,10 @@ test.describe('Signup Flow', () => {
     await authPage.waitForModal();
 
     // Fill in signup form
+    // fillPhoneNumber already includes waits for phone validation
     await authPage.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await authPage.fillPassword(testPassword);
     await authPage.fillFullName(testFullName);
-
-    // Wait for form validation
-    await page.waitForTimeout(1500);
 
     // Set up response listener for signup
     const signupResponsePromise = page.waitForResponse(
@@ -250,9 +211,8 @@ test.describe('Signup Flow', () => {
     // Wait for successful signup
     await signupResponsePromise;
 
-    // Wait for verification code step
-    await page.waitForTimeout(1000);
-    await page.waitForSelector('input[name="code"]', { timeout: 5000 });
+    // Wait for verification code step UI to appear
+    await page.waitForSelector('input[name="code"]', { state: 'visible', timeout: 5000 });
 
     // Fill invalid verification code
     await authPage.fillVerificationCode('0000');
@@ -271,8 +231,8 @@ test.describe('Signup Flow', () => {
     const status = verifyResponse.status();
     expect([400, 401]).toContain(status); // Accept either 400 or 401 for invalid code
 
-    // Wait for error message
-    await page.waitForTimeout(1000);
+    // Wait for error message to appear in UI (error is set after API response)
+    await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
 
     // Verify error is shown
     expect(await authPage.hasError()).toBeTruthy();
@@ -315,7 +275,8 @@ test.describe('Signup Flow', () => {
     const authPage = new AuthPage(page);
 
     // Navigate to home page - ensure we're on a completely fresh page
-    await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' });
+    // Use homePage.goto() to respect baseURL configuration (port 3002 for tests)
+    await homePage.goto();
     
     // Clear any existing state after page loads
     await page.evaluate(() => {
@@ -326,9 +287,6 @@ test.describe('Signup Flow', () => {
         // Ignore errors if storage is not accessible
       }
     });
-    
-    // Wait for page to be ready (wait for DOM to be ready)
-    await page.waitForLoadState('domcontentloaded');
 
     // Check if user is logged in (they shouldn't be, but verify)
     const isAuthenticated = await homePage.isAuthenticated();
@@ -340,11 +298,6 @@ test.describe('Signup Flow', () => {
     }
 
     // Check if modal is already open - if it is, use it directly (don't try to click button!)
-    // AuthModal returns null when closed, so if it exists in DOM, it's open
-    // Wait for any initial page renders to complete
-    await page.waitForLoadState('domcontentloaded');
-    
-    // Simple check: if modal overlay exists in DOM, modal is open
     const modalExists = await page.locator('.auth-modal-overlay').count() > 0;
     
     if (modalExists) {
@@ -360,8 +313,15 @@ test.describe('Signup Flow', () => {
       );
       if (!isSignUpMode) {
         await authPage.switchToSignUp();
-        // Wait for mode switch to complete (modal content to update)
-        await page.waitForTimeout(300);
+        // Wait for modal title to change to signup mode
+        await page.waitForFunction(
+          (expectedText) => {
+            const title = document.querySelector('.auth-modal__header h2');
+            return title && title.textContent.toLowerCase().includes(expectedText);
+          },
+          'create account',
+          { timeout: 5000 }
+        );
       }
     } else {
       // Modal is NOT open - click the Sign Up button on the landing page to open it
@@ -375,7 +335,6 @@ test.describe('Signup Flow', () => {
       });
       
       // Wait for modal to appear
-      await page.waitForSelector('.auth-modal', { state: 'visible', timeout: 10000 });
       await authPage.waitForModal();
       
       // Ensure we're in signup mode
@@ -387,8 +346,15 @@ test.describe('Signup Flow', () => {
       );
       if (!isSignUpMode) {
         await authPage.switchToSignUp();
-        // Wait for mode switch to complete
-        await page.waitForTimeout(300);
+        // Wait for modal title to change to signup mode
+        await page.waitForFunction(
+          (expectedText) => {
+            const title = document.querySelector('.auth-modal__header h2');
+            return title && title.textContent.toLowerCase().includes(expectedText);
+          },
+          'create account',
+          { timeout: 5000 }
+        );
       }
     }
 
@@ -396,12 +362,10 @@ test.describe('Signup Flow', () => {
     await page.waitForSelector('input.phone-input__input', { state: 'visible', timeout: 10000 });
 
     // Try to signup with existing phone number
+    // fillPhoneNumber already includes waits for phone validation
     await authPage.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await authPage.fillPassword(testPassword);
     await authPage.fillFullName(testFullName);
-
-    // Wait for form validation to complete (phone input validates asynchronously)
-    await page.waitForTimeout(1500);
 
     // Wait for signup response (should be 400 for existing user)
     const responsePromise = page.waitForResponse(
@@ -419,7 +383,7 @@ test.describe('Signup Flow', () => {
     // Should get 400 error for existing user
     expect(status).toBe(400);
     
-    // Wait for error message to appear in UI
+    // Wait for error message to appear in UI (error is set after API response)
     await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
 
     // Verify error is shown (user already exists)

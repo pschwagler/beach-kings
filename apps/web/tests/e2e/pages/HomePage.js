@@ -32,10 +32,8 @@ export class HomePage extends BasePage {
    * Navigate to home page
    */
   async goto() {
-    // goto() already waits for domcontentloaded
+    // goto() already waits for domcontentloaded, which is sufficient
     await super.goto('/');
-    // Wait a bit for React to hydrate and page to be fully interactive
-    await this.page.waitForTimeout(300);
   }
 
   /**
@@ -50,18 +48,15 @@ export class HomePage extends BasePage {
    * Check if user is authenticated (by checking for user menu or authenticated content)
    */
   async isAuthenticated() {
-    // Wait a bit for the page to update after login
-    await this.page.waitForTimeout(1000);
-    
     // Most reliable: Check if auth token exists in localStorage
     // Wait for token to be stored (may take a moment after login response)
     let hasToken = false;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       hasToken = await this.page.evaluate(() => {
         return !!localStorage.getItem('beach_access_token');
       }).catch(() => false);
       if (hasToken) break;
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(100); // Reduced from 500ms, but more iterations
     }
     
     if (hasToken) {
@@ -118,17 +113,14 @@ export class HomePage extends BasePage {
       
       // Modal is open but not in sign-in mode, close it first
       await this.page.keyboard.press('Escape').catch(() => {});
-      await this.page.waitForTimeout(300);
       
       const stillVisible = await this.page.locator('.auth-modal').isVisible().catch(() => false);
       if (stillVisible) {
         await this.page.locator('.auth-modal__close').click({ force: true }).catch(() => {});
-        await this.page.waitForTimeout(300);
       }
       
       // Wait for modal to be hidden
       await this.page.waitForSelector('.auth-modal', { state: 'hidden', timeout: 3000 }).catch(() => {});
-      await this.page.waitForTimeout(500);
     }
     
     // Wait for page to be fully loaded and React to be hydrated
@@ -173,17 +165,14 @@ export class HomePage extends BasePage {
       
       // Modal is open but not in signup mode, close it first
       await this.page.keyboard.press('Escape').catch(() => {});
-      await this.page.waitForTimeout(300);
       
       const stillVisible = await this.page.locator('.auth-modal').isVisible().catch(() => false);
       if (stillVisible) {
         await this.page.locator('.auth-modal__close').click({ force: true }).catch(() => {});
-        await this.page.waitForTimeout(300);
       }
       
       // Wait for modal to be hidden
       await this.page.waitForSelector('.auth-modal', { state: 'hidden', timeout: 3000 }).catch(() => {});
-      await this.page.waitForTimeout(500); // Extra wait to ensure modal is fully closed
     }
     
     // Wait for page to be fully loaded and React to be hydrated
@@ -205,8 +194,7 @@ export class HomePage extends BasePage {
     }).catch(() => false);
     
     if (isBlocked) {
-      // Button is blocked, wait a bit more and try to remove any overlays
-      await this.page.waitForTimeout(1000);
+      // Button is blocked, try to remove any overlays
       await this.page.evaluate(() => {
         // Remove any blocking overlays
         const overlays = document.querySelectorAll('.auth-modal-overlay, .modal-overlay');
@@ -216,7 +204,8 @@ export class HomePage extends BasePage {
           }
         });
       });
-      await this.page.waitForTimeout(500);
+      // Small delay for style change to take effect
+      await this.page.waitForTimeout(100);
     }
     
     // Scroll into view if needed
@@ -239,9 +228,6 @@ export class HomePage extends BasePage {
    * Logout
    */
   async logout() {
-    // Wait for user menu to be available
-    await this.page.waitForTimeout(1000);
-    
     // Find the user menu button
     const userMenuButton = this.page.locator('button[aria-label="User menu"]').first();
     
@@ -253,18 +239,8 @@ export class HomePage extends BasePage {
       el.click();
     });
     
-    // Wait a moment for React state to update
-    await this.page.waitForTimeout(500);
-    
-    // Check if dropdown exists in DOM (it might be there but not visible yet)
-    // Try waiting for the dropdown container to exist first
-    await this.page.waitForSelector('.navbar-dropdown-user', { timeout: 5000 }).catch(async () => {
-      // If selector doesn't work, try waiting for any dropdown
-      await this.page.waitForSelector('.navbar-dropdown', { timeout: 5000 });
-    });
-    
-    // Additional wait for animation/rendering
-    await this.page.waitForTimeout(300);
+    // Wait for dropdown to appear (more reliable than timeout)
+    await this.page.waitForSelector('.navbar-dropdown-user, .navbar-dropdown', { state: 'visible', timeout: 5000 });
     
     // Wait for the "Sign Out" item - try multiple selectors
     const signOutSelectors = [
@@ -298,32 +274,9 @@ export class HomePage extends BasePage {
     
     // Wait for page to be ready after navigation
     await this.page.waitForLoadState('domcontentloaded');
-    await this.page.waitForTimeout(500);
     
-    // Check tokens after navigation - they should be cleared
-    // Since navigation happened, tokens should already be cleared
-    const tokensAfter = await this.page.evaluate(() => {
-      return {
-        accessToken: localStorage.getItem('beach_access_token'),
-        refreshToken: localStorage.getItem('beach_refresh_token'),
-      };
-    });
-    
-    // If tokens still exist, wait a bit more (logout might be async)
-    if (tokensAfter.accessToken || tokensAfter.refreshToken) {
-      await this.page.waitForTimeout(1000);
-      // Check again
-      const tokensAfterWait = await this.page.evaluate(() => {
-        return {
-          accessToken: localStorage.getItem('beach_access_token'),
-          refreshToken: localStorage.getItem('beach_refresh_token'),
-        };
-      });
-      
-      if (tokensAfterWait.accessToken || tokensAfterWait.refreshToken) {
-        // Tokens still present - test will verify this
-      }
-    }
+    // Tokens should be cleared by the time navigation completes
+    // Test will verify tokens are cleared if needed
   }
 
   /**
@@ -331,11 +284,7 @@ export class HomePage extends BasePage {
    * Also checks for authenticated state as a fallback
    */
   async waitForRedirectToHome() {
-    // Wait for either URL change or authenticated state
-    // Give it a bit more time for the auth state to propagate
-    await this.page.waitForTimeout(1000);
-    
-    // Try multiple strategies to detect successful login
+    // Try multiple strategies to detect successful login (no initial timeout needed)
     const strategies = [
       // Strategy 1: Wait for URL change
       () => this.page.waitForURL('**/home', { timeout: 5000 }),
@@ -368,10 +317,7 @@ export class HomePage extends BasePage {
       }
     }
     
-    // Give a moment for state to settle
-    await this.page.waitForTimeout(500);
-    
-    // Final check - verify we're actually authenticated
+    // Final check - verify we're actually authenticated (no timeout needed, strategies already waited)
     const isAuth = await this.isAuthenticated();
     if (!isAuth && !success) {
       const url = this.page.url();
@@ -384,9 +330,7 @@ export class HomePage extends BasePage {
    * Wait for redirect to / (after logout)
    */
   async waitForRedirectToLanding() {
-    // Wait for either URL change or unauthenticated state
-    await this.page.waitForTimeout(1000); // Give it a bit more time for the auth state to propagate
-    
+    // Try multiple strategies to detect redirect to landing page (no initial timeout needed)
     const strategies = [
       // Strategy 1: Wait for URL change to '/'
       () => this.page.waitForURL('**/', { timeout: 5000 }),

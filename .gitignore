@@ -98,5 +98,6 @@ thirdparty
 db_dump.sql
 
 out/
+apps/web/playwright-report/
 
 **/test-results/

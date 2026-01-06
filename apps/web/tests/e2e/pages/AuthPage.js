@@ -122,18 +122,15 @@ export class AuthPage extends BasePage {
     // Blur to trigger validation
     await phoneInput.blur();
     
-    // Wait for phone validation to complete (PhoneInput validates on change)
-    // The component sets isPhoneValid via onValidationChange callback
-    await this.page.waitForTimeout(1500);
+    // PhoneInput validation happens synchronously in useEffect, but we need a small delay
+    // for React to process the state update (validation callback fires immediately)
+    await this.page.waitForTimeout(200);
     
-    // Verify the input was filled
+    // Verify the input was filled (this also serves as a wait for formatting to complete)
     const value = await phoneInput.inputValue();
     if (!value || value.length < 10) {
       throw new Error(`Failed to fill phone number. Input value after filling: "${value}" (expected formatted phone)`);
     }
-    
-    // Wait a bit more to ensure validation state is updated in React
-    await this.page.waitForTimeout(500);
   }
 
   /**
@@ -175,8 +172,9 @@ export class AuthPage extends BasePage {
     // Check if button is disabled (form validation might be blocking)
     const isDisabled = await submitButton.isDisabled().catch(() => false);
     if (isDisabled) {
-      // Wait a bit more for validation to complete
-      await this.page.waitForTimeout(1000);
+      // Validation happens quickly, so wait a short time for it to complete
+      // If button stays disabled, it's likely a validation error (which is expected in some tests)
+      await this.page.waitForTimeout(300);
       const stillDisabled = await submitButton.isDisabled().catch(() => false);
       if (stillDisabled) {
         // If button is still disabled, try clicking anyway (might trigger validation error)
@@ -201,7 +199,17 @@ export class AuthPage extends BasePage {
    */
   async switchToSignUp() {
     await this.click(this.selectors.signUpLink);
-    await this.page.waitForTimeout(200);
+    // Wait for modal title to change to signup mode
+    await this.page.waitForFunction(
+      () => {
+        const title = document.querySelector('.auth-modal__header h2');
+        return title && title.textContent.toLowerCase().includes('create account');
+      },
+      { timeout: 2000 }
+    ).catch(() => {
+      // Fallback: small timeout if waitForFunction fails
+      return this.page.waitForTimeout(100);
+    });
   }
 
   /**
@@ -209,7 +217,17 @@ export class AuthPage extends BasePage {
    */
   async switchToSignIn() {
     await this.click(this.selectors.signInLink);
-    await this.page.waitForTimeout(200);
+    // Wait for modal title to change to signin mode
+    await this.page.waitForFunction(
+      () => {
+        const title = document.querySelector('.auth-modal__header h2');
+        return title && title.textContent.toLowerCase().includes('log in');
+      },
+      { timeout: 2000 }
+    ).catch(() => {
+      // Fallback: small timeout if waitForFunction fails
+      return this.page.waitForTimeout(100);
+    });
   }
 
   /**
@@ -217,7 +235,18 @@ export class AuthPage extends BasePage {
    */
   async clickForgotPassword() {
     await this.click(this.selectors.forgotPasswordLink);
-    await this.page.waitForTimeout(200);
+    // Wait for modal title to change (password reset mode)
+    await this.page.waitForFunction(
+      () => {
+        const title = document.querySelector('.auth-modal__header h2');
+        return title && (title.textContent.toLowerCase().includes('send code') || 
+                         title.textContent.toLowerCase().includes('reset'));
+      },
+      { timeout: 2000 }
+    ).catch(() => {
+      // Fallback: small timeout if waitForFunction fails
+      return this.page.waitForTimeout(100);
+    });
   }
 
 
@@ -258,8 +287,11 @@ export class AuthPage extends BasePage {
   async loginWithSms(phoneNumber, code) {
     await this.fillPhoneNumber(phoneNumber);
     await this.sendCode();
-    // Wait for code to be sent
-    await this.page.waitForTimeout(1000);
+    // Wait for code input to appear or status message (indicates code was sent)
+    await Promise.race([
+      this.page.waitForSelector('input[name="code"]', { state: 'visible', timeout: 5000 }).catch(() => null),
+      this.page.waitForSelector('.auth-modal__alert.success', { state: 'visible', timeout: 5000 }).catch(() => null),
+    ]);
     await this.fillVerificationCode(code);
     await this.submit();
   }

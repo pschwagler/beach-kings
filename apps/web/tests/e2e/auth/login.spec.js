@@ -74,16 +74,11 @@ test.describe('Login Flow', () => {
     
     // Fill in login form - PhoneInput converts formatted input to E.164 automatically
     // Use formatted version like "(555) 123-4567" - the component will convert it
+    // fillPhoneNumber already includes waits for phone validation
     const formattedPhone = formatPhoneForInput(testPhoneNumber);
     await authPage.fillPhoneNumber(formattedPhone);
     
-    // Wait for PhoneInput to process and convert to E.164
-    await page.waitForTimeout(500);
-    
     await authPage.fillPassword(testPassword);
-    
-    // Wait a moment for form to be ready
-    await page.waitForTimeout(500);
 
     // Wait for login response
     const responsePromise = page.waitForResponse(
@@ -162,11 +157,21 @@ test.describe('Login Flow', () => {
     await authPage.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await authPage.fillPassword('WrongPassword123');
 
+    // Wait for login response (will be an error)
+    const responsePromise = page.waitForResponse(
+      response => response.url().includes('/api/auth/login'),
+      { timeout: 10000 }
+    );
+
     // Submit form
     await authPage.submit();
 
-    // Wait for error message
-    await page.waitForTimeout(1000);
+    // Wait for error response
+    const loginResponse = await responsePromise;
+    expect(loginResponse.status()).not.toBe(200);
+
+    // Wait for error message to appear in UI
+    await page.waitForSelector('.auth-modal__alert.error', { state: 'visible', timeout: 5000 });
 
     // Verify error is shown
     expect(await authPage.hasError()).toBeTruthy();

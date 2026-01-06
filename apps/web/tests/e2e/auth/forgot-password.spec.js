@@ -21,20 +21,32 @@ test.describe('Forgot Password Flow', () => {
   });
 
   test('should successfully reset password with verification code', async ({ page }) => {
-    // Setup: Create a test user
+    // Setup: Create a test user (createTestUser is now idempotent - handles existing users)
     await createTestUser({
       phoneNumber: testPhoneNumber,
       password: testPassword,
       fullName: 'Test User',
     });
     
-    // Get verification code from signup and verify to complete account creation
-    const code = await getVerificationCodeForPhone(testPhoneNumber);
-    if (!code) {
-      throw new Error('No verification code found after signup');
+    // Check if user is already verified by trying to login
+    const { loginWithPassword, verifyPhone } = await import('../fixtures/api.js');
+    let isVerified = false;
+    try {
+      await loginWithPassword(testPhoneNumber, testPassword);
+      isVerified = true; // User exists and is verified
+    } catch (error) {
+      // User exists but not verified yet, or doesn't exist (shouldn't happen)
+      isVerified = false;
     }
-    const { verifyPhone } = await import('../fixtures/api.js');
-    await verifyPhone(testPhoneNumber, code);
+    
+    // If not verified, complete the verification process
+    if (!isVerified) {
+      const code = await getVerificationCodeForPhone(testPhoneNumber);
+      if (!code) {
+        throw new Error('No verification code found after signup');
+      }
+      await verifyPhone(testPhoneNumber, code);
+    }
 
     const homePage = new HomePage(page);
     const authPage = new AuthPage(page);
