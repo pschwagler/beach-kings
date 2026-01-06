@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Swords, Plus } from 'lucide-react';
 import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
@@ -7,6 +8,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession } from '../../services/api';
+import CreateSeasonModal from './CreateSeasonModal';
+import AddPlayersModal from './AddPlayersModal';
 
 // Import custom hooks
 import { useDataRefresh } from './hooks/useDataRefresh';
@@ -38,12 +41,18 @@ export default function LeagueMatchesTab() {
     playerSeasonStats,
     playerMatchHistory,
     setSelectedPlayer,
-    showMessage
+    showMessage,
+    refreshSeasons,
+    refreshMembers,
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   
   // Ref to track session that should be scrolled into view
   const sessionToScrollRef = useRef(null);
+  
+  // State for modals
+  const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -62,6 +71,15 @@ export default function LeagueMatchesTab() {
 
   const playerNameMapping = usePlayerNameMapping({ leagueId, members });
   const { allPlayerNames, playerNameToId, getPlayerIdFromMap } = playerNameMapping;
+  
+  // Create reverse map (ID to name) for converting player IDs to names in pending matches
+  const playerIdToName = useMemo(() => {
+    const map = new Map();
+    playerNameToId.forEach((playerId, playerName) => {
+      map.set(playerId, playerName);
+    });
+    return map;
+  }, [playerNameToId]);
 
   const matchOperations = useMatchOperations({
     playerNameToId,
@@ -82,18 +100,7 @@ export default function LeagueMatchesTab() {
   });
   const { refreshData } = dataRefresh;
 
-  // Load season data when filter changes
-  useEffect(() => {
-    if (selectedSeasonId) {
-      // Load specific season if not already loaded
-      if (!seasonData[selectedSeasonId]) {
-        loadSeasonData(selectedSeasonId);
-      }
-    } else {
-      // "All Seasons" selected - load all seasons rankings (like RankingsTab does)
-      loadAllSeasonsRankings();
-    }
-  }, [selectedSeasonId, seasonData, loadSeasonData, loadAllSeasonsRankings]);
+  // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 
   // Transform matches from context for display
   const matches = useMemo(() => {
@@ -115,6 +122,8 @@ export default function LeagueMatchesTab() {
     matches,
     leagueId,
     refreshData,
+    refreshSeasonData,
+    getSeasonIdForRefresh,
     showMessage
   });
   const {
@@ -134,6 +143,7 @@ export default function LeagueMatchesTab() {
     editingSessions,
     matches,
     refreshData,
+    refreshSeasonData,
     setSelectedSeasonId,
     seasonData,
     seasonDataLoadingMap,
@@ -153,6 +163,23 @@ export default function LeagueMatchesTab() {
   const handleEndSession = async (sessionId) => {
     try {
       await lockInLeagueSession(leagueId, sessionId);
+      
+      // Schedule delayed stats refresh after backend has time to recalculate
+      // This allows the async stat calculation job to complete
+      if (refreshSeasonData && getSeasonIdForRefresh) {
+        const seasonId = getSeasonIdForRefresh();
+        if (seasonId) {
+          setTimeout(() => {
+            try {
+              refreshSeasonData(seasonId);
+            } catch (error) {
+              console.error('[LeagueMatchesTab.handleEndSession] Error refreshing stats:', error);
+              // Don't throw - stats refresh failure shouldn't affect session operation
+            }
+          }, 2000);
+        }
+      }
+      
       await refreshData({ sessions: true, season: true, matches: true });
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to submit scores');
@@ -289,6 +316,74 @@ export default function LeagueMatchesTab() {
     return transformMatchData(matchesData);
   }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap]);
 
+  const handleCreateSeasonSuccess = async () => {
+    await refreshSeasons();
+    setShowCreateSeasonModal(false);
+  };
+
+  const handleAddPlayersSuccess = async () => {
+    await refreshMembers();
+    setShowAddPlayerModal(false);
+  };
+
+  // Check if there are less than 4 players
+  const hasLessThanFourPlayers = !members || members.length < 4;
+
+  // Show empty state if no seasons
+  if (!seasons || seasons.length === 0) {
+    return (
+      <>
+        <div className="league-section">
+          <div className="empty-state">
+            <Swords size={48} className="large-empty-state-icon" />
+            <p>No seasons found. Please create a season to log league matches.</p>
+            <button 
+              className="league-text-button primary" 
+              onClick={() => setShowCreateSeasonModal(true)}
+              style={{ marginTop: '16px' }}
+            >
+              <Plus size={16} />
+              Create Season
+            </button>
+          </div>
+        </div>
+        <CreateSeasonModal
+          isOpen={showCreateSeasonModal}
+          onClose={() => setShowCreateSeasonModal(false)}
+          onSuccess={handleCreateSeasonSuccess}
+        />
+      </>
+    );
+  }
+
+  // Show message if less than 4 players
+  if (hasLessThanFourPlayers) {
+    return (
+      <>
+        <div className="league-section">
+          <div className="empty-state">
+            <Swords size={48} className="large-empty-state-icon" />
+            <p>This league has less than 4 registered players. Invite more players to begin logging league matches.</p>
+            <button 
+              className="league-text-button primary" 
+              onClick={() => setShowAddPlayerModal(true)}
+              style={{ marginTop: '16px' }}
+            >
+              <Plus size={16} />
+              Add Players
+            </button>
+          </div>
+        </div>
+        <AddPlayersModal
+          isOpen={showAddPlayerModal}
+          members={members}
+          onClose={() => setShowAddPlayerModal(false)}
+          onSuccess={handleAddPlayersSuccess}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="league-section">
       {/* Season Selector - Top Right */}
@@ -297,6 +392,7 @@ export default function LeagueMatchesTab() {
           <div className="season-selector-wrapper">
             <select
               id="season-select-matches"
+              data-testid="season-select-matches"
               value={selectedSeasonId || ''}
               onChange={(e) => {
                 const value = e.target.value;
@@ -336,6 +432,7 @@ export default function LeagueMatchesTab() {
         onUpdateMatch={handleUpdateMatch}
         onDeleteMatch={handleDeleteMatch}
         allPlayerNames={allPlayerNames}
+        playerIdToName={playerIdToName}
         leagueId={leagueId}
         isAdmin={isLeagueAdmin}
         editingSessions={editingSessions}
@@ -349,6 +446,17 @@ export default function LeagueMatchesTab() {
         onUpdateSessionSeason={handleUpdateSessionSeason}
         sessionToScrollRef={sessionToScrollRef}
         onSeasonChange={setSelectedSeasonId}
+      />
+      <CreateSeasonModal
+        isOpen={showCreateSeasonModal}
+        onClose={() => setShowCreateSeasonModal(false)}
+        onSuccess={handleCreateSeasonSuccess}
+      />
+      <AddPlayersModal
+        isOpen={showAddPlayerModal}
+        members={members}
+        onClose={() => setShowAddPlayerModal(false)}
+        onSuccess={handleAddPlayersSuccess}
       />
     </div>
   );

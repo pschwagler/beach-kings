@@ -19,15 +19,40 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
     <>
       <h3><BarChart3 size={22} />Player Stats</h3>
       <div className="table-scroll-wrapper">
-        <table>
+        <table className="player-stats-table">
         <thead>
           <tr>
-            <th>Partner/Opponent</th>
-            <th>Wins</th>
-            <th>Losses</th>
-            <th>Win %</th>
-            <th>Games</th>
-            <th>Avg +/-</th>
+            <th className="player-stats-name-col">Partner/Opponent</th>
+            <th>
+              <span className="th-content">
+                <span className="desktop-label">Wins</span>
+                <span className="mobile-label">W</span>
+              </span>
+            </th>
+            <th>
+              <span className="th-content">
+                <span className="desktop-label">Losses</span>
+                <span className="mobile-label">L</span>
+              </span>
+            </th>
+            <th>
+              <span className="th-content">
+                <span className="desktop-label">Win %</span>
+                <span className="mobile-label">WIN %</span>
+              </span>
+            </th>
+            <th>
+              <span className="th-content">
+                <span className="desktop-label">Games</span>
+                <span className="mobile-label">GP</span>
+              </span>
+            </th>
+            <th>
+              <span className="th-content">
+                <span className="desktop-label">Avg +/-</span>
+                <span className="mobile-label">AVG +/-</span>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -65,7 +90,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
             } else {
               acc.rows.push(
                 <tr key={idx} className={className}>
-                  <td>
+                  <td className="player-stats-name-col">
                     {isOverall ? (
                       <strong>{row['Partner/Opponent']}</strong>
                     ) : (
@@ -76,11 +101,11 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
                       </strong>
                     )}
                   </td>
-                  <td>{row['Wins']}</td>
-                  <td>{row['Losses']}</td>
-                  <td>{formatWinRate(row['Win Rate'])}</td>
-                  <td>{row['Games']}</td>
-                  <td>{formatPtDiff(row['Avg Pt Diff'])}</td>
+                  <td className="player-stats-stat-cell">{row['Wins']}</td>
+                  <td className="player-stats-stat-cell">{row['Losses']}</td>
+                  <td className="player-stats-stat-cell">{formatWinRate(row['Win Rate'])}</td>
+                  <td className="player-stats-stat-cell">{row['Games']}</td>
+                  <td className="player-stats-stat-cell">{formatPtDiff(row['Avg Pt Diff'])}</td>
                 </tr>
               );
             }

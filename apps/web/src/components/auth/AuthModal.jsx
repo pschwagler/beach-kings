@@ -308,7 +308,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           </div>
         )}
 
-        <form className="auth-modal__form" onSubmit={handleSubmit}>
+        <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           {activeMode === 'sign-up' && (
             <label className="auth-modal__label">
               <span>Full Name <span className="required-asterisk">*</span></span>
@@ -319,7 +319,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 placeholder="John Doe"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                required
               />
             </label>
           )}
@@ -359,7 +358,6 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
                 placeholder=""
                 value={formData.password}
                 onChange={handleInputChange}
-                required
               />
               {(activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
                 <div className="auth-modal__password-requirements">

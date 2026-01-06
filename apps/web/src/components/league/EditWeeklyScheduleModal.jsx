@@ -58,6 +58,15 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
   const localStartTime = schedule?.start_time ? utcTimeToLocal(schedule.start_time) : '18:00';
   const localOpenSignupsTime = schedule?.open_signups_time ? utcTimeToLocal(schedule.open_signups_time) : '';
   
+  // Get today's date in YYYY-MM-DD format for default start_date
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Initialize end_date, ensuring it doesn't exceed the maximum
   const initialEndDate = useMemo(() => {
     const existingDate = schedule?.end_date || seasonEndDate || '';
@@ -67,6 +76,11 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     return existingDate;
   }, [schedule?.end_date, seasonEndDate, maxEndDate]);
   
+  // Initialize start_date - use existing or default to today
+  const initialStartDate = useMemo(() => {
+    return schedule?.start_date || getTodayDate();
+  }, [schedule?.start_date]);
+  
   const [formData, setFormData] = useState({
     day_of_week: schedule?.day_of_week?.toString() || '0',
     start_time: localStartTime,
@@ -75,14 +89,22 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     open_signups_mode: schedule?.open_signups_mode || 'auto_after_last_session',
     open_signups_day_of_week: schedule?.open_signups_day_of_week?.toString() || '',
     open_signups_time: localOpenSignupsTime,
+    start_date: initialStartDate,
     end_date: initialEndDate
   });
   
   const [showConfirmation, setShowConfirmation] = useState(false);
   
   const handleSubmit = async () => {
-    if (!formData.day_of_week || !formData.start_time || !formData.end_date) {
-      alert('Day of week, start time, and end date are required');
+    if (!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date) {
+      alert('Day of week, start time, start date, and end date are required');
+      return;
+    }
+    
+    // Validate that start_date is not after end_date
+    const selectedEndDate = new Date(formData.end_date);
+    if (selectedStartDate > selectedEndDate) {
+      alert('Start date cannot be after end date');
       return;
     }
     
@@ -112,6 +134,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
         open_signups_mode: formData.open_signups_mode,
         open_signups_day_of_week: formData.open_signups_day_of_week ? parseInt(formData.open_signups_day_of_week) : null,
         open_signups_time: utcOpenSignupsTime,
+        start_date: formData.start_date,
         end_date: formData.end_date
       });
       setShowConfirmation(false);
@@ -168,30 +191,32 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
               ))}
             </select>
           </div>
-          <div className="form-group">
-            <label htmlFor="start-time">
-              Start Time <span className="required">*</span>
-            </label>
-            <input
-              id="start-time"
-              type="time"
-              value={formData.start_time}
-              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-              className="form-input"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="duration-hours">Duration (hours)</label>
-            <input
-              id="duration-hours"
-              type="number"
-              step="0.5"
-              min="0.5"
-              value={formData.duration_hours}
-              onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
-              className="form-input"
-            />
+          <div className="form-group form-group-row">
+            <div className="form-field">
+              <label htmlFor="start-time">
+                Start Time <span className="required">*</span>
+              </label>
+              <input
+                id="start-time"
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="duration-hours">Duration (hours)</label>
+              <input
+                id="duration-hours"
+                type="number"
+                step="0.5"
+                min="0.5"
+                value={formData.duration_hours}
+                onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
+                className="form-input"
+              />
+            </div>
           </div>
           <div className="form-group">
             <label htmlFor="court-id">Court ID (Optional)</label>
@@ -244,30 +269,45 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
               </div>
             </>
           )}
-          <div className="form-group">
-            <label htmlFor="end-date">
-              End Date <span className="required">*</span>
-            </label>
-            <input
-              id="end-date"
-              type="date"
-              value={formData.end_date}
-              onChange={(e) => {
-                const selectedDate = e.target.value;
-                // Automatically adjust if date exceeds maximum
-                const adjustedDate = selectedDate > maxEndDate ? maxEndDate : selectedDate;
-                setFormData({ ...formData, end_date: adjustedDate });
-              }}
-              className="form-input"
-              max={maxEndDate}
-              required
-            />
-            <small>
-              Maximum: {maxEndDate} 
-              {seasonEndDate && maxEndDate !== seasonEndDate && ` (6 months from today or season end date ${seasonEndDate}, whichever is sooner)`}
-              {seasonEndDate && maxEndDate === seasonEndDate && ` (season end date)`}
-              {!seasonEndDate && ` (6 months from today)`}
-            </small>
+          <div className="form-group form-group-row">
+            <div className="form-field">
+              <label htmlFor="start-date">
+                Start Date <span className="required">*</span>
+              </label>
+              <input
+                id="start-date"
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="end-date">
+                End Date <span className="required">*</span>
+              </label>
+              <input
+                id="end-date"
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  // Automatically adjust if date exceeds maximum
+                  const adjustedDate = selectedDate > maxEndDate ? maxEndDate : selectedDate;
+                  setFormData({ ...formData, end_date: adjustedDate });
+                }}
+                className="form-input"
+                max={maxEndDate}
+                required
+              />
+              <small>
+                Maximum: {maxEndDate} 
+                {seasonEndDate && maxEndDate !== seasonEndDate && ` (6 months from today or season end date ${seasonEndDate}, whichever is sooner)`}
+                {seasonEndDate && maxEndDate === seasonEndDate && ` (season end date)`}
+                {!seasonEndDate && ` (6 months from today)`}
+              </small>
+            </div>
           </div>
         </div>
         <div className="modal-actions">
@@ -299,7 +339,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
             <button
               className="league-text-button primary"
               onClick={handleSubmit}
-              disabled={!formData.day_of_week || !formData.start_time || !formData.end_date}
+              disabled={!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date}
             >
               {isEditMode ? 'Update Schedule' : 'Create Schedule'}
             </button>

@@ -5,9 +5,13 @@ Provides functionality to check and enforce rate limits for phone numbers,
 using an in-memory sliding window approach.
 """
 
+import os
 import time
 from fastapi import HTTPException, Request
 from backend.services import auth_service
+
+# Check if we're in test environment
+IS_TEST_ENV = os.getenv("ENV", "").lower() == "test"
 
 # In-memory storage for phone-based rate limiting
 _phone_rate_limit_storage = {}
@@ -46,6 +50,9 @@ async def check_phone_rate_limit(request: Request, phone_number: str, limit_str:
     Uses a simple in-memory sliding window approach that works reliably 
     in all environments.
     
+    In test environments (ENV=test), rate limiting is disabled to allow
+    E2E tests to run without being blocked.
+    
     Args:
         request: FastAPI Request object
         phone_number: Phone number to check rate limit for
@@ -54,6 +61,10 @@ async def check_phone_rate_limit(request: Request, phone_number: str, limit_str:
     Raises:
         HTTPException: With status code 429 if rate limit exceeded
     """
+    # Skip rate limiting in test environments
+    if IS_TEST_ENV:
+        return
+    
     # Create rate limit key from normalized phone number
     rate_limit_key = get_phone_rate_limit_key(phone_number)
     

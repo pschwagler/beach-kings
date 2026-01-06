@@ -21,11 +21,17 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
+    "test:e2e": {
+      "cache": false,
+      "persistent": false
+    },
     "clean": {
       "cache": false
     }
   }
 }
+
+
 
 
 

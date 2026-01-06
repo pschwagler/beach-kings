@@ -539,6 +539,15 @@ async def create_season(
     point_system: Optional[str],
 ) -> Dict:
     """Create a season."""
+    # If no name provided, generate default name based on season count for this league
+    if not name or name.strip() == "":
+        # Count existing seasons for this league
+        result = await session.execute(
+            select(func.count(Season.id)).where(Season.league_id == league_id)
+        )
+        season_count = result.scalar() or 0
+        name = f"Season {season_count + 1}"
+    
     season = Season(
         league_id=league_id,
         name=name,
@@ -835,7 +844,8 @@ async def create_league_session(
         raise ValueError(f"League {league_id} not found")
     
     # Find the most recent active season for this league (based on date range)
-    current_date = date.today()
+    from datetime import date as date_type
+    current_date = date_type.today()
     season_result = await session.execute(
         select(Season)
         .where(
@@ -4459,6 +4469,7 @@ async def create_weekly_schedule(
     open_signups_mode: str,
     open_signups_day_of_week: Optional[int],
     open_signups_time: Optional[str],
+    start_date: str,
     end_date: str,
     creator_player_id: Optional[int] = None
 ) -> Dict:
@@ -4471,8 +4482,19 @@ async def create_weekly_schedule(
     if not season:
         raise ValueError("Season not found")
     
-    # Validate end_date doesn't exceed 6 months or season end
+    # Parse dates
+    start_date_obj = datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date
     end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
+    
+    # Validate start_date is not after end_date
+    if start_date_obj > end_date_obj:
+        raise ValueError("start_date cannot be after end_date")
+    
+    # Validate start_date is not before season start_date
+    if start_date_obj < season.start_date:
+        raise ValueError(f"start_date cannot be before season start_date ({season.start_date.isoformat()})")
+    
+    # Validate end_date doesn't exceed 6 months or season end
     max_end_date = min(
         date.today() + timedelta(days=180),  # 6 months
         season.end_date
@@ -4490,6 +4512,7 @@ async def create_weekly_schedule(
         open_signups_mode=OpenSignupsMode(open_signups_mode),
         open_signups_day_of_week=open_signups_day_of_week,
         open_signups_time=open_signups_time,
+        start_date=start_date_obj,
         end_date=end_date_obj,
         created_by=creator_player_id,
         updated_by=creator_player_id
@@ -4541,6 +4564,7 @@ async def update_weekly_schedule(
     open_signups_mode: Optional[str] = None,
     open_signups_day_of_week: Optional[int] = None,
     open_signups_time: Optional[str] = None,
+    start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     updater_player_id: Optional[int] = None
 ) -> Optional[Dict]:
@@ -4575,6 +4599,13 @@ async def update_weekly_schedule(
         schedule.open_signups_day_of_week = open_signups_day_of_week
     if open_signups_time is not None:
         schedule.open_signups_time = open_signups_time
+    if start_date is not None:
+        start_date_obj = datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date
+        if start_date_obj < season.start_date:
+            raise ValueError(f"start_date cannot be before season start_date ({season.start_date.isoformat()})")
+        if schedule.end_date and start_date_obj > schedule.end_date:
+            raise ValueError("start_date cannot be after end_date")
+        schedule.start_date = start_date_obj
     if end_date is not None:
         end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
         max_end_date = min(
@@ -4583,6 +4614,8 @@ async def update_weekly_schedule(
         )
         if end_date_obj > max_end_date:
             raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
+        if schedule.start_date and end_date_obj < schedule.start_date:
+            raise ValueError("end_date cannot be before start_date")
         schedule.end_date = end_date_obj
     
     if updater_player_id is not None:
@@ -4672,8 +4705,11 @@ async def _generate_signups_from_schedule(
     utc = pytz.UTC
     now_utc = utcnow()
     
-    # Calculate start date
-    base_start_date = max(date.today(), season.start_date)
+    # Calculate start date - use schedule.start_date if available, otherwise fall back to max(today, season.start_date)
+    if hasattr(schedule, 'start_date') and schedule.start_date:
+        base_start_date = schedule.start_date
+    else:
+        base_start_date = max(date.today(), season.start_date)
     
     # If skipping current week, start from next Monday
     if skip_current_week:
@@ -4884,6 +4920,7 @@ def _weekly_schedule_to_dict(schedule: WeeklySchedule) -> Dict:
         "open_signups_mode": schedule.open_signups_mode.value,
         "open_signups_day_of_week": schedule.open_signups_day_of_week,
         "open_signups_time": schedule.open_signups_time,
+        "start_date": schedule.start_date.isoformat() if schedule.start_date else None,
         "end_date": schedule.end_date.isoformat() if schedule.end_date else None,
         "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
         "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None,

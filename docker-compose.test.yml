@@ -73,12 +73,52 @@ services:
       - ./apps/backend:/app/backend  # Mount apps/backend as backend for live code changes
     command: ["pytest", "backend/tests/", "-v", "--tb=short"]
 
+  # Backend service for E2E tests
+  backend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: beach-kings-backend-test
+    ports:
+      - "${BACKEND_TEST_PORT:-8001}:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres-test:5432/${TEST_POSTGRES_DB:-beachkings_test}
+      POSTGRES_HOST: postgres-test
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-beachkings}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-beachkings_test}
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      ENV: test
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-for-testing-only-change-in-production}
+      ENABLE_SMS: "false"
+      ENABLE_EMAIL: "false"
+      # Disable external services in tests
+      TWILIO_ACCOUNT_SID: ""
+      TWILIO_AUTH_TOKEN: ""
+      SENDGRID_API_KEY: ""
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    volumes:
+      - ./apps/backend:/app/backend
+    # Use entrypoint script which handles migrations and startup
+    # Don't override command - let entrypoint.sh handle it
+
 networks:
   test-network:
     driver: bridge
 
 volumes:
   postgres_test_data:
+
+
 
 
 

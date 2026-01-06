@@ -315,7 +315,7 @@ class PlayerSeasonStats(Base):
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
-    points = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)  # Note: Points and ranking only apply to seasons, not league-wide stats
     win_rate = Column(Float, default=0.0, nullable=False)
     avg_point_diff = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -610,6 +610,7 @@ class WeeklySchedule(Base):
     open_signups_mode = Column(Enum(OpenSignupsMode), default=OpenSignupsMode.AUTO_AFTER_LAST_SESSION, nullable=False)
     open_signups_day_of_week = Column(Integer, nullable=True)  # For specific_day_time mode
     open_signups_time = Column(String, nullable=True)  # Time as string (HH:MM format) for specific_day_time mode
+    start_date = Column(Date, nullable=False)  # When to start generating signups
     end_date = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -763,7 +764,7 @@ class PlayerLeagueStats(Base):
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
-    points = Column(Integer, default=0, nullable=False)
+    points = Column(Integer, default=0, nullable=False)  # Note: Points and ranking only apply to seasons, not league-wide stats. League stats show games and win % instead.
     win_rate = Column(Float, default=0.0, nullable=False)
     avg_point_diff = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

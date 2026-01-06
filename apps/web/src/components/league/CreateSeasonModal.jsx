@@ -14,6 +14,26 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
   useEffect(() => {
     if (!isOpen) {
       setFormData({ name: "", start_date: "", end_date: "" });
+    } else {
+      // Set default dates when modal opens
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 70); // 10 weeks = 70 days
+      
+      // Format dates as YYYY-MM-DD for input[type="date"]
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      setFormData({
+        name: "",
+        start_date: formatDate(today),
+        end_date: formatDate(endDate),
+      });
     }
   }, [isOpen]);
 

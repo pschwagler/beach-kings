@@ -56,7 +56,12 @@ export function useMatchOperations({
     // But normalize just in case
     const normalized = normalizeMatchData(matchData);
     
-    await createMatch(normalized);
+    try {
+      await createMatch(normalized);
+    } catch (error) {
+      console.error('[useMatchOperations.createMatchAPI] Error creating match:', error);
+      throw error;
+    }
     
     // Reload active session and all sessions (may have been created by the first match)
     if (loadActiveSession) {
@@ -123,3 +128,5 @@ export function useMatchOperations({
     deleteMatchAPI
   };
 }
+
+

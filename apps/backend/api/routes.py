@@ -52,7 +52,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Rate limiter instance shared with FastAPI app
-limiter = Limiter(key_func=get_remote_address)
+# In test environments, rate limiting is effectively disabled
+IS_TEST_ENV = os.getenv("ENV", "").lower() == "test"
+if IS_TEST_ENV:
+    # In test mode, create a limiter and override its limit method to be a no-op
+    # This allows the @limiter.limit() decorators to remain in the code
+    # but they won't actually apply any rate limiting in test environments
+    limiter = Limiter(key_func=get_remote_address)
+    
+    # Store the original limit method
+    original_limit = limiter.limit
+    
+    # Create a no-op decorator that does nothing
+    def no_op_limit(*args, **kwargs):
+        """No-op decorator for test mode - doesn't apply any rate limiting."""
+        def decorator(func):
+            return func
+        return decorator
+    
+    # Override the limit method to return a no-op decorator in test mode
+    limiter.limit = lambda *args, **kwargs: no_op_limit()
+else:
+    limiter = Limiter(key_func=get_remote_address)
 
 # WhatsApp service URL
 WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001")
@@ -332,7 +353,7 @@ async def get_season(season_id: int, session: AsyncSession = Depends(get_db_sess
         raise HTTPException(status_code=500, detail=f"Error getting season: {str(e)}")
 
 
-@router.post("/api/matches")
+@router.post("/api/matches/elo")
 async def get_matches(
     request: Request,
     session: AsyncSession = Depends(get_db_session)
@@ -1522,6 +1543,7 @@ async def create_weekly_schedule(
             open_signups_mode=payload.open_signups_mode,
             open_signups_day_of_week=payload.open_signups_day_of_week,
             open_signups_time=payload.open_signups_time,
+            start_date=payload.start_date,
             end_date=payload.end_date,
             creator_player_id=player.id
         )
@@ -1574,6 +1596,7 @@ async def update_weekly_schedule(
             open_signups_mode=payload.open_signups_mode,
             open_signups_day_of_week=payload.open_signups_day_of_week,
             open_signups_time=payload.open_signups_time,
+            start_date=payload.start_date,
             end_date=payload.end_date,
             updater_player_id=player.id
         )
@@ -1994,31 +2017,62 @@ async def set_setting_value(
 
 # Session management endpoints
 
-@router.get("/api/sessions")
-async def get_sessions(
+@router.get("/api/leagues/{league_id}/sessions")
+async def get_league_sessions(
+    league_id: int,
     active: Optional[bool] = None,
+    user: dict = Depends(make_require_league_member()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get sessions.
+    Get all sessions for a league, optionally filtered by active status.
     
-    Query params:
-        active: If true, returns only the active session. If false or omitted, returns all sessions.
+    Args:
+        league_id: ID of the league
+        active: Optional query parameter. If True, only return active sessions.
+                If not provided, return all sessions for the league.
     
     Returns:
-        list or dict: Array of sessions (most recent first) or active session dict if active=true
+        List of session objects for the league
     """
     try:
+        # Query sessions for this league by joining Session -> Season -> League
+        query = select(Session).join(Season, Session.season_id == Season.id).where(
+            Season.league_id == league_id
+        )
+        
+        # Filter by active status if requested
         if active is True:
-            # Return active session (single object or null)
-            active_session = await data_service.get_active_session(session)
-            return active_session
-        else:
-            # Return all sessions
-            sessions = await data_service.get_sessions(session)
-            return sessions
+            query = query.where(Session.status == SessionStatus.ACTIVE)
+        
+        # Order by date descending (newest first)
+        query = query.order_by(Session.date.desc(), Session.created_at.desc())
+        
+        result = await session.execute(query)
+        sessions = result.scalars().all()
+        
+        # Convert to dict format
+        session_list = []
+        for sess in sessions:
+            session_dict = {
+                "id": sess.id,
+                "date": sess.date,
+                "name": sess.name,
+                "status": sess.status.value if sess.status else None,
+                "season_id": sess.season_id,
+                "created_at": sess.created_at.isoformat() if sess.created_at else None,
+                "updated_at": sess.updated_at.isoformat() if sess.updated_at else None,
+                "created_by": sess.created_by,
+                "updated_by": sess.updated_by,
+            }
+            session_list.append(session_dict)
+        
+        return session_list
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading sessions: {str(e)}")
+        logger.error(f"Error getting league sessions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting league sessions: {str(e)}")
 
 
 @router.post("/api/leagues/{league_id}/sessions")
@@ -2098,7 +2152,7 @@ async def end_league_session(
             "status": "success",
             "message": f"Session submitted and stats calculations queued",
             "global_job_id": result["global_job_id"],
-            "season_job_id": result["season_job_id"],
+            "league_job_id": result.get("league_job_id"),
             "season_id": result["season_id"]
         }
     except HTTPException:
@@ -2196,7 +2250,7 @@ async def update_session(
                 "status": "success",
                 "message": f"Session submitted and stats calculations queued",
                 "global_job_id": result["global_job_id"],
-                "season_job_id": result["season_job_id"],
+                "league_job_id": result.get("league_job_id"),
                 "season_id": result["season_id"]
             }
         

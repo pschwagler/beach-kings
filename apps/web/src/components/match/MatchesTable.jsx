@@ -43,6 +43,7 @@ export default function MatchesTable({
   onUpdateMatch,
   onDeleteMatch,
   allPlayerNames,
+  playerIdToName = new Map(),
   leagueId = null,
   isAdmin = false,
   editingSessions = new Set(),
@@ -63,7 +64,7 @@ export default function MatchesTable({
   const { openModal } = useModal();
   const hasRenderedMatchesRef = useRef(false);
 
-  const matchesWithPendingChanges = useMemo(() => {
+  const matchesWithPendingChanges = useMemo(() => {    
     if (matches === null) return null;
     if (pendingMatchChanges.size === 0) return matches;
 
@@ -98,27 +99,40 @@ export default function MatchesTable({
         const sessionMatch = updatedMatches.find(m => m['Session ID'] === sessionId);
         const sessionName = sessionMatch?.['Session Name'] || 'New Session';
         
-        updatedMatches.push({
+        // Convert player IDs to names using the reverse map
+        // Match data has team1_player1_id, team1_player2_id, etc.
+        const getPlayerName = (playerId) => {
+          if (!playerId) return '';
+          // Handle both ID format (number) and name format (string) for backwards compatibility
+          if (typeof playerId === 'string' && !/^\d+$/.test(playerId)) {
+            return playerId; // Already a name
+          }
+          const name = playerIdToName.get(Number(playerId)) || '';
+          return name;
+        };
+        
+        const pendingMatch = {
           id: `pending-${sessionId}-${index}`,
           Date: new Date().toISOString().split('T')[0],
           'Session ID': sessionId,
           'Session Name': sessionName,
           'Session Status': 'ACTIVE',
-          'Team 1 Player 1': newMatchData.team1_player1 || '',
-          'Team 1 Player 2': newMatchData.team1_player2 || '',
-          'Team 2 Player 1': newMatchData.team2_player1 || '',
-          'Team 2 Player 2': newMatchData.team2_player2 || '',
+          'Team 1 Player 1': getPlayerName(newMatchData.team1_player1_id || newMatchData.team1_player1),
+          'Team 1 Player 2': getPlayerName(newMatchData.team1_player2_id || newMatchData.team1_player2),
+          'Team 2 Player 1': getPlayerName(newMatchData.team2_player1_id || newMatchData.team2_player1),
+          'Team 2 Player 2': getPlayerName(newMatchData.team2_player2_id || newMatchData.team2_player2),
           'Team 1 Score': newMatchData.team1_score,
           'Team 2 Score': newMatchData.team2_score,
           Winner: calculateWinner(newMatchData.team1_score, newMatchData.team2_score),
           'Team 1 ELO Change': 0,
           'Team 2 ELO Change': 0,
-        });
+        };
+        updatedMatches.push(pendingMatch);
       });
     });
 
     return updatedMatches;
-  }, [matches, pendingMatchChanges]);
+  }, [matches, pendingMatchChanges, playerIdToName]);
 
   // Create a map of sessionId -> session data for quick lookup
   const sessionsMap = useMemo(() => {
@@ -404,6 +418,7 @@ export default function MatchesTable({
         <div className="add-matches-section">
           <button 
             className="add-matches-card"
+            data-testid="add-matches-card"
             onClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
               onSubmit: handleAddMatch,
               onDelete: onDeleteMatch,
@@ -429,12 +444,12 @@ export default function MatchesTable({
 
       {shouldShowEmptyState && (
         <div className="add-matches-empty-state">
-          <p>No matches yet. Start a session and add your first match!</p>
+          <p>No matches yet. Click Add Games above to create a session and add your first match!</p>
         </div>
       )}
 
       {activeSession && (
-        <div data-session-id={activeSession.id}>
+        <div data-session-id={activeSession.id} data-testid="active-session">
           <ActiveSessionPanel
             activeSession={activeSession}
             activeSessionMatches={activeSessionMatches}
@@ -590,6 +605,7 @@ export default function MatchesTable({
               key={key} 
               className="match-date-group"
               data-session-id={group.type === 'session' ? group.id : undefined}
+              data-testid="session-group"
             >
               <h3 className="match-date-header">
                 <span className="match-date-header-left">
@@ -599,6 +615,7 @@ export default function MatchesTable({
                       className="edit-session-button"
                       onClick={() => onEnterEditMode(group.id)}
                       title="Edit Session"
+                      data-testid="edit-session-button"
                     >
                       <Edit2 size={16} />
                     </button>

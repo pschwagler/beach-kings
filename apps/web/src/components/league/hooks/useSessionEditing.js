@@ -9,6 +9,8 @@ export function useSessionEditing({
   matches,
   leagueId,
   refreshData,
+  refreshSeasonData,
+  getSeasonIdForRefresh,
   showMessage
 }) {
   const [editingSessions, setEditingSessions] = useState(new Set());
@@ -96,6 +98,7 @@ export function useSessionEditing({
     try {
       // Apply all pending match changes for this session
       const sessionChanges = pendingMatchChanges.get(sessionId);
+      
       if (sessionChanges && matchOperations) {
         // Apply deletions first (before updates/additions)
         if (sessionChanges.deletions && sessionChanges.deletions.length > 0) {
@@ -113,10 +116,31 @@ export function useSessionEditing({
         for (const matchData of sessionChanges.additions) {
           await matchOperations.createMatchAPI(matchData);
         }
+      } else {
+        console.warn('[useSessionEditing.saveEditedSession] No sessionChanges or matchOperations:', {
+          hasSessionChanges: !!sessionChanges,
+          hasMatchOperations: !!matchOperations
+        });
       }
       
       // Lock in the session (this will recalculate stats)
       await lockInLeagueSession(leagueId, sessionId);
+      
+      // Schedule delayed stats refresh after backend has time to recalculate
+      // This allows the async stat calculation job to complete
+      if (refreshSeasonData && getSeasonIdForRefresh) {
+        const seasonId = getSeasonIdForRefresh();
+        if (seasonId) {
+          setTimeout(() => {
+            try {
+              refreshSeasonData(seasonId);
+            } catch (error) {
+              console.error('[useSessionEditing.saveEditedSession] Error refreshing stats:', error);
+              // Don't throw - stats refresh failure shouldn't affect session operation
+            }
+          }, 2000);
+        }
+      }
       
       // Clear editing state and pending changes
       setEditingSessions(prev => {
@@ -145,7 +169,7 @@ export function useSessionEditing({
       }
       throw err;
     }
-  }, [pendingMatchChanges, leagueId, refreshData, showMessage]);
+  }, [pendingMatchChanges, leagueId, refreshData, refreshSeasonData, getSeasonIdForRefresh, showMessage]);
 
   /**
    * Add a pending match to a session being edited
@@ -250,17 +274,22 @@ export function useSessionEditing({
    * Router function: Create match - routes to pending changes or API
    */
   const handleCreateMatch = useCallback(async (matchData, sessionId, matchOperations) => {
+    // Determine which session ID to check (from parameter or matchData)
+    const sessionIdToCheck = sessionId || matchData?.session_id;
+    
     // If editing this session, store locally
-    if (sessionId && isEditing(sessionId)) {
-      addPendingMatch(sessionId, matchData);
+    if (sessionIdToCheck && isEditing(sessionIdToCheck)) {
+      addPendingMatch(sessionIdToCheck, matchData);
       return;
     }
     
     // Otherwise, call API immediately
     if (matchOperations) {
       await matchOperations.createMatchAPI(matchData);
+    } else {
+      console.error('[useSessionEditing.handleCreateMatch] ERROR: matchOperations is not available for match creation');
     }
-  }, [isEditing, addPendingMatch]);
+  }, [isEditing, addPendingMatch, editingSessions]);
 
   /**
    * Router function: Update match - routes to pending changes or API
@@ -341,3 +370,5 @@ export function useSessionEditing({
     handleDeleteMatch
   };
 }
+
+

@@ -648,3 +648,5 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     </Modal>
   );
 }
+
+

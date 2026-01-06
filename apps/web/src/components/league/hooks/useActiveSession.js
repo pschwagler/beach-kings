@@ -20,8 +20,8 @@ export function useActiveSession({
   const loadActiveSession = useCallback(async () => {
     if (!leagueId) return null;
     try {
-      const session = await getActiveSession().catch(() => null);
-      // TODO: Filter by league_id when API supports it
+      // getActiveSession now filters client-side from all league sessions
+      const session = await getActiveSession(leagueId).catch(() => null);
       setActiveSession(session);
       return session;
     } catch (err) {
@@ -37,18 +37,14 @@ export function useActiveSession({
   const loadAllSessions = useCallback(async () => {
     if (!leagueId) return;
     try {
-      const sessions = await getSessions().catch(() => []);
-      // Filter sessions by league if they have season_id that matches our league's seasons
-      const leagueSeasonIds = new Set(seasons?.map(s => s.id) || []);
-      const leagueSessions = sessions.filter(session => 
-        session.season_id && leagueSeasonIds.has(session.season_id)
-      );
-      setAllSessions(leagueSessions);
+      // API now filters by league, so no client-side filtering needed
+      const sessions = await getSessions(leagueId).catch(() => []);
+      setAllSessions(sessions);
     } catch (err) {
       console.error('Error loading all sessions:', err);
       setAllSessions([]);
     }
-  }, [leagueId, seasons]);
+  }, [leagueId]);
 
   /**
    * Refresh session state
@@ -100,3 +96,5 @@ export function useActiveSession({
     refreshSession
   };
 }
+
+

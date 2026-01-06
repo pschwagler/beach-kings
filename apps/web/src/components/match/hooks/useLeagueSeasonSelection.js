@@ -99,7 +99,7 @@ export function useLeagueSeasonSelection({
             // No session provided - check if there's an active session
             let hasActive = true;
             try {
-              const activeSession = await getActiveSession().catch(() => null);
+              const activeSession = await getActiveSession(selectedLeagueId).catch(() => null);
               hasActive = !!activeSession;
               setHasActiveSession(hasActive);
             } catch (err) {
@@ -181,3 +181,5 @@ export function useLeagueSeasonSelection({
     isSeasonActive
   };
 }
+
+

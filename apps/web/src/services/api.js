@@ -271,7 +271,7 @@ export const getPlayerSeasonStats = async (playerId, seasonId) => {
  * @param {Object} params - {season_id?: number, league_id?: number}
  */
 export const getMatchesWithElo = async (params) => {
-  const response = await api.post('/api/matches', params);
+  const response = await api.post('/api/matches/elo', params);
   return response.data;
 };
 
@@ -393,19 +393,31 @@ export const healthCheck = async () => {
 };
 
 /**
- * Get all sessions
+ * Get all sessions for a league
+ * @param {number} leagueId - ID of the league
+ * @returns {Promise<Array>} Array of session objects
  */
-export const getSessions = async () => {
-  const response = await api.get('/api/sessions');
+export const getSessions = async (leagueId) => {
+  if (!leagueId) {
+    throw new Error('leagueId is required');
+  }
+  const response = await api.get(`/api/leagues/${leagueId}/sessions`);
   return response.data;
 };
 
 /**
- * Get active session
+ * Get active session for a league (helper function that filters client-side)
+ * @param {number} leagueId - ID of the league
+ * @returns {Promise<Object|null>} Active session object or null if none found
  */
-export const getActiveSession = async () => {
-  const response = await api.get('/api/sessions?active=true');
-  return response.data;
+export const getActiveSession = async (leagueId) => {
+  if (!leagueId) {
+    return null;
+  }
+  // Fetch all sessions and filter for active one on the frontend
+  const sessions = await getSessions(leagueId);
+  const activeSession = sessions.find(session => session.status === 'ACTIVE');
+  return activeSession || null;
 };
 
 /**

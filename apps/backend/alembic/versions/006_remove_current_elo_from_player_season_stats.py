@@ -33,3 +33,5 @@ def downgrade() -> None:
         sa.Column('current_elo', sa.Float(), nullable=False, server_default='1200.0')
     )
 
+
+

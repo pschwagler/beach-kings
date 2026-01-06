@@ -10,6 +10,7 @@ export function useSessionSeasonUpdate({
   editingSessions,
   matches,
   refreshData,
+  refreshSeasonData,
   setSelectedSeasonId,
   seasonData,
   seasonDataLoadingMap,
@@ -41,6 +42,34 @@ export function useSessionSeasonUpdate({
       }
       
       await updateSessionSeason(sessionId, seasonId);
+      
+      // Schedule delayed stats refresh for affected seasons after backend has time to recalculate
+      // This allows the async stat calculation job to complete
+      if (refreshSeasonData) {
+        const seasonsToRefresh = new Set();
+        
+        // Add new season
+        if (seasonId) {
+          seasonsToRefresh.add(seasonId);
+        }
+        
+        // Add old season if it exists and is different
+        if (oldSeasonId && oldSeasonId !== seasonId) {
+          seasonsToRefresh.add(oldSeasonId);
+        }
+        
+        // Refresh all affected seasons
+        Array.from(seasonsToRefresh).forEach(sid => {
+          setTimeout(() => {
+            try {
+              refreshSeasonData(sid);
+            } catch (error) {
+              console.error('[useSessionSeasonUpdate.handleUpdateSessionSeason] Error refreshing stats:', error);
+              // Don't throw - stats refresh failure shouldn't affect session operation
+            }
+          }, 2000);
+        });
+      }
       
       // If this is the active session and we're moving to a different season,
       // ensure the new season's data is loaded BEFORE reloading the active session
@@ -115,6 +144,7 @@ export function useSessionSeasonUpdate({
     editingSessions,
     matches,
     refreshData,
+    refreshSeasonData,
     setSelectedSeasonId,
     seasonData,
     seasonDataLoadingMap,
@@ -129,3 +159,5 @@ export function useSessionSeasonUpdate({
     handleUpdateSessionSeason
   };
 }
+
+

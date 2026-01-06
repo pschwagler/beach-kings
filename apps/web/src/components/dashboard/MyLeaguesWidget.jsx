@@ -19,11 +19,14 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
 
   const handleCreateLeague = async (leagueData) => {
     try {
-      await createLeague(leagueData);
+      const newLeague = await createLeague(leagueData);
       // Refresh leagues list
       if (onLeaguesUpdate) {
         await onLeaguesUpdate();
       }
+      // Navigate to the newly created league details page
+      router.push(`/league/${newLeague.id}?tab=details`);
+      return newLeague;
     } catch (error) {
       throw error;
     }

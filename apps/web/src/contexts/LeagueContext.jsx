@@ -564,6 +564,19 @@ export const LeagueProvider = ({ children, leagueId }) => {
     }
   }, [leagueId]);
 
+  // Automatically load season data when selectedSeasonId changes
+  // This centralizes the logic that was duplicated in LeagueRankingsTab and LeagueMatchesTab
+  useEffect(() => {
+    if (selectedSeasonId) {
+      // Load specific season if not already loaded
+      if (!seasonData[selectedSeasonId]) {
+        loadSeasonData(selectedSeasonId);
+      }
+    } else {
+      // "All Seasons" selected - load rankings for all seasons in the league
+      loadAllSeasonsRankings();
+    }
+  }, [selectedSeasonId, seasonData, loadSeasonData, loadAllSeasonsRankings]);
 
   // Helper to update player stats from active season data
   const updatePlayerStats = useCallback((seasonData, playerId) => {
