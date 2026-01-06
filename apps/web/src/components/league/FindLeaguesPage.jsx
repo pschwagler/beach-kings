@@ -11,6 +11,7 @@ import {
   requestToJoinLeague,
   getUserLeagues,
   getLocations,
+  createLeague,
 } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAuthModal } from "../../contexts/AuthModalContext";
@@ -78,7 +79,8 @@ export default function FindLeaguesPage() {
       router.push(`/league/${leagueId}`);
     } else if (action === "create-league") {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSuccess: async (newLeague) => {
+        onSubmit: async (leagueData) => {
+          const newLeague = await createLeague(leagueData);
           const leagues = await getUserLeagues();
           setUserLeagues(leagues);
           router.push(`/league/${newLeague.id}?tab=details`);
@@ -431,5 +433,6 @@ export default function FindLeaguesPage() {
     </>
   );
 }
+
 
 
