@@ -283,4 +283,3 @@ test.describe('Edit Sessions and Matches', () => {
     expect(matchCardText).not.toContain('30');
   });
 });
-

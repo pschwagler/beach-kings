@@ -550,4 +550,3 @@ export class LeaguePage extends BasePage {
     return await saveButton.isVisible({ timeout: 2000 }).catch(() => false);
   }
 }
-

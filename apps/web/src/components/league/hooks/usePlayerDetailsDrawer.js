@@ -240,8 +240,3 @@ export function usePlayerDetailsDrawer({
     handlePlayerChange,
   };
 }
-
-
-
-
-

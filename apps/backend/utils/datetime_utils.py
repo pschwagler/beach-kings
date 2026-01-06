@@ -15,4 +15,3 @@ def utcnow() -> datetime:
         Current UTC datetime with pytz timezone information
     """
     return datetime.now(pytz.UTC)
-

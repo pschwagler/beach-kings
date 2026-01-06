@@ -296,4 +296,3 @@ Indexes are created for:
 - The existing `players` table data should be migrated to `player_season_stats` by creating a default season
 - Legacy `sessions` will have NULL `season_id` and `court_id` values
 - Players are seeded from `merged-player-ratings.json` using `avp_playerProfileId` as the stable identifier
-

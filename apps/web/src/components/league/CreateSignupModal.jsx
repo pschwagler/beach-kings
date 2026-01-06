@@ -171,4 +171,3 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
     </div>
   );
 }
-

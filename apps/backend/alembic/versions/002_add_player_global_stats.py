@@ -75,6 +75,3 @@ def downgrade() -> None:
     op.drop_index('idx_player_global_stats_player', table_name='player_global_stats')
     op.drop_table('player_global_stats')
     # ### end Alembic commands ###
-
-
-

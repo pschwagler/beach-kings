@@ -160,4 +160,3 @@ def log_failed_login(phone_number: str, reason: str, ip_address: str):
 - Alert on account lock events
 - Monitor SMS send failures
 - Track authentication success/failure rates
-

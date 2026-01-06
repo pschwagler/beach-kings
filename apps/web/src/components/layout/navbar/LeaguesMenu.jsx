@@ -82,4 +82,3 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
     </div>
   );
 }
-

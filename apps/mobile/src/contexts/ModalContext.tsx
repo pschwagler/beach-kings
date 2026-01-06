@@ -60,8 +60,3 @@ export const MODAL_TYPES = {
   SIGNUP: 'SIGNUP',
   CONFIRMATION: 'CONFIRMATION',
 };
-
-
-
-
-

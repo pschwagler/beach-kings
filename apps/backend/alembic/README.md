@@ -68,4 +68,3 @@ Each migration file contains:
 - Test migrations on a development database first
 - Never edit a migration that has already been applied to production
 - The initial migration (001) creates all tables from scratch - safe to wipe DB and start over
-

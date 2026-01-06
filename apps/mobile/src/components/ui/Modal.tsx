@@ -59,5 +59,3 @@ export function Modal({ isOpen, onClose, title, children, snapPoints = [85] }: M
     </Sheet>
   );
 }
-
-

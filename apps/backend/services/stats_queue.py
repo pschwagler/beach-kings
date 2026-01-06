@@ -447,4 +447,3 @@ _stats_queue = StatsCalculationQueue()
 def get_stats_queue() -> StatsCalculationQueue:
     """Get the global stats queue instance."""
     return _stats_queue
-

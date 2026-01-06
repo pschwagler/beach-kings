@@ -104,7 +104,3 @@ export const colors = {
 } as const;
 
 export type ColorName = keyof typeof colors;
-
-
-
-

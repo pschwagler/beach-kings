@@ -9,5 +9,3 @@ export const Text = styled(TamaguiText, {
   name: 'Text',
   fontFamily: '$body',
 });
-
-

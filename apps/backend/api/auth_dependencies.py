@@ -342,5 +342,3 @@ def make_require_league_admin_from_signup():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League admin access required")
         return user
     return _dep
-
-

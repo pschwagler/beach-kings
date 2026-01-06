@@ -16,5 +16,3 @@ export const Input = styled(TamaguiInput, {
   backgroundColor: '$background',
   borderColor: '$border',
 });
-
-

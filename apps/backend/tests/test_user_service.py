@@ -250,4 +250,3 @@ async def test_delete_refresh_token(test_session):
     # Verify token is gone
     token = await user_service.get_refresh_token(test_session, "refresh_token_123")
     assert token is None
-

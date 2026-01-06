@@ -393,4 +393,3 @@ test.describe('Signup Flow', () => {
     expect(errorMessage.toLowerCase()).toMatch(/already|registered|exists/);
   });
 });
-

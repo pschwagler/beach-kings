@@ -173,6 +173,3 @@ def downgrade() -> None:
     # 5. Drop location_id primary key constraint
     
     raise NotImplementedError("Downgrade not implemented - this migration changes primary key structure")
-
-
-

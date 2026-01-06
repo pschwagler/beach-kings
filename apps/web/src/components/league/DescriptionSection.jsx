@@ -82,5 +82,3 @@ export default function DescriptionSection({ league, onUpdate }) {
     </div>
   );
 }
-
-

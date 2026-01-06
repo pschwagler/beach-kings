@@ -30,8 +30,3 @@ export function isNotEmpty(value: string | number | null | undefined): boolean {
   if (typeof value === 'string') return value.trim().length > 0;
   return true;
 }
-
-
-
-
-

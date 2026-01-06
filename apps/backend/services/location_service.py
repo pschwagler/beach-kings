@@ -167,4 +167,3 @@ async def autocomplete(text: str) -> Dict:
     except Exception as e:
         logger.error(f"Error fetching autocomplete: {str(e)}")
         raise
-

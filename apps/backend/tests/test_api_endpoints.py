@@ -217,5 +217,3 @@ def test_matches_query_public(monkeypatch):
         print(f"Error: {r.status_code}, {r.text}")
     assert r.status_code == 200, f"Response: {r.status_code} - {r.text}"
     assert isinstance(r.json(), list)
-
-

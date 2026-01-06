@@ -172,4 +172,3 @@ test.describe('Forgot Password Flow', () => {
     expect(await authPage.hasError()).toBeTruthy();
   });
 });
-

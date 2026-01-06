@@ -192,5 +192,3 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }) {
     </div>
   );
 }
-
-

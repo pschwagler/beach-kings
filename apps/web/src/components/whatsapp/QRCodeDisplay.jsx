@@ -64,4 +64,3 @@ function QRCodeDisplay({ qrCode, isLoading }) {
 }
 
 export default QRCodeDisplay;
-

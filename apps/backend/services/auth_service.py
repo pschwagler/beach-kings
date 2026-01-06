@@ -317,5 +317,3 @@ async def send_sms_verification(session: AsyncSession, phone_number: str, code: 
     except Exception as e:
         logger.error(f"Failed to send SMS to {phone_number}: {str(e)}")
         return False
-
-

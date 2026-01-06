@@ -172,4 +172,3 @@ export async function resetDatabase() {
     await client.end();
   }
 }
-

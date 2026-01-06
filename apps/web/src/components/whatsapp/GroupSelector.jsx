@@ -69,4 +69,3 @@ function GroupSelector({
 }
 
 export default GroupSelector;
-

@@ -816,5 +816,3 @@ async def test_register_stats_queue_callbacks_function(db_session):
     except Exception:
         # Other exceptions are fine - we're just checking callback registration
         pass
-
-

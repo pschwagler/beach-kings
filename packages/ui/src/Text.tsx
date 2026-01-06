@@ -55,5 +55,3 @@ export function Text({ children, style, variant = 'body' }: TextProps) {
     </TamaguiText>
   );
 }
-
-

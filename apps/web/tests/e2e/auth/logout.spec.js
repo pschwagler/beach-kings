@@ -127,4 +127,3 @@ test.describe('Logout Flow', () => {
     expect(storageStateAfterLogout.refreshToken).toBeNull();
   });
 });
-

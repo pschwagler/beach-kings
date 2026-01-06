@@ -623,4 +623,3 @@ class FeedbackResponse(BaseModel):
     is_resolved: bool
     created_at: str
     user_name: Optional[str] = None  # Computed field
-

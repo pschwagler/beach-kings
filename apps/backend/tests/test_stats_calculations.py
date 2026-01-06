@@ -1009,4 +1009,3 @@ async def test_edited_sessions_included(db_session, test_players, test_league_an
     )
     elo_records = elo_history.scalars().all()
     assert len(elo_records) == 4
-

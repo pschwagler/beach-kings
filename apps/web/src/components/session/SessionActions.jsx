@@ -33,6 +33,3 @@ export default function SessionActions({ onAddMatchClick, onSubmitClick, onSaveC
     </div>
   );
 }
-
-
-

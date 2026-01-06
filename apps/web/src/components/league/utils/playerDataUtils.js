@@ -155,5 +155,3 @@ export function transformPlayerData(seasonData, playerId) {
     matchHistory: matchHistory
   };
 }
-
-

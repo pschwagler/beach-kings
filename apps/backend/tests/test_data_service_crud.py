@@ -977,4 +977,3 @@ async def test_delete_weekly_schedule_nonexistent(db_session):
     """Test that deleting a non-existent weekly schedule returns False."""
     result = await data_service.delete_weekly_schedule(db_session, 99999)
     assert result is False
-

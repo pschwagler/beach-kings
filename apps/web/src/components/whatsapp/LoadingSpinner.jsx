@@ -11,4 +11,3 @@ function LoadingSpinner({ message = "Loading WhatsApp service..." }) {
 }
 
 export default LoadingSpinner;
-

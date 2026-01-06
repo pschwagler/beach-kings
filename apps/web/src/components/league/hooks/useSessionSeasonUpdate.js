@@ -159,5 +159,3 @@ export function useSessionSeasonUpdate({
     handleUpdateSessionSeason
   };
 }
-
-

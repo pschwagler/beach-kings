@@ -41,8 +41,3 @@ export function useLocation() {
 
   return { location, errorMsg, isLoading };
 }
-
-
-
-
-

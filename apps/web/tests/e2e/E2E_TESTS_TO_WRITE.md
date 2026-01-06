@@ -24,4 +24,3 @@
 9. Click on a player and verify the player details tab opens
 10. Verify the stats match what is in the ratings table
 11. Verify the games are showing from all seasons, and player stats is accurate
-

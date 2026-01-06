@@ -184,4 +184,3 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     </div>
   );
 }
-

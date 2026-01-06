@@ -208,5 +208,3 @@ export function LeaguesTab({ userLeagues = [], onLeagueClick, onLeaguesUpdate }:
     </>
   );
 }
-
-

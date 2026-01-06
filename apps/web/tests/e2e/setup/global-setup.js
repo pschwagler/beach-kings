@@ -48,4 +48,3 @@ async function globalSetup(config) {
 }
 
 export default globalSetup;
-

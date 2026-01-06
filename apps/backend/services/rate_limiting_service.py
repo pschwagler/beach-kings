@@ -111,8 +111,3 @@ async def check_phone_rate_limit(request: Request, phone_number: str, limit_str:
     # Add current hit
     hit_times.append(now)
     _phone_rate_limit_storage[rate_limit_key] = hit_times
-
-
-
-
-

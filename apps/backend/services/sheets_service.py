@@ -76,4 +76,3 @@ def load_matches_from_sheets(sheet_id=None):
         match_list.append(match)
     
     return match_list
-

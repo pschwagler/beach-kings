@@ -172,4 +172,3 @@ test.describe('Create Games and Submit Session', () => {
     expect(hasActive).toBeFalsy();
   });
 });
-

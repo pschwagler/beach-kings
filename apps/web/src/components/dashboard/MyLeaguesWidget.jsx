@@ -141,4 +141,3 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
     </div>
   );
 }
-

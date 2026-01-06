@@ -77,4 +77,3 @@ export class BasePage {
     return await this.page.isVisible(selector);
   }
 }
-

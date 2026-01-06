@@ -58,4 +58,3 @@ export function useSortedMembers(members, currentUserPlayer) {
 
   return sortedMembers;
 }
-

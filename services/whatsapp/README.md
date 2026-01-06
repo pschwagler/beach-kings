@@ -118,4 +118,3 @@ The service uses `LocalAuth` strategy which stores session data in `.wwebjs_auth
 - The service requires an active internet connection
 - WhatsApp may limit the number of messages you can send
 - This is intended for testing and notifications, not mass messaging
-

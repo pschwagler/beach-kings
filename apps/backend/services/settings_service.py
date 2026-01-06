@@ -273,5 +273,3 @@ async def close_redis_connection():
             logger.warning(f"Error closing Redis connection: {e}")
         finally:
             _redis_client = None
-
-

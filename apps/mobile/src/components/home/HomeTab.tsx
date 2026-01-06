@@ -271,5 +271,3 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
     </SafeAreaView>
   );
 }
-
-

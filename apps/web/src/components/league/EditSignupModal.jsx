@@ -162,4 +162,3 @@ export default function EditSignupModal({ signup, onClose, onSubmit }) {
     </div>
   );
 }
-

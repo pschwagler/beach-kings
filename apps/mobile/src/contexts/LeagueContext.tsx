@@ -104,6 +104,3 @@ export function useLeague() {
   }
   return context;
 }
-
-
-

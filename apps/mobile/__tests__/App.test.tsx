@@ -8,8 +8,3 @@ describe('App', () => {
     expect(getByText('Beach League')).toBeTruthy();
   });
 });
-
-
-
-
-

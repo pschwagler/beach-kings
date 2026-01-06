@@ -75,9 +75,3 @@ export function validateFormFields(formData) {
   
   return { isValid: true, errorMessage: null };
 }
-
-
-
-
-
-

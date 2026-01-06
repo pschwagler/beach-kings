@@ -37,4 +37,3 @@ export function autoAdvanceToNextField(currentField, refs) {
     }
   }, 100);
 }
-

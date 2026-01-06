@@ -26,4 +26,3 @@ function ConnectionStatus({ clientInfo, onLogout }) {
 }
 
 export default ConnectionStatus;
-

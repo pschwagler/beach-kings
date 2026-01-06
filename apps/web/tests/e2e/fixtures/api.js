@@ -124,4 +124,3 @@ export async function getCurrentUser(token) {
   const response = await api.get('/api/auth/me');
   return response.data;
 }
-

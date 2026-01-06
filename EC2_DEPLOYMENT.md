@@ -326,5 +326,3 @@ gunzip -c ~/backups/db_TIMESTAMP.sql.gz | docker exec -i beach-kings-postgres ps
 | Can't connect to app | Verify security group allows ports 3000/8000 (or 443 if using SSL) |
 | Database connection error | Wait for postgres healthcheck, check `docker-compose logs postgres` |
 | SSL certificate issues | See SSL troubleshooting section above |
-
-

@@ -16,5 +16,3 @@ export function View({ children, style }: ViewProps) {
     </YStack>
   );
 }
-
-

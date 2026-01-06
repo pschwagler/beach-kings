@@ -240,4 +240,3 @@ class TestVerificationCode:
             code = auth_service.generate_verification_code()
             code_int = int(code)
             assert 1000 <= code_int <= 9999
-

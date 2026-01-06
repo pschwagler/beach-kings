@@ -39,8 +39,3 @@ export async function shareMatch(matchId: number) {
   const url = `beachleague://match/${matchId}`;
   await shareText('Check out this match on Beach League!', url);
 }
-
-
-
-
-

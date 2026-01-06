@@ -304,4 +304,3 @@ export class AuthPage extends BasePage {
     await this.submit();
   }
 }
-

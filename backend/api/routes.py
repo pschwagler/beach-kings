@@ -3589,4 +3589,3 @@ async def update_admin_config(
     except Exception as e:
         logger.error(f"Error updating admin config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
-

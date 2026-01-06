@@ -84,5 +84,3 @@ export default function SeasonsSection({ seasons, onCreateSeason }) {
     </>
   );
 }
-
-

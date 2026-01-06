@@ -384,4 +384,3 @@ def test_process_matches_integration():
         assert eh.match_id in [1, 2]
         assert eh.elo_after >= INITIAL_ELO - 100  # Reasonable ELO range
         assert eh.elo_after <= INITIAL_ELO + 100
-

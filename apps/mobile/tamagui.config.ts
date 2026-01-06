@@ -304,7 +304,3 @@ declare module 'tamagui' {
 }
 
 export default config;
-
-
-
-

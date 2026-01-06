@@ -83,4 +83,3 @@ import RankingsTable from './components/rankings/RankingsTable';
 // Modal components
 import ConfirmationModal from './components/modal/ConfirmationModal';
 ```
-

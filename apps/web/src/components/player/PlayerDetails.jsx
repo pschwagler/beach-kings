@@ -64,4 +64,3 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
     </div>
   );
 }
-

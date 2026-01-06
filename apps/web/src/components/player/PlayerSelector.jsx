@@ -160,4 +160,3 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange 
     </div>
   );
 }
-

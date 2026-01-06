@@ -385,4 +385,3 @@ export async function createTestSession(token, leagueId, sessionData = {}) {
     throw error;
   }
 }
-

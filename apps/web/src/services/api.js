@@ -918,4 +918,3 @@ export const updateFeedbackResolution = async (feedbackId, isResolved) => {
 };
 
 export default api;
-

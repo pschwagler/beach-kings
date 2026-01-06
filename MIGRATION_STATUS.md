@@ -131,8 +131,3 @@ When migrating components:
    - Use React Native Web for web compatibility if needed
 
 4. Test on both iOS and Android simulators
-
-
-
-
-

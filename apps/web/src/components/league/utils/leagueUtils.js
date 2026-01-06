@@ -42,4 +42,3 @@ export function matchesSearchTerm(player, searchTerm) {
 export function formatDateRange(startDate, endDate) {
   return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
 }
-

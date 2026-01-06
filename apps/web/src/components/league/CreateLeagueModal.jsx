@@ -321,4 +321,3 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
     </div>
   );
 }
-

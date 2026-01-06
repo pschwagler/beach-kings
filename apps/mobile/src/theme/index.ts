@@ -15,8 +15,3 @@ export const theme = {
   spacing,
   typography,
 } as const;
-
-
-
-
-

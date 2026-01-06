@@ -69,9 +69,3 @@ export function filterPlayers(normalizedPlayers, excludePlayers, searchTerm) {
     return label.includes(searchLower);
   });
 }
-
-
-
-
-
-

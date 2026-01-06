@@ -60,5 +60,3 @@ export function CardFooter({ children, ...props }: CardFooterProps) {
     </XStack>
   );
 }
-
-

@@ -27,5 +27,3 @@ def pytest_runtest_makereport(item, call):
                     report.outcome = "passed"
                     # Clear the error
                     report.longrepr = None
-
-

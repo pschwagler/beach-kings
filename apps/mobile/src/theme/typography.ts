@@ -39,8 +39,3 @@ export const typography = {
     lineHeight: 20,
   },
 } as const;
-
-
-
-
-

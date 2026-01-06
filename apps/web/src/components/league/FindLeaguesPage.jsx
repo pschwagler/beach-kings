@@ -433,6 +433,3 @@ export default function FindLeaguesPage() {
     </>
   );
 }
-
-
-

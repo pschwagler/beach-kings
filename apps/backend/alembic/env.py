@@ -179,4 +179,3 @@ if config is not None:
     except AttributeError:
         # Not running via Alembic CLI - skip CLI entry point
         pass
-

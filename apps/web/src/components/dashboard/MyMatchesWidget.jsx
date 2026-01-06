@@ -92,4 +92,3 @@ export default function MyMatchesWidget({ matches, currentUserPlayer }) {
     </div>
   );
 }
-

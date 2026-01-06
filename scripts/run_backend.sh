@@ -32,7 +32,3 @@ exec ./venv/bin/uvicorn "${BACKEND_APP}" \
   --reload \
   --host "${BACKEND_HOST}" \
   --port "${BACKEND_PORT}"
-
-
-
-

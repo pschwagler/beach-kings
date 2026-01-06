@@ -60,5 +60,3 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
     </div>
   );
 }
-
-

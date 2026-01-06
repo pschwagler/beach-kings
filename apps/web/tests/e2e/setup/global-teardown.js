@@ -13,4 +13,3 @@ async function globalTeardown(config) {
 }
 
 export default globalTeardown;
-

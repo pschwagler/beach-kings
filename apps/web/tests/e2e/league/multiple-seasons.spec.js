@@ -197,4 +197,3 @@ test.describe('View Leaderboard Across Multiple Seasons', () => {
     expect(hasTableAllSeasons || hasEmptyStateAllSeasons).toBeTruthy();
   });
 });
-

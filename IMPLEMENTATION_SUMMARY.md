@@ -171,7 +171,3 @@ The largest remaining task is migrating components from web to mobile. This shou
 
 The foundation is complete and ready for component migration!
 
-
-
-
-

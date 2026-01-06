@@ -45,4 +45,3 @@ async def init_defaults():
 
 if __name__ == "__main__":
     asyncio.run(init_defaults())
-

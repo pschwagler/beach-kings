@@ -89,6 +89,3 @@ export function useLocationAutoSelect(setFormData, setErrorMessage) {
     updateLocationsWithDistances,
   };
 }
-
-
-

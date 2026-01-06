@@ -22,4 +22,3 @@ function ErrorAlert({ error, serviceUnavailable }) {
 }
 
 export default ErrorAlert;
-

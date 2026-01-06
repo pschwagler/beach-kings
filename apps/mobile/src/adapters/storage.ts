@@ -36,8 +36,3 @@ export const mobileStorageAdapter = {
     }
   },
 };
-
-
-
-
-

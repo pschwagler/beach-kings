@@ -392,4 +392,3 @@ class WhatsAppClientManager {
 
 // Export singleton instance (auto-initializes in constructor)
 export default new WhatsAppClientManager();
-

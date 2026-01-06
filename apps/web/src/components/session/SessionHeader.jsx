@@ -44,5 +44,3 @@ export default function SessionHeader({ sessionName, gameCount, playerCount, onD
     </div>
   );
 }
-
-

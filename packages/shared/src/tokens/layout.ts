@@ -11,7 +11,3 @@ export const layout = {
 } as const;
 
 export type LayoutName = keyof typeof layout;
-
-
-
-

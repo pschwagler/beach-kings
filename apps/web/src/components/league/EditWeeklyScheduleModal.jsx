@@ -349,4 +349,3 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
     </div>
   );
 }
-

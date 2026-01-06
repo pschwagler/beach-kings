@@ -12,7 +12,3 @@ export const shadows = {
 } as const;
 
 export type ShadowName = keyof typeof shadows;
-
-
-
-

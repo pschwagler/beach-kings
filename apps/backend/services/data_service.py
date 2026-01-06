@@ -5392,4 +5392,3 @@ async def create_league_message(session: AsyncSession, league_id: int, user_id: 
         "message": new_message.message_text,
         "created_at": new_message.created_at.isoformat() if new_message.created_at else None
     }
-

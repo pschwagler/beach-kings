@@ -175,4 +175,3 @@ test.describe('View Games After Submission', () => {
     expect(await leaguePage.hasActiveSession()).toBeFalsy();
   });
 });
-

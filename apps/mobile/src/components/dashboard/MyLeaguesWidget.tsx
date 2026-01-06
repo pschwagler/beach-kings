@@ -156,5 +156,3 @@ export function MyLeaguesWidget({ leagues = [], onLeagueClick, onLeaguesUpdate }
     </Card>
   );
 }
-
-

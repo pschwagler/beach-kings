@@ -122,5 +122,3 @@ export function Tabs({ activeTab, onTabChange }) {
     </div>
   );
 }
-
-

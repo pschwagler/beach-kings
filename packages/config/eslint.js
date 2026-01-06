@@ -4,8 +4,3 @@ module.exports = {
     // Add shared ESLint rules here
   },
 };
-
-
-
-
-

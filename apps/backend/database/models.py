@@ -925,4 +925,3 @@ class Feedback(Base):
         Index("idx_feedback_created_at", "created_at"),
         Index("idx_feedback_user_id", "user_id"),
     )
-

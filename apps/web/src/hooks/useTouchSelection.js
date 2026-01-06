@@ -39,9 +39,3 @@ export function useTouchSelection(onSelect) {
 
   return { handleTouchStart, handleTouchEnd };
 }
-
-
-
-
-
-
