@@ -103,6 +103,13 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
       return;
     }
 
+    // Validate that onSubmit is a function
+    if (typeof onSubmit !== 'function') {
+      console.error('onSubmit is not a function:', onSubmit);
+      setFormError('Invalid form configuration. Please refresh the page and try again.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Prepare payload - only include non-empty optional fields
@@ -153,7 +160,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="create-league-form">
+        <form id="create-league-form" onSubmit={handleSubmit} className="create-league-form">
           {formError && (
             <div className="form-error">
               {formError}
@@ -306,7 +313,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
           <Button type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="button" variant="success" onClick={handleSubmit} disabled={isSubmitting}>
+          <Button type="submit" variant="success" form="create-league-form" disabled={isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Create League'}
           </Button>
         </div>
