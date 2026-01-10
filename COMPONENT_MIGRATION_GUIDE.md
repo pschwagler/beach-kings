@@ -212,3 +212,4 @@ const styles = StyleSheet.create({
 - [React Native Documentation](https://reactnative.dev/)
 - [Expo Router Documentation](https://docs.expo.dev/router/introduction/)
 - [React Native Web](https://necolas.github.io/react-native-web/) (for web compatibility)
+

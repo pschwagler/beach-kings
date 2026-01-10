@@ -75,3 +75,4 @@ export const typography = {
 } as const;
 
 export type TypographyVariant = keyof typeof typography;
+

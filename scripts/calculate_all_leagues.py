@@ -135,3 +135,4 @@ async def calculate_all_leagues():
 
 if __name__ == "__main__":
     asyncio.run(calculate_all_leagues())
+

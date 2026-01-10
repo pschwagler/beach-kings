@@ -99,3 +99,4 @@ export type { ApiClient, StorageAdapter, ApiClientOptions };
 export declare function setStorageAdapter(adapter: StorageAdapter): void;
 export declare function getStorageAdapter(): StorageAdapter;
 export declare const webStorageAdapter: StorageAdapter;
+

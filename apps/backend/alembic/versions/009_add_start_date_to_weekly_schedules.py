@@ -57,3 +57,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Remove start_date column from weekly_schedules table
     op.drop_column('weekly_schedules', 'start_date')
+

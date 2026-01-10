@@ -152,3 +152,4 @@ The web app deployment remains unchanged - use existing Docker Compose setup or 
 ## Backend Deployment
 
 The backend deployment remains unchanged - use existing Docker Compose setup or your current deployment method.
+

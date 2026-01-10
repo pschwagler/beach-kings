@@ -142,3 +142,4 @@ export function MyMatchesWidget({ matches = [], currentUserPlayer }: MyMatchesWi
     </Card>
   );
 }
+

@@ -141,3 +141,4 @@ export default function HomeMenuBar({ activeTab }) {
     </MenuBar>
   );
 }
+

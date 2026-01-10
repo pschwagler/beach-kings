@@ -32,3 +32,4 @@ jest.mock('expo-image-picker', () => ({
     Images: 'images',
   },
 }));
+

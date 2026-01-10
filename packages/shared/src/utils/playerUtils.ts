@@ -97,3 +97,4 @@ export function isProfileIncomplete(player: Player | null | undefined): boolean 
   
   return !player.gender || !player.level || !player.city;
 }
+

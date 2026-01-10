@@ -45,3 +45,4 @@ export const API_ENDPOINTS = {
     SEARCH: '/api/matches/search',
   },
 } as const;
+

@@ -39,3 +39,4 @@ export function Header({ onBack, title = 'Beach League' }: HeaderProps) {
     </XStack>
   );
 }
+

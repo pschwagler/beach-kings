@@ -68,3 +68,4 @@ else
     echo "❌ Failed to create simulator. Error: $DEVICE_ID"
     exit 1
 fi
+

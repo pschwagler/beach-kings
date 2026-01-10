@@ -56,3 +56,4 @@ export function setStorageAdapter(adapter) {
 export function getStorageAdapter() {
   return storageAdapter;
 }
+

@@ -55,3 +55,4 @@ export function useDrawer() {
 export const DRAWER_TYPES = {
   PLAYER_DETAILS: 'PLAYER_DETAILS',
 };
+

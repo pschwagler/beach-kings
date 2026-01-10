@@ -32,3 +32,4 @@ def downgrade() -> None:
         'player_season_stats',
         sa.Column('current_elo', sa.Float(), nullable=False, server_default='1200.0')
     )
+
