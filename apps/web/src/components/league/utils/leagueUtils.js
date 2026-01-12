@@ -16,6 +16,8 @@ export const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' }
 ];
 
+export const SEASON_RATING_DESCRIPTION = "All players start with 100 points and use a rating system (ELO) to compete for a number of points based on each teams average points. Rewards wins versus players with more points.";
+
 /**
  * Get display name for a player
  */
