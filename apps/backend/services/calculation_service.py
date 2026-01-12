@@ -4,6 +4,7 @@ Processes matches and computes all statistics.
 """
 
 from typing import List, Dict, Tuple, Optional
+import json
 from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL, K
 from backend.database.models import Match, PartnershipStats, OpponentStats, EloHistory
 
@@ -30,6 +31,65 @@ def elo_change(k: float, old_elo: float, expected_score: float, actual_score: fl
 def k_factor(avg_games: float, k_constant: float) -> float:
     """Calculate K-factor based on average games played."""
     return k_constant
+
+
+# ============================================================================
+# Scoring System Helpers
+# ============================================================================
+
+def get_scoring_config(point_system_json: Optional[str]) -> Dict:
+    """
+    Parse season point_system JSON and return configuration dict.
+    
+    Args:
+        point_system_json: JSON string from season.point_system field
+        
+    Returns:
+        Dict with scoring configuration:
+        - For Points System: {"type": "points_system", "points_per_win": int, "points_per_loss": int}
+        - For Season Rating: {"type": "season_rating", "initial_rating": float}
+    """
+    if not point_system_json:
+        # Default to Points System
+        return {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+    
+    try:
+        config = json.loads(point_system_json)
+        # Ensure defaults for Points System
+        if config.get("type") == "points_system":
+            config.setdefault("points_per_win", 3)
+            config.setdefault("points_per_loss", 1)
+        return config
+    except (json.JSONDecodeError, TypeError):
+        # Invalid JSON, default to Points System
+        return {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+
+
+def calculate_points(wins: int, losses: int, scoring_config: Dict) -> int:
+    """
+    Calculate points based on wins, losses, and scoring configuration.
+    
+    Note: For Season Rating mode, partnership/opponent stats use points=0 since
+    season ratings are tracked per player, not per partnership/opponent pair.
+    Player season stats use PlayerStats.points property which returns the season rating.
+    
+    Args:
+        wins: Number of wins
+        losses: Number of losses
+        scoring_config: Scoring configuration dict
+        
+    Returns:
+        Total points (for Points System) or 0 (for Season Rating in partnership/opponent contexts)
+    """
+    if scoring_config.get("type") == "season_rating":
+        # For Season Rating, partnership/opponent stats use 0 points
+        # Player season stats use PlayerStats.points which returns the season rating
+        return 0
+    
+    # Points System
+    points_per_win = scoring_config.get("points_per_win", 3)
+    points_per_loss = scoring_config.get("points_per_loss", 1)
+    return (wins * points_per_win) + (losses * points_per_loss)
 
 
 # ============================================================================
@@ -98,9 +158,12 @@ def normalize_score(team1_score: int, team2_score: int, winner: int) -> float:
 class PlayerStats:
     """Encapsulates all statistics for a single player."""
     
-    def __init__(self, player_id: int):
+    def __init__(self, player_id: int, initial_rating: Optional[float] = None, scoring_config: Optional[Dict] = None):
         self.player_id = player_id
-        self.elo = INITIAL_ELO
+        self.elo = INITIAL_ELO  # Global ELO
+        self.season_rating = initial_rating if initial_rating is not None else INITIAL_ELO  # Season-specific ELO
+        self.initial_rating = initial_rating  # Store initial rating for season
+        self.scoring_config = scoring_config or {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
         self.game_count = 0
         self.win_count = 0
         self.wins_with: Dict[int, int] = {}      # wins partnered with each player (by ID)
@@ -108,8 +171,10 @@ class PlayerStats:
         self.wins_against: Dict[int, int] = {}   # wins against each player (by ID)
         self.games_against: Dict[int, int] = {}  # games against each player (by ID)
         self.elo_history: List[float] = []
+        self.season_rating_history: List[float] = []  # Season-specific rating history
         self.date_history: List[Optional[str]] = []   # dates corresponding to elo_history
         self.match_elo_history: List[Tuple[int, float, float, Optional[str]]] = []  # (match_id, elo_after, elo_change, date)
+        self.match_season_rating_history: List[Tuple[int, float, float, Optional[str]]] = []  # Season rating history
         
         # Point differential tracking
         self.total_point_diff = 0
@@ -132,9 +197,19 @@ class PlayerStats:
     
     @property
     def points(self) -> int:
-        """Calculate points: +3 for each win, +1 for each loss."""
+        """
+        Calculate points based on scoring system.
+        For Points System: returns win/loss points
+        For Season Rating: returns season rating (rounded to int)
+        """
+        if self.scoring_config.get("type") == "season_rating":
+            return int(round(self.season_rating))
+        
+        # Points System
         losses = self.game_count - self.win_count
-        return (self.win_count * 3) + (losses * 1)
+        points_per_win = self.scoring_config.get("points_per_win", 3)
+        points_per_loss = self.scoring_config.get("points_per_loss", 1)
+        return (self.win_count * points_per_win) + (losses * points_per_loss)
     
     def _increment_dict(self, d: Dict[int, int], key: int, amount: int = 1) -> None:
         """Helper to increment a value in a dictionary, initializing if needed."""
@@ -165,12 +240,19 @@ class PlayerStats:
         self._increment_dict(self.point_diff_against, opponent_id, diff)
     
     def update_elo(self, delta: float, date: Optional[str] = None, match_id: Optional[int] = None) -> None:
-        """Update ELO rating and record history."""
+        """Update global ELO rating and record history."""
         self.elo += delta
         self.elo_history.append(self.elo)
         self.date_history.append(date)
         if match_id is not None:
             self.match_elo_history.append((match_id, self.elo, delta, date))
+    
+    def update_season_rating(self, delta: float, date: Optional[str] = None, match_id: Optional[int] = None) -> None:
+        """Update season-specific ELO rating and record history."""
+        self.season_rating += delta
+        self.season_rating_history.append(self.season_rating)
+        if match_id is not None:
+            self.match_season_rating_history.append((match_id, self.season_rating, delta, date))
 
 
 # ============================================================================
@@ -180,13 +262,24 @@ class PlayerStats:
 class StatsTracker:
     """Tracks statistics for all players across multiple matches."""
     
-    def __init__(self):
+    def __init__(self, initial_ratings: Optional[Dict[int, float]] = None, scoring_config: Optional[Dict] = None):
+        """
+        Initialize StatsTracker.
+        
+        Args:
+            initial_ratings: Dict mapping player_id to initial season rating (for Season Rating mode)
+            scoring_config: Scoring configuration dict
+        """
         self.players: Dict[int, PlayerStats] = {}
+        self.initial_ratings = initial_ratings or {}
+        self.scoring_config = scoring_config or {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+        self.is_season_rating = self.scoring_config.get("type") == "season_rating"
     
     def get_player(self, player_id: int) -> PlayerStats:
         """Get or create a player's stats."""
         if player_id not in self.players:
-            self.players[player_id] = PlayerStats(player_id)
+            initial_rating = self.initial_ratings.get(player_id)
+            self.players[player_id] = PlayerStats(player_id, initial_rating=initial_rating, scoring_config=self.scoring_config)
         return self.players[player_id]
     
     def process_match(self, match: Match) -> Tuple[float, float]:
@@ -297,10 +390,13 @@ class StatsTracker:
                 player.record_point_diff_against(opponent_id, point_diff_team2)
     
     def _update_elos(self, match: Match, winner: int) -> Tuple[float, float]:
-        """Calculate and apply ELO changes for all players in the match."""
+        """
+        Calculate and apply ELO changes for all players in the match.
+        Updates both global ELO and season ELO (if Season Rating mode) completely separately.
+        """
         teams = match.player_ids
         
-        # Calculate team average ELOs
+        # Calculate team average ELOs for global ELO
         team_elos = []
         for team in teams:
             player1 = self.get_player(team[0])
@@ -308,9 +404,7 @@ class StatsTracker:
             team_elo = (player1.elo + player2.elo) / 2
             team_elos.append(team_elo)
         
-        # Calculate expected scores
-        # expected[0] = expected score for team 0 (against team 1)
-        # expected[1] = expected score for team 1 (against team 0)
+        # Calculate expected scores for global ELO
         expected = [
             expected_score(team_elos[0], team_elos[1]),  # P(team0 beats team1)
             expected_score(team_elos[1], team_elos[0])   # P(team1 beats team0)
@@ -323,19 +417,47 @@ class StatsTracker:
         # Calculate normalized score
         normalized_score = normalize_score(match.team1_score, match.team2_score, winner)
         
-        # Calculate ELO deltas
-        deltas = [
+        # Calculate global ELO deltas
+        global_deltas = [
             elo_change(k, team_elos[0], expected[0], normalized_score),
             elo_change(k, team_elos[1], expected[1], 1 - normalized_score)
         ]
         
-        # Apply ELO changes
+        # Apply global ELO changes
         for team_idx, team in enumerate(teams):
             for player_id in team:
                 player = self.get_player(player_id)
-                player.update_elo(deltas[team_idx], match.date, match.id)
+                player.update_elo(global_deltas[team_idx], match.date, match.id)
         
-        return (deltas[0], deltas[1])
+        # If Season Rating mode, also calculate and update season ELO separately
+        if self.is_season_rating:
+            # Calculate team average season ratings
+            team_season_ratings = []
+            for team in teams:
+                player1 = self.get_player(team[0])
+                player2 = self.get_player(team[1])
+                team_season_rating = (player1.season_rating + player2.season_rating) / 2
+                team_season_ratings.append(team_season_rating)
+            
+            # Calculate expected scores for season ELO
+            expected_season = [
+                expected_score(team_season_ratings[0], team_season_ratings[1]),
+                expected_score(team_season_ratings[1], team_season_ratings[0])
+            ]
+            
+            # Calculate season ELO deltas (using same K-factor)
+            season_deltas = [
+                elo_change(k, team_season_ratings[0], expected_season[0], normalized_score),
+                elo_change(k, team_season_ratings[1], expected_season[1], 1 - normalized_score)
+            ]
+            
+            # Apply season ELO changes
+            for team_idx, team in enumerate(teams):
+                for player_id in team:
+                    player = self.get_player(player_id)
+                    player.update_season_rating(season_deltas[team_idx], match.date, match.id)
+        
+        return (global_deltas[0], global_deltas[1])
 
 
 # ============================================================================
@@ -344,29 +466,30 @@ class StatsTracker:
 
 def process_matches(
     match_list: List[Match], 
-    player_id_map: Optional[Dict[str, int]] = None
-) -> Tuple[Dict[Match, Tuple[float, float]], List[PartnershipStats], List[OpponentStats], List[EloHistory]]:
+    player_id_map: Optional[Dict[str, int]] = None,
+    initial_ratings: Optional[Dict[int, float]] = None,
+    scoring_config: Optional[Dict] = None
+) -> Tuple[List[PartnershipStats], List[OpponentStats], List[EloHistory]]:
     """
     Process a list of matches and return computed statistics as ORM instances.
     
     Args:
         match_list: List of Match ORM objects (from database.models)
         player_id_map: Optional dictionary mapping player names to player IDs (deprecated, kept for compatibility)
+        initial_ratings: Optional dict mapping player_id to initial season rating (for Season Rating mode)
+        scoring_config: Optional scoring configuration dict
         
     Returns:
         Tuple of:
-        - dict mapping matches to elo_deltas
         - list of PartnershipStats instances
         - list of OpponentStats instances
         - list of EloHistory instances
     """
-    tracker = StatsTracker()
-    elo_deltas_map: Dict[Match, Tuple[float, float]] = {}
+    tracker = StatsTracker(initial_ratings=initial_ratings, scoring_config=scoring_config)
     
     # Process all matches to build stats
     for match in match_list:
-        elo_deltas = tracker.process_match(match)
-        elo_deltas_map[match] = elo_deltas
+        tracker.process_match(match)
     
     # Build PartnershipStats instances
     partnerships = []
@@ -375,7 +498,7 @@ def process_matches(
             wins = player_stats.wins_with.get(partner_id, 0)
             losses = games - wins
             win_rate = wins / games if games > 0 else 0
-            points = (wins * 3) + (losses * 1)
+            points = calculate_points(wins, losses, scoring_config or {})
             total_pt_diff = player_stats.point_diff_with.get(partner_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
             
@@ -397,7 +520,7 @@ def process_matches(
             wins = player_stats.wins_against.get(opponent_id, 0)
             losses = games - wins
             win_rate = wins / games if games > 0 else 0
-            points = (wins * 3) + (losses * 1)
+            points = calculate_points(wins, losses, scoring_config or {})
             total_pt_diff = player_stats.point_diff_against.get(opponent_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
             
@@ -412,7 +535,7 @@ def process_matches(
             )
             opponents.append(opponent)
     
-    # Build EloHistory instances
+    # Build EloHistory instances (only global ELO, not season ELO)
     elo_history_list = []
     for player_id, player_stats in tracker.players.items():
         for match_id, elo_after, elo_change, date in player_stats.match_elo_history:
@@ -425,4 +548,4 @@ def process_matches(
             )
             elo_history_list.append(elo_history)
     
-    return elo_deltas_map, partnerships, opponents, elo_history_list
+    return partnerships, opponents, elo_history_list

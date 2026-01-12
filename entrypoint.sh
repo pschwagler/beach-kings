@@ -110,12 +110,22 @@ echo ""
 
 # Start main backend API
 echo "📡 Starting Backend API on port 8000..."
-# Use --reload in development (when ENV is not production)
-if [ "${ENV:-development}" != "production" ]; then
+
+# Check if DEBUG_BACKEND is enabled
+if [ "${DEBUG_BACKEND:-0}" = "1" ]; then
+    echo "🪲 DEBUG_BACKEND=1 → Starting with debugpy on port 5678..."
+    echo "   Attach VS Code debugger to localhost:5678"
+    exec python -m debugpy \
+        --listen 0.0.0.0:5678 \
+        --wait-for-client \
+        -m uvicorn backend.api.main:app \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --reload \
+        --reload-dir /app/backend
+elif [ "${ENV:-development}" != "production" ]; then
     echo "🔄 Auto-reload enabled (development mode)"
     echo "   Watching: /app/backend for changes..."
-    # Use --reload-dir to explicitly watch the backend directory
-    # This ensures file changes in the mounted volume trigger reload
     exec uvicorn backend.api.main:app \
         --host 0.0.0.0 \
         --port 8000 \

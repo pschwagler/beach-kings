@@ -6,11 +6,12 @@ import pytest
 import pytest_asyncio
 from datetime import date, datetime, timedelta
 import pytz
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.database.models import (
     League, LeagueMember, Season, Session, Match, Player, SessionStatus,
-    WeeklySchedule, Signup, OpenSignupsMode, User
+    WeeklySchedule, Signup, OpenSignupsMode, User, ScoringSystem, EloHistory
 )
 from backend.services import data_service
 from backend.services import user_service
@@ -317,6 +318,231 @@ async def test_update_season(db_session, test_player):
     )
     
     assert updated["name"] == "New Name"
+
+
+# ============================================================================
+# Scoring System Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_create_season_points_system(db_session, test_player):
+    """Test creating a season with Points System scoring."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="points_system",
+        points_per_win=3,
+        points_per_loss=1,
+    )
+    
+    assert season["id"] > 0
+    assert season["scoring_system"] == "points_system"
+    assert season["point_system"] is not None
+    
+    # Verify point_system JSON structure
+    point_system = json.loads(season["point_system"])
+    assert point_system["type"] == "points_system"
+    assert point_system["points_per_win"] == 3
+    assert point_system["points_per_loss"] == 1
+
+
+@pytest.mark.asyncio
+async def test_create_season_points_system_defaults(db_session, test_player):
+    """Test creating a season with Points System using default values."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="points_system",
+    )
+    
+    assert season["scoring_system"] == "points_system"
+    import json
+    point_system = json.loads(season["point_system"])
+    assert point_system["type"] == "points_system"
+    assert point_system["points_per_win"] == 3  # Default
+    assert point_system["points_per_loss"] == 1  # Default
+
+
+@pytest.mark.asyncio
+async def test_create_season_season_rating(db_session, test_player):
+    """Test creating a season with Season Rating scoring."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="season_rating",
+    )
+    
+    assert season["id"] > 0
+    assert season["scoring_system"] == "season_rating"
+    assert season["point_system"] is not None
+    
+    # Verify point_system JSON structure
+    import json
+    point_system = json.loads(season["point_system"])
+    assert point_system["type"] == "season_rating"
+
+
+@pytest.mark.asyncio
+async def test_update_season_scoring_system(db_session, test_player):
+    """Test updating a season's scoring system."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    created = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="points_system",
+        points_per_win=3,
+        points_per_loss=1,
+    )
+    
+    # Update to Season Rating
+    updated = await data_service.update_season(
+        session=db_session,
+        season_id=created["id"],
+        scoring_system="season_rating",
+    )
+    
+    assert updated["scoring_system"] == "season_rating"
+    import json
+    point_system = json.loads(updated["point_system"])
+    assert point_system["type"] == "season_rating"
+
+
+@pytest.mark.asyncio
+async def test_update_season_points_per_win_loss(db_session, test_player):
+    """Test updating points_per_win and points_per_loss."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    created = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="points_system",
+        points_per_win=3,
+        points_per_loss=1,
+    )
+    
+    # Update points values
+    updated = await data_service.update_season(
+        session=db_session,
+        season_id=created["id"],
+        points_per_win=5,
+        points_per_loss=0,
+    )
+    
+    assert updated["scoring_system"] == "points_system"
+    import json
+    point_system = json.loads(updated["point_system"])
+    assert point_system["points_per_win"] == 5
+    assert point_system["points_per_loss"] == 0
+
+
+@pytest.mark.asyncio
+async def test_update_season_scoring_system_triggers_recalc(db_session, test_player, monkeypatch):
+    """Test that updating scoring system triggers stats recalculation."""
+    from backend.services.stats_queue import get_stats_queue
+    
+    # Track enqueue calls
+    enqueue_calls = []
+    
+    async def mock_enqueue(session, calc_type, league_id):
+        enqueue_calls.append((calc_type, league_id))
+        return 1  # Return a fake job ID
+    
+    # Create league and season
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    created = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        scoring_system="points_system",
+    )
+    
+    # Mock the queue's enqueue_calculation method
+    queue = get_stats_queue()
+    monkeypatch.setattr(queue, "enqueue_calculation", mock_enqueue)
+    
+    # Update scoring system
+    await data_service.update_season(
+        session=db_session,
+        season_id=created["id"],
+        scoring_system="season_rating",
+    )
+    
+    # Verify enqueue was called
+    assert len(enqueue_calls) > 0
+    assert ("league", league["id"]) in enqueue_calls
 
 
 # ============================================================================

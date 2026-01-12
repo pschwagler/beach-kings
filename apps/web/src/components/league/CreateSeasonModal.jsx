@@ -9,6 +9,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
     name: "",
     start_date: "",
     end_date: "",
+    scoring_system: "points_system",
+    points_per_win: 3,
+    points_per_loss: 1,
   });
 
   useEffect(() => {
@@ -33,6 +36,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
         name: "",
         start_date: formatDate(today),
         end_date: formatDate(endDate),
+        scoring_system: "points_system",
+        points_per_win: 3,
+        points_per_loss: 1,
       });
     }
   }, [isOpen]);
@@ -62,11 +68,19 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
     }
 
     try {
-      await createLeagueSeason(leagueId, {
+      const payload = {
         name: formData.name || undefined,
         start_date: formData.start_date,
         end_date: formData.end_date,
-      });
+        scoring_system: formData.scoring_system,
+      };
+      
+      if (formData.scoring_system === "points_system") {
+        payload.points_per_win = formData.points_per_win;
+        payload.points_per_loss = formData.points_per_loss;
+      }
+      
+      await createLeagueSeason(leagueId, payload);
       onSuccess();
       onClose();
     } catch (err) {
@@ -132,6 +146,61 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
               required
             />
           </div>
+          <div className="form-group">
+            <label htmlFor="scoring-system">Scoring System <span className="required">*</span></label>
+            <select
+              id="scoring-system"
+              value={formData.scoring_system}
+              onChange={(e) =>
+                setFormData({ ...formData, scoring_system: e.target.value })
+              }
+              className="form-input"
+              required
+            >
+              <option value="points_system">Points System</option>
+              <option value="season_rating">Season Rating</option>
+            </select>
+          </div>
+          {formData.scoring_system === "points_system" && (
+            <>
+              <div className="form-group">
+                <label htmlFor="points-per-win">Points per Win</label>
+                <input
+                  id="points-per-win"
+                  type="number"
+                  value={formData.points_per_win}
+                  onChange={(e) =>
+                    setFormData({ ...formData, points_per_win: parseInt(e.target.value) || 3 })
+                  }
+                  className="form-input"
+                  min="0"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="points-per-loss">Points per Loss</label>
+                <input
+                  id="points-per-loss"
+                  type="number"
+                  value={formData.points_per_loss}
+                  onChange={(e) =>
+                    setFormData({ ...formData, points_per_loss: parseInt(e.target.value) || 1 })
+                  }
+                  className="form-input"
+                />
+                <small className="form-help-text">Can be 0 or negative</small>
+              </div>
+            </>
+          )}
+          {formData.scoring_system === "season_rating" && (
+            <div className="form-group">
+              <div className="form-info-box">
+                <p>
+                  <strong>Season Rating:</strong> All players start with the league average ELO at the start of the season.
+                  Season ratings are tracked separately from global ELO ratings.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button className="league-text-button" onClick={onClose}>

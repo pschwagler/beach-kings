@@ -3,3 +3,66 @@
 - All methods should be well-documented with docstrings
 - All methods should be well-tested with unit tests
 
+Architecture setup:
+"""
+App Architecture Overview
+-------------------------
+
+This project is a modern, full-stack web application structured with a monorepo and leverages a Makefile to simplify common operations for development, testing, and deployment. The following overview should help agents and developers understand how to work with, build, and run the application.
+
+1. **Monorepo Structure (Turborepo)**
+   - The codebase uses [Turborepo](https://turbo.build/) to organize multiple apps and packages under a single repository.
+   - Apps (backend, frontend) and packages (shared libraries, utilities) reside in their respective subdirectories.
+
+2. **Backend Services**
+   - Located in `apps/backend/`.
+   - Python async service, typically using FastAPI and PostgreSQL (async).
+   - Managed using Docker and Makefile targets for ease of use.
+   - **To build or run the backend:**
+     - Build all containers: `make build`
+     - Start only the backend (and dependencies): `make backend`
+     - Development (with hot-reloading): `make backend-dev`
+
+3. **Frontend**
+   - Located under `apps/frontend/` (React, possibly with Next.js).
+   - Managed by Turborepo tasks, npm/yarn scripts, and Makefile shorthands.
+   - **To run the frontend in development:**
+     - `make frontend`
+
+4. **Database**
+   - PostgreSQL service orchestrated via Docker Compose.
+   - Migrations typically via Alembic; may be wrapped in Makefile targets.
+   - **Start the database service:** `make db`
+   - **Run migrations:** `make migrate`
+
+5. **Dockerized Development**
+   - Docker Compose manages containers for backend, frontend, db, workers, etc.
+   - **General workflow:**
+     - Start all services: `make up`
+     - Rebuild containers: `make build`
+     - Stop all services: `make down`
+     - Clean everything: `make clean`
+
+6. **Testing**
+   - Unit and integration tests are run per workspace/package via `turbo`, native runners, or Makefile short-hands.
+   - **Run all tests:** `make test`
+   - Or, for more control per package, use `turbo run test` or like `cd apps/backend && pytest`
+
+7. **Local Development Workflow**
+   - Prerequisites: Docker Desktop/Engine running.
+   - **Typical commands:**
+     ```
+     make up          # Start all services (dev mode)
+     make backend     # Start backend only
+     make frontend    # Start frontend only
+     make db          # Start the database
+     make migrate     # Run DB migrations
+     make logs        # Tail all logs
+     make stop        # Stop all running services
+     ```
+   - Code changes support automatic reload (FastAPI, React).
+   - Logs: `make logs` or `docker compose logs -f <service>`
+
+8. **Shared Libraries**
+   - Found under `packages/` or `libs/` directory.
+   - Used for shared domain logic, types, and utilities.

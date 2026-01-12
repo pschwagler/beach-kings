@@ -225,6 +225,7 @@ export default function LeagueRankingsTab() {
           : (seasonDataLoadingMap['all-seasons'] || false)
         }
         isAllSeasons={!selectedSeasonId}
+        season={selectedSeason}
       />
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}
