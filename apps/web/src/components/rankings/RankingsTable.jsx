@@ -114,6 +114,25 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
     return value >= 0 ? `+${value}` : `${value}`;
   };
 
+  /**
+   * Format points to nearest 0.1, but show as integer if it's a whole number
+   * Examples: 2.0000 -> "2", 2.5 -> "2.5", 2.45 -> "2.5", 2.44 -> "2.4"
+   */
+  const formatPoints = (value) => {
+    if (value == null || value === undefined) return '-';
+    
+    // Round to nearest 0.1
+    const rounded = Math.round(value * 10) / 10;
+    
+    // If it's a whole number, display without decimal
+    if (rounded % 1 === 0) {
+      return rounded.toString();
+    }
+    
+    // Otherwise, display with one decimal place
+    return rounded.toFixed(1);
+  };
+
   // Generate dynamic helper text for Points column based on scoring system
   const getPointsHelperText = () => {
     if (isAllSeasons || !season) {
@@ -266,7 +285,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                     <span>{player.Name}</span>
                   </span>
                 </td>
-                <td className="rankings-stat-cell">{isAllSeasons ? '-' : player.Points}</td>
+                <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.Points)}</td>
                 <td className="rankings-stat-cell">{player.Games}</td>
                 <td className="rankings-stat-cell">{player.Wins}</td>
                 <td className="rankings-stat-cell">{player.Losses}</td>

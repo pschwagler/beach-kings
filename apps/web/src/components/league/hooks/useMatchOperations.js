@@ -50,8 +50,10 @@ export function useMatchOperations({
   /**
    * Create a match via API
    * @param {Object} matchData - Match data (may contain player names or IDs)
+   * @param {Object} options - Optional configuration
+   * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const createMatchAPI = useCallback(async (matchData) => {
+  const createMatchAPI = useCallback(async (matchData, options = {}) => {
     // Match data should already contain player IDs from AddMatchModal
     // But normalize just in case
     const normalized = normalizeMatchData(matchData);
@@ -61,6 +63,11 @@ export function useMatchOperations({
     } catch (error) {
       console.error('[useMatchOperations.createMatchAPI] Error creating match:', error);
       throw error;
+    }
+    
+    // Skip refresh if requested (e.g., when called from saveEditedSession)
+    if (options.skipRefresh) {
+      return;
     }
     
     // Reload active session and all sessions (may have been created by the first match)
@@ -84,8 +91,10 @@ export function useMatchOperations({
    * Update a match via API
    * @param {number|string} matchId - Match ID to update
    * @param {Object} matchData - Match data (may contain player names or IDs)
+   * @param {Object} options - Optional configuration
+   * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const updateMatchAPI = useCallback(async (matchId, matchData) => {
+  const updateMatchAPI = useCallback(async (matchId, matchData, options = {}) => {
     const normalized = normalizeMatchData(matchData);
     
     // Validate all player IDs are provided
@@ -95,6 +104,11 @@ export function useMatchOperations({
     }
     
     await updateMatch(matchId, normalized);
+    
+    // Skip refresh if requested (e.g., when called from saveEditedSession)
+    if (options.skipRefresh) {
+      return;
+    }
     
     // Refresh match data
     if (refreshMatchData && getSeasonIdForRefresh) {
@@ -108,9 +122,16 @@ export function useMatchOperations({
   /**
    * Delete a match via API
    * @param {number|string} matchId - Match ID to delete
+   * @param {Object} options - Optional configuration
+   * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const deleteMatchAPI = useCallback(async (matchId) => {
+  const deleteMatchAPI = useCallback(async (matchId, options = {}) => {
     await deleteMatch(matchId);
+    
+    // Skip refresh if requested (e.g., when called from saveEditedSession)
+    if (options.skipRefresh) {
+      return;
+    }
     
     // Refresh match data
     if (refreshMatchData && getSeasonIdForRefresh) {
@@ -128,4 +149,5 @@ export function useMatchOperations({
     deleteMatchAPI
   };
 }
+
 

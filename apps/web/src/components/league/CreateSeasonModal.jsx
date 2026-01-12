@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { createLeagueSeason } from "../../services/api";
 import { useLeague } from "../../contexts/LeagueContext";
+import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
 
 export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
   const { leagueId, showMessage } = useLeague();
@@ -177,7 +178,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="points-per-loss">Points per Loss</label>
+                <label htmlFor="points-per-loss">Points per Loss (Positive to reward participation)</label>
                 <input
                   id="points-per-loss"
                   type="number"
@@ -195,8 +196,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
             <div className="form-group">
               <div className="form-info-box">
                 <p>
-                  <strong>Season Rating:</strong> All players start with the league average ELO at the start of the season.
-                  Season ratings are tracked separately from global ELO ratings.
+                  <strong>Season Rating:</strong> {SEASON_RATING_DESCRIPTION}
                 </p>
               </div>
             </div>

@@ -465,7 +465,7 @@ class PlayerSeasonStatsResponse(BaseModel):
     season_id: int
     games: int
     wins: int
-    points: int
+    points: float  # Float to support season_rating type (precise ratings) and points_system (integer values)
     win_rate: float
     avg_point_diff: float
     created_at: str

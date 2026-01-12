@@ -148,6 +148,7 @@ class Player(Base):
     league_memberships = relationship("LeagueMember", foreign_keys="LeagueMember.player_id", back_populates="player")
     season_stats = relationship("PlayerSeasonStats", back_populates="player")
     elo_history = relationship("EloHistory", back_populates="player")
+    season_rating_history = relationship("SeasonRatingHistory", back_populates="player")
     global_stats = relationship("PlayerGlobalStats", back_populates="player", uselist=False)
     signup_registrations = relationship("SignupPlayer", back_populates="player")
     
@@ -333,7 +334,7 @@ class PlayerSeasonStats(Base):
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False)
     games = Column(Integer, default=0, nullable=False)
     wins = Column(Integer, default=0, nullable=False)
-    points = Column(Integer, default=0, nullable=False)  # Note: Points and ranking only apply to seasons, not league-wide stats
+    points = Column(Float, default=0.0, nullable=False)  # Note: Points and ranking only apply to seasons, not league-wide stats. For season_rating type, this stores the float rating.
     win_rate = Column(Float, default=0.0, nullable=False)
     avg_point_diff = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -520,6 +521,29 @@ class EloHistory(Base):
     __table_args__ = (
         Index("idx_elo_history_player", "player_id"),
         Index("idx_elo_history_match", "match_id"),
+    )
+
+
+class SeasonRatingHistory(Base):
+    """Track season rating changes over time for charting (season-specific)."""
+    __tablename__ = "season_rating_history"
+    
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, primary_key=True)
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=False, primary_key=True)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False, primary_key=True)
+    date = Column(String, nullable=False)
+    rating_after = Column(Float, nullable=False)
+    rating_change = Column(Float, nullable=False)
+    
+    # Relationships
+    player = relationship("Player", back_populates="season_rating_history")
+    season = relationship("Season")
+    match = relationship("Match")
+    
+    __table_args__ = (
+        Index("idx_season_rating_history_player", "player_id"),
+        Index("idx_season_rating_history_season", "season_id"),
+        Index("idx_season_rating_history_match", "match_id"),
     )
 
 

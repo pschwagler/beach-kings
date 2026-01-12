@@ -20,7 +20,7 @@ from backend.database import db
 from backend.database.models import (
     League, LeagueMember, LeagueMessage, LeagueConfig, LeagueRequest, Season, Location, Court, Player, User,
     Session, Match, Setting, PartnershipStats, OpponentStats, 
-    EloHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
+    EloHistory, SeasonRatingHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
     OpenSignupsMode, SignupEventType,
     PartnershipStatsSeason, OpponentStatsSeason, 
@@ -2693,7 +2693,7 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
         "wins": int,
         "losses": int,
         "win_rate": float,
-        "points": int,
+        "points": float,
         "avg_point_diff": float,
         "rank": int,
         "partnerships": [...],
@@ -3070,7 +3070,7 @@ async def get_player_season_stats(
         "wins": int,
         "losses": int,
         "win_rate": float,
-        "points": int,
+        "points": float,
         "avg_point_diff": float,
         "rank": int (optional)
     }
@@ -3162,7 +3162,7 @@ async def get_player_league_stats(
         "wins": int,
         "losses": int,
         "win_rate": float,
-        "points": int,
+        "points": float,
         "avg_point_diff": float,
         "rank": int (optional)
     }
@@ -3955,6 +3955,9 @@ async def delete_season_stats_async(session: AsyncSession, season_id: int) -> No
         delete(OpponentStatsSeason).where(OpponentStatsSeason.season_id == season_id)
     )
     await session.execute(
+        delete(SeasonRatingHistory).where(SeasonRatingHistory.season_id == season_id)
+    )
+    await session.execute(
         delete(PlayerSeasonStats).where(PlayerSeasonStats.season_id == season_id)
     )
 
@@ -4003,6 +4006,15 @@ async def insert_elo_history_async(session: AsyncSession, elo_history_list: List
         return
     
     for chunk in _chunks(elo_history_list, 1000):
+        session.add_all(chunk)
+
+
+async def insert_season_rating_history_async(session: AsyncSession, season_rating_history_list: List[SeasonRatingHistory]) -> None:
+    """Bulk insert season rating history records in chunks."""
+    if not season_rating_history_list:
+        return
+    
+    for chunk in _chunks(season_rating_history_list, 1000):
         session.add_all(chunk)
 
 
@@ -4381,12 +4393,31 @@ async def _calculate_season_stats_from_matches(
             "avg_point_diff": round(player_stats.avg_point_diff, 1)
         })
     
+    # Build season rating history if Season Rating mode
+    season_rating_history_list = []
+    if is_season_rating:
+        for player_id, player_stats in tracker.players.items():
+            for match_id, rating_after, rating_change, date in player_stats.match_season_rating_history:
+                season_rating_history = SeasonRatingHistory(
+                    player_id=player_id,
+                    season_id=season_id,
+                    match_id=match_id,
+                    date=date or '',
+                    rating_after=round(rating_after, 2),
+                    rating_change=round(rating_change, 2)
+                )
+                season_rating_history_list.append(season_rating_history)
+    
     # Now delete old stats and insert new ones (all calculated, so if this fails, transaction rolls back)
     await delete_season_stats_async(session, season_id)
     
     # Insert new season-specific stats (within same transaction)
     await insert_partnership_stats_season_async(session, partnership_season_list, season_id)
     await insert_opponent_stats_season_async(session, opponent_season_list, season_id)
+    
+    # Insert season rating history if Season Rating mode
+    if season_rating_history_list:
+        await insert_season_rating_history_async(session, season_rating_history_list)
     
     # Insert player season stats
     if player_stats_list:

@@ -5,8 +5,8 @@ Processes matches and computes all statistics.
 
 from typing import List, Dict, Tuple, Optional
 import json
-from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL, K
-from backend.database.models import Match, PartnershipStats, OpponentStats, EloHistory
+from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL, K, SEASON_K
+from backend.database.models import Match, PartnershipStats, OpponentStats, EloHistory, SeasonRatingHistory
 
 
 # ============================================================================
@@ -196,20 +196,20 @@ class PlayerStats:
         return self.total_point_diff / self.game_count
     
     @property
-    def points(self) -> int:
+    def points(self) -> float:
         """
         Calculate points based on scoring system.
         For Points System: returns win/loss points
-        For Season Rating: returns season rating (rounded to int)
+        For Season Rating: returns season rating (float, not rounded)
         """
         if self.scoring_config.get("type") == "season_rating":
-            return int(round(self.season_rating))
+            return self.season_rating
         
         # Points System
         losses = self.game_count - self.win_count
         points_per_win = self.scoring_config.get("points_per_win", 3)
         points_per_loss = self.scoring_config.get("points_per_loss", 1)
-        return (self.win_count * points_per_win) + (losses * points_per_loss)
+        return float((self.win_count * points_per_win) + (losses * points_per_loss))
     
     def _increment_dict(self, d: Dict[int, int], key: int, amount: int = 1) -> None:
         """Helper to increment a value in a dictionary, initializing if needed."""
@@ -445,10 +445,11 @@ class StatsTracker:
                 expected_score(team_season_ratings[1], team_season_ratings[0])
             ]
             
-            # Calculate season ELO deltas (using same K-factor)
+            # Calculate season ELO deltas (using SEASON_K-factor, which is lower for more stability)
+            season_k = k_factor(avg_games, SEASON_K)
             season_deltas = [
-                elo_change(k, team_season_ratings[0], expected_season[0], normalized_score),
-                elo_change(k, team_season_ratings[1], expected_season[1], 1 - normalized_score)
+                elo_change(season_k, team_season_ratings[0], expected_season[0], normalized_score),
+                elo_change(season_k, team_season_ratings[1], expected_season[1], 1 - normalized_score)
             ]
             
             # Apply season ELO changes

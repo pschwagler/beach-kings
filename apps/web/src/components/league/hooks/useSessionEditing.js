@@ -100,21 +100,25 @@ export function useSessionEditing({
       const sessionChanges = pendingMatchChanges.get(sessionId);
       
       if (sessionChanges && matchOperations) {
+        // Skip individual refreshes during batch operations to prevent duplicate matches
+        // We'll do a single refresh at the end after clearing pending changes
+        const skipRefresh = { skipRefresh: true };
+        
         // Apply deletions first (before updates/additions)
         if (sessionChanges.deletions && sessionChanges.deletions.length > 0) {
           for (const matchId of sessionChanges.deletions) {
-            await matchOperations.deleteMatchAPI(matchId);
+            await matchOperations.deleteMatchAPI(matchId, skipRefresh);
           }
         }
         
         // Apply updates
         for (const [matchId, matchData] of sessionChanges.updates) {
-          await matchOperations.updateMatchAPI(matchId, matchData);
+          await matchOperations.updateMatchAPI(matchId, matchData, skipRefresh);
         }
         
         // Apply additions
         for (const matchData of sessionChanges.additions) {
-          await matchOperations.createMatchAPI(matchData);
+          await matchOperations.createMatchAPI(matchData, skipRefresh);
         }
       } else {
         console.warn('[useSessionEditing.saveEditedSession] No sessionChanges or matchOperations:', {
@@ -125,6 +129,25 @@ export function useSessionEditing({
       
       // Lock in the session (this will recalculate stats)
       await lockInLeagueSession(leagueId, sessionId);
+      
+      // Clear editing state and pending changes IMMEDIATELY after API operations
+      // This prevents duplicate matches from showing (pending + real matches)
+      // Must be done before any refresh operations
+      setEditingSessions(prev => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      setPendingMatchChanges(prev => {
+        const next = new Map(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      setEditingSessionMetadata(prev => {
+        const next = new Map(prev);
+        next.delete(sessionId);
+        return next;
+      });
       
       // Schedule delayed stats refresh after backend has time to recalculate
       // This allows the async stat calculation job to complete
@@ -141,23 +164,6 @@ export function useSessionEditing({
           }, 2000);
         }
       }
-      
-      // Clear editing state and pending changes
-      setEditingSessions(prev => {
-        const next = new Set(prev);
-        next.delete(sessionId);
-        return next;
-      });
-      setPendingMatchChanges(prev => {
-        const next = new Map(prev);
-        next.delete(sessionId);
-        return next;
-      });
-      setEditingSessionMetadata(prev => {
-        const next = new Map(prev);
-        next.delete(sessionId);
-        return next;
-      });
       
       // Refresh all data
       if (refreshData) {
@@ -370,4 +376,5 @@ export function useSessionEditing({
     handleDeleteMatch
   };
 }
+
 
