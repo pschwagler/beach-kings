@@ -29,6 +29,9 @@ COPY --from=pruner /app/turbo.json ./turbo.json
 # Install dependencies (workspace-aware, only what's needed)
 RUN npm install
 
+# Create empty .env file if it doesn't exist (Next.js tries to stat it during build)
+RUN touch apps/web/.env || true
+
 # Build Next.js application
 # This will generate the standalone output in apps/web/.next/standalone
 RUN npx turbo run build --filter=@beach-kings/web...

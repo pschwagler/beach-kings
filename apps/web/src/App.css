@@ -2925,7 +2925,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .tooltip-multiline {
   white-space: normal;
-  max-width: 220px;
+  max-width: 300px;
   word-wrap: break-word;
   overflow-wrap: break-word;
 }

@@ -304,7 +304,15 @@ async def create_season(
 ):
     """
     Create a season in a league (league_admin or system_admin).
-    Body: { name?: str, start_date: ISO, end_date: ISO, point_system?: str }
+    Body: { 
+        name?: str, 
+        start_date: ISO, 
+        end_date: ISO, 
+        point_system?: str (legacy),
+        scoring_system?: str ("points_system" or "season_rating"),
+        points_per_win?: int (default 3, for Points System),
+        points_per_loss?: int (default 1, for Points System, can be 0 or negative)
+    }
     Seasons are active based on date ranges (current_date >= start_date AND current_date <= end_date).
     """
     try:
@@ -315,7 +323,10 @@ async def create_season(
             name=body.get("name"),
             start_date=body["start_date"],
             end_date=body["end_date"],
-            point_system=body.get("point_system"),
+            point_system=body.get("point_system"),  # Legacy support
+            scoring_system=body.get("scoring_system"),
+            points_per_win=body.get("points_per_win"),
+            points_per_loss=body.get("points_per_loss"),
         )
         return season
     except KeyError as e:
@@ -568,7 +579,11 @@ async def update_season(
 ):
     """
     Update a season (league_admin or system_admin).
-    Body may include: name, start_date, end_date, point_system
+    Body may include: 
+        name, start_date, end_date, point_system (legacy),
+        scoring_system ("points_system" or "season_rating"),
+        points_per_win, points_per_loss (for Points System)
+    When changing scoring system, stats will be recalculated.
     """
     try:
         body = await request.json()

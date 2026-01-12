@@ -7,11 +7,12 @@ from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
 import pytz
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
-from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer
+from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer, Float, String
 from sqlalchemy.orm import selectinload, aliased
 from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
 from sqlalchemy.sql import func as sql_func
@@ -25,7 +26,7 @@ from backend.database.models import (
     PartnershipStatsSeason, OpponentStatsSeason, 
     PlayerLeagueStats, PartnershipStatsLeague, OpponentStatsLeague,
     StatsCalculationJob, StatsCalculationJobStatus,
-    Region
+    Region, ScoringSystem
 )
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
@@ -536,9 +537,25 @@ async def create_season(
     name: Optional[str],
     start_date: str,
     end_date: str,
-    point_system: Optional[str],
+    point_system: Optional[str] = None,
+    scoring_system: Optional[str] = None,
+    points_per_win: Optional[int] = None,
+    points_per_loss: Optional[int] = None,
 ) -> Dict:
-    """Create a season."""
+    """
+    Create a season.
+    
+    Args:
+        session: Database session
+        league_id: League ID
+        name: Season name (optional)
+        start_date: Start date (ISO string)
+        end_date: End date (ISO string)
+        point_system: Legacy point_system JSON (optional, for backward compatibility)
+        scoring_system: Scoring system type ("points_system" or "season_rating")
+        points_per_win: Points per win (for Points System, default 3)
+        points_per_loss: Points per loss (for Points System, default 1, can be 0 or negative)
+    """
     # If no name provided, generate default name based on season count for this league
     if not name or name.strip() == "":
         # Count existing seasons for this league
@@ -548,23 +565,63 @@ async def create_season(
         season_count = result.scalar() or 0
         name = f"Season {season_count + 1}"
     
+    # Determine scoring system
+    if scoring_system:
+        scoring_system_enum = ScoringSystem(scoring_system)
+    else:
+        # Default to points_system
+        scoring_system_enum = ScoringSystem.POINTS_SYSTEM
+    
+    # Build point_system JSON
+    if point_system:
+        # Use provided point_system (for backward compatibility)
+        # Validate that point_system type matches scoring_system
+        try:
+            point_system_dict_check = json.loads(point_system)
+            if point_system_dict_check.get("type") and scoring_system_enum.value != point_system_dict_check.get("type"):
+                raise ValueError(
+                    f"scoring_system '{scoring_system_enum.value}' does not match "
+                    f"point_system type '{point_system_dict_check.get('type')}'"
+                )
+        except (json.JSONDecodeError, TypeError):
+            # Invalid JSON, will be overwritten below
+            pass
+        point_system_json = point_system
+    else:
+        # Build from scoring system parameters
+        if scoring_system_enum == ScoringSystem.POINTS_SYSTEM:
+            points_per_win_val = points_per_win if points_per_win is not None else 3
+            points_per_loss_val = points_per_loss if points_per_loss is not None else 1
+            point_system_dict = {
+                "type": "points_system",
+                "points_per_win": points_per_win_val,
+                "points_per_loss": points_per_loss_val
+            }
+        else:  # SEASON_RATING
+            point_system_dict = {
+                "type": "season_rating"
+                # All players start at 100 rating in Season Rating mode
+            }
+        point_system_json = json.dumps(point_system_dict)
+    
     season = Season(
         league_id=league_id,
         name=name,
         start_date=datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date,
         end_date=datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date,
-        point_system=point_system,
+        scoring_system=scoring_system_enum,
+        point_system=point_system_json,
     )
     session.add(season)
     await session.commit()
     await session.refresh(season)
-    current_date = date.today()
     return {
         "id": season.id,
         "league_id": season.league_id,
         "name": season.name,
         "start_date": season.start_date.isoformat() if season.start_date else None,
         "end_date": season.end_date.isoformat() if season.end_date else None,
+        "scoring_system": season.scoring_system if season.scoring_system else None,
         "point_system": season.point_system,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
@@ -587,6 +644,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "name": s.name,
             "start_date": s.start_date.isoformat() if s.start_date else None,
             "end_date": s.end_date.isoformat() if s.end_date else None,
+            "scoring_system": s.scoring_system,  # Now just a string, no enum conversion needed
             "point_system": s.point_system,
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
@@ -609,6 +667,7 @@ async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
         "name": season.name,
         "start_date": season.start_date.isoformat() if season.start_date else None,
         "end_date": season.end_date.isoformat() if season.end_date else None,
+        "scoring_system": season.scoring_system if season.scoring_system else None,
         "point_system": season.point_system,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
@@ -2015,12 +2074,87 @@ async def update_season(
     season_id: int,
     **fields
 ) -> Optional[Dict]:
-    """Update a season - async version."""
-    allowed = {"name", "start_date", "end_date", "point_system"}
+    """
+    Update a season - async version.
+    
+    When changing scoring system, updates point_system configuration accordingly.
+    """
+    # Get current season to preserve initial_rating if changing scoring system
+    season_result = await session.execute(
+        select(Season).where(Season.id == season_id)
+    )
+    season = season_result.scalar_one_or_none()
+    if not season:
+        return None
+    
+    allowed = {"name", "start_date", "end_date", "point_system", "scoring_system", "points_per_win", "points_per_loss"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     
     if not updates:
         return await get_season(session, season_id)
+    
+    # Handle scoring system changes
+    scoring_system_changed = "scoring_system" in updates or "points_per_win" in updates or "points_per_loss" in updates
+    if scoring_system_changed:
+        # Build new point_system JSON
+        scoring_system_val = updates.get("scoring_system", season.scoring_system if season.scoring_system else "points_system")
+        scoring_system_enum = ScoringSystem(scoring_system_val)
+        
+        # Validate consistency if point_system is being set directly
+        if "point_system" in updates and updates["point_system"]:
+            try:
+                point_system_dict_check = json.loads(updates["point_system"])
+                if point_system_dict_check.get("type") and scoring_system_enum.value != point_system_dict_check.get("type"):
+                    raise ValueError(
+                        f"scoring_system '{scoring_system_enum.value}' does not match "
+                        f"point_system type '{point_system_dict_check.get('type')}'"
+                    )
+            except (json.JSONDecodeError, TypeError):
+                # Invalid JSON, will be overwritten
+                pass
+        
+        if scoring_system_enum == ScoringSystem.POINTS_SYSTEM:
+            points_per_win_val = updates.get("points_per_win")
+            if points_per_win_val is None:
+                # Try to get from existing config
+                if season.point_system:
+                    try:
+                        point_system_dict = json.loads(season.point_system)
+                        points_per_win_val = point_system_dict.get("points_per_win", 3)
+                    except (json.JSONDecodeError, TypeError):
+                        points_per_win_val = 3
+                else:
+                    points_per_win_val = 3
+            
+            points_per_loss_val = updates.get("points_per_loss")
+            if points_per_loss_val is None:
+                # Try to get from existing config
+                if season.point_system:
+                    try:
+                        point_system_dict = json.loads(season.point_system)
+                        points_per_loss_val = point_system_dict.get("points_per_loss", 1)
+                    except (json.JSONDecodeError, TypeError):
+                        points_per_loss_val = 1
+                else:
+                    points_per_loss_val = 1
+            
+            point_system_dict = {
+                "type": "points_system",
+                "points_per_win": points_per_win_val,
+                "points_per_loss": points_per_loss_val
+            }
+        else:  # SEASON_RATING
+            point_system_dict = {
+                "type": "season_rating"
+            }
+        
+        updates["point_system"] = json.dumps(point_system_dict)
+        updates["scoring_system"] = scoring_system_enum
+        # Remove points_per_win and points_per_loss from updates (they're in point_system now)
+        updates.pop("points_per_win", None)
+        updates.pop("points_per_loss", None)
+    else:
+        scoring_system_changed = False
     
     # Convert date strings to date objects if needed
     if "start_date" in updates and isinstance(updates["start_date"], str):
@@ -2034,6 +2168,16 @@ async def update_season(
         .values(**updates)
     )
     await session.commit()
+    
+    # Trigger stats recalculation if scoring system changed
+    if scoring_system_changed:
+        try:
+            from backend.services.stats_queue import get_stats_queue
+            queue = get_stats_queue()
+            await queue.enqueue_calculation(session, "league", season.league_id)
+        except Exception:
+            # Don't fail the update if queueing fails - stats can be recalculated manually
+            pass
     
     return await get_season(session, season_id)
 
@@ -4002,9 +4146,6 @@ async def insert_opponent_stats_league_async(
     
     for chunk in _chunks(opponents, 1000):
         session.add_all(chunk)
-    
-    for chunk in _chunks(opponents, 1000):
-        session.add_all(chunk)
 
 
 async def upsert_player_season_stats_async(
@@ -4083,7 +4224,7 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     
     # Process matches through calculation service (in-memory, fast)
     # Note: player_id_map is no longer needed since we use IDs directly
-    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+    partnerships, opponents, elo_history_list = calculation_service.process_matches(
         matches
     )
     
@@ -4131,52 +4272,101 @@ async def _calculate_season_stats_from_matches(
     Returns:
         Dict with player_count and match_count
     """
+    # Load season to get scoring system configuration
+    season_result = await session.execute(
+        select(Season).where(Season.id == season_id)
+    )
+    season = season_result.scalar_one_or_none()
+    if not season:
+        raise ValueError(f"Season {season_id} not found")
+    
+    # Get scoring configuration with error handling
+    try:
+        scoring_config = calculation_service.get_scoring_config(season.point_system)
+    except Exception:
+        # Fallback to default if parsing fails
+        scoring_config = {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+    
+    is_season_rating = season.scoring_system == ScoringSystem.SEASON_RATING.value
+    
+    # Calculate initial ratings if Season Rating mode
+    # All players start at 100 rating in Season Rating mode
+    initial_ratings: Dict[int, float] = {}
+    if is_season_rating:
+        try:
+            # Get all league members and initialize them with 100
+            league_members_result = await session.execute(
+                select(LeagueMember.player_id).where(LeagueMember.league_id == season.league_id)
+            )
+            all_league_member_ids = [row[0] for row in league_members_result.all()]
+            
+            # All players start at 100 in Season Rating mode
+            initial_rating = 100.0
+            for player_id in all_league_member_ids:
+                initial_ratings[player_id] = initial_rating
+        except Exception:
+            # On error, continue with empty dict (stats calculation will handle missing initial ratings)
+            pass
+    
     if not season_matches:
         # No matches - delete stats and return
         await delete_season_stats_async(session, season_id)
         return {"player_count": 0, "match_count": 0}
     
-    # Process matches through calculation service (in-memory, fast)
-    # Note: player_id_map is no longer needed since we use IDs directly
-    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        season_matches
+    # Create tracker and process matches once (avoid duplicate processing)
+    tracker = calculation_service.StatsTracker(
+        initial_ratings=initial_ratings if is_season_rating else None,
+        scoring_config=scoring_config
     )
-    
-    # Create tracker for player season stats (process matches again to get player-level stats)
-    tracker = calculation_service.StatsTracker()
     for match in season_matches:
         tracker.process_match(match)
     
-    # Convert partnerships and opponents to season-specific models
+    # Build partnership and opponent stats from tracker
     partnership_season_list = []
-    for ps in partnerships:
-        partnership_season_list.append(
-            PartnershipStatsSeason(
-                player_id=ps.player_id,
-                partner_id=ps.partner_id,
-                season_id=season_id,
-                games=ps.games,
-                wins=ps.wins,
-                points=ps.points,
-                win_rate=ps.win_rate,
-                avg_point_diff=ps.avg_point_diff
+    for player_id, player_stats in tracker.players.items():
+        for partner_id, games in player_stats.games_with.items():
+            wins = player_stats.wins_with.get(partner_id, 0)
+            losses = games - wins
+            win_rate = wins / games if games > 0 else 0
+            points = calculation_service.calculate_points(wins, losses, scoring_config)
+            total_pt_diff = player_stats.point_diff_with.get(partner_id, 0)
+            avg_pt_diff = total_pt_diff / games if games > 0 else 0
+            
+            partnership_season_list.append(
+                PartnershipStatsSeason(
+                    player_id=player_id,
+                    partner_id=partner_id,
+                    season_id=season_id,
+                    games=games,
+                    wins=wins,
+                    points=points,
+                    win_rate=round(win_rate, 3),
+                    avg_point_diff=round(avg_pt_diff, 1)
+                )
             )
-        )
     
     opponent_season_list = []
-    for os in opponents:
-        opponent_season_list.append(
-            OpponentStatsSeason(
-                player_id=os.player_id,
-                opponent_id=os.opponent_id,
-                season_id=season_id,
-                games=os.games,
-                wins=os.wins,
-                points=os.points,
-                win_rate=os.win_rate,
-                avg_point_diff=os.avg_point_diff
+    for player_id, player_stats in tracker.players.items():
+        for opponent_id, games in player_stats.games_against.items():
+            wins = player_stats.wins_against.get(opponent_id, 0)
+            losses = games - wins
+            win_rate = wins / games if games > 0 else 0
+            points = calculation_service.calculate_points(wins, losses, scoring_config)
+            total_pt_diff = player_stats.point_diff_against.get(opponent_id, 0)
+            avg_pt_diff = total_pt_diff / games if games > 0 else 0
+            
+            opponent_season_list.append(
+                OpponentStatsSeason(
+                    player_id=player_id,
+                    opponent_id=opponent_id,
+                    season_id=season_id,
+                    games=games,
+                    wins=wins,
+                    points=points,
+                    win_rate=round(win_rate, 3),
+                    avg_point_diff=round(avg_pt_diff, 1)
+                )
             )
-        )
     
     # Prepare player season stats list (calculate first, before deleting)
     player_stats_list = []
@@ -4248,15 +4438,7 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
        - Calculates season stats from filtered matches
        - Deletes old season stats
        - Inserts new season stats
-    
-    All operations happen within a single transaction to ensure consistency.
-    If calculation fails, old stats remain visible.
-    
-    This approach is efficient because:
-    - Single database query loads all matches
-    - In-memory filtering by season (fast)
-    - All calculations happen in one transaction
-    
+
     Args:
         session: Database session
         league_id: League ID
@@ -4297,7 +4479,7 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
     
     # Process all matches through calculation service to get league-level stats
     # Note: player_id_map is no longer needed since we use IDs directly
-    elo_deltas_map, partnerships, opponents, elo_history_list = calculation_service.process_matches(
+    partnerships, opponents, elo_history_list = calculation_service.process_matches(
         all_matches
     )
     

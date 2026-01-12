@@ -28,7 +28,7 @@ const PlayerAvatar = ({ avatar, playerName }) => {
   );
 };
 
-export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches }) {
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null }) {
   const router = useRouter();
   const pathname = usePathname();
   
@@ -114,8 +114,37 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
     return value >= 0 ? `+${value}` : `${value}`;
   };
 
-  // Only show empty state if rankings is explicitly an empty array (loaded but empty)
-  // Don't show if rankings is null/undefined (not loaded yet)
+  // Generate dynamic helper text for Points column based on scoring system
+  const getPointsHelperText = () => {
+    if (isAllSeasons || !season) {
+      return "Points don't apply to non-season standings";
+    }
+    
+    const scoringSystem = season.scoring_system;
+    
+    if (scoringSystem === "season_rating") {
+      return "Points determined by Rating-based system, where every player starts with 100 points and competes for other players' points.";
+    }
+    
+    // Points system - show the points per win/loss if available
+    if (season.point_system) {
+      try {
+        const config = typeof season.point_system === 'string' 
+          ? JSON.parse(season.point_system) 
+          : season.point_system;
+        
+        if (config.points_per_win !== undefined && config.points_per_loss !== undefined) {
+          return `Season points: +${config.points_per_win} for each win, +${config.points_per_loss} for each loss`;
+        }
+      } catch (e) {
+        return `Season points: +3 for each win, +1 for each loss`;
+      }
+    }
+    
+    // Default fallback
+    return "";
+  };
+
   if (Array.isArray(rankings) && rankings.length === 0) {
     return (
       <div className="loading">
@@ -160,7 +189,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
               </Tooltip>
             </th>
             <th onClick={() => handleSort('Points')}>
-              <Tooltip text="Season points: +3 for each win, +1 for each loss">
+              <Tooltip text={getPointsHelperText()} multiline={true}>
                 <span className="th-content">
                   <span className="desktop-label">Points</span>
                   <span className="mobile-label">PTS</span>

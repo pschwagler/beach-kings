@@ -394,7 +394,10 @@ class SeasonBase(BaseModel):
     name: Optional[str] = None
     start_date: str  # ISO date string
     end_date: str  # ISO date string
-    point_system: Optional[str] = None
+    point_system: Optional[str] = None  # Legacy field, kept for backward compatibility
+    scoring_system: Optional[str] = None  # "points_system" or "season_rating"
+    points_per_win: Optional[int] = None  # For Points System (default 3)
+    points_per_loss: Optional[int] = None  # For Points System (default 1, can be 0 or negative)
 
 
 class SeasonCreate(SeasonBase):

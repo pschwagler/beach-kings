@@ -34,6 +34,12 @@ class SignupEventType(str, enum.Enum):
     DROPOUT = "dropout"
 
 
+class ScoringSystem(str, enum.Enum):
+    """Season scoring system enum."""
+    POINTS_SYSTEM = "points_system"
+    SEASON_RATING = "season_rating"
+
+
 class Region(Base):
     """Geographic regions."""
     __tablename__ = "regions"
@@ -238,7 +244,13 @@ class Season(Base):
     name = Column(String, nullable=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    point_system = Column(Text, nullable=True)
+    scoring_system = Column(
+        String(50), 
+        default=ScoringSystem.POINTS_SYSTEM.value,  # Use enum value for Python default
+        nullable=False,
+        server_default=ScoringSystem.POINTS_SYSTEM.value  # Use enum value for DB default
+    )
+    point_system = Column(Text, nullable=True)  # JSON field storing scoring configuration
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(Integer, ForeignKey("players.id"), nullable=True)  # Player who created the season
@@ -250,10 +262,16 @@ class Season(Base):
     player_stats = relationship("PlayerSeasonStats", back_populates="season")
     weekly_schedules = relationship("WeeklySchedule", back_populates="season")
     signups = relationship("Signup", back_populates="season")
+    
     creator = relationship("Player", foreign_keys=[created_by], backref="created_seasons")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_seasons")
     
+    # Table constraints - build check constraint from enum values
     __table_args__ = (
+        CheckConstraint(
+            f"scoring_system IN ({', '.join(repr(e.value) for e in ScoringSystem)})",
+            name='check_scoring_system_valid'
+        ),
         Index("idx_seasons_league", "league_id"),
     )
 

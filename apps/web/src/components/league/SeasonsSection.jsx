@@ -61,6 +61,20 @@ export default function SeasonsSection({ seasons, onCreateSeason }) {
                     <p className="league-season-dates">
                       {formatDateRange(season.start_date, season.end_date)}
                     </p>
+                    {season.scoring_system && (
+                      <p className="league-season-scoring">
+                        {season.scoring_system === "points_system" ? "Points System" : "Season Rating"}
+                        {season.scoring_system === "points_system" && season.point_system && (() => {
+                          try {
+                            const config = JSON.parse(season.point_system);
+                            if (config.points_per_win !== undefined && config.points_per_loss !== undefined) {
+                              return ` (${config.points_per_win}/${config.points_per_loss})`;
+                            }
+                          } catch (e) {}
+                          return "";
+                        })()}
+                      </p>
+                    )}
                   </div>
                   {isActive && (
                     <span className="league-season-active">Active</span>

@@ -50,6 +50,7 @@ services:
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+      - "${DEBUGPY_PORT:-5678}:5678"
       # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
@@ -76,6 +77,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
+      - DEBUG_BACKEND=${DEBUG_BACKEND:-0}
     depends_on:
       postgres:
         condition: service_healthy

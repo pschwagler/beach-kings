@@ -40,6 +40,8 @@ async def test_engine():
     
     # Create all tables
     async with engine.begin() as conn:
+        # Ensure models are imported so Base.metadata includes all tables
+        from backend.database import models  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
     
     # Monkey-patch AsyncSessionLocal to use the test engine
