@@ -31,9 +31,7 @@ This project is a modern, full-stack web application structured with a monorepo 
 
 4. **Database**
    - PostgreSQL service orchestrated via Docker Compose.
-   - Migrations typically via Alembic; may be wrapped in Makefile targets.
-   - **Start the database service:** `make db`
-   - **Run migrations:** `make migrate`
+   - Migrations run automatically on system startup (FastApi lifespan)
 
 5. **Dockerized Development**
    - Docker Compose manages containers for backend, frontend, db, workers, etc.
@@ -47,21 +45,7 @@ This project is a modern, full-stack web application structured with a monorepo 
    - Unit and integration tests are run per workspace/package via `turbo`, native runners, or Makefile short-hands.
    - **Run all tests:** `make test`
    - Or, for more control per package, use `turbo run test` or like `cd apps/backend && pytest`
-
-7. **Local Development Workflow**
-   - Prerequisites: Docker Desktop/Engine running.
-   - **Typical commands:**
-     ```
-     make up          # Start all services (dev mode)
-     make backend     # Start backend only
-     make frontend    # Start frontend only
-     make db          # Start the database
-     make migrate     # Run DB migrations
-     make logs        # Tail all logs
-     make stop        # Stop all running services
-     ```
-   - Code changes support automatic reload (FastAPI, React).
-   - Logs: `make logs` or `docker compose logs -f <service>`
+   - ** End-to-End Tests: ** Playwright tests located in `apps/web/tests/e2e/` - run with `cd apps/web && npm run test:e2e` 
 
 8. **Shared Libraries**
    - Found under `packages/` or `libs/` directory.
