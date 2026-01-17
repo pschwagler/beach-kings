@@ -21,6 +21,8 @@ export const NotificationProvider = ({ children }) => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const pingIntervalRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectDelay = 30000; // 30 seconds max delay
 
   /**
    * Fetch notifications with pagination
@@ -138,6 +140,9 @@ export const NotificationProvider = ({ children }) => {
         console.log('WebSocket connected for notifications');
         setWsConnected(true);
         
+        // Reset reconnect attempts on successful connection
+        reconnectAttemptsRef.current = 0;
+        
         // Clear any reconnect timeout
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -156,8 +161,16 @@ export const NotificationProvider = ({ children }) => {
         try {
           const data = JSON.parse(event.data);
           
-          // Handle pong response
-          if (data === 'pong') {
+          // Handle pong response (string or JSON)
+          if (data === 'pong' || (typeof data === 'string' && data === 'pong')) {
+            return;
+          }
+          
+          // Handle ping from server (respond with pong)
+          if (data === 'ping' || (typeof data === 'string' && data === 'ping')) {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send('pong');
+            }
             return;
           }
           
@@ -193,11 +206,22 @@ export const NotificationProvider = ({ children }) => {
           pingIntervalRef.current = null;
         }
         
-        // Attempt to reconnect after 3 seconds (unless user logged out)
+        // Attempt to reconnect with exponential backoff (unless user logged out)
         if (isAuthenticated && user) {
+          // Calculate delay: 3s, 6s, 12s, 24s, 30s (max)
+          const baseDelay = 3000; // 3 seconds
+          const delay = Math.min(
+            baseDelay * Math.pow(2, reconnectAttemptsRef.current),
+            maxReconnectDelay
+          );
+          
+          reconnectAttemptsRef.current += 1;
+          
+          console.log(`Reconnecting WebSocket in ${delay / 1000}s (attempt ${reconnectAttemptsRef.current})`);
+          
           reconnectTimeoutRef.current = setTimeout(() => {
             connectWebSocket();
-          }, 3000);
+          }, delay);
         }
       };
     } catch (error) {
@@ -226,6 +250,9 @@ export const NotificationProvider = ({ children }) => {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
+    
+    // Reset reconnect attempts
+    reconnectAttemptsRef.current = 0;
     
     setWsConnected(false);
   }, []);

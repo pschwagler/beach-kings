@@ -4096,14 +4096,39 @@ async def websocket_notifications(websocket: WebSocket):
     await manager.connect(user_id, websocket)
     
     try:
-        # Keep connection alive and handle ping/pong
+        # Keep connection alive and handle ping/pong with timeout
+        import asyncio
+        
+        timeout_seconds = 30  # 30 seconds timeout
+        last_activity = datetime.utcnow()
+        
         while True:
-            # Wait for client message (ping or close)
-            data = await websocket.receive_text()
-            
-            # Handle ping messages (client sends "ping", server responds "pong")
-            if data == "ping":
-                await websocket.send_text("pong")
+            try:
+                # Wait for client message with timeout
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=timeout_seconds
+                )
+                
+                # Update activity timestamp
+                last_activity = datetime.utcnow()
+                await manager.update_activity(websocket)
+                
+                # Handle ping messages (client sends "ping", server responds "pong")
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                # Check if connection has been inactive too long
+                if datetime.utcnow() - last_activity > timedelta(seconds=timeout_seconds):
+                    logger.info(f"WebSocket timeout for user {user_id}, closing connection")
+                    await websocket.close(code=1000, reason="Connection timeout")
+                    break
+                # Send ping to check if connection is still alive
+                try:
+                    await websocket.send_text("ping")
+                except Exception:
+                    # Connection is dead, break loop
+                    break
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user {user_id}")
     except Exception as e:

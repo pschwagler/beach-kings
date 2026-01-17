@@ -155,12 +155,17 @@ async def create_notifications_bulk(
     session.add_all(notification_objects)
     await session.flush()
     
-    # Refresh all notifications to get IDs and timestamps
-    for notif in notification_objects:
-        await session.refresh(notif)
+    # Batch refresh all notifications to get IDs and timestamps
+    # Refresh in batches to avoid overwhelming the database
+    batch_size = 100
+    for i in range(0, len(notification_objects), batch_size):
+        batch = notification_objects[i:i + batch_size]
+        await session.flush()  # Ensure all objects are persisted
+        for notif in batch:
+            await session.refresh(notif)
     
-    # Return list of dicts
-    return [
+    # Convert to dicts
+    notification_dicts = [
         {
             "id": notif.id,
             "user_id": notif.user_id,
@@ -175,6 +180,36 @@ async def create_notifications_bulk(
         }
         for notif in notification_objects
     ]
+    
+    # Broadcast notifications via WebSocket (non-blocking - errors won't fail notification creation)
+    try:
+        from backend.services.websocket_manager import get_websocket_manager
+        manager = get_websocket_manager()
+        
+        # Group notifications by user_id for efficient broadcasting
+        notifications_by_user = {}
+        for notif_dict in notification_dicts:
+            user_id = notif_dict["user_id"]
+            if user_id not in notifications_by_user:
+                notifications_by_user[user_id] = []
+            notifications_by_user[user_id].append(notif_dict)
+        
+        # Broadcast to each user
+        for user_id, user_notifications in notifications_by_user.items():
+            for notif_dict in user_notifications:
+                try:
+                    await manager.send_to_user(
+                        user_id,
+                        {"type": "notification", "notification": notif_dict}
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to broadcast notification {notif_dict['id']} to user {user_id}: {e}"
+                    )
+    except Exception as e:
+        logger.warning(f"Failed to broadcast bulk notifications via WebSocket: {e}")
+    
+    return notification_dicts
 
 
 async def get_user_notifications(

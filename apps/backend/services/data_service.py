@@ -637,13 +637,13 @@ async def create_season(
             # Get member user IDs
             member_user_ids = await get_league_member_user_ids(session, league_id)
             
-            # Create notifications for members
+            # Create notifications for members using SEASON_ACTIVATED when season is created and active
             notifications_list = [
                 {
                     "user_id": member_id,
-                    "type": NotificationType.SEASON_START.value,
-                    "title": f"New season started in {league_name}",
-                    "message": f"The season \"{season.name}\" has started!",
+                    "type": NotificationType.SEASON_ACTIVATED.value,
+                    "title": f"New season activated in {league_name}",
+                    "message": f"The season \"{season.name}\" has been activated!",
                     "data": {
                         "league_id": league_id,
                         "season_id": season.id
