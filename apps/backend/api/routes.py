@@ -332,24 +332,26 @@ async def create_season(
             points_per_loss=body.get("points_per_loss"),
         )
         
+        # Note: Notification creation happens after data_service commits (issue #2).
+        # If notification creation fails, the season is already created but notifications are missing.
+        # This is intentional to prevent notification failures from blocking the main operation.
         # Notify league members if season is currently active
         try:
+            def _parse_date(date_value):
+                """Parse date from string or date object (issue #9 - extracted helper)."""
+                if isinstance(date_value, str):
+                    # Handle timezone-aware strings by splitting on 'T'
+                    date_part = date_value.split('T')[0]
+                    return datetime.fromisoformat(date_part).date()
+                return date_value
+            
             current_date = date.today()
             start_date_str = season.get("start_date")
             end_date_str = season.get("end_date")
             
             if start_date_str and end_date_str:
-                # Parse dates if they're strings
-                if isinstance(start_date_str, str):
-                    start_date = datetime.fromisoformat(start_date_str).date()
-                else:
-                    start_date = start_date_str
-                
-                if isinstance(end_date_str, str):
-                    end_date = datetime.fromisoformat(end_date_str).date()
-                else:
-                    end_date = end_date_str
-                
+                start_date = _parse_date(start_date_str)
+                end_date = _parse_date(end_date_str)
                 is_active = (current_date >= start_date and current_date <= end_date)
             else:
                 is_active = False
@@ -702,6 +704,9 @@ async def add_league_member(
                         league_id=league_id,
                         player_user_id=player_user_id
                     )
+                else:
+                    # Log when player_user_id is None (issue #7)
+                    logger.warning(f"Player {player_id} has no user_id, skipping join approval notification")
         except Exception as e:
             # Don't fail the member addition if notification fails
             logger.warning(f"Failed to create notification for league join approval: {e}")

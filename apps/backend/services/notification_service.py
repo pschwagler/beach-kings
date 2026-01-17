@@ -8,7 +8,8 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_
-from backend.database.models import Notification, NotificationType
+from backend.database.models import Notification, NotificationType, League, Player
+from backend.services.data_service import get_league_member_user_ids, get_league_admin_user_ids
 from backend.utils.datetime_utils import utcnow
 import json
 import logging
@@ -417,12 +418,12 @@ async def notify_league_members_about_message(
         member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     try:
-        from backend.services.data_service import get_league_member_user_ids
-        from backend.database.models import League, Player
+        # Early return if no members to notify (optimization #11)
+        if member_user_ids is not None and not member_user_ids:
+            return
         
         # Fetch league name if not provided
         if league_name is None:
-            from sqlalchemy import select
             result = await session.execute(
                 select(League.name).where(League.id == league_id)
             )
@@ -435,8 +436,11 @@ async def notify_league_members_about_message(
             # Filter out sender if they're in the list
             member_user_ids = [uid for uid in member_user_ids if uid != sender_user_id]
         
+        # Early return if no members after filtering (optimization #11)
+        if not member_user_ids:
+            return
+        
         # Get sender name
-        from sqlalchemy import select
         player_result = await session.execute(
             select(Player.full_name).where(Player.user_id == sender_user_id)
         )
@@ -459,8 +463,7 @@ async def notify_league_members_about_message(
             for member_id in member_user_ids
         ]
         
-        if notifications_list:
-            await create_notifications_bulk(session, notifications_list)
+        await create_notifications_bulk(session, notifications_list)
     except Exception as e:
         logger.warning(f"Failed to create notifications for league message: {e}")
 
@@ -487,9 +490,9 @@ async def notify_admins_about_join_request(
         admin_user_ids: Optional list of admin user IDs (will be fetched if not provided)
     """
     try:
-        from backend.services.data_service import get_league_admin_user_ids
-        from backend.database.models import League, Player
-        from sqlalchemy import select
+        # Early return if no admins to notify (optimization #11)
+        if admin_user_ids is not None and not admin_user_ids:
+            return
         
         # Fetch league name if not provided
         if league_name is None:
@@ -509,6 +512,10 @@ async def notify_admins_about_join_request(
         if admin_user_ids is None:
             admin_user_ids = await get_league_admin_user_ids(session, league_id)
         
+        # Early return if no admins after fetching (optimization #11)
+        if not admin_user_ids:
+            return
+        
         # Create notifications
         notifications_list = [
             {
@@ -526,8 +533,7 @@ async def notify_admins_about_join_request(
             for admin_id in admin_user_ids
         ]
         
-        if notifications_list:
-            await create_notifications_bulk(session, notifications_list)
+        await create_notifications_bulk(session, notifications_list)
     except Exception as e:
         logger.warning(f"Failed to create notifications for league join request: {e}")
 
@@ -548,9 +554,6 @@ async def notify_player_about_join_approval(
         league_name: Optional league name (will be fetched if not provided)
     """
     try:
-        from backend.database.models import League
-        from sqlalchemy import select
-        
         # Fetch league name if not provided
         if league_name is None:
             result = await session.execute(
@@ -594,9 +597,9 @@ async def notify_members_about_season_activated(
         member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     try:
-        from backend.services.data_service import get_league_member_user_ids
-        from backend.database.models import League
-        from sqlalchemy import select
+        # Early return if no members to notify (optimization #11)
+        if member_user_ids is not None and not member_user_ids:
+            return
         
         # Fetch league name if not provided
         if league_name is None:
@@ -608,6 +611,10 @@ async def notify_members_about_season_activated(
         # Fetch member user IDs if not provided
         if member_user_ids is None:
             member_user_ids = await get_league_member_user_ids(session, league_id)
+        
+        # Early return if no members after fetching (optimization #11)
+        if not member_user_ids:
+            return
         
         # Create notifications
         notifications_list = [
@@ -625,8 +632,7 @@ async def notify_members_about_season_activated(
             for member_id in member_user_ids
         ]
         
-        if notifications_list:
-            await create_notifications_bulk(session, notifications_list)
+        await create_notifications_bulk(session, notifications_list)
     except Exception as e:
         logger.warning(f"Failed to create notifications for season activation: {e}")
 
