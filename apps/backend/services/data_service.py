@@ -619,46 +619,6 @@ async def create_season(
     await session.commit()
     await session.refresh(season)
     
-    # Notify league members if season is currently active
-    try:
-        from backend.services import notification_service
-        from backend.database.models import NotificationType
-        
-        current_date = date.today()
-        is_active = (season.start_date <= current_date <= season.end_date)
-        
-        if is_active:
-            # Get league name for notification
-            league_result = await session.execute(
-                select(League.name).where(League.id == league_id)
-            )
-            league_name = league_result.scalar_one_or_none() or "the league"
-            
-            # Get member user IDs
-            member_user_ids = await get_league_member_user_ids(session, league_id)
-            
-            # Create notifications for members using SEASON_ACTIVATED when season is created and active
-            notifications_list = [
-                {
-                    "user_id": member_id,
-                    "type": NotificationType.SEASON_ACTIVATED.value,
-                    "title": f"New season activated in {league_name}",
-                    "message": f"The season \"{season.name}\" has been activated!",
-                    "data": {
-                        "league_id": league_id,
-                        "season_id": season.id
-                    },
-                    "link_url": f"/leagues/{league_id}/seasons/{season.id}"
-                }
-                for member_id in member_user_ids
-            ]
-            
-            if notifications_list:
-                await notification_service.create_notifications_bulk(session, notifications_list)
-    except Exception as e:
-        # Don't fail the season creation if notification fails
-        logger.warning(f"Failed to create notifications for season start: {e}")
-    
     return {
         "id": season.id,
         "league_id": season.league_id,
@@ -1468,49 +1428,6 @@ async def create_league_request(
     session.add(request)
     await session.commit()
     await session.refresh(request)
-    
-    # Notify league admins about the join request
-    try:
-        from backend.services import notification_service
-        from backend.database.models import NotificationType
-        
-        # Get league name for notification
-        league_result = await session.execute(
-            select(League.name).where(League.id == league_id)
-        )
-        league_name = league_result.scalar_one_or_none() or "the league"
-        
-        # Get player name for notification
-        player_result = await session.execute(
-            select(Player.full_name).where(Player.id == player_id)
-        )
-        player_name = player_result.scalar_one_or_none() or "A player"
-        
-        # Get admin user IDs
-        admin_user_ids = await get_league_admin_user_ids(session, league_id)
-        
-        # Create notifications for admins
-        notifications_list = [
-            {
-                "user_id": admin_id,
-                "type": NotificationType.LEAGUE_JOIN_REQUEST.value,
-                "title": "New Join Request",
-                "message": f"{player_name} wants to join {league_name}",
-                "data": {
-                    "league_id": league_id,
-                    "request_id": request.id,
-                    "player_id": player_id
-                },
-                "link_url": f"/leagues/{league_id}/requests"
-            }
-            for admin_id in admin_user_ids
-        ]
-        
-        if notifications_list:
-            await notification_service.create_notifications_bulk(session, notifications_list)
-    except Exception as e:
-        # Don't fail the request creation if notification fails
-        logger.warning(f"Failed to create notifications for league join request: {e}")
     
     return {
         "id": request.id,
@@ -5740,43 +5657,6 @@ async def create_league_message(session: AsyncSession, league_id: int, user_id: 
         .where(Player.user_id == user_id)
     )
     player_name = result.scalar_one_or_none() or "Unknown"
-    
-    # Notify all league members except sender
-    try:
-        from backend.services import notification_service
-        from backend.database.models import NotificationType
-        
-        # Get league name for notification
-        league_result = await session.execute(
-            select(League.name).where(League.id == league_id)
-        )
-        league_name = league_result.scalar_one_or_none() or "the league"
-        
-        # Get member user IDs (excluding sender)
-        member_user_ids = await get_league_member_user_ids(session, league_id, exclude_user_id=user_id)
-        
-        # Create notifications for members
-        notifications_list = [
-            {
-                "user_id": member_id,
-                "type": NotificationType.LEAGUE_MESSAGE.value,
-                "title": f"New message in {league_name}",
-                "message": f"{player_name}: {message_text[:100]}{'...' if len(message_text) > 100 else ''}",
-                "data": {
-                    "league_id": league_id,
-                    "message_id": new_message.id,
-                    "sender_id": user_id
-                },
-                "link_url": f"/leagues/{league_id}"
-            }
-            for member_id in member_user_ids
-        ]
-        
-        if notifications_list:
-            await notification_service.create_notifications_bulk(session, notifications_list)
-    except Exception as e:
-        # Don't fail the message creation if notification fails
-        logger.warning(f"Failed to create notifications for league message: {e}")
     
     return {
         "id": new_message.id,

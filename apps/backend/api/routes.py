@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, update
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, LeagueRequest, League
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
 from backend.services import notification_service
 from backend.services.websocket_manager import get_websocket_manager
@@ -331,6 +331,40 @@ async def create_season(
             points_per_win=body.get("points_per_win"),
             points_per_loss=body.get("points_per_loss"),
         )
+        
+        # Notify league members if season is currently active
+        try:
+            current_date = date.today()
+            start_date_str = season.get("start_date")
+            end_date_str = season.get("end_date")
+            
+            if start_date_str and end_date_str:
+                # Parse dates if they're strings
+                if isinstance(start_date_str, str):
+                    start_date = datetime.fromisoformat(start_date_str).date()
+                else:
+                    start_date = start_date_str
+                
+                if isinstance(end_date_str, str):
+                    end_date = datetime.fromisoformat(end_date_str).date()
+                else:
+                    end_date = end_date_str
+                
+                is_active = (current_date >= start_date and current_date <= end_date)
+            else:
+                is_active = False
+            
+            if is_active:
+                await notification_service.notify_members_about_season_activated(
+                    session=session,
+                    league_id=league_id,
+                    season_id=season["id"],
+                    season_name=season.get("name") or "New Season"
+                )
+        except Exception as e:
+            # Don't fail the season creation if notification fails
+            logger.warning(f"Failed to create notifications for season activation: {e}")
+        
         return season
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
@@ -633,9 +667,6 @@ async def add_league_member(
         
         # Check if this was approving a join request and notify the player
         try:
-            from backend.services import notification_service
-            from backend.database.models import NotificationType, LeagueRequest, League, Player
-            
             # Check if there's a pending request for this player/league
             request_result = await session.execute(
                 select(LeagueRequest)
@@ -658,12 +689,7 @@ async def add_league_member(
                 )
                 await session.flush()
                 
-                # Get league name and player user_id for notification
-                league_result = await session.execute(
-                    select(League.name).where(League.id == league_id)
-                )
-                league_name = league_result.scalar_one_or_none() or "the league"
-                
+                # Get player user_id for notification
                 player_result = await session.execute(
                     select(Player.user_id).where(Player.id == player_id)
                 )
@@ -671,17 +697,10 @@ async def add_league_member(
                 
                 # Notify the player
                 if player_user_id:
-                    await notification_service.create_notification(
+                    await notification_service.notify_player_about_join_approval(
                         session=session,
-                        user_id=player_user_id,
-                        type=NotificationType.LEAGUE_INVITE.value,
-                        title="Join request approved",
-                        message=f"You've been added to {league_name}!",
-                        data={
-                            "league_id": league_id,
-                            "request_id": league_request.id
-                        },
-                        link_url=f"/leagues/{league_id}"
+                        league_id=league_id,
+                        player_user_id=player_user_id
                     )
         except Exception as e:
             # Don't fail the member addition if notification fails
@@ -812,6 +831,19 @@ async def request_to_join_league(
         # Create a join request record
         try:
             request = await data_service.create_league_request(session, league_id, player["id"])
+            
+            # Notify league admins about the join request
+            try:
+                await notification_service.notify_admins_about_join_request(
+                    session=session,
+                    league_id=league_id,
+                    request_id=request["id"],
+                    player_id=player["id"]
+                )
+            except Exception as e:
+                # Don't fail the request creation if notification fails
+                logger.warning(f"Failed to create notifications for league join request: {e}")
+            
             return {
                 "success": True,
                 "message": "Join request submitted. League admins will be notified.",
@@ -893,7 +925,22 @@ async def create_league_message(
             raise HTTPException(status_code=400, detail="Message cannot be empty")
         
         user_id = user.get("id")
-        return await data_service.create_league_message(session, league_id, user_id, message_text)
+        message = await data_service.create_league_message(session, league_id, user_id, message_text)
+        
+        # Notify all league members except sender
+        try:
+            await notification_service.notify_league_members_about_message(
+                session=session,
+                league_id=league_id,
+                message_id=message["id"],
+                sender_user_id=user_id,
+                message_text=message_text
+            )
+        except Exception as e:
+            # Don't fail the message creation if notification fails
+            logger.warning(f"Failed to create notifications for league message: {e}")
+        
+        return message
     except HTTPException:
         raise
     except Exception as e:

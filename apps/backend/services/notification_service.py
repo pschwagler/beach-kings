@@ -389,3 +389,244 @@ async def mark_all_as_read(session: AsyncSession, user_id: int) -> int:
     
     return count
 
+
+#
+# Business logic helper functions for specific notification types
+# These functions encapsulate the logic for creating notifications in response to business events
+#
+
+async def notify_league_members_about_message(
+    session: AsyncSession,
+    league_id: int,
+    message_id: int,
+    sender_user_id: int,
+    message_text: str,
+    league_name: Optional[str] = None,
+    member_user_ids: Optional[List[int]] = None
+) -> None:
+    """
+    Notify all league members (except sender) about a new league message.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        message_id: ID of the message
+        sender_user_id: User ID of the message sender
+        message_text: Text content of the message
+        league_name: Optional league name (will be fetched if not provided)
+        member_user_ids: Optional list of member user IDs (will be fetched if not provided)
+    """
+    try:
+        from backend.services.data_service import get_league_member_user_ids
+        from backend.database.models import League, Player
+        
+        # Fetch league name if not provided
+        if league_name is None:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "the league"
+        
+        # Fetch member user IDs if not provided
+        if member_user_ids is None:
+            member_user_ids = await get_league_member_user_ids(session, league_id, exclude_user_id=sender_user_id)
+        else:
+            # Filter out sender if they're in the list
+            member_user_ids = [uid for uid in member_user_ids if uid != sender_user_id]
+        
+        # Get sender name
+        from sqlalchemy import select
+        player_result = await session.execute(
+            select(Player.full_name).where(Player.user_id == sender_user_id)
+        )
+        player_name = player_result.scalar_one_or_none() or "Unknown"
+        
+        # Create notifications
+        notifications_list = [
+            {
+                "user_id": member_id,
+                "type": NotificationType.LEAGUE_MESSAGE.value,
+                "title": f"New message in {league_name}",
+                "message": f"{player_name}: {message_text[:100]}{'...' if len(message_text) > 100 else ''}",
+                "data": {
+                    "league_id": league_id,
+                    "message_id": message_id,
+                    "sender_id": sender_user_id
+                },
+                "link_url": f"/leagues/{league_id}"
+            }
+            for member_id in member_user_ids
+        ]
+        
+        if notifications_list:
+            await create_notifications_bulk(session, notifications_list)
+    except Exception as e:
+        logger.warning(f"Failed to create notifications for league message: {e}")
+
+
+async def notify_admins_about_join_request(
+    session: AsyncSession,
+    league_id: int,
+    request_id: int,
+    player_id: int,
+    league_name: Optional[str] = None,
+    player_name: Optional[str] = None,
+    admin_user_ids: Optional[List[int]] = None
+) -> None:
+    """
+    Notify league admins about a new join request.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        request_id: ID of the join request
+        player_id: ID of the player requesting to join
+        league_name: Optional league name (will be fetched if not provided)
+        player_name: Optional player name (will be fetched if not provided)
+        admin_user_ids: Optional list of admin user IDs (will be fetched if not provided)
+    """
+    try:
+        from backend.services.data_service import get_league_admin_user_ids
+        from backend.database.models import League, Player
+        from sqlalchemy import select
+        
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "the league"
+        
+        # Fetch player name if not provided
+        if player_name is None:
+            result = await session.execute(
+                select(Player.full_name).where(Player.id == player_id)
+            )
+            player_name = result.scalar_one_or_none() or "A player"
+        
+        # Fetch admin user IDs if not provided
+        if admin_user_ids is None:
+            admin_user_ids = await get_league_admin_user_ids(session, league_id)
+        
+        # Create notifications
+        notifications_list = [
+            {
+                "user_id": admin_id,
+                "type": NotificationType.LEAGUE_JOIN_REQUEST.value,
+                "title": "New Join Request",
+                "message": f"{player_name} wants to join {league_name}",
+                "data": {
+                    "league_id": league_id,
+                    "request_id": request_id,
+                    "player_id": player_id
+                },
+                "link_url": f"/leagues/{league_id}/requests"
+            }
+            for admin_id in admin_user_ids
+        ]
+        
+        if notifications_list:
+            await create_notifications_bulk(session, notifications_list)
+    except Exception as e:
+        logger.warning(f"Failed to create notifications for league join request: {e}")
+
+
+async def notify_player_about_join_approval(
+    session: AsyncSession,
+    league_id: int,
+    player_user_id: int,
+    league_name: Optional[str] = None
+) -> None:
+    """
+    Notify a player that their join request has been approved.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        player_user_id: User ID of the player
+        league_name: Optional league name (will be fetched if not provided)
+    """
+    try:
+        from backend.database.models import League
+        from sqlalchemy import select
+        
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "the league"
+        
+        # Create notification
+        await create_notification(
+            session=session,
+            user_id=player_user_id,
+            type=NotificationType.LEAGUE_INVITE.value,
+            title="Join request approved",
+            message=f"You've been added to {league_name}!",
+            data={
+                "league_id": league_id
+            },
+            link_url=f"/leagues/{league_id}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create notification for join approval: {e}")
+
+
+async def notify_members_about_season_activated(
+    session: AsyncSession,
+    league_id: int,
+    season_id: int,
+    season_name: str,
+    league_name: Optional[str] = None,
+    member_user_ids: Optional[List[int]] = None
+) -> None:
+    """
+    Notify league members when a season becomes active.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        season_id: ID of the season
+        season_name: Name of the season
+        league_name: Optional league name (will be fetched if not provided)
+        member_user_ids: Optional list of member user IDs (will be fetched if not provided)
+    """
+    try:
+        from backend.services.data_service import get_league_member_user_ids
+        from backend.database.models import League
+        from sqlalchemy import select
+        
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "the league"
+        
+        # Fetch member user IDs if not provided
+        if member_user_ids is None:
+            member_user_ids = await get_league_member_user_ids(session, league_id)
+        
+        # Create notifications
+        notifications_list = [
+            {
+                "user_id": member_id,
+                "type": NotificationType.SEASON_ACTIVATED.value,
+                "title": f"New season activated in {league_name}",
+                "message": f"The season \"{season_name}\" has been activated!",
+                "data": {
+                    "league_id": league_id,
+                    "season_id": season_id
+                },
+                "link_url": f"/leagues/{league_id}/seasons/{season_id}"
+            }
+            for member_id in member_user_ids
+        ]
+        
+        if notifications_list:
+            await create_notifications_bulk(session, notifications_list)
+    except Exception as e:
+        logger.warning(f"Failed to create notifications for season activation: {e}")
+
