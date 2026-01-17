@@ -2,16 +2,18 @@
 API route handlers for the Beach Volleyball ELO system.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from backend.database.db import get_db_session
 from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
+from backend.services import notification_service
+from backend.services.websocket_manager import get_websocket_manager
 from backend.services import location_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
@@ -36,7 +38,8 @@ from backend.models.schemas import (
     LeagueCreate, LeagueResponse, PlayerUpdate,
     WeeklyScheduleCreate, WeeklyScheduleResponse, WeeklyScheduleUpdate,
     SignupCreate, SignupResponse, SignupUpdate, SignupWithPlayersResponse,
-    FeedbackCreate, FeedbackResponse, CreateMatchRequest, UpdateMatchRequest
+    FeedbackCreate, FeedbackResponse, CreateMatchRequest, UpdateMatchRequest,
+    NotificationResponse, NotificationListResponse, UnreadCountResponse
 )
 import httpx
 import os
@@ -627,6 +630,63 @@ async def add_league_member(
         player_id = body["player_id"]
         role = body.get("role", "member")
         member = await data_service.add_league_member(session, league_id, player_id, role)
+        
+        # Check if this was approving a join request and notify the player
+        try:
+            from backend.services import notification_service
+            from backend.database.models import NotificationType, LeagueRequest, League, Player
+            
+            # Check if there's a pending request for this player/league
+            request_result = await session.execute(
+                select(LeagueRequest)
+                .where(
+                    and_(
+                        LeagueRequest.league_id == league_id,
+                        LeagueRequest.player_id == player_id,
+                        LeagueRequest.status == "pending"
+                    )
+                )
+            )
+            league_request = request_result.scalar_one_or_none()
+            
+            if league_request:
+                # Update request status to approved
+                await session.execute(
+                    update(LeagueRequest)
+                    .where(LeagueRequest.id == league_request.id)
+                    .values(status="approved")
+                )
+                await session.flush()
+                
+                # Get league name and player user_id for notification
+                league_result = await session.execute(
+                    select(League.name).where(League.id == league_id)
+                )
+                league_name = league_result.scalar_one_or_none() or "the league"
+                
+                player_result = await session.execute(
+                    select(Player.user_id).where(Player.id == player_id)
+                )
+                player_user_id = player_result.scalar_one_or_none()
+                
+                # Notify the player
+                if player_user_id:
+                    await notification_service.create_notification(
+                        session=session,
+                        user_id=player_user_id,
+                        type=NotificationType.LEAGUE_INVITE.value,
+                        title="Join request approved",
+                        message=f"You've been added to {league_name}!",
+                        data={
+                            "league_id": league_id,
+                            "request_id": league_request.id
+                        },
+                        link_url=f"/leagues/{league_id}"
+                    )
+        except Exception as e:
+            # Don't fail the member addition if notification fails
+            logger.warning(f"Failed to create notification for league join approval: {e}")
+        
         return member
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
@@ -3933,3 +3993,121 @@ async def update_admin_config(
     except Exception as e:
         logger.error(f"Error updating admin config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
+
+
+# Notification endpoints
+@router.get("/api/notifications", response_model=NotificationListResponse)
+async def get_notifications(
+    limit: int = 50,
+    offset: int = 0,
+    unread_only: bool = False,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get user notifications with pagination."""
+    try:
+        user_id = user.get("id")
+        result = await notification_service.get_user_notifications(
+            session, user_id, limit=limit, offset=offset, unread_only=unread_only
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching notifications: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching notifications: {str(e)}")
+
+
+@router.get("/api/notifications/unread-count", response_model=UnreadCountResponse)
+async def get_unread_count(
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get unread notification count for user."""
+    try:
+        user_id = user.get("id")
+        count = await notification_service.get_unread_count(session, user_id)
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error fetching unread count: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching unread count: {str(e)}")
+
+
+@router.put("/api/notifications/{notification_id}/read", response_model=NotificationResponse)
+async def mark_notification_as_read(
+    notification_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Mark a single notification as read."""
+    try:
+        user_id = user.get("id")
+        notification = await notification_service.mark_as_read(session, notification_id, user_id)
+        return notification
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error marking notification as read: {str(e)}")
+
+
+@router.put("/api/notifications/mark-all-read")
+async def mark_all_notifications_as_read(
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Mark all user notifications as read."""
+    try:
+        user_id = user.get("id")
+        count = await notification_service.mark_all_as_read(session, user_id)
+        return {"success": True, "count": count}
+    except Exception as e:
+        logger.error(f"Error marking all notifications as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error marking all notifications as read: {str(e)}")
+
+
+@router.websocket("/api/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time notification delivery.
+    
+    Requires JWT token in query parameter: ?token=<jwt_token>
+    """
+    await websocket.accept()
+    
+    # Get token from query parameters
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+    
+    # Verify token
+    payload = auth_service.verify_token(token)
+    if payload is None:
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+    
+    # Get user_id from token
+    user_id = payload.get("user_id")
+    if user_id is None:
+        await websocket.close(code=1008, reason="Invalid token payload")
+        return
+    
+    # Register connection
+    manager = get_websocket_manager()
+    await manager.connect(user_id, websocket)
+    
+    try:
+        # Keep connection alive and handle ping/pong
+        while True:
+            # Wait for client message (ping or close)
+            data = await websocket.receive_text()
+            
+            # Handle ping messages (client sends "ping", server responds "pong")
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for user {user_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error for user {user_id}: {e}")
+    finally:
+        # Clean up connection
+        await manager.disconnect(user_id, websocket)

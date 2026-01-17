@@ -626,3 +626,36 @@ class FeedbackResponse(BaseModel):
     is_resolved: bool
     created_at: str
     user_name: Optional[str] = None  # Computed field
+
+
+# Notification schemas
+class NotificationResponse(BaseModel):
+    """Notification response."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    type: str
+    title: str
+    message: str
+    data: Optional[dict] = None
+    is_read: bool
+    read_at: Optional[str] = None
+    link_url: Optional[str] = None
+    created_at: str
+
+
+class NotificationListResponse(BaseModel):
+    """Paginated notification list response."""
+    notifications: List[NotificationResponse]
+    total_count: int
+    has_more: bool
+
+
+class MarkAsReadRequest(BaseModel):
+    """Request to mark notification as read. Note: notification_id is in URL path."""
+    pass
+
+
+class UnreadCountResponse(BaseModel):
+    """Unread notification count response."""
+    count: int
