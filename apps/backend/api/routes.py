@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, update
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, LeagueRequest, League
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, League, LeagueRequest
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
 from backend.services import notification_service
 from backend.services.websocket_manager import get_websocket_manager
@@ -645,65 +645,21 @@ async def add_league_member(
         role = body.get("role", "member")
         member = await data_service.add_league_member(session, league_id, player_id, role)
         
-        # Check if this was approving a join request and notify the player
+        # Notify all league members about the new member (non-blocking)
         try:
-            # Check if there's a pending request for this player/league
-            request_result = await session.execute(
-                select(LeagueRequest)
-                .where(
-                    and_(
-                        LeagueRequest.league_id == league_id,
-                        LeagueRequest.player_id == player_id,
-                        LeagueRequest.status == "pending"
-                    )
-                )
+            # Get player user_id for notification
+            player_result = await session.execute(
+                select(Player.user_id).where(Player.id == player_id)
             )
-            league_request = request_result.scalar_one_or_none()
-            
-            if league_request:
-                # Update request status to approved
-                await session.execute(
-                    update(LeagueRequest)
-                    .where(LeagueRequest.id == league_request.id)
-                    .values(status="approved")
-                )
-                await session.flush()
-                
-                # Get player user_id for notification
-                player_result = await session.execute(
-                    select(Player.user_id).where(Player.id == player_id)
-                )
-                player_user_id = player_result.scalar_one_or_none()
-                
-                # Notify the player
-                if player_user_id:
-                    await notification_service.notify_player_about_join_approval(
-                        session=session,
-                        league_id=league_id,
-                        player_user_id=player_user_id
-                    )
-                else:
-                    # Log when player_user_id is None (issue #7)
-                    logger.warning(f"Player {player_id} has no user_id, skipping join approval notification")
-        except Exception as e:
-            # Don't fail the member addition if notification fails
-            logger.warning(f"Failed to create notification for league join approval: {e}")
-        
-        # Notify all league members about the new member (excluding the new member themselves)
-        # This happens regardless of whether it was from a join request approval or direct admin addition
-        try:
-            # Get player user_id for notification (if not already obtained above)
-            if 'player_user_id' not in locals():
-                player_result = await session.execute(
-                    select(Player.user_id).where(Player.id == player_id)
-                )
-                player_user_id = player_result.scalar_one_or_none()
+            player_user_id = player_result.scalar_one_or_none()
             
             if player_user_id:
-                await notification_service.notify_members_about_new_member(
-                    session=session,
-                    league_id=league_id,
-                    new_member_user_id=player_user_id
+                asyncio.create_task(
+                    notification_service.notify_members_about_new_member(
+                        session=session,
+                        league_id=league_id,
+                        new_member_user_id=player_user_id
+                    )
                 )
         except Exception as e:
             # Don't fail the member addition if notification fails
@@ -752,9 +708,39 @@ async def remove_league_member(
 ):
     """Remove league member (league_admin)."""
     try:
+        # Get member info before removing so we can notify them
+        member_result = await session.execute(
+            select(LeagueMember, Player.user_id)
+            .join(Player, Player.id == LeagueMember.player_id)
+            .where(
+                and_(
+                    LeagueMember.id == member_id,
+                    LeagueMember.league_id == league_id
+                )
+            )
+        )
+        member_data = member_result.first()
+        
+        if not member_data:
+            raise HTTPException(status_code=404, detail="Member not found")
+        
+        member, player_user_id = member_data
+        
+        # Remove the member
         success = await data_service.remove_league_member(session, league_id, member_id)
         if not success:
             raise HTTPException(status_code=404, detail="Member not found")
+        
+        # Notify the removed player (non-blocking)
+        if player_user_id:
+            asyncio.create_task(
+                notification_service.notify_player_about_removal_from_league(
+                    session=session,
+                    league_id=league_id,
+                    removed_user_id=player_user_id
+                )
+            )
+        
         return {"success": True}
     except HTTPException:
         raise
@@ -821,7 +807,10 @@ async def request_to_join_league(
 ):
     """
     Request to join an invite-only league (authenticated user).
-    Creates a join request that league admins can review.
+    Creates a join request that league admins can review via notification action buttons.
+    
+    Note: Admins receive notifications with approve/reject buttons. The approve/reject
+    endpoints are defined below. See: LeagueRequest model for data structure.
     """
     try:
         # Get the league
@@ -871,6 +860,132 @@ async def request_to_join_league(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error requesting to join league: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/join-requests/{request_id}/approve")
+async def approve_league_join_request(
+    league_id: int,
+    request_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Approve a join request and add the player to the league (league_admin).
+    """
+    try:
+        from backend.database.models import LeagueRequest
+        
+        # Get the join request
+        request_result = await session.execute(
+            select(LeagueRequest)
+            .where(
+                and_(
+                    LeagueRequest.id == request_id,
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.status == "pending"
+                )
+            )
+        )
+        join_request = request_result.scalar_one_or_none()
+        
+        if not join_request:
+            raise HTTPException(status_code=404, detail="Join request not found or already processed")
+        
+        # Add player to league
+        player_id = join_request.player_id
+        member = await data_service.add_league_member(session, league_id, player_id, "member")
+        
+        # Update request status to approved
+        await session.execute(
+            update(LeagueRequest)
+            .where(LeagueRequest.id == request_id)
+            .values(status="approved")
+        )
+        await session.flush()
+        
+        # Get player user_id for notification
+        player_result = await session.execute(
+            select(Player.user_id).where(Player.id == player_id)
+        )
+        player_user_id = player_result.scalar_one_or_none()
+        
+        # Notify the player their request was approved (non-blocking)
+        if player_user_id:
+            asyncio.create_task(
+                notification_service.notify_player_about_join_approval(
+                    session=session,
+                    league_id=league_id,
+                    player_user_id=player_user_id
+                )
+            )
+            
+            # Notify other league members about the new member
+            asyncio.create_task(
+                notification_service.notify_members_about_new_member(
+                    session=session,
+                    league_id=league_id,
+                    new_member_user_id=player_user_id
+                )
+            )
+        
+        return {
+            "success": True,
+            "message": "Join request approved",
+            "member": member
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving join request: {e}")
+        raise HTTPException(status_code=500, detail=f"Error approving join request: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/join-requests/{request_id}/reject")
+async def reject_league_join_request(
+    league_id: int,
+    request_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Reject a join request (league_admin).
+    """
+    try:
+        from backend.database.models import LeagueRequest
+        
+        # Get the join request
+        request_result = await session.execute(
+            select(LeagueRequest)
+            .where(
+                and_(
+                    LeagueRequest.id == request_id,
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.status == "pending"
+                )
+            )
+        )
+        join_request = request_result.scalar_one_or_none()
+        
+        if not join_request:
+            raise HTTPException(status_code=404, detail="Join request not found or already processed")
+        
+        # Update request status to rejected
+        await session.execute(
+            update(LeagueRequest)
+            .where(LeagueRequest.id == request_id)
+            .values(status="rejected")
+        )
+        await session.commit()
+        
+        return {
+            "success": True,
+            "message": "Join request rejected"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rejecting join request: {e}")
+        raise HTTPException(status_code=500, detail=f"Error rejecting join request: {str(e)}")
 
 
 @router.post("/api/leagues/{league_id}/leave")

@@ -563,6 +563,22 @@ export const requestToJoinLeague = async (leagueId) => {
 };
 
 /**
+ * Approve a league join request (admin only)
+ */
+export const approveLeagueJoinRequest = async (leagueId, requestId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/approve`);
+  return response.data;
+};
+
+/**
+ * Reject a league join request (admin only)
+ */
+export const rejectLeagueJoinRequest = async (leagueId, requestId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/reject`);
+  return response.data;
+};
+
+/**
  * Get a specific league
  */
 export const getLeague = async (leagueId) => {

@@ -516,7 +516,7 @@ async def notify_admins_about_join_request(
         if not admin_user_ids:
             return
         
-        # Create notifications
+        # Create notifications with action buttons
         notifications_list = [
             {
                 "user_id": admin_id,
@@ -526,7 +526,23 @@ async def notify_admins_about_join_request(
                 "data": {
                     "league_id": league_id,
                     "request_id": request_id,
-                    "player_id": player_id
+                    "player_id": player_id,
+                    "actions": [
+                        {
+                            "label": "Approve",
+                            "action": "approve",
+                            "endpoint": f"/api/leagues/{league_id}/join-requests/{request_id}/approve",
+                            "method": "POST",
+                            "style": "primary"
+                        },
+                        {
+                            "label": "Reject",
+                            "action": "reject",
+                            "endpoint": f"/api/leagues/{league_id}/join-requests/{request_id}/reject",
+                            "method": "POST",
+                            "style": "secondary"
+                        }
+                    ]
                 },
                 "link_url": f"/league/{league_id}?tab=details"
             }
@@ -733,4 +749,43 @@ async def notify_members_about_new_member(
         await create_notifications_bulk(session, notifications_list)
     except Exception as e:
         logger.warning(f"Failed to create notifications for new league member: {e}")
+
+
+async def notify_player_about_removal_from_league(
+    session: AsyncSession,
+    league_id: int,
+    removed_user_id: int,
+    league_name: Optional[str] = None
+) -> None:
+    """
+    Notify a player that they have been removed from a league.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        removed_user_id: User ID of the removed player
+        league_name: Optional league name (will be fetched if not provided)
+    """
+    try:
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "a league"
+        
+        # Create notification
+        await create_notification(
+            session=session,
+            user_id=removed_user_id,
+            type=NotificationType.LEAGUE_INVITE.value,  # Reusing LEAGUE_INVITE type
+            title="Removed from league",
+            message=f"You have been removed from {league_name}",
+            data={
+                "league_id": league_id
+            },
+            link_url="/home"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create notification for league removal: {e}")
 

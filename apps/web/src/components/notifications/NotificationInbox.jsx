@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { approveLeagueJoinRequest, rejectLeagueJoinRequest } from '../../services/api';
 import './NotificationInbox.css';
 
 export default function NotificationInbox({ onClose }) {
@@ -44,6 +45,32 @@ export default function NotificationInbox({ onClose }) {
       await markAllAsRead();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const handleNotificationAction = async (e, notification, action) => {
+    e.stopPropagation();
+    
+    try {
+      const { league_id, request_id } = notification.data || {};
+      
+      if (!league_id || !request_id) {
+        console.error('Missing league_id or request_id in notification data');
+        return;
+      }
+
+      if (action.action === 'approve') {
+        await approveLeagueJoinRequest(league_id, request_id);
+      } else if (action.action === 'reject') {
+        await rejectLeagueJoinRequest(league_id, request_id);
+      }
+
+      // Mark notification as read and refresh
+      await markAsRead(notification.id);
+      await fetchNotifications(50, 0, true); // Refresh unread notifications
+    } catch (error) {
+      console.error(`Error performing ${action.action} action:`, error);
+      alert(error.response?.data?.detail || `Failed to ${action.action} request`);
     }
   };
 
@@ -112,6 +139,20 @@ export default function NotificationInbox({ onClose }) {
                 <div className="notification-inbox-item-content">
                   <div className="notification-inbox-item-title">{notification.title}</div>
                   <div className="notification-inbox-item-message">{notification.message}</div>
+                  {notification.data?.actions && notification.data.actions.length > 0 && (
+                    <div className="notification-inbox-item-actions">
+                      {notification.data.actions.map((action, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={`notification-action-button notification-action-${action.style || 'primary'}`}
+                          onClick={(e) => handleNotificationAction(e, notification, action)}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="notification-inbox-item-time">
                     {formatTimestamp(notification.created_at)}
                   </div>
