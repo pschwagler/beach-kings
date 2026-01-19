@@ -636,3 +636,70 @@ async def notify_members_about_season_activated(
     except Exception as e:
         logger.warning(f"Failed to create notifications for season activation: {e}")
 
+
+async def notify_members_about_new_member(
+    session: AsyncSession,
+    league_id: int,
+    new_member_user_id: int,
+    league_name: Optional[str] = None,
+    member_user_ids: Optional[List[int]] = None
+) -> None:
+    """
+    Notify all league members (except the new member) when a new player joins the league.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        new_member_user_id: User ID of the newly joined player
+        league_name: Optional league name (will be fetched if not provided)
+        member_user_ids: Optional list of member user IDs (will be fetched if not provided)
+    """
+    try:
+        # Early return if no members to notify (optimization #11)
+        if member_user_ids is not None and not member_user_ids:
+            return
+        
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = result.scalar_one_or_none() or "the league"
+        
+        # Fetch member user IDs if not provided (excluding the new member)
+        if member_user_ids is None:
+            member_user_ids = await get_league_member_user_ids(session, league_id, exclude_user_id=new_member_user_id)
+        else:
+            # Filter out the new member if they're in the list
+            member_user_ids = [uid for uid in member_user_ids if uid != new_member_user_id]
+        
+        # Early return if no members after filtering (optimization #11)
+        if not member_user_ids:
+            return
+        
+        # Get new member name
+        player_result = await session.execute(
+            select(Player.full_name).where(Player.user_id == new_member_user_id)
+        )
+        player_name = player_result.scalar_one_or_none() or "A new player"
+        
+        # Create notifications
+        notifications_list = [
+            {
+                "user_id": member_id,
+                "type": NotificationType.LEAGUE_INVITE.value,  # Using LEAGUE_INVITE as closest match, or could use a new type
+                "title": f"New member joined {league_name}",
+                "message": f"{player_name} joined the league",
+                "data": {
+                    "league_id": league_id,
+                    "new_member_user_id": new_member_user_id
+                },
+                "link_url": f"/league/{league_id}"
+            }
+            for member_id in member_user_ids
+        ]
+        
+        await create_notifications_bulk(session, notifications_list)
+    except Exception as e:
+        logger.warning(f"Failed to create notifications for new league member: {e}")
+

@@ -643,10 +643,10 @@ async def update_season(
 @router.get("/api/leagues/{league_id}/members")
 async def list_league_members(
     league_id: int,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(require_user),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """List league members (league_member)."""
+    """List league members (league_member). Requires authentication only (no league membership required)."""
     try:
         return await data_service.list_league_members(session, league_id)
     except Exception as e:
@@ -710,6 +710,26 @@ async def add_league_member(
         except Exception as e:
             # Don't fail the member addition if notification fails
             logger.warning(f"Failed to create notification for league join approval: {e}")
+        
+        # Notify all league members about the new member (excluding the new member themselves)
+        # This happens regardless of whether it was from a join request approval or direct admin addition
+        try:
+            # Get player user_id for notification (if not already obtained above)
+            if 'player_user_id' not in locals():
+                player_result = await session.execute(
+                    select(Player.user_id).where(Player.id == player_id)
+                )
+                player_user_id = player_result.scalar_one_or_none()
+            
+            if player_user_id:
+                await notification_service.notify_members_about_new_member(
+                    session=session,
+                    league_id=league_id,
+                    new_member_user_id=player_user_id
+                )
+        except Exception as e:
+            # Don't fail the member addition if notification fails
+            logger.warning(f"Failed to create notification for new league member: {e}")
         
         return member
     except KeyError as e:
@@ -796,6 +816,18 @@ async def join_league(
         
         # Add member
         member = await data_service.add_league_member(session, league_id, player["id"], "member")
+        
+        # Notify all league members about the new member (excluding the new member themselves)
+        try:
+            await notification_service.notify_members_about_new_member(
+                session=session,
+                league_id=league_id,
+                new_member_user_id=user["id"]
+            )
+        except Exception as e:
+            # Don't fail the join if notification fails
+            logger.warning(f"Failed to create notification for new league member: {e}")
+        
         return {"success": True, "message": "Successfully joined the league", "member": member}
     except HTTPException:
         raise

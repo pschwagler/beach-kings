@@ -87,12 +87,22 @@ export default function HomeMenuBar({ activeTab }) {
       className: 'notifications-menu-item-desktop',
     },
     {
+      id: 'find-leagues',
+      label: 'Find New Leagues',
+      icon: Search,
+      active: false,
+      onClick: () => router.push('/find-leagues'),
+      title: 'Find New Leagues',
+      className: 'find-leagues-menu-item-desktop',
+    },
+    {
       id: 'more',
       label: 'More',
       icon: Menu,
       active: moreMenuExpanded,
       onClick: () => setMoreMenuExpanded((prev) => !prev),
       title: 'More',
+      className: 'more-menu-item-mobile',
     },
   ];
 
@@ -149,11 +159,11 @@ export default function HomeMenuBar({ activeTab }) {
                       router.push('/find-leagues');
                       setMoreMenuExpanded(false);
                     }}
-                    title="Find Leagues"
+                    title="Find New Leagues"
                     type="button"
                   >
                     <Search size={18} />
-                    <span>Find Leagues</span>
+                    <span>Find New Leagues</span>
                   </button>
                 </div>
               </div>,
