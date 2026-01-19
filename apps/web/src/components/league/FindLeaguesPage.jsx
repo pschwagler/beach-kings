@@ -344,7 +344,7 @@ export default function FindLeaguesPage() {
             <div className="profile-page-content">
               <div className="league-section find-leagues-page">
                 <div className="section-header">
-                  <h1 className="section-title">Find Leagues</h1>
+                  <h1 className="section-title">Find New Leagues</h1>
                   {isAuthenticated && (
                     <button
                       className="league-text-button"

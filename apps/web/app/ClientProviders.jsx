@@ -7,6 +7,7 @@ import { AppProvider } from '../src/contexts/AppContext';
 import { AuthModalProvider, useAuthModal } from '../src/contexts/AuthModalContext';
 import { ModalProvider } from '../src/contexts/ModalContext';
 import { DrawerProvider } from '../src/contexts/DrawerContext';
+import { NotificationProvider } from '../src/contexts/NotificationContext';
 import AuthModal from '../src/components/auth/AuthModal';
 import GlobalModal from '../src/components/ui/GlobalModal';
 import GlobalDrawer from '../src/components/ui/GlobalDrawer';
@@ -55,18 +56,21 @@ function LayoutContent({ children }) {
 export default function ClientProviders({ children }) {
   return (
     <AuthProvider>
-      <AppProvider>
-        <AuthModalProvider>
-          <ModalProvider>
-            <DrawerProvider>
-              <LayoutContent>
-                {children}
-              </LayoutContent>
-            </DrawerProvider>
-          </ModalProvider>
-        </AuthModalProvider>
-      </AppProvider>
+      <NotificationProvider>
+        <AppProvider>
+          <AuthModalProvider>
+            <ModalProvider>
+              <DrawerProvider>
+                <LayoutContent>
+                  {children}
+                </LayoutContent>
+              </DrawerProvider>
+            </ModalProvider>
+          </AuthModalProvider>
+        </AppProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
+
 

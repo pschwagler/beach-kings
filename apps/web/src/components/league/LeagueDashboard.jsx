@@ -14,7 +14,7 @@ import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import { getUserLeagues, updateLeague, createLeague } from '../../services/api';
+import { getUserLeagues, updateLeague, createLeague, joinLeague, requestToJoinLeague } from '../../services/api';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 
 function LeagueDashboardContent({ leagueId }) {
@@ -157,6 +157,23 @@ function LeagueDashboardContent({ leagueId }) {
     openAuthModal('sign-up');
   };
 
+  const handleJoinLeague = async () => {
+    try {
+      if (league.is_open) {
+        await joinLeague(leagueId);
+        showMessage('success', `Successfully joined ${league.name}!`);
+        // Reload the page to refresh league membership
+        window.location.reload();
+      } else {
+        await requestToJoinLeague(leagueId);
+        showMessage('success', `Join request submitted for ${league.name}. League admins will be notified.`);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || 'Failed to join league';
+      showMessage('error', errorMsg);
+    }
+  };
+
   // Render appropriate skeleton based on active tab
   const renderTabSkeleton = () => {
     switch (activeTab) {
@@ -250,8 +267,25 @@ function LeagueDashboardContent({ leagueId }) {
         <div className="league-dashboard-container">
           <div className="league-error">
             <div className="league-message error">
-              <h2>Access Denied</h2>
-              <p>You don't have access to this league. Please contact a league administrator to be added as a member.</p>
+              <h2>{league.name}</h2>
+              <p>You are not a member of this league.</p>
+              <button 
+                onClick={handleJoinLeague}
+                className="join-league-button"
+                style={{ 
+                  marginTop: '20px', 
+                  padding: '10px 20px', 
+                  backgroundColor: '#007bff', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '5px', 
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '500'
+                }}
+              >
+                {league.is_open ? 'Join' : 'Request to Join'}
+              </button>
             </div>
           </div>
         </div>

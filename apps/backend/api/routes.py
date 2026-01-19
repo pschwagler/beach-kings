@@ -2,16 +2,19 @@
 API route handlers for the Beach Volleyball ELO system.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+import asyncio
+from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, League, LeagueRequest
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
+from backend.services import notification_service
+from backend.services.websocket_manager import get_websocket_manager
 from backend.services import location_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (
@@ -36,7 +39,8 @@ from backend.models.schemas import (
     LeagueCreate, LeagueResponse, PlayerUpdate,
     WeeklyScheduleCreate, WeeklyScheduleResponse, WeeklyScheduleUpdate,
     SignupCreate, SignupResponse, SignupUpdate, SignupWithPlayersResponse,
-    FeedbackCreate, FeedbackResponse, CreateMatchRequest, UpdateMatchRequest
+    FeedbackCreate, FeedbackResponse, CreateMatchRequest, UpdateMatchRequest,
+    NotificationResponse, NotificationListResponse, UnreadCountResponse
 )
 import httpx
 import os
@@ -328,6 +332,19 @@ async def create_season(
             points_per_win=body.get("points_per_win"),
             points_per_loss=body.get("points_per_loss"),
         )
+        
+        # Fire-and-forget notification (non-blocking)
+        asyncio.create_task(
+            notification_service.notify_members_about_season_activated(
+                session=session,
+                league_id=league_id,
+                season_id=season["id"],
+                season_name=season.get("name") or "New Season",
+                start_date=season.get("start_date"),
+                end_date=season.get("end_date")
+            )
+        )
+        
         return season
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
@@ -604,10 +621,10 @@ async def update_season(
 @router.get("/api/leagues/{league_id}/members")
 async def list_league_members(
     league_id: int,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(require_user),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """List league members (league_member)."""
+    """List league members (league_member). Requires authentication only (no league membership required)."""
     try:
         return await data_service.list_league_members(session, league_id)
     except Exception as e:
@@ -627,6 +644,27 @@ async def add_league_member(
         player_id = body["player_id"]
         role = body.get("role", "member")
         member = await data_service.add_league_member(session, league_id, player_id, role)
+        
+        # Notify all league members about the new member (non-blocking)
+        try:
+            # Get player user_id for notification
+            player_result = await session.execute(
+                select(Player.user_id).where(Player.id == player_id)
+            )
+            player_user_id = player_result.scalar_one_or_none()
+            
+            if player_user_id:
+                asyncio.create_task(
+                    notification_service.notify_members_about_new_member(
+                        session=session,
+                        league_id=league_id,
+                        new_member_user_id=player_user_id
+                    )
+                )
+        except Exception as e:
+            # Don't fail the member addition if notification fails
+            logger.warning(f"Failed to create notification for new league member: {e}")
+        
         return member
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {str(e)}")
@@ -670,9 +708,39 @@ async def remove_league_member(
 ):
     """Remove league member (league_admin)."""
     try:
+        # Get member info before removing so we can notify them
+        member_result = await session.execute(
+            select(LeagueMember, Player.user_id)
+            .join(Player, Player.id == LeagueMember.player_id)
+            .where(
+                and_(
+                    LeagueMember.id == member_id,
+                    LeagueMember.league_id == league_id
+                )
+            )
+        )
+        member_data = member_result.first()
+        
+        if not member_data:
+            raise HTTPException(status_code=404, detail="Member not found")
+        
+        member, player_user_id = member_data
+        
+        # Remove the member
         success = await data_service.remove_league_member(session, league_id, member_id)
         if not success:
             raise HTTPException(status_code=404, detail="Member not found")
+        
+        # Notify the removed player (non-blocking)
+        if player_user_id:
+            asyncio.create_task(
+                notification_service.notify_player_about_removal_from_league(
+                    session=session,
+                    league_id=league_id,
+                    removed_user_id=player_user_id
+                )
+            )
+        
         return {"success": True}
     except HTTPException:
         raise
@@ -712,6 +780,18 @@ async def join_league(
         
         # Add member
         member = await data_service.add_league_member(session, league_id, player["id"], "member")
+        
+        # Notify all league members about the new member (excluding the new member themselves)
+        try:
+            await notification_service.notify_members_about_new_member(
+                session=session,
+                league_id=league_id,
+                new_member_user_id=user["id"]
+            )
+        except Exception as e:
+            # Don't fail the join if notification fails
+            logger.warning(f"Failed to create notification for new league member: {e}")
+        
         return {"success": True, "message": "Successfully joined the league", "member": member}
     except HTTPException:
         raise
@@ -727,7 +807,10 @@ async def request_to_join_league(
 ):
     """
     Request to join an invite-only league (authenticated user).
-    Creates a join request that league admins can review.
+    Creates a join request that league admins can review via notification action buttons.
+    
+    Note: Admins receive notifications with approve/reject buttons. The approve/reject
+    endpoints are defined below. See: LeagueRequest model for data structure.
     """
     try:
         # Get the league
@@ -752,6 +835,19 @@ async def request_to_join_league(
         # Create a join request record
         try:
             request = await data_service.create_league_request(session, league_id, player["id"])
+            
+            # Notify league admins about the join request
+            try:
+                await notification_service.notify_admins_about_join_request(
+                    session=session,
+                    league_id=league_id,
+                    request_id=request["id"],
+                    player_id=player["id"]
+                )
+            except Exception as e:
+                # Don't fail the request creation if notification fails
+                logger.warning(f"Failed to create notifications for league join request: {e}")
+            
             return {
                 "success": True,
                 "message": "Join request submitted. League admins will be notified.",
@@ -764,6 +860,132 @@ async def request_to_join_league(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error requesting to join league: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/join-requests/{request_id}/approve")
+async def approve_league_join_request(
+    league_id: int,
+    request_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Approve a join request and add the player to the league (league_admin).
+    """
+    try:
+        from backend.database.models import LeagueRequest
+        
+        # Get the join request
+        request_result = await session.execute(
+            select(LeagueRequest)
+            .where(
+                and_(
+                    LeagueRequest.id == request_id,
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.status == "pending"
+                )
+            )
+        )
+        join_request = request_result.scalar_one_or_none()
+        
+        if not join_request:
+            raise HTTPException(status_code=404, detail="Join request not found or already processed")
+        
+        # Add player to league
+        player_id = join_request.player_id
+        member = await data_service.add_league_member(session, league_id, player_id, "member")
+        
+        # Update request status to approved
+        await session.execute(
+            update(LeagueRequest)
+            .where(LeagueRequest.id == request_id)
+            .values(status="approved")
+        )
+        await session.flush()
+        
+        # Get player user_id for notification
+        player_result = await session.execute(
+            select(Player.user_id).where(Player.id == player_id)
+        )
+        player_user_id = player_result.scalar_one_or_none()
+        
+        # Notify the player their request was approved (non-blocking)
+        if player_user_id:
+            asyncio.create_task(
+                notification_service.notify_player_about_join_approval(
+                    session=session,
+                    league_id=league_id,
+                    player_user_id=player_user_id
+                )
+            )
+            
+            # Notify other league members about the new member
+            asyncio.create_task(
+                notification_service.notify_members_about_new_member(
+                    session=session,
+                    league_id=league_id,
+                    new_member_user_id=player_user_id
+                )
+            )
+        
+        return {
+            "success": True,
+            "message": "Join request approved",
+            "member": member
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving join request: {e}")
+        raise HTTPException(status_code=500, detail=f"Error approving join request: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/join-requests/{request_id}/reject")
+async def reject_league_join_request(
+    league_id: int,
+    request_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Reject a join request (league_admin).
+    """
+    try:
+        from backend.database.models import LeagueRequest
+        
+        # Get the join request
+        request_result = await session.execute(
+            select(LeagueRequest)
+            .where(
+                and_(
+                    LeagueRequest.id == request_id,
+                    LeagueRequest.league_id == league_id,
+                    LeagueRequest.status == "pending"
+                )
+            )
+        )
+        join_request = request_result.scalar_one_or_none()
+        
+        if not join_request:
+            raise HTTPException(status_code=404, detail="Join request not found or already processed")
+        
+        # Update request status to rejected
+        await session.execute(
+            update(LeagueRequest)
+            .where(LeagueRequest.id == request_id)
+            .values(status="rejected")
+        )
+        await session.commit()
+        
+        return {
+            "success": True,
+            "message": "Join request rejected"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rejecting join request: {e}")
+        raise HTTPException(status_code=500, detail=f"Error rejecting join request: {str(e)}")
 
 
 @router.post("/api/leagues/{league_id}/leave")
@@ -833,7 +1055,22 @@ async def create_league_message(
             raise HTTPException(status_code=400, detail="Message cannot be empty")
         
         user_id = user.get("id")
-        return await data_service.create_league_message(session, league_id, user_id, message_text)
+        message = await data_service.create_league_message(session, league_id, user_id, message_text)
+        
+        # Notify all league members except sender
+        try:
+            await notification_service.notify_league_members_about_message(
+                session=session,
+                league_id=league_id,
+                message_id=message["id"],
+                sender_user_id=user_id,
+                message_text=message_text
+            )
+        except Exception as e:
+            # Don't fail the message creation if notification fails
+            logger.warning(f"Failed to create notifications for league message: {e}")
+        
+        return message
     except HTTPException:
         raise
     except Exception as e:
@@ -3933,3 +4170,146 @@ async def update_admin_config(
     except Exception as e:
         logger.error(f"Error updating admin config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
+
+
+# Notification endpoints
+@router.get("/api/notifications", response_model=NotificationListResponse)
+async def get_notifications(
+    limit: int = 50,
+    offset: int = 0,
+    unread_only: bool = False,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get user notifications with pagination."""
+    try:
+        user_id = user.get("id")
+        result = await notification_service.get_user_notifications(
+            session, user_id, limit=limit, offset=offset, unread_only=unread_only
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching notifications: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching notifications: {str(e)}")
+
+
+@router.get("/api/notifications/unread-count", response_model=UnreadCountResponse)
+async def get_unread_count(
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Get unread notification count for user."""
+    try:
+        user_id = user.get("id")
+        count = await notification_service.get_unread_count(session, user_id)
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error fetching unread count: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching unread count: {str(e)}")
+
+
+@router.put("/api/notifications/{notification_id}/read", response_model=NotificationResponse)
+async def mark_notification_as_read(
+    notification_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Mark a single notification as read."""
+    try:
+        user_id = user.get("id")
+        notification = await notification_service.mark_as_read(session, notification_id, user_id)
+        return notification
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error marking notification as read: {str(e)}")
+
+
+@router.put("/api/notifications/mark-all-read")
+async def mark_all_notifications_as_read(
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Mark all user notifications as read."""
+    try:
+        user_id = user.get("id")
+        count = await notification_service.mark_all_as_read(session, user_id)
+        return {"success": True, "count": count}
+    except Exception as e:
+        logger.error(f"Error marking all notifications as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error marking all notifications as read: {str(e)}")
+
+
+@router.websocket("/api/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time notification delivery.
+    
+    Requires JWT token in query parameter: ?token=<jwt_token>
+    """
+    await websocket.accept()
+    
+    # Get token from query parameters
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+    
+    # Verify token
+    payload = auth_service.verify_token(token)
+    if payload is None:
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+    
+    # Get user_id from token
+    user_id = payload.get("user_id")
+    if user_id is None:
+        await websocket.close(code=1008, reason="Invalid token payload")
+        return
+    
+    # Register connection
+    manager = get_websocket_manager()
+    await manager.connect(user_id, websocket)
+    
+    try:
+        # Keep connection alive and handle ping/pong with timeout
+        import asyncio
+        
+        timeout_seconds = 30  # 30 seconds timeout
+        last_activity = datetime.utcnow()
+        
+        while True:
+            try:
+                # Wait for client message with timeout
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=timeout_seconds
+                )
+                
+                # Update activity timestamp
+                last_activity = datetime.utcnow()
+                await manager.update_activity(websocket)
+                
+                # Handle ping messages (client sends "ping", server responds "pong")
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                # Check if connection has been inactive too long
+                if datetime.utcnow() - last_activity > timedelta(seconds=timeout_seconds):
+                    logger.info(f"WebSocket timeout for user {user_id}, closing connection")
+                    await websocket.close(code=1000, reason="Connection timeout")
+                    break
+                # Send ping to check if connection is still alive
+                try:
+                    await websocket.send_text("ping")
+                except Exception:
+                    # Connection is dead, break loop
+                    break
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for user {user_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error for user {user_id}: {e}")
+    finally:
+        # Clean up connection
+        await manager.disconnect(user_id, websocket)

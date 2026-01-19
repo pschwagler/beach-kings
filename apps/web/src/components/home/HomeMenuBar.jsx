@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -78,12 +78,31 @@ export default function HomeMenuBar({ activeTab }) {
       title: 'Friends',
     },
     {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: Bell,
+      active: activeTab === 'notifications',
+      onClick: () => handleTabChange('notifications'),
+      title: 'Notifications',
+      className: 'notifications-menu-item-desktop',
+    },
+    {
+      id: 'find-leagues',
+      label: 'Find New Leagues',
+      icon: Search,
+      active: false,
+      onClick: () => router.push('/find-leagues'),
+      title: 'Find New Leagues',
+      className: 'find-leagues-menu-item-desktop',
+    },
+    {
       id: 'more',
       label: 'More',
       icon: Menu,
       active: moreMenuExpanded,
       onClick: () => setMoreMenuExpanded((prev) => !prev),
       title: 'More',
+      className: 'more-menu-item-mobile',
     },
   ];
 
@@ -123,14 +142,28 @@ export default function HomeMenuBar({ activeTab }) {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      handleTabChange('notifications');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="Notifications"
+                    type="button"
+                  >
+                    <Bell size={18} />
+                    <span>Notifications</span>
+                  </button>
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       router.push('/find-leagues');
                       setMoreMenuExpanded(false);
                     }}
-                    title="Find Leagues"
+                    title="Find New Leagues"
                     type="button"
                   >
                     <Search size={18} />
-                    <span>Find Leagues</span>
+                    <span>Find New Leagues</span>
                   </button>
                 </div>
               </div>,

@@ -4416,6 +4416,11 @@ select.form-select {
     "Helvetica Neue", sans-serif;
 }
 
+/* Hide More menu item on desktop - it's only for mobile */
+.more-menu-item-mobile {
+  display: none !important;
+}
+
 .league-sidebar-nav-item:hover {
   background: rgba(0, 0, 0, 0.04);
   color: var(--gray-900);
@@ -8693,6 +8698,21 @@ button.match-config-toggle.inline svg {
   .league-sidebar-nav-item svg {
     width: 22px;
     height: 22px;
+  }
+
+  /* Hide Notifications menu item on mobile - it's in the More menu instead */
+  .notifications-menu-item-desktop {
+    display: none !important;
+  }
+
+  /* Hide Find Leagues menu item on mobile - it's in the More menu instead */
+  .find-leagues-menu-item-desktop {
+    display: none !important;
+  }
+
+  /* Show More menu item only on mobile */
+  .more-menu-item-mobile {
+    display: flex !important;
   }
 
   .league-content-header {

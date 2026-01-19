@@ -563,6 +563,22 @@ export const requestToJoinLeague = async (leagueId) => {
 };
 
 /**
+ * Approve a league join request (admin only)
+ */
+export const approveLeagueJoinRequest = async (leagueId, requestId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/approve`);
+  return response.data;
+};
+
+/**
+ * Reject a league join request (admin only)
+ */
+export const rejectLeagueJoinRequest = async (leagueId, requestId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/reject`);
+  return response.data;
+};
+
+/**
  * Get a specific league
  */
 export const getLeague = async (leagueId) => {
@@ -914,6 +930,45 @@ export const updateFeedbackResolution = async (feedbackId, isResolved) => {
   const response = await api.patch(`/api/admin-view/feedback/${feedbackId}/resolve`, {
     is_resolved: isResolved
   });
+  return response.data;
+};
+
+/**
+ * Notification API functions
+ */
+
+/**
+ * Get user notifications with pagination
+ */
+export const getNotifications = async (params = {}) => {
+  const { limit = 50, offset = 0, unreadOnly = false } = params;
+  const response = await api.get('/api/notifications', {
+    params: { limit, offset, unread_only: unreadOnly }
+  });
+  return response.data;
+};
+
+/**
+ * Get unread notification count
+ */
+export const getUnreadCount = async () => {
+  const response = await api.get('/api/notifications/unread-count');
+  return response.data;
+};
+
+/**
+ * Mark a single notification as read
+ */
+export const markNotificationAsRead = async (notificationId) => {
+  const response = await api.put(`/api/notifications/${notificationId}/read`);
+  return response.data;
+};
+
+/**
+ * Mark all notifications as read
+ */
+export const markAllNotificationsAsRead = async () => {
+  const response = await api.put('/api/notifications/mark-all-read');
   return response.data;
 };
 

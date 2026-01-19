@@ -40,6 +40,15 @@ class ScoringSystem(str, enum.Enum):
     SEASON_RATING = "season_rating"
 
 
+class NotificationType(str, enum.Enum):
+    """Notification type enum."""
+    LEAGUE_MESSAGE = "league_message"
+    LEAGUE_INVITE = "league_invite"
+    LEAGUE_JOIN_REQUEST = "league_join_request"
+    SEASON_START = "season_start"
+    SEASON_ACTIVATED = "season_activated"
+
+
 class Region(Base):
     """Geographic regions."""
     __tablename__ = "regions"
@@ -966,4 +975,28 @@ class Feedback(Base):
     __table_args__ = (
         Index("idx_feedback_created_at", "created_at"),
         Index("idx_feedback_user_id", "user_id"),
+    )
+
+
+class Notification(Base):
+    """User notifications for in-app messaging."""
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False)  # NotificationType enum value
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    data = Column(Text, nullable=True)  # JSON string for flexible metadata (league_id, message_id, etc.)
+    is_read = Column(Boolean, default=False, nullable=False)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    link_url = Column(String(500), nullable=True)  # Navigation target
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", backref="notifications")
+    
+    __table_args__ = (
+        Index("idx_notifications_user_unread", "user_id", "is_read", "created_at"),
+        Index("idx_notifications_user_created", "user_id", "created_at"),
     )

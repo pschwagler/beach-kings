@@ -7,6 +7,7 @@ import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
+import NotificationBell from '../notifications/NotificationBell';
 
 export default function NavBar({
   isLoggedIn = false,
@@ -97,6 +98,8 @@ export default function NavBar({
             userLeagues={userLeagues}
             onMenuClick={handleLeaguesMenuClick}
           />
+          
+          {isAuthenticated && <NotificationBell />}
           
           <UserMenu
             isLoggedIn={isLoggedIn}

@@ -35,6 +35,9 @@ from backend.utils.constants import INITIAL_ELO
 from backend.utils.datetime_utils import utcnow
 import csv
 import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 #
 # Helper functions
@@ -615,6 +618,7 @@ async def create_season(
     session.add(season)
     await session.commit()
     await session.refresh(season)
+    
     return {
         "id": season.id,
         "league_id": season.league_id,
@@ -1336,6 +1340,63 @@ async def remove_league_member(
     )
     await session.commit()
     return result.rowcount > 0
+
+
+async def get_league_member_user_ids(session: AsyncSession, league_id: int, exclude_user_id: Optional[int] = None) -> List[int]:
+    """
+    Get user IDs for all league members.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        exclude_user_id: Optional user ID to exclude from results
+        
+    Returns:
+        List of user IDs
+    """
+    query = (
+        select(Player.user_id)
+        .join(LeagueMember, LeagueMember.player_id == Player.id)
+        .where(
+            and_(
+                LeagueMember.league_id == league_id,
+                Player.user_id.isnot(None)
+            )
+        )
+    )
+    
+    if exclude_user_id is not None:
+        query = query.where(Player.user_id != exclude_user_id)
+    
+    result = await session.execute(query)
+    user_ids = [row[0] for row in result.all() if row[0] is not None]
+    return user_ids
+
+
+async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> List[int]:
+    """
+    Get user IDs for all league admins.
+    
+    Args:
+        session: Database session
+        league_id: ID of the league
+        
+    Returns:
+        List of user IDs
+    """
+    result = await session.execute(
+        select(Player.user_id)
+        .join(LeagueMember, LeagueMember.player_id == Player.id)
+        .where(
+            and_(
+                LeagueMember.league_id == league_id,
+                LeagueMember.role == "admin",
+                Player.user_id.isnot(None)
+            )
+        )
+    )
+    user_ids = [row[0] for row in result.all() if row[0] is not None]
+    return user_ids
 
 
 async def create_league_request(
