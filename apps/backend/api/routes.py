@@ -2,6 +2,7 @@
 API route handlers for the Beach Volleyball ELO system.
 """
 
+import asyncio
 from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from slowapi import Limiter  # type: ignore
@@ -332,40 +333,17 @@ async def create_season(
             points_per_loss=body.get("points_per_loss"),
         )
         
-        # Note: Notification creation happens after data_service commits (issue #2).
-        # If notification creation fails, the season is already created but notifications are missing.
-        # This is intentional to prevent notification failures from blocking the main operation.
-        # Notify league members if season is currently active
-        try:
-            def _parse_date(date_value):
-                """Parse date from string or date object (issue #9 - extracted helper)."""
-                if isinstance(date_value, str):
-                    # Handle timezone-aware strings by splitting on 'T'
-                    date_part = date_value.split('T')[0]
-                    return datetime.fromisoformat(date_part).date()
-                return date_value
-            
-            current_date = date.today()
-            start_date_str = season.get("start_date")
-            end_date_str = season.get("end_date")
-            
-            if start_date_str and end_date_str:
-                start_date = _parse_date(start_date_str)
-                end_date = _parse_date(end_date_str)
-                is_active = (current_date >= start_date and current_date <= end_date)
-            else:
-                is_active = False
-            
-            if is_active:
-                await notification_service.notify_members_about_season_activated(
-                    session=session,
-                    league_id=league_id,
-                    season_id=season["id"],
-                    season_name=season.get("name") or "New Season"
-                )
-        except Exception as e:
-            # Don't fail the season creation if notification fails
-            logger.warning(f"Failed to create notifications for season activation: {e}")
+        # Fire-and-forget notification (non-blocking)
+        asyncio.create_task(
+            notification_service.notify_members_about_season_activated(
+                session=session,
+                league_id=league_id,
+                season_id=season["id"],
+                season_name=season.get("name") or "New Season",
+                start_date=season.get("start_date"),
+                end_date=season.get("end_date")
+            )
+        )
         
         return season
     except KeyError as e:

@@ -582,21 +582,52 @@ async def notify_members_about_season_activated(
     league_id: int,
     season_id: int,
     season_name: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     league_name: Optional[str] = None,
     member_user_ids: Optional[List[int]] = None
 ) -> None:
     """
     Notify league members when a season becomes active.
     
+    Only sends notifications if the season is currently active (today's date falls 
+    within the start and end dates).
+    
     Args:
         session: Database session
         league_id: ID of the league
         season_id: ID of the season
         season_name: Name of the season
+        start_date: Optional start date (string or date object)
+        end_date: Optional end date (string or date object)
         league_name: Optional league name (will be fetched if not provided)
         member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     try:
+        # Check if season is active based on dates
+        if start_date and end_date:
+            from datetime import date
+            
+            def _parse_date(date_value):
+                """Parse date from string or date object."""
+                if isinstance(date_value, str):
+                    # Handle timezone-aware strings by splitting on 'T'
+                    date_part = date_value.split('T')[0]
+                    return datetime.fromisoformat(date_part).date()
+                return date_value
+            
+            current_date = date.today()
+            parsed_start = _parse_date(start_date)
+            parsed_end = _parse_date(end_date)
+            is_active = (current_date >= parsed_start and current_date <= parsed_end)
+            
+            # Only notify if season is active
+            if not is_active:
+                return
+        else:
+            # No dates provided, cannot determine if active
+            return
+        
         # Early return if no members to notify (optimization #11)
         if member_user_ids is not None and not member_user_ids:
             return
