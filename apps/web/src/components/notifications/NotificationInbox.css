@@ -91,6 +91,20 @@
   background-color: #f3f4f6;
 }
 
+.notification-inbox-view-all {
+  font-size: 14px;
+  color: #3b82f6;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.notification-inbox-view-all:hover {
+  background-color: #f3f4f6;
+  text-decoration: underline;
+}
+
 .notification-inbox-content {
   overflow-y: auto;
   flex: 1;
@@ -174,6 +188,205 @@
   .notification-inbox {
     width: 320px;
     right: -40px;
+  }
+}
+
+/* Notifications Tab Styles */
+.notifications-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.notifications-tab-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.notifications-tab-mark-all {
+  font-size: 14px;
+  color: #3b82f6;
+  background: none;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s;
+  font-weight: 500;
+}
+
+.notifications-tab-mark-all:hover {
+  background-color: #f3f4f6;
+  color: #2563eb;
+}
+
+.notifications-tab-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #6b7280;
+  background: none;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  font-weight: 500;
+}
+
+.notifications-tab-filter:hover {
+  background-color: #f9fafb;
+  color: #4b5563;
+  border-color: #d1d5db;
+}
+
+.notifications-tab-filter.active {
+  background-color: #eff6ff;
+  color: #3b82f6;
+  border-color: #93c5fd;
+}
+
+.notifications-tab-content {
+  margin-top: 16px;
+}
+
+.notifications-tab-empty {
+  padding: 64px 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.notifications-empty-icon {
+  color: #d1d5db;
+  margin-bottom: 8px;
+}
+
+.notifications-tab-empty p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.notifications-tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.notifications-tab-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  gap: 12px;
+  background: white;
+}
+
+.notifications-tab-item:hover {
+  background-color: #f9fafb;
+}
+
+.notifications-tab-item.unread {
+  background-color: #eff6ff;
+}
+
+.notifications-tab-item.unread:hover {
+  background-color: #dbeafe;
+}
+
+.notifications-tab-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notifications-tab-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.notifications-tab-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  flex: 1;
+}
+
+.notifications-tab-item-mark-read {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.notifications-tab-item-mark-read:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: #3b82f6;
+}
+
+.notifications-tab-item-message {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.notifications-tab-item-time {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.notifications-tab-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .notifications-tab-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .notifications-tab-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .notifications-tab-mark-all,
+  .notifications-tab-filter {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notifications-tab-item {
+    padding: 12px;
   }
 }
 

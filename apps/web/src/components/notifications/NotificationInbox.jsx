@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
 import './NotificationInbox.css';
@@ -14,13 +14,13 @@ export default function NotificationInbox({ onClose }) {
     markAllAsRead,
     fetchNotifications 
   } = useNotifications();
-
-  // Fetch notifications when inbox opens
+  // Fetch unread notifications when inbox opens (only once per mount)
   useEffect(() => {
-    if (!isLoading && notifications.length === 0) {
-      fetchNotifications();
+    if (!isLoading) {
+      fetchNotifications(50, 0, true); // unreadOnly = true
     }
-  }, [isLoading, notifications.length, fetchNotifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - fetchNotifications is stable from context
 
   const handleNotificationClick = async (notification) => {
     // Mark as read if not already read
@@ -65,34 +65,40 @@ export default function NotificationInbox({ onClose }) {
     return date.toLocaleDateString();
   };
 
-  const hasUnread = notifications.some(n => !n.is_read);
+  const unreadNotifications = notifications.filter(n => !n.is_read);
+  const hasUnread = unreadNotifications.length > 0;
+
+  const handleViewAllClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push('/home?tab=notifications');
+    onClose();
+  };
 
   return (
     <div className="notification-inbox">
       <div className="notification-inbox-header">
         <h3 className="notification-inbox-title">Notifications</h3>
-        {hasUnread && (
-          <button
-            className="notification-inbox-mark-all"
-            onClick={handleMarkAllAsRead}
-            type="button"
-          >
-            Mark all as read
-          </button>
-        )}
+        <a
+          href="/home?tab=notifications"
+          onClick={handleViewAllClick}
+          className="notification-inbox-view-all"
+        >
+          View all notifications
+        </a>
       </div>
 
       <div className="notification-inbox-content">
         {isLoading ? (
           <div className="notification-inbox-empty">Loading notifications...</div>
-        ) : notifications.length === 0 ? (
-          <div className="notification-inbox-empty">No notifications</div>
+        ) : unreadNotifications.length === 0 ? (
+          <div className="notification-inbox-empty">No unread notifications</div>
         ) : (
           <div className="notification-inbox-list">
-            {notifications.map((notification) => (
+            {unreadNotifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`notification-inbox-item ${!notification.is_read ? 'unread' : ''}`}
+                className="notification-inbox-item unread"
                 onClick={() => handleNotificationClick(notification)}
                 role="button"
                 tabIndex={0}
@@ -110,9 +116,7 @@ export default function NotificationInbox({ onClose }) {
                     {formatTimestamp(notification.created_at)}
                   </div>
                 </div>
-                {!notification.is_read && (
-                  <div className="notification-inbox-item-dot" aria-label="Unread" />
-                )}
+                <div className="notification-inbox-item-dot" aria-label="Unread" />
               </div>
             ))}
           </div>

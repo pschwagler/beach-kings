@@ -458,7 +458,7 @@ async def notify_league_members_about_message(
                     "message_id": message_id,
                     "sender_id": sender_user_id
                 },
-                "link_url": f"/leagues/{league_id}"
+                "link_url": f"/league/{league_id}?tab=messages"
             }
             for member_id in member_user_ids
         ]
@@ -528,7 +528,7 @@ async def notify_admins_about_join_request(
                     "request_id": request_id,
                     "player_id": player_id
                 },
-                "link_url": f"/leagues/{league_id}/requests"
+                "link_url": f"/league/{league_id}?tab=details"
             }
             for admin_id in admin_user_ids
         ]
@@ -571,7 +571,7 @@ async def notify_player_about_join_approval(
             data={
                 "league_id": league_id
             },
-            link_url=f"/leagues/{league_id}"
+            link_url=f"/league/{league_id}"
         )
     except Exception as e:
         logger.warning(f"Failed to create notification for join approval: {e}")
@@ -627,7 +627,7 @@ async def notify_members_about_season_activated(
                     "league_id": league_id,
                     "season_id": season_id
                 },
-                "link_url": f"/leagues/{league_id}/seasons/{season_id}"
+                "link_url": f"/league/{league_id}?tab=rankings"
             }
             for member_id in member_user_ids
         ]

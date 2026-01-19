@@ -128,9 +128,19 @@ export const NotificationProvider = ({ children }) => {
     }
     
     // Build WebSocket URL
+    // WebSockets don't go through Next.js rewrites, so we need to connect directly to the backend
+    // If NEXT_PUBLIC_API_URL is set, use it; otherwise default to localhost:8000 (backend port)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = process.env.NEXT_PUBLIC_API_URL?.replace(/^https?:\/\//, '') || window.location.host;
+    let host;
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      host = process.env.NEXT_PUBLIC_API_URL.replace(/^https?:\/\//, '');
+    } else {
+      // Default to backend port in development (matches Next.js rewrite destination)
+      host = 'localhost:8000';
+    }
     const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
+    
+    console.log('Connecting to WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***'));
     
     try {
       const ws = new WebSocket(wsUrl);
@@ -159,23 +169,26 @@ export const NotificationProvider = ({ children }) => {
       
       ws.onmessage = (event) => {
         try {
+          // Handle plain string messages (ping/pong)
+          if (typeof event.data === 'string') {
+            if (event.data === 'ping') {
+              // Server sent ping, respond with pong
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send('pong');
+              }
+              return;
+            }
+            if (event.data === 'pong') {
+              // Server responded to our ping
+              return;
+            }
+          }
+          
+          // Try to parse as JSON for notification messages
           const data = JSON.parse(event.data);
           
-          // Handle pong response (string or JSON)
-          if (data === 'pong' || (typeof data === 'string' && data === 'pong')) {
-            return;
-          }
-          
-          // Handle ping from server (respond with pong)
-          if (data === 'ping' || (typeof data === 'string' && data === 'ping')) {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send('pong');
-            }
-            return;
-          }
-          
           // Handle notification message
-          if (data.type === 'notification' && data.notification) {
+          if (data && data.type === 'notification' && data.notification) {
             const notification = data.notification;
             
             // Add notification to beginning of list
@@ -187,17 +200,26 @@ export const NotificationProvider = ({ children }) => {
             }
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          // If JSON parsing fails, it might be a plain string message we already handled
+          // Only log if it's not a ping/pong message
+          if (event.data !== 'ping' && event.data !== 'pong') {
+            console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
+          }
         }
       };
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        console.error('WebSocket URL was:', wsUrl);
         setWsConnected(false);
       };
       
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
         setWsConnected(false);
         
         // Clear ping interval

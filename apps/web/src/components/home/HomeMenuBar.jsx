@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -78,6 +78,15 @@ export default function HomeMenuBar({ activeTab }) {
       title: 'Friends',
     },
     {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: Bell,
+      active: activeTab === 'notifications',
+      onClick: () => handleTabChange('notifications'),
+      title: 'Notifications',
+      className: 'notifications-menu-item-desktop',
+    },
+    {
       id: 'more',
       label: 'More',
       icon: Menu,
@@ -118,6 +127,20 @@ export default function HomeMenuBar({ activeTab }) {
                 }}
               >
                 <div className="league-sidebar-more-menu">
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTabChange('notifications');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="Notifications"
+                    type="button"
+                  >
+                    <Bell size={18} />
+                    <span>Notifications</span>
+                  </button>
                   <button
                     className="league-sidebar-more-menu-item"
                     onClick={(e) => {
