@@ -228,17 +228,18 @@ async def query_leagues(
 async def get_league(
     league_id: int,
     session: AsyncSession = Depends(get_db_session),
-    user: dict = Depends(make_require_league_member_with_403_auth()),
+    user: dict = Depends(require_user),
 ):
     """
-    Get a league by id. Requires authentication and league membership.
-    Returns 403 if user is not authenticated or not a league member.
+    Get a league by id. Requires authentication.
+    Returns basic league information for any authenticated user,
+    allowing non-members to see the league and decide if they want to join.
     """
     try:
-        # Check if league exists - return 403 instead of 404 to avoid leaking information
+        # Check if league exists
         league = await data_service.get_league(session, league_id)
         if not league:
-            raise HTTPException(status_code=403, detail="Forbidden")
+            raise HTTPException(status_code=404, detail="League not found")
         return league
     except HTTPException:
         raise
@@ -357,10 +358,10 @@ async def create_season(
 @router.get("/api/leagues/{league_id}/seasons")
 async def list_seasons(
     league_id: int,
-    user: dict = Depends(make_require_league_member()),
+    user: dict = Depends(require_user),
     session: AsyncSession = Depends(get_db_session)
 ):
-    """List seasons for a league (league_member)."""
+    """List seasons for a league. Requires authentication only."""
     try:
         return await data_service.list_seasons(session, league_id)
     except Exception as e:

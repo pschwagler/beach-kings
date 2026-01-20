@@ -58,6 +58,21 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     router.push(`/league/${leagueId}`);
   };
 
+  const handleMatchClick = (match) => {
+    const leagueId = match['League ID'];
+    const seasonId = match['Season ID'];
+    
+    if (leagueId) {
+      // Construct URL with tab and season (if available)
+      const params = new URLSearchParams();
+      params.set('tab', 'matches');
+      if (seasonId) {
+        params.set('season', seasonId.toString());
+      }
+      router.push(`/league/${leagueId}?${params.toString()}`);
+    }
+  };
+
   const avatarInitial = getAvatarInitial(currentUserPlayer);
   const fullName = currentUserPlayer?.full_name || 'Player';
 
@@ -179,6 +194,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         <MyMatchesWidget 
           matches={userMatches}
           currentUserPlayer={currentUserPlayer}
+          onMatchClick={handleMatchClick}
         />
       </div>
     </div>

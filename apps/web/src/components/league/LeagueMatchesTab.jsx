@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Swords, Plus } from 'lucide-react';
 import MatchesTable from '../match/MatchesTable';
 
@@ -19,7 +19,7 @@ import { useActiveSession } from './hooks/useActiveSession';
 import { usePlayerNameMapping } from './hooks/usePlayerNameMapping';
 import { useSessionSeasonUpdate } from './hooks/useSessionSeasonUpdate';
 
-export default function LeagueMatchesTab() {
+export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   const { 
     league, 
     leagueId,
@@ -46,9 +46,6 @@ export default function LeagueMatchesTab() {
     refreshMembers,
   } = useLeague();
   const { currentUserPlayer } = useAuth();
-  
-  // Ref to track session that should be scrolled into view
-  const sessionToScrollRef = useRef(null);
   
   // State for modals
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
@@ -99,6 +96,13 @@ export default function LeagueMatchesTab() {
     seasons
   });
   const { refreshData } = dataRefresh;
+
+  // Handle navigation from URL parameters (e.g., clicking from "My Games" dashboard)
+  useEffect(() => {
+    if (seasonIdFromUrl && selectedSeasonId !== seasonIdFromUrl) {
+      setSelectedSeasonId(seasonIdFromUrl);
+    }
+  }, [seasonIdFromUrl, selectedSeasonId, setSelectedSeasonId]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 
@@ -444,7 +448,6 @@ export default function LeagueMatchesTab() {
         seasons={seasons}
         selectedSeasonId={selectedSeasonId}
         onUpdateSessionSeason={handleUpdateSessionSeason}
-        sessionToScrollRef={sessionToScrollRef}
         onSeasonChange={setSelectedSeasonId}
       />
       <CreateSeasonModal
