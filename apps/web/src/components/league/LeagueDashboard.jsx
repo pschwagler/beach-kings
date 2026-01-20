@@ -10,6 +10,7 @@ import LeagueDetailsTab from './LeagueDetailsTab';
 import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
 import LeagueMenuBar from './LeagueMenuBar';
+import JoinLeaguePrompt from './JoinLeaguePrompt';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
@@ -278,60 +279,11 @@ function LeagueDashboardContent({ leagueId }) {
               userLeagues={userLeagues}
               isAuthenticated={isAuthenticated}
             />
-
-            {/* Main Content Area */}
             <main className="league-content">
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: '60px 20px',
-                textAlign: 'center',
-                minHeight: '400px'
-              }}>
-                <h1 style={{ 
-                  fontSize: '32px', 
-                  fontWeight: '600', 
-                  marginBottom: '16px',
-                  color: '#1a1a1a'
-                }}>
-                  {league.name}
-                </h1>
-                <p style={{ 
-                  fontSize: '18px', 
-                  color: '#666', 
-                  marginBottom: '32px',
-                  maxWidth: '500px'
-                }}>
-                  You are not a member of this league. {league.is_open ? 'Join now to start playing!' : 'Request to join and a league administrator will review your request.'}
-                </p>
-                <button 
-                  onClick={handleJoinLeague}
-                  style={{ 
-                    padding: '14px 32px', 
-                    backgroundColor: '#007bff', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#0056b3';
-                    e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#007bff';
-                    e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  }}
-                >
-                  {league.is_open ? 'Join League' : 'Request to Join'}
-                </button>
-              </div>
+              <JoinLeaguePrompt 
+                league={league}
+                onJoinLeague={handleJoinLeague}
+              />
             </main>
           </div>
         </div>
