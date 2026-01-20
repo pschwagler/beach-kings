@@ -3635,7 +3635,10 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
         p3.full_name.label("team2_player1_name"),
         p4.full_name.label("team2_player2_name"),
         eh.elo_after,
-        Session.status.label("session_status")
+        Session.status.label("session_status"),
+        Session.name.label("session_name"),
+        Session.season_id.label("season_id"),
+        Season.league_id.label("league_id")
     ).select_from(
         Match
     ).outerjoin(
@@ -3650,6 +3653,8 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
         eh, and_(eh.match_id == Match.id, eh.player_id == player_id)
     ).outerjoin(
         Session, Match.session_id == Session.id
+    ).outerjoin(
+        Season, Session.season_id == Season.id
     ).where(
         or_(
             Match.team1_player1_id == player_id,
@@ -3715,7 +3720,11 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
             "Score": f"{player_score}-{opponent_score}",
             "ELO Change": elo_change,
             "ELO After": row.elo_after,
-            "Session Status": session_status_value
+            "Session Status": session_status_value,
+            "Session ID": row.session_id,
+            "Session Name": row.session_name,
+            "Season ID": row.season_id,
+            "League ID": row.league_id
         })
     
     return results

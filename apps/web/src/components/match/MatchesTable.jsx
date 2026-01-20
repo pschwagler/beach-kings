@@ -57,7 +57,6 @@ export default function MatchesTable({
   onUpdateSessionSeason = null,
   activeSessionMatchesOverride = null,
   activeSeasons = [],
-  sessionToScrollRef = null,
   onSeasonChange = null
 }) {
   const { isLeagueMember, members, league } = useLeague();
@@ -248,27 +247,6 @@ export default function MatchesTable({
       hasRenderedMatchesRef.current = false;
     }
   }, [loading, matches, matchesWithPendingChanges]);
-
-  // Scroll session into view when sessionToScrollRef changes
-  useEffect(() => {
-    if (sessionToScrollRef?.current) {
-      const sessionId = sessionToScrollRef.current;
-      // Clear the ref so we don't scroll again on next render
-      sessionToScrollRef.current = null;
-      
-      // Wait for DOM to update after filter change and data to load
-      // Use a longer timeout to ensure matches are rendered
-      const scrollTimeout = setTimeout(() => {
-        // Try to find the session element by data attribute
-        const sessionElement = document.querySelector(`[data-session-id="${sessionId}"]`);
-        if (sessionElement) {
-          sessionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 300);
-      
-      return () => clearTimeout(scrollTimeout);
-    }
-  }, [sessionToScrollRef, matchesWithPendingChanges]);
 
   const activeSessionMatches = useMemo(() => {
     if (!activeSession) return [];

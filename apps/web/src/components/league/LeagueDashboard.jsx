@@ -10,12 +10,14 @@ import LeagueDetailsTab from './LeagueDetailsTab';
 import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
 import LeagueMenuBar from './LeagueMenuBar';
+import JoinLeaguePrompt from './JoinLeaguePrompt';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { getUserLeagues, updateLeague, createLeague, joinLeague, requestToJoinLeague } from '../../services/api';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
+import './LeagueDashboard.css';
 
 function LeagueDashboardContent({ leagueId }) {
   const router = useRouter();
@@ -41,6 +43,9 @@ function LeagueDashboardContent({ leagueId }) {
 
   // Get isLeagueAdmin and isLeagueMember from context
   const { isLeagueAdmin, isLeagueMember } = useLeague();
+
+  // Get URL query parameters for navigation
+  const seasonIdParam = searchParams?.get('season');
 
   // Get tab from URL query parameter
   useEffect(() => {
@@ -265,28 +270,21 @@ function LeagueDashboardContent({ leagueId }) {
           onSignUp={handleSignUp}
         />
         <div className="league-dashboard-container">
-          <div className="league-error">
-            <div className="league-message error">
-              <h2>{league.name}</h2>
-              <p>You are not a member of this league.</p>
-              <button 
-                onClick={handleJoinLeague}
-                className="join-league-button"
-                style={{ 
-                  marginTop: '20px', 
-                  padding: '10px 20px', 
-                  backgroundColor: '#007bff', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '5px', 
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '500'
-                }}
-              >
-                {league.is_open ? 'Join' : 'Request to Join'}
-              </button>
-            </div>
+          <div className="league-dashboard">
+            <LeagueMenuBar
+              leagueId={leagueId}
+              leagueName={league.name}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              userLeagues={userLeagues}
+              isAuthenticated={isAuthenticated}
+            />
+            <main className="league-content">
+              <JoinLeaguePrompt 
+                league={league}
+                onJoinLeague={handleJoinLeague}
+              />
+            </main>
           </div>
         </div>
       </>
@@ -386,7 +384,9 @@ function LeagueDashboardContent({ leagueId }) {
             {activeTab === 'rankings' && <LeagueRankingsTab />}
 
             {activeTab === 'matches' && (
-              <LeagueMatchesTab />
+              <LeagueMatchesTab 
+                seasonIdFromUrl={seasonIdParam ? parseInt(seasonIdParam, 10) : null}
+              />
             )}
 
             {activeTab === 'details' && (

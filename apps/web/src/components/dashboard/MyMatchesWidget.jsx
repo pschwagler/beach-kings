@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 
-export default function MyMatchesWidget({ matches, currentUserPlayer }) {
+export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchClick }) {
   const [showAll, setShowAll] = useState(false);
   if (!matches || matches.length === 0) {
     return (
@@ -53,9 +53,31 @@ export default function MyMatchesWidget({ matches, currentUserPlayer }) {
         <div className={`dashboard-matches-list ${showAll ? 'dashboard-matches-list-expanded' : ''}`}>
           {(showAll ? matches : matches.slice(0, 5)).map((match, idx) => {
             const result = getMatchResult(match);
+            const isClickable = onMatchClick && match['League ID'];
+            
+            const handleClick = () => {
+              if (isClickable) {
+                onMatchClick(match);
+              }
+            };
+            
+            const handleKeyDown = (e) => {
+              if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                onMatchClick(match);
+              }
+            };
             
             return (
-              <div key={idx} className="dashboard-match-item">
+              <div 
+                key={idx} 
+                className={`dashboard-match-item ${isClickable ? 'dashboard-match-item-clickable' : ''}`}
+                onClick={handleClick}
+                onKeyDown={handleKeyDown}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                aria-label={isClickable ? `View game: ${result.score} with ${result.partner} vs ${result.opponent}` : undefined}
+              >
                 <div className="dashboard-match-result">
                   <span className={`dashboard-match-status ${result.won ? 'won' : 'lost'}`}>
                     {match.Result || '?'}
