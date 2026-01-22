@@ -449,6 +449,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
         selectedSeasonId={selectedSeasonId}
         onUpdateSessionSeason={handleUpdateSessionSeason}
         onSeasonChange={setSelectedSeasonId}
+        onRefreshData={refreshData}
       />
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}

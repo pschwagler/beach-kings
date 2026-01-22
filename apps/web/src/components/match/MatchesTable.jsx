@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Edit2, Trophy, Users, ChevronDown } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
 import MatchCard from './MatchCard';
 
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
@@ -57,11 +57,47 @@ export default function MatchesTable({
   onUpdateSessionSeason = null,
   activeSessionMatchesOverride = null,
   activeSeasons = [],
-  onSeasonChange = null
+  onSeasonChange = null,
+  onRefreshData = null
 }) {
   const { isLeagueMember, members, league } = useLeague();
-  const { openModal } = useModal();
+  const { openModal, closeModal } = useModal();
   const hasRenderedMatchesRef = useRef(false);
+  
+  // Photo upload state
+  const [photoJobId, setPhotoJobId] = useState(null);
+  const [photoSessionId, setPhotoSessionId] = useState(null);
+  
+  const handlePhotoMatchesCreated = useCallback(async (matchIds) => {
+    setPhotoJobId(null);
+    setPhotoSessionId(null);
+    closeModal();
+    
+    // Refresh data to show the newly created matches
+    if (onRefreshData) {
+      try {
+        await onRefreshData({ sessions: true, season: true, matches: true });
+      } catch (error) {
+        console.error('[MatchesTable] Error refreshing data after photo matches created:', error);
+      }
+    }
+  }, [closeModal, onRefreshData]);
+  
+  const handleProceedToPhotoReview = useCallback((jobId, sessionId) => {
+    console.log('[MatchesTable] handleProceedToPhotoReview called with jobId:', jobId, 'sessionId:', sessionId);
+    setPhotoJobId(jobId);
+    setPhotoSessionId(sessionId);
+    console.log('[MatchesTable] Calling openModal for REVIEW_PHOTO_MATCHES');
+    openModal(MODAL_TYPES.REVIEW_PHOTO_MATCHES, {
+      leagueId,
+      jobId,
+      sessionId,
+      seasonId: selectedSeasonId,
+      seasons,
+      onSuccess: handlePhotoMatchesCreated
+    });
+    console.log('[MatchesTable] openModal called');
+  }, [leagueId, selectedSeasonId, seasons, openModal, handlePhotoMatchesCreated]);
 
   const matchesWithPendingChanges = useMemo(() => {    
     if (matches === null) return null;
@@ -417,6 +453,27 @@ export default function MatchesTable({
               Click to log a new game.
             </p>
           </button>
+          
+          {/* Photo Upload Button - Show for all league members */}
+          {leagueId && (
+            <button 
+              className="add-matches-card upload-photo-card"
+              data-testid="upload-photo-card"
+              onClick={() => openModal(MODAL_TYPES.UPLOAD_PHOTO, {
+                leagueId,
+                seasonId: selectedSeasonId,
+                onProceedToReview: handleProceedToPhotoReview
+              })}
+            >
+              <h2 className="add-matches-title">Upload Photo</h2>
+              <div className="add-matches-icon">
+                <Camera size={24} />
+              </div>
+              <p className="add-matches-description">
+                AI reads scores from photo.
+              </p>
+            </button>
+          )}
         </div>
       )}
 
@@ -445,6 +502,11 @@ export default function MatchesTable({
             defaultSeasonId: selectedSeasonId,
             onSeasonChange: onSeasonChange
           })}
+          onUploadPhotoClick={leagueId ? () => openModal(MODAL_TYPES.UPLOAD_PHOTO, {
+            leagueId,
+            seasonId: activeSession?.season_id || selectedSeasonId,
+            onProceedToReview: handleProceedToPhotoReview
+          }) : undefined}
           onEditMatch={handleEditMatch}
           onSubmitClick={() => {
             // Get season for the active session

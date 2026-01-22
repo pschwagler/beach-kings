@@ -1,12 +1,30 @@
-import { Plus, Save, X } from 'lucide-react';
+import { Plus, Save, X, Camera } from 'lucide-react';
 
-export default function SessionActions({ onAddMatchClick, onSubmitClick, onSaveClick, onCancelClick, isEditing = false }) {
+export default function SessionActions({ 
+  onAddMatchClick, 
+  onUploadPhotoClick,
+  onSubmitClick, 
+  onSaveClick, 
+  onCancelClick, 
+  isEditing = false 
+}) {
   return (
     <div className="session-actions" data-testid="session-actions">
       <button className="session-btn session-btn-add" onClick={onAddMatchClick} data-testid="session-btn-add">
         <Plus size={22} />
         Add New Match
       </button>
+      {onUploadPhotoClick && (
+        <button 
+          className="session-btn session-btn-upload" 
+          onClick={onUploadPhotoClick} 
+          data-testid="session-btn-upload"
+          title="Upload photo of scores"
+        >
+          <Camera size={20} />
+          Upload Photo
+        </button>
+      )}
       {isEditing ? (
         <>
           <button 

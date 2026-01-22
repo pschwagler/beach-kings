@@ -915,6 +915,38 @@ class StatsCalculationJob(Base):
     )
 
 
+class PhotoMatchJobStatus(str, enum.Enum):
+    """Photo match job status enum."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PhotoMatchJob(Base):
+    """Queue for photo match processing jobs."""
+    __tablename__ = "photo_match_jobs"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    session_id = Column(String, nullable=False)  # Redis session key
+    status = Column(Enum(PhotoMatchJobStatus), default=PhotoMatchJobStatus.PENDING, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+    result_data = Column(Text, nullable=True)  # JSON string of parsed matches
+    
+    # Relationships
+    league = relationship("League", foreign_keys=[league_id])
+    
+    __table_args__ = (
+        Index("idx_photo_match_jobs_status", "status"),
+        Index("idx_photo_match_jobs_session", "session_id"),
+        Index("idx_photo_match_jobs_created_at", "created_at"),
+    )
+
+
 class LeagueMessage(Base):
     """League messages/chat."""
     __tablename__ = "league_messages"

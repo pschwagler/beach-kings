@@ -972,4 +972,84 @@ export const markAllNotificationsAsRead = async () => {
   return response.data;
 };
 
+/**
+ * Photo Match Upload API functions
+ */
+
+/**
+ * Upload a photo of game scores for AI processing
+ * @param {number} leagueId - League ID
+ * @param {File} file - Image file
+ * @param {string} userPrompt - Optional context/instructions
+ * @param {number} seasonId - Optional season ID
+ */
+export const uploadMatchPhoto = async (leagueId, file, userPrompt = null, seasonId = null) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (userPrompt) {
+    formData.append('user_prompt', userPrompt);
+  }
+  if (seasonId) {
+    formData.append('season_id', seasonId);
+  }
+  
+  const response = await api.post(`/api/leagues/${leagueId}/matches/upload-photo`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+/**
+ * Get status of a photo processing job
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ */
+export const getPhotoJobStatus = async (leagueId, jobId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/matches/photo-jobs/${jobId}`);
+  return response.data;
+};
+
+/**
+ * Send edit prompt for photo results refinement
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ * @param {string} editPrompt - Edit/clarification prompt
+ */
+export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
+  const response = await api.post(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/edit`,
+    { edit_prompt: editPrompt }
+  );
+  return response.data;
+};
+
+/**
+ * Confirm parsed matches and create them in the database
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ * @param {number} seasonId - Season to create matches in
+ * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
+ */
+export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate) => {
+  const response = await api.post(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/confirm`,
+    { season_id: seasonId, match_date: matchDate }
+  );
+  return response.data;
+};
+
+/**
+ * Cancel photo session and cleanup
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ */
+export const cancelPhotoSession = async (leagueId, sessionId) => {
+  const response = await api.delete(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}`
+  );
+  return response.data;
+};
+
 export default api;

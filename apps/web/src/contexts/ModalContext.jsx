@@ -10,6 +10,7 @@ export const ModalProvider = ({ children }) => {
   const [modalProps, setModalProps] = useState({});
 
   const openModal = useCallback((type, props = {}) => {
+    console.log('[ModalContext] openModal called - type:', type, 'props keys:', Object.keys(props));
     setModalType(type);
     setModalProps(props);
     setIsOpen(true);
@@ -20,6 +21,7 @@ export const ModalProvider = ({ children }) => {
   }, []);
 
   const closeModal = useCallback(() => {
+    console.log('[ModalContext] closeModal called');
     setIsOpen(false);
     setModalType(null);
     setModalProps({});
@@ -57,4 +59,6 @@ export const MODAL_TYPES = {
   SIGNUP: 'SIGNUP',
   CONFIRMATION: 'CONFIRMATION', // Optional, if we want to use it globally
   SESSION_SUMMARY: 'SESSION_SUMMARY',
+  UPLOAD_PHOTO: 'UPLOAD_PHOTO',
+  REVIEW_PHOTO_MATCHES: 'REVIEW_PHOTO_MATCHES',
 };

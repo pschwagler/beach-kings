@@ -834,6 +834,77 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
     assert session2["id"] != session1["id"]
 
 
+@pytest.mark.asyncio
+async def test_session_name_format_with_iso_date(db_session, test_player):
+    """Test that ISO format dates (2024-01-15) are converted to M/D/YYYY format for session names."""
+    # Create a league with an active season
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id
+    )
+    
+    season = await data_service.create_season(
+        session=db_session,
+        league_id=league["id"],
+        name="Test Season",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        point_system=None,
+    )
+    
+    # Create a session with ISO format date - name should be formatted as M/D/YYYY
+    session1 = await data_service.get_or_create_active_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="2024-01-21",  # ISO format
+        created_by=test_player.id
+    )
+    assert session1["name"] == "1/21/2024"  # Should be converted to M/D/YYYY format
+    
+    # Submit session to allow creating another
+    from backend.database.models import Session as SessionModel, SessionStatus
+    result = await db_session.execute(
+        select(SessionModel).where(SessionModel.id == session1["id"])
+    )
+    session_obj = result.scalar_one()
+    session_obj.status = SessionStatus.SUBMITTED
+    await db_session.commit()
+    
+    # Second session with ISO date should also be formatted correctly
+    session2 = await data_service.get_or_create_active_league_session(
+        session=db_session,
+        league_id=league["id"],
+        date="2024-01-21",  # ISO format
+        created_by=test_player.id
+    )
+    assert session2["name"] == "1/21/2024 Session #2"
+
+
+def test_format_session_date_function():
+    """Test the format_session_date utility function."""
+    from backend.utils.datetime_utils import format_session_date
+    from datetime import datetime
+    
+    # ISO format
+    assert format_session_date("2024-01-21") == "1/21/2024"
+    assert format_session_date("2024-12-05") == "12/5/2024"
+    
+    # US format with leading zeros
+    assert format_session_date("01/05/2024") == "1/5/2024"
+    
+    # US format without leading zeros (already correct)
+    assert format_session_date("1/5/2024") == "1/5/2024"
+    
+    # datetime object
+    assert format_session_date(datetime(2024, 1, 21)) == "1/21/2024"
+    assert format_session_date(datetime(2024, 12, 5)) == "12/5/2024"
+
+
 # ============================================================================
 # Match CRUD Tests
 # ============================================================================

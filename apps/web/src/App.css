@@ -7327,6 +7327,19 @@ button.match-config-toggle.inline svg {
   background: var(--deep-ocean);
 }
 
+.session-btn-upload {
+  background: var(--secondary, #6366f1);
+  color: white;
+}
+
+.session-btn-upload:hover {
+  background: var(--secondary-dark, #4f46e5);
+}
+
+.session-btn-upload:active {
+  background: var(--secondary-dark, #4338ca);
+}
+
 .session-btn-submit {
   background: var(--muted-red);
   color: white;
