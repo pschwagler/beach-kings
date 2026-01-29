@@ -3189,18 +3189,39 @@ body:hover ::-webkit-scrollbar-thumb {
   margin-top: auto;
 }
 
-.modal-actions .button:not(.btn-success) {
+.modal-actions .button:not(.btn-success):not(.btn-danger) {
   background: none;
   color: var(--gray-700);
 }
 
-.modal-actions .button:not(.btn-success):hover {
+.modal-actions .button:not(.btn-success):not(.btn-danger):hover {
   background: var(--gray-50);
   color: var(--gray-900);
 }
 
-.modal-actions .button:not(.btn-success):active {
+.modal-actions .button:not(.btn-success):not(.btn-danger):active {
   background: var(--gray-100);
+}
+
+/* Danger confirm button in modals - keep red and prominent */
+.modal-actions .button.btn-danger {
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+}
+
+.modal-actions .button.btn-danger:hover {
+  background: #b91c1c;
+  color: white;
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4);
+  transform: translateY(-1px);
+}
+
+.modal-actions .button.btn-danger:active {
+  background: #991b1b;
+  transform: translateY(0);
 }
 
 .modal-actions .delete-match-text-btn {
@@ -3210,6 +3231,55 @@ body:hover ::-webkit-scrollbar-thumb {
 /* Confirmation Modal */
 .confirmation-modal {
   max-width: 550px;
+}
+
+.modal-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.confirmation-modal-warning-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.confirmation-modal-context {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.confirmation-modal-context-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.confirmation-modal-context-row + .confirmation-modal-context-row {
+  margin-top: 6px;
+}
+
+.confirmation-modal-context-label {
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 60px;
+}
+
+.confirmation-modal-context-value {
+  color: var(--gray-900);
 }
 
 .modal-player-stats {
@@ -7360,6 +7430,21 @@ button.match-config-toggle.inline svg {
   box-shadow: 0 1px 2px rgba(255, 120, 73, 0.2);
 }
 
+.session-btn-delete {
+  background: #dc2626;
+  color: white;
+}
+
+.session-btn-delete:hover {
+  background: #b91c1c;
+  color: white;
+}
+
+.session-btn-delete:active {
+  background: #991b1b;
+  color: white;
+}
+
 .session-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -7367,6 +7452,28 @@ button.match-config-toggle.inline svg {
 
 /* Session Matches Section */
 /* Session Season Selector */
+.session-season-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 1rem;
+  margin-bottom: 16px;
+}
+
+.session-season-row .session-season-selector {
+  margin-bottom: 0;
+  padding: 0;
+  border-bottom: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.session-btn-delete-header {
+  flex-shrink: 0;
+}
+
 .session-season-selector {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #e5e7eb;
@@ -11109,4 +11216,13 @@ button.match-config-toggle.inline svg {
 /* Ensure winner background works with table hover/stripe if any */
 .clipboard-table tr:hover .winner-cell-bg {
   background-color: #beece5; /* Slightly darker on hover */
+}
+
+/* Clipboard view: winner = primary-dark, loser = gray-800 */
+.clipboard-winner {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.clipboard-loser {
+  color: var(--gray-800);
 }

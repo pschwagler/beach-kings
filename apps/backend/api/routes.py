@@ -2957,13 +2957,12 @@ async def upload_match_photo(
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         player_id = player["id"] if player else None
         
-        # Store session data in Redis
+        # Store session data in Redis (omit image_base64; process_photo_job receives it in-memory)
         session_data = {
             "league_id": league_id,
             "season_id": season_id,
             "user_id": current_user["id"],
             "player_id": player_id,
-            "image_base64": image_base64,
             "user_prompt": user_prompt,
             "parsed_matches": [],
             "partial_matches": [],  # Streamed matches while job is running

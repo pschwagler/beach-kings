@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { X, Trophy, Users } from 'lucide-react';
+import { X, Trophy, Users, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/UI';
 
 // Helper function to calculate player statistics from matches
@@ -63,18 +63,20 @@ function calculatePlayerStats(matches) {
   return Object.values(playerStats).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export default function ConfirmationModal({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  message, 
-  confirmText = 'Confirm', 
+export default function ConfirmationModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
   cancelText = 'Cancel',
+  confirmButtonClass,
+  sessionName,
   gameCount,
   playerCount,
   matches,
-  season
+  season,
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -106,11 +108,20 @@ export default function ConfirmationModal({
     }
   };
 
+  const isDanger = confirmButtonClass === 'danger';
+
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal-content confirmation-modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-content confirmation-modal ${isDanger ? 'confirmation-modal-danger' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{title}</h2>
+          <div className="modal-header-title-group">
+            {isDanger && (
+              <div className="confirmation-modal-warning-icon" aria-hidden>
+                <AlertTriangle size={28} />
+              </div>
+            )}
+            <h2>{title}</h2>
+          </div>
           <div className="modal-header-right">
             {season && (
               <span className="season-badge">
@@ -124,6 +135,22 @@ export default function ConfirmationModal({
         </div>
 
         <div className="modal-body">
+          {(sessionName || season) && (
+            <div className="confirmation-modal-context">
+              {sessionName && (
+                <div className="confirmation-modal-context-row">
+                  <span className="confirmation-modal-context-label">Session:</span>
+                  <span className="confirmation-modal-context-value">{sessionName}</span>
+                </div>
+              )}
+              {season && (
+                <div className="confirmation-modal-context-row">
+                  <span className="confirmation-modal-context-label">Season:</span>
+                  <span className="confirmation-modal-context-value">{season.name || `Season ${season.id}`}</span>
+                </div>
+              )}
+            </div>
+          )}
           {(gameCount !== undefined || playerCount !== undefined) && (
             <div className="modal-stats">
               {gameCount !== undefined && (
@@ -173,7 +200,11 @@ export default function ConfirmationModal({
           <Button onClick={onClose} disabled={isSubmitting}>
             {cancelText}
           </Button>
-          <Button variant="success" onClick={handleConfirm} disabled={isSubmitting}>
+          <Button
+            variant={confirmButtonClass === 'danger' ? 'danger' : 'success'}
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? 'Submitting...' : confirmText}
           </Button>
         </div>
