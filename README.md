@@ -190,6 +190,15 @@ The application uses PostgreSQL for data storage. If you're using Docker Compose
 
 The system can export match data to CSV format compatible with Google Sheets. This is useful for backup or analysis in spreadsheets. See the API documentation for export endpoints.
 
+### CI & PR review (Gemini)
+
+A GitHub Action runs [Gemini](https://ai.google.dev/) code review on every pull request. To enable it:
+
+1. Get a Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey).
+2. In the repo: **Settings → Secrets and variables → Actions**, add a secret named `GEMINI_API_KEY` with that key.
+
+The workflow (`.github/workflows/gemini-pr-review.yml`) runs on PR open, sync, and reopen, and posts review comments on the PR.
+
 ## 🔧 API Endpoints
 
 The FastAPI server exposes these endpoints:
