@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Edit2, Trophy, Users, AlertCircle, Check, X } from 'lucide-react';
+import { Edit2, Trophy, Users, AlertCircle, Check, X, Trash2 } from 'lucide-react';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { useLeague } from '../../contexts/LeagueContext';
@@ -355,28 +355,12 @@ export default function MatchesClipboardView({
 
         return (
             <div className={`clipboard-session-card ${isActive ? 'active-session' : ''} ${isEditing ? 'editing-session' : ''}`} key={group.id}>
-                <div className="clipboard-header">
-                    <div className="clipboard-header-left">
-                        <h3 className="clipboard-title">
-                            {group.name}
-                            {sessionSeason && (
-                                <span className="season-badge">{sessionSeason.name}</span>
-                            )}
-                            {isActive && <span className="status-badge active">Active</span>}
-                            {isEditing && <span className="status-badge editing">Editing</span>}
-                        </h3>
-                        <div className="clipboard-meta">
-                            <span><Trophy size={14} /> {group.matches.length} matches</span>
-                            <span><Users size={14} /> {sessionPlayers.size} players</span>
-                            {group.lastUpdated && !isActive && !isEditing && (
-                                <span className="timestamp">{formatRelativeTime(group.lastUpdated)}</span>
-                            )}
-                        </div>
-                    </div>
-                    <div className="clipboard-actions">
+                <div className="match-date-header" style={{ borderBottom: '1px solid var(--gray-200)', borderRadius: '12px 12px 0 0' }}>
+                    <span className="match-date-header-left">
+                        {group.name}
                         {canEditSession && (
-                            <button 
-                                className="icon-button" 
+                            <button
+                                className="edit-session-button"
                                 onClick={() => onEnterEditMode(group.id)}
                                 title="Edit Session"
                             >
@@ -384,11 +368,41 @@ export default function MatchesClipboardView({
                             </button>
                         )}
                         {isEditing && (
-                            <div className="edit-actions">
+                            <div className="edit-actions" style={{ marginLeft: '8px' }}>
                                 <button className="league-text-button secondary small" onClick={() => onCancelEdit(group.id)}>Cancel</button>
                                 <button className="league-text-button primary small" onClick={() => onSaveEditedSession(group.id)}>Save</button>
                             </div>
                         )}
+                        {isActive && <span className="status-badge active" style={{ marginLeft: '8px' }}>Active</span>}
+                        {isEditing && <span className="status-badge editing" style={{ marginLeft: '8px' }}>Editing</span>}
+                        {sessionSeason && (
+                            <span className="season-badge">
+                                {sessionSeason.name}
+                            </span>
+                        )}
+                    </span>
+                    
+                    <div className="clipboard-actions" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {(isActive || isEditing) && (
+                            <button
+                                className="league-text-button danger small"
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '8px' }}
+                                onClick={() => {
+                                    openModal(MODAL_TYPES.CONFIRMATION, {
+                                        title: "Delete Session",
+                                        message: "Are you sure you want to delete this session? This action cannot be undone and all games within this session will be lost forever.",
+                                        confirmText: "Delete Session",
+                                        confirmButtonClass: "danger",
+                                        onConfirm: () => onDeleteSession(group.id)
+                                    });
+                                }}
+                                title="Delete Session"
+                            >
+                                <Trash2 size={16} />
+                                Delete
+                            </button>
+                        )}
+
                         {isActive && (
                             <div className="active-actions">
                                 <button 
@@ -407,6 +421,28 @@ export default function MatchesClipboardView({
                                 </button>
                             </div>
                         )}
+                        
+                        <div 
+                            className="session-stats session-stats-clickable match-date-header-stats"
+                            onClick={() => {
+                                openModal(MODAL_TYPES.SESSION_SUMMARY, {
+                                    title: group.name || "Session Summary",
+                                    gameCount: group.matches.length,
+                                    playerCount: sessionPlayers.size,
+                                    matches: group.matches,
+                                    season: sessionSeason
+                                });
+                            }}
+                        >
+                            <div className="session-stat">
+                                <Trophy size={16} />
+                                {group.matches.length} matches
+                            </div>
+                            <div className="session-stat">
+                                <Users size={16} />
+                                {sessionPlayers.size} players
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -415,18 +451,17 @@ export default function MatchesClipboardView({
                         <thead>
                             <tr>
                                 <th style={{ width: '40px' }}>#</th>
-                                <th style={{ width: '25%' }}>Team 1</th>
+                                <th style={{ width: '35%' }}>Team 1</th>
                                 <th style={{ width: '10%', textAlign: 'center' }}>Score</th>
                                 <th style={{ width: '10%', textAlign: 'center' }}>Score</th>
-                                <th style={{ width: '25%' }}>Team 2</th>
-                                <th style={{ width: '15%' }}>Winner</th>
+                                <th style={{ width: '35%' }}>Team 2</th>
                                 {(isActive || isEditing) && <th style={{ width: '10%' }}>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {group.matches.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="empty-table-cell">
+                                    <td colSpan="6" className="empty-table-cell">
                                         No matches recorded yet.
                                     </td>
                                 </tr>
@@ -439,25 +474,25 @@ export default function MatchesClipboardView({
                                     const t1Score = match['Team 1 Score'];
                                     const t2Score = match['Team 2 Score'];
                                     
+                                    const isTeam1Winner = match.Winner === 'Team 1';
+                                    const isTeam2Winner = match.Winner === 'Team 2';
+                                    
                                     return (
                                         <tr key={match.id || idx}>
                                             <td>{idx + 1}</td>
-                                            <td>
+                                            <td className={isTeam1Winner ? 'winner-cell-bg' : ''}>
                                                 <div className="player-cell">
-                                                    <span className="player-name clickable" onClick={() => t1p1 && onPlayerClick(t1p1)}>{t1p1}</span>
-                                                    {t1p2 && <span className="player-name clickable" onClick={() => onPlayerClick(t1p2)}>{t1p2}</span>}
+                                                    <span className={`player-name clickable ${isTeam1Winner ? 'winner-text' : ''}`} onClick={() => t1p1 && onPlayerClick(t1p1)}>{t1p1}</span>
+                                                    {t1p2 && <span className={`player-name clickable ${isTeam1Winner ? 'winner-text' : ''}`} onClick={() => onPlayerClick(t1p2)}>{t1p2}</span>}
                                                 </div>
                                             </td>
-                                            <td className="score-cell">{t1Score}</td>
-                                            <td className="score-cell">{t2Score}</td>
-                                            <td>
+                                            <td className={`score-cell ${isTeam1Winner ? 'winner-text' : ''} ${isTeam1Winner ? 'winner-cell-bg' : ''}`}>{t1Score}</td>
+                                            <td className={`score-cell ${isTeam2Winner ? 'winner-text' : ''} ${isTeam2Winner ? 'winner-cell-bg' : ''}`}>{t2Score}</td>
+                                            <td className={isTeam2Winner ? 'winner-cell-bg' : ''}>
                                                 <div className="player-cell">
-                                                    <span className="player-name clickable" onClick={() => t2p1 && onPlayerClick(t2p1)}>{t2p1}</span>
-                                                    {t2p2 && <span className="player-name clickable" onClick={() => onPlayerClick(t2p2)}>{t2p2}</span>}
+                                                    <span className={`player-name clickable ${isTeam2Winner ? 'winner-text' : ''}`} onClick={() => t2p1 && onPlayerClick(t2p1)}>{t2p1}</span>
+                                                    {t2p2 && <span className={`player-name clickable ${isTeam2Winner ? 'winner-text' : ''}`} onClick={() => onPlayerClick(t2p2)}>{t2p2}</span>}
                                                 </div>
-                                            </td>
-                                            <td className={`winner-cell ${match.Winner === 'Team 1' ? 'team1-win' : match.Winner === 'Team 2' ? 'team2-win' : ''}`}>
-                                                {match.Winner}
                                             </td>
                                             {(isActive || isEditing) && (
                                                 <td className="actions-cell">
@@ -474,13 +509,24 @@ export default function MatchesClipboardView({
                         {canAddMatches && (
                             <tfoot>
                                 <tr>
-                                    <td colSpan="7">
+                                    <td colSpan="6">
                                         <button 
                                             className="add-row-button"
                                             onClick={() => handleAddMatchToSession(group.id, seasonId)}
                                         >
                                             + Add Match
                                         </button>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        )}
+                        {group.lastUpdated && !isActive && !isEditing && (
+                            <tfoot>
+                                <tr>
+                                    <td colSpan="6" className="table-footer-meta">
+                                        <div className="session-timestamp" style={{ padding: '8px 16px', fontSize: '0.8rem', color: 'var(--gray-500)', textAlign: 'right' }}>
+                                             {formatRelativeTime(group.lastUpdated)}
+                                        </div>
                                     </td>
                                 </tr>
                             </tfoot>
