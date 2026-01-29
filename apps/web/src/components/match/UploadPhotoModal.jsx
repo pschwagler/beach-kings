@@ -9,6 +9,55 @@ import { heicTo, isHeic } from 'heic-to';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif'];
+const THUMBNAIL_MAX_SIZE = 400; // max width/height for review modal preview
+const THUMBNAIL_JPEG_QUALITY = 0.75;
+
+/**
+ * Create a small data URL thumbnail from a File for use in the review modal.
+ * @param {File} file - Image file
+ * @returns {Promise<string|null>} - Data URL or null on failure
+ */
+function createThumbnailDataUrl(file) {
+  return new Promise((resolve) => {
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      let tw = w;
+      let th = h;
+      if (w > THUMBNAIL_MAX_SIZE || h > THUMBNAIL_MAX_SIZE) {
+        if (w > h) {
+          tw = THUMBNAIL_MAX_SIZE;
+          th = Math.round((h * THUMBNAIL_MAX_SIZE) / w);
+        } else {
+          th = THUMBNAIL_MAX_SIZE;
+          tw = Math.round((w * THUMBNAIL_MAX_SIZE) / h);
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, tw, th);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', THUMBNAIL_JPEG_QUALITY));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
 
 /**
  * Convert HEIC/HEIF file to JPEG
@@ -158,7 +207,8 @@ export default function UploadPhotoModal({
       console.log('[UploadPhotoModal] Starting upload for league:', leagueId);
       const result = await uploadMatchPhoto(leagueId, selectedFile, userPrompt || null, seasonId || null);
       console.log('[UploadPhotoModal] Upload succeeded, job_id:', result.job_id, 'session_id:', result.session_id);
-      onProceedToReview(result.job_id, result.session_id);
+      const thumbnailDataUrl = await createThumbnailDataUrl(selectedFile);
+      onProceedToReview(result.job_id, result.session_id, thumbnailDataUrl);
     } catch (err) {
       console.error('[UploadPhotoModal] Upload error:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to upload photo';

@@ -83,7 +83,7 @@ export default function MatchesTable({
     }
   }, [closeModal, onRefreshData]);
   
-  const handleProceedToPhotoReview = useCallback((jobId, sessionId) => {
+  const handleProceedToPhotoReview = useCallback((jobId, sessionId, uploadedImageUrl = null) => {
     console.log('[MatchesTable] handleProceedToPhotoReview called with jobId:', jobId, 'sessionId:', sessionId);
     setPhotoJobId(jobId);
     setPhotoSessionId(sessionId);
@@ -94,6 +94,7 @@ export default function MatchesTable({
       sessionId,
       seasonId: selectedSeasonId,
       seasons,
+      uploadedImageUrl,
       onSuccess: handlePhotoMatchesCreated
     });
     console.log('[MatchesTable] openModal called');

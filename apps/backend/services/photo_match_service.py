@@ -670,6 +670,7 @@ def _run_gemini_stream_consumer(
     config = {
         "response_mime_type": "application/json",
         "response_json_schema": EXTRACTION_JSON_SCHEMA,
+        "thinking_config": types.ThinkingConfig(thinking_level="low"),
     }
     full_raw = ""
     buffer = ""
@@ -769,6 +770,8 @@ async def clarify_scores_chat(
     user_message = f"Previous extraction:\n{previous_response}\n\nUser's correction/answer:\n{user_prompt}"
 
     def _call() -> str:
+        from google.genai import types
+
         response = client.models.generate_content(
             model=GEMINI_CLARIFY_MODEL,
             contents=user_message,
@@ -776,6 +779,7 @@ async def clarify_scores_chat(
                 "response_mime_type": "application/json",
                 "response_json_schema": EXTRACTION_JSON_SCHEMA,
                 "system_instruction": system_prompt,
+                "thinking_config": types.ThinkingConfig(thinking_level="low"),
             },
         )
         if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
@@ -1144,7 +1148,10 @@ async def process_photo_job(
                 if msg_type == STREAM_MSG_ERROR:
                     raise RuntimeError(payload)
                 if msg_type == STREAM_MSG_PARTIAL:
-                    await update_session_data(session_id, {"partial_matches": payload})
+                    # Resolve player names against league members before showing in UI,
+                    # so the table doesn't flash "Unknown" then fill in names.
+                    matches_with_ids, _ = match_all_players_in_matches(payload, league_members)
+                    await update_session_data(session_id, {"partial_matches": matches_with_ids})
                 elif msg_type == STREAM_MSG_DONE:
                     final_buffer = payload
                     break
