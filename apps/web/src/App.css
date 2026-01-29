@@ -11082,3 +11082,31 @@ button.match-config-toggle.inline svg {
   background: rgba(255,255,255,0.5);
   color: var(--gray-800);
 }
+
+/* Stats clickable area */
+.session-stats-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.session-stats-clickable:hover {
+  background-color: var(--gray-100);
+  transform: translateY(-1px);
+}
+
+/* Implicit Winner Styles */
+.winner-text {
+  font-weight: 700 !important;
+  color: var(--primary) !important;
+}
+
+.winner-cell-bg {
+  background-color: var(--seafoam-light); /* Very light seafoam tint */
+}
+
+/* Ensure winner background works with table hover/stripe if any */
+.clipboard-table tr:hover .winner-cell-bg {
+  background-color: #beece5; /* Slightly darker on hover */
+}
