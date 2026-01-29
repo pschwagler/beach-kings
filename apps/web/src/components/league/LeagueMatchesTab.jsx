@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Swords, Plus } from 'lucide-react';
+import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
 import MatchesTable from '../match/MatchesTable';
+import MatchesClipboardView from '../match/MatchesClipboardView';
 
 import { useLeague } from '../../contexts/LeagueContext';
 import { formatDateRange } from './utils/leagueUtils';
@@ -50,6 +51,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   // State for modals
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  
+  // View mode state
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'clipboard'
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -390,9 +394,29 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
 
   return (
     <div className="league-section">
-      {/* Season Selector - Top Right */}
-      {seasons.length > 0 && (
-        <div className="rankings-filters-row" style={{ justifyContent: 'flex-end' }}>
+      {/* Header Row with Toggle and Season Selector */}
+      <div className="rankings-filters-row" style={{ justifyContent: 'space-between', marginBottom: '20px' }}>
+        {/* View Toggle */}
+        <div className="view-toggle">
+          <button 
+            className={`view-toggle-button ${viewMode === 'cards' ? 'active' : ''}`}
+            onClick={() => setViewMode('cards')}
+            title="Card View"
+          >
+            <LayoutList size={18} />
+            Cards
+          </button>
+          <button 
+            className={`view-toggle-button ${viewMode === 'clipboard' ? 'active' : ''}`}
+            onClick={() => setViewMode('clipboard')}
+            title="Clipboard View"
+          >
+            <ClipboardList size={18} />
+            Clipboard
+          </button>
+        </div>
+
+        {seasons.length > 0 && (
           <div className="season-selector-wrapper">
             <select
               id="season-select-matches"
@@ -413,44 +437,81 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
               ))}
             </select>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       
-      <MatchesTable
-        matches={matches}
-        onPlayerClick={handlePlayerClick}
-        loading={selectedSeasonId 
-          ? (seasonDataLoadingMap[selectedSeasonId] || false)
-          : (seasonDataLoadingMap['all-seasons'] || false)
-        }
-        activeSession={
-          // Always show active session regardless of selected season filter
-          activeSession || null
-        }
-        allSessions={allSessions}
-        activeSessionMatchesOverride={activeSessionMatchesFromSeason}
-        onCreateSession={handleRefreshSession}
-        onEndSession={handleEndSession}
-        onDeleteSession={handleDeleteSession}
-        onCreateMatch={handleCreateMatch}
-        onUpdateMatch={handleUpdateMatch}
-        onDeleteMatch={handleDeleteMatch}
-        allPlayerNames={allPlayerNames}
-        playerIdToName={playerIdToName}
-        leagueId={leagueId}
-        isAdmin={isLeagueAdmin}
-        editingSessions={editingSessions}
-        onEnterEditMode={handleEnterEditMode}
-        onSaveEditedSession={handleSaveEditedSession}
-        onCancelEdit={handleCancelEdit}
-        pendingMatchChanges={pendingMatchChanges}
-        editingSessionMetadata={editingSessionMetadata}
-        seasons={seasons}
-        selectedSeasonId={selectedSeasonId}
-        onUpdateSessionSeason={handleUpdateSessionSeason}
-        onSeasonChange={setSelectedSeasonId}
-        onRefreshData={refreshData}
-      />
+      {viewMode === 'cards' ? (
+        <MatchesTable
+          matches={matches}
+          onPlayerClick={handlePlayerClick}
+          loading={selectedSeasonId 
+            ? (seasonDataLoadingMap[selectedSeasonId] || false)
+            : (seasonDataLoadingMap['all-seasons'] || false)
+          }
+          activeSession={
+            // Always show active session regardless of selected season filter
+            activeSession || null
+          }
+          allSessions={allSessions}
+          activeSessionMatchesOverride={activeSessionMatchesFromSeason}
+          onCreateSession={handleRefreshSession}
+          onEndSession={handleEndSession}
+          onDeleteSession={handleDeleteSession}
+          onCreateMatch={handleCreateMatch}
+          onUpdateMatch={handleUpdateMatch}
+          onDeleteMatch={handleDeleteMatch}
+          allPlayerNames={allPlayerNames}
+          playerIdToName={playerIdToName}
+          leagueId={leagueId}
+          isAdmin={isLeagueAdmin}
+          editingSessions={editingSessions}
+          onEnterEditMode={handleEnterEditMode}
+          onSaveEditedSession={handleSaveEditedSession}
+          onCancelEdit={handleCancelEdit}
+          pendingMatchChanges={pendingMatchChanges}
+          editingSessionMetadata={editingSessionMetadata}
+          seasons={seasons}
+          selectedSeasonId={selectedSeasonId}
+          onUpdateSessionSeason={handleUpdateSessionSeason}
+          onSeasonChange={setSelectedSeasonId}
+          onRefreshData={refreshData}
+        />
+      ) : (
+        <MatchesClipboardView
+          matches={matches}
+          onPlayerClick={handlePlayerClick}
+          loading={selectedSeasonId 
+            ? (seasonDataLoadingMap[selectedSeasonId] || false)
+            : (seasonDataLoadingMap['all-seasons'] || false)
+          }
+          activeSession={
+            // Always show active session regardless of selected season filter
+            activeSession || null
+          }
+          allSessions={allSessions}
+          activeSessionMatchesOverride={activeSessionMatchesFromSeason}
+          onCreateSession={handleRefreshSession}
+          onEndSession={handleEndSession}
+          onDeleteSession={handleDeleteSession}
+          onCreateMatch={handleCreateMatch}
+          onUpdateMatch={handleUpdateMatch}
+          onDeleteMatch={handleDeleteMatch}
+          allPlayerNames={allPlayerNames}
+          playerIdToName={playerIdToName}
+          leagueId={leagueId}
+          isAdmin={isLeagueAdmin}
+          editingSessions={editingSessions}
+          onEnterEditMode={handleEnterEditMode}
+          onSaveEditedSession={handleSaveEditedSession}
+          onCancelEdit={handleCancelEdit}
+          pendingMatchChanges={pendingMatchChanges}
+          editingSessionMetadata={editingSessionMetadata}
+          seasons={seasons}
+          selectedSeasonId={selectedSeasonId}
+          onUpdateSessionSeason={handleUpdateSessionSeason}
+          onSeasonChange={setSelectedSeasonId}
+        />
+      )}
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}
         onClose={() => setShowCreateSeasonModal(false)}

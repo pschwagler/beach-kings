@@ -29,6 +29,7 @@ export default function PhotoMatchReviewModal({
   const [jobId, setJobId] = useState(initialJobId);
   const [status, setStatus] = useState('pending');
   const [result, setResult] = useState(null);
+  const [partialMatches, setPartialMatches] = useState(null); // streamed matches while job is running
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
@@ -59,8 +60,14 @@ export default function PhotoMatchReviewModal({
       
       setStatus(jobStatus.status);
       
+      // While running, show streamed partial_matches in the table
+      if (jobStatus.status === 'running' && jobStatus.partial_matches?.length > 0) {
+        setPartialMatches(jobStatus.partial_matches);
+      }
+      
       if (jobStatus.status === 'completed' && jobStatus.result) {
         console.log('[PhotoMatchReviewModal] Job completed, matches:', jobStatus.result.matches?.length);
+        setPartialMatches(null);
         setResult(jobStatus.result);
         
         // Add AI response to conversation
@@ -82,6 +89,7 @@ export default function PhotoMatchReviewModal({
         }
       } else if (jobStatus.status === 'failed') {
         console.log('[PhotoMatchReviewModal] Job failed:', jobStatus.result?.error_message);
+        setPartialMatches(null);
         setError(jobStatus.result?.error_message || 'Processing failed');
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
@@ -159,6 +167,7 @@ export default function PhotoMatchReviewModal({
       setError(null);
       setPollAttempts(0);
       setConversationHistory([]);
+      setPartialMatches(null);
     }
   }, [initialJobId]);
 
@@ -289,6 +298,8 @@ export default function PhotoMatchReviewModal({
   const isSuccess = result?.status === 'success';
   const isUnreadable = result?.status === 'unreadable';
   const hasMatches = result?.matches?.length > 0;
+  // Show table with final result or streamed partial matches
+  const displayMatches = result?.matches ?? partialMatches ?? [];
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
@@ -309,8 +320,8 @@ export default function PhotoMatchReviewModal({
             </div>
           )}
 
-          {/* Processing State */}
-          {isProcessing && (
+          {/* Processing State - show full block only when no partial matches yet */}
+          {isProcessing && displayMatches.length === 0 && (
             <div className="review-processing">
               <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
               <p>Analyzing image and extracting scores...</p>
@@ -327,10 +338,16 @@ export default function PhotoMatchReviewModal({
             </div>
           )}
 
-          {/* Results Table */}
-          {hasMatches && !isProcessing && (
+          {/* Results Table - show while streaming (partialMatches) or when completed */}
+          {displayMatches.length > 0 && (
             <div className="review-results">
-              <h3>Extracted Matches ({result.matches.length})</h3>
+              {isProcessing && (
+                <p className="processing-hint" style={{ marginBottom: '8px' }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: '6px' }} />
+                  Extracting matches...
+                </p>
+              )}
+              <h3>Extracted Matches ({displayMatches.length})</h3>
               <div className="matches-table-container">
                 <table className="matches-table">
                   <thead>
@@ -343,7 +360,7 @@ export default function PhotoMatchReviewModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {result.matches.map((match, idx) => {
+                    {displayMatches.map((match, idx) => {
                       // Helper to get player display name
                       // Priority: _matched field (from backend) > object.name > string > Unknown
                       const getPlayerName = (fieldName) => {
