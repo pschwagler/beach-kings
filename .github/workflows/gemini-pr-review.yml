@@ -1,0 +1,59 @@
+# Gemini AI PR review — runs on every pull request (open, sync, reopen).
+# Requires repository secret: GEMINI_API_KEY (from https://makersuite.google.com/app/apikey)
+# Diff is capped at 100KB to avoid "Argument list too long" when starting the review container.
+
+name: Gemini PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: get_diff
+        shell: bash
+        env:
+          PULL_REQUEST_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
+          PULL_REQUEST_BASE_REF: "${{ github.event.pull_request.base.ref }}"
+          # Cap size to avoid "Argument list too long" when passing diff to Docker (ARG_MAX ~128KB–2MB)
+          MAX_DIFF_BYTES: "100000"
+        run: |
+          git fetch origin "${{ env.PULL_REQUEST_BASE_REF }}"
+          git diff "origin/${{ env.PULL_REQUEST_BASE_REF }}" > diff.txt
+          DIFF_BYTES=$(wc -c < diff.txt)
+          echo "diff_bytes=$DIFF_BYTES" >> "$GITHUB_OUTPUT"
+          if [ "$DIFF_BYTES" -gt "${{ env.MAX_DIFF_BYTES }}" ]; then
+            head -c "${{ env.MAX_DIFF_BYTES }}" diff.txt > diff_capped.txt
+            echo "\n\n... (diff truncated for review; total $DIFF_BYTES bytes)" >> diff_capped.txt
+            cp diff_capped.txt diff.txt
+          fi
+          echo "pull_request_diff<<DIFF_EOF" >> "$GITHUB_OUTPUT"
+          cat diff.txt >> "$GITHUB_OUTPUT"
+          echo "DIFF_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Code review by Gemini AI
+        uses: rubensflinco/gemini-code-review-action@1.0.5
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_repository: ${{ github.repository }}
+          github_pull_request_number: ${{ github.event.pull_request.number }}
+          git_commit_hash: ${{ github.event.pull_request.head.sha }}
+          model: "gemini-1.5-pro-latest"
+          pull_request_diff: ${{ steps.get_diff.outputs.pull_request_diff }}
+          pull_request_chunk_size: "3500"
+          extra_prompt: |
+            Focus on: DRY and refactored code, clear docstrings, and test coverage.
+            Align with production-ready Python (FastAPI, async) and React/JavaScript best practices.
+          log_level: "INFO"
