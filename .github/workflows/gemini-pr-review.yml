@@ -1,5 +1,6 @@
 # Gemini AI PR review — runs on every pull request (open, sync, reopen).
 # Requires repository secret: GEMINI_API_KEY (from https://makersuite.google.com/app/apikey)
+# Diff is capped at 100KB to avoid "Argument list too long" when starting the review container.
 
 name: Gemini PR Review
 
@@ -25,9 +26,18 @@ jobs:
         env:
           PULL_REQUEST_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
           PULL_REQUEST_BASE_REF: "${{ github.event.pull_request.base.ref }}"
+          # Cap size to avoid "Argument list too long" when passing diff to Docker (ARG_MAX ~128KB–2MB)
+          MAX_DIFF_BYTES: "100000"
         run: |
           git fetch origin "${{ env.PULL_REQUEST_BASE_REF }}"
           git diff "origin/${{ env.PULL_REQUEST_BASE_REF }}" > diff.txt
+          DIFF_BYTES=$(wc -c < diff.txt)
+          echo "diff_bytes=$DIFF_BYTES" >> "$GITHUB_OUTPUT"
+          if [ "$DIFF_BYTES" -gt "${{ env.MAX_DIFF_BYTES }}" ]; then
+            head -c "${{ env.MAX_DIFF_BYTES }}" diff.txt > diff_capped.txt
+            echo "\n\n... (diff truncated for review; total $DIFF_BYTES bytes)" >> diff_capped.txt
+            cp diff_capped.txt diff.txt
+          fi
           echo "pull_request_diff<<DIFF_EOF" >> "$GITHUB_OUTPUT"
           cat diff.txt >> "$GITHUB_OUTPUT"
           echo "DIFF_EOF" >> "$GITHUB_OUTPUT"
