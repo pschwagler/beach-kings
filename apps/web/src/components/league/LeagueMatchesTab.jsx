@@ -47,12 +47,28 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   
+  const MATCHES_VIEW_STORAGE_KEY = 'beach-kings:league-matches-view';
+
   // State for modals
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
-  
-  // View mode state
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'clipboard'
+
+  // View mode state: persist in localStorage so it survives refresh/navigation
+  const [viewMode, setViewModeState] = useState(() => {
+    if (typeof window === 'undefined') return 'cards';
+    try {
+      const stored = localStorage.getItem(MATCHES_VIEW_STORAGE_KEY);
+      if (stored === 'cards' || stored === 'clipboard') return stored;
+    } catch (_) { /* ignore */ }
+    return 'cards';
+  });
+
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem(MATCHES_VIEW_STORAGE_KEY, mode);
+    } catch (_) { /* ignore */ }
+  };
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -408,10 +424,10 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
           <button 
             className={`view-toggle-button ${viewMode === 'clipboard' ? 'active' : ''}`}
             onClick={() => setViewMode('clipboard')}
-            title="Clipboard View"
+            title="Table View"
           >
             <ClipboardList size={18} />
-            Clipboard
+            Table
           </button>
         </div>
 
