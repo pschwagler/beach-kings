@@ -4,14 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Check, Edit3, Loader2, AlertCircle, MessageSquare, Send, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/UI';
 import {
-  getPhotoJobStatus,
   editPhotoResults,
   confirmPhotoMatches,
-  cancelPhotoSession
+  cancelPhotoSession,
+  subscribePhotoJobStream
 } from '../../services/api';
-
-const POLL_INTERVAL = 1500; // 1.5 seconds
-const MAX_POLL_ATTEMPTS = 120; // 3 minutes max
 
 /**
  * Modal for reviewing AI-parsed match results and confirming creation
@@ -36,11 +33,9 @@ export default function PhotoMatchReviewModal({
   const [conversationHistory, setConversationHistory] = useState([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState(seasonId);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
-  const [pollAttempts, setPollAttempts] = useState(0);
   
-  const pollIntervalRef = useRef(null);
+  const streamAbortRef = useRef(null);
   const conversationEndRef = useRef(null);
-  const isPollingRef = useRef(false);
 
   // Scroll conversation to bottom when new messages arrive
   useEffect(() => {
@@ -49,110 +44,48 @@ export default function PhotoMatchReviewModal({
     }
   }, [conversationHistory]);
 
-  // Poll for job status
-  const pollJobStatus = useCallback(async () => {
-    if (!jobId || !leagueId || isPollingRef.current) return;
-    
-    isPollingRef.current = true;
-
-    try {
-      const jobStatus = await getPhotoJobStatus(leagueId, jobId);
-      
-      setStatus(jobStatus.status);
-      
-      // While running, show streamed partial_matches in the table
-      if (jobStatus.status === 'running' && jobStatus.partial_matches?.length > 0) {
-        setPartialMatches(jobStatus.partial_matches);
-      }
-      
-      if (jobStatus.status === 'completed' && jobStatus.result) {
-        console.log('[PhotoMatchReviewModal] Job completed, matches:', jobStatus.result.matches?.length);
-        setPartialMatches(null);
-        setResult(jobStatus.result);
-        
-        // Add AI response to conversation
-        if (jobStatus.result.clarification_question) {
-          setConversationHistory(prev => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: jobStatus.result.clarification_question,
-              timestamp: new Date().toISOString()
-            }
-          ]);
-        }
-        
-        // Stop polling
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      } else if (jobStatus.status === 'failed') {
-        console.log('[PhotoMatchReviewModal] Job failed:', jobStatus.result?.error_message);
-        setPartialMatches(null);
-        setError(jobStatus.result?.error_message || 'Processing failed');
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      }
-      
-      setPollAttempts(prev => prev + 1);
-    } catch (err) {
-      console.error('[PhotoMatchReviewModal] Error polling job status:', err);
-      // Only set error for non-429 errors (rate limiting)
-      if (err.response?.status !== 429) {
-        setError('Failed to check processing status');
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      }
-    } finally {
-      isPollingRef.current = false;
-    }
-  }, [jobId, leagueId]);
-
-  // Start polling when modal opens
+  // Subscribe to photo job stream when modal is open and we have a jobId
   useEffect(() => {
-    // Only start polling if modal is open, we have a jobId, and we're not already done
-    if (!isOpen || !jobId || status === 'completed' || status === 'failed') {
+    if (!isOpen || !jobId || !leagueId || status === 'completed' || status === 'failed') {
       return;
     }
-    
-    // Don't start a new interval if one is already running
-    if (pollIntervalRef.current) {
-      return;
-    }
-    
-    console.log('[PhotoMatchReviewModal] Starting polling for job:', jobId);
-    
-    // Initial poll
-    pollJobStatus();
-    
-    // Set up interval - use a ref to track poll count inside the interval
-    let localPollCount = pollAttempts;
-    pollIntervalRef.current = setInterval(() => {
-      localPollCount++;
-      if (localPollCount >= MAX_POLL_ATTEMPTS) {
-        setError('Processing timed out. Please try again.');
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
+    streamAbortRef.current = subscribePhotoJobStream(leagueId, jobId, {
+      onPartial: (data) => {
+        if (data.partial_matches != null) {
+          setPartialMatches(data.partial_matches);
         }
-        return;
+      },
+      onDone: (data) => {
+        setPartialMatches(null);
+        setStatus(data.status || 'completed');
+        if (data.status === 'completed' && data.result) {
+          setResult(data.result);
+          if (data.result.clarification_question) {
+            setConversationHistory(prev => [
+              ...prev,
+              {
+                role: 'assistant',
+                content: data.result.clarification_question,
+                timestamp: new Date().toISOString()
+              }
+            ]);
+          }
+        } else if (data.status === 'failed') {
+          setError(data.result?.error_message || 'Processing failed');
+        }
+      },
+      onError: (data) => {
+        setPartialMatches(null);
+        setError(data.message || 'Stream error');
       }
-      pollJobStatus();
-    }, POLL_INTERVAL);
-
+    });
     return () => {
-      if (pollIntervalRef.current) {
-        console.log('[PhotoMatchReviewModal] Cleaning up polling interval');
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
+      if (streamAbortRef.current) {
+        streamAbortRef.current();
+        streamAbortRef.current = null;
       }
     };
-  }, [isOpen, jobId, status]); // Removed pollJobStatus and pollAttempts from deps to prevent re-triggering
+  }, [isOpen, jobId, leagueId, status]);
 
   // Reset state when modal is opened with a NEW initialJobId (not when jobId changes internally from edits)
   const prevInitialJobIdRef = useRef(initialJobId);
@@ -165,7 +98,6 @@ export default function PhotoMatchReviewModal({
       setStatus('pending');
       setResult(null);
       setError(null);
-      setPollAttempts(0);
       setConversationHistory([]);
       setPartialMatches(null);
     }
@@ -183,10 +115,9 @@ export default function PhotoMatchReviewModal({
       }
     }
 
-    // Clear interval
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
+    if (streamAbortRef.current) {
+      streamAbortRef.current();
+      streamAbortRef.current = null;
     }
 
     onClose();
@@ -211,18 +142,14 @@ export default function PhotoMatchReviewModal({
     try {
       const response = await editPhotoResults(leagueId, sessionId, editPrompt.trim());
       
-      // Update job ID and reset polling for the new job
-      console.log('[PhotoMatchReviewModal] Edit submitted, new job_id:', response.job_id);
+      // Update job ID; SSE effect will open a new stream for the new job
       setJobId(response.job_id);
       setStatus('pending');
       setResult(null);
-      setPollAttempts(0);
       setEditPrompt('');
-      
-      // Clear the existing polling interval so the useEffect can restart it for the new job
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
+      if (streamAbortRef.current) {
+        streamAbortRef.current();
+        streamAbortRef.current = null;
       }
       
     } catch (err) {

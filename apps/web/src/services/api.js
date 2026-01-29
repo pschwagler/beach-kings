@@ -1012,6 +1012,84 @@ export const getPhotoJobStatus = async (leagueId, jobId) => {
 };
 
 /**
+ * Returns the SSE stream URL for a photo job (for use with fetch + credentials).
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ * @returns {string} Full URL for GET .../photo-jobs/{jobId}/stream
+ */
+export const getPhotoJobStreamUrl = (leagueId, jobId) => {
+  const base = API_BASE_URL || (isBrowser ? '' : '');
+  return `${base}/api/leagues/${leagueId}/matches/photo-jobs/${jobId}/stream`;
+};
+
+/**
+ * Subscribe to photo job progress via SSE. Uses fetch with credentials so auth headers are sent.
+ * Call the returned abort function to close the stream.
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ * @param {{ onPartial: (data: { partial_matches: unknown[] }) => void, onDone: (data: { status: string, result?: unknown }) => void, onError: (data: { message: string }) => void }} callbacks
+ * @returns {() => void} Abort function to close the stream
+ */
+export const subscribePhotoJobStream = (leagueId, jobId, callbacks) => {
+  const url = getPhotoJobStreamUrl(leagueId, jobId);
+  const { accessToken } = getStoredTokens();
+  const headers = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { ...headers },
+        credentials: 'include',
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        callbacks.onError({ message: response.status === 404 ? 'Job not found' : response.status === 403 ? 'Access denied' : `Request failed: ${response.status}` });
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const processMessage = (block) => {
+        let eventName = '';
+        let dataStr = '';
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataStr = line.slice(5).trim();
+        }
+        if (!eventName || !dataStr) return;
+        try {
+          const data = JSON.parse(dataStr);
+          if (eventName === 'partial') callbacks.onPartial(data);
+          else if (eventName === 'done') callbacks.onDone(data);
+          else if (eventName === 'error') callbacks.onError(data);
+        } catch (_) {}
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+        for (const block of parts) {
+          if (block.trim()) processMessage(block);
+        }
+      }
+      if (buffer.trim()) processMessage(buffer);
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      callbacks.onError({ message: err.message || 'Stream error' });
+    }
+  })();
+
+  return () => controller.abort();
+};
+
+/**
  * Send edit prompt for photo results refinement
  * @param {number} leagueId - League ID
  * @param {string} sessionId - Photo session ID
