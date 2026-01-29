@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from backend.utils.datetime_utils import utcnow
 from backend.api.main import app
 from backend.api import auth_dependencies
-from backend.services import auth_service, user_service, data_service
+from backend.services import auth_service, user_service, data_service, photo_match_service
 
 
 # ============================================================================
@@ -771,6 +771,63 @@ class TestSettingsEndpoints:
         response = client.put("/api/settings/test_key", json=payload, headers=headers)
         assert response.status_code == 200
         assert response.json()["success"] is True
+
+
+# ============================================================================
+# Photo Job Stream (SSE) Endpoint Tests
+# ============================================================================
+
+class TestPhotoJobStreamEndpoint:
+    """Tests for GET .../photo-jobs/{job_id}/stream SSE endpoint."""
+
+    def test_stream_requires_auth(self):
+        """Stream endpoint returns 401 without auth."""
+        client = TestClient(app)
+        response = client.get("/api/leagues/1/matches/photo-jobs/1/stream")
+        assert response.status_code == 401
+
+    def test_stream_404_unknown_job(self, monkeypatch):
+        """Stream endpoint returns 404 when job not found."""
+        client, headers = make_client_with_auth(monkeypatch)
+
+        async def fake_get_photo_match_job(session, job_id):
+            return None
+
+        async def fake_has_league_role(session, user_id, league_id, role):
+            return True
+
+        monkeypatch.setattr(photo_match_service, "get_photo_match_job", fake_get_photo_match_job, raising=True)
+        monkeypatch.setattr(auth_dependencies, "_has_league_role", fake_has_league_role, raising=True)
+
+        response = client.get("/api/leagues/1/matches/photo-jobs/999/stream", headers=headers)
+        assert response.status_code == 404
+
+    def test_stream_200_partial_then_done(self, monkeypatch):
+        """Stream endpoint returns 200 and SSE events (partial, then done)."""
+        client, headers = make_client_with_auth(monkeypatch)
+        mock_job = type("Job", (), {"id": 1, "league_id": 1, "session_id": "s1"})()
+
+        async def fake_get_photo_match_job(session, job_id):
+            return mock_job
+
+        async def fake_stream_events(job_id, league_id, session_id, **kwargs):
+            yield ("partial", {"partial_matches": [{"t1": [], "t2": [], "s": "21-19"}]})
+            yield ("done", {"status": "completed", "result": {"matches": []}})
+
+        async def fake_has_league_role(session, user_id, league_id, role):
+            return True
+
+        monkeypatch.setattr(photo_match_service, "get_photo_match_job", fake_get_photo_match_job, raising=True)
+        monkeypatch.setattr(photo_match_service, "stream_photo_job_events", fake_stream_events, raising=True)
+        monkeypatch.setattr(auth_dependencies, "_has_league_role", fake_has_league_role, raising=True)
+
+        response = client.get("/api/leagues/1/matches/photo-jobs/1/stream", headers=headers)
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("text/event-stream")
+        body = response.text
+        assert "event: partial" in body
+        assert "event: done" in body
+        assert "partial_matches" in body
 
 
 # ============================================================================

@@ -169,11 +169,12 @@ class TestPreprocessImage:
         
         processed_bytes, _ = photo_match_service.preprocess_image(tall_image_bytes)
         
-        # Verify height is reduced
+        # Verify height is reduced to MAX_IMAGE_HEIGHT
         result_img = Image.open(BytesIO(processed_bytes))
-        assert result_img.height <= 400
+        max_height = photo_match_service.MAX_IMAGE_HEIGHT
+        assert result_img.height <= max_height
         # Verify aspect ratio is maintained (approximately)
-        expected_width = int(800 * (400 / 1200))
+        expected_width = int(800 * (max_height / 1200))
         assert abs(result_img.width - expected_width) < 5
     
     def test_rgba_to_rgb_conversion(self, sample_rgba_image_bytes):
@@ -329,20 +330,103 @@ class TestMatchAllPlayersInMatches:
 
 
 # ============================================================================
-# OpenAI Response Parsing Tests
+# Extraction Array Parsing Tests
+# ============================================================================
+
+class TestParseExtractionArray:
+    """Tests for _parse_extraction_array function."""
+
+    def test_parse_valid_array(self):
+        """Test parsing valid JSON array."""
+        response = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-15"}]'
+        result = photo_match_service._parse_extraction_array(response)
+        assert len(result) == 1
+        assert result[0]["t1"] == [1, 2]
+        assert result[0]["t2"] == [3, 4]
+        assert result[0]["s"] == "21-15"
+
+    def test_parse_array_with_whitespace(self):
+        """Test parsing array with leading/trailing whitespace."""
+        response = '  [{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]  '
+        result = photo_match_service._parse_extraction_array(response)
+        assert len(result) == 1
+        assert result[0]["s"] == "21-19"
+
+    def test_parse_invalid_raises(self):
+        """Test invalid text raises ValueError."""
+        with pytest.raises(ValueError):
+            photo_match_service._parse_extraction_array("not json")
+
+
+# ============================================================================
+# Normalize Extraction Response Tests
+# ============================================================================
+
+class TestNormalizeExtractionResponse:
+    """Tests for normalize_extraction_response (array -> verbose format)."""
+
+    def test_normalize_single_match(self):
+        """Test normalizing one match with int IDs and score string."""
+        raw = [{"t1": [1, 2], "t2": [3, 4], "s": "21-15"}]
+        result = photo_match_service.normalize_extraction_response(raw)
+        assert result["status"] == "success"
+        assert len(result["matches"]) == 1
+        m = result["matches"][0]
+        assert m["match_number"] == 1
+        assert m["team1_player1"] == {"id": 1, "name": ""}
+        assert m["team1_player2"] == {"id": 2, "name": ""}
+        assert m["team2_player1"] == {"id": 3, "name": ""}
+        assert m["team2_player2"] == {"id": 4, "name": ""}
+        assert m["team1_score"] == 21
+        assert m["team2_score"] == 15
+
+    def test_normalize_unmatched_name(self):
+        """Test normalizing match with string (unmatched) player."""
+        raw = [{"t1": [1, "Unknown Guy"], "t2": [4, 5], "s": "21-15"}]
+        result = photo_match_service.normalize_extraction_response(raw)
+        assert len(result["matches"]) == 1
+        m = result["matches"][0]
+        assert m["team1_player1"] == {"id": 1, "name": ""}
+        assert m["team1_player2"] == {"id": None, "name": "Unknown Guy"}
+        assert m["team1_score"] == 21
+        assert m["team2_score"] == 15
+
+    def test_normalize_multiple_matches(self):
+        """Test normalizing multiple matches."""
+        raw = [
+            {"t1": [1, 2], "t2": [3, 4], "s": "21-19"},
+            {"t1": [1, 3], "t2": [2, 4], "s": "21-15"},
+        ]
+        result = photo_match_service.normalize_extraction_response(raw)
+        assert len(result["matches"]) == 2
+        assert result["matches"][0]["match_number"] == 1
+        assert result["matches"][1]["match_number"] == 2
+        assert result["matches"][0]["team1_score"] == 21
+        assert result["matches"][0]["team2_score"] == 19
+        assert result["matches"][1]["team1_score"] == 21
+        assert result["matches"][1]["team2_score"] == 15
+
+    def test_normalize_empty_array(self):
+        """Test normalizing empty array."""
+        result = photo_match_service.normalize_extraction_response([])
+        assert result["status"] == "success"
+        assert result["matches"] == []
+
+
+# ============================================================================
+# Legacy JSON Parsing (parse_openai_response) - still used for fallback
 # ============================================================================
 
 class TestParseOpenAIResponse:
-    """Tests for parse_openai_response function."""
-    
+    """Tests for parse_openai_response function (legacy/clarification)."""
+
     def test_parse_valid_json(self):
         """Test parsing valid JSON response."""
         response = '{"status": "success", "matches": []}'
         result = photo_match_service.parse_openai_response(response)
-        
         assert result["status"] == "success"
         assert result["matches"] == []
-    
+
     def test_parse_json_in_markdown(self):
         """Test parsing JSON wrapped in markdown code block."""
         response = '''Here are the extracted matches:
@@ -352,70 +436,48 @@ class TestParseOpenAIResponse:
 ```
 
 I found one match in the image.'''
-        
         result = photo_match_service.parse_openai_response(response)
-        
         assert result["status"] == "success"
         assert len(result["matches"]) == 1
-    
-    def test_parse_json_without_language_tag(self):
-        """Test parsing JSON in markdown without language tag."""
-        response = '''```
-{"status": "needs_clarification", "clarification_question": "Who is JD?"}
-```'''
-        
-        result = photo_match_service.parse_openai_response(response)
-        
-        assert result["status"] == "needs_clarification"
-    
-    def test_parse_embedded_json(self):
-        """Test parsing JSON embedded in text."""
-        response = 'The result is {"status": "success", "matches": []} based on the image.'
-        
-        result = photo_match_service.parse_openai_response(response)
-        
-        assert result["status"] == "success"
-    
+
     def test_parse_invalid_json(self):
         """Test parsing invalid JSON raises error."""
-        response = "This is not JSON at all"
-        
         with pytest.raises(ValueError):
-            photo_match_service.parse_openai_response(response)
+            photo_match_service.parse_openai_response("This is not JSON at all")
 
 
 # ============================================================================
-# System Prompt Tests
+# Scoreboard Prompt Tests
 # ============================================================================
 
-class TestBuildSystemPrompt:
-    """Tests for build_system_prompt function."""
-    
-    def test_includes_all_members(self, sample_league_members):
-        """Test system prompt includes all league members."""
-        prompt = photo_match_service.build_system_prompt(sample_league_members)
-        
+class TestBuildScoreboardPrompt:
+    """Tests for build_scoreboard_prompt function."""
+
+    def test_includes_master_list(self, sample_league_members):
+        """Test prompt includes Master Player List with member names."""
+        prompt = photo_match_service.build_scoreboard_prompt(sample_league_members)
+        assert "Master Player List" in prompt
         assert "John Doe" in prompt
         assert "Jane Smith" in prompt
         assert "Bob Wilson" in prompt
         assert "Alice Brown" in prompt
-    
+
     def test_includes_instructions(self, sample_league_members):
-        """Test system prompt includes instructions."""
-        prompt = photo_match_service.build_system_prompt(sample_league_members)
-        
-        assert "extract" in prompt.lower()
+        """Test prompt includes task instructions."""
+        prompt = photo_match_service.build_scoreboard_prompt(sample_league_members)
+        assert "Scoreboard Data Extractor" in prompt
+        assert "2v2" in prompt.lower()
         assert "volleyball" in prompt.lower()
-        assert "json" in prompt.lower()
-    
-    def test_includes_response_format(self, sample_league_members):
-        """Test system prompt includes response format."""
-        prompt = photo_match_service.build_system_prompt(sample_league_members)
-        
-        assert "status" in prompt
-        assert "success" in prompt
-        assert "needs_clarification" in prompt
-        assert "unreadable" in prompt
+        assert "t1" in prompt
+        assert "t2" in prompt
+        assert "s" in prompt
+
+    def test_includes_nickname_when_present(self):
+        """Test prompt includes nickname in Master List entry when present."""
+        members = [{"player_id": 1, "player_name": "Patrick Schwagler", "player_nickname": "Pat"}]
+        prompt = photo_match_service.build_scoreboard_prompt(members)
+        assert "Patrick Schwagler" in prompt
+        assert "Pat" in prompt
 
 
 # ============================================================================
@@ -488,80 +550,159 @@ class TestCheckIdempotency:
 
 
 # ============================================================================
-# Integration Tests with Mocked OpenAI
+# Integration Tests with Mocked Gemini (clarification flow)
 # ============================================================================
 
-class TestProcessPhotoWithOpenAI:
-    """Integration tests for process_photo_with_openai with mocked OpenAI."""
-    
+class TestClarifyScoresChat:
+    """Integration tests for clarify_scores_chat with mocked Gemini."""
+
     @pytest.mark.asyncio
-    async def test_successful_extraction(self, sample_league_members):
-        """Test successful match extraction from photo."""
+    async def test_clarification_returns_normalized_matches(self, sample_league_members):
+        """Test clarification returns normalized match format."""
+        raw_array = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]'
+        mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "status": "success",
-            "matches": [{
-                "team1_player1": "John Doe",
-                "team1_player2": "Jane Smith",
-                "team2_player1": "Bob Wilson",
-                "team2_player2": "Alice Brown",
-                "team1_score": 21,
-                "team2_score": 19
-            }]
-        })
-        
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create.return_value = mock_response
-        
-        with patch.object(photo_match_service, 'get_openai_client', return_value=mock_client):
-            result = await photo_match_service.process_photo_with_openai(
-                image_base64="base64data",
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content = MagicMock()
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[0].text = raw_array
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+            result = await photo_match_service.clarify_scores_chat(
+                previous_response=raw_array,
+                user_prompt="Match 1 score is 21-19.",
                 league_members=sample_league_members,
-                conversation_history=[]
             )
-        
         assert result["status"] == "success"
         assert len(result["matches"]) == 1
-        assert "conversation" in result
-    
+        assert result["matches"][0]["team1_score"] == 21
+        assert result["matches"][0]["team2_score"] == 19
+        assert result["raw_response"] == raw_array
+
     @pytest.mark.asyncio
-    async def test_needs_clarification(self, sample_league_members):
-        """Test response when clarification is needed."""
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "status": "needs_clarification",
-            "matches": [],
-            "clarification_question": "I can't read the second score. Is it 21-19 or 21-17?"
-        })
-        
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create.return_value = mock_response
-        
-        with patch.object(photo_match_service, 'get_openai_client', return_value=mock_client):
-            result = await photo_match_service.process_photo_with_openai(
-                image_base64="base64data",
+    async def test_clarification_handles_api_error(self, sample_league_members):
+        """Test clarification handles Gemini API error."""
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = Exception("API error")
+
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+            result = await photo_match_service.clarify_scores_chat(
+                previous_response="[]",
+                user_prompt="Fix the score.",
                 league_members=sample_league_members,
-                conversation_history=[]
             )
-        
-        assert result["status"] == "needs_clarification"
-        assert "clarification_question" in result
-    
-    @pytest.mark.asyncio
-    async def test_handles_api_error(self, sample_league_members):
-        """Test handling of OpenAI API error."""
-        mock_client = AsyncMock()
-        mock_client.chat.completions.create.side_effect = Exception("API rate limit exceeded")
-        
-        with patch.object(photo_match_service, 'get_openai_client', return_value=mock_client):
-            result = await photo_match_service.process_photo_with_openai(
-                image_base64="base64data",
-                league_members=sample_league_members,
-                conversation_history=[]
-            )
-        
         assert result["status"] == "failed"
         assert "error_message" in result
-        assert "rate limit" in result["error_message"].lower()
+        assert "API error" in result["error_message"]
+
+
+# ============================================================================
+# Stream consumer: STREAM_MSG_ERROR on Gemini exception
+# ============================================================================
+
+class TestRunGeminiStreamConsumer:
+    """Tests for _run_gemini_stream_consumer error handling."""
+
+    def test_puts_stream_msg_error_when_gemini_raises(self):
+        """When Gemini thread raises, STREAM_MSG_ERROR is put on the queue with a safe message."""
+        import queue as queue_module
+        out_queue = queue_module.Queue()
+        mock_client = MagicMock()
+        mock_client.models.generate_content_stream.side_effect = RuntimeError("Gemini API failed")
+
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+            import threading
+            t = threading.Thread(
+                target=photo_match_service._run_gemini_stream_consumer,
+                args=(out_queue, b"fake-image-bytes", "fake prompt"),
+            )
+            t.start()
+            msg_type, msg = out_queue.get(timeout=2)
+            t.join(timeout=1)
+
+        assert msg_type == photo_match_service.STREAM_MSG_ERROR
+        assert "Gemini API failed" in msg
+        assert "Traceback" not in msg and "RuntimeError" not in msg
+
+
+# ============================================================================
+# SSE stream_photo_job_events generator
+# ============================================================================
+
+class TestStreamPhotoJobEvents:
+    """Tests for stream_photo_job_events async generator."""
+
+    @pytest.mark.asyncio
+    async def test_yields_partial_then_done(self):
+        """Generator yields partial when partial_matches change, then done when job completes."""
+        from backend.database import db
+
+        job_running = MagicMock()
+        job_running.status = PhotoMatchJobStatus.RUNNING
+        job_running.league_id = 1
+        job_running.session_id = "s1"
+        job_running.result_data = None
+
+        job_completed = MagicMock()
+        job_completed.status = PhotoMatchJobStatus.COMPLETED
+        job_completed.league_id = 1
+        job_completed.session_id = "s1"
+        job_completed.result_data = json.dumps({"matches": [], "status": "success"})
+
+        class FakeCM:
+            async def __aenter__(self):
+                return MagicMock()
+
+            async def __aexit__(self, *args):
+                pass
+
+        events = []
+        with patch.object(photo_match_service, 'get_photo_match_job', side_effect=[job_running, job_completed]):
+            with patch.object(photo_match_service, 'get_session_data', return_value={"partial_matches": [{"t1": [], "t2": [], "s": "21-19"}]}):
+                with patch.object(db, 'AsyncSessionLocal', lambda: FakeCM()):
+                    async for event_name, data in photo_match_service.stream_photo_job_events(
+                        job_id=1,
+                        league_id=1,
+                        session_id="s1",
+                        poll_interval_sec=0.01,
+                        timeout_sec=5,
+                    ):
+                        events.append((event_name, data))
+                        if event_name == "done":
+                            break
+
+        assert len(events) >= 2
+        assert events[0][0] == "partial"
+        assert events[0][1].get("partial_matches") == [{"t1": [], "t2": [], "s": "21-19"}]
+        assert events[-1][0] == "done"
+        assert events[-1][1].get("status") == "completed"
+
+    @pytest.mark.asyncio
+    async def test_yields_error_when_job_not_found(self):
+        """Generator yields error event when job is not found."""
+        from backend.database import db
+
+        class FakeCM:
+            async def __aenter__(self):
+                return MagicMock()
+
+            async def __aexit__(self, *args):
+                pass
+
+        events = []
+        with patch.object(photo_match_service, 'get_photo_match_job', return_value=None):
+            with patch.object(db, 'AsyncSessionLocal', lambda: FakeCM()):
+                async for event_name, data in photo_match_service.stream_photo_job_events(
+                    job_id=999,
+                    league_id=1,
+                    session_id="s1",
+                    poll_interval_sec=0.01,
+                    timeout_sec=2,
+                ):
+                    events.append((event_name, data))
+                    break
+
+        assert len(events) == 1
+        assert events[0][0] == "error"
+        assert "not found" in events[0][1].get("message", "").lower()

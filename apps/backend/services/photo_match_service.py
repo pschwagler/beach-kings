@@ -3,7 +3,7 @@ Photo Match Service for processing uploaded images of game scores.
 
 This service handles:
 - Image preprocessing (JPEG conversion, downscaling)
-- OpenAI GPT-5-mini vision API integration
+- Google Gemini vision API integration (structured output, streaming)
 - Player name fuzzy matching against league members
 - Redis session management for conversation state
 - Match creation from parsed data
@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import os
+import queue
 import re
 import time
 import uuid
@@ -21,7 +22,6 @@ from difflib import SequenceMatcher
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from openai import AsyncOpenAI
 from PIL import Image
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +35,9 @@ from backend.utils.datetime_utils import utcnow
 logger = logging.getLogger(__name__)
 
 # Configuration
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = "gpt-4.1-mini"
-OPENAI_CLARIFY_MODEL = "gpt-4.1-nano" # revert to "gpt-5-nano" if accuracy issues
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_CLARIFY_MODEL = "gemini-3-flash-preview"
 MAX_IMAGE_HEIGHT = 512
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
@@ -47,18 +47,24 @@ SESSION_TTL_SECONDS = 900  # 15 minutes
 # Redis key prefix for photo match sessions
 REDIS_KEY_PREFIX = "photo_match_session:"
 
-# OpenAI client (singleton)
-_openai_client: Optional[AsyncOpenAI] = None
+# Stream consumer queue message types (producer puts, consumer reads)
+STREAM_MSG_PARTIAL = "partial"
+STREAM_MSG_DONE = "done"
+STREAM_MSG_ERROR = "error"
+
+# Gemini client (singleton); type is Any to allow lazy import
+_gemini_client: Any = None
 
 
-def get_openai_client() -> AsyncOpenAI:
-    """Get or create OpenAI client."""
-    global _openai_client
-    if _openai_client is None:
-        if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
-        _openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    return _openai_client
+def get_gemini_client():
+    """Get or create Gemini client. Lazy-imports google.genai to avoid import-time dependency."""
+    global _gemini_client
+    if _gemini_client is None:
+        if not GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is not set")
+        from google import genai
+        _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _gemini_client
 
 
 # ============================================================================
@@ -335,66 +341,6 @@ def match_player_name(
     return None
 
 
-def expand_compact_response(compact: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Expand compact JSON response from AI to verbose format for processing.
-    
-    Compact format:
-        {"st":"success","m":[{"n":1,"t1":[5,12],"t2":[3,8],"s":[21,19]}],"q":null}
-    
-    Verbose format:
-        {"status":"success","matches":[{"match_number":1,"team1_player1":{"id":5},...}],...}
-    
-    Args:
-        compact: Compact JSON response from AI
-        
-    Returns:
-        Expanded verbose format for processing
-    """
-    result = {
-        "status": compact.get("st", "failed"),
-        "matches": [],
-        "clarification_question": compact.get("q"),
-        "error_message": compact.get("err")
-    }
-    
-    for m in compact.get("m", []):
-        t1 = m.get("t1", [None, None])
-        t2 = m.get("t2", [None, None])
-        scores = m.get("s", [0, 0])
-        
-        # Convert player references - can be int (ID) or string (unmatched name)
-        def to_player_dict(val: Union[int, str, None]) -> Dict:
-            if val is None:
-                return {"id": None, "name": ""}
-            if isinstance(val, int):
-                return {"id": val, "name": ""}
-            # String means unmatched name
-            return {"id": None, "name": str(val)}
-        
-        # Preserve None for unclear scores (don't default to 0)
-        team1_score = scores[0] if len(scores) > 0 else None
-        team2_score = scores[1] if len(scores) > 1 else None
-        
-        match = {
-            "match_number": m.get("n", 1),
-            "team1_player1": to_player_dict(t1[0] if len(t1) > 0 else None),
-            "team1_player2": to_player_dict(t1[1] if len(t1) > 1 else None),
-            "team2_player1": to_player_dict(t2[0] if len(t2) > 0 else None),
-            "team2_player2": to_player_dict(t2[1] if len(t2) > 1 else None),
-            "team1_score": team1_score,
-            "team2_score": team2_score,
-        }
-        result["matches"].append(match)
-    
-    return result
-
-
-def is_compact_format(response: Dict[str, Any]) -> bool:
-    """Check if response is in compact format (has 'st' key) vs verbose ('status' key)."""
-    return "st" in response and "status" not in response
-
-
 def match_all_players_in_matches(
     parsed_matches: List[Dict],
     league_members: List[Dict]
@@ -472,216 +418,331 @@ def match_all_players_in_matches(
 
 
 # ============================================================================
-# OpenAI Integration
+# Gemini Integration: Prompt, Schema, Normalizer
 # ============================================================================
 
-def _format_member(m: Dict) -> str:
-    """Format a league member for inclusion in prompts (compact format)."""
-    name = m.get('player_name', 'Unknown')
-    nickname = m.get('nickname') or m.get('player_nickname')
-    player_id = m.get('player_id', 'N/A')
-    # Compact format: "id:name:nickname" or "id:name" if no nickname
-    if nickname:
-        return f"{player_id}:{name}:{nickname}"
-    return f"{player_id}:{name}"
+# JSON schema for extraction output: flat array of { t1, t2, s }
+EXTRACTION_JSON_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "t1": {
+                "type": "array",
+                "items": {"oneOf": [{"type": "integer"}, {"type": "string"}]},
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "Team 1 players: integer ID from Master List or raw name string",
+            },
+            "t2": {
+                "type": "array",
+                "items": {"oneOf": [{"type": "integer"}, {"type": "string"}]},
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "Team 2 players: integer ID from Master List or raw name string",
+            },
+            "s": {
+                "type": "string",
+                "description": "Score as T1_Score-T2_Score, e.g. 21-15",
+            },
+        },
+        "required": ["t1", "t2", "s"],
+    },
+}
 
 
-def build_system_prompt(league_members: List[Dict]) -> str:
+def _format_master_list_entry(m: Dict) -> str:
+    """Format a league member for Master Player List: 'id: Name (Nickname)' or 'id: Name'."""
+    name = (m.get("player_name") or "Unknown").strip()
+    nickname = m.get("nickname") or m.get("player_nickname")
+    player_id = m.get("player_id", "N/A")
+    if nickname and str(nickname).strip():
+        return f"{player_id}: {name} ({str(nickname).strip()})"
+    return f"{player_id}: {name}"
+
+
+def build_scoreboard_prompt(league_members: List[Dict]) -> str:
     """
-    Build the system prompt for OpenAI with league member list.
-    
+    Build the Scoreboard Data Extractor prompt with dynamic Master Player List.
+
     Args:
         league_members: List of league member dictionaries
-        
+
     Returns:
-        System prompt string
+        Full prompt string for Gemini.
     """
-    # Compact member list format: "id:name:nickname" per line
-    member_list = "\n".join([_format_member(m) for m in league_members])
-    
-    return f"""Extract 2v2 beach volleyball scores from images. Players (id:name:nickname):
-{member_list}
+    master_list = "\n".join(_format_master_list_entry(m) for m in league_members)
+    return f"""Role: Scoreboard Data Extractor
+Task: Convert a 2v2 Beach Volleyball scoresheet image into a JSON array conforming to the schema (t1, t2, s).
 
-Return compact JSON:
-{{"st":"success|needs_clarification|unreadable","m":[{{"n":1,"t1":[id1,id2],"t2":[id3,id4],"s":[21,19]}}],"q":"question if needed","err":"error if unreadable"}}
+Master Player List:
+(Match handwriting to these IDs. Use nicknames/fuzzy matching.)
+{master_list}
 
-Field key:
-- st: status
-- m: matches arr
-- n: match #
-- t1/t2: team1/team2 player IDs (use ID number if matched, "name" string if unmatched). Make sure no player is repeated in the same game.
-- s: scores [team1_score, team2_score] - use null for unclear scores
-- q: clarification questions (null if none)
-- err: error message (null if none)
+Instructions:
+1. Extract every match (Team 1 vs Team 2) and the final score.
+2. For each player: if found in Master List output ONLY the integer ID; if NOT found output the raw text string.
+3. Score "s" must be "T1_Score-T2_Score" (left = Team 1, right = Team 2).
 
-Example with 2 matches:
-{{"st":"success","m":[{{"n":1,"t1":[5,12],"t2":[3,8],"s":[21,19]}},{{"n":2,"t1":[5,3],"t2":[12,8],"s":[21,15]}}],"q":null,"err":null}}
+Example: [{{ "t1": [1, "Unknown Guy"], "t2": [4, 5], "s": "21-15" }}]
 
-Example with unclear score:
-{{"st":"needs_clarification","m":[{{"n":1,"t1":[5,12],"t2":[3,8],"s":[21,null]}}],"q":"What is team 2's score in match 1?","err":null}}
-
-Rules:
-- Match names to player list using full name, first name, or nickname
-- Use player ID (number) when matched, "name" (string) when unmatched
-- Use null (not ?) for any unclear/unreadable scores, then set st="needs_clarification" and ask in q
-- If entire image unreadable, set st="unreadable" and explain in err
-- Return ONLY valid JSON, no explanation"""
+Generate the JSON array now."""
 
 
-def build_clarification_prompt(league_members: List[Dict]) -> str:
+def build_clarification_prompt_for_array(league_members: List[Dict]) -> str:
     """
-    Build the system prompt for clarification/refinement requests.
-    
-    This is a simpler prompt for text-only follow-ups that refine
-    previously parsed match data based on user feedback.
-    
+    Build the system prompt for clarification requests that return the same array format.
+
     Args:
         league_members: List of league member dictionaries
-        
+
     Returns:
-        System prompt string for clarification
+        System prompt string for clarification (array output).
     """
-    # Compact member list format: "id:name:nickname" per line
-    member_list = "\n".join([_format_member(m) for m in league_members])
-    
-    return f"""Update match data based on user's answer. Players (id:name:nickname):
-{member_list}
+    master_list = "\n".join(_format_master_list_entry(m) for m in league_members)
+    return f"""Update match data based on the user's answer. Return the same JSON array format.
 
-The user is answering your previous question. Apply their answer to the correct match and return ALL matches with the update.
+Master Player List:
+{master_list}
 
-Return compact JSON with ALL matches:
-{{"st":"success|needs_clarification","m":[{{"n":1,"t1":[id1,id2],"t2":[id3,id4],"s":[21,19]}},{{"n":2,...}}],"q":null,"err":null}}
-
-Rules:
-- Keep ALL matches from previous response, just update the one being corrected
-- Apply the user's answer to the match referenced in your question
-- Use null for any still-unclear scores
-- Return ONLY valid JSON, no extra text"""
+Output: A flat JSON array of objects with keys "t1", "t2", "s". Same format as before.
+- t1/t2: arrays of 2 elements each (integer ID or string name).
+- s: "T1_Score-T2_Score" (e.g. "21-15").
+Apply the user's correction to the relevant match and return ALL matches. Return ONLY valid JSON array, no extra text."""
 
 
-async def process_photo_with_ai(
-    image_base64: str,
-    league_members: List[Dict]
-) -> Dict[str, Any]:
-    """
-    Call OpenAI vision API to extract match data from an image.
-    
-    This is the initial processing call that sends the image to the vision model.
-    For follow-up clarifications, use clarify_scores_chat() instead.
-    
-    Args:
-        image_base64: Base64 encoded JPEG image
-        league_members: List of league member dictionaries
-        
-    Returns:
-        Dict with status, matches, clarification_question, error_message, raw_response
-    """
-    total_start = time.perf_counter()
-    
-    client = get_openai_client()
-    
-    prompt_start = time.perf_counter()
-    system_prompt = build_system_prompt(league_members)
-    logger.info(f"[TIMING] build_system_prompt: {time.perf_counter() - prompt_start:.3f}s")
-    
-    # Build messages with image
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{image_base64}",
-                        "detail": "low"  # Use low detail to reduce tokens
-                    }
-                },
-                {"type": "text", "text": "Extract scores."}
-            ]
-        }
-    ]
-    
+def _to_player_dict(val: Union[int, str, None]) -> Dict:
+    """Convert t1/t2 element to verbose player shape {id, name}."""
+    if val is None:
+        return {"id": None, "name": ""}
+    if isinstance(val, int):
+        return {"id": val, "name": ""}
+    return {"id": None, "name": str(val).strip()}
+
+
+def _parse_score_string(s: str) -> Tuple[Optional[int], Optional[int]]:
+    """Parse 'T1_Score-T2_Score' into (team1_score, team2_score)."""
+    if not s or not isinstance(s, str):
+        return None, None
+    parts = s.strip().split("-")
+    if len(parts) != 2:
+        return None, None
     try:
-        logger.info(f"[TIMING] Starting OpenAI {OPENAI_MODEL} call")
-        logger.info(f"Image base64 length: {len(image_base64) if image_base64 else 0}, "
-                   f"System prompt length: {len(system_prompt)}")
-        
-        api_start = time.perf_counter()
-        response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=messages,
-        )
-        api_duration = time.perf_counter() - api_start
-        logger.info(f"[TIMING] OpenAI API call: {api_duration:.2f}s")
-        
-        choice = response.choices[0]
-        assistant_message = choice.message.content
-        
-        # Log token usage if available
-        if hasattr(response, 'usage') and response.usage:
-            logger.info(f"[TOKENS] prompt={response.usage.prompt_tokens}, "
-                       f"completion={response.usage.completion_tokens}, "
-                       f"total={response.usage.total_tokens}")
-        
-        # Check for refusal (some models use this)
-        if hasattr(choice.message, 'refusal') and choice.message.refusal:
-            logger.warning(f"OpenAI refused: {choice.message.refusal}")
-            assistant_message = None
-        
-        logger.info(f"OpenAI response ({len(assistant_message) if assistant_message else 0} chars): "
-                   f"{assistant_message if assistant_message else 'empty'}")
-        
-        # Handle empty/None response
-        if not assistant_message:
-            logger.error("OpenAI returned empty content")
-            return {
-                "status": "failed",
-                "matches": [],
-                "clarification_question": None,
-                "error_message": "OpenAI returned an empty response. The image may not be readable.",
-                "raw_response": None
-            }
-        
-        # Parse JSON response
-        parse_start = time.perf_counter()
-        try:
-            parsed = parse_openai_response(assistant_message)
-            
-            # Expand compact format to verbose format if needed
-            if is_compact_format(parsed):
-                result = expand_compact_response(parsed)
-                logger.info(f"[TIMING] Expanded compact format with {len(result.get('matches', []))} matches")
-            else:
-                result = parsed
-                
-            logger.info(f"[TIMING] JSON parse + expand: {time.perf_counter() - parse_start:.3f}s")
-            logger.info(f"Parsed result status: {result.get('status')}")
-        except Exception as e:
-            logger.warning(f"Failed to parse OpenAI response as JSON: {e}")
-            logger.warning(f"Raw response was: {assistant_message}")
-            result = {
-                "status": "needs_clarification",
-                "matches": [],
-                "clarification_question": f"I had trouble understanding my response. Original: {assistant_message if assistant_message else 'empty'}",
-                "error_message": None
-            }
-        
-        result["raw_response"] = assistant_message
-        
-        logger.info(f"[TIMING] process_photo_with_ai total: {time.perf_counter() - total_start:.2f}s")
-        return result
-        
-    except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
-        logger.info(f"[TIMING] process_photo_with_ai failed after: {time.perf_counter() - total_start:.2f}s")
-        return {
-            "status": "failed",
-            "matches": [],
-            "clarification_question": None,
-            "error_message": f"OpenAI API error: {str(e)}",
-            "raw_response": None
+        t1 = int(parts[0].strip())
+        t2 = int(parts[1].strip())
+        return t1, t2
+    except (ValueError, TypeError):
+        return None, None
+
+
+def normalize_extraction_response(raw_array: List[Dict]) -> Dict[str, Any]:
+    """
+    Convert Gemini extraction array [{t1, t2, s}, ...] to verbose format for downstream.
+
+    Args:
+        raw_array: List of objects with t1, t2, s (s is "T1_Score-T2_Score" string).
+
+    Returns:
+        Dict with status, matches (verbose), clarification_question, error_message.
+    """
+    matches = []
+    for i, m in enumerate(raw_array or []):
+        t1 = m.get("t1") or [None, None]
+        t2 = m.get("t2") or [None, None]
+        s = m.get("s")
+        team1_score, team2_score = _parse_score_string(s) if s else (None, None)
+        match = {
+            "match_number": i + 1,
+            "team1_player1": _to_player_dict(t1[0] if len(t1) > 0 else None),
+            "team1_player2": _to_player_dict(t1[1] if len(t1) > 1 else None),
+            "team2_player1": _to_player_dict(t2[0] if len(t2) > 0 else None),
+            "team2_player2": _to_player_dict(t2[1] if len(t2) > 1 else None),
+            "team1_score": team1_score,
+            "team2_score": team2_score,
         }
+        matches.append(match)
+    return {
+        "status": "success",
+        "matches": matches,
+        "clarification_question": None,
+        "error_message": None,
+    }
+
+
+def _extract_complete_match_objects_from_buffer(buffer: str) -> Tuple[List[Dict], int]:
+    """
+    Parse buffer for complete match objects {t1, t2, s}; return list and count of chars consumed.
+
+    Used during streaming to update partial_matches. Tries to parse from the start
+    of the buffer (after optional leading '[') and returns all complete objects.
+    """
+    consumed = 0
+    result: List[Dict] = []
+    text = buffer.strip()
+    if not text:
+        return result, 0
+    start = 0
+    if text.startswith("["):
+        start = 1
+    pos = start
+    n = len(text)
+    while pos < n:
+        while pos < n and text[pos] in " \t\n\r,":
+            pos += 1
+        if pos >= n:
+            break
+        if text[pos] == "]":
+            consumed = pos + 1
+            break
+        if text[pos] != "{":
+            break
+        depth = 0
+        i = pos
+        while i < n:
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(text[pos : i + 1])
+                        if isinstance(obj, dict) and "t1" in obj and "t2" in obj and "s" in obj:
+                            result.append(obj)
+                            consumed = i + 1
+                    except json.JSONDecodeError:
+                        pass
+                    break
+            i += 1
+        pos = i + 1
+    return result, consumed
+
+
+def _normalize_single_match(raw: Dict) -> Dict:
+    """Convert one raw extraction object {t1, t2, s} to one verbose match for partial_matches."""
+    t1 = raw.get("t1") or [None, None]
+    t2 = raw.get("t2") or [None, None]
+    s = raw.get("s")
+    team1_score, team2_score = _parse_score_string(s) if s else (None, None)
+    return {
+        "match_number": 0,  # filled by index when building list
+        "team1_player1": _to_player_dict(t1[0] if len(t1) > 0 else None),
+        "team1_player2": _to_player_dict(t1[1] if len(t1) > 1 else None),
+        "team2_player1": _to_player_dict(t2[0] if len(t2) > 0 else None),
+        "team2_player2": _to_player_dict(t2[1] if len(t2) > 1 else None),
+        "team1_score": team1_score,
+        "team2_score": team2_score,
+    }
+
+
+def _text_from_chunk(chunk: Any) -> Optional[str]:
+    """
+    Extract text from a Gemini stream chunk.
+
+    Tries chunk.text (SDK convenience) then candidates[0].content.parts[0].text.
+    Returns None if no text is present.
+    """
+    if not chunk:
+        return None
+    if getattr(chunk, "text", None):
+        return chunk.text
+    if not (chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts):
+        return None
+    part = chunk.candidates[0].content.parts[0]
+    return getattr(part, "text", None) or None
+
+
+def _run_gemini_stream_consumer(
+    out_queue: queue.Queue,
+    image_bytes: bytes,
+    prompt: str,
+) -> None:
+    """
+    Run Gemini generate_content_stream (sync). Puts (STREAM_MSG_PARTIAL, list) and
+    (STREAM_MSG_DONE, full_raw_text) on the queue. Called from asyncio.to_thread; queue is thread-safe.
+    """
+    client = get_gemini_client()
+    from google.genai import types
+
+    contents = [
+        types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+        prompt,
+    ]
+    config = {
+        "response_mime_type": "application/json",
+        "response_json_schema": EXTRACTION_JSON_SCHEMA,
+    }
+    full_raw = ""
+    buffer = ""
+    all_partial: List[Dict] = []
+
+    try:
+        stream = client.models.generate_content_stream(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=config,
+        )
+        chunk_count = 0
+        for chunk in stream:
+            chunk_count += 1
+            text_piece = _text_from_chunk(chunk)
+            if not text_piece:
+                continue
+            full_raw += text_piece
+            buffer += text_piece
+            objs, consumed = _extract_complete_match_objects_from_buffer(buffer)
+            buffer = buffer[consumed:]
+            for o in objs:
+                m = _normalize_single_match(o)
+                m["match_number"] = len(all_partial) + 1
+                all_partial.append(m)
+            if objs:
+                out_queue.put((STREAM_MSG_PARTIAL, list(all_partial)))
+        logger.info("Gemini stream finished: chunks=%d, response_len=%d", chunk_count, len(full_raw))
+        out_queue.put((STREAM_MSG_DONE, full_raw))
+    except Exception as e:
+        logger.exception("Gemini stream consumer error: %s", e)
+        # Send a clear message only; avoid leaking stack traces to the queue
+        msg = str(e) if e else "Unknown error"
+        if len(msg) > 500:
+            msg = msg[:497] + "..."
+        out_queue.put((STREAM_MSG_ERROR, msg))
+
+
+def _parse_extraction_array(response_text: str) -> List[Dict]:
+    """
+    Parse response text as a JSON array of extraction objects.
+
+    Accepts a raw string (array or object with 'matches' key). Returns the list of match dicts
+    or raises ValueError if empty or unparseable.
+    """
+    if not response_text or not response_text.strip():
+        raise ValueError("Empty response")
+    text = response_text.strip()
+    # Try direct parse
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict) and "matches" in parsed:
+            return parsed["matches"]
+        raise ValueError("Expected JSON array or object with 'matches'")
+    except json.JSONDecodeError:
+        pass
+    # Try to find JSON array in text
+    bracket = text.find("[")
+    if bracket != -1:
+        depth = 0
+        for i, c in enumerate(text[bracket:], start=bracket):
+            if c == "[":
+                depth += 1
+            elif c == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[bracket : i + 1])
+                    except json.JSONDecodeError:
+                        break
+    raise ValueError(f"Could not parse JSON array from response: {text[:200]}...")
 
 
 async def clarify_scores_chat(
@@ -690,123 +751,62 @@ async def clarify_scores_chat(
     league_members: List[Dict]
 ) -> Dict[str, Any]:
     """
-    Call OpenAI with text-only clarification request (no image).
-    
-    This is a cheaper/faster follow-up call that refines previous results
-    based on user feedback without re-sending the image.
-    
+    Call Gemini with text-only clarification request (no image).
+
+    Returns the same array format; normalizer converts to verbose for downstream.
+
     Args:
-        previous_response: The raw JSON response from the initial image processing
+        previous_response: Raw or normalized JSON from initial processing (array or string)
         user_prompt: User's clarification/correction text
         league_members: List of league member dictionaries
-        
+
     Returns:
         Dict with status, matches, clarification_question, error_message, raw_response
     """
     total_start = time.perf_counter()
-    
-    client = get_openai_client()
-    system_prompt = build_clarification_prompt(league_members)
-    
-    # Extract the clarification question from previous response to make context explicit
-    clarification_context = ""
-    try:
-        prev_parsed = json.loads(previous_response)
-        prev_question = prev_parsed.get("q") or prev_parsed.get("clarification_question")
-        if prev_question:
-            clarification_context = f"You asked: \"{prev_question}\"\nUser's answer: "
-    except (json.JSONDecodeError, TypeError):
-        pass
-    
-    # Build user message with explicit context
-    user_message = f"{clarification_context}{user_prompt}" if clarification_context else user_prompt
-    
-    # Build simple text-only messages
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "assistant", "content": previous_response},
-        {"role": "user", "content": user_message}
-    ]
-    
-    try:
-        logger.info(f"[TIMING] Starting OpenAI {OPENAI_CLARIFY_MODEL} clarification call")
-        logger.info(f"User prompt: {user_message}")
-        logger.info(f"Previous response length: {len(previous_response)}, System prompt length: {len(system_prompt)}")
-        
-        api_start = time.perf_counter()
-        response = await client.chat.completions.create(
-            model=OPENAI_CLARIFY_MODEL,
-            messages=messages,
+    client = get_gemini_client()
+    system_prompt = build_clarification_prompt_for_array(league_members)
+    user_message = f"Previous extraction:\n{previous_response}\n\nUser's correction/answer:\n{user_prompt}"
+
+    def _call() -> str:
+        response = client.models.generate_content(
+            model=GEMINI_CLARIFY_MODEL,
+            contents=user_message,
+            config={
+                "response_mime_type": "application/json",
+                "response_json_schema": EXTRACTION_JSON_SCHEMA,
+                "system_instruction": system_prompt,
+            },
         )
-        api_duration = time.perf_counter() - api_start
-        logger.info(f"[TIMING] OpenAI clarification API call: {api_duration:.2f}s")
-        
-        choice = response.choices[0]
-        assistant_message = choice.message.content
-        
-        # Log token usage if available
-        if hasattr(response, 'usage') and response.usage:
-            logger.info(f"[TOKENS] prompt={response.usage.prompt_tokens}, "
-                       f"completion={response.usage.completion_tokens}, "
-                       f"total={response.usage.total_tokens}")
-        
-        # Check for refusal
-        if hasattr(choice.message, 'refusal') and choice.message.refusal:
-            logger.warning(f"OpenAI refused: {choice.message.refusal}")
-            assistant_message = None
-        
-        logger.info(f"OpenAI clarification response ({len(assistant_message) if assistant_message else 0} chars): "
-                   f"{assistant_message if assistant_message else 'empty'}")
-        
-        # Handle empty/None response
-        if not assistant_message:
-            logger.error("OpenAI returned empty content for clarification")
+        if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+            return (response.candidates[0].content.parts[0].text or "") or ""
+        return ""
+
+    try:
+        logger.info(f"[TIMING] Starting Gemini {GEMINI_CLARIFY_MODEL} clarification call")
+        raw_text = await asyncio.to_thread(_call)
+        logger.info(f"Gemini clarification response length: {len(raw_text)}")
+        if not raw_text:
             return {
                 "status": "failed",
                 "matches": [],
                 "clarification_question": None,
-                "error_message": "OpenAI returned an empty response for clarification.",
-                "raw_response": None
+                "error_message": "Gemini returned an empty response for clarification.",
+                "raw_response": None,
             }
-        
-        # Parse JSON response
-        parse_start = time.perf_counter()
-        try:
-            parsed = parse_openai_response(assistant_message)
-            
-            # Expand compact format to verbose format if needed
-            if is_compact_format(parsed):
-                result = expand_compact_response(parsed)
-                logger.info(f"[TIMING] Expanded compact format with {len(result.get('matches', []))} matches")
-            else:
-                result = parsed
-                
-            logger.info(f"[TIMING] JSON parse + expand: {time.perf_counter() - parse_start:.3f}s")
-            logger.info(f"Parsed clarification result status: {result.get('status')}")
-        except Exception as e:
-            logger.warning(f"Failed to parse clarification response as JSON: {e}")
-            logger.warning(f"Raw response was: {assistant_message}")
-            result = {
-                "status": "needs_clarification",
-                "matches": [],
-                "clarification_question": f"I had trouble processing your correction. Please try again with more detail.",
-                "error_message": None
-            }
-        
-        result["raw_response"] = assistant_message
-        
+        arr = _parse_extraction_array(raw_text)
+        result = normalize_extraction_response(arr)
+        result["raw_response"] = raw_text
         logger.info(f"[TIMING] clarify_scores_chat total: {time.perf_counter() - total_start:.2f}s")
         return result
-        
     except Exception as e:
-        logger.error(f"OpenAI API error during clarification: {e}")
-        logger.info(f"[TIMING] clarify_scores_chat failed after: {time.perf_counter() - total_start:.2f}s")
+        logger.error(f"Gemini API error during clarification: {e}")
         return {
             "status": "failed",
             "matches": [],
             "clarification_question": None,
-            "error_message": f"OpenAI API error: {str(e)}",
-            "raw_response": None
+            "error_message": f"Gemini API error: {str(e)}",
+            "raw_response": None,
         }
 
 
@@ -1002,6 +1002,96 @@ async def check_idempotency(session_id: str) -> Optional[List[int]]:
 
 
 # ============================================================================
+# SSE event stream for photo job (consumed by GET .../photo-jobs/{id}/stream)
+# ============================================================================
+
+# Default poll interval and timeout for SSE stream
+SSE_POLL_INTERVAL_SEC = 0.4
+SSE_TIMEOUT_SEC = 180
+
+
+async def stream_photo_job_events(
+    job_id: int,
+    league_id: int,
+    session_id: str,
+    poll_interval_sec: float = SSE_POLL_INTERVAL_SEC,
+    timeout_sec: float = SSE_TIMEOUT_SEC,
+):
+    """
+    Async generator that yields (event_name, data_dict) for SSE.
+
+    Polls Redis (partial_matches) and DB (job status) at poll_interval_sec.
+    Yields ("partial", {"partial_matches": [...]}) when partial_matches change,
+    ("done", {"status", "result"}) when job completes or fails,
+    ("error", {"message": "..."}) on timeout or exception.
+
+    Intended for one client per job; callers should format each (event, data)
+    as SSE (e.g. event: name\\ndata: json\\n\\n) and stream to the client.
+
+    Args:
+        job_id: Photo match job ID
+        league_id: League ID (caller must have already verified job belongs to league)
+        session_id: Redis session ID from the job
+        poll_interval_sec: Seconds between Redis/DB polls
+        timeout_sec: Max stream duration; yields error event and exits if exceeded
+
+    Yields:
+        Tuples (event_name: str, data: dict)
+    """
+    start = time.perf_counter()
+    last_partial: Optional[List[Dict]] = None
+
+    while True:
+        elapsed = time.perf_counter() - start
+        if elapsed >= timeout_sec:
+            yield ("error", {"message": "Stream timed out"})
+            return
+
+        try:
+            async with db.AsyncSessionLocal() as db_session:
+                job = await get_photo_match_job(db_session, job_id)
+            if not job:
+                yield ("error", {"message": "Job not found"})
+                return
+            if job.league_id != league_id:
+                yield ("error", {"message": "Job does not belong to this league"})
+                return
+
+            status = job.status
+            if status == PhotoMatchJobStatus.COMPLETED:
+                result = None
+                if job.result_data:
+                    try:
+                        result = json.loads(job.result_data)
+                    except (json.JSONDecodeError, TypeError):
+                        result = {"status": "completed", "error_message": "Invalid result data"}
+                yield ("done", {"status": "completed", "result": result})
+                return
+            if status == PhotoMatchJobStatus.FAILED:
+                yield (
+                    "done",
+                    {
+                        "status": "failed",
+                        "result": {"status": "failed", "error_message": job.error_message or "Processing failed"},
+                    },
+                )
+                return
+
+            session_data = await get_session_data(session_id)
+            partial_matches = (session_data or {}).get("partial_matches") if session_data else None
+            if partial_matches is not None and partial_matches != last_partial:
+                last_partial = partial_matches
+                yield ("partial", {"partial_matches": partial_matches})
+
+        except Exception as e:
+            logger.exception("Error in stream_photo_job_events: %s", e)
+            yield ("error", {"message": "Stream error"})
+            return
+
+        await asyncio.sleep(poll_interval_sec)
+
+
+# ============================================================================
 # Main Processing Functions
 # ============================================================================
 
@@ -1013,11 +1103,11 @@ async def process_photo_job(
     league_members: List[Dict]
 ) -> None:
     """
-    Process a photo match job asynchronously.
-    
-    This function is designed to be run as a background task for initial
-    image processing. For follow-up clarifications, use process_clarification_job().
-    
+    Process a photo match job asynchronously with Gemini streaming.
+
+    Streams extraction from Gemini, updates Redis partial_matches as complete
+    match objects arrive, then normalizes, matches players, and stores final result.
+
     Args:
         job_id: Job ID
         league_id: League ID
@@ -1027,69 +1117,81 @@ async def process_photo_job(
     """
     job_start = time.perf_counter()
     logger.info(f"[TIMING] Starting process_photo_job {job_id}")
-    
+
     async with db.AsyncSessionLocal() as db_session:
         try:
-            # Mark as running
-            db_start = time.perf_counter()
             await update_job_status(db_session, job_id, PhotoMatchJobStatus.RUNNING)
-            logger.info(f"[TIMING] update_job_status (RUNNING): {time.perf_counter() - db_start:.3f}s")
-            
-            # Call OpenAI vision model
-            result = await process_photo_with_ai(
-                image_base64=image_base64,
-                league_members=league_members
+            image_bytes = base64.b64decode(image_base64)
+            prompt = build_scoreboard_prompt(league_members)
+            out_queue: queue.Queue = queue.Queue()
+            stream_task = asyncio.create_task(
+                asyncio.to_thread(_run_gemini_stream_consumer, out_queue, image_bytes, prompt)
             )
-            
-            # Match player names to IDs (do this for any status with matches, not just "success")
+            final_buffer: Optional[str] = None
+
+            def get_from_queue():
+                return out_queue.get(timeout=0.5)
+
+            while True:
+                try:
+                    item = await asyncio.get_event_loop().run_in_executor(None, get_from_queue)
+                except Exception:
+                    if stream_task.done():
+                        break
+                    await asyncio.sleep(0.2)
+                    continue
+                msg_type, payload = item[0], item[1]
+                if msg_type == STREAM_MSG_ERROR:
+                    raise RuntimeError(payload)
+                if msg_type == STREAM_MSG_PARTIAL:
+                    await update_session_data(session_id, {"partial_matches": payload})
+                elif msg_type == STREAM_MSG_DONE:
+                    final_buffer = payload
+                    break
+            await stream_task
+
+            if final_buffer is None:
+                raise ValueError("Stream ended without final buffer")
+
+            arr = _parse_extraction_array(final_buffer)
+            result = normalize_extraction_response(arr)
+            result["raw_response"] = final_buffer
+
             if result.get("matches"):
-                match_start = time.perf_counter()
                 matches_with_ids, unmatched = match_all_players_in_matches(
                     result["matches"],
                     league_members
                 )
                 result["matches"] = matches_with_ids
-                logger.info(f"[TIMING] match_all_players_in_matches: {time.perf_counter() - match_start:.3f}s")
-                
-                # If there are unmatched players, change status to needs_clarification
                 if unmatched:
                     result["status"] = "needs_clarification"
-                    existing_q = result.get("clarification_question", "")
-                    unmatched_q = f"I couldn't match these player names: {', '.join(unmatched)}. Please clarify."
-                    result["clarification_question"] = f"{existing_q} {unmatched_q}".strip() if existing_q else unmatched_q
-            
-            # Store result in session (raw_response is used for potential clarifications)
-            redis_start = time.perf_counter()
+                    result["clarification_question"] = (
+                        f"I couldn't match these player names: {', '.join(unmatched)}. Please clarify."
+                    )
+
             await update_session_data(session_id, {
                 "parsed_matches": result.get("matches", []),
                 "status": result.get("status"),
                 "clarification_question": result.get("clarification_question"),
                 "raw_response": result.get("raw_response"),
-                "last_job_id": job_id
+                "last_job_id": job_id,
+                "partial_matches": result.get("matches", []),
             })
-            logger.info(f"[TIMING] update_session_data (Redis): {time.perf_counter() - redis_start:.3f}s")
-            
-            # Update job with result
             result_json = json.dumps({
                 "status": result.get("status"),
                 "matches": result.get("matches", []),
                 "clarification_question": result.get("clarification_question"),
-                "error_message": result.get("error_message")
+                "error_message": result.get("error_message"),
             }, default=str)
-            
-            db_start = time.perf_counter()
             await update_job_status(
-                db_session, job_id, 
+                db_session, job_id,
                 PhotoMatchJobStatus.COMPLETED,
                 result_data=result_json
             )
-            logger.info(f"[TIMING] update_job_status (COMPLETED): {time.perf_counter() - db_start:.3f}s")
-            
             logger.info(f"[TIMING] process_photo_job {job_id} total: {time.perf_counter() - job_start:.2f}s")
-            
+
         except Exception as e:
             logger.error(f"Error processing photo job {job_id}: {e}", exc_info=True)
-            logger.info(f"[TIMING] process_photo_job {job_id} failed after: {time.perf_counter() - job_start:.2f}s")
             await update_job_status(
                 db_session, job_id,
                 PhotoMatchJobStatus.FAILED,

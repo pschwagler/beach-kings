@@ -4,7 +4,7 @@ API route handlers for the Beach Volleyball ELO system.
 
 import asyncio
 from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, UploadFile, File, Form
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from slowapi import Limiter  # type: ignore
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address  # type: ignore
@@ -2966,6 +2966,7 @@ async def upload_match_photo(
             "image_base64": image_base64,
             "user_prompt": user_prompt,
             "parsed_matches": [],
+            "partial_matches": [],  # Streamed matches while job is running
             "raw_response": None,  # Will be populated after AI processing
             "status": "pending",
             "matches_created": False,
@@ -3080,6 +3081,64 @@ async def edit_photo_results(
         raise HTTPException(status_code=500, detail=f"Error processing edit: {str(e)}")
 
 
+def _format_sse(event: str, data: dict) -> str:
+    """Format event and data as a single SSE message (event + data lines + blank line)."""
+    import json
+    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+@router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}/stream")
+@limiter.limit("60/minute")
+async def stream_photo_job(
+    league_id: int,
+    job_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Stream photo job progress via Server-Sent Events.
+
+    Intended for one client per job. Emits: partial (partial_matches),
+    done (status + result), or error (message). Clients should close the
+    stream after receiving done or error.
+    """
+    try:
+        job = await photo_match_service.get_photo_match_job(session, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job.league_id != league_id:
+            raise HTTPException(status_code=403, detail="Job does not belong to this league")
+
+        async def event_generator():
+            try:
+                async for event_name, data in photo_match_service.stream_photo_job_events(
+                    job_id=job_id,
+                    league_id=league_id,
+                    session_id=job.session_id,
+                ):
+                    yield _format_sse(event_name, data)
+            except Exception as e:
+                logger.exception("Error streaming photo job %s: %s", job_id, e)
+                yield _format_sse("error", {"message": "Stream error"})
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error starting photo job stream: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error starting stream")
+
+
 @router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}")
 @limiter.limit("60/minute")
 async def get_photo_job_status(
@@ -3128,6 +3187,11 @@ async def get_photo_job_status(
                 "status": "failed",
                 "error_message": job.error_message
             }
+        # Include partial_matches while job is running (streaming)
+        if job.status == PhotoMatchJobStatus.RUNNING:
+            session_data = await photo_match_service.get_session_data(job.session_id)
+            if session_data and session_data.get("partial_matches"):
+                response["partial_matches"] = session_data["partial_matches"]
         
         return response
         
