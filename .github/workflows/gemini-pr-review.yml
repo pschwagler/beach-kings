@@ -74,14 +74,4 @@ jobs:
                 ]
               }
             }
-          prompt: |
-            You are a senior software engineer reviewing a pull request.
-            
-            Focus on:
-            - DRY and refactored code
-            - Simplified logic
-            - Good performance
-            - Edge cases and potential bugs
-            
-            Review the pull request and provide constructive feedback.
-            Use the GitHub MCP server tools to read the PR and post your review.
+          prompt: '/gemini-review'

@@ -104,3 +104,8 @@ apps/web/playwright-report/
 
 # Benchmark results
 scripts/benchmark_results/
+
+# Gemini CLI (keep commands folder)
+.gemini/*
+!.gemini/commands/
+gha-creds-*.json
