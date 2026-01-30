@@ -1,6 +1,5 @@
 # Gemini AI PR review — runs on every pull request (open, sync, reopen).
 # Requires repository secret: GEMINI_API_KEY (from https://makersuite.google.com/app/apikey)
-# Diff is capped at 100KB to avoid "Argument list too long" when starting the review container.
 
 name: Gemini PR Review
 
@@ -8,52 +7,81 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   review:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Get PR diff
-        id: get_diff
-        shell: bash
+      - name: Run Gemini pull request review
+        uses: google-github-actions/run-gemini-cli@v0
+        id: gemini_pr_review
         env:
-          PULL_REQUEST_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
-          PULL_REQUEST_BASE_REF: "${{ github.event.pull_request.base.ref }}"
-          # Cap size to avoid "Argument list too long" when passing diff to Docker (ARG_MAX ~128KB–2MB)
-          MAX_DIFF_BYTES: "100000"
-        run: |
-          git fetch origin "${{ env.PULL_REQUEST_BASE_REF }}"
-          git diff "origin/${{ env.PULL_REQUEST_BASE_REF }}" > diff.txt
-          DIFF_BYTES=$(wc -c < diff.txt)
-          echo "diff_bytes=$DIFF_BYTES" >> "$GITHUB_OUTPUT"
-          if [ "$DIFF_BYTES" -gt "${{ env.MAX_DIFF_BYTES }}" ]; then
-            head -c "${{ env.MAX_DIFF_BYTES }}" diff.txt > diff_capped.txt
-            echo "\n\n... (diff truncated for review; total $DIFF_BYTES bytes)" >> diff_capped.txt
-            cp diff_capped.txt diff.txt
-          fi
-          echo "pull_request_diff<<DIFF_EOF" >> "$GITHUB_OUTPUT"
-          cat diff.txt >> "$GITHUB_OUTPUT"
-          echo "DIFF_EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Code review by Gemini AI
-        uses: rubensflinco/gemini-code-review-action@1.0.5
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_TITLE: ${{ github.event.pull_request.title }}
+          ISSUE_BODY: ${{ github.event.pull_request.body }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          github_repository: ${{ github.repository }}
-          github_pull_request_number: ${{ github.event.pull_request.number }}
-          git_commit_hash: ${{ github.event.pull_request.head.sha }}
-          model: "models/gemini-1.5-flash"
-          pull_request_diff: ${{ steps.get_diff.outputs.pull_request_diff }}
-          pull_request_chunk_size: "3500"
-          extra_prompt: |
-            You are a senior software engineer.Focus on: DRY and refactored code, simplified logic, and good performance.
-            Check for edge cases and potential bugs.
-          log_level: "INFO"
+          gemini_debug: false
+          workflow_name: gemini-review
+          settings: |
+            {
+              "model": {
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": false
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": [
+                  "run_shell_command(cat)",
+                  "run_shell_command(echo)",
+                  "run_shell_command(grep)",
+                  "run_shell_command(head)",
+                  "run_shell_command(tail)"
+                ]
+              }
+            }
+          prompt: |
+            You are a senior software engineer reviewing a pull request.
+            
+            Focus on:
+            - DRY and refactored code
+            - Simplified logic
+            - Good performance
+            - Edge cases and potential bugs
+            
+            Review the pull request and provide constructive feedback.
+            Use the GitHub MCP server tools to read the PR and post your review.
