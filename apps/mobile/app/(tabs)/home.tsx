@@ -9,17 +9,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const [userLeagues, setUserLeagues] = useState<any[]>([]);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[HomeScreen] isAuthenticated:', isAuthenticated);
-    console.log('[HomeScreen] currentUserPlayer:', currentUserPlayer);
-    console.log('[HomeScreen] isInitializing:', isInitializing);
-  }, [isAuthenticated, currentUserPlayer, isInitializing]);
-
   // Redirect to login if not authenticated (after initialization)
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
-      console.log('[HomeScreen] Not authenticated, redirecting to login...');
       router.replace('/');
     }
   }, [isAuthenticated, isInitializing, router]);
@@ -27,7 +19,6 @@ export default function HomeScreen() {
   // Refetch user data if not available
   useEffect(() => {
     if (isAuthenticated && !currentUserPlayer) {
-      console.log('[HomeScreen] Authenticated but no player data, fetching...');
       fetchCurrentUser();
     }
   }, [isAuthenticated, currentUserPlayer, fetchCurrentUser]);
@@ -37,9 +28,7 @@ export default function HomeScreen() {
     const loadUserLeagues = async () => {
       if (isAuthenticated) {
         try {
-          console.log('[HomeScreen] Loading user leagues...');
           const leagues = await api.getUserLeagues();
-          console.log('[HomeScreen] Loaded leagues:', leagues?.length || 0);
           setUserLeagues(leagues || []);
         } catch (err: any) {
           console.error('[HomeScreen] Error loading user leagues:', err);
@@ -65,7 +54,6 @@ export default function HomeScreen() {
       router.push('/(tabs)/profile');
     } else if (tab === 'friends') {
       // TODO: Navigate to friends tab when implemented
-      console.log('Friends tab not yet implemented');
     }
   };
 

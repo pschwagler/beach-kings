@@ -150,9 +150,7 @@ export default function UploadPhotoModal({
     if (await isHeic(file)) {
       setIsConverting(true);
       try {
-        console.log('[UploadPhotoModal] Converting HEIC file to JPEG...');
         processedFile = await convertHeicToJpeg(file);
-        console.log('[UploadPhotoModal] HEIC conversion complete:', processedFile.name);
       } catch (err) {
         console.error('[UploadPhotoModal] HEIC conversion failed:', err);
         setError('Failed to convert HEIC image. Please try a JPEG or PNG file.');
@@ -204,9 +202,7 @@ export default function UploadPhotoModal({
     setError(null);
 
     try {
-      console.log('[UploadPhotoModal] Starting upload for league:', leagueId);
       const result = await uploadMatchPhoto(leagueId, selectedFile, userPrompt || null, seasonId || null);
-      console.log('[UploadPhotoModal] Upload succeeded, job_id:', result.job_id, 'session_id:', result.session_id);
       const thumbnailDataUrl = await createThumbnailDataUrl(selectedFile);
       onProceedToReview(result.job_id, result.session_id, thumbnailDataUrl);
     } catch (err) {

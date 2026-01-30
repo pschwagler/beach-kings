@@ -287,16 +287,6 @@ const config = createTamagui({
   },
 });
 
-// Add debugging (only in development, and only log once)
-if (__DEV__ && !(global as any).__TAMAGUI_CONFIG_LOGGED) {
-  (global as any).__TAMAGUI_CONFIG_LOGGED = true;
-  console.log('[Tamagui Config] ✅ Configuration loaded successfully');
-  console.log('[Tamagui Config] Fonts:', Object.keys(fonts).join(', '));
-  console.log('[Tamagui Config] Body font sizes available:', Object.keys(fonts.body.size).map(k => `$${k}`).join(', '));
-  console.log('[Tamagui Config] Color tokens:', Object.keys(tokens.color).length, 'available');
-  console.log('[Tamagui Config] Token examples - textPrimary:', tokens.color.textPrimary.val, 'textLight:', tokens.color.textLight.val);
-}
-
 export type AppConfig = typeof config;
 
 declare module 'tamagui' {

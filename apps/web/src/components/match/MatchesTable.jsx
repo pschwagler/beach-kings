@@ -86,10 +86,8 @@ export default function MatchesTable({
   }, [closeModal, onRefreshData]);
   
   const handleProceedToPhotoReview = useCallback((jobId, sessionId, uploadedImageUrl = null) => {
-    console.log('[MatchesTable] handleProceedToPhotoReview called with jobId:', jobId, 'sessionId:', sessionId);
     setPhotoJobId(jobId);
     setPhotoSessionId(sessionId);
-    console.log('[MatchesTable] Calling openModal for REVIEW_PHOTO_MATCHES');
     openModal(MODAL_TYPES.REVIEW_PHOTO_MATCHES, {
       leagueId,
       jobId,
@@ -99,7 +97,6 @@ export default function MatchesTable({
       uploadedImageUrl,
       onSuccess: handlePhotoMatchesCreated
     });
-    console.log('[MatchesTable] openModal called');
   }, [leagueId, selectedSeasonId, seasons, openModal, handlePhotoMatchesCreated]);
 
   const matchesWithPendingChanges = useMemo(() => {    

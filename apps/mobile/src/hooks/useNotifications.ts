@@ -35,9 +35,7 @@ export function useNotifications() {
     });
 
     // Listen for user interactions with notifications
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-      console.log('Notification response:', response);
-    });
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {});
 
     return () => {
       if (notificationListener.current) {
@@ -79,7 +77,6 @@ async function registerForPushNotificationsAsync() {
   }
   const tokenData = await Notifications.getExpoPushTokenAsync();
   token = tokenData.data;
-  console.log('Push token:', token);
 
   return token;
 }

@@ -139,15 +139,12 @@ export const NotificationProvider = ({ children }) => {
       host = 'localhost:8000';
     }
     const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
-    
-    console.log('Connecting to WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***'));
-    
+
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       
       ws.onopen = () => {
-        console.log('WebSocket connected for notifications');
         setWsConnected(true);
         
         // Reset reconnect attempts on successful connection
@@ -214,12 +211,7 @@ export const NotificationProvider = ({ children }) => {
         setWsConnected(false);
       };
       
-      ws.onclose = (event) => {
-        console.log('WebSocket disconnected', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        });
+      ws.onclose = () => {
         setWsConnected(false);
         
         // Clear ping interval
@@ -238,9 +230,7 @@ export const NotificationProvider = ({ children }) => {
           );
           
           reconnectAttemptsRef.current += 1;
-          
-          console.log(`Reconnecting WebSocket in ${delay / 1000}s (attempt ${reconnectAttemptsRef.current})`);
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
             connectWebSocket();
           }, delay);

@@ -10,7 +10,6 @@ export const ModalProvider = ({ children }) => {
   const [modalProps, setModalProps] = useState({});
 
   const openModal = useCallback((type, props = {}) => {
-    console.log('[ModalContext] openModal called - type:', type, 'props keys:', Object.keys(props));
     setModalType(type);
     setModalProps(props);
     setIsOpen(true);
@@ -21,7 +20,6 @@ export const ModalProvider = ({ children }) => {
   }, []);
 
   const closeModal = useCallback(() => {
-    console.log('[ModalContext] closeModal called');
     setIsOpen(false);
     setModalType(null);
     setModalProps({});

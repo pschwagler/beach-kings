@@ -94,7 +94,6 @@ export default function PhotoMatchReviewModal({
   useEffect(() => {
     // Only reset if the PROP changed (modal opened with different job), not internal changes
     if (initialJobId !== prevInitialJobIdRef.current) {
-      console.log('[PhotoMatchReviewModal] initialJobId prop changed from', prevInitialJobIdRef.current, 'to', initialJobId);
       prevInitialJobIdRef.current = initialJobId;
       setJobId(initialJobId);
       setStatus('pending');

@@ -16,16 +16,9 @@ setStorageAdapter(mobileStorageAdapter);
 // Example: EXPO_PUBLIC_API_URL=http://192.168.1.XXX:8000
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Log the API URL being used (helpful for debugging)
-console.log(`[API] Using base URL: ${API_BASE_URL}`);
-console.log(`[API] To change this, set EXPO_PUBLIC_API_URL environment variable`);
-console.log(`[API] Make sure backend is running: make dev-backend`);
-
 // Initialize API client - this creates a single instance with all methods
 const apiMethods = initApiClient(API_BASE_URL, {
-  onTokenRefresh: (token: string) => {
-    console.log('Token refreshed');
-  },
+  onTokenRefresh: () => {},
   onAuthError: (error: any) => {
     console.error('Auth error:', error);
   },
@@ -49,9 +42,6 @@ customAxios.interceptors.request.use(
       if (tokens.accessToken) {
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${tokens.accessToken}`;
-        console.log('[API] Added token to request:', config.url);
-      } else {
-        console.log('[API] No token available for request:', config.url);
       }
     } catch (error) {
       console.error('[API] Error reading tokens for request:', error);
