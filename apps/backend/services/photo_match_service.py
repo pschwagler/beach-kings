@@ -143,10 +143,7 @@ def preprocess_image(image_bytes: bytes) -> Tuple[bytes, str]:
     
     # Encode to base64
     base64_encoded = base64.b64encode(processed_bytes).decode('utf-8')
-    
-    logger.info(f"Image preprocessed: {len(image_bytes)} -> {len(processed_bytes)} bytes, "
-                f"dimensions: {img.width}x{img.height}")
-    
+
     return processed_bytes, base64_encoded
 
 
@@ -698,7 +695,6 @@ def _run_gemini_stream_consumer(
                 all_partial.append(m)
             if objs:
                 out_queue.put((STREAM_MSG_PARTIAL, list(all_partial)))
-        logger.info("Gemini stream finished: chunks=%d, response_len=%d", chunk_count, len(full_raw))
         out_queue.put((STREAM_MSG_DONE, full_raw))
     except Exception as e:
         logger.exception("Gemini stream consumer error: %s", e)
@@ -764,7 +760,6 @@ async def clarify_scores_chat(
     Returns:
         Dict with status, matches, clarification_question, error_message, raw_response
     """
-    total_start = time.perf_counter()
     client = get_gemini_client()
     system_prompt = build_clarification_prompt_for_array(league_members)
     user_message = f"Previous extraction:\n{previous_response}\n\nUser's correction/answer:\n{user_prompt}"
@@ -787,9 +782,7 @@ async def clarify_scores_chat(
         return ""
 
     try:
-        logger.info(f"[TIMING] Starting Gemini {GEMINI_CLARIFY_MODEL} clarification call")
         raw_text = await asyncio.to_thread(_call)
-        logger.info(f"Gemini clarification response length: {len(raw_text)}")
         if not raw_text:
             return {
                 "status": "failed",
@@ -801,7 +794,6 @@ async def clarify_scores_chat(
         arr = _parse_extraction_array(raw_text)
         result = normalize_extraction_response(arr)
         result["raw_response"] = raw_text
-        logger.info(f"[TIMING] clarify_scores_chat total: {time.perf_counter() - total_start:.2f}s")
         return result
     except Exception as e:
         logger.error(f"Gemini API error during clarification: {e}")
@@ -1119,9 +1111,6 @@ async def process_photo_job(
         image_base64: Base64 encoded image
         league_members: List of league members
     """
-    job_start = time.perf_counter()
-    logger.info(f"[TIMING] Starting process_photo_job {job_id}")
-
     async with db.AsyncSessionLocal() as db_session:
         try:
             await update_job_status(db_session, job_id, PhotoMatchJobStatus.RUNNING)
@@ -1195,7 +1184,6 @@ async def process_photo_job(
                 PhotoMatchJobStatus.COMPLETED,
                 result_data=result_json
             )
-            logger.info(f"[TIMING] process_photo_job {job_id} total: {time.perf_counter() - job_start:.2f}s")
 
         except Exception as e:
             logger.error(f"Error processing photo job {job_id}: {e}", exc_info=True)
@@ -1227,20 +1215,13 @@ async def process_clarification_job(
         league_members: List of league members
         user_prompt: User's clarification/correction text
     """
-    job_start = time.perf_counter()
-    logger.info(f"[TIMING] Starting process_clarification_job {job_id}")
-    
     async with db.AsyncSessionLocal() as db_session:
         try:
             # Mark as running
-            db_start = time.perf_counter()
             await update_job_status(db_session, job_id, PhotoMatchJobStatus.RUNNING)
-            logger.info(f"[TIMING] update_job_status (RUNNING): {time.perf_counter() - db_start:.3f}s")
-            
+
             # Get existing session data with the raw_response
-            redis_start = time.perf_counter()
             session_data = await get_session_data(session_id)
-            logger.info(f"[TIMING] get_session_data (Redis): {time.perf_counter() - redis_start:.3f}s")
             
             if not session_data:
                 raise ValueError(f"Session {session_id} not found or expired")
@@ -1258,14 +1239,12 @@ async def process_clarification_job(
             
             # Match player names to IDs (do this for any status with matches, not just "success")
             if result.get("matches"):
-                match_start = time.perf_counter()
                 matches_with_ids, unmatched = match_all_players_in_matches(
                     result["matches"],
                     league_members
                 )
                 result["matches"] = matches_with_ids
-                logger.info(f"[TIMING] match_all_players_in_matches: {time.perf_counter() - match_start:.3f}s")
-                
+
                 # If there are unmatched players, change status to needs_clarification
                 if unmatched:
                     result["status"] = "needs_clarification"
@@ -1274,7 +1253,6 @@ async def process_clarification_job(
                     result["clarification_question"] = f"{existing_q} {unmatched_q}".strip() if existing_q else unmatched_q
             
             # Store result in session (update raw_response for potential further clarifications)
-            redis_start = time.perf_counter()
             await update_session_data(session_id, {
                 "parsed_matches": result.get("matches", []),
                 "status": result.get("status"),
@@ -1282,8 +1260,7 @@ async def process_clarification_job(
                 "raw_response": result.get("raw_response"),
                 "last_job_id": job_id
             })
-            logger.info(f"[TIMING] update_session_data (Redis): {time.perf_counter() - redis_start:.3f}s")
-            
+
             # Update job with result
             result_json = json.dumps({
                 "status": result.get("status"),
@@ -1291,20 +1268,15 @@ async def process_clarification_job(
                 "clarification_question": result.get("clarification_question"),
                 "error_message": result.get("error_message")
             }, default=str)
-            
-            db_start = time.perf_counter()
+
             await update_job_status(
-                db_session, job_id, 
+                db_session, job_id,
                 PhotoMatchJobStatus.COMPLETED,
                 result_data=result_json
             )
-            logger.info(f"[TIMING] update_job_status (COMPLETED): {time.perf_counter() - db_start:.3f}s")
-            
-            logger.info(f"[TIMING] process_clarification_job {job_id} total: {time.perf_counter() - job_start:.2f}s")
-            
+
         except Exception as e:
             logger.error(f"Error processing clarification job {job_id}: {e}", exc_info=True)
-            logger.info(f"[TIMING] process_clarification_job {job_id} failed after: {time.perf_counter() - job_start:.2f}s")
             await update_job_status(
                 db_session, job_id,
                 PhotoMatchJobStatus.FAILED,
