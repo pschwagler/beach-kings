@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Swords, Plus } from 'lucide-react';
+import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
 import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
@@ -47,9 +47,28 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   
+  const MATCHES_VIEW_STORAGE_KEY = 'beach-kings:league-matches-view';
+
   // State for modals
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+
+  // View mode state: persist in localStorage so it survives refresh/navigation
+  const [viewMode, setViewModeState] = useState(() => {
+    if (typeof window === 'undefined') return 'cards';
+    try {
+      const stored = localStorage.getItem(MATCHES_VIEW_STORAGE_KEY);
+      if (stored === 'cards' || stored === 'clipboard') return stored;
+    } catch (_) { /* ignore */ }
+    return 'cards';
+  });
+
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem(MATCHES_VIEW_STORAGE_KEY, mode);
+    } catch (_) { /* ignore */ }
+  };
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -390,9 +409,29 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
 
   return (
     <div className="league-section">
-      {/* Season Selector - Top Right */}
-      {seasons.length > 0 && (
-        <div className="rankings-filters-row" style={{ justifyContent: 'flex-end' }}>
+      {/* Header Row with Toggle and Season Selector */}
+      <div className="rankings-filters-row" style={{ justifyContent: 'space-between', marginBottom: '20px' }}>
+        {/* View Toggle */}
+        <div className="view-toggle">
+          <button 
+            className={`view-toggle-button ${viewMode === 'cards' ? 'active' : ''}`}
+            onClick={() => setViewMode('cards')}
+            title="Card View"
+          >
+            <LayoutList size={18} />
+            Cards
+          </button>
+          <button 
+            className={`view-toggle-button ${viewMode === 'clipboard' ? 'active' : ''}`}
+            onClick={() => setViewMode('clipboard')}
+            title="Table View"
+          >
+            <ClipboardList size={18} />
+            Table
+          </button>
+        </div>
+
+        {seasons.length > 0 && (
           <div className="season-selector-wrapper">
             <select
               id="season-select-matches"
@@ -413,18 +452,17 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
               ))}
             </select>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       
       <MatchesTable
         matches={matches}
         onPlayerClick={handlePlayerClick}
-        loading={selectedSeasonId 
+        loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)
           : (seasonDataLoadingMap['all-seasons'] || false)
         }
         activeSession={
-          // Always show active session regardless of selected season filter
           activeSession || null
         }
         allSessions={allSessions}
@@ -449,6 +487,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
         selectedSeasonId={selectedSeasonId}
         onUpdateSessionSeason={handleUpdateSessionSeason}
         onSeasonChange={setSelectedSeasonId}
+        onRefreshData={refreshData}
+        contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
       />
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}

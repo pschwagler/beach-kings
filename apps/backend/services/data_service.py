@@ -32,7 +32,7 @@ from backend.database.models import (
 from backend.services import calculation_service
 # Lazy import to avoid circular dependency with stats_queue
 from backend.utils.constants import INITIAL_ELO
-from backend.utils.datetime_utils import utcnow
+from backend.utils.datetime_utils import utcnow, format_session_date
 import csv
 import io
 import logging
@@ -860,13 +860,14 @@ async def get_or_create_active_league_session(
     )
     session_count = count_result.scalar() or 0
     
-    # Generate session name with numbering
+    # Generate session name with numbering (format date consistently)
+    formatted_date = format_session_date(date)
     if name:
         session_name = name
     elif session_count == 0:
-        session_name = date
+        session_name = formatted_date
     else:
-        session_name = f"{date} Session #{session_count + 1}"
+        session_name = f"{formatted_date} Session #{session_count + 1}"
     
     new_session = Session(
         date=date,
@@ -951,13 +952,14 @@ async def create_league_session(
     )
     session_count = count_result.scalar() or 0
     
-    # Generate session name with numbering
+    # Generate session name with numbering (format date consistently)
+    formatted_date = format_session_date(date)
     if name:
         session_name = name
     elif session_count == 0:
-        session_name = date
+        session_name = formatted_date
     else:
-        session_name = f"{date} Session #{session_count + 1}"
+        session_name = f"{formatted_date} Session #{session_count + 1}"
     
     new_session = Session(
         date=date,
@@ -984,6 +986,7 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
         select(
             LeagueMember,
             Player.full_name.label("player_name"),
+            Player.nickname.label("player_nickname"),
             Player.level.label("player_level"),
             Player.avatar.label("player_avatar")
         )
@@ -999,12 +1002,13 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "player_id": member.player_id,
             "role": member.role,
             "player_name": player_name,
+            "player_nickname": player_nickname,
             "player_level": player_level,
             # Use stored avatar if present, otherwise fallback to initials from full name
             "player_avatar": player_avatar or generate_player_initials(player_name),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
         }
-        for member, player_name, player_level, player_avatar in rows
+        for member, player_name, player_nickname, player_level, player_avatar in rows
     ]
 
 
@@ -3760,11 +3764,12 @@ async def create_session(session: AsyncSession, date: str) -> Dict:
     )
     count = result.scalar() or 0
     
-    # Generate session name
+    # Generate session name (format date consistently)
+    formatted_date = format_session_date(date)
     if count == 0:
-        name = date
+        name = formatted_date
     else:
-        name = f"{date} Session #{count + 1}"
+        name = f"{formatted_date} Session #{count + 1}"
     
     # Create the session
     new_session = Session(

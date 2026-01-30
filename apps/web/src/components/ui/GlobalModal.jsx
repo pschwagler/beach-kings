@@ -6,6 +6,8 @@ import EditWeeklyScheduleModal from '../league/EditWeeklyScheduleModal';
 import SignupModal from '../league/SignupModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import SessionSummaryModal from '../modal/SessionSummaryModal';
+import UploadPhotoModal from '../match/UploadPhotoModal';
+import PhotoMatchReviewModal from '../match/PhotoMatchReviewModal';
 import ErrorBoundary from './ErrorBoundary';
 
 const MODAL_COMPONENTS = {
@@ -16,17 +18,21 @@ const MODAL_COMPONENTS = {
   [MODAL_TYPES.SIGNUP]: SignupModal,
   [MODAL_TYPES.CONFIRMATION]: ConfirmationModal,
   [MODAL_TYPES.SESSION_SUMMARY]: SessionSummaryModal,
+  [MODAL_TYPES.UPLOAD_PHOTO]: UploadPhotoModal,
+  [MODAL_TYPES.REVIEW_PHOTO_MATCHES]: PhotoMatchReviewModal,
 };
 
 export default function GlobalModal() {
   const { isOpen, modalType, modalProps, closeModal } = useModal();
 
-  if (!isOpen || !modalType) return null;
+  if (!isOpen || !modalType) {
+    return null;
+  }
 
   const ModalComponent = MODAL_COMPONENTS[modalType];
 
   if (!ModalComponent) {
-    console.warn(`No modal component found for type: ${modalType}`);
+    console.warn('[GlobalModal] No modal component found for type:', modalType);
     return null;
   }
 

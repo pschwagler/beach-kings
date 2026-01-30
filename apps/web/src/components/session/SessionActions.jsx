@@ -1,6 +1,12 @@
 import { Plus, Save, X } from 'lucide-react';
 
-export default function SessionActions({ onAddMatchClick, onSubmitClick, onSaveClick, onCancelClick, isEditing = false }) {
+export default function SessionActions({
+  onAddMatchClick,
+  onSubmitClick,
+  onSaveClick,
+  onCancelClick,
+  isEditing = false,
+}) {
   return (
     <div className="session-actions" data-testid="session-actions">
       <button className="session-btn session-btn-add" onClick={onAddMatchClick} data-testid="session-btn-add">
@@ -9,8 +15,8 @@ export default function SessionActions({ onAddMatchClick, onSubmitClick, onSaveC
       </button>
       {isEditing ? (
         <>
-          <button 
-            className="session-btn session-btn-cancel" 
+          <button
+            className="session-btn session-btn-cancel"
             onClick={onCancelClick}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}

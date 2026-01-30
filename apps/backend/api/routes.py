@@ -3,17 +3,18 @@ API route handlers for the Beach Volleyball ELO system.
 """
 
 import asyncio
-from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response
+from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from fastapi.responses import Response, StreamingResponse
 from slowapi import Limiter  # type: ignore
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, update
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, League, LeagueRequest
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location, NotificationType, League, LeagueRequest, PhotoMatchJob, PhotoMatchJobStatus
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
 from backend.services import notification_service
+from backend.services import photo_match_service
 from backend.services.websocket_manager import get_websocket_manager
 from backend.services import location_service
 from backend.services.stats_queue import get_stats_queue
@@ -49,7 +50,6 @@ import traceback
 from typing import Optional, Dict, Any, List
 from datetime import date, datetime, timedelta
 from backend.utils.datetime_utils import utcnow
-from backend.utils.geo_utils import calculate_distance_miles
 
 logger = logging.getLogger(__name__)
 
@@ -2369,11 +2369,11 @@ async def end_league_session(
     league_id: int,
     session_id: int,
     request: Request,
-    user: dict = Depends(make_require_league_admin()),
+    user: dict = Depends(make_require_league_member()),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    End/lock in a league session by submitting it (league_admin).
+    End/lock in a league session by submitting it (any league member).
     
     Body: { "submit": true } to submit/lock in a session
     
@@ -2898,6 +2898,428 @@ async def delete_match(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting match: {str(e)}")
+
+
+# ============================================================================
+# Photo Match Upload Endpoints
+# ============================================================================
+
+@router.post("/api/leagues/{league_id}/matches/upload-photo")
+@limiter.limit("10/minute")
+async def upload_match_photo(
+    league_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    user_prompt: Optional[str] = Form(None),
+    season_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Upload a photo of game scores for AI processing.
+    
+    Validates the file, preprocesses the image (convert to JPEG, downscale to 400px height),
+    creates a processing job, and returns job_id for polling.
+    
+    Args:
+        league_id: League ID
+        file: Image file (JPEG, PNG, HEIC)
+        user_prompt: Optional context/instructions for the AI
+        season_id: Optional season ID (required for confirmation)
+        
+    Returns:
+        dict with job_id, session_id, status
+    """
+    try:
+        # Read file content
+        file_content = await file.read()
+        
+        # Validate image
+        is_valid, error_msg = photo_match_service.validate_image_file(
+            file_content, 
+            file.content_type or "", 
+            file.filename or ""
+        )
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Preprocess image (convert to JPEG, downscale)
+        _, image_base64 = photo_match_service.preprocess_image(file_content)
+        
+        # Generate session ID
+        session_id = photo_match_service.generate_session_id()
+        
+        # Get league members for player matching
+        members = await data_service.list_league_members(session, league_id)
+        
+        # Get user's player_id
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        player_id = player["id"] if player else None
+        
+        # Store session data in Redis (omit image_base64; process_photo_job receives it in-memory)
+        session_data = {
+            "league_id": league_id,
+            "season_id": season_id,
+            "user_id": current_user["id"],
+            "player_id": player_id,
+            "user_prompt": user_prompt,
+            "parsed_matches": [],
+            "partial_matches": [],  # Streamed matches while job is running
+            "raw_response": None,  # Will be populated after AI processing
+            "status": "pending",
+            "matches_created": False,
+            "created_match_ids": None,
+            "created_at": utcnow().isoformat(),
+            "last_updated": utcnow().isoformat()
+        }
+        
+        stored = await photo_match_service.store_session_data(session_id, session_data)
+        if not stored:
+            raise HTTPException(status_code=500, detail="Failed to initialize photo session")
+        
+        # Create job in database
+        job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
+        
+        # Start async processing task
+        import asyncio
+        asyncio.create_task(
+            photo_match_service.process_photo_job(
+                job_id=job_id,
+                league_id=league_id,
+                session_id=session_id,
+                image_base64=image_base64,
+                league_members=members
+            )
+        )
+        
+        return {
+            "job_id": job_id,
+            "session_id": session_id,
+            "status": "pending"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading match photo: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing photo upload: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/matches/photo-sessions/{session_id}/edit")
+@limiter.limit("20/minute")
+async def edit_photo_results(
+    league_id: int,
+    session_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Send edit prompt for conversation refinement.
+    
+    Retrieves conversation history from Redis, creates new processing job with edit prompt.
+    
+    Args:
+        league_id: League ID
+        session_id: Photo session ID
+        
+    Request body:
+        {
+            "edit_prompt": "The second player should be John Smith, not John Doe"
+        }
+        
+    Returns:
+        dict with job_id, session_id, status
+    """
+    try:
+        body = await request.json()
+        edit_prompt = body.get("edit_prompt")
+        
+        if not edit_prompt:
+            raise HTTPException(status_code=400, detail="edit_prompt is required")
+        
+        # Get existing session data
+        session_data = await photo_match_service.get_session_data(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found or expired")
+        
+        # Verify league matches
+        if session_data.get("league_id") != league_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this league")
+        
+        # Get league members
+        members = await data_service.list_league_members(session, league_id)
+        
+        # Create new job for the edit
+        job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
+        
+        # Start async clarification task (text-only, faster/cheaper than re-processing image)
+        import asyncio
+        asyncio.create_task(
+            photo_match_service.process_clarification_job(
+                job_id=job_id,
+                league_id=league_id,
+                session_id=session_id,
+                league_members=members,
+                user_prompt=edit_prompt
+            )
+        )
+        
+        return {
+            "job_id": job_id,
+            "session_id": session_id,
+            "status": "pending"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editing photo results: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing edit: {str(e)}")
+
+
+def _format_sse(event: str, data: dict) -> str:
+    """Format event and data as a single SSE message (event + data lines + blank line)."""
+    import json
+    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+@router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}/stream")
+@limiter.limit("60/minute")
+async def stream_photo_job(
+    league_id: int,
+    job_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Stream photo job progress via Server-Sent Events.
+
+    Intended for one client per job. Emits: partial (partial_matches),
+    done (status + result), or error (message). Clients should close the
+    stream after receiving done or error.
+    """
+    try:
+        job = await photo_match_service.get_photo_match_job(session, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job.league_id != league_id:
+            raise HTTPException(status_code=403, detail="Job does not belong to this league")
+
+        async def event_generator():
+            try:
+                async for event_name, data in photo_match_service.stream_photo_job_events(
+                    job_id=job_id,
+                    league_id=league_id,
+                    session_id=job.session_id,
+                ):
+                    yield _format_sse(event_name, data)
+            except Exception as e:
+                logger.exception("Error streaming photo job %s: %s", job_id, e)
+                yield _format_sse("error", {"message": "Stream error"})
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error starting photo job stream: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error starting stream")
+
+
+@router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}")
+@limiter.limit("60/minute")
+async def get_photo_job_status(
+    league_id: int,
+    job_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Get status of a photo processing job.
+    
+    Args:
+        league_id: League ID
+        job_id: Job ID
+        
+    Returns:
+        dict with job status and result
+    """
+    try:
+        # Get job from database
+        job = await photo_match_service.get_photo_match_job(session, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Verify league matches
+        if job.league_id != league_id:
+            raise HTTPException(status_code=403, detail="Job does not belong to this league")
+        
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "result": None
+        }
+        
+        # Include result if completed
+        if job.status == PhotoMatchJobStatus.COMPLETED and job.result_data:
+            import json
+            response["result"] = json.loads(job.result_data)
+        elif job.status == PhotoMatchJobStatus.FAILED:
+            response["result"] = {
+                "status": "failed",
+                "error_message": job.error_message
+            }
+        # Include partial_matches while job is running (streaming)
+        if job.status == PhotoMatchJobStatus.RUNNING:
+            session_data = await photo_match_service.get_session_data(job.session_id)
+            if session_data and session_data.get("partial_matches"):
+                response["partial_matches"] = session_data["partial_matches"]
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting job status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting job status: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/matches/photo-sessions/{session_id}/confirm")
+@limiter.limit("10/minute")
+async def confirm_photo_matches(
+    league_id: int,
+    session_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Confirm parsed matches and create them in the database.
+    
+    This endpoint is idempotent - if matches have already been created for this session,
+    it returns the existing match IDs.
+    
+    Args:
+        league_id: League ID
+        session_id: Photo session ID
+        
+    Request body:
+        {
+            "season_id": 123,
+            "match_date": "2026-01-20"
+        }
+        
+    Returns:
+        dict with status, matches_created count, match_ids
+    """
+    try:
+        body = await request.json()
+        season_id = body.get("season_id")
+        match_date = body.get("match_date")
+        
+        if not season_id:
+            raise HTTPException(status_code=400, detail="season_id is required")
+        if not match_date:
+            raise HTTPException(status_code=400, detail="match_date is required")
+        
+        # Get session data
+        session_data = await photo_match_service.get_session_data(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found or expired")
+        
+        # Verify league matches
+        if session_data.get("league_id") != league_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this league")
+        
+        # Verify season belongs to league
+        from sqlalchemy import select, and_
+        from backend.database.models import Season
+        season_result = await session.execute(
+            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
+        )
+        if not season_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Season not found or does not belong to this league")
+        
+        # Create matches
+        success, match_ids, message = await photo_match_service.create_matches_from_session(
+            session,
+            session_id,
+            season_id,
+            match_date
+        )
+        
+        if not success:
+            raise HTTPException(status_code=400, detail=message)
+        
+        # Clean up session data after successful creation (optional - keep for audit)
+        # await photo_match_service.cleanup_session(session_id)
+        
+        return {
+            "status": "success",
+            "message": message,
+            "matches_created": len(match_ids),
+            "match_ids": match_ids
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming matches: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error creating matches: {str(e)}")
+
+
+@router.delete("/api/leagues/{league_id}/matches/photo-sessions/{session_id}")
+async def cancel_photo_session(
+    league_id: int,
+    session_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(require_user),
+    _league_member = Depends(make_require_league_member)
+):
+    """
+    Cancel session and cleanup Redis data.
+    
+    Args:
+        league_id: League ID
+        session_id: Photo session ID
+        
+    Returns:
+        dict with status
+    """
+    try:
+        # Get session data to verify ownership
+        session_data = await photo_match_service.get_session_data(session_id)
+        if session_data and session_data.get("league_id") != league_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this league")
+        
+        # Clean up Redis
+        await photo_match_service.cleanup_session(session_id)
+        
+        return {"status": "cancelled"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error cancelling session: {str(e)}")
 
 
 # Authentication endpoints

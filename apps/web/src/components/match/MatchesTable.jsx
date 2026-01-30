@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Edit2, Trophy, Users, ChevronDown } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
 import MatchCard from './MatchCard';
+import SessionMatchesClipboardTable from './SessionMatchesClipboardTable';
 
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
 import { MatchesTableSkeleton } from '../ui/Skeletons';
@@ -57,11 +58,46 @@ export default function MatchesTable({
   onUpdateSessionSeason = null,
   activeSessionMatchesOverride = null,
   activeSeasons = [],
-  onSeasonChange = null
+  onSeasonChange = null,
+  onRefreshData = null,
+  contentVariant = 'cards'
 }) {
   const { isLeagueMember, members, league } = useLeague();
-  const { openModal } = useModal();
+  const { openModal, closeModal } = useModal();
   const hasRenderedMatchesRef = useRef(false);
+  
+  // Photo upload state
+  const [photoJobId, setPhotoJobId] = useState(null);
+  const [photoSessionId, setPhotoSessionId] = useState(null);
+  
+  const handlePhotoMatchesCreated = useCallback(async (matchIds) => {
+    setPhotoJobId(null);
+    setPhotoSessionId(null);
+    closeModal();
+    
+    // Refresh data to show the newly created matches
+    if (onRefreshData) {
+      try {
+        await onRefreshData({ sessions: true, season: true, matches: true });
+      } catch (error) {
+        console.error('[MatchesTable] Error refreshing data after photo matches created:', error);
+      }
+    }
+  }, [closeModal, onRefreshData]);
+  
+  const handleProceedToPhotoReview = useCallback((jobId, sessionId, uploadedImageUrl = null) => {
+    setPhotoJobId(jobId);
+    setPhotoSessionId(sessionId);
+    openModal(MODAL_TYPES.REVIEW_PHOTO_MATCHES, {
+      leagueId,
+      jobId,
+      sessionId,
+      seasonId: selectedSeasonId,
+      seasons,
+      uploadedImageUrl,
+      onSuccess: handlePhotoMatchesCreated
+    });
+  }, [leagueId, selectedSeasonId, seasons, openModal, handlePhotoMatchesCreated]);
 
   const matchesWithPendingChanges = useMemo(() => {    
     if (matches === null) return null;
@@ -417,6 +453,27 @@ export default function MatchesTable({
               Click to log a new game.
             </p>
           </button>
+          
+          {/* Photo Upload Button - Show for all league members */}
+          {leagueId && (
+            <button 
+              className="add-matches-card upload-photo-card"
+              data-testid="upload-photo-card"
+              onClick={() => openModal(MODAL_TYPES.UPLOAD_PHOTO, {
+                leagueId,
+                seasonId: selectedSeasonId,
+                onProceedToReview: handleProceedToPhotoReview
+              })}
+            >
+              <h2 className="add-matches-title">Upload Photo</h2>
+              <div className="add-matches-icon">
+                <Camera size={24} />
+              </div>
+              <p className="add-matches-description">
+                AI reads scores from photo.
+              </p>
+            </button>
+          )}
         </div>
       )}
 
@@ -431,22 +488,39 @@ export default function MatchesTable({
           <ActiveSessionPanel
             activeSession={activeSession}
             activeSessionMatches={activeSessionMatches}
-          onPlayerClick={onPlayerClick}
-          onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
-            onSubmit: handleAddMatch,
-            onDelete: onDeleteMatch,
-            allPlayerNames,
-            leagueMatchOnly: !!leagueId,
-            defaultLeagueId: leagueId,
-            members,
-            league,
-            sessionId: activeSession?.id,
-            sessionSeasonId: activeSession?.season_id,
-            defaultSeasonId: selectedSeasonId,
-            onSeasonChange: onSeasonChange
-          })}
-          onEditMatch={handleEditMatch}
-          onSubmitClick={() => {
+            onPlayerClick={onPlayerClick}
+            contentVariant={contentVariant}
+            isAdmin={isAdmin}
+            onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
+              onSubmit: handleAddMatch,
+              onDelete: onDeleteMatch,
+              allPlayerNames,
+              leagueMatchOnly: !!leagueId,
+              defaultLeagueId: leagueId,
+              members,
+              league,
+              sessionId: activeSession?.id,
+              sessionSeasonId: activeSession?.season_id,
+              defaultSeasonId: selectedSeasonId,
+              onSeasonChange: onSeasonChange
+            })}
+            onEditMatch={handleEditMatch}
+            onRequestDeleteSession={() => {
+              const sessionSeasonId = activeSession?.season_id;
+              const sessionSeason = sessionSeasonId && seasons.length > 0
+                ? seasons.find(s => s.id === sessionSeasonId)
+                : null;
+              openModal(MODAL_TYPES.CONFIRMATION, {
+                title: 'Delete Session',
+                message: `This will delete the session and all ${activeSessionMatches.length} game${activeSessionMatches.length === 1 ? '' : 's'} forever. This cannot be undone.`,
+                confirmText: 'Delete Session',
+                confirmButtonClass: 'danger',
+                sessionName: activeSession?.name,
+                season: sessionSeason,
+                onConfirm: () => onDeleteSession(activeSession.id),
+              });
+            }}
+            onSubmitClick={() => {
             // Get season for the active session
             const sessionSeasonId = activeSession?.season_id;
             const sessionSeason = sessionSeasonId && seasons.length > 0 
@@ -480,11 +554,12 @@ export default function MatchesTable({
               season: sessionSeason
             });
           }}
-          onDeleteSession={onDeleteSession}
-          onUpdateSessionSeason={onUpdateSessionSeason}
-          seasons={seasons}
-          selectedSeasonId={selectedSeasonId}
-        />
+            onDeleteSession={onDeleteSession}
+            onUpdateSessionSeason={onUpdateSessionSeason}
+            seasons={seasons}
+            selectedSeasonId={selectedSeasonId}
+            contentVariant={contentVariant}
+          />
         </div>
       )}
 
@@ -506,27 +581,44 @@ export default function MatchesTable({
               <div data-session-id={group.id} key={key}>
                 <ActiveSessionPanel
                   activeSession={{ id: group.id, name: group.name, season_id: seasonId }}
-                activeSessionMatches={group.matches}
-                onPlayerClick={onPlayerClick}
-                onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
-                  onSubmit: handleAddMatch,
-                  onDelete: onDeleteMatch,
-                  allPlayerNames,
-                  leagueMatchOnly: !!leagueId,
-                  defaultLeagueId: leagueId,
-                  members,
-                  league,
-                  sessionId: group.id,
-                  sessionSeasonId: seasonId,
-                  defaultSeasonId: selectedSeasonId,
-                  onSeasonChange: onSeasonChange
-                })}
-                onEditMatch={handleEditMatch}
-                onSaveClick={() => onSaveEditedSession(group.id)}
-                onCancelClick={() => onCancelEdit(group.id)}
-                onDeleteSession={onDeleteSession}
-                onUpdateSessionSeason={onUpdateSessionSeason}
-                onStatsClick={() => {
+                  activeSessionMatches={group.matches}
+                  onPlayerClick={onPlayerClick}
+                  contentVariant={contentVariant}
+                  isAdmin={isAdmin}
+                  onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
+                    onSubmit: handleAddMatch,
+                    onDelete: onDeleteMatch,
+                    allPlayerNames,
+                    leagueMatchOnly: !!leagueId,
+                    defaultLeagueId: leagueId,
+                    members,
+                    league,
+                    sessionId: group.id,
+                    sessionSeasonId: seasonId,
+                    defaultSeasonId: selectedSeasonId,
+                    onSeasonChange: onSeasonChange
+                  })}
+                  onEditMatch={handleEditMatch}
+                  onSaveClick={() => onSaveEditedSession(group.id)}
+                  onCancelClick={() => onCancelEdit(group.id)}
+                  onDeleteSession={onDeleteSession}
+                  onRequestDeleteSession={() => {
+                    const seasonId = group.matches?.[0]?.['Session Season ID'];
+                    const sessionSeasonForDelete = seasonId && seasons.length > 0
+                      ? seasons.find(s => s.id === seasonId)
+                      : null;
+                    openModal(MODAL_TYPES.CONFIRMATION, {
+                      title: 'Delete Session',
+                      message: `This will delete the session and all ${group.matches?.length ?? 0} game${(group.matches?.length ?? 0) === 1 ? '' : 's'} forever. This cannot be undone.`,
+                      confirmText: 'Delete Session',
+                      confirmButtonClass: 'danger',
+                      sessionName: group.name,
+                      season: sessionSeasonForDelete,
+                      onConfirm: () => onDeleteSession(group.id),
+                    });
+                  }}
+                  onUpdateSessionSeason={onUpdateSessionSeason}
+                  onStatsClick={() => {
                   // Get season for this session
                   const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
                   const seasonId = sessionMatch?.['Session Season ID'];
@@ -552,14 +644,14 @@ export default function MatchesTable({
                     season: sessionSeason
                   });
                 }}
-                isEditing={true}
-                seasons={seasons}
-                selectedSeasonId={selectedSeasonId}
-              />
+                  isEditing={true}
+                  seasons={seasons}
+                  selectedSeasonId={selectedSeasonId}
+                />
               </div>
             );
           }
-          
+
           // Calculate stats for this session group
           const sessionGameCount = group.matches?.length || 0;
           const sessionPlayers = new Set();
@@ -628,19 +720,16 @@ export default function MatchesTable({
                   </div>
                 )}
               </h3>
-              <div className="match-cards">
-                {group.matches.map((match, idx) => (
-                  <MatchCard 
-                    key={idx} 
-                    match={match} 
-                    onPlayerClick={onPlayerClick} 
-                  />
-                ))}
-              </div>
-              {group.lastUpdated && (
-                <div className="session-timestamp">
-                  {(() => {
-                    const timestamp = formatRelativeTime(group.lastUpdated);
+              {contentVariant === 'clipboard' ? (
+                <SessionMatchesClipboardTable
+                  matches={group.matches}
+                  onPlayerClick={onPlayerClick}
+                  onEditMatch={handleEditMatch}
+                  canAddMatch={false}
+                  showActions={false}
+                  lastUpdated={group.lastUpdated}
+                  formatRelativeTime={(date) => {
+                    const timestamp = formatRelativeTime(date);
                     const user = group.updatedBy || group.createdBy;
                     if (group.status === 'EDITED' && user) {
                       return `Edited ${timestamp} by ${user}`;
@@ -649,8 +738,35 @@ export default function MatchesTable({
                       return `Submitted ${timestamp} by ${user}`;
                     }
                     return timestamp;
-                  })()}
-                </div>
+                  }}
+                />
+              ) : (
+                <>
+                  <div className="match-cards">
+                    {group.matches.map((match, idx) => (
+                      <MatchCard
+                        key={idx}
+                        match={match}
+                        onPlayerClick={onPlayerClick}
+                      />
+                    ))}
+                  </div>
+                  {group.lastUpdated && (
+                    <div className="session-timestamp">
+                      {(() => {
+                        const timestamp = formatRelativeTime(group.lastUpdated);
+                        const user = group.updatedBy || group.createdBy;
+                        if (group.status === 'EDITED' && user) {
+                          return `Edited ${timestamp} by ${user}`;
+                        }
+                        if (group.status === 'SUBMITTED' && user) {
+                          return `Submitted ${timestamp} by ${user}`;
+                        }
+                        return timestamp;
+                      })()}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );

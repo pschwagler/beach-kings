@@ -17,17 +17,11 @@ This project is a modern, full-stack web application structured with a monorepo 
 2. **Backend Services**
    - Located in `apps/backend/`.
    - Python async service, typically using FastAPI and PostgreSQL (async).
-   - Managed using Docker and Makefile targets for ease of use.
-   - **To build or run the backend:**
-     - Build all containers: `make build`
-     - Start only the backend (and dependencies): `make backend`
-     - Development (with hot-reloading): `make backend-dev`
+   - Runs via Docker for development and in production
 
 3. **Frontend**
    - Located under `apps/frontend/` (React, possibly with Next.js).
    - Managed by Turborepo tasks, npm/yarn scripts, and Makefile shorthands.
-   - **To run the frontend in development:**
-     - `make frontend`
 
 4. **Database**
    - PostgreSQL service orchestrated via Docker Compose.
@@ -35,11 +29,6 @@ This project is a modern, full-stack web application structured with a monorepo 
 
 5. **Dockerized Development**
    - Docker Compose manages containers for backend, frontend, db, workers, etc.
-   - **General workflow:**
-     - Start all services: `make up`
-     - Rebuild containers: `make build`
-     - Stop all services: `make down`
-     - Clean everything: `make clean`
 
 6. **Testing**
    - Unit and integration tests are run per workspace/package via `turbo`, native runners, or Makefile short-hands.

@@ -36,25 +36,17 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
   const oceanBlue = (tokens.color as any)?.oceanBlue?.val || '#4a90a4';
   const primaryDark = (tokens.color as any)?.primaryDark?.val || '#205e6f';
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[HomeTab] currentUserPlayer:', currentUserPlayer);
-    console.log('[HomeTab] userLeagues:', userLeagues);
-  }, [currentUserPlayer, userLeagues]);
-
   // Load user matches
   useEffect(() => {
     const loadUserMatches = async () => {
       if (!currentUserPlayer) {
-        console.log('[HomeTab] No currentUserPlayer, skipping matches load');
         return;
       }
 
       setLoadingMatches(true);
       try {
         const playerId = currentUserPlayer.id;
-        console.log('[HomeTab] Loading matches for player ID:', playerId);
-        
+
         if (!playerId) {
           console.warn('[HomeTab] No player ID found in currentUserPlayer:', currentUserPlayer);
           setUserMatches([]);
@@ -64,7 +56,6 @@ export function HomeTab({ currentUserPlayer, userLeagues = [], onTabChange, onLe
         // Use axios directly to get matches by player ID
         const response = await api.axios.get(`/api/players/${playerId}/matches`);
         const matches = response.data;
-        console.log('[HomeTab] Loaded matches:', matches?.length || 0);
         
         const sortedMatches = (matches || [])
           .sort((a: any, b: any) => {

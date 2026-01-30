@@ -7,32 +7,20 @@ Uses Redis for distributed caching across instances.
 
 import os
 import logging
-from typing import Optional, TYPE_CHECKING
-from datetime import datetime, timedelta
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services import data_service
+from backend.services import redis_service
 from dotenv import load_dotenv
-
-# Optional Redis import - will be None if not installed (e.g., in test environments)
-try:
-    from redis.asyncio import Redis
-except ImportError:
-    Redis = None  # type: ignore
 
 # Load environment variables
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Redis configuration
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+# Settings-specific configuration
 CACHE_TTL_SECONDS = 60  # Cache settings for 60 seconds
 REDIS_KEY_PREFIX = "settings:"
-
-# Global Redis client (initialized on first use)
-_redis_client: Optional[Redis] = None
 
 
 def get_bool_env(key: str, default: bool = True) -> bool:
@@ -52,87 +40,30 @@ def get_bool_env(key: str, default: bool = True) -> bool:
     return value.lower() in ("true", "1", "yes")
 
 
-async def get_redis_client() -> Optional[Redis]:
-    """
-    Get or create Redis client connection.
-    
-    Returns:
-        Redis client or None if connection fails
-    """
-    global _redis_client
-    
-    if _redis_client is not None:
-        try:
-            # Test connection
-            await _redis_client.ping()
-            return _redis_client
-        except Exception as e:
-            logger.warning(f"Redis connection test failed, recreating client: {e}")
-            try:
-                await _redis_client.close()
-            except Exception:
-                pass
-            _redis_client = None
-    
-    if Redis is None:
-        logger.debug("Redis library not available. Caching disabled.")
-        return None
-    
-    try:
-        _redis_client = Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
-            decode_responses=True,
-            socket_connect_timeout=2,
-            socket_timeout=2,
-            retry_on_timeout=True
-        )
-        # Test connection
-        await _redis_client.ping()
-        logger.info(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
-        return _redis_client
-    except Exception as e:
-        logger.warning(f"Failed to connect to Redis at {REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}: {e}")
-        _redis_client = None
-        return None
+def _make_redis_key(key: str) -> str:
+    """Create the Redis key for a setting."""
+    return f"{REDIS_KEY_PREFIX}{key}"
 
 
 async def _get_cached_setting(key: str) -> Optional[str]:
     """Get cached setting value from Redis."""
-    try:
-        redis_client = await get_redis_client()
-        if redis_client is None:
-            return None
-        
-        redis_key = f"{REDIS_KEY_PREFIX}{key}"
-        value = await redis_client.get(redis_key)
-        return value
-    except Exception as e:
-        logger.warning(f"Error getting cached setting {key} from Redis: {e}")
-        return None
+    redis_key = _make_redis_key(key)
+    return await redis_service.redis_get(redis_key)
 
 
 async def _set_cached_setting(key: str, value: Optional[str]):
     """Cache a setting value in Redis with TTL."""
-    try:
-        redis_client = await get_redis_client()
-        if redis_client is None:
-            return
-        
-        redis_key = f"{REDIS_KEY_PREFIX}{key}"
-        if value is not None:
-            await redis_client.setex(redis_key, CACHE_TTL_SECONDS, value)
-        else:
-            await redis_client.delete(redis_key)
-    except Exception as e:
-        logger.warning(f"Error setting cached setting {key} in Redis: {e}")
+    redis_key = _make_redis_key(key)
+    if value is not None:
+        await redis_service.redis_set(redis_key, value, CACHE_TTL_SECONDS)
+    else:
+        await redis_service.redis_delete(redis_key)
 
 
 async def _clear_cache():
     """Clear all cached settings from Redis."""
     try:
-        redis_client = await get_redis_client()
+        redis_client = await redis_service.get_redis_client()
         if redis_client is None:
             return
         
@@ -263,13 +194,10 @@ async def invalidate_settings_cache():
 
 
 async def close_redis_connection():
-    """Close Redis connection (call on application shutdown)."""
-    global _redis_client
-    if _redis_client is not None:
-        try:
-            await _redis_client.close()
-            logger.info("Closed Redis connection")
-        except Exception as e:
-            logger.warning(f"Error closing Redis connection: {e}")
-        finally:
-            _redis_client = None
+    """
+    Close Redis connection (call on application shutdown).
+    
+    Note: This delegates to the centralized redis_service.
+    Kept for backwards compatibility with existing shutdown code.
+    """
+    await redis_service.close_redis_connection()

@@ -3189,18 +3189,39 @@ body:hover ::-webkit-scrollbar-thumb {
   margin-top: auto;
 }
 
-.modal-actions .button:not(.btn-success) {
+.modal-actions .button:not(.btn-success):not(.btn-danger) {
   background: none;
   color: var(--gray-700);
 }
 
-.modal-actions .button:not(.btn-success):hover {
+.modal-actions .button:not(.btn-success):not(.btn-danger):hover {
   background: var(--gray-50);
   color: var(--gray-900);
 }
 
-.modal-actions .button:not(.btn-success):active {
+.modal-actions .button:not(.btn-success):not(.btn-danger):active {
   background: var(--gray-100);
+}
+
+/* Danger confirm button in modals - keep red and prominent */
+.modal-actions .button.btn-danger {
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+}
+
+.modal-actions .button.btn-danger:hover {
+  background: #b91c1c;
+  color: white;
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4);
+  transform: translateY(-1px);
+}
+
+.modal-actions .button.btn-danger:active {
+  background: #991b1b;
+  transform: translateY(0);
 }
 
 .modal-actions .delete-match-text-btn {
@@ -3210,6 +3231,55 @@ body:hover ::-webkit-scrollbar-thumb {
 /* Confirmation Modal */
 .confirmation-modal {
   max-width: 550px;
+}
+
+.modal-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.confirmation-modal-warning-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.confirmation-modal-context {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.confirmation-modal-context-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.confirmation-modal-context-row + .confirmation-modal-context-row {
+  margin-top: 6px;
+}
+
+.confirmation-modal-context-label {
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 60px;
+}
+
+.confirmation-modal-context-value {
+  color: var(--gray-900);
 }
 
 .modal-player-stats {
@@ -7327,6 +7397,19 @@ button.match-config-toggle.inline svg {
   background: var(--deep-ocean);
 }
 
+.session-btn-upload {
+  background: var(--secondary, #6366f1);
+  color: white;
+}
+
+.session-btn-upload:hover {
+  background: var(--secondary-dark, #4f46e5);
+}
+
+.session-btn-upload:active {
+  background: var(--secondary-dark, #4338ca);
+}
+
 .session-btn-submit {
   background: var(--muted-red);
   color: white;
@@ -7347,6 +7430,21 @@ button.match-config-toggle.inline svg {
   box-shadow: 0 1px 2px rgba(255, 120, 73, 0.2);
 }
 
+.session-btn-delete {
+  background: #dc2626;
+  color: white;
+}
+
+.session-btn-delete:hover {
+  background: #b91c1c;
+  color: white;
+}
+
+.session-btn-delete:active {
+  background: #991b1b;
+  color: white;
+}
+
 .session-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -7354,6 +7452,28 @@ button.match-config-toggle.inline svg {
 
 /* Session Matches Section */
 /* Session Season Selector */
+.session-season-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 1rem;
+  margin-bottom: 16px;
+}
+
+.session-season-row .session-season-selector {
+  margin-bottom: 0;
+  padding: 0;
+  border-bottom: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.session-btn-delete-header {
+  flex-shrink: 0;
+}
+
 .session-season-selector {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #e5e7eb;
@@ -10822,4 +10942,287 @@ button.match-config-toggle.inline svg {
   .home-content-grid {
     gap: 16px;
   }
+}
+/* Clipboard View Styles */
+.clipboard-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 40px;
+}
+
+.clipboard-session-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+}
+
+.clipboard-session-card.active-session {
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(44, 122, 143, 0.15);
+}
+
+.clipboard-session-card.editing-session {
+  border: 2px solid var(--warning, #f59e0b);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+.clipboard-header {
+  padding: 16px 20px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.active-session .clipboard-header {
+  background: var(--primary-lighter);
+  border-bottom-color: var(--primary-light);
+}
+
+.editing-session .clipboard-header {
+  background: #fffbeb; /* Amber 50 */
+  border-bottom-color: #fcd34d; /* Amber 300 */
+}
+
+.clipboard-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clipboard-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--gray-900);
+}
+
+.clipboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.clipboard-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.active {
+  background: var(--primary);
+  color: white;
+}
+
+.status-badge.editing {
+  background: var(--warning, #f59e0b);
+  color: white;
+}
+
+.clipboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clipboard-table-wrapper {
+  overflow-x: auto;
+}
+
+.clipboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.clipboard-table th,
+.clipboard-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.clipboard-table th {
+  background: white;
+  font-weight: 600;
+  color: var(--gray-700);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.clipboard-table tr:last-child td {
+  border-bottom: none;
+}
+
+.player-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-name {
+  font-weight: 500;
+  color: var(--gray-800);
+}
+
+.player-name.clickable:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.score-cell {
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-align: center !important;
+  color: var(--gray-900);
+}
+
+.winner-cell {
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.winner-cell.team1-win {
+  color: var(--primary);
+}
+
+.winner-cell.team2-win {
+  color: var(--primary);
+}
+
+.actions-cell {
+  text-align: right;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-500);
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.icon-button:hover {
+  background: var(--gray-100);
+  color: var(--primary);
+}
+
+.icon-button.small {
+  padding: 2px;
+}
+
+.add-row-button {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  border-top: 1px dashed var(--gray-300);
+  color: var(--gray-500);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left; /* Keep text aligned to match table flow usually, or center? */
+  text-align: center;
+}
+
+.add-row-button:hover {
+  background: var(--gray-50);
+  color: var(--primary);
+}
+
+.edit-actions, .active-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Toggle Switch Styles */
+.view-toggle {
+  display: flex;
+  background: var(--gray-100);
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.view-toggle-button {
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-toggle-button.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.view-toggle-button:hover:not(.active) {
+  background: rgba(255,255,255,0.5);
+  color: var(--gray-800);
+}
+
+/* Stats clickable area */
+.session-stats-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.session-stats-clickable:hover {
+  background-color: var(--gray-100);
+  transform: translateY(-1px);
+}
+
+/* Implicit Winner Styles */
+.winner-text {
+  font-weight: 700 !important;
+  color: var(--primary) !important;
+}
+
+.winner-cell-bg {
+  background-color: var(--seafoam-light); /* Very light seafoam tint */
+}
+
+/* Ensure winner background works with table hover/stripe if any */
+.clipboard-table tr:hover .winner-cell-bg {
+  background-color: #beece5; /* Slightly darker on hover */
+}
+
+/* Clipboard view: winner = primary-dark, loser = gray-800 */
+.clipboard-winner {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.clipboard-loser {
+  color: var(--gray-800);
 }

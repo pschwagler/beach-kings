@@ -1,6 +1,7 @@
-import { Plus, Save, Trophy, Users, ChevronDown } from 'lucide-react';
+import { Trophy, Users, ChevronDown, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import MatchCard from '../match/MatchCard';
+import SessionMatchesClipboardTable from '../match/SessionMatchesClipboardTable';
 import SessionHeader from './SessionHeader';
 import SessionActions from './SessionActions';
 import { formatDateRange } from '../league/utils/leagueUtils';
@@ -17,9 +18,9 @@ function getUniquePlayersCount(matches) {
   return players.size;
 }
 
-export default function ActiveSessionPanel({ 
-  activeSession, 
-  activeSessionMatches, 
+export default function ActiveSessionPanel({
+  activeSession,
+  activeSessionMatches,
   onPlayerClick,
   onAddMatchClick,
   onEditMatch,
@@ -27,11 +28,14 @@ export default function ActiveSessionPanel({
   onSaveClick,
   onCancelClick,
   onDeleteSession,
+  onRequestDeleteSession,
   onUpdateSessionSeason,
   onStatsClick,
   isEditing = false,
   seasons = [],
-  selectedSeasonId = null
+  selectedSeasonId = null,
+  contentVariant = 'cards',
+  isAdmin = false,
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
@@ -73,68 +77,85 @@ export default function ActiveSessionPanel({
         isEditing={isEditing}
       />
 
-      {/* Season selector - show if session has a season_id (seasons array should always be populated) */}
-      {sessionSeasonId && (
-        <div className="session-season-selector">
-          <span className="session-season-label">Season:</span>
-          <div className="season-dropdown-wrapper" ref={seasonDropdownRef}>
-            {sessionSeason ? (
-              <>
-                <div
-                  className="season-dropdown-trigger"
-                  onClick={() => setIsSeasonDropdownOpen(!isSeasonDropdownOpen)}
-                >
-                  <span className="season-name">{sessionSeason.name || `Season ${sessionSeason.id}`}</span>
-                  {sessionSeason.start_date && sessionSeason.end_date && (
-                    <span className="season-dates">
-                      {formatDateRange(sessionSeason.start_date, sessionSeason.end_date)}
-                    </span>
-                  )}
-                  <ChevronDown size={14} className={isSeasonDropdownOpen ? 'rotate-180' : ''} />
-                </div>
-                {isSeasonDropdownOpen && seasons.length > 1 && (
-                  <div className="season-dropdown-menu">
-                    {seasons.map((season) => (
-                      <div
-                        key={season.id}
-                        className={`season-dropdown-option ${sessionSeasonId === season.id ? 'selected' : ''}`}
-                        onClick={async () => {
-                          if (sessionSeasonId !== season.id && onUpdateSessionSeason) {
-                            try {
-                              await onUpdateSessionSeason(activeSession.id, season.id);
-                              setIsSeasonDropdownOpen(false);
-                            } catch (error) {
-                              console.error('Error updating session season:', error);
-                              // Keep dropdown open on error so user can try again
-                            }
-                          } else {
-                            setIsSeasonDropdownOpen(false);
-                          }
-                        }}
-                      >
-                        <span className="season-name">
-                          {season.name || `Season ${season.id}`}
+      {/* Season selector row: season on left, Delete on right (admins only) */}
+      {(sessionSeasonId || (isAdmin && onRequestDeleteSession)) && (
+        <div className="session-season-row">
+          {sessionSeasonId ? (
+            <div className="session-season-selector">
+              <span className="session-season-label">Season:</span>
+              <div className="season-dropdown-wrapper" ref={seasonDropdownRef}>
+                {sessionSeason ? (
+                  <>
+                    <div
+                      className="season-dropdown-trigger"
+                      onClick={() => setIsSeasonDropdownOpen(!isSeasonDropdownOpen)}
+                    >
+                      <span className="season-name">{sessionSeason.name || `Season ${sessionSeason.id}`}</span>
+                      {sessionSeason.start_date && sessionSeason.end_date && (
+                        <span className="season-dates">
+                          {formatDateRange(sessionSeason.start_date, sessionSeason.end_date)}
                         </span>
-                        {season.start_date && season.end_date && (
-                          <span className="season-dates">
-                            {formatDateRange(season.start_date, season.end_date)}
-                          </span>
-                        )}
+                      )}
+                      <ChevronDown size={14} className={isSeasonDropdownOpen ? 'rotate-180' : ''} />
+                    </div>
+                    {isSeasonDropdownOpen && seasons.length > 1 && (
+                      <div className="season-dropdown-menu">
+                        {seasons.map((season) => (
+                          <div
+                            key={season.id}
+                            className={`season-dropdown-option ${sessionSeasonId === season.id ? 'selected' : ''}`}
+                            onClick={async () => {
+                              if (sessionSeasonId !== season.id && onUpdateSessionSeason) {
+                                try {
+                                  await onUpdateSessionSeason(activeSession.id, season.id);
+                                  setIsSeasonDropdownOpen(false);
+                                } catch (error) {
+                                  console.error('Error updating session season:', error);
+                                }
+                              } else {
+                                setIsSeasonDropdownOpen(false);
+                              }
+                            }}
+                          >
+                            <span className="season-name">
+                              {season.name || `Season ${season.id}`}
+                            </span>
+                            {season.start_date && season.end_date && (
+                              <span className="season-dates">
+                                {formatDateRange(season.start_date, season.end_date)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
+                ) : (
+                  <span className="season-id-text">
+                    Season {sessionSeasonId}
+                  </span>
                 )}
-              </>
-            ) : (
-              <span className="season-id-text">
-                Season {sessionSeasonId}
-              </span>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <span />
+          )}
+          {isAdmin && onRequestDeleteSession && (
+            <button
+              type="button"
+              className="session-btn session-btn-delete session-btn-delete-header"
+              onClick={onRequestDeleteSession}
+              data-testid="session-btn-delete"
+              title="Delete session and all games"
+            >
+              <Trash2 size={18} />
+              Delete
+            </button>
+          )}
         </div>
       )}
 
-      <SessionActions 
+      <SessionActions
         onAddMatchClick={onAddMatchClick}
         onSubmitClick={onSubmitClick}
         onSaveClick={onSaveClick}
@@ -146,13 +167,24 @@ export default function ActiveSessionPanel({
         <div className="session-matches-label">
           Session Games
         </div>
-        {activeSessionMatches.length === 0 ? (
+        {activeSessionMatches.length === 0 && contentVariant === 'cards' ? (
           <div className="session-empty-state">
             <Trophy size={40} className="session-empty-icon" />
             <div className="session-empty-text">
               No matches recorded. Start by adding your first match!
             </div>
           </div>
+        ) : contentVariant === 'clipboard' ? (
+          <SessionMatchesClipboardTable
+            matches={activeSessionMatches}
+            onPlayerClick={onPlayerClick}
+            onEditMatch={onEditMatch}
+            canAddMatch={true}
+            onAddMatch={() => onAddMatchClick()}
+            sessionId={activeSession?.id}
+            seasonId={sessionSeasonId}
+            showActions={true}
+          />
         ) : (
           <div className="match-cards">
             {activeSessionMatches.map((match, idx) => (

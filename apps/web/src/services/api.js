@@ -972,4 +972,162 @@ export const markAllNotificationsAsRead = async () => {
   return response.data;
 };
 
+/**
+ * Photo Match Upload API functions
+ */
+
+/**
+ * Upload a photo of game scores for AI processing
+ * @param {number} leagueId - League ID
+ * @param {File} file - Image file
+ * @param {string} userPrompt - Optional context/instructions
+ * @param {number} seasonId - Optional season ID
+ */
+export const uploadMatchPhoto = async (leagueId, file, userPrompt = null, seasonId = null) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (userPrompt) {
+    formData.append('user_prompt', userPrompt);
+  }
+  if (seasonId) {
+    formData.append('season_id', seasonId);
+  }
+  
+  const response = await api.post(`/api/leagues/${leagueId}/matches/upload-photo`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+/**
+ * Get status of a photo processing job
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ */
+export const getPhotoJobStatus = async (leagueId, jobId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/matches/photo-jobs/${jobId}`);
+  return response.data;
+};
+
+/**
+ * Returns the SSE stream URL for a photo job (for use with fetch + credentials).
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ * @returns {string} Full URL for GET .../photo-jobs/{jobId}/stream
+ */
+export const getPhotoJobStreamUrl = (leagueId, jobId) => {
+  const base = API_BASE_URL || (isBrowser ? '' : '');
+  return `${base}/api/leagues/${leagueId}/matches/photo-jobs/${jobId}/stream`;
+};
+
+/**
+ * Subscribe to photo job progress via SSE. Uses fetch with credentials so auth headers are sent.
+ * Call the returned abort function to close the stream.
+ * @param {number} leagueId - League ID
+ * @param {number} jobId - Job ID
+ * @param {{ onPartial: (data: { partial_matches: unknown[] }) => void, onDone: (data: { status: string, result?: unknown }) => void, onError: (data: { message: string }) => void }} callbacks
+ * @returns {() => void} Abort function to close the stream
+ */
+export const subscribePhotoJobStream = (leagueId, jobId, callbacks) => {
+  const url = getPhotoJobStreamUrl(leagueId, jobId);
+  const { accessToken } = getStoredTokens();
+  const headers = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { ...headers },
+        credentials: 'include',
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        callbacks.onError({ message: response.status === 404 ? 'Job not found' : response.status === 403 ? 'Access denied' : `Request failed: ${response.status}` });
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const processMessage = (block) => {
+        let eventName = '';
+        let dataStr = '';
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataStr = line.slice(5).trim();
+        }
+        if (!eventName || !dataStr) return;
+        try {
+          const data = JSON.parse(dataStr);
+          if (eventName === 'partial') callbacks.onPartial(data);
+          else if (eventName === 'done') callbacks.onDone(data);
+          else if (eventName === 'error') callbacks.onError(data);
+        } catch (_) {}
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+        for (const block of parts) {
+          if (block.trim()) processMessage(block);
+        }
+      }
+      if (buffer.trim()) processMessage(buffer);
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      callbacks.onError({ message: err.message || 'Stream error' });
+    }
+  })();
+
+  return () => controller.abort();
+};
+
+/**
+ * Send edit prompt for photo results refinement
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ * @param {string} editPrompt - Edit/clarification prompt
+ */
+export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
+  const response = await api.post(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/edit`,
+    { edit_prompt: editPrompt }
+  );
+  return response.data;
+};
+
+/**
+ * Confirm parsed matches and create them in the database
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ * @param {number} seasonId - Season to create matches in
+ * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
+ */
+export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate) => {
+  const response = await api.post(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/confirm`,
+    { season_id: seasonId, match_date: matchDate }
+  );
+  return response.data;
+};
+
+/**
+ * Cancel photo session and cleanup
+ * @param {number} leagueId - League ID
+ * @param {string} sessionId - Photo session ID
+ */
+export const cancelPhotoSession = async (leagueId, sessionId) => {
+  const response = await api.delete(
+    `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}`
+  );
+  return response.data;
+};
+
 export default api;
