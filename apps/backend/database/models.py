@@ -917,10 +917,10 @@ class StatsCalculationJob(Base):
 
 class PhotoMatchJobStatus(str, enum.Enum):
     """Photo match job status enum."""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class PhotoMatchJob(Base):
@@ -930,7 +930,11 @@ class PhotoMatchJob(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
     session_id = Column(String, nullable=False)  # Redis session key
-    status = Column(Enum(PhotoMatchJobStatus), default=PhotoMatchJobStatus.PENDING, nullable=False)
+    status = Column(
+        Enum(PhotoMatchJobStatus, values_callable=lambda x: [e.value for e in x]),
+        default=PhotoMatchJobStatus.PENDING,
+        nullable=False,
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)

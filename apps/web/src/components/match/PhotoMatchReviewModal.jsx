@@ -25,7 +25,7 @@ export default function PhotoMatchReviewModal({
   onSuccess
 }) {
   const [jobId, setJobId] = useState(initialJobId);
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('PENDING');
   const [result, setResult] = useState(null);
   const [partialMatches, setPartialMatches] = useState(null); // streamed matches while job is running
   const [error, setError] = useState(null);
@@ -48,7 +48,7 @@ export default function PhotoMatchReviewModal({
 
   // Subscribe to photo job stream when modal is open and we have a jobId
   useEffect(() => {
-    if (!isOpen || !jobId || !leagueId || status === 'completed' || status === 'failed') {
+    if (!isOpen || !jobId || !leagueId || status === 'COMPLETED' || status === 'FAILED') {
       return;
     }
     streamAbortRef.current = subscribePhotoJobStream(leagueId, jobId, {
@@ -59,8 +59,8 @@ export default function PhotoMatchReviewModal({
       },
       onDone: (data) => {
         setPartialMatches(null);
-        setStatus(data.status || 'completed');
-        if (data.status === 'completed' && data.result) {
+        setStatus(data.status || 'COMPLETED');
+        if (data.status === 'COMPLETED' && data.result) {
           setResult(data.result);
           if (data.result.clarification_question) {
             setConversationHistory(prev => [
@@ -72,7 +72,7 @@ export default function PhotoMatchReviewModal({
               }
             ]);
           }
-        } else if (data.status === 'failed') {
+        } else if (data.status === 'FAILED') {
           setError(data.result?.error_message || 'Processing failed');
         }
       },
@@ -96,7 +96,7 @@ export default function PhotoMatchReviewModal({
     if (initialJobId !== prevInitialJobIdRef.current) {
       prevInitialJobIdRef.current = initialJobId;
       setJobId(initialJobId);
-      setStatus('pending');
+      setStatus('PENDING');
       setResult(null);
       setError(null);
       setConversationHistory([]);
@@ -145,7 +145,7 @@ export default function PhotoMatchReviewModal({
       
       // Update job ID; SSE effect will open a new stream for the new job
       setJobId(response.job_id);
-      setStatus('pending');
+      setStatus('PENDING');
       setResult(null);
       setEditPrompt('');
       if (streamAbortRef.current) {
@@ -204,7 +204,7 @@ export default function PhotoMatchReviewModal({
       
     } catch (err) {
       console.error('Error confirming matches:', err);
-      setError(err.response?.data?.detail || 'Failed to create matches');
+      setError(err.response?.data?.detail || 'Failed to create games');
     } finally {
       setIsSubmitting(false);
     }
@@ -221,7 +221,7 @@ export default function PhotoMatchReviewModal({
     return null;
   }
 
-  const isProcessing = status === 'pending' || status === 'running';
+  const isProcessing = status === 'PENDING' || status === 'RUNNING';
   const needsClarification = result?.status === 'needs_clarification';
   const isSuccess = result?.status === 'success';
   const isUnreadable = result?.status === 'unreadable';
@@ -269,10 +269,10 @@ export default function PhotoMatchReviewModal({
           {isProcessing && (
             <p className="processing-hint" style={{ marginBottom: '8px' }}>
               <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: '6px' }} />
-              Extracting matches...
+              Extracting games...
             </p>
           )}
-          <h3>Extracted Matches ({displayMatches.length})</h3>
+          <h3>Extracted Games ({displayMatches.length})</h3>
           <div className="matches-table-container">
             <table className="matches-table">
               <thead>
@@ -429,7 +429,7 @@ export default function PhotoMatchReviewModal({
           {status === 'confirmed' && (
             <div className="review-success">
               <Check size={32} />
-              <p>Matches created successfully!</p>
+              <p>Games created successfully!</p>
             </div>
           )}
     </>
@@ -439,7 +439,7 @@ export default function PhotoMatchReviewModal({
     <div className="modal-overlay" onClick={handleClose}>
       <div className={`modal-content photo-review-modal${showSideBySide ? ' side-by-side' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Review Extracted Matches</h2>
+          <h2>Review Extracted Games</h2>
           <Button variant="close" onClick={handleClose} disabled={isSubmitting}>
             <X size={20} />
           </Button>
@@ -498,7 +498,7 @@ export default function PhotoMatchReviewModal({
               ) : (
                 <>
                   <Check size={16} />
-                  Confirm & Create {result.matches.length} Matches
+                  Confirm & Create {result.matches.length} Games
                 </>
               )}
             </Button>
@@ -918,26 +918,27 @@ export default function PhotoMatchReviewModal({
           position: fixed;
           inset: 0;
           z-index: 10000;
-          background: rgba(0, 0, 0, 0.45);
+          background: rgba(0, 0, 0, 0.6);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 12px;
         }
 
         .image-expand-inner {
           position: relative;
-          max-width: 96vw;
-          max-height: 96vh;
+          max-width: 98vw;
+          max-height: 98vh;
         }
 
         .image-expand-inner img {
           display: block;
-          max-width: 96vw;
-          max-height: 96vh;
+          max-width: 98vw;
+          max-height: 98vh;
           width: auto;
           height: auto;
           object-fit: contain;
+          image-rendering: auto;
         }
 
         .image-expand-close {

@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     # Create enum type for PhotoMatchJobStatus
-    op.execute("CREATE TYPE photomatchjobstatus AS ENUM ('pending', 'running', 'completed', 'failed')")
+    op.execute("CREATE TYPE photomatchjobstatus AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')")
     
     # Create photo_match_jobs table
     op.create_table(
@@ -26,7 +26,7 @@ def upgrade():
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('league_id', sa.Integer(), nullable=False),
         sa.Column('session_id', sa.String(), nullable=False),
-        sa.Column('status', postgresql.ENUM('pending', 'running', 'completed', 'failed', 
+        sa.Column('status', postgresql.ENUM('PENDING', 'RUNNING', 'COMPLETED', 'FAILED',
                   name='photomatchjobstatus', create_type=False), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), 
                   server_default=sa.text('now()'), nullable=False),

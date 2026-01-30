@@ -1060,15 +1060,15 @@ async def stream_photo_job_events(
                     try:
                         result = json.loads(job.result_data)
                     except (json.JSONDecodeError, TypeError):
-                        result = {"status": "completed", "error_message": "Invalid result data"}
-                yield ("done", {"status": "completed", "result": result})
+                        result = {"status": "COMPLETED", "error_message": "Invalid result data"}
+                yield ("done", {"status": "COMPLETED", "result": result})
                 return
             if status == PhotoMatchJobStatus.FAILED:
                 yield (
                     "done",
                     {
-                        "status": "failed",
-                        "result": {"status": "failed", "error_message": job.error_message or "Processing failed"},
+                        "status": "FAILED",
+                        "result": {"status": "FAILED", "error_message": job.error_message or "Processing failed"},
                     },
                 )
                 return

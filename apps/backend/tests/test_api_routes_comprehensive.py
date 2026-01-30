@@ -812,7 +812,7 @@ class TestPhotoJobStreamEndpoint:
 
         async def fake_stream_events(job_id, league_id, session_id, **kwargs):
             yield ("partial", {"partial_matches": [{"t1": [], "t2": [], "s": "21-19"}]})
-            yield ("done", {"status": "completed", "result": {"matches": []}})
+            yield ("done", {"status": "COMPLETED", "result": {"matches": []}})
 
         async def fake_has_league_role(session, user_id, league_id, role):
             return True

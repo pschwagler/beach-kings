@@ -2967,7 +2967,7 @@ async def upload_match_photo(
             "parsed_matches": [],
             "partial_matches": [],  # Streamed matches while job is running
             "raw_response": None,  # Will be populated after AI processing
-            "status": "pending",
+            "status": "PENDING",
             "matches_created": False,
             "created_match_ids": None,
             "created_at": utcnow().isoformat(),
@@ -2996,7 +2996,7 @@ async def upload_match_photo(
         return {
             "job_id": job_id,
             "session_id": session_id,
-            "status": "pending"
+            "status": "PENDING"
         }
         
     except HTTPException:
@@ -3070,7 +3070,7 @@ async def edit_photo_results(
         return {
             "job_id": job_id,
             "session_id": session_id,
-            "status": "pending"
+            "status": "PENDING"
         }
         
     except HTTPException:
@@ -3183,7 +3183,7 @@ async def get_photo_job_status(
             response["result"] = json.loads(job.result_data)
         elif job.status == PhotoMatchJobStatus.FAILED:
             response["result"] = {
-                "status": "failed",
+                "status": "FAILED",
                 "error_message": job.error_message
             }
         # Include partial_matches while job is running (streaming)

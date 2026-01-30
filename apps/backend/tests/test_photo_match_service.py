@@ -676,7 +676,7 @@ class TestStreamPhotoJobEvents:
         assert events[0][0] == "partial"
         assert events[0][1].get("partial_matches") == [{"t1": [], "t2": [], "s": "21-19"}]
         assert events[-1][0] == "done"
-        assert events[-1][1].get("status") == "completed"
+        assert events[-1][1].get("status") == "COMPLETED"
 
     @pytest.mark.asyncio
     async def test_yields_error_when_job_not_found(self):
