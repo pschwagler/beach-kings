@@ -1,22 +1,12 @@
-import { Trophy, Users, ChevronDown, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { Trophy, Users, ChevronDown } from 'lucide-react';
+import { useState, useRef } from 'react';
 import MatchCard from '../match/MatchCard';
 import SessionMatchesClipboardTable from '../match/SessionMatchesClipboardTable';
 import SessionHeader from './SessionHeader';
 import SessionActions from './SessionActions';
 import { formatDateRange } from '../league/utils/leagueUtils';
-
-// Helper function to get unique players from matches
-function getUniquePlayersCount(matches) {
-  const players = new Set();
-  matches.forEach(match => {
-    if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
-    if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
-    if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
-    if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
-  });
-  return players.size;
-}
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { getUniquePlayersCount } from '../league/utils/matchUtils';
 
 export default function ActiveSessionPanel({
   activeSession,
@@ -36,35 +26,19 @@ export default function ActiveSessionPanel({
   selectedSeasonId = null,
   contentVariant = 'cards',
   isAdmin = false,
+  variant = null, // 'league' | 'non-league'; when null, derived from activeSession.season_id
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
   const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
   const seasonDropdownRef = useRef(null);
 
-  // Get the season for this session
-  const sessionSeasonId = activeSession?.season_id;
+  // Get the season for this session (league only; non-league has no season_id)
+  const sessionSeasonId = activeSession?.season_id ?? null;
+  const isLeague = variant === 'league' || (variant !== 'non-league' && sessionSeasonId != null);
   const sessionSeason = sessionSeasonId ? seasons.find(s => s.id === sessionSeasonId) : null;
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (seasonDropdownRef.current && !seasonDropdownRef.current.contains(event.target)) {
-        setIsSeasonDropdownOpen(false);
-      }
-    };
-
-    if (isSeasonDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isSeasonDropdownOpen]);
-
-  const handleDeleteSession = () => {
-    if (onDeleteSession) {
-      onDeleteSession(activeSession.id);
-    }
-  };
+  useClickOutside(seasonDropdownRef, isSeasonDropdownOpen, () => setIsSeasonDropdownOpen(false));
 
   return (
     <div className="active-session-panel" data-testid="active-session-panel">
@@ -72,15 +46,14 @@ export default function ActiveSessionPanel({
         sessionName={activeSession.name}
         gameCount={gameCount}
         playerCount={playerCount}
-        onDelete={gameCount === 0 ? handleDeleteSession : null}
         onStatsClick={onStatsClick}
         isEditing={isEditing}
       />
 
-      {/* Season selector row: season on left, Delete on right (admins only) */}
-      {(sessionSeasonId || (isAdmin && onRequestDeleteSession)) && (
+      {/* Season selector row (league only): season on left, Delete on right (admins only) */}
+      {(isLeague && sessionSeasonId) || (isAdmin && onRequestDeleteSession) ? (
         <div className="session-season-row">
-          {sessionSeasonId ? (
+          {isLeague && sessionSeasonId ? (
             <div className="session-season-selector">
               <span className="session-season-label">Season:</span>
               <div className="season-dropdown-wrapper" ref={seasonDropdownRef}>
@@ -148,12 +121,11 @@ export default function ActiveSessionPanel({
               data-testid="session-btn-delete"
               title="Delete session and all games"
             >
-              <Trash2 size={18} />
-              Delete
+              Delete Session
             </button>
           )}
         </div>
-      )}
+      ) : null}
 
       <SessionActions
         onAddMatchClick={onAddMatchClick}

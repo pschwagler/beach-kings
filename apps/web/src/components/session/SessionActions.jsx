@@ -9,7 +9,7 @@ export default function SessionActions({
 }) {
   return (
     <div className="session-actions" data-testid="session-actions">
-      <button className="session-btn session-btn-add" onClick={onAddMatchClick} data-testid="session-btn-add">
+      <button className="league-text-button primary session-btn-add" onClick={onAddMatchClick} data-testid="session-btn-add">
         <Plus size={22} />
         Add New Match
       </button>
@@ -18,8 +18,6 @@ export default function SessionActions({
           <button
             className="session-btn session-btn-cancel"
             onClick={onCancelClick}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
             data-testid="session-btn-cancel"
           >
             <X size={20} />

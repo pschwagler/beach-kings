@@ -16,8 +16,8 @@ import { useDataRefresh } from './hooks/useDataRefresh';
 import { useMatchOperations } from './hooks/useMatchOperations';
 import { useSessionEditing } from './hooks/useSessionEditing';
 import { useActiveSession } from './hooks/useActiveSession';
-import { usePlayerNameMapping } from './hooks/usePlayerNameMapping';
 import { useSessionSeasonUpdate } from './hooks/useSessionSeasonUpdate';
+import { usePersistedViewMode } from '../../hooks/usePersistedViewMode';
 
 export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   const { 
@@ -53,22 +53,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
-  // View mode state: persist in localStorage so it survives refresh/navigation
-  const [viewMode, setViewModeState] = useState(() => {
-    if (typeof window === 'undefined') return 'cards';
-    try {
-      const stored = localStorage.getItem(MATCHES_VIEW_STORAGE_KEY);
-      if (stored === 'cards' || stored === 'clipboard') return stored;
-    } catch (_) { /* ignore */ }
-    return 'cards';
-  });
-
-  const setViewMode = (mode) => {
-    setViewModeState(mode);
-    try {
-      localStorage.setItem(MATCHES_VIEW_STORAGE_KEY, mode);
-    } catch (_) { /* ignore */ }
-  };
+  const [viewMode, setViewMode] = usePersistedViewMode(MATCHES_VIEW_STORAGE_KEY, 'cards');
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -85,17 +70,25 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
 
-  const playerNameMapping = usePlayerNameMapping({ leagueId, members });
-  const { allPlayerNames, playerNameToId, getPlayerIdFromMap } = playerNameMapping;
-  
-  // Create reverse map (ID to name) for converting player IDs to names in pending matches
-  const playerIdToName = useMemo(() => {
-    const map = new Map();
-    playerNameToId.forEach((playerId, playerName) => {
-      map.set(playerId, playerName);
-    });
-    return map;
-  }, [playerNameToId]);
+  // Build player name mappings from members only (members have player_id and player_name from API)
+  const { allPlayerNames, playerNameToId, playerIdToName, getPlayerIdFromMap } = useMemo(() => {
+    const idToName = new Map();
+    const nameToId = new Map();
+    if (members && members.length > 0) {
+      members.forEach((m) => {
+        const name = m.player_name || `Player ${m.player_id}`;
+        idToName.set(m.player_id, name);
+        nameToId.set(name, m.player_id);
+      });
+    }
+    const names = Array.from(nameToId.keys()).sort((a, b) => a.localeCompare(b));
+    return {
+      allPlayerNames: names,
+      playerNameToId: nameToId,
+      playerIdToName: idToName,
+      getPlayerIdFromMap: (name) => nameToId.get(name) || null,
+    };
+  }, [members]);
 
   const matchOperations = useMatchOperations({
     playerNameToId,

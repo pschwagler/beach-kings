@@ -19,7 +19,7 @@ from sqlalchemy.sql import func as sql_func
 from backend.database import db
 from backend.database.models import (
     League, LeagueMember, LeagueMessage, LeagueConfig, LeagueRequest, Season, Location, Court, Player, User,
-    Session, Match, Setting, PartnershipStats, OpponentStats, 
+    Session, Match, Setting, PartnershipStats, OpponentStats, SessionParticipant,
     EloHistory, SeasonRatingHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
     WeeklySchedule, Signup, SignupPlayer, SignupEvent,
     OpenSignupsMode, SignupEventType,
@@ -36,8 +36,15 @@ from backend.utils.datetime_utils import utcnow, format_session_date
 import csv
 import io
 import logging
+import secrets
+import string
 
 logger = logging.getLogger(__name__)
+
+# Session code: alphanumeric (uppercase + digits), default length 8
+SESSION_CODE_ALPHABET = string.ascii_uppercase + string.digits
+SESSION_CODE_LENGTH = 8
+SESSION_CODE_MAX_ATTEMPTS = 10
 
 #
 # Helper functions
@@ -711,8 +718,10 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "date": s.date,
         "name": s.name,
         "status": s.status.value if s.status else None,
+        "code": s.code,
         "season_id": s.season_id,
         "court_id": s.court_id,
+        "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
     }
 
@@ -981,7 +990,7 @@ async def create_league_session(
 
 
 async def list_league_members(session: AsyncSession, league_id: int) -> List[Dict]:
-    """List league members."""
+    """List league members. player_name is full_name only (nicknames used on backend for matching only)."""
     result = await session.execute(
         select(
             LeagueMember,
@@ -1001,15 +1010,86 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "league_id": member.league_id,
             "player_id": member.player_id,
             "role": member.role,
-            "player_name": player_name,
+            "player_name": player_name or f"Player {member.player_id}",
             "player_nickname": player_nickname,
             "player_level": player_level,
-            # Use stored avatar if present, otherwise fallback to initials from full name
-            "player_avatar": player_avatar or generate_player_initials(player_name),
+            "player_avatar": player_avatar or generate_player_initials(player_name or ""),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
         }
         for member, player_name, player_nickname, player_level, player_avatar in rows
     ]
+
+
+async def list_players_search(
+    session: AsyncSession,
+    q: Optional[str] = None,
+    location_id: Optional[str] = None,
+    league_id: Optional[int] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Tuple[List[Dict], int]:
+    """
+    Search players with optional filters. Returns (items, total).
+    Each item has id, full_name, nickname, name (full_name only; nicknames used on backend for matching only), and optionally location_id, location_name.
+    """
+    stmt = select(Player).where(True)
+    count_stmt = select(func.count(Player.id)).select_from(Player).where(True)
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        name_cond = or_(Player.full_name.ilike(term), Player.nickname.ilike(term))
+        stmt = stmt.where(name_cond)
+        count_stmt = count_stmt.where(name_cond)
+
+    if location_id:
+        stmt = stmt.where(Player.location_id == location_id)
+        count_stmt = count_stmt.where(Player.location_id == location_id)
+
+    if league_id is not None:
+        subq = select(LeagueMember.player_id).where(LeagueMember.league_id == league_id).distinct()
+        stmt = stmt.where(Player.id.in_(subq))
+        count_stmt = count_stmt.where(Player.id.in_(subq))
+
+    total_result = await session.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    page_stmt = (
+        select(Player, Location.name.label("location_name"))
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(True)
+    )
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        page_stmt = page_stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
+    if location_id:
+        page_stmt = page_stmt.where(Player.location_id == location_id)
+    if league_id is not None:
+        subq = select(LeagueMember.player_id).where(LeagueMember.league_id == league_id).distinct()
+        page_stmt = page_stmt.where(Player.id.in_(subq))
+    page_stmt = (
+        page_stmt.order_by(func.coalesce(Player.nickname, Player.full_name).asc().nullslast(), Player.id.asc())
+        .limit(min(limit, 500))
+        .offset(offset)
+    )
+    page_result = await session.execute(page_stmt)
+    rows = page_result.all()
+
+    items = []
+    for player, location_name in rows:
+        # name is full_name only; nicknames used on backend for matching only
+        name = player.full_name if player.full_name else f"Player {player.id}"
+        items.append({
+            "id": player.id,
+            "full_name": player.full_name,
+            "nickname": player.nickname,
+            "name": name,
+            "gender": player.gender,
+            "level": player.level,
+            "user_id": player.user_id,
+            "location_id": player.location_id,
+            "location_name": location_name,
+        })
+    return items, total
 
 
 async def create_location(
@@ -3734,61 +3814,438 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
     return results
 
 
-async def create_session(session: AsyncSession, date: str) -> Dict:
+async def _generate_session_code(db_session: AsyncSession) -> str:
     """
-    Create a new session.
-    
+    Generate a unique short alphanumeric code for a session.
+    Retries on collision up to SESSION_CODE_MAX_ATTEMPTS.
+    """
+    for _ in range(SESSION_CODE_MAX_ATTEMPTS):
+        code = "".join(secrets.choice(SESSION_CODE_ALPHABET) for _ in range(SESSION_CODE_LENGTH))
+        result = await db_session.execute(select(Session.id).where(Session.code == code))
+        if result.scalar_one_or_none() is None:
+            return code
+    raise ValueError("Failed to generate unique session code")
+
+
+async def create_session(
+    session: AsyncSession,
+    date: str,
+    name: Optional[str] = None,
+    court_id: Optional[int] = None,
+    created_by: Optional[int] = None,
+) -> Dict:
+    """
+    Create a new non-league session (no season_id).
+    Generates a unique shareable code and optionally adds creator to participants.
+
     Args:
         session: Database session
         date: Date string (e.g., '11/7/2025')
-        
+        name: Optional session name (defaults to date-based name)
+        court_id: Optional court ID
+        created_by: Optional player ID who created the session
+
     Returns:
-        Dict with session info
-        
+        Dict with session info including code
+
     Raises:
-        ValueError: If an active session already exists for this date
+        ValueError: If code generation fails after retries
     """
-    # Check if active session exists for this date
+    # Count existing non-league sessions for this date (for default name)
     result = await session.execute(
-        select(Session).where(
-            and_(Session.date == date, Session.status == SessionStatus.ACTIVE)
+        select(func.count(Session.id)).where(
+            and_(Session.date == date, Session.season_id.is_(None))
         )
     )
-    active_session = result.scalar_one_or_none()
-    if active_session:
-        raise ValueError(f"An active session '{active_session.name}' already exists for this date. Please submit the current session before creating a new one.")
-    
-    # Count existing sessions for this date
-    result = await session.execute(
-        select(func.count(Session.id)).where(Session.date == date)
-    )
     count = result.scalar() or 0
-    
-    # Generate session name (format date consistently)
+
     formatted_date = format_session_date(date)
-    if count == 0:
-        name = formatted_date
-    else:
-        name = f"{formatted_date} Session #{count + 1}"
-    
-    # Create the session
+    session_name = name if name else (formatted_date if count == 0 else f"{formatted_date} Session #{count + 1}")
+
+    code = await _generate_session_code(session)
+
     new_session = Session(
         date=date,
-        name=name,
-        status=SessionStatus.ACTIVE
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        code=code,
+        season_id=None,
+        court_id=court_id,
+        created_by=created_by,
     )
     session.add(new_session)
     await session.flush()
+
+    if created_by is not None:
+        participant = SessionParticipant(session_id=new_session.id, player_id=created_by, invited_by=None)
+        session.add(participant)
     await session.commit()
     await session.refresh(new_session)
-    
+
     return {
         "id": new_session.id,
         "date": new_session.date,
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
-        "created_at": new_session.created_at.isoformat() if new_session.created_at else ""
+        "code": new_session.code,
+        "season_id": new_session.season_id,
+        "court_id": new_session.court_id,
+        "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
+
+
+async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -> List[Dict]:
+    """
+    Return all ACTIVE sessions where the player is creator, has a match, or is invited.
+    Includes league and non-league sessions. Ordered by session updated_at desc.
+    """
+    # Subquery: session IDs where player has at least one match
+    match_sess = select(Match.session_id).where(
+        and_(
+            Match.session_id.isnot(None),
+            or_(
+                Match.team1_player1_id == player_id,
+                Match.team1_player2_id == player_id,
+                Match.team2_player1_id == player_id,
+                Match.team2_player2_id == player_id,
+            ),
+        )
+    ).distinct()
+
+    # Subquery: session IDs where player is in session_participants
+    part_sess = select(SessionParticipant.session_id).where(SessionParticipant.player_id == player_id)
+
+    # Sessions: ACTIVE and (created_by = player OR session_id in match_sess OR session_id in part_sess)
+    creator_alias = aliased(Player)
+    q = (
+        select(
+            Session.id,
+            Session.code,
+            Session.date,
+            Session.name,
+            Session.status,
+            Session.season_id,
+            Session.created_by,
+            Session.updated_at,
+            Season.league_id,
+            creator_alias.full_name.label("created_by_name"),
+        )
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(creator_alias, Session.created_by == creator_alias.id)
+        .where(Session.status == SessionStatus.ACTIVE)
+        .where(
+            or_(
+                Session.created_by == player_id,
+                Session.id.in_(match_sess.scalar_subquery()),
+                Session.id.in_(part_sess.scalar_subquery()),
+            )
+        )
+        .order_by(Session.updated_at.desc())
+    )
+    result = await db_session.execute(q)
+    rows = result.all()
+
+    # Match count per session
+    session_ids = [r.id for r in rows]
+    if not session_ids:
+        return []
+
+    count_q = (
+        select(Match.session_id, func.count(Match.id).label("match_count"))
+        .where(Match.session_id.in_(session_ids))
+        .group_by(Match.session_id)
+    )
+    count_result = await db_session.execute(count_q)
+    match_counts = {r.session_id: r.match_count for r in count_result.all()}
+
+    # Session IDs where this player has at least one match
+    match_sess_ids_q = select(Match.session_id).where(
+        and_(
+            Match.session_id.isnot(None),
+            or_(
+                Match.team1_player1_id == player_id,
+                Match.team1_player2_id == player_id,
+                Match.team2_player1_id == player_id,
+                Match.team2_player2_id == player_id,
+            ),
+        )
+    ).distinct()
+    match_sess_ids_result = await db_session.execute(match_sess_ids_q)
+    session_ids_with_match = {row[0] for row in match_sess_ids_result.all()}
+
+    out = []
+    for r in rows:
+        if r.created_by == player_id:
+            participation = "creator"
+        elif r.id in session_ids_with_match:
+            participation = "player"
+        else:
+            participation = "invited"
+        created_by_name = getattr(r, "created_by_name", None) or (None if r.created_by is None else "")
+        out.append({
+            "id": r.id,
+            "code": r.code,
+            "date": r.date,
+            "name": r.name,
+            "status": r.status.value if r.status else None,
+            "season_id": r.season_id,
+            "league_id": r.league_id,
+            "match_count": match_counts.get(r.id, 0),
+            "participation": participation,
+            "created_by_name": created_by_name,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        })
+    return out
+
+
+async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[Dict]:
+    """Return session by code, with league_id if league session, created_by_name; None if not found."""
+    creator = aliased(Player)
+    q = (
+        select(Session, Season.league_id, creator.full_name)
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(creator, Session.created_by == creator.id)
+        .where(Session.code == code)
+    )
+    result = await db_session.execute(q)
+    row = result.one_or_none()
+    if not row:
+        return None
+    s, league_id, created_by_name = row
+    return {
+        "id": s.id,
+        "code": s.code,
+        "date": s.date,
+        "name": s.name,
+        "status": s.status.value if s.status else None,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "league_id": league_id,
+        "created_by": s.created_by,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "created_by_name": created_by_name,
+    }
+
+
+async def get_session_matches(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Get all matches for a session with player names and scores.
+    Returns list of match dicts (id, date, team names, scores, winner, session_name, session_status).
+    """
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    q = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(Match.session_id == session_id)
+        .order_by(Match.id.desc())
+    )
+    result = await db_session.execute(q)
+    rows = result.all()
+    return [
+        {
+            "id": r.id,
+            "date": r.date,
+            "session_id": r.session_id,
+            "session_name": r.session_name,
+            "session_status": r.session_status.value if r.session_status else None,
+            "team1_player1_id": r.team1_player1_id,
+            "team1_player1_name": r.team1_player1_name or "",
+            "team1_player2_id": r.team1_player2_id,
+            "team1_player2_name": r.team1_player2_name or "",
+            "team2_player1_id": r.team2_player1_id,
+            "team2_player1_name": r.team2_player1_name or "",
+            "team2_player2_id": r.team2_player2_id,
+            "team2_player2_name": r.team2_player2_name or "",
+            "team1_score": r.team1_score,
+            "team2_score": r.team2_score,
+            "winner": r.winner,
+        }
+        for r in rows
+    ]
+
+
+async def get_session_participants(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Return list of players in the session: session_participants plus any player
+    who appears in a match in this session (deduped by player_id).
+    Returns list of dicts with player_id, full_name.
+    """
+    # Player IDs from session_participants
+    part_q = select(SessionParticipant.player_id).where(SessionParticipant.session_id == session_id)
+    part_result = await db_session.execute(part_q)
+    part_player_ids = {row[0] for row in part_result.all()}
+
+    # Player IDs from matches in this session
+    match_q = (
+        select(
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+        )
+        .where(Match.session_id == session_id)
+    )
+    match_result = await db_session.execute(match_q)
+    for row in match_result.all():
+        for pid in (row.team1_player1_id, row.team1_player2_id, row.team2_player1_id, row.team2_player2_id):
+            if pid is not None:
+                part_player_ids.add(pid)
+
+    if not part_player_ids:
+        return []
+
+    # Fetch full_name for all player IDs
+    players_q = select(Player.id, Player.full_name, Player.nickname).where(Player.id.in_(part_player_ids))
+    players_result = await db_session.execute(players_q)
+    rows = players_result.all()
+    return [
+        {
+            "player_id": r.id,
+            "full_name": r.full_name or r.nickname or f"Player {r.id}",
+        }
+        for r in rows
+    ]
+
+
+async def remove_session_participant(
+    db_session: AsyncSession,
+    session_id: int,
+    player_id: int,
+) -> bool:
+    """
+    Remove a player from session participants. Returns True if removed.
+    Returns False if player was not in participants or has matches in this session
+    (cannot remove a player who has played in the session).
+    """
+    # Check if player has any match in this session
+    match_check = await db_session.execute(
+        select(Match.id).where(
+            and_(
+                Match.session_id == session_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+    ).limit(1)
+    if match_check.scalar_one_or_none() is not None:
+        return False  # Has matches; do not allow remove
+
+    result = await db_session.execute(
+        delete(SessionParticipant).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    await db_session.commit()
+    return result.rowcount > 0
+
+
+async def add_session_participant(
+    db_session: AsyncSession,
+    session_id: int,
+    player_id: int,
+    invited_by: Optional[int] = None,
+) -> bool:
+    """Add a player to session participants (idempotent). Returns True if added or already present."""
+    existing = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return True
+    rec = SessionParticipant(session_id=session_id, player_id=player_id, invited_by=invited_by)
+    db_session.add(rec)
+    await db_session.commit()
+    return True
+
+
+async def join_session_by_code(db_session: AsyncSession, code: str, player_id: int) -> Optional[Dict]:
+    """
+    Resolve session by code; if ACTIVE, add player to participants and return session summary.
+    Returns None if session not found or not ACTIVE.
+    """
+    sess = await get_session_by_code(db_session, code)
+    if not sess or sess.get("status") != "ACTIVE":
+        return None
+    await add_session_participant(db_session, sess["id"], player_id, invited_by=None)
+    return sess
+
+
+async def can_user_add_match_to_session(
+    db_session: AsyncSession, session_id: int, session_obj: Dict, user_id: int
+) -> bool:
+    """
+    For non-league sessions (season_id is None), return True iff user's player is
+    creator, has a match in the session, or is in session_participants.
+    """
+    if session_obj.get("season_id") is not None:
+        return True  # League session: caller uses league-admin check
+    player_result = await db_session.execute(select(Player.id).where(Player.user_id == user_id))
+    player_id = player_result.scalar_one_or_none()
+    if player_id is None:
+        return False
+    if session_obj.get("created_by") == player_id:
+        return True
+    # Has match in session?
+    match_q = select(Match.id).where(
+        and_(
+            Match.session_id == session_id,
+            or_(
+                Match.team1_player1_id == player_id,
+                Match.team1_player2_id == player_id,
+                Match.team2_player1_id == player_id,
+                Match.team2_player2_id == player_id,
+            ),
+        )
+    ).limit(1)
+    match_result = await db_session.execute(match_q)
+    if match_result.scalar_one_or_none() is not None:
+        return True
+    # In participants?
+    part_result = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    return part_result.scalar_one_or_none() is not None
 
 
 async def create_match_async(

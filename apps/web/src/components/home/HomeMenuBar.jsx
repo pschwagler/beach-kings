@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search, Bell } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -68,6 +68,14 @@ export default function HomeMenuBar({ activeTab }) {
       active: activeTab === 'leagues',
       onClick: () => handleTabChange('leagues'),
       title: 'Leagues',
+    },
+    {
+      id: 'my-games',
+      label: 'My Games',
+      icon: Calendar,
+      active: activeTab === 'my-games',
+      onClick: () => handleTabChange('my-games'),
+      title: 'My Games',
     },
     {
       id: 'friends',

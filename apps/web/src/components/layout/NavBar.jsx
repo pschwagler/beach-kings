@@ -25,7 +25,7 @@ export default function NavBar({
   const { isAuthenticated } = useAuth();
 
   const handleRecordGamesClick = () => {
-    // Handle navigation to record games page
+    router.push('/home?tab=my-games');
   };
 
   const handlePlayersClick = () => {
@@ -88,10 +88,9 @@ export default function NavBar({
         </div>
         
         <div className="navbar-right">
-          {/* TODO: Add functionality for Record Games and Players buttons */}
-          {/* <RecordGamesButton onClick={handleRecordGamesClick} /> */}
-          
-          {/* <PlayersButton onClick={handlePlayersClick} /> */}
+          {isAuthenticated && (
+            <RecordGamesButton onClick={handleRecordGamesClick} />
+          )}
           
           <LeaguesMenu
             isLoggedIn={isLoggedIn}

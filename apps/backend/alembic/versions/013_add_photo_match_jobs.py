@@ -17,31 +17,36 @@ depends_on = None
 
 
 def upgrade():
-    # Create enum type for PhotoMatchJobStatus
-    op.execute("CREATE TYPE photomatchjobstatus AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')")
+    # Create enum type for PhotoMatchJobStatus (idempotent)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'photomatchjobstatus') THEN
+                CREATE TYPE photomatchjobstatus AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED');
+            END IF;
+        END
+        $$;
+    """)
     
-    # Create photo_match_jobs table
-    op.create_table(
-        'photo_match_jobs',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('league_id', sa.Integer(), nullable=False),
-        sa.Column('session_id', sa.String(), nullable=False),
-        sa.Column('status', postgresql.ENUM('PENDING', 'RUNNING', 'COMPLETED', 'FAILED',
-                  name='photomatchjobstatus', create_type=False), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), 
-                  server_default=sa.text('now()'), nullable=False),
-        sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('error_message', sa.Text(), nullable=True),
-        sa.Column('result_data', sa.Text(), nullable=True),
-        sa.ForeignKeyConstraint(['league_id'], ['leagues.id']),
-        sa.PrimaryKeyConstraint('id')
-    )
+    # Create photo_match_jobs table (idempotent)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS photo_match_jobs (
+            id SERIAL PRIMARY KEY,
+            league_id INTEGER NOT NULL REFERENCES leagues(id),
+            session_id VARCHAR NOT NULL,
+            status photomatchjobstatus NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
+            error_message TEXT,
+            result_data TEXT
+        )
+    """)
     
-    # Create indexes
-    op.create_index('idx_photo_match_jobs_status', 'photo_match_jobs', ['status'])
-    op.create_index('idx_photo_match_jobs_session', 'photo_match_jobs', ['session_id'])
-    op.create_index('idx_photo_match_jobs_created_at', 'photo_match_jobs', ['created_at'])
+    # Create indexes (idempotent)
+    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_status ON photo_match_jobs(status)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_session ON photo_match_jobs(session_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_created_at ON photo_match_jobs(created_at)")
 
 
 def downgrade():

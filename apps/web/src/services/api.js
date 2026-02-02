@@ -235,10 +235,18 @@ export const getRankings = async (queryParams = {}) => {
 };
 
 /**
- * Get list of all players
+ * Get list of players with optional search and filters. Returns { items, total }.
+ * @param {Object} params - Optional: { q, location_id, league_id, limit, offset }
  */
-export const getPlayers = async () => {
-  const response = await api.get('/api/players');
+export const getPlayers = async (params = {}) => {
+  const { q, location_id, league_id, limit = 50, offset = 0 } = params;
+  const searchParams = new URLSearchParams();
+  if (q != null && q !== '') searchParams.set('q', String(q));
+  if (location_id != null && location_id !== '') searchParams.set('location_id', String(location_id));
+  if (league_id != null && league_id !== '') searchParams.set('league_id', String(league_id));
+  searchParams.set('limit', String(limit));
+  searchParams.set('offset', String(offset));
+  const response = await api.get(`/api/players?${searchParams.toString()}`);
   return response.data;
 };
 
@@ -421,10 +429,79 @@ export const getActiveSession = async (leagueId) => {
 };
 
 /**
- * Create a new session
+ * Get open sessions for the current user (creator, has match, or invited).
+ * @returns {Promise<Array>} Array of session objects with participation, match_count, etc.
  */
-export const createSession = async (date = null) => {
-  const response = await api.post('/api/sessions', { date });
+export const getOpenSessions = async () => {
+  const response = await api.get('/api/sessions/open');
+  return response.data;
+};
+
+/**
+ * Get a session by its shareable code.
+ * @param {string} code - Session code
+ * @returns {Promise<Object>} Session object
+ */
+export const getSessionByCode = async (code) => {
+  const response = await api.get(`/api/sessions/by-code/${encodeURIComponent(code)}`);
+  return response.data;
+};
+
+/**
+ * Get all matches for a session.
+ * @param {number} sessionId - Session ID
+ * @returns {Promise<Array>} Array of match objects
+ */
+export const getSessionMatches = async (sessionId) => {
+  const response = await api.get(`/api/sessions/${sessionId}/matches`);
+  return response.data;
+};
+
+/**
+ * Get list of players in a session (participants + players who have matches).
+ */
+export const getSessionParticipants = async (sessionId) => {
+  const response = await api.get(`/api/sessions/${sessionId}/participants`);
+  return response.data;
+};
+
+/**
+ * Remove a player from session participants. Fails if player has matches in this session.
+ */
+export const removeSessionParticipant = async (sessionId, playerId) => {
+  const response = await api.delete(`/api/sessions/${sessionId}/participants/${playerId}`);
+  return response.data;
+};
+
+/**
+ * Join a session by code (adds current user's player to participants).
+ * @param {string} code - Session code
+ * @returns {Promise<Object>} { status, message, session }
+ */
+export const joinSessionByCode = async (code) => {
+  const response = await api.post('/api/sessions/join', { code: code.trim().toUpperCase() });
+  return response.data;
+};
+
+/**
+ * Invite a player to a session.
+ * @param {number} sessionId - Session ID
+ * @param {number} playerId - Player ID to invite
+ * @returns {Promise<Object>} { status, message }
+ */
+export const inviteToSession = async (sessionId, playerId) => {
+  const response = await api.post(`/api/sessions/${sessionId}/invite`, { player_id: playerId });
+  return response.data;
+};
+
+/**
+ * Create a new non-league session (with shareable code).
+ * @param {Object} payload - Optional { date, name, court_id }
+ * @returns {Promise<Object>} { status, message, session } with session.code
+ */
+export const createSession = async (payload = {}) => {
+  const body = typeof payload === 'string' || typeof payload === 'number' ? { date: payload } : { ...payload };
+  const response = await api.post('/api/sessions', body);
   return response.data;
 };
 

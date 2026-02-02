@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.database.models import (
     League, LeagueMember, Season, Session, Match, Player, SessionStatus,
-    WeeklySchedule, Signup, OpenSignupsMode, User, ScoringSystem, EloHistory
+    WeeklySchedule, Signup, OpenSignupsMode, User, ScoringSystem, EloHistory,
+    SessionParticipant,
 )
 from backend.services import data_service
 from backend.services import user_service
@@ -1274,3 +1275,227 @@ async def test_delete_weekly_schedule_nonexistent(db_session):
     """Test that deleting a non-existent weekly schedule returns False."""
     result = await data_service.delete_weekly_schedule(db_session, 99999)
     assert result is False
+
+
+# ============================================================================
+# Non-League Sessions Tests
+# ============================================================================
+
+@pytest_asyncio.fixture
+async def four_players(db_session):
+    """Create four users and players for match tests (each user has one player)."""
+    players = []
+    for i, name in enumerate(["Alice", "Bob", "Charlie", "Dave"]):
+        phone = f"+1555000{i:04d}"
+        password_hash = bcrypt.hashpw("test_password".encode(), bcrypt.gensalt()).decode()
+        user_id = await user_service.create_user(
+            session=db_session,
+            phone_number=phone,
+            password_hash=password_hash,
+            email=f"{name.lower()}@example.com",
+        )
+        p = Player(full_name=name, user_id=user_id)
+        db_session.add(p)
+        players.append(p)
+    await db_session.commit()
+    for p in players:
+        await db_session.refresh(p)
+    return players
+
+
+@pytest.mark.asyncio
+async def test_create_session_with_code(db_session, test_player):
+    """Test creating a non-league session generates a unique code."""
+    session = await data_service.create_session(
+        db_session,
+        date="2024-01-15",
+        created_by=test_player.id,
+    )
+    assert session["id"] > 0
+    assert session["code"] is not None
+    assert len(session["code"]) == 8  # SESSION_CODE_LENGTH in data_service
+    assert session["season_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_session_by_code(db_session, test_player):
+    """Test fetching session by shareable code."""
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=test_player.id
+    )
+    code = created["code"]
+    sess = await data_service.get_session_by_code(db_session, code)
+    assert sess is not None
+    assert sess["id"] == created["id"]
+    assert sess["code"] == code
+    assert sess["season_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_session_by_code_not_found(db_session):
+    """Test get_session_by_code returns None for invalid code."""
+    sess = await data_service.get_session_by_code(db_session, "INVALID")
+    assert sess is None
+
+
+@pytest.mark.asyncio
+async def test_get_open_sessions_for_user(db_session, test_player):
+    """Test open sessions include sessions where user is creator, has match, or invited."""
+    # Create session as creator
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=test_player.id
+    )
+    sessions = await data_service.get_open_sessions_for_user(db_session, test_player.id)
+    assert len(sessions) >= 1
+    found = next((s for s in sessions if s["id"] == created["id"]), None)
+    assert found is not None
+    assert found["participation"] == "creator"
+
+
+@pytest.mark.asyncio
+async def test_join_session_by_code(db_session, test_player, four_players):
+    """Test joining a session by code adds player to participants."""
+    creator = four_players[0]
+    joiner = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    result = await data_service.join_session_by_code(db_session, created["code"], joiner.id)
+    assert result is not None
+    assert result["id"] == created["id"]
+    # Verify participant was added
+    part_result = await db_session.execute(
+        select(SessionParticipant).where(
+            SessionParticipant.session_id == created["id"],
+            SessionParticipant.player_id == joiner.id,
+        )
+    )
+    part = part_result.scalar_one_or_none()
+    assert part is not None
+
+
+@pytest.mark.asyncio
+async def test_add_session_participant(db_session, test_player, four_players):
+    """Test add_session_participant adds player to session participants."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    result = await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    assert result is True
+    part_result = await db_session.execute(
+        select(SessionParticipant).where(
+            SessionParticipant.session_id == created["id"],
+            SessionParticipant.player_id == invitee.id,
+        )
+    )
+    part = part_result.scalar_one_or_none()
+    assert part is not None
+    assert part.invited_by == creator.id
+
+
+@pytest.mark.asyncio
+async def test_add_session_participant_idempotent(db_session, four_players):
+    """Test add_session_participant is idempotent (already present returns True)."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    result = await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_creator(db_session, test_user, four_players):
+    """Test creator can add match to non-league session."""
+    creator = four_players[0]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    session_obj = {
+        "season_id": None,
+        "created_by": creator.id,
+    }
+    # Creator's user_id - need to get from player
+    creator_user_id = (await db_session.get(Player, creator.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, creator_user_id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_invited(db_session, test_user, four_players):
+    """Test invited player can add match to non-league session."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    session_obj = {"season_id": None, "created_by": creator.id}
+    invitee_user_id = (await db_session.get(Player, invitee.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, invitee_user_id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_random_user_denied(db_session, test_user, four_players):
+    """Test random user (not creator, no match, not invited) cannot add match."""
+    creator = four_players[0]
+    random_player = four_players[3]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    session_obj = {"season_id": None, "created_by": creator.id}
+    random_user_id = (await db_session.get(Player, random_player.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, random_user_id
+    )
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_create_match_session_id_only(db_session, four_players):
+    """Test creating a match with session_id only (non-league session)."""
+    from backend.models.schemas import CreateMatchRequest
+
+    creator = four_players[0]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    alice, bob, charlie, dave = four_players
+    match_request = CreateMatchRequest(
+        session_id=created["id"],
+        team1_player1_id=alice.id,
+        team1_player2_id=bob.id,
+        team2_player1_id=charlie.id,
+        team2_player2_id=dave.id,
+        team1_score=21,
+        team2_score=19,
+    )
+    match_id = await data_service.create_match_async(
+        db_session,
+        match_request=match_request,
+        session_id=created["id"],
+        date=created["date"],
+    )
+    assert match_id > 0
+    match = await data_service.get_match_async(db_session, match_id)
+    assert match is not None
+    assert match["session_id"] == created["id"]
+    assert match["team1_score"] == 21
+    assert match["team2_score"] == 19

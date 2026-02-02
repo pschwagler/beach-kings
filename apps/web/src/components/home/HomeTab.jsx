@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, Target, Award, HelpCircle } from 'lucide-react';
+import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
-import { getPlayerMatchHistory } from '../../services/api';
+import OpenSessionsList from './OpenSessionsList';
+import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
 
 const getAvatarInitial = (currentUserPlayer) => {
   if (currentUserPlayer?.nickname) {
@@ -21,6 +22,21 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const router = useRouter();
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [openSessions, setOpenSessions] = useState([]);
+
+  // Load open sessions (for top-of-home block)
+  useEffect(() => {
+    const loadOpenSessions = async () => {
+      try {
+        const data = await getOpenSessions();
+        setOpenSessions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading open sessions:', err);
+        setOpenSessions([]);
+      }
+    };
+    loadOpenSessions();
+  }, []);
 
   // Load user matches
   useEffect(() => {
@@ -184,6 +200,14 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         </div>
       </div>
 
+      {/* Open sessions at top when user has any */}
+      {openSessions && openSessions.length > 0 && (
+        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
+          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
+          <OpenSessionsList />
+        </section>
+      )}
+
       {/* Main Content Grid */}
       <div className="home-content-grid">
         <MyLeaguesWidget 
@@ -191,11 +215,20 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           onLeagueClick={navigateToLeague}
           onLeaguesUpdate={onLeaguesUpdate}
         />
-        <MyMatchesWidget 
-          matches={userMatches}
-          currentUserPlayer={currentUserPlayer}
-          onMatchClick={handleMatchClick}
-        />
+        <div className="home-my-games-widget-wrapper">
+          <MyMatchesWidget 
+            matches={userMatches}
+            currentUserPlayer={currentUserPlayer}
+            onMatchClick={handleMatchClick}
+          />
+          <button
+            type="button"
+            className="home-widget-view-all secondary-text"
+            onClick={() => onTabChange('my-games')}
+          >
+            View open sessions
+          </button>
+        </div>
       </div>
     </div>
   );

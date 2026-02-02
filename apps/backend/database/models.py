@@ -160,6 +160,7 @@ class Player(Base):
     season_rating_history = relationship("SeasonRatingHistory", back_populates="player")
     global_stats = relationship("PlayerGlobalStats", back_populates="player", uselist=False)
     signup_registrations = relationship("SignupPlayer", back_populates="player")
+    session_participations = relationship("SessionParticipant", foreign_keys="SessionParticipant.player_id", back_populates="player")
     
     __table_args__ = (
         Index("idx_players_name", "full_name"),
@@ -368,6 +369,7 @@ class Session(Base):
     date = Column(String, nullable=False)  # Using String for date to match existing schema
     name = Column(String, nullable=False)
     status = Column(Enum(SessionStatus), default=SessionStatus.ACTIVE, nullable=False)
+    code = Column(String(12), nullable=True, unique=True)  # Shareable code for non-league / invite links
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
     court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -379,6 +381,7 @@ class Session(Base):
     season = relationship("Season", back_populates="sessions")
     court = relationship("Court", back_populates="sessions")
     matches = relationship("Match", back_populates="session")
+    participants = relationship("SessionParticipant", back_populates="session", cascade="all, delete-orphan")
     creator = relationship("Player", foreign_keys=[created_by], backref="created_sessions")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_sessions")
     
@@ -387,6 +390,28 @@ class Session(Base):
         Index("idx_sessions_status", "status"),
         Index("idx_sessions_season", "season_id"),
         Index("idx_sessions_court", "court_id"),
+        Index("idx_sessions_code", "code"),
+    )
+
+
+class SessionParticipant(Base):
+    """Players invited to a session (can see and add games before having a match)."""
+    __tablename__ = "session_participants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    invited_by = Column(Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    session = relationship("Session", back_populates="participants")
+    player = relationship("Player", foreign_keys=[player_id], back_populates="session_participations")
+    inviter = relationship("Player", foreign_keys=[invited_by], backref="session_invites_sent")
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "player_id", name="uq_session_participants_session_player"),
+        Index("idx_session_participants_session_id", "session_id"),
+        Index("idx_session_participants_player_id", "player_id"),
     )
 
 

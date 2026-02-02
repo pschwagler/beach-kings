@@ -610,6 +610,52 @@ class TestMatchEndpoints:
     """Tests for match endpoints."""
     
     # Removed test_list_matches - redundant with test_query_matches
+
+    def test_create_match_no_session_no_league_creates_non_league_session(self, monkeypatch):
+        """Test POST /api/matches with no session_id or league_id creates non-league session and match."""
+        client, headers = make_client_with_auth(monkeypatch, user_id=1)
+
+        created_sessions = []
+
+        async def fake_create_session(session, date, name=None, court_id=None, created_by=None):
+            created_sessions.append({"date": date, "created_by": created_by})
+            return {
+                "id": 999,
+                "date": date,
+                "name": "Test Session",
+                "status": "ACTIVE",
+                "code": "ABC123",
+                "season_id": None,
+                "court_id": court_id,
+                "created_by": created_by,
+            }
+
+        async def fake_get_player_by_user_id(session, user_id):
+            return {"id": 1, "user_id": user_id, "full_name": "Test Player"}
+
+        async def fake_create_match_async(session, match_request, session_id, date):
+            return 1001
+
+        monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True)
+        monkeypatch.setattr(data_service, "create_match_async", fake_create_match_async, raising=True)
+
+        payload = {
+            "team1_player1_id": 1,
+            "team1_player2_id": 2,
+            "team2_player1_id": 3,
+            "team2_player2_id": 4,
+            "team1_score": 21,
+            "team2_score": 19,
+        }
+        response = client.post("/api/matches", json=payload, headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("status") == "success"
+        assert data.get("match_id") == 1001
+        assert data.get("session_id") == 999
+        assert len(created_sessions) == 1
+        assert created_sessions[0]["created_by"] == 1
     
     def test_query_matches(self, monkeypatch):
         """Test querying matches."""

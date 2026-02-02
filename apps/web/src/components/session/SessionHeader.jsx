@@ -1,11 +1,11 @@
-import { Trophy, Users, X } from 'lucide-react';
+import { Trophy, Users } from 'lucide-react';
 
-export default function SessionHeader({ sessionName, gameCount, playerCount, onDelete, isEditing = false, onStatsClick }) {
+export default function SessionHeader({ sessionName, gameCount, playerCount, isEditing = false, onStatsClick }) {
   return (
     <div className="session-header">
       <div className="session-title-group">
         {isEditing ? (
-          <div className="editing-badge" style={{ backgroundColor: '#f59e0b', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' }}>
+          <div className="editing-badge">
             Editing
           </div>
         ) : (
@@ -28,18 +28,6 @@ export default function SessionHeader({ sessionName, gameCount, playerCount, onD
           <Users size={18} />
           {playerCount} {playerCount === 1 ? 'player' : 'players'}
         </div>
-        {onDelete && (
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="session-delete-btn"
-            title="Delete empty session"
-          >
-            <X size={20} />
-          </button>
-        )}
       </div>
     </div>
   );
