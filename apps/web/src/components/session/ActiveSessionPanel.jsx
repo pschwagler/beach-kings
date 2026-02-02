@@ -19,6 +19,7 @@ export default function ActiveSessionPanel({
   onCancelClick,
   onDeleteSession,
   onRequestDeleteSession,
+  onRequestLeaveSession,
   onUpdateSessionSeason,
   onStatsClick,
   isEditing = false,
@@ -42,19 +43,20 @@ export default function ActiveSessionPanel({
 
   return (
     <div className="active-session-panel" data-testid="active-session-panel">
-      <SessionHeader 
+      <SessionHeader
         sessionName={activeSession.name}
         gameCount={gameCount}
         playerCount={playerCount}
         onStatsClick={onStatsClick}
+        onRequestDelete={isAdmin && onRequestDeleteSession ? onRequestDeleteSession : undefined}
+        onRequestLeave={!isAdmin && onRequestLeaveSession ? onRequestLeaveSession : undefined}
         isEditing={isEditing}
       />
 
-      {/* Season selector row (league only): season on left, Delete on right (admins only) */}
-      {(isLeague && sessionSeasonId) || (isAdmin && onRequestDeleteSession) ? (
+      {/* Season selector row (league only) */}
+      {isLeague && sessionSeasonId ? (
         <div className="session-season-row">
-          {isLeague && sessionSeasonId ? (
-            <div className="session-season-selector">
+          <div className="session-season-selector">
               <span className="session-season-label">Season:</span>
               <div className="season-dropdown-wrapper" ref={seasonDropdownRef}>
                 {sessionSeason ? (
@@ -110,20 +112,6 @@ export default function ActiveSessionPanel({
                 )}
               </div>
             </div>
-          ) : (
-            <span />
-          )}
-          {isAdmin && onRequestDeleteSession && (
-            <button
-              type="button"
-              className="session-btn session-btn-delete session-btn-delete-header"
-              onClick={onRequestDeleteSession}
-              data-testid="session-btn-delete"
-              title="Delete session and all games"
-            >
-              Delete Session
-            </button>
-          )}
         </div>
       ) : null}
 

@@ -4144,7 +4144,8 @@ async def remove_session_participant(
     """
     # Check if player has any match in this session
     match_check = await db_session.execute(
-        select(Match.id).where(
+        select(Match.id)
+        .where(
             and_(
                 Match.session_id == session_id,
                 or_(
@@ -4155,7 +4156,8 @@ async def remove_session_participant(
                 ),
             )
         )
-    ).limit(1)
+        .limit(1)
+    )
     if match_check.scalar_one_or_none() is not None:
         return False  # Has matches; do not allow remove
 

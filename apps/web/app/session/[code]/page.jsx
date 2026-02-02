@@ -15,6 +15,7 @@ import {
   lockInSession,
   deleteSession,
   updateSession,
+  removeSessionParticipant,
   getUserLeagues,
 } from '../../../src/services/api';
 import { formatDate, formatRelativeTime } from '../../../src/utils/dateUtils';
@@ -154,13 +155,13 @@ export default function SessionByCodePage() {
   const hasLessThanFourPlayers = !participants || participants.length < 4;
   const isActive = session?.status === 'ACTIVE';
 
-  // Auto-open Manage Players when fewer than 4 players (once per visit)
+  // Auto-open Manage Players when fewer than 4 players (once per visit, only after load completes)
   useEffect(() => {
-    if (session && isActive && hasLessThanFourPlayers && !managePlayersAutoOpenedRef.current) {
+    if (!loading && session && isActive && hasLessThanFourPlayers && !managePlayersAutoOpenedRef.current) {
       managePlayersAutoOpenedRef.current = true;
       setShowPlayersModal(true);
     }
-  }, [session, isActive, hasLessThanFourPlayers]);
+  }, [loading, session, isActive, hasLessThanFourPlayers]);
 
   const handleCopyLink = () => {
     if (typeof window === 'undefined' || !code) return;
@@ -245,6 +246,12 @@ export default function SessionByCodePage() {
         router.push('/home?tab=my-games');
       },
     });
+  };
+
+  const handleLeaveSession = async () => {
+    if (!session?.id || !currentUserPlayer?.id) return;
+    await removeSessionParticipant(session.id, currentUserPlayer.id);
+    router.push('/home?tab=my-games');
   };
 
   const handleSubmitClick = () => {
@@ -415,18 +422,34 @@ export default function SessionByCodePage() {
                       )}
                     </>
                   )}
-                  {isCreator && !editingSessionName && (
-                    <button
-                      type="button"
-                      className="session-page-delete-link"
-                      onClick={handleRequestDeleteSession}
-                      title="Delete session"
-                    >
-                      Delete Session
-                    </button>
+                  {!editingSessionName && (
+                    isCreator ? (
+                      <button
+                        type="button"
+                        className="session-page-delete-link"
+                        onClick={handleRequestDeleteSession}
+                        title="Delete session"
+                      >
+                        Delete Session
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="session-page-delete-link"
+                        onClick={handleLeaveSession}
+                        title="Leave this session"
+                      >
+                        Leave Session
+                      </button>
+                    )
                   )}
                 </div>
                 <div className="session-page-meta">
+                  {session.league_id != null ? (
+                    <span className="open-sessions-list-badge league">League</span>
+                  ) : (
+                    <span className="open-sessions-list-badge pickup">Pickup</span>
+                  )}
                   {session.created_at && (
                     <span className="session-page-created-by">
                       Created by {session.created_by_name || 'Unknown'} {formatRelativeTime(session.created_at)}
@@ -535,6 +558,7 @@ export default function SessionByCodePage() {
                       router.push('/home?tab=my-games');
                     }}
                     onRequestDeleteSession={handleRequestDeleteSession}
+                    onRequestLeaveSession={handleLeaveSession}
                     onUpdateSessionSeason={null}
                     onStatsClick={() => {
                       openModal(MODAL_TYPES.SESSION_SUMMARY, {
@@ -559,6 +583,8 @@ export default function SessionByCodePage() {
         isOpen={showPlayersModal}
         sessionId={session?.id}
         participants={participants}
+        sessionCreatedByPlayerId={session?.created_by ?? null}
+        currentUserPlayerId={currentUserPlayer?.id ?? null}
         onClose={() => { setShowPlayersModal(false); setMessage(null); }}
         onSuccess={() => {
           setRefreshTrigger((t) => t + 1);

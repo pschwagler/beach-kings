@@ -11,6 +11,8 @@ export default function SessionPlayersModal({
   isOpen,
   sessionId,
   participants = [],
+  sessionCreatedByPlayerId = null,
+  currentUserPlayerId = null,
   onClose,
   onSuccess,
   showMessage,
@@ -180,8 +182,8 @@ export default function SessionPlayersModal({
         <div className="modal-body">
           {participants.length < 4 && (
             <p className="session-players-modal-intro">
-              Players with the session link can see the session and log their own games. You need to add players to the
-              session before you can add them to a match.
+              Players must be in the session to be added to games. Players added to the session will be able to see and
+              log games.
             </p>
           )}
           <section className="session-players-current">
@@ -190,20 +192,28 @@ export default function SessionPlayersModal({
               <p className="secondary-text">No players yet. Add players below.</p>
             ) : (
               <ul className="session-players-list">
-                {participants.map((p) => (
-                  <li key={p.player_id} className="session-players-list-item">
-                    <span>{p.full_name || p.player_name || `Player ${p.player_id}`}</span>
-                    <button
-                      type="button"
-                      className="session-players-remove"
-                      onClick={() => handleRemove(p.player_id)}
-                      disabled={!!removingId}
-                      title="Remove from session (only if they have no games in this session)"
-                    >
-                      <X size={14} /> Remove
-                    </button>
-                  </li>
-                ))}
+                {participants.map((p) => {
+                  const isCreatorRemovingSelf = sessionCreatedByPlayerId != null
+                    && currentUserPlayerId != null
+                    && p.player_id === sessionCreatedByPlayerId
+                    && p.player_id === currentUserPlayerId;
+                  return (
+                    <li key={p.player_id} className="session-players-list-item">
+                      <span>{p.full_name || p.player_name || `Player ${p.player_id}`}</span>
+                      {!isCreatorRemovingSelf && (
+                        <button
+                          type="button"
+                          className="session-players-remove"
+                          onClick={() => handleRemove(p.player_id)}
+                          disabled={!!removingId}
+                          title="Remove from session (only if they have no games in this session)"
+                        >
+                          <X size={14} /> Remove
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

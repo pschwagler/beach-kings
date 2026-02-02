@@ -97,6 +97,9 @@ thirdparty
 
 db_dump.sql
 
+# Backups
+backups/
+
 out/
 apps/web/playwright-report/
 

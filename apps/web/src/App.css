@@ -6671,7 +6671,8 @@ select.form-select {
 /* Non-League Sessions - Session Page */
 .session-page {
   max-width: 640px;
-  margin: 0 auto;
+  margin-left: 0;
+  margin-right: auto;
   padding: 24px 20px 48px;
 }
 
@@ -7078,7 +7079,8 @@ select.form-select {
   flex-direction: column;
   gap: 24px;
   max-width: 640px;
-  margin: 0 auto;
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .my-games-tab-header {
@@ -8055,6 +8057,12 @@ button.match-config-toggle.inline svg {
   color: var(--muted-red);
 }
 
+.session-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .session-stats {
   display: flex;
   gap: 20px;
@@ -8239,6 +8247,7 @@ button.match-config-toggle.inline svg {
   padding: 0;
   box-shadow: none;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .session-btn.session-btn-delete.session-btn-delete-header:hover {
@@ -11510,6 +11519,73 @@ button.match-config-toggle.inline svg {
     color: white;
     background-color: var(--ocean-gray);
   }
+
+  /* Clipboard table: remove blocky border & --sand shadow (match rankings table treatment) */
+  .clipboard-table-wrapper {
+    box-shadow: none;
+    border: none;
+  }
+
+  .clipboard-table {
+    table-layout: fixed;
+    font-size: 0.9rem;
+    box-shadow: none;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    padding-left: 8px;
+    padding-right: 6px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    padding-left: 6px;
+    padding-right: 6px;
+    min-width: 32px;
+  }
+
+  .clipboard-table .player-cell {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.95rem;
+  }
+
+  .match-date-header {
+    font-size: 0.95em;
+    padding-bottom: 4px;
+  }
+
+  .match-date-header-stats {
+    gap: 8px;
+  }
+
+  .match-date-header-stats .session-stat {
+    font-size: 0.8em;
+  }
 }
 @media (max-width: 576px) {
   .active-session-panel {
@@ -11529,7 +11605,6 @@ button.match-config-toggle.inline svg {
     font-size: 0.8em;
   }
 
-
   .session-empty-state {
     padding: 32px 16px;
   }
@@ -11537,6 +11612,57 @@ button.match-config-toggle.inline svg {
   .session-empty-icon {
     width: 32px;
     height: 32px;
+  }
+
+  /* Clipboard table: even tighter on small phones */
+  .clipboard-table {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.7rem;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    padding-left: 6px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    min-width: 28px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.8rem;
+  }
+
+  .clipboard-table .player-cell {
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.9rem;
+  }
+
+  .match-date-header {
+    font-size: 0.9em;
+    padding-bottom: 2px;
   }
 }
 @media (max-width: 768px) {
@@ -11820,12 +11946,35 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table-wrapper {
   overflow-x: auto;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .clipboard-table {
   width: 100%;
+  max-width: 33.5rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
+  /* Override global "Retro Beach" table styles: no thick border, no sand shadow */
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+}
+
+/* Enforce column widths: # ~20px (1.25rem), team columns 200px (12.5rem) */
+.clipboard-col-id {
+  width: 1.25rem;
+}
+.clipboard-col-team {
+  width: 12.5rem;
+}
+.clipboard-col-score {
+  width: 3.25rem;
+}
+
+.clipboard-score-header {
+  text-align: center !important;
 }
 
 .clipboard-table th,
@@ -11846,6 +11995,33 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table tr:last-child td {
   border-bottom: none;
+}
+
+/* On bigger screens, add space between Team 2 score and Team 2 names (padding-right on score cell + padding-left on names column) */
+@media (min-width: 769px) {
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    padding-right: 1.5rem !important;
+  }
+  .clipboard-table-wrapper .clipboard-table th.clipboard-col-team2,
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-team2 {
+    padding-left: 1.5rem !important;
+  }
+}
+
+/* On large viewports, widen Team 2 score column to create gap before Team 2 names */
+@media (min-width: 900px) {
+  .clipboard-table colgroup col:nth-child(4) {
+    width: 6rem;
+  }
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    text-align: left !important;
+    padding-left: 1rem !important;
+  }
+}
+
+/* Prevent wrapping of player names on desktop */
+.clipboard-table .player-cell {
+  white-space: nowrap;
 }
 
 .player-cell {
@@ -12002,4 +12178,5 @@ button.match-config-toggle.inline svg {
 }
 .clipboard-loser {
   color: var(--gray-800);
+  font-weight: 400;
 }

@@ -2483,6 +2483,8 @@ async def remove_session_participant(
         raise HTTPException(status_code=404, detail="Session not found")
     if sess.get("status") != "ACTIVE":
         raise HTTPException(status_code=400, detail="Can only modify roster of an active session")
+    if sess.get("created_by") == player_id:
+        raise HTTPException(status_code=403, detail="Session creator cannot remove themselves from the session")
     if not await data_service.can_user_add_match_to_session(session, session_id, sess, current_user["id"]):
         raise HTTPException(status_code=403, detail="Only session participants can remove players")
     removed = await data_service.remove_session_participant(session, session_id, player_id)
