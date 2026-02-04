@@ -55,17 +55,19 @@ export default function SessionByCodePage() {
   const [editingSessionName, setEditingSessionName] = useState(false);
   const [draftSessionName, setDraftSessionName] = useState('');
   const [message, setMessage] = useState(null);
-  const autoJoinDoneRef = useRef(false);
   const shareMenuRef = useRef(null);
-  const sessionRef = useRef(session);
-  const managePlayersAutoOpenedRef = useRef(false);
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
 
-  sessionRef.current = session;
+  // Track one-time actions per session visit to prevent duplicates from React effects
+  const visitActionsRef = useRef({
+    sessionCode: null,
+    autoJoinDone: false,
+    managePlayersAutoOpened: false,
+  });
 
   const load = useCallback(async () => {
     if (!code) return;
-    if (!sessionRef.current) setLoading(true);
+    setLoading(true);
     setError(null);
     try {
       const sess = await getSessionByCode(code);
@@ -117,22 +119,27 @@ export default function SessionByCodePage() {
     }
   }, [isAuthenticated, router]);
 
-  // Reset auto-join ref when session/code changes (e.g. navigate to different session)
+  // Reset visit actions when navigating to a different session
   useEffect(() => {
-    autoJoinDoneRef.current = false;
-    managePlayersAutoOpenedRef.current = false;
-  }, [code, session?.id]);
+    if (code !== visitActionsRef.current.sessionCode) {
+      visitActionsRef.current = {
+        sessionCode: code,
+        autoJoinDone: false,
+        managePlayersAutoOpened: false,
+      };
+    }
+  }, [code]);
 
   // Auto-join: when logged-in user opens session page and is not in participants, add them
   useEffect(() => {
     if (!session || !code || !isAuthenticated || !currentUserPlayer || session.status !== 'ACTIVE') return;
-    if (autoJoinDoneRef.current) return;
+    if (visitActionsRef.current.autoJoinDone) return;
     const participantIds = new Set((participants || []).map((p) => p.player_id));
     if (participantIds.has(currentUserPlayer.id)) return;
-    autoJoinDoneRef.current = true;
+    visitActionsRef.current.autoJoinDone = true;
     joinSessionByCode(code)
       .then(() => setRefreshTrigger((t) => t + 1))
-      .catch(() => { autoJoinDoneRef.current = false; });
+      .catch(() => { visitActionsRef.current.autoJoinDone = false; });
   }, [session, code, isAuthenticated, currentUserPlayer, participants]);
 
   useClickOutside(shareMenuRef, shareMenuOpen, () => setShareMenuOpen(false));
@@ -157,8 +164,8 @@ export default function SessionByCodePage() {
 
   // Auto-open Manage Players when fewer than 4 players (once per visit, only after load completes)
   useEffect(() => {
-    if (!loading && session && isActive && hasLessThanFourPlayers && !managePlayersAutoOpenedRef.current) {
-      managePlayersAutoOpenedRef.current = true;
+    if (!loading && session && isActive && hasLessThanFourPlayers && !visitActionsRef.current.managePlayersAutoOpened) {
+      visitActionsRef.current.managePlayersAutoOpened = true;
       setShowPlayersModal(true);
     }
   }, [loading, session, isActive, hasLessThanFourPlayers]);

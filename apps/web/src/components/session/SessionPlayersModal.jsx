@@ -139,7 +139,21 @@ export default function SessionPlayersModal({
       await removeSessionParticipant(sessionId, playerId);
       onSuccess?.();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Could not remove player');
+      // Provide specific error messages based on the error
+      const detail = err.response?.data?.detail || '';
+      let message = 'Could not remove player';
+
+      if (detail.includes('has games') || detail.includes('has matches')) {
+        message = 'Cannot remove player - they have recorded games in this session';
+      } else if (detail.includes('not in roster')) {
+        message = 'Player is not in the session roster';
+      } else if (detail.includes('creator cannot remove')) {
+        message = 'Session creator cannot be removed from the session';
+      } else if (detail) {
+        message = detail;
+      }
+
+      showMessage?.('error', message);
     } finally {
       setRemovingId(null);
     }
@@ -152,7 +166,18 @@ export default function SessionPlayersModal({
       await inviteToSession(sessionId, player.id);
       onSuccess?.();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Could not add player');
+      const detail = err.response?.data?.detail || '';
+      let message = 'Could not add player to session';
+
+      if (detail.includes('already')) {
+        message = 'Player is already in the session';
+      } else if (detail.includes('not found')) {
+        message = 'Player not found';
+      } else if (detail) {
+        message = detail;
+      }
+
+      showMessage?.('error', message);
     } finally {
       setAddingIds((prev) => {
         const next = new Set(prev);

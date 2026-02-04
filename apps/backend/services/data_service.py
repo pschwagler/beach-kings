@@ -3981,7 +3981,7 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
             participation = "player"
         else:
             participation = "invited"
-        created_by_name = getattr(r, "created_by_name", None) or (None if r.created_by is None else "")
+        created_by_name = getattr(r, "created_by_name", None)
         out.append({
             "id": r.id,
             "code": r.code,

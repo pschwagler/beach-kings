@@ -2571,10 +2571,7 @@ async def create_session(
     Returns created session info including code.
     """
     try:
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
+        body = await request.json()
         if not isinstance(body, dict):
             body = {}
         date = body.get("date")

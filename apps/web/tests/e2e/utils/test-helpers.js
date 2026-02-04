@@ -328,6 +328,48 @@ export async function addPlayerToLeague(token, leagueId, playerName) {
 }
 
 /**
+ * Create a pickup (non-league) session via API (requires authentication token)
+ * Returns the session object with code for shareable link
+ */
+export async function createPickupSession(token, sessionData = {}) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+
+  const defaultSessionData = {
+    name: sessionData.name || `Pickup Session ${Date.now()}`,
+    ...sessionData
+  };
+
+  try {
+    const response = await api.post('/api/sessions', defaultSessionData);
+    // The API returns { status: "success", session: {...} }
+    return response.data.session || response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('Pickup session creation failed:', {
+        status: error.response.status,
+        data: error.response.data,
+        sessionData: defaultSessionData
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Invite a player to a session via API (requires authentication token)
+ */
+export async function invitePlayerToSession(token, sessionId, playerId) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+
+  const response = await api.post(`/api/sessions/${sessionId}/invite`, {
+    player_id: playerId
+  });
+  return response.data;
+}
+
+/**
  * Create a test session for a league via API (requires authentication token)
  */
 export async function createTestSession(token, leagueId, sessionData = {}) {

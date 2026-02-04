@@ -10,7 +10,7 @@ import { formatDate } from '../../utils/dateUtils';
  * List of open (ACTIVE) sessions where the user is creator, has a match, or is invited.
  * League sessions link to league matches tab; non-league link to /session/[code].
  */
-export default function OpenSessionsList({ onSessionClick, refreshTrigger }) {
+export default function OpenSessionsList({ onSessionClick, refreshTrigger, currentUserPlayerId }) {
   const router = useRouter();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +52,10 @@ export default function OpenSessionsList({ onSessionClick, refreshTrigger }) {
 
   const participationLabel = (session) => {
     if (session.participation === 'creator') {
+      // Check if current user is the creator
+      if (currentUserPlayerId && session.created_by === currentUserPlayerId) {
+        return 'Created by you';
+      }
       const name = session.created_by_name;
       return name ? `Created by ${name}` : '—';
     }

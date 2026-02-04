@@ -23,6 +23,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [openSessions, setOpenSessions] = useState([]);
+  const [openSessionsRefreshTrigger, setOpenSessionsRefreshTrigger] = useState(0);
 
   // Load open sessions (for top-of-home block)
   useEffect(() => {
@@ -36,6 +37,17 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
       }
     };
     loadOpenSessions();
+  }, [openSessionsRefreshTrigger]);
+
+  // Refresh open sessions when page becomes visible (e.g., returning from session page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setOpenSessionsRefreshTrigger((t) => t + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   // Load user matches
@@ -204,7 +216,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
       {openSessions && openSessions.length > 0 && (
         <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
           <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
-          <OpenSessionsList />
+          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
         </section>
       )}
 

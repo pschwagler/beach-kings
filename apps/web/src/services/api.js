@@ -496,12 +496,11 @@ export const inviteToSession = async (sessionId, playerId) => {
 
 /**
  * Create a new non-league session (with shareable code).
- * @param {Object} payload - Optional { date, name, court_id }
+ * @param {Object} payload - { date?, name?, court_id? } – pass { date: '...' } for a specific date
  * @returns {Promise<Object>} { status, message, session } with session.code
  */
 export const createSession = async (payload = {}) => {
-  const body = typeof payload === 'string' || typeof payload === 'number' ? { date: payload } : { ...payload };
-  const response = await api.post('/api/sessions', body);
+  const response = await api.post('/api/sessions', { ...payload });
   return response.data;
 };
 

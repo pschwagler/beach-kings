@@ -20,6 +20,17 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
+  // Refresh open sessions when page becomes visible (e.g., returning from session page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshTrigger((t) => t + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   useEffect(() => {
     const loadUserMatches = async () => {
       if (!currentUserPlayer?.id) return;
@@ -90,7 +101,7 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
           <Calendar size={18} />
           Open sessions
         </h3>
-        <OpenSessionsList refreshTrigger={refreshTrigger} />
+        <OpenSessionsList refreshTrigger={refreshTrigger} currentUserPlayerId={currentUserPlayer?.id} />
       </section>
 
       {currentUserPlayer && (
