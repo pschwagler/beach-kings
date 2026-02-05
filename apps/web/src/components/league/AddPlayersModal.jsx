@@ -18,14 +18,14 @@ export default function AddPlayersModal({
   const [selectedPlayers, setSelectedPlayers] = useState([]); // Array of {player_id, role}
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Load players when modal opens
+  // Load first page of players when modal opens
   useEffect(() => {
     if (isOpen && allPlayers.length === 0 && !loadingPlayers) {
       const loadPlayers = async () => {
         setLoadingPlayers(true);
         try {
-          const players = await getPlayers();
-          setAllPlayers(players);
+          const data = await getPlayers({ limit: 500, offset: 0 });
+          setAllPlayers(Array.isArray(data?.items) ? data.items : []);
         } catch (err) {
           console.error('Error loading players:', err);
           showMessage?.('error', 'Failed to load players');

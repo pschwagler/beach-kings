@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, Target, Award, HelpCircle } from 'lucide-react';
+import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
-import { getPlayerMatchHistory } from '../../services/api';
+import OpenSessionsList from './OpenSessionsList';
+import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
 
 const getAvatarInitial = (currentUserPlayer) => {
   if (currentUserPlayer?.nickname) {
@@ -21,6 +22,33 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const router = useRouter();
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [openSessions, setOpenSessions] = useState([]);
+  const [openSessionsRefreshTrigger, setOpenSessionsRefreshTrigger] = useState(0);
+
+  // Load open sessions (for top-of-home block)
+  useEffect(() => {
+    const loadOpenSessions = async () => {
+      try {
+        const data = await getOpenSessions();
+        setOpenSessions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading open sessions:', err);
+        setOpenSessions([]);
+      }
+    };
+    loadOpenSessions();
+  }, [openSessionsRefreshTrigger]);
+
+  // Refresh open sessions when page becomes visible (e.g., returning from session page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setOpenSessionsRefreshTrigger((t) => t + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Load user matches
   useEffect(() => {
@@ -182,7 +210,21 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           <div className="home-stat-label">Win Rate (Last 30 days)</div>
           <div className="home-stat-value">{games30Days > 0 ? `${winRate30Days}%` : '—'}</div>
         </div>
-      </div>
+      {/* Open sessions at top when user has any */}
+      {
+        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
+          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
+          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
+        </section>
+      }
+
+      {/* Open sessions at top when user has any */}
+      {openSessions && openSessions.length > 0 && (
+        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
+          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
+          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
+        </section>
+      )}
 
       {/* Main Content Grid */}
       <div className="home-content-grid">
@@ -191,11 +233,20 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           onLeagueClick={navigateToLeague}
           onLeaguesUpdate={onLeaguesUpdate}
         />
-        <MyMatchesWidget 
-          matches={userMatches}
-          currentUserPlayer={currentUserPlayer}
-          onMatchClick={handleMatchClick}
-        />
+        <div className="home-my-games-widget-wrapper">
+          <MyMatchesWidget 
+            matches={userMatches}
+            currentUserPlayer={currentUserPlayer}
+            onMatchClick={handleMatchClick}
+          />
+          <button
+            type="button"
+            className="home-widget-view-all secondary-text"
+            onClick={() => onTabChange('my-games')}
+          >
+            View open sessions
+          </button>
+        </div>
       </div>
     </div>
   );

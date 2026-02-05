@@ -31,10 +31,11 @@ export function createApiClient(baseURL: string, storageAdapter?: any) {
 
 /**
  * Default export - creates a web API client
+ * In development uses relative /api (empty base); in production uses NEXT_PUBLIC_API_URL.
  */
 export default function createDefaultApiClient() {
-  const baseURL = typeof window !== 'undefined' 
-    ? (process.env.NEXT_PUBLIC_API_URL || '')
+  const baseURL = typeof window !== 'undefined'
+    ? (process.env.NODE_ENV === 'development' ? '' : (process.env.NEXT_PUBLIC_API_URL || ''))
     : '';
   return createApiClient(baseURL, new WebStorageAdapter());
 }

@@ -4,8 +4,7 @@
 - All methods should be well-tested with unit tests
 
 # Player names
-- **player_name** and **name** in API responses (e.g. league members, player list) must be **full_name** only. Do not use nickname as the primary display name in API payloads.
-- **Nicknames** are used on the backend for name matching only (e.g. search, photo match, fuzzy match). Keep nickname in the payload for reference but do not surface it as the canonical "name" or "player_name" in responses.
+- player_name in API responses (e.g. league members, player list) must be full_name only. Do not use nickname as the primary display name in API payloads (Nicknames are used on the backend for name matching only, e.g. search, photo match, fuzzy match).
 
 Architecture setup:
 """

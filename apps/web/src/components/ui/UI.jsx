@@ -11,7 +11,8 @@ export function Button({
   active = false,
   type = 'button',
   style = {},
-  form
+  form,
+  ...rest
 }) {
   let buttonClass = 'button';
   
@@ -25,6 +26,10 @@ export function Button({
     buttonClass = `tab ${active ? 'active' : ''}`;
   } else if (variant === 'close') {
     buttonClass = 'close-btn';
+  } else if (variant === 'ghost') {
+    buttonClass = 'button btn-ghost';
+  } else if (variant === 'outline') {
+    buttonClass = 'button btn-outline';
   }
   
   return (
@@ -35,6 +40,7 @@ export function Button({
       disabled={disabled}
       style={style}
       form={form}
+      {...rest}
     >
       {children}
     </button>

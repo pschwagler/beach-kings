@@ -21,14 +21,21 @@ export default function SessionMatchesClipboardTable({
   return (
     <div className="clipboard-table-wrapper">
       <table className="clipboard-table">
+        <colgroup>
+          <col className="clipboard-col-id" />
+          <col className="clipboard-col-team" />
+          <col className="clipboard-col-score" />
+          <col className="clipboard-col-score" />
+          <col className="clipboard-col-team" />
+          {showActions && <col />}
+        </colgroup>
         <thead>
           <tr>
-            <th style={{ width: '40px' }}>#</th>
-            <th style={{ width: '35%' }}>Team 1</th>
-            <th style={{ width: '10%', textAlign: 'center' }}>Score</th>
-            <th style={{ width: '10%', textAlign: 'center' }}>Score</th>
-            <th style={{ width: '35%' }}>Team 2</th>
-            {showActions && <th style={{ width: '10%' }}>Actions</th>}
+            <th>#</th>
+            <th>Team 1</th>
+            <th colSpan={2} className="clipboard-score-header">Score</th>
+            <th className="clipboard-col-team2">Team 2</th>
+            {showActions && <th className="clipboard-actions-header" aria-hidden="true" />}
           </tr>
         </thead>
         <tbody>
@@ -67,8 +74,8 @@ export default function SessionMatchesClipboardTable({
                     </div>
                   </td>
                   <td className={`score-cell ${team1Class}`}>{t1Score}</td>
-                  <td className={`score-cell ${team2Class}`}>{t2Score}</td>
-                  <td className={team2Class}>
+                  <td className={`score-cell clipboard-col-score-team2 ${team2Class}`}>{t2Score}</td>
+                  <td className={`clipboard-col-team2 ${team2Class}`}>
                     <div className="player-cell">
                       <span className="player-name clickable" onClick={() => t2p1 && onPlayerClick(t2p1)}>
                         {t2p1}

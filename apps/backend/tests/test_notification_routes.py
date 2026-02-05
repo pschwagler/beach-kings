@@ -115,7 +115,7 @@ async def test_get_notifications_unauthorized(monkeypatch):
     client = TestClient(app)
     
     response = client.get("/api/notifications")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -145,7 +145,7 @@ async def test_get_unread_count_unauthorized(monkeypatch):
     client = TestClient(app)
     
     response = client.get("/api/notifications/unread-count")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -190,7 +190,7 @@ async def test_mark_notification_as_read_unauthorized(monkeypatch):
     client = TestClient(app)
     
     response = client.put("/api/notifications/1/read")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -209,9 +209,8 @@ async def test_mark_notification_as_read_not_found(monkeypatch):
     )
     
     response = client.put("/api/notifications/999/read", headers=headers)
-    # The service raises ValueError, which should be handled by the route
-    # Check if it returns 400 or 500
-    assert response.status_code in [400, 500]
+    # The service raises ValueError for not found, which the route converts to 404
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -242,7 +241,7 @@ async def test_mark_all_notifications_as_read_unauthorized(monkeypatch):
     client = TestClient(app)
     
     response = client.put("/api/notifications/mark-all-read")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

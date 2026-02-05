@@ -1,22 +1,13 @@
-import { Trophy, Users, ChevronDown, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { Trophy, Users, ChevronDown } from 'lucide-react';
+import { useState, useRef } from 'react';
 import MatchCard from '../match/MatchCard';
 import SessionMatchesClipboardTable from '../match/SessionMatchesClipboardTable';
 import SessionHeader from './SessionHeader';
+import SessionGroupHeader from './SessionGroupHeader';
 import SessionActions from './SessionActions';
 import { formatDateRange } from '../league/utils/leagueUtils';
-
-// Helper function to get unique players from matches
-function getUniquePlayersCount(matches) {
-  const players = new Set();
-  matches.forEach(match => {
-    if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
-    if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
-    if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
-    if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
-  });
-  return players.size;
-}
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { getUniquePlayersCount } from '../league/utils/matchUtils';
 
 export default function ActiveSessionPanel({
   activeSession,
@@ -29,6 +20,7 @@ export default function ActiveSessionPanel({
   onCancelClick,
   onDeleteSession,
   onRequestDeleteSession,
+  onRequestLeaveSession,
   onUpdateSessionSeason,
   onStatsClick,
   isEditing = false,
@@ -36,52 +28,53 @@ export default function ActiveSessionPanel({
   selectedSeasonId = null,
   contentVariant = 'cards',
   isAdmin = false,
+  variant = null, // 'league' | 'non-league'; when null, derived from activeSession.season_id
+  isSubmitted = false, // when true, show SessionGroupHeader (submitted style) instead of SessionHeader
+  submittedTimestampText = null, // e.g. "Submitted 2 days ago by John"
+  onEditSessionClick = null, // optional; when provided, show pencil edit in SessionGroupHeader
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
   const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
   const seasonDropdownRef = useRef(null);
 
-  // Get the season for this session
-  const sessionSeasonId = activeSession?.season_id;
+  // Get the season for this session (league only; non-league has no season_id)
+  const sessionSeasonId = activeSession?.season_id ?? null;
+  const isLeague = variant === 'league' || (variant !== 'non-league' && sessionSeasonId != null);
   const sessionSeason = sessionSeasonId ? seasons.find(s => s.id === sessionSeasonId) : null;
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (seasonDropdownRef.current && !seasonDropdownRef.current.contains(event.target)) {
-        setIsSeasonDropdownOpen(false);
-      }
-    };
+  useClickOutside(seasonDropdownRef, isSeasonDropdownOpen, () => setIsSeasonDropdownOpen(false));
 
-    if (isSeasonDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isSeasonDropdownOpen]);
-
-  const handleDeleteSession = () => {
-    if (onDeleteSession) {
-      onDeleteSession(activeSession.id);
-    }
-  };
+  const showSubmittedHeader = isSubmitted && !isEditing;
 
   return (
     <div className="active-session-panel" data-testid="active-session-panel">
-      <SessionHeader 
-        sessionName={activeSession.name}
-        gameCount={gameCount}
-        playerCount={playerCount}
-        onDelete={gameCount === 0 ? handleDeleteSession : null}
-        onStatsClick={onStatsClick}
-        isEditing={isEditing}
-      />
+      {showSubmittedHeader ? (
+        <SessionGroupHeader
+          sessionName={activeSession.name}
+          gameCount={gameCount}
+          playerCount={playerCount}
+          onStatsClick={onStatsClick}
+          onEditClick={onEditSessionClick ?? undefined}
+          timestampText={submittedTimestampText ?? undefined}
+          seasonBadge={sessionSeason ? (sessionSeason.name || `Season ${sessionSeason.id}`) : undefined}
+        />
+      ) : (
+        <SessionHeader
+          sessionName={activeSession.name}
+          gameCount={gameCount}
+          playerCount={playerCount}
+          onStatsClick={onStatsClick}
+          onRequestDelete={isAdmin && onRequestDeleteSession ? onRequestDeleteSession : undefined}
+          onRequestLeave={!isAdmin && onRequestLeaveSession ? onRequestLeaveSession : undefined}
+          isEditing={isEditing}
+        />
+      )}
 
-      {/* Season selector row: season on left, Delete on right (admins only) */}
-      {(sessionSeasonId || (isAdmin && onRequestDeleteSession)) && (
+      {/* Season selector row (league only) */}
+      {isLeague && sessionSeasonId ? (
         <div className="session-season-row">
-          {sessionSeasonId ? (
-            <div className="session-season-selector">
+          <div className="session-season-selector">
               <span className="session-season-label">Season:</span>
               <div className="season-dropdown-wrapper" ref={seasonDropdownRef}>
                 {sessionSeason ? (
@@ -137,23 +130,8 @@ export default function ActiveSessionPanel({
                 )}
               </div>
             </div>
-          ) : (
-            <span />
-          )}
-          {isAdmin && onRequestDeleteSession && (
-            <button
-              type="button"
-              className="session-btn session-btn-delete session-btn-delete-header"
-              onClick={onRequestDeleteSession}
-              data-testid="session-btn-delete"
-              title="Delete session and all games"
-            >
-              <Trash2 size={18} />
-              Delete
-            </button>
-          )}
         </div>
-      )}
+      ) : null}
 
       <SessionActions
         onAddMatchClick={onAddMatchClick}
@@ -179,11 +157,11 @@ export default function ActiveSessionPanel({
             matches={activeSessionMatches}
             onPlayerClick={onPlayerClick}
             onEditMatch={onEditMatch}
-            canAddMatch={true}
-            onAddMatch={() => onAddMatchClick()}
+            canAddMatch={Boolean(onAddMatchClick)}
+            onAddMatch={onAddMatchClick ? () => onAddMatchClick() : undefined}
             sessionId={activeSession?.id}
             seasonId={sessionSeasonId}
-            showActions={true}
+            showActions={Boolean(onEditMatch)}
           />
         ) : (
           <div className="match-cards">
@@ -193,7 +171,7 @@ export default function ActiveSessionPanel({
                 match={match}
                 onPlayerClick={onPlayerClick}
                 onEdit={onEditMatch}
-                showEdit={true}
+                showEdit={Boolean(onEditMatch)}
               />
             ))}
           </div>

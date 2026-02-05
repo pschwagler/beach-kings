@@ -10,6 +10,7 @@ import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
 import ProfileTab from "./home/ProfileTab";
 import LeaguesTab from "./home/LeaguesTab";
+import MyGamesTab from "./home/MyGamesTab";
 import FriendsTab from "./home/FriendsTab";
 import NotificationsTab from "./home/NotificationsTab";
 import HomeMenuBar from "./home/HomeMenuBar";
@@ -172,6 +173,27 @@ export default function HomePage() {
                   onLeaguesUpdate={async () => {
                     const leagues = await getUserLeagues();
                     setUserLeagues(leagues);
+                  }}
+                />
+              )}
+
+              {activeTab === "my-games" && (
+                <MyGamesTab
+                  currentUserPlayer={currentUserPlayer}
+                  onTabChange={handleTabChange}
+                  onMatchClick={(match) => {
+                    const sessionCode = match?.["Session Code"];
+                    if (sessionCode) {
+                      router.push(`/session/${sessionCode}`);
+                      return;
+                    }
+                    const leagueId = match?.["League ID"];
+                    if (leagueId) {
+                      const params = new URLSearchParams();
+                      params.set("tab", "matches");
+                      if (match["Season ID"]) params.set("season", String(match["Season ID"]));
+                      router.push(`/league/${leagueId}?${params.toString()}`);
+                    }
                   }}
                 />
               )}

@@ -114,37 +114,53 @@ export const NotificationProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   /**
+   * Resolve backend host for WebSocket. In dev we fetch /api/backend-url (with fallback and one retry).
+   */
+  const getBackendHostForWebSocket = useCallback(async () => {
+    if (process.env.NODE_ENV !== 'development') {
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        return process.env.NEXT_PUBLIC_API_URL.replace(/^https?:\/\//, '');
+      }
+      return 'localhost:8000';
+    }
+    const fallback = 'localhost:8000';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('/api/backend-url');
+        if (res.ok) {
+          const { url } = await res.json();
+          if (url) return url.replace(/^https?:\/\//, '');
+        }
+      } catch (_) {
+        if (attempt === 1) return fallback;
+      }
+    }
+    return fallback;
+  }, []);
+
+  /**
    * Connect to WebSocket for real-time notifications
    */
   const connectWebSocket = useCallback(() => {
     if (!isAuthenticated || !user) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return; // Already connected
-    
-    // Get token from localStorage
+
     const token = window.localStorage.getItem('beach_access_token');
     if (!token) {
       console.warn('No access token available for WebSocket connection');
       return;
     }
-    
-    // Build WebSocket URL
-    // WebSockets don't go through Next.js rewrites, so we need to connect directly to the backend
-    // If NEXT_PUBLIC_API_URL is set, use it; otherwise default to localhost:8000 (backend port)
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let host;
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      host = process.env.NEXT_PUBLIC_API_URL.replace(/^https?:\/\//, '');
-    } else {
-      // Default to backend port in development (matches Next.js rewrite destination)
-      host = 'localhost:8000';
-    }
-    const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
 
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-      
-      ws.onopen = () => {
+    (async () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = await getBackendHostForWebSocket();
+      const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
+
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
         setWsConnected(true);
         
         // Reset reconnect attempts on successful connection
@@ -162,9 +178,9 @@ export const NotificationProvider = ({ children }) => {
             ws.send('ping');
           }
         }, 30000);
-      };
-      
-      ws.onmessage = (event) => {
+        };
+
+        ws.onmessage = (event) => {
         try {
           // Handle plain string messages (ping/pong)
           if (typeof event.data === 'string') {
@@ -203,15 +219,15 @@ export const NotificationProvider = ({ children }) => {
             console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
           }
         }
-      };
-      
-      ws.onerror = (error) => {
+        };
+
+        ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         console.error('WebSocket URL was:', wsUrl);
         setWsConnected(false);
-      };
-      
-      ws.onclose = () => {
+        };
+
+        ws.onclose = () => {
         setWsConnected(false);
         
         // Clear ping interval
@@ -235,12 +251,13 @@ export const NotificationProvider = ({ children }) => {
             connectWebSocket();
           }, delay);
         }
-      };
-    } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-      setWsConnected(false);
-    }
-  }, [isAuthenticated, user]);
+        };
+      } catch (error) {
+        console.error('Error creating WebSocket connection:', error);
+        setWsConnected(false);
+      }
+    })();
+  }, [isAuthenticated, user, getBackendHostForWebSocket]);
 
   /**
    * Disconnect WebSocket

@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.database.models import (
     League, LeagueMember, Season, Session, Match, Player, SessionStatus,
-    WeeklySchedule, Signup, OpenSignupsMode, User, ScoringSystem, EloHistory
+    WeeklySchedule, Signup, OpenSignupsMode, User, ScoringSystem, EloHistory,
+    SessionParticipant,
 )
 from backend.services import data_service
 from backend.services import user_service
@@ -677,6 +678,12 @@ async def test_session_numbering_for_same_date(db_session):
 @pytest.mark.asyncio
 async def test_league_session_numbering_for_same_date(db_session, test_player):
     """Test that multiple league sessions on the same date get numbered correctly."""
+    # Use dynamic dates - today for the session, season spans current year
+    today = date.today()
+    season_start = date(today.year, 1, 1).isoformat()
+    season_end = date(today.year, 12, 31).isoformat()
+    session_date = f"{today.month}/{today.day}/{today.year}"
+
     # Create a league with an active season
     league = await data_service.create_league(
         session=db_session,
@@ -687,25 +694,25 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
         whatsapp_group_id=None,
         creator_user_id=test_player.user_id
     )
-    
+
     season = await data_service.create_season(
         session=db_session,
         league_id=league["id"],
         name="Test Season",
-        start_date="2024-01-01",
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=season_end,
         point_system=None,
     )
-    
+
     # First session should just be the date
     session1 = await data_service.create_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/15/2024",
+        date=session_date,
         name=None,
         created_by=test_player.id
     )
-    assert session1["name"] == "1/15/2024"
+    assert session1["name"] == session_date
     
     # Submit first session so we can create another
     from backend.database.models import Session as SessionModel, SessionStatus
@@ -715,17 +722,17 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
     session_obj = result.scalar_one()
     session_obj.status = SessionStatus.SUBMITTED
     await db_session.commit()
-    
+
     # Second session should be "date Session #2"
     session2 = await data_service.create_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/15/2024",
+        date=session_date,
         name=None,
         created_by=test_player.id
     )
-    assert session2["name"] == "1/15/2024 Session #2"
-    
+    assert session2["name"] == f"{session_date} Session #2"
+
     # Submit second session
     result = await db_session.execute(
         select(SessionModel).where(SessionModel.id == session2["id"])
@@ -733,27 +740,29 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
     session_obj = result.scalar_one()
     session_obj.status = SessionStatus.SUBMITTED
     await db_session.commit()
-    
+
     # Third session should be "date Session #3"
     session3 = await data_service.create_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/15/2024",
+        date=session_date,
         name=None,
         created_by=test_player.id
     )
-    assert session3["name"] == "1/15/2024 Session #3"
-    
+    assert session3["name"] == f"{session_date} Session #3"
+
     # Different date should start numbering at 1 again (just the date)
+    tomorrow = today + timedelta(days=1)
+    tomorrow_date = f"{tomorrow.month}/{tomorrow.day}/{tomorrow.year}"
     session4 = await data_service.create_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/16/2024",
+        date=tomorrow_date,
         name=None,
         created_by=test_player.id
     )
-    assert session4["name"] == "1/16/2024"
-    
+    assert session4["name"] == tomorrow_date
+
     # Test that custom name is preserved
     result = await db_session.execute(
         select(SessionModel).where(SessionModel.id == session4["id"])
@@ -761,11 +770,11 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
     session_obj = result.scalar_one()
     session_obj.status = SessionStatus.SUBMITTED
     await db_session.commit()
-    
+
     session5 = await data_service.create_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/16/2024",
+        date=tomorrow_date,
         name="Custom Name",
         created_by=test_player.id
     )
@@ -775,6 +784,12 @@ async def test_league_session_numbering_for_same_date(db_session, test_player):
 @pytest.mark.asyncio
 async def test_get_or_create_active_league_session_numbering(db_session, test_player):
     """Test that get_or_create_active_league_session properly numbers sessions."""
+    # Use dynamic dates
+    today = date.today()
+    season_start = date(today.year, 1, 1).isoformat()
+    season_end = date(today.year, 12, 31).isoformat()
+    the_session_date = f"{today.month}/{today.day}/{today.year}"
+
     # Create a league with an active season
     league = await data_service.create_league(
         session=db_session,
@@ -785,35 +800,35 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
         whatsapp_group_id=None,
         creator_user_id=test_player.user_id
     )
-    
+
     season = await data_service.create_season(
         session=db_session,
         league_id=league["id"],
         name="Test Season",
-        start_date="2024-01-01",
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=season_end,
         point_system=None,
     )
-    
+
     # First call should create session with just the date
     session1 = await data_service.get_or_create_active_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/20/2024",
+        session_date=the_session_date,
         created_by=test_player.id
     )
-    assert session1["name"] == "1/20/2024"
-    
+    assert session1["name"] == the_session_date
+
     # Second call with same date should return the same session
     session1_again = await data_service.get_or_create_active_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/20/2024",
+        session_date=the_session_date,
         created_by=test_player.id
     )
     assert session1_again["id"] == session1["id"]
-    assert session1_again["name"] == "1/20/2024"
-    
+    assert session1_again["name"] == the_session_date
+
     # Submit the session
     from backend.database.models import Session as SessionModel, SessionStatus
     result = await db_session.execute(
@@ -822,21 +837,28 @@ async def test_get_or_create_active_league_session_numbering(db_session, test_pl
     session_obj = result.scalar_one()
     session_obj.status = SessionStatus.SUBMITTED
     await db_session.commit()
-    
+
     # Now creating a new session should number it as #2
     session2 = await data_service.get_or_create_active_league_session(
         session=db_session,
         league_id=league["id"],
-        date="1/20/2024",
+        session_date=the_session_date,
         created_by=test_player.id
     )
-    assert session2["name"] == "1/20/2024 Session #2"
+    assert session2["name"] == f"{the_session_date} Session #2"
     assert session2["id"] != session1["id"]
 
 
 @pytest.mark.asyncio
 async def test_session_name_format_with_iso_date(db_session, test_player):
-    """Test that ISO format dates (2024-01-15) are converted to M/D/YYYY format for session names."""
+    """Test that ISO format dates (YYYY-MM-DD) are converted to M/D/YYYY format for session names."""
+    # Use dynamic dates
+    today = date.today()
+    season_start = date(today.year, 1, 1).isoformat()
+    season_end = date(today.year, 12, 31).isoformat()
+    iso_date = today.isoformat()  # YYYY-MM-DD format
+    expected_name = f"{today.month}/{today.day}/{today.year}"  # M/D/YYYY format
+
     # Create a league with an active season
     league = await data_service.create_league(
         session=db_session,
@@ -847,25 +869,25 @@ async def test_session_name_format_with_iso_date(db_session, test_player):
         whatsapp_group_id=None,
         creator_user_id=test_player.user_id
     )
-    
+
     season = await data_service.create_season(
         session=db_session,
         league_id=league["id"],
         name="Test Season",
-        start_date="2024-01-01",
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=season_end,
         point_system=None,
     )
-    
+
     # Create a session with ISO format date - name should be formatted as M/D/YYYY
     session1 = await data_service.get_or_create_active_league_session(
         session=db_session,
         league_id=league["id"],
-        date="2024-01-21",  # ISO format
+        session_date=iso_date,  # ISO format
         created_by=test_player.id
     )
-    assert session1["name"] == "1/21/2024"  # Should be converted to M/D/YYYY format
-    
+    assert session1["name"] == expected_name  # Should be converted to M/D/YYYY format
+
     # Submit session to allow creating another
     from backend.database.models import Session as SessionModel, SessionStatus
     result = await db_session.execute(
@@ -874,15 +896,15 @@ async def test_session_name_format_with_iso_date(db_session, test_player):
     session_obj = result.scalar_one()
     session_obj.status = SessionStatus.SUBMITTED
     await db_session.commit()
-    
+
     # Second session with ISO date should also be formatted correctly
     session2 = await data_service.get_or_create_active_league_session(
         session=db_session,
         league_id=league["id"],
-        date="2024-01-21",  # ISO format
+        session_date=iso_date,  # ISO format
         created_by=test_player.id
     )
-    assert session2["name"] == "1/21/2024 Session #2"
+    assert session2["name"] == f"{expected_name} Session #2"
 
 
 def test_format_session_date_function():
@@ -912,24 +934,34 @@ def test_format_session_date_function():
 @pytest.mark.asyncio
 async def test_create_match_async(db_session, test_player):
     """Test creating a match."""
-    # Create session
-    session = await data_service.create_session(db_session, date="2024-01-15")
-    
+    from backend.models.schemas import CreateMatchRequest
+
+    # Create session and players
+    sess = await data_service.create_session(db_session, date="2024-01-15")
+    player1_id = await data_service.get_or_create_player(db_session, "Player 1")
+    player2_id = await data_service.get_or_create_player(db_session, "Player 2")
+    player3_id = await data_service.get_or_create_player(db_session, "Player 3")
+    player4_id = await data_service.get_or_create_player(db_session, "Player 4")
+
+    match_request = CreateMatchRequest(
+        session_id=sess["id"],
+        team1_player1_id=player1_id,
+        team1_player2_id=player2_id,
+        team2_player1_id=player3_id,
+        team2_player2_id=player4_id,
+        team1_score=21,
+        team2_score=19
+    )
+
     match_id = await data_service.create_match_async(
         session=db_session,
-        session_id=session["id"],
-        date="2024-01-15",
-        team1_player1="Player 1",
-        team1_player2="Player 2",
-        team2_player1="Player 3",
-        team2_player2="Player 4",
-        team1_score=21,
-        team2_score=19,
-        is_public=True
+        match_request=match_request,
+        session_id=sess["id"],
+        date="2024-01-15"
     )
-    
+
     assert match_id > 0
-    
+
     # Verify match was created
     match = await data_service.get_match_async(db_session, match_id)
     assert match is not None
@@ -940,24 +972,34 @@ async def test_create_match_async(db_session, test_player):
 @pytest.mark.asyncio
 async def test_get_match_async(db_session, test_player):
     """Test getting a match."""
-    # Create session
-    session = await data_service.create_session(db_session, date="2024-01-15")
-    
+    from backend.models.schemas import CreateMatchRequest
+
+    # Create session and players
+    sess = await data_service.create_session(db_session, date="2024-01-15")
+    player1_id = await data_service.get_or_create_player(db_session, "Player 1")
+    player2_id = await data_service.get_or_create_player(db_session, "Player 2")
+    player3_id = await data_service.get_or_create_player(db_session, "Player 3")
+    player4_id = await data_service.get_or_create_player(db_session, "Player 4")
+
+    match_request = CreateMatchRequest(
+        session_id=sess["id"],
+        team1_player1_id=player1_id,
+        team1_player2_id=player2_id,
+        team2_player1_id=player3_id,
+        team2_player2_id=player4_id,
+        team1_score=21,
+        team2_score=19
+    )
+
     created_id = await data_service.create_match_async(
         session=db_session,
-        session_id=session["id"],
-        date="2024-01-15",
-        team1_player1="Player 1",
-        team1_player2="Player 2",
-        team2_player1="Player 3",
-        team2_player2="Player 4",
-        team1_score=21,
-        team2_score=19,
-        is_public=True
+        match_request=match_request,
+        session_id=sess["id"],
+        date="2024-01-15"
     )
-    
+
     match = await data_service.get_match_async(db_session, created_id)
-    
+
     assert match is not None
     assert match["id"] == created_id
     assert match["team1_score"] == 21
@@ -966,35 +1008,51 @@ async def test_get_match_async(db_session, test_player):
 @pytest.mark.asyncio
 async def test_update_match_async(db_session, test_player):
     """Test updating a match."""
-    # Create session
-    session = await data_service.create_session(db_session, date="2024-01-15")
-    
+    from backend.models.schemas import CreateMatchRequest
+
+    # Create session and players
+    sess = await data_service.create_session(db_session, date="2024-01-15")
+    player1_id = await data_service.get_or_create_player(db_session, "Player 1")
+    player2_id = await data_service.get_or_create_player(db_session, "Player 2")
+    player3_id = await data_service.get_or_create_player(db_session, "Player 3")
+    player4_id = await data_service.get_or_create_player(db_session, "Player 4")
+
+    match_request = CreateMatchRequest(
+        session_id=sess["id"],
+        team1_player1_id=player1_id,
+        team1_player2_id=player2_id,
+        team2_player1_id=player3_id,
+        team2_player2_id=player4_id,
+        team1_score=21,
+        team2_score=19
+    )
+
     created_id = await data_service.create_match_async(
         session=db_session,
-        session_id=session["id"],
-        date="2024-01-15",
-        team1_player1="Player 1",
-        team1_player2="Player 2",
-        team2_player1="Player 3",
-        team2_player2="Player 4",
-        team1_score=21,
-        team2_score=19,
-        is_public=True
+        match_request=match_request,
+        session_id=sess["id"],
+        date="2024-01-15"
     )
-    
-    result = await data_service.update_match_async(
-        session=db_session,
-        match_id=created_id,
-        team1_player1="Player 1",
-        team1_player2="Player 2",
-        team2_player1="Player 3",
-        team2_player2="Player 4",
+
+    # Update with new scores
+    update_request = CreateMatchRequest(
+        session_id=sess["id"],
+        team1_player1_id=player1_id,
+        team1_player2_id=player2_id,
+        team2_player1_id=player3_id,
+        team2_player2_id=player4_id,
         team1_score=22,
         team2_score=20
     )
-    
+
+    result = await data_service.update_match_async(
+        session=db_session,
+        match_id=created_id,
+        match_request=update_request
+    )
+
     assert result is True
-    
+
     # Verify match was updated
     updated_match = await data_service.get_match_async(db_session, created_id)
     assert updated_match["team1_score"] == 22
@@ -1004,25 +1062,35 @@ async def test_update_match_async(db_session, test_player):
 @pytest.mark.asyncio
 async def test_delete_match_async(db_session, test_player):
     """Test deleting a match."""
-    # Create session
-    session = await data_service.create_session(db_session, date="2024-01-15")
-    
+    from backend.models.schemas import CreateMatchRequest
+
+    # Create session and players
+    sess = await data_service.create_session(db_session, date="2024-01-15")
+    player1_id = await data_service.get_or_create_player(db_session, "Player 1")
+    player2_id = await data_service.get_or_create_player(db_session, "Player 2")
+    player3_id = await data_service.get_or_create_player(db_session, "Player 3")
+    player4_id = await data_service.get_or_create_player(db_session, "Player 4")
+
+    match_request = CreateMatchRequest(
+        session_id=sess["id"],
+        team1_player1_id=player1_id,
+        team1_player2_id=player2_id,
+        team2_player1_id=player3_id,
+        team2_player2_id=player4_id,
+        team1_score=21,
+        team2_score=19
+    )
+
     created_id = await data_service.create_match_async(
         session=db_session,
-        session_id=session["id"],
-        date="2024-01-15",
-        team1_player1="Player 1",
-        team1_player2="Player 2",
-        team2_player1="Player 3",
-        team2_player2="Player 4",
-        team1_score=21,
-        team2_score=19,
-        is_public=True
+        match_request=match_request,
+        session_id=sess["id"],
+        date="2024-01-15"
     )
-    
+
     result = await data_service.delete_match_async(db_session, created_id)
     assert result is True
-    
+
     # Verify match was deleted
     match = await data_service.get_match_async(db_session, created_id)
     assert match is None
@@ -1035,10 +1103,15 @@ async def test_delete_match_async(db_session, test_player):
 @pytest.mark.asyncio
 async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, test_player):
     """Test that deleting a weekly schedule only deletes future signups, not past ones."""
-    
+
     utc = pytz.UTC
     now_utc = datetime.now(utc)
-    
+    today = date.today()
+    season_start = date(today.year, 1, 1).isoformat()
+    season_end = date(today.year, 12, 31).isoformat()
+    # Weekly schedule end_date must be within 6 months
+    schedule_end = (today + timedelta(days=90)).isoformat()
+
     # Create league and season
     league = await data_service.create_league(
         session=db_session,
@@ -1051,17 +1124,17 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         gender="male",
         level="Open"
     )
-    
+
     season = await data_service.create_season(
         session=db_session,
         league_id=league["id"],
         name="Test Season",
-        start_date="2024-01-01",
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=season_end,
         point_system=None,
     )
-    
-    # Create a weekly schedule
+
+    # Create a weekly schedule (end_date must be within 6 months)
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],
@@ -1072,12 +1145,13 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         open_signups_mode="auto_after_last_session",
         open_signups_day_of_week=None,
         open_signups_time=None,
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=schedule_end,
         creator_player_id=test_player.id
     )
-    
+
     schedule_id = schedule["id"]
-    
+
     # Manually create past and future signups linked to this schedule
     # Past signup (1 week ago)
     past_datetime = now_utc - timedelta(days=7)
@@ -1128,7 +1202,8 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
         open_signups_mode=OpenSignupsMode.AUTO_AFTER_LAST_SESSION,
         open_signups_day_of_week=None,
         open_signups_time=None,
-        end_date=date(2024, 12, 31),
+        start_date=today,  # Required start_date
+        end_date=today + timedelta(days=90),  # Use dynamic date within 6 months
         created_by=test_player.id
     )
     db_session.add(other_schedule)
@@ -1198,18 +1273,23 @@ async def test_delete_weekly_schedule_only_deletes_future_signups(db_session, te
 @pytest.mark.asyncio
 async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session, test_player, monkeypatch):
     """Test that deleting a weekly schedule calls recalculate_open_signups_for_season."""
-    
+    today = date.today()
+    season_start = date(today.year, 1, 1).isoformat()
+    season_end = date(today.year, 12, 31).isoformat()
+    # Weekly schedule end_date must be within 6 months
+    schedule_end = (today + timedelta(days=90)).isoformat()
+
     # Store original function
     original_recalculate = data_service.recalculate_open_signups_for_season
-    
+
     # Track calls to recalculate_open_signups_for_season
     recalculate_calls = []
-    
+
     async def mock_recalculate(session, season_id):
         recalculate_calls.append(season_id)
         # Call the original function to ensure it works
         await original_recalculate(session, season_id)
-    
+
     # Create league and season first (before patching)
     league = await data_service.create_league(
         session=db_session,
@@ -1222,17 +1302,18 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session,
         gender="male",
         level="Open"
     )
-    
+
     season = await data_service.create_season(
         session=db_session,
         league_id=league["id"],
         name="Test Season",
-        start_date="2024-01-01",
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=season_end,
         point_system=None,
     )
-    
+
     # Create a weekly schedule (before patching, so it uses the real function)
+    # end_date must be within 6 months
     schedule = await data_service.create_weekly_schedule(
         session=db_session,
         season_id=season["id"],
@@ -1243,10 +1324,11 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(db_session,
         open_signups_mode="auto_after_last_session",
         open_signups_day_of_week=None,
         open_signups_time=None,
-        end_date="2024-12-31",
+        start_date=season_start,
+        end_date=schedule_end,
         creator_player_id=test_player.id
     )
-    
+
     schedule_id = schedule["id"]
     initial_call_count = len(recalculate_calls)
     
@@ -1274,3 +1356,227 @@ async def test_delete_weekly_schedule_nonexistent(db_session):
     """Test that deleting a non-existent weekly schedule returns False."""
     result = await data_service.delete_weekly_schedule(db_session, 99999)
     assert result is False
+
+
+# ============================================================================
+# Non-League Sessions Tests
+# ============================================================================
+
+@pytest_asyncio.fixture
+async def four_players(db_session):
+    """Create four users and players for match tests (each user has one player)."""
+    players = []
+    for i, name in enumerate(["Alice", "Bob", "Charlie", "Dave"]):
+        phone = f"+1555000{i:04d}"
+        password_hash = bcrypt.hashpw("test_password".encode(), bcrypt.gensalt()).decode()
+        user_id = await user_service.create_user(
+            session=db_session,
+            phone_number=phone,
+            password_hash=password_hash,
+            email=f"{name.lower()}@example.com",
+        )
+        p = Player(full_name=name, user_id=user_id)
+        db_session.add(p)
+        players.append(p)
+    await db_session.commit()
+    for p in players:
+        await db_session.refresh(p)
+    return players
+
+
+@pytest.mark.asyncio
+async def test_create_session_with_code(db_session, test_player):
+    """Test creating a non-league session generates a unique code."""
+    session = await data_service.create_session(
+        db_session,
+        date="2024-01-15",
+        created_by=test_player.id,
+    )
+    assert session["id"] > 0
+    assert session["code"] is not None
+    assert len(session["code"]) == 8  # SESSION_CODE_LENGTH in data_service
+    assert session["season_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_session_by_code(db_session, test_player):
+    """Test fetching session by shareable code."""
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=test_player.id
+    )
+    code = created["code"]
+    sess = await data_service.get_session_by_code(db_session, code)
+    assert sess is not None
+    assert sess["id"] == created["id"]
+    assert sess["code"] == code
+    assert sess["season_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_session_by_code_not_found(db_session):
+    """Test get_session_by_code returns None for invalid code."""
+    sess = await data_service.get_session_by_code(db_session, "INVALID")
+    assert sess is None
+
+
+@pytest.mark.asyncio
+async def test_get_open_sessions_for_user(db_session, test_player):
+    """Test open sessions include sessions where user is creator, has match, or invited."""
+    # Create session as creator
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=test_player.id
+    )
+    sessions = await data_service.get_open_sessions_for_user(db_session, test_player.id)
+    assert len(sessions) >= 1
+    found = next((s for s in sessions if s["id"] == created["id"]), None)
+    assert found is not None
+    assert found["participation"] == "creator"
+
+
+@pytest.mark.asyncio
+async def test_join_session_by_code(db_session, test_player, four_players):
+    """Test joining a session by code adds player to participants."""
+    creator = four_players[0]
+    joiner = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    result = await data_service.join_session_by_code(db_session, created["code"], joiner.id)
+    assert result is not None
+    assert result["id"] == created["id"]
+    # Verify participant was added
+    part_result = await db_session.execute(
+        select(SessionParticipant).where(
+            SessionParticipant.session_id == created["id"],
+            SessionParticipant.player_id == joiner.id,
+        )
+    )
+    part = part_result.scalar_one_or_none()
+    assert part is not None
+
+
+@pytest.mark.asyncio
+async def test_add_session_participant(db_session, test_player, four_players):
+    """Test add_session_participant adds player to session participants."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    result = await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    assert result is True
+    part_result = await db_session.execute(
+        select(SessionParticipant).where(
+            SessionParticipant.session_id == created["id"],
+            SessionParticipant.player_id == invitee.id,
+        )
+    )
+    part = part_result.scalar_one_or_none()
+    assert part is not None
+    assert part.invited_by == creator.id
+
+
+@pytest.mark.asyncio
+async def test_add_session_participant_idempotent(db_session, four_players):
+    """Test add_session_participant is idempotent (already present returns True)."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    result = await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_creator(db_session, test_user, four_players):
+    """Test creator can add match to non-league session."""
+    creator = four_players[0]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    session_obj = {
+        "season_id": None,
+        "created_by": creator.id,
+    }
+    # Creator's user_id - need to get from player
+    creator_user_id = (await db_session.get(Player, creator.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, creator_user_id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_invited(db_session, test_user, four_players):
+    """Test invited player can add match to non-league session."""
+    creator = four_players[0]
+    invitee = four_players[1]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    await data_service.add_session_participant(
+        db_session, created["id"], invitee.id, invited_by=creator.id
+    )
+    session_obj = {"season_id": None, "created_by": creator.id}
+    invitee_user_id = (await db_session.get(Player, invitee.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, invitee_user_id
+    )
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_can_user_add_match_to_session_random_user_denied(db_session, test_user, four_players):
+    """Test random user (not creator, no match, not invited) cannot add match."""
+    creator = four_players[0]
+    random_player = four_players[3]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    session_obj = {"season_id": None, "created_by": creator.id}
+    random_user_id = (await db_session.get(Player, random_player.id)).user_id
+    result = await data_service.can_user_add_match_to_session(
+        db_session, created["id"], session_obj, random_user_id
+    )
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_create_match_session_id_only(db_session, four_players):
+    """Test creating a match with session_id only (non-league session)."""
+    from backend.models.schemas import CreateMatchRequest
+
+    creator = four_players[0]
+    created = await data_service.create_session(
+        db_session, date="2024-01-15", created_by=creator.id
+    )
+    alice, bob, charlie, dave = four_players
+    match_request = CreateMatchRequest(
+        session_id=created["id"],
+        team1_player1_id=alice.id,
+        team1_player2_id=bob.id,
+        team2_player1_id=charlie.id,
+        team2_player2_id=dave.id,
+        team1_score=21,
+        team2_score=19,
+    )
+    match_id = await data_service.create_match_async(
+        db_session,
+        match_request=match_request,
+        session_id=created["id"],
+        date=created["date"],
+    )
+    assert match_id > 0
+    match = await data_service.get_match_async(db_session, match_id)
+    assert match is not None
+    assert match["session_id"] == created["id"]
+    assert match["team1_score"] == 21
+    assert match["team2_score"] == 19

@@ -37,6 +37,7 @@ export default function AddMatchModal({
   onDelete, 
   editMatch = null,
   leagueMatchOnly = false,
+  sessionOnly = false,
   defaultLeagueId = null,
   members = [],
   league = null,
@@ -48,7 +49,7 @@ export default function AddMatchModal({
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
   
-  // Use custom hooks
+  // Use custom hooks - sessionOnly forces non-league with session_id only
   const leagueSeasonSelection = useLeagueSeasonSelection({
     isOpen,
     leagueMatchOnly,
@@ -56,7 +57,7 @@ export default function AddMatchModal({
     league,
     sessionSeasonId,
     defaultSeasonId,
-    matchType: leagueMatchOnly ? 'league' : 'non-league'
+    matchType: sessionOnly ? 'non-league' : (leagueMatchOnly ? 'league' : 'non-league')
   });
   const {
     matchType,
@@ -275,8 +276,8 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Collapsible */}
-          {!editMatch && (
+          {/* Match Configuration Section - Collapsible (hidden when sessionOnly) */}
+          {!editMatch && !sessionOnly && (
             <div className="match-config-section">
               <div className="match-config-header-row">
                 <button 

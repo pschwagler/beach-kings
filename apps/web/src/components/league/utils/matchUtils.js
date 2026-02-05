@@ -3,6 +3,48 @@
  */
 
 /**
+ * Count unique players across matches in display format (Team 1 Player 1, etc.).
+ * @param {Array<Object>} matches - Matches in display format (with 'Team 1 Player 1', etc.)
+ * @returns {number} Number of unique player names
+ */
+export function getUniquePlayersCount(matches) {
+  const players = new Set();
+  (matches || []).forEach((match) => {
+    if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
+    if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
+    if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
+    if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
+  });
+  return players.size;
+}
+
+/**
+ * Transform a single match from session API (get_session_matches) to display format
+ * used by MatchCard and SessionMatchesClipboardTable.
+ * @param {Object} match - Match from getSessionMatches API (snake_case)
+ * @returns {Object} Match in display format (Team 1 Player 1, etc.)
+ */
+export function sessionMatchToDisplayFormat(match) {
+  const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
+  return {
+    id: match.id,
+    Date: match.date,
+    'Session ID': match.session_id,
+    'Session Name': match.session_name || match.date,
+    'Session Status': match.session_status || null,
+    'Team 1 Player 1': match.team1_player1_name || '',
+    'Team 1 Player 2': match.team1_player2_name || '',
+    'Team 2 Player 1': match.team2_player1_name || '',
+    'Team 2 Player 2': match.team2_player2_name || '',
+    'Team 1 Score': match.team1_score,
+    'Team 2 Score': match.team2_score,
+    Winner: winner,
+    'Team 1 ELO Change': 0,
+    'Team 2 ELO Change': 0,
+  };
+}
+
+/**
  * Transform match data from API format to MatchesTable format
  * Handles both context format (with elo_changes) and API format (with team elo changes)
  * @param {Array} matches - Array of match objects from API or context

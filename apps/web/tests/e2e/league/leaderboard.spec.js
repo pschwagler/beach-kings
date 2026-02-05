@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { HomePage } from '../pages/HomePage.js';
 import { LeaguePage } from '../pages/LeaguePage.js';
-import { 
-  cleanupTestData, 
-  generateTestPhoneNumber, 
-  getVerificationCodeForPhone, 
+import {
+  cleanupTestData,
+  generateTestPhoneNumber,
+  getVerificationCodeForPhone,
   formatPhoneForInput,
   clearBrowserStorage,
   authenticateUser,
+  completeTestUserProfile,
   createTestLeague,
   createTestSeason,
   addPlayerToLeague,
@@ -54,7 +55,10 @@ test.describe('View Leaderboard', () => {
     
     // Authenticate to get token for API calls
     authToken = await authenticateUser(testPhoneNumber, testPassword);
-    
+
+    // Complete profile to prevent "Complete Your Profile" modal from blocking tests
+    await completeTestUserProfile(authToken);
+
     // Create test league
     const league = await createTestLeague(authToken, {
       name: `Test League ${Date.now()}`
@@ -208,9 +212,8 @@ test.describe('View Leaderboard', () => {
     await leaguePage.clickPlayerRow(playerNames[0]);
     await page.waitForTimeout(500);
     
-    // Verify player details drawer is visible
-    const playerDetailsVisible = await page.locator(leaguePage.selectors.playerDetailsDrawer).isVisible({ timeout: 5000 }).catch(() => false);
-    expect(playerDetailsVisible).toBeTruthy();
+    // Verify player details drawer is visible (use auto-retrying assertion for webkit timing)
+    await expect(page.locator(leaguePage.selectors.playerDetailsDrawer)).toBeVisible({ timeout: 5000 });
 
     // 4. Verify the stats match what is in the ratings table
     // (This would require checking the player stats in the drawer)
