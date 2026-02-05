@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { HomePage } from '../pages/HomePage.js';
 import { LeaguePage } from '../pages/LeaguePage.js';
-import { 
-  cleanupTestData, 
-  generateTestPhoneNumber, 
-  getVerificationCodeForPhone, 
+import {
+  cleanupTestData,
+  generateTestPhoneNumber,
+  getVerificationCodeForPhone,
   formatPhoneForInput,
   clearBrowserStorage,
   authenticateUser,
+  completeTestUserProfile,
   createTestLeague,
   createTestSeason,
   addPlayerToLeague,
@@ -55,7 +56,10 @@ test.describe('View Leaderboard Across Multiple Seasons', () => {
     
     // Authenticate to get token for API calls
     authToken = await authenticateUser(testPhoneNumber, testPassword);
-    
+
+    // Complete profile to prevent "Complete Your Profile" modal from blocking tests
+    await completeTestUserProfile(authToken);
+
     // Create test league
     const league = await createTestLeague(authToken, {
       name: `Test League ${Date.now()}`

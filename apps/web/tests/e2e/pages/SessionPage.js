@@ -27,22 +27,23 @@ export class SessionPage extends BasePage {
 
       // Players management
       managePlayers: 'button:has-text("Manage players")',
-      playersModal: '.session-players-modal',
-      playersModalClose: '.session-players-modal .modal-close-button',
+      playersModal: '.session-players-drawer, .session-players-modal',
+      playersDrawer: '.session-players-drawer',
+      playersModalClose: '.session-players-drawer .modal-close-button, .session-players-modal .modal-close-button',
       playersList: '.session-players-list',
       playersListItem: '.session-players-list-item',
       removePlayerButton: '.session-players-remove',
       addPlayerSection: '.session-players-add',
-      addPlayerSearch: '.session-players-filters input[type="text"]',
+      addPlayerSearch: '.session-players-search, .session-players-filters input[type="text"]',
       addPlayerButton: '.session-players-add-btn',
       loadMoreButton: '.session-players-load-more',
-      modalDoneButton: '.modal-actions .league-text-button.primary',
+      modalDoneButton: '.session-players-drawer-actions .league-text-button.primary, .modal-actions .league-text-button.primary',
 
       // Add players block (when < 4 players)
       addPlayersBlock: '.session-page-add-players-block',
 
       // Match management
-      addMatchButton: 'button:has-text("Add Game"), button:has-text("+ Add")',
+      addMatchButton: '[data-testid="session-btn-add"], button:has-text("Add New Match")',
       matchCard: '.match-card',
       matchesTable: '.session-matches-table',
 
@@ -73,7 +74,8 @@ export class SessionPage extends BasePage {
   }
 
   /**
-   * Wait for session page to be ready
+   * Wait for session page to be ready.
+   * Waits for loading to complete and React to settle (including auto-opening modals).
    */
   async waitForReady() {
     // Wait for loading to complete
@@ -83,6 +85,8 @@ export class SessionPage extends BasePage {
       const ready = document.querySelector('.session-page-header');
       return !loading && (ready || error);
     }, { timeout: 15000 });
+    // Wait for React to finish pending renders (e.g., auto-opening manage players modal)
+    await this.page.waitForTimeout(500);
   }
 
   /**
@@ -114,11 +118,15 @@ export class SessionPage extends BasePage {
   }
 
   /**
-   * Open manage players modal
+   * Open manage players modal.
+   * Handles the case where the modal auto-opens (when < 4 players).
    */
   async openManagePlayersModal() {
-    await this.click(this.selectors.managePlayers);
-    await this.page.waitForSelector(this.selectors.playersModal, { state: 'visible', timeout: 5000 });
+    const isOpen = await this.page.locator(this.selectors.playersModal).isVisible().catch(() => false);
+    if (!isOpen) {
+      await this.click(this.selectors.managePlayers);
+      await this.page.waitForSelector(this.selectors.playersModal, { state: 'visible', timeout: 5000 });
+    }
   }
 
   /**
@@ -130,10 +138,15 @@ export class SessionPage extends BasePage {
   }
 
   /**
-   * Get count of players in session
+   * Get count of players in session.
+   * Switches to the "In this session" tab to count session participants.
    */
   async getPlayersCount() {
     await this.page.waitForSelector(this.selectors.playersModal, { state: 'visible', timeout: 5000 });
+    // Switch to "In this session" tab to see participants
+    const inSessionTab = this.page.locator('[role="tab"]:has-text("In this session")');
+    await inSessionTab.click();
+    await this.page.waitForTimeout(300);
     const items = await this.page.locator(this.selectors.playersListItem).all();
     return items.length;
   }
@@ -160,9 +173,15 @@ export class SessionPage extends BasePage {
   }
 
   /**
-   * Remove a player from the session
+   * Remove a player from the session.
+   * Switches to the "In this session" tab first since the modal may default to "Add players".
    */
   async removePlayerByName(name) {
+    // Switch to "In this session" tab
+    const inSessionTab = this.page.locator('[role="tab"]:has-text("In this session")');
+    await inSessionTab.click();
+    await this.page.waitForTimeout(300);
+
     const playerItem = this.page.locator(`.session-players-list-item:has-text("${name}")`);
     await playerItem.waitFor({ state: 'visible', timeout: 5000 });
     await playerItem.locator(this.selectors.removePlayerButton).click();
@@ -182,42 +201,48 @@ export class SessionPage extends BasePage {
   }
 
   /**
-   * Click add match button
+   * Click add match button to open the Add New Game modal.
    */
   async clickAddMatch() {
     await this.click(this.selectors.addMatchButton);
-    // Wait for modal
-    await this.page.waitForSelector('.add-match-modal, .modal-content', { state: 'visible', timeout: 5000 });
+    // Wait for Add Match modal
+    await this.page.waitForSelector('[data-testid="add-match-modal"]', { state: 'visible', timeout: 5000 });
   }
 
   /**
-   * Fill match form (similar to LeaguePage)
+   * Fill the Add Match modal form using PlayerDropdown autocomplete and ScoreCardInput.
    */
   async fillMatchForm({ team1Player1, team1Player2, team2Player1, team2Player2, team1Score, team2Score }) {
-    // Select players
-    const selects = await this.page.locator('.add-match-modal select, .modal-content select').all();
+    const modal = this.page.locator('[data-testid="add-match-modal"]');
+    const playerInputs = await modal.locator('.player-dropdown-input').all();
+    const playerNames = [team1Player1, team1Player2, team2Player1, team2Player2];
 
-    if (selects.length >= 4) {
-      await selects[0].selectOption({ label: team1Player1 });
-      await selects[1].selectOption({ label: team1Player2 });
-      await selects[2].selectOption({ label: team2Player1 });
-      await selects[3].selectOption({ label: team2Player2 });
+    for (let i = 0; i < Math.min(playerInputs.length, playerNames.length); i++) {
+      await playerInputs[i].click();
+      await playerInputs[i].fill(playerNames[i]);
+      await this.page.waitForTimeout(400);
+      // Click the matching dropdown option (portaled to body)
+      const option = this.page.locator(`[data-testid="player-dropdown-option"]:has-text("${playerNames[i]}")`).first();
+      await option.click();
+      await this.page.waitForTimeout(200);
     }
 
-    // Fill scores
-    const scoreInputs = await this.page.locator('.add-match-modal input[type="number"], .modal-content input[type="number"]').all();
-    if (scoreInputs.length >= 2) {
-      await scoreInputs[0].fill(String(team1Score));
-      await scoreInputs[1].fill(String(team2Score));
-    }
+    // Fill scores using ScoreCardInput digit inputs
+    const score1Str = String(team1Score).padStart(2, '0');
+    const score2Str = String(team2Score).padStart(2, '0');
+
+    await this.page.locator('[data-testid="team-1-score-digit-1"]').fill(score1Str[0]);
+    await this.page.locator('[data-testid="team-1-score-digit-2"]').fill(score1Str[1]);
+    await this.page.locator('[data-testid="team-2-score-digit-1"]').fill(score2Str[0]);
+    await this.page.locator('[data-testid="team-2-score-digit-2"]').fill(score2Str[1]);
   }
 
   /**
-   * Submit match form
+   * Submit the match form by clicking "Add Game" or "Update Game".
    */
   async submitMatchForm() {
-    await this.page.locator('.add-match-modal button:has-text("Save"), .modal-content button:has-text("Save")').click();
-    await this.page.waitForSelector('.add-match-modal, .modal-content', { state: 'hidden', timeout: 5000 });
+    await this.page.locator('[data-testid="add-match-modal"] button:has-text("Add Game"), [data-testid="add-match-modal"] button:has-text("Update Game")').click();
+    await this.page.waitForSelector('[data-testid="add-match-modal"]', { state: 'hidden', timeout: 10000 });
   }
 
   /**

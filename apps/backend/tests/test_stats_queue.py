@@ -22,13 +22,13 @@ def queue():
     # Tests that actually need to run calculations can override these
     async def mock_global_calc(session):
         return {"player_count": 0, "match_count": 0}
-    
+
     async def mock_league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
-    
+
     q.register_calculation_callbacks(
         global_calc_callback=mock_global_calc,
-        league_calc_callback=mock_season_calc
+        league_calc_callback=mock_league_calc
     )
     return q
 
@@ -105,39 +105,24 @@ async def test_deduplication_same_job(db_session, queue):
 
 
 @pytest.mark.asyncio
-async def test_deduplication_different_seasons(db_session, queue):
-    """Test that different season calculations create separate jobs."""
-    # Create league and seasons first
-    from backend.database.models import League, Season
-    from datetime import date
-    
-    league = League(name="Test League", is_open=True)
-    db_session.add(league)
+async def test_deduplication_different_leagues(db_session, queue):
+    """Test that different league calculations create separate jobs."""
+    # Create two leagues
+    from backend.database.models import League
+
+    league1 = League(name="Test League 1", is_open=True)
+    db_session.add(league1)
     await db_session.flush()
-    
-    season1 = Season(
-        league_id=league.id,
-        name="Season 1",
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 6, 30),
-    )
-    db_session.add(season1)
+
+    league2 = League(name="Test League 2", is_open=True)
+    db_session.add(league2)
     await db_session.flush()
-    
-    season2 = Season(
-        league_id=league.id,
-        name="Season 2",
-        start_date=date(2024, 7, 1),
-        end_date=date(2024, 12, 31),
-    )
-    db_session.add(season2)
-    await db_session.flush()
-    
-    job_id1 = await queue.enqueue_calculation(db_session, "season", season1.id)
-    job_id2 = await queue.enqueue_calculation(db_session, "season", season2.id)
-    
+
+    job_id1 = await queue.enqueue_calculation(db_session, "league", league1.id)
+    job_id2 = await queue.enqueue_calculation(db_session, "league", league2.id)
+
     assert job_id1 != job_id2
-    
+
     # Should have two jobs
     result = await db_session.execute(
         StatsCalculationJob.__table__.select()
@@ -147,30 +132,19 @@ async def test_deduplication_different_seasons(db_session, queue):
 
 
 @pytest.mark.asyncio
-async def test_deduplication_global_vs_season(db_session, queue):
-    """Test that global and season calculations are separate."""
-    # First create a season so we can reference it
-    # Create league/season directly via ORM to avoid needing creator_user_id
-    from backend.database.models import League, Season
-    from datetime import date
-    
+async def test_deduplication_global_vs_league(db_session, queue):
+    """Test that global and league calculations are separate."""
+    # Create league directly via ORM
+    from backend.database.models import League
+
     league = League(name="Test League", is_open=True)
     db_session.add(league)
     await db_session.flush()
-    
-    season = Season(
-        league_id=league.id,
-        name="Test Season",
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
-    )
-    db_session.add(season)
-    await db_session.flush()
-    
+
     global_job_id = await queue.enqueue_calculation(db_session, "global", None)
-    season_job_id = await queue.enqueue_calculation(db_session, "season", season.id)
-    
-    assert global_job_id != season_job_id
+    league_job_id = await queue.enqueue_calculation(db_session, "league", league.id)
+
+    assert global_job_id != league_job_id
 
 
 @pytest.mark.asyncio
@@ -307,17 +281,17 @@ async def test_deduplication_running_job(db_session, queue):
 async def test_register_callbacks_with_valid_functions():
     """Test that valid callable functions can be registered."""
     queue = StatsCalculationQueue()
-    
+
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
-    
+
     async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
-    
+
     # Should not raise
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
 
 
@@ -325,26 +299,26 @@ async def test_register_callbacks_with_valid_functions():
 async def test_register_callbacks_with_non_callable_global():
     """Test that registering non-callable global callback raises TypeError."""
     queue = StatsCalculationQueue()
-    
+
     async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
-    
+
     with pytest.raises(TypeError, match="global_calc_callback must be callable"):
         queue.register_calculation_callbacks(
             global_calc_callback=None,
-            season_calc_callback=season_calc
+            league_calc_callback=league_calc
         )
 
 
 @pytest.mark.asyncio
-async def test_register_callbacks_with_non_callable_season():
-    """Test that registering non-callable season callback raises TypeError."""
+async def test_register_callbacks_with_non_callable_league():
+    """Test that registering non-callable league callback raises TypeError."""
     queue = StatsCalculationQueue()
-    
+
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
-    
-    with pytest.raises(TypeError, match="season_calc_callback must be callable"):
+
+    with pytest.raises(TypeError, match="league_calc_callback must be callable"):
         queue.register_calculation_callbacks(
             global_calc_callback=global_calc,
             league_calc_callback="not a function"
@@ -355,25 +329,25 @@ async def test_register_callbacks_with_non_callable_season():
 async def test_register_callbacks_re_registration():
     """Test that callbacks can be re-registered (useful for testing)."""
     queue = StatsCalculationQueue()
-    
+
     async def global_calc1(session):
         return {"player_count": 1, "match_count": 1}
-    
+
     async def league_calc1(session, league_id):
         return {"player_count": 1, "match_count": 1}
-    
+
     async def global_calc2(session):
         return {"player_count": 2, "match_count": 2}
-    
-    async def season_calc2(session, season_id):
+
+    async def league_calc2(session, league_id):
         return {"player_count": 2, "match_count": 2}
-    
+
     # First registration
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc1,
         league_calc_callback=league_calc1
     )
-    
+
     # Re-registration should work (with warning logged)
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc2,
@@ -426,7 +400,7 @@ async def test_run_calculation_global_callback_executed(db_session):
     
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
     
     # Create and run a global calculation job
@@ -535,21 +509,21 @@ async def test_run_calculation_season_callback_executed(db_session):
 
 
 @pytest.mark.asyncio
-async def test_run_calculation_season_without_season_id_raises_error(db_session):
-    """Test that season calculation without season_id raises ValueError."""
+async def test_run_calculation_league_without_league_id_raises_error(db_session):
+    """Test that league calculation without league_id raises ValueError."""
     queue = StatsCalculationQueue()
-    
+
     async def global_calc(session):
         return {"player_count": 0, "match_count": 0}
-    
+
     async def league_calc(session, league_id):
         return {"player_count": 0, "match_count": 0}
-    
+
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
-    
+
     # Create a league job without league_id
     job = StatsCalculationJob(
         calc_type="league",
@@ -560,15 +534,15 @@ async def test_run_calculation_season_without_season_id_raises_error(db_session)
     db_session.add(job)
     await db_session.commit()
     await db_session.refresh(job)
-    
+
     job_id = job.id  # Store ID before rollback
     # Should raise ValueError
     with pytest.raises(ValueError, match="league_id required for league calculation"):
         await queue._run_calculation(job_id)
-    
+
     # Rollback the test session to start a fresh transaction that will see the committed changes
     await db_session.rollback()
-    
+
     # Job should be marked as failed
     # Re-query to get fresh data from database
     result = await db_session.execute(
@@ -577,7 +551,7 @@ async def test_run_calculation_season_without_season_id_raises_error(db_session)
     updated_job = result.scalar_one()
     assert updated_job.status == StatsCalculationJobStatus.FAILED
     assert updated_job.completed_at is not None
-    assert "season_id required" in updated_job.error_message
+    assert "league_id required" in updated_job.error_message
 
 
 @pytest.mark.asyncio
@@ -593,7 +567,7 @@ async def test_run_calculation_callback_exception_marks_job_failed(db_session):
     
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
     
     # Create and run a global calculation job
@@ -639,7 +613,7 @@ async def test_run_calculation_unknown_calc_type_raises_error(db_session):
     
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
     
     # Create a job with unknown calc_type
@@ -685,7 +659,7 @@ async def test_run_calculation_nonexistent_job_returns_early(db_session):
     
     queue.register_calculation_callbacks(
         global_calc_callback=global_calc,
-        season_calc_callback=season_calc
+        league_calc_callback=league_calc
     )
     
     # Try to run calculation for non-existent job

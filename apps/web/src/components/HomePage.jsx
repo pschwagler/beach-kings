@@ -182,6 +182,11 @@ export default function HomePage() {
                   currentUserPlayer={currentUserPlayer}
                   onTabChange={handleTabChange}
                   onMatchClick={(match) => {
+                    const sessionCode = match?.["Session Code"];
+                    if (sessionCode) {
+                      router.push(`/session/${sessionCode}`);
+                      return;
+                    }
                     const leagueId = match?.["League ID"];
                     if (leagueId) {
                       const params = new URLSearchParams();

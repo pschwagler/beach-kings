@@ -1106,14 +1106,14 @@ h1 {
   border: none;
 }
 
-.btn-success:hover {
-  background: var(--deep-ocean);
+.btn-success:hover:not(:disabled) {
+  background: var(--primary-dark);
   box-shadow: none;
   transform: none;
 }
 
-.btn-success:active {
-  background: var(--deep-ocean);
+.btn-success:active:not(:disabled) {
+  background: var(--primary-dark);
   box-shadow: none;
   transform: scale(0.98);
 }
@@ -1157,6 +1157,38 @@ h1 {
   background: #047857;
   box-shadow: none;
   transform: scale(0.98);
+}
+
+/* Ghost: transparent bg, gray text - for secondary actions (Cancel) */
+.button.btn-ghost {
+  background: transparent;
+  color: var(--gray-700);
+  border: none;
+}
+
+.button.btn-ghost:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.button.btn-ghost:active:not(:disabled) {
+  background: var(--gray-200);
+}
+
+/* Outline: bordered primary - for secondary CTAs (Add New Match) */
+.button.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.button.btn-outline:hover:not(:disabled) {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.button.btn-outline:active:not(:disabled) {
+  background: rgba(44, 122, 143, 0.15);
 }
 
 .loading {
@@ -6177,65 +6209,198 @@ select.form-select {
   transform: scale(0.95);
 }
 
-/* Session Players Modal */
-.session-players-modal {
-  max-width: 560px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
+/* Session Players Drawer */
+.session-players-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  isolation: isolate;
+  animation: fadeIn 0.2s ease-out;
 }
 
-.session-players-modal .modal-body {
-  flex: 1;
+.session-players-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(900px, 100%);
+  max-width: 100%;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-left: 1px solid var(--gray-200);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+  z-index: 2002;
+  isolation: isolate;
+  animation: slideInFromRight 0.25s ease-out;
   overflow: hidden;
-  min-height: 0;
-  gap: 20px;
 }
 
-.session-players-modal-intro {
-  font-size: 0.9rem;
-  color: var(--gray-600);
-  margin: 0;
-  padding: 12px 0;
-  line-height: 1.5;
-}
-
-.session-players-current {
+.session-players-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
   flex-shrink: 0;
 }
 
-.session-players-current h3,
-.session-players-add h3 {
-  font-size: 0.85rem;
+.session-players-drawer-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: var(--gray-700);
-  margin-bottom: 10px;
+}
+
+.session-players-modal-intro {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin: 0;
+  padding: 12px 20px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.session-players-drawer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 20px;
+}
+
+.session-players-view-tabs {
+  display: flex;
+  gap: 0;
+  padding: 4px;
+  background: var(--gray-100);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.session-players-view-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-view-tab:hover {
+  color: var(--gray-800);
+  background: var(--gray-200);
+}
+
+.session-players-view-tab.active {
+  color: var(--primary);
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.session-players-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.session-players-column-title {
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: var(--gray-600);
+  margin: 0 0 12px 0;
+}
+
+.session-players-column-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
 }
 
 .session-players-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .session-players-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
+  min-height: 40px;
   border-bottom: 1px solid var(--gray-100);
   background: white;
 }
 
 .session-players-list-item:last-child {
   border-bottom: none;
+}
+
+.session-players-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-players-row-name {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.session-players-row-meta-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.session-players-row-meta {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-players-location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.session-players-creator-badge {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  font-weight: 500;
 }
 
 .session-players-remove {
@@ -6251,6 +6416,7 @@ select.form-select {
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
 .session-players-remove:hover:not(:disabled) {
@@ -6258,41 +6424,224 @@ select.form-select {
   color: var(--danger);
 }
 
-.session-players-add {
-  flex: 1;
+.session-players-add .session-players-column-scroll {
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
-.session-players-filters {
+.session-players-filters-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
 }
 
-.session-players-filters .form-input {
+.session-players-search {
   flex: 1;
+  min-width: 0;
+}
+
+.session-players-filters-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.session-players-filters-toggle:hover {
+  background: var(--gray-200);
+}
+
+.session-players-filters-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  color: white;
+  background: var(--primary);
+  border-radius: 8px;
+}
+
+.session-players-filters-trigger-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.session-players-filters-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-200);
+  z-index: 100;
+}
+
+.session-players-filters-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: flex-start;
+}
+
+.session-players-filters-panel .form-select {
+  min-width: 120px;
+}
+
+/* Multiselect filter sections: show all options with selected state */
+.session-players-filter-multiselect {
   min-width: 140px;
+}
+
+.session-players-filter-multiselect-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+
+.session-players-filter-multiselect-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.session-players-filter-multiselect-list li {
+  margin: 0;
+}
+
+.session-players-filter-multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  color: var(--gray-800);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-filter-multiselect-option:hover {
+  background: var(--gray-100);
+}
+
+.session-players-filter-multiselect-option.selected {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.session-players-filter-multiselect-option.selected:hover {
+  background: var(--primary-lighter);
+  filter: brightness(0.97);
+}
+
+.session-players-filter-multiselect-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--gray-400);
+}
+
+.session-players-filter-multiselect-option.selected .session-players-filter-multiselect-check {
+  color: var(--primary);
+}
+
+.session-players-filter-multiselect-empty {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  padding: 6px 8px;
+}
+
+.session-players-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.session-players-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  padding: 4px 8px;
+  padding-right: 4px;
+  border-radius: 999px;
+}
+
+.session-players-filter-pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--gray-600);
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-filter-pill-remove:hover {
+  background: var(--gray-300);
+  color: var(--gray-900);
+}
+
+.session-players-add-list-wrapper {
+  flex: 1;
 }
 
 .session-players-add-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
-  overflow-y: auto;
-  max-height: 240px;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
 }
 
 .session-players-add-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
+  min-height: 40px;
   border-bottom: 1px solid var(--gray-100);
   background: white;
   transition: background 0.15s;
@@ -6304,6 +6653,11 @@ select.form-select {
 
 .session-players-add-item:hover {
   background: var(--gray-50);
+}
+
+.session-players-add-item .session-players-row-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .session-players-add-btn {
@@ -6319,6 +6673,7 @@ select.form-select {
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
 .session-players-add-btn:hover:not(:disabled) {
@@ -6349,6 +6704,16 @@ select.form-select {
   background: var(--gray-100);
 }
 
+.session-players-drawer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
 .session-players-empty {
   padding: 16px;
   text-align: center;
@@ -6360,6 +6725,33 @@ select.form-select {
   color: var(--color-error, #dc2626);
   margin-bottom: 8px;
   font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .session-players-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 95vh;
+    border-left: none;
+    border-radius: 20px 20px 0 0;
+    animation: slideUpMobile 0.25s ease-out;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .session-players-drawer-body {
+    padding: 16px;
+  }
+
+  .session-players-column-scroll {
+    max-height: 280px;
+  }
+
+  .session-players-add .session-players-column-scroll.session-players-add-list-wrapper {
+    max-height: 320px;
+  }
 }
 
 .add-players-table-remove {
@@ -6880,6 +7272,36 @@ select.form-select {
   margin-top: 8px;
 }
 
+.session-ended-block {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+}
+
+.session-ended-label {
+  color: var(--gray-600);
+}
+
+.session-ended-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.session-ended-link:hover:not(:disabled) {
+  color: var(--primary-darker);
+}
+
+.session-ended-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .session-page-matches {
   background: white;
   border-radius: 12px;
@@ -7097,26 +7519,11 @@ select.form-select {
   color: var(--gray-900);
 }
 
+/* Create game button - outline primary, minimal aesthetic */
 .my-games-tab-create-btn {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  background: var(--primary);
-  color: white;
-  border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
-.my-games-tab-create-btn:hover:not(:disabled) {
-  background: var(--primary-dark);
-  box-shadow: var(--shadow-md);
-}
-
-.my-games-tab-create-btn:disabled {
-  opacity: 0.7;
 }
 
 .my-games-tab-error {
@@ -8123,13 +8530,14 @@ button.match-config-toggle.inline svg {
 .session-actions {
   display: flex;
   gap: 12px;
+  margin-top: 20px;
   margin-bottom: 24px;
   justify-content: flex-start;
   flex-wrap: wrap;
 }
 
 .session-btn {
-  padding: 8px;
+  padding: 6px 12px;
   border-radius: 6px;
   font-size: 0.8em;
   font-weight: 500;
@@ -8140,19 +8548,6 @@ button.match-config-toggle.inline svg {
   transition: all 0.15s ease;
   border: none;
   font-family: "Urbanist", sans-serif;
-}
-
-.session-btn-add {
-  background: var(--primary);
-  color: white;
-}
-
-.session-btn-add:hover {
-  background: var(--deep-ocean);
-}
-
-.session-btn-add:active {
-  background: var(--deep-ocean);
 }
 
 .session-btn-upload {
@@ -8168,26 +8563,6 @@ button.match-config-toggle.inline svg {
   background: var(--secondary-dark, #4338ca);
 }
 
-.session-btn-submit {
-  background: var(--muted-red);
-  color: white;
-  white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(255, 120, 73, 0.2);
-}
-
-.session-btn-submit:hover {
-  background: #e55a2b;
-  color: white;
-  box-shadow: 0 4px 8px rgba(255, 120, 73, 0.3);
-  transform: translateY(-1px);
-}
-
-.session-btn-submit:active {
-  background: #cc4a24;
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(255, 120, 73, 0.2);
-}
-
 .session-btn-delete {
   background: #dc2626;
   color: white;
@@ -8201,15 +8576,6 @@ button.match-config-toggle.inline svg {
 .session-btn-delete:active {
   background: #991b1b;
   color: white;
-}
-
-.session-btn-cancel {
-  background-color: #ef4444;
-  color: white;
-}
-
-.session-btn-cancel:hover {
-  background-color: #dc2626;
 }
 
 .session-btn:disabled {
@@ -11513,11 +11879,6 @@ button.match-config-toggle.inline svg {
 
   .session-actions {
     gap: 10px;
-  }
-
-  .session-btn-cancel {
-    color: white;
-    background-color: var(--ocean-gray);
   }
 
   /* Clipboard table: remove blocky border & --sand shadow (match rankings table treatment) */

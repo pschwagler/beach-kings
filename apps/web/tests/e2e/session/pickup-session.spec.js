@@ -8,6 +8,7 @@ import {
   formatPhoneForInput,
   clearBrowserStorage,
   authenticateUser,
+  completeTestUserProfile,
   createPickupSession,
   invitePlayerToSession,
 } from '../utils/test-helpers.js';
@@ -52,6 +53,9 @@ test.describe('Pickup Session (Non-League)', () => {
 
     // Authenticate to get token for API calls
     authToken = await authenticateUser(testPhoneNumber, testPassword);
+
+    // Complete profile to prevent "Complete Your Profile" modal from blocking tests
+    await completeTestUserProfile(authToken);
 
     // Create 4 test players that we can add to sessions
     const api = createApiClient(authToken);
@@ -113,14 +117,14 @@ test.describe('Pickup Session (Non-League)', () => {
     await sessionPage.waitForReady();
 
     // 3. Verify it's a pickup session
-    expect(await sessionPage.isPickupSession()).toBeTruthy();
+    await expect(page.locator('.open-sessions-list-badge.pickup')).toBeVisible({ timeout: 5000 });
 
     // 4. Should show "add players" block since we have < 4 players
-    expect(await sessionPage.needsMorePlayers()).toBeTruthy();
+    await expect(page.locator('.session-page-add-players-block')).toBeVisible({ timeout: 5000 });
 
     // 5. Add 4 players via the modal (should auto-open)
     // The modal should auto-open when < 4 players
-    await page.waitForSelector('.session-players-modal', { state: 'visible', timeout: 5000 });
+    await page.waitForSelector('.session-players-drawer, .session-players-modal', { state: 'visible', timeout: 5000 });
 
     // Add each test player
     for (const player of playerIds) {
@@ -164,11 +168,12 @@ test.describe('Pickup Session (Non-League)', () => {
     await auth.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await auth.fillPassword(testPassword);
 
-    await page.waitForResponse(
+    const responsePromise = page.waitForResponse(
       response => response.url().includes('/api/auth/login'),
       { timeout: 15000 }
     );
     await auth.submit();
+    await responsePromise;
     await homePage.waitForRedirectToHome();
 
     // Navigate to the session
@@ -236,11 +241,12 @@ test.describe('Pickup Session (Non-League)', () => {
     await auth.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await auth.fillPassword(testPassword);
 
-    await page.waitForResponse(
+    const responsePromise = page.waitForResponse(
       response => response.url().includes('/api/auth/login'),
       { timeout: 15000 }
     );
     await auth.submit();
+    await responsePromise;
     await homePage.waitForRedirectToHome();
 
     // Navigate to the session
@@ -281,6 +287,10 @@ test.describe('Pickup Session (Non-League)', () => {
     const code = await getVerificationCodeForPhone(secondPhone);
     await verifyPhone(secondPhone, code);
 
+    // Complete second user's profile
+    const secondToken = await authenticateUser(secondPhone, testPassword);
+    await completeTestUserProfile(secondToken);
+
     // Open new browser context for second user
     const context2 = await browser.newContext();
     const page2 = await context2.newPage();
@@ -297,11 +307,12 @@ test.describe('Pickup Session (Non-League)', () => {
     await auth2.fillPhoneNumber(formatPhoneForInput(secondPhone));
     await auth2.fillPassword(testPassword);
 
-    await page2.waitForResponse(
+    const responsePromise2 = page2.waitForResponse(
       response => response.url().includes('/api/auth/login'),
       { timeout: 15000 }
     );
     await auth2.submit();
+    await responsePromise2;
     await homePage2.waitForRedirectToHome();
 
     // Navigate to the session - should auto-join
@@ -338,11 +349,12 @@ test.describe('Pickup Session (Non-League)', () => {
     await auth.fillPhoneNumber(formatPhoneForInput(testPhoneNumber));
     await auth.fillPassword(testPassword);
 
-    await page.waitForResponse(
+    const responsePromise = page.waitForResponse(
       response => response.url().includes('/api/auth/login'),
       { timeout: 15000 }
     );
     await auth.submit();
+    await responsePromise;
     await homePage.waitForRedirectToHome();
 
     // Navigate to My Games tab

@@ -751,7 +751,7 @@ async def get_active_session(session: AsyncSession) -> Optional[Dict]:
 async def get_or_create_active_league_session(
     session: AsyncSession,
     league_id: int,
-    date: str,
+    session_date: str,
     name: Optional[str] = None,
     created_by: Optional[int] = None,
     season_id: Optional[int] = None
@@ -759,15 +759,15 @@ async def get_or_create_active_league_session(
     """
     Get or create an active session for a league and date atomically.
     Uses SELECT FOR UPDATE to prevent race conditions.
-    
+
     Args:
         session: Database session
         league_id: League ID
-        date: Session date
+        session_date: Session date
         name: Optional session name
         created_by: Optional player ID who created the session
         season_id: Optional season ID - if provided, use this season instead of finding active season
-        
+
     Returns:
         Dict with session info
     """
@@ -817,7 +817,7 @@ async def get_or_create_active_league_session(
             select(Session)
             .where(
                 and_(
-                    Session.date == date,
+                    Session.date == session_date,
                     Session.season_id == active_season.id,
                     Session.status == SessionStatus.ACTIVE
                 )
@@ -825,7 +825,7 @@ async def get_or_create_active_league_session(
             .with_for_update()  # Lock matching rows (waits if locked by another transaction)
         )
         existing_session = result.scalar_one_or_none()
-        
+
         if existing_session:
             # Return existing session
             return {
@@ -841,7 +841,7 @@ async def get_or_create_active_league_session(
             select(Session)
             .where(
                 and_(
-                    Session.date == date,
+                    Session.date == session_date,
                     Session.season_id == active_season.id,
                     Session.status == SessionStatus.ACTIVE
                 )
@@ -862,24 +862,24 @@ async def get_or_create_active_league_session(
     count_result = await session.execute(
         select(func.count(Session.id)).where(
             and_(
-                Session.date == date,
+                Session.date == session_date,
                 Session.season_id == active_season.id
             )
         )
     )
     session_count = count_result.scalar() or 0
-    
+
     # Generate session name with numbering (format date consistently)
-    formatted_date = format_session_date(date)
+    formatted_date = format_session_date(session_date)
     if name:
         session_name = name
     elif session_count == 0:
         session_name = formatted_date
     else:
         session_name = f"{formatted_date} Session #{session_count + 1}"
-    
+
     new_session = Session(
-        date=date,
+        date=session_date,
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
@@ -1020,17 +1020,27 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
     ]
 
 
+def _normalize_list_str(lst: Optional[List[str]]) -> List[str]:
+    """Return non-empty stripped strings from a list."""
+    if not lst:
+        return []
+    return [s.strip().lower() for s in lst if s is not None and str(s).strip()]
+
+
 async def list_players_search(
     session: AsyncSession,
     q: Optional[str] = None,
-    location_id: Optional[str] = None,
-    league_id: Optional[int] = None,
+    location_ids: Optional[List[str]] = None,
+    league_ids: Optional[List[int]] = None,
+    genders: Optional[List[str]] = None,
+    levels: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> Tuple[List[Dict], int]:
     """
     Search players with optional filters. Returns (items, total).
-    Each item has id, full_name, nickname, name (full_name only; nicknames used on backend for matching only), and optionally location_id, location_name.
+    Filter lists are OR within each dimension (e.g. multiple locations = player in any of them).
+    Each item has id, full_name, nickname, name (full_name only), gender, level, location_id, location_name.
     """
     stmt = select(Player).where(True)
     count_stmt = select(func.count(Player.id)).select_from(Player).where(True)
@@ -1041,14 +1051,29 @@ async def list_players_search(
         stmt = stmt.where(name_cond)
         count_stmt = count_stmt.where(name_cond)
 
-    if location_id:
-        stmt = stmt.where(Player.location_id == location_id)
-        count_stmt = count_stmt.where(Player.location_id == location_id)
+    loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
+    if loc_ids:
+        stmt = stmt.where(Player.location_id.in_(loc_ids))
+        count_stmt = count_stmt.where(Player.location_id.in_(loc_ids))
 
-    if league_id is not None:
-        subq = select(LeagueMember.player_id).where(LeagueMember.league_id == league_id).distinct()
-        stmt = stmt.where(Player.id.in_(subq))
-        count_stmt = count_stmt.where(Player.id.in_(subq))
+    if league_ids:
+        league_ids_clean = [x for x in league_ids if x is not None]
+        if league_ids_clean:
+            subq = select(LeagueMember.player_id).where(
+                LeagueMember.league_id.in_(league_ids_clean)
+            ).distinct()
+            stmt = stmt.where(Player.id.in_(subq))
+            count_stmt = count_stmt.where(Player.id.in_(subq))
+
+    gender_vals = _normalize_list_str(genders)
+    if gender_vals:
+        stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
+        count_stmt = count_stmt.where(func.lower(Player.gender).in_(gender_vals))
+
+    level_vals = _normalize_list_str(levels)
+    if level_vals:
+        stmt = stmt.where(func.lower(Player.level).in_(level_vals))
+        count_stmt = count_stmt.where(func.lower(Player.level).in_(level_vals))
 
     total_result = await session.execute(count_stmt)
     total = total_result.scalar() or 0
@@ -1061,11 +1086,19 @@ async def list_players_search(
     if q and q.strip():
         term = f"%{q.strip()}%"
         page_stmt = page_stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
-    if location_id:
-        page_stmt = page_stmt.where(Player.location_id == location_id)
-    if league_id is not None:
-        subq = select(LeagueMember.player_id).where(LeagueMember.league_id == league_id).distinct()
-        page_stmt = page_stmt.where(Player.id.in_(subq))
+    if loc_ids:
+        page_stmt = page_stmt.where(Player.location_id.in_(loc_ids))
+    if league_ids:
+        league_ids_clean = [x for x in league_ids if x is not None]
+        if league_ids_clean:
+            subq = select(LeagueMember.player_id).where(
+                LeagueMember.league_id.in_(league_ids_clean)
+            ).distinct()
+            page_stmt = page_stmt.where(Player.id.in_(subq))
+    if gender_vals:
+        page_stmt = page_stmt.where(func.lower(Player.gender).in_(gender_vals))
+    if level_vals:
+        page_stmt = page_stmt.where(func.lower(Player.level).in_(level_vals))
     page_stmt = (
         page_stmt.order_by(func.coalesce(Player.nickname, Player.full_name).asc().nullslast(), Player.id.asc())
         .limit(min(limit, 500))
@@ -3721,6 +3754,7 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
         eh.elo_after,
         Session.status.label("session_status"),
         Session.name.label("session_name"),
+        Session.code.label("session_code"),
         Session.season_id.label("season_id"),
         Season.league_id.label("league_id")
     ).select_from(
@@ -3807,6 +3841,7 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
             "Session Status": session_status_value,
             "Session ID": row.session_id,
             "Session Name": row.session_name,
+            "Session Code": row.session_code,
             "Season ID": row.season_id,
             "League ID": row.league_id
         })
@@ -3992,6 +4027,7 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
             "league_id": r.league_id,
             "match_count": match_counts.get(r.id, 0),
             "participation": participation,
+            "created_by": r.created_by,
             "created_by_name": created_by_name,
             "updated_at": r.updated_at.isoformat() if r.updated_at else None,
         })
@@ -3999,19 +4035,21 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
 
 
 async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[Dict]:
-    """Return session by code, with league_id if league session, created_by_name; None if not found."""
+    """Return session by code, with league_id, created_by_name, updated_at, updated_by_name; None if not found."""
     creator = aliased(Player)
+    updater = aliased(Player)
     q = (
-        select(Session, Season.league_id, creator.full_name)
+        select(Session, Season.league_id, creator.full_name, updater.full_name)
         .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(creator, Session.created_by == creator.id)
+        .outerjoin(updater, Session.updated_by == updater.id)
         .where(Session.code == code)
     )
     result = await db_session.execute(q)
     row = result.one_or_none()
     if not row:
         return None
-    s, league_id, created_by_name = row
+    s, league_id, created_by_name, updated_by_name = row
     return {
         "id": s.id,
         "code": s.code,
@@ -4024,6 +4062,9 @@ async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[D
         "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "created_by_name": created_by_name,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        "updated_by": s.updated_by,
+        "updated_by_name": updated_by_name,
     }
 
 
@@ -4119,14 +4160,21 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     if not part_player_ids:
         return []
 
-    # Fetch full_name for all player IDs
-    players_q = select(Player.id, Player.full_name, Player.nickname).where(Player.id.in_(part_player_ids))
+    # Fetch player info and location for all player IDs
+    players_q = (
+        select(Player.id, Player.full_name, Player.nickname, Player.level, Player.gender, Location.name.label("location_name"))
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(Player.id.in_(part_player_ids))
+    )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
     return [
         {
             "player_id": r.id,
             "full_name": r.full_name or r.nickname or f"Player {r.id}",
+            "level": r.level,
+            "gender": r.gender,
+            "location_name": r.location_name,
         }
         for r in rows
     ]

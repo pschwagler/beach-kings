@@ -10,7 +10,7 @@ export class LeaguePage extends BasePage {
     this.selectors = {
       // Tabs (IDs match LeagueMenuBar item.id values)
       leaderboardTab: '[data-testid="rankings-tab"], button:has-text("Leaderboard")',
-      gamesTab: '[data-testid="matches-tab"], button:has-text("Games")',
+      gamesTab: '[data-testid="matches-tab"]',
       signUpsTab: '[data-testid="signups-tab"], button:has-text("Sign Ups")',
       detailsTab: '[data-testid="details-tab"], button:has-text("Details")',
       messagesTab: '[data-testid="messages-tab"], button:has-text("Messages")',
@@ -24,8 +24,8 @@ export class LeaguePage extends BasePage {
       playerSearchInput: '#rankings-player-search, input[placeholder*="Search Player"]',
       
       // Player Details Drawer
-      playerDetailsDrawer: '[data-testid="player-details-drawer"], .player-details-drawer',
-      playerDetailsCloseButton: '[data-testid="player-details-close"], .player-details-drawer__close, button[aria-label="Close"]',
+      playerDetailsDrawer: '[data-testid="player-details-drawer"], .player-details',
+      playerDetailsCloseButton: '[data-testid="player-details-close"], .player-details-close-btn, button[aria-label="Close player details"]',
       
       // Games/Matches
       matchesTable: '[data-testid="matches-table"], .matches-table',
@@ -84,7 +84,18 @@ export class LeaguePage extends BasePage {
     await super.goto(`/league/${leagueId}`);
     // Wait for page to be ready
     await this.page.waitForLoadState('domcontentloaded');
-    await this.page.waitForTimeout(500);
+    // Wait for league data to finish loading (skeleton disappears)
+    await this.page.waitForFunction(
+      () => {
+        const content = document.querySelector('.league-content');
+        if (!content) return false;
+        // Loading state has skeleton-text elements
+        const skeletons = content.querySelectorAll('.skeleton-text');
+        return skeletons.length === 0;
+      },
+      { timeout: 15000 }
+    );
+    await this.page.waitForTimeout(300);
   }
 
   /**

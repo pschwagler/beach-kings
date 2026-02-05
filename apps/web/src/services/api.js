@@ -4,11 +4,12 @@
 
 import axios from 'axios';
 
-// Base URL - empty string for same-origin, or set to API URL for development
-// In Next.js, we use process.env.NEXT_PUBLIC_API_URL for client-side env vars
+// In development we use relative /api (empty base) so Next.js proxy decides the backend;
+// no compile-time URL is inlined, avoiding .next cache poisoning between dev and E2E.
+// In production we use NEXT_PUBLIC_API_URL.
 // eslint-disable-next-line no-undef
-const API_BASE_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_API_URL || '')
+const API_BASE_URL = typeof window !== 'undefined'
+  ? (process.env.NODE_ENV === 'development' ? '' : (process.env.NEXT_PUBLIC_API_URL || ''))
   : '';
 
 const ACCESS_TOKEN_KEY = 'beach_access_token';
@@ -238,12 +239,31 @@ export const getRankings = async (queryParams = {}) => {
  * Get list of players with optional search and filters. Returns { items, total }.
  * @param {Object} params - Optional: { q, location_id, league_id, limit, offset }
  */
+/**
+ * Get players with optional search and filters. Supports multi-select filters via arrays.
+ * @param {Object} params - q, location_id (string or string[]), league_id (number or number[]),
+ *   gender (string or string[]), level (string or string[]), limit, offset
+ */
 export const getPlayers = async (params = {}) => {
-  const { q, location_id, league_id, limit = 50, offset = 0 } = params;
+  const {
+    q,
+    location_id,
+    league_id,
+    gender,
+    level,
+    limit = 50,
+    offset = 0,
+  } = params;
   const searchParams = new URLSearchParams();
   if (q != null && q !== '') searchParams.set('q', String(q));
-  if (location_id != null && location_id !== '') searchParams.set('location_id', String(location_id));
-  if (league_id != null && league_id !== '') searchParams.set('league_id', String(league_id));
+  const locationIds = Array.isArray(location_id) ? location_id : (location_id != null && location_id !== '' ? [location_id] : []);
+  locationIds.forEach((id) => searchParams.append('location_id', String(id)));
+  const leagueIds = Array.isArray(league_id) ? league_id : (league_id != null && league_id !== '' ? [Number(league_id)] : []);
+  leagueIds.forEach((id) => searchParams.append('league_id', String(id)));
+  const genders = Array.isArray(gender) ? gender : (gender != null && gender !== '' ? [gender] : []);
+  genders.forEach((g) => searchParams.append('gender', String(g)));
+  const levels = Array.isArray(level) ? level : (level != null && level !== '' ? [level] : []);
+  levels.forEach((l) => searchParams.append('level', String(l)));
   searchParams.set('limit', String(limit));
   searchParams.set('offset', String(offset));
   const response = await api.get(`/api/players?${searchParams.toString()}`);

@@ -1,0 +1,44 @@
+# Rules for codebase
+- All methods should aim to be DRY, refactored, and professional / production ready
+- All methods should be well-documented with docstrings
+- All methods should be well-tested with unit tests
+
+# Player names
+- player_name in API responses (e.g. league members, player list) must be full_name only. Do not use nickname as the primary display name in API payloads (Nicknames are used on the backend for name matching only, e.g. search, photo match, fuzzy match).
+
+Architecture setup:
+"""
+App Architecture Overview
+-------------------------
+
+This project is a modern, full-stack web application structured with a monorepo and leverages a Makefile to simplify common operations for development, testing, and deployment. The following overview should help agents and developers understand how to work with, build, and run the application.
+
+1. **Monorepo Structure (Turborepo)**
+   - The codebase uses [Turborepo](https://turbo.build/) to organize multiple apps and packages under a single repository.
+   - Apps (backend, frontend) and packages (shared libraries, utilities) reside in their respective subdirectories.
+
+2. **Backend Services**
+   - Located in `apps/backend/`.
+   - Python async service, typically using FastAPI and PostgreSQL (async).
+   - Runs via Docker for development and in production
+
+3. **Frontend**
+   - Located under `apps/frontend/` (React, possibly with Next.js).
+   - Managed by Turborepo tasks, npm/yarn scripts, and Makefile shorthands.
+
+4. **Database**
+   - PostgreSQL service orchestrated via Docker Compose.
+   - Migrations run automatically on system startup (FastApi lifespan)
+
+5. **Dockerized Development**
+   - Docker Compose manages containers for backend, frontend, db, workers, etc.
+
+6. **Testing**
+   - Unit and integration tests are run per workspace/package via `turbo`, native runners, or Makefile short-hands.
+   - **Run all tests:** `make test`
+   - Or, for more control per package, use `turbo run test` or like `cd apps/backend && pytest`
+   - ** End-to-End Tests: ** Playwright tests located in `apps/web/tests/e2e/` - run with `cd apps/web && npm run test:e2e` 
+
+8. **Shared Libraries**
+   - Found under `packages/` or `libs/` directory.
+   - Used for shared domain logic, types, and utilities.

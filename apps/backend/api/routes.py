@@ -3,7 +3,7 @@ API route handlers for the Beach Volleyball ELO system.
 """
 
 import asyncio
-from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Request, Depends, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.responses import Response, StreamingResponse
 from slowapi import Limiter  # type: ignore
 from slowapi.errors import RateLimitExceeded
@@ -1517,8 +1517,10 @@ async def query_rankings(
 @router.get("/api/players")
 async def list_players(
     q: Optional[str] = None,
-    location_id: Optional[str] = None,
-    league_id: Optional[int] = None,
+    location_id: Optional[List[str]] = Query(None),
+    league_id: Optional[List[int]] = Query(None),
+    gender: Optional[List[str]] = Query(None),
+    level: Optional[List[str]] = Query(None),
     limit: int = 50,
     offset: int = 0,
     session: AsyncSession = Depends(get_db_session),
@@ -1526,11 +1528,13 @@ async def list_players(
     """
     Get list of players with optional search and filters. Always returns { items, total }.
 
-    Query params: q (search name), location_id, league_id, limit (default 50), offset (default 0).
+    Query params: q (search name), location_id (repeatable), league_id (repeatable),
+    gender (repeatable), level (repeatable), limit (default 50), offset (default 0).
     """
     try:
         items, total = await data_service.list_players_search(
-            session, q=q, location_id=location_id, league_id=league_id, limit=limit, offset=offset
+            session, q=q, location_ids=location_id, league_ids=league_id,
+            genders=gender, levels=level, limit=limit, offset=offset
         )
         return {"items": items, "total": total}
     except Exception as e:
@@ -2884,7 +2888,7 @@ async def create_match(
                     session_obj = await data_service.get_or_create_active_league_session(
                         session=session,
                         league_id=league_id,
-                        date=match_date,
+                        session_date=match_date,
                         created_by=player_id,
                         season_id=selected_season.id
                     )
@@ -2957,16 +2961,24 @@ async def update_match(
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
         session_status = match.get('session_status')
-        # Allow match editing if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin
+        # Allow match editing if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin or non-league creator
         if session_status != 'ACTIVE':
             if session_status not in ('SUBMITTED', 'EDITED'):
                 raise HTTPException(status_code=400, detail="Cannot edit matches in a session with this status")
-            # Check if user is league admin
             session_id = match.get('session_id')
             if not session_id:
                 raise HTTPException(status_code=400, detail="Match does not belong to a session")
-            if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
-                raise HTTPException(status_code=403, detail="Only league admins can edit matches in submitted sessions")
+            session_obj = await data_service.get_session(session, session_id)
+            if not session_obj:
+                raise HTTPException(status_code=404, detail="Session not found")
+            # Non-league: allow session creator to edit
+            if session_obj.get('season_id') is None:
+                player = await data_service.get_player_by_user_id(session, current_user["id"])
+                if not player or session_obj.get('created_by') != player["id"]:
+                    raise HTTPException(status_code=403, detail="Only the session creator can edit matches in this session")
+            else:
+                if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
+                    raise HTTPException(status_code=403, detail="Only league admins can edit matches in submitted sessions")
         
         # Get player_id for updated_by
         player_id = None
@@ -3018,16 +3030,24 @@ async def delete_match(
             raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
         
         session_status = match.get('session_status')
-        # Allow match deletion if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin
+        # Allow match deletion if session is ACTIVE, or if session is SUBMITTED/EDITED and user is league admin or non-league creator
         if session_status != 'ACTIVE':
             if session_status not in ('SUBMITTED', 'EDITED'):
                 raise HTTPException(status_code=400, detail="Cannot delete matches in a session with this status")
-            # Check if user is league admin
             session_id = match.get('session_id')
             if not session_id:
                 raise HTTPException(status_code=400, detail="Match does not belong to a session")
-            if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
-                raise HTTPException(status_code=403, detail="Only league admins can delete matches in submitted sessions")
+            session_obj = await data_service.get_session(session, session_id)
+            if not session_obj:
+                raise HTTPException(status_code=404, detail="Session not found")
+            # Non-league: allow session creator to delete
+            if session_obj.get('season_id') is None:
+                player = await data_service.get_player_by_user_id(session, current_user["id"])
+                if not player or session_obj.get('created_by') != player["id"]:
+                    raise HTTPException(status_code=403, detail="Only the session creator can delete matches in this session")
+            else:
+                if not await is_user_admin_of_session_league(session, current_user["id"], session_id):
+                    raise HTTPException(status_code=403, detail="Only league admins can delete matches in submitted sessions")
         
         # Delete the match
         success = await data_service.delete_match_async(session, match_id)

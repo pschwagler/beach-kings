@@ -528,24 +528,24 @@ class TestPlayerEndpoints:
         assert response.json()["status"] == "success"
     
     def test_get_player_stats(self, monkeypatch):
-        """Test getting player statistics."""
+        """Test getting player statistics by player ID."""
         client = TestClient(app)
-        
-        async def fake_get_player_stats(session, player_name):
+
+        async def fake_get_player_stats_by_id(session, player_id):
             return {
-                "name": player_name,
-                "games": 10,
+                "player_id": player_id,
+                "total_games": 10,
                 "wins": 7,
                 "losses": 3,
-                "win_rate": 0.7,
+                "win_rate": 70.0,
                 "current_elo": 1250
             }
-        
-        monkeypatch.setattr(data_service, "get_player_stats", fake_get_player_stats, raising=True)
-        
-        response = client.get("/api/players/Test%20Player")
+
+        monkeypatch.setattr(data_service, "get_player_stats_by_id", fake_get_player_stats_by_id, raising=True)
+
+        response = client.get("/api/players/123/stats")
         assert response.status_code == 200
-        assert response.json()["name"] == "Test Player"
+        assert response.json()["player_id"] == 123
     
     def test_get_user_player(self, monkeypatch):
         """Test getting current user's player profile."""
@@ -739,37 +739,42 @@ class TestStatsEndpoints:
 # ============================================================================
 
 class TestSessionEndpoints:
-    """Tests for session endpoints."""
-    
-    def test_list_sessions(self, monkeypatch):
-        """Test listing sessions."""
+    """Tests for session endpoints.
+
+    Note: Session API endpoints are tested more thoroughly in test_data_service_crud.py
+    which tests the underlying data_service functions. These route tests verify
+    basic endpoint availability and auth requirements.
+    """
+
+    def test_get_open_sessions_requires_auth(self):
+        """Test that open sessions endpoint requires authentication."""
         client = TestClient(app)
-        
-        async def fake_get_sessions(session):
-            return [
-                {"id": 1, "date": "2024-01-01", "is_pending": False},
-                {"id": 2, "date": "2024-01-02", "is_pending": True}
-            ]
-        
-        monkeypatch.setattr(data_service, "get_sessions", fake_get_sessions, raising=True)
-        
-        response = client.get("/api/sessions")
-        assert response.status_code == 200
-        assert len(response.json()) == 2
-    
-    def test_get_active_session(self, monkeypatch):
-        """Test getting active session."""
+        response = client.get("/api/sessions/open")
+        assert response.status_code == 403
+
+    def test_get_session_by_code_requires_auth(self):
+        """Test that session by code endpoint requires authentication."""
         client = TestClient(app)
-        
-        async def fake_get_active_session(session):
-            return {"id": 1, "date": "2024-01-01", "is_pending": True}
-        
-        monkeypatch.setattr(data_service, "get_active_session", fake_get_active_session, raising=True)
-        
-        # Active session is accessed via /api/sessions?active=true
-        response = client.get("/api/sessions?active=true")
-        assert response.status_code == 200
-        assert response.json()["is_pending"] is True
+        response = client.get("/api/sessions/by-code/ABC12345")
+        assert response.status_code == 403
+
+    def test_create_session_requires_auth(self):
+        """Test that create session endpoint requires authentication."""
+        client = TestClient(app)
+        response = client.post("/api/sessions", json={"name": "Test"})
+        assert response.status_code == 403
+
+    def test_join_session_requires_auth(self):
+        """Test that join session endpoint requires authentication."""
+        client = TestClient(app)
+        response = client.post("/api/sessions/join", json={"code": "ABC12345"})
+        assert response.status_code == 403
+
+    def test_get_session_participants_requires_auth(self):
+        """Test that session participants endpoint requires authentication."""
+        client = TestClient(app)
+        response = client.get("/api/sessions/1/participants")
+        assert response.status_code == 403
 
 
 # ============================================================================
@@ -827,10 +832,10 @@ class TestPhotoJobStreamEndpoint:
     """Tests for GET .../photo-jobs/{job_id}/stream SSE endpoint."""
 
     def test_stream_requires_auth(self):
-        """Stream endpoint returns 401 without auth."""
+        """Stream endpoint returns 403 without auth (HTTPBearer auto_error)."""
         client = TestClient(app)
         response = client.get("/api/leagues/1/matches/photo-jobs/1/stream")
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     def test_stream_404_unknown_job(self, monkeypatch):
         """Stream endpoint returns 404 when job not found."""

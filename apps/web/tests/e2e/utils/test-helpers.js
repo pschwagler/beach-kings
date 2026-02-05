@@ -253,6 +253,30 @@ export async function authenticateUser(phoneNumber, password) {
 }
 
 /**
+ * Complete a test user's player profile via API.
+ * This prevents the "Complete Your Profile" modal from blocking e2e tests.
+ * Should be called after user creation/verification and authentication.
+ *
+ * @param {string} token - Auth token from authenticateUser()
+ * @param {object} [profileData] - Optional overrides for profile fields
+ */
+export async function completeTestUserProfile(token, profileData = {}) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+
+  const defaultProfile = {
+    gender: 'male',
+    level: 'intermediate',
+    city: 'San Diego',
+    state: 'CA',
+    ...profileData,
+  };
+
+  const response = await api.put('/api/users/me/player', defaultProfile);
+  return response.data;
+}
+
+/**
  * Create a test league via API (requires authentication token)
  * Note: The user who creates the league should automatically be added as an admin member
  */

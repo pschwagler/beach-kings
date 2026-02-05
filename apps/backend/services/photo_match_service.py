@@ -1344,7 +1344,7 @@ async def create_matches_from_session(
             session_obj = await data_service.get_or_create_active_league_session(
                 db_session,
                 league_id=session_data.get("league_id"),
-                date=match_date,
+                session_date=match_date,
                 season_id=season_id
             )
             

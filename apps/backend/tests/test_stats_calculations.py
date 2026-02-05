@@ -324,6 +324,7 @@ async def test_calculate_league_stats(db_session, test_players, test_league_and_
     assert len(season_partnerships) > 0
 
 
+@pytest.mark.asyncio
 async def test_calculate_season_stats(db_session, test_players, test_league_and_season, test_session):
     """Test season-specific stats calculation (backward compatibility)."""
     alice, bob, charlie, dave = test_players
@@ -861,9 +862,11 @@ async def test_season_calculation_only_includes_season_matches(db_session, test_
     result = await data_service.calculate_league_stats_async(db_session, league.id)
     # Extract season1 result from league result
     season1_result = result["season_counts"].get(season1.id, {})
-    assert season1_result["match_count"] == 2
-    
-    assert result["match_count"] == 1
+    # Season1 only has match1
+    assert season1_result["match_count"] == 1
+
+    # Total league matches = 2 (match1 in season1, match2 in season2)
+    assert result["league_match_count"] == 2
     
     # Check season 1 stats only include match1
     elo_history = await db_session.execute(

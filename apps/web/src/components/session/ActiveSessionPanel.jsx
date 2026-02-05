@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import MatchCard from '../match/MatchCard';
 import SessionMatchesClipboardTable from '../match/SessionMatchesClipboardTable';
 import SessionHeader from './SessionHeader';
+import SessionGroupHeader from './SessionGroupHeader';
 import SessionActions from './SessionActions';
 import { formatDateRange } from '../league/utils/leagueUtils';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -28,6 +29,9 @@ export default function ActiveSessionPanel({
   contentVariant = 'cards',
   isAdmin = false,
   variant = null, // 'league' | 'non-league'; when null, derived from activeSession.season_id
+  isSubmitted = false, // when true, show SessionGroupHeader (submitted style) instead of SessionHeader
+  submittedTimestampText = null, // e.g. "Submitted 2 days ago by John"
+  onEditSessionClick = null, // optional; when provided, show pencil edit in SessionGroupHeader
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
@@ -41,17 +45,31 @@ export default function ActiveSessionPanel({
 
   useClickOutside(seasonDropdownRef, isSeasonDropdownOpen, () => setIsSeasonDropdownOpen(false));
 
+  const showSubmittedHeader = isSubmitted && !isEditing;
+
   return (
     <div className="active-session-panel" data-testid="active-session-panel">
-      <SessionHeader
-        sessionName={activeSession.name}
-        gameCount={gameCount}
-        playerCount={playerCount}
-        onStatsClick={onStatsClick}
-        onRequestDelete={isAdmin && onRequestDeleteSession ? onRequestDeleteSession : undefined}
-        onRequestLeave={!isAdmin && onRequestLeaveSession ? onRequestLeaveSession : undefined}
-        isEditing={isEditing}
-      />
+      {showSubmittedHeader ? (
+        <SessionGroupHeader
+          sessionName={activeSession.name}
+          gameCount={gameCount}
+          playerCount={playerCount}
+          onStatsClick={onStatsClick}
+          onEditClick={onEditSessionClick ?? undefined}
+          timestampText={submittedTimestampText ?? undefined}
+          seasonBadge={sessionSeason ? (sessionSeason.name || `Season ${sessionSeason.id}`) : undefined}
+        />
+      ) : (
+        <SessionHeader
+          sessionName={activeSession.name}
+          gameCount={gameCount}
+          playerCount={playerCount}
+          onStatsClick={onStatsClick}
+          onRequestDelete={isAdmin && onRequestDeleteSession ? onRequestDeleteSession : undefined}
+          onRequestLeave={!isAdmin && onRequestLeaveSession ? onRequestLeaveSession : undefined}
+          isEditing={isEditing}
+        />
+      )}
 
       {/* Season selector row (league only) */}
       {isLeague && sessionSeasonId ? (
@@ -139,11 +157,11 @@ export default function ActiveSessionPanel({
             matches={activeSessionMatches}
             onPlayerClick={onPlayerClick}
             onEditMatch={onEditMatch}
-            canAddMatch={true}
-            onAddMatch={() => onAddMatchClick()}
+            canAddMatch={Boolean(onAddMatchClick)}
+            onAddMatch={onAddMatchClick ? () => onAddMatchClick() : undefined}
             sessionId={activeSession?.id}
             seasonId={sessionSeasonId}
-            showActions={true}
+            showActions={Boolean(onEditMatch)}
           />
         ) : (
           <div className="match-cards">
@@ -153,7 +171,7 @@ export default function ActiveSessionPanel({
                 match={match}
                 onPlayerClick={onPlayerClick}
                 onEdit={onEditMatch}
-                showEdit={true}
+                showEdit={Boolean(onEditMatch)}
               />
             ))}
           </div>

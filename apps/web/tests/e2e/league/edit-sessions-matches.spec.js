@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { HomePage } from '../pages/HomePage.js';
 import { LeaguePage } from '../pages/LeaguePage.js';
-import { 
-  cleanupTestData, 
-  generateTestPhoneNumber, 
-  getVerificationCodeForPhone, 
+import {
+  cleanupTestData,
+  generateTestPhoneNumber,
+  getVerificationCodeForPhone,
   formatPhoneForInput,
   clearBrowserStorage,
   authenticateUser,
+  completeTestUserProfile,
   createTestLeague,
   createTestSeason,
   addPlayerToLeague,
@@ -55,7 +56,10 @@ test.describe('Edit Sessions and Matches', () => {
     
     // Authenticate to get token for API calls
     authToken = await authenticateUser(testPhoneNumber, testPassword);
-    
+
+    // Complete profile to prevent "Complete Your Profile" modal from blocking tests
+    await completeTestUserProfile(authToken);
+
     // Create test league (user will be admin)
     const league = await createTestLeague(authToken, {
       name: `Test League ${Date.now()}`
@@ -274,12 +278,12 @@ test.describe('Edit Sessions and Matches', () => {
 
     // 9. Verify the match still shows the original score (21-18, not 30-28)
     // Since we cancelled, the changes shouldn't be saved
+    // Check the score elements specifically (not full text, which includes player names with timestamps)
     const matchCards = page.locator(leaguePage.selectors.matchCard);
     const firstMatch = matchCards.first();
-    const matchCardText = await firstMatch.textContent();
-    // Original score was 21-18, so we should see "21" but not "30"
-    expect(matchCardText).toContain('21');
-    // Verify the changed score is NOT present
-    expect(matchCardText).not.toContain('30');
+    const scores = await firstMatch.locator('.team-score').allTextContents();
+    const scoreText = scores.join('-');
+    expect(scoreText).toContain('21');
+    expect(scoreText).not.toContain('30');
   });
 });

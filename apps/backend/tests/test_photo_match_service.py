@@ -568,7 +568,9 @@ class TestClarifyScoresChat:
         mock_response.candidates[0].content.parts[0].text = raw_array
         mock_client.models.generate_content.return_value = mock_response
 
-        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+        mock_types = MagicMock()
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client), \
+             patch.dict('sys.modules', {'google': MagicMock(), 'google.genai': MagicMock(types=mock_types)}):
             result = await photo_match_service.clarify_scores_chat(
                 previous_response=raw_array,
                 user_prompt="Match 1 score is 21-19.",
@@ -586,7 +588,9 @@ class TestClarifyScoresChat:
         mock_client = MagicMock()
         mock_client.models.generate_content.side_effect = Exception("API error")
 
-        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+        mock_types = MagicMock()
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client), \
+             patch.dict('sys.modules', {'google': MagicMock(), 'google.genai': MagicMock(types=mock_types)}):
             result = await photo_match_service.clarify_scores_chat(
                 previous_response="[]",
                 user_prompt="Fix the score.",
@@ -611,7 +615,9 @@ class TestRunGeminiStreamConsumer:
         mock_client = MagicMock()
         mock_client.models.generate_content_stream.side_effect = RuntimeError("Gemini API failed")
 
-        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client):
+        mock_types = MagicMock()
+        with patch.object(photo_match_service, 'get_gemini_client', return_value=mock_client), \
+             patch.dict('sys.modules', {'google': MagicMock(), 'google.genai': MagicMock(types=mock_types)}):
             import threading
             t = threading.Thread(
                 target=photo_match_service._run_gemini_stream_consumer,

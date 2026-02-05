@@ -17,6 +17,8 @@ import {
   updateSession,
   removeSessionParticipant,
   getUserLeagues,
+  createSession,
+  inviteToSession,
 } from '../../../src/services/api';
 import { formatDate, formatRelativeTime } from '../../../src/utils/dateUtils';
 import { useModal, MODAL_TYPES } from '../../../src/contexts/ModalContext';
@@ -40,7 +42,7 @@ export default function SessionByCodePage() {
   const router = useRouter();
   const params = useParams();
   const { openModal, closeModal } = useModal();
-  const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
+  const { isAuthenticated, isInitializing, user, currentUserPlayer, logout } = useAuth();
   const code = params?.code;
   const [session, setSession] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -57,6 +59,8 @@ export default function SessionByCodePage() {
   const [message, setMessage] = useState(null);
   const shareMenuRef = useRef(null);
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
+  const [isEditingCompleted, setIsEditingCompleted] = useState(false);
+  const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
 
   // Track one-time actions per session visit to prevent duplicates from React effects
   const visitActionsRef = useRef({
@@ -114,10 +118,10 @@ export default function SessionByCodePage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isInitializing && !isAuthenticated) {
       router.push('/');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isInitializing, router]);
 
   // Reset visit actions when navigating to a different session
   useEffect(() => {
@@ -161,6 +165,13 @@ export default function SessionByCodePage() {
   const isCreator = session?.created_by != null && currentUserPlayer?.id === session.created_by;
   const hasLessThanFourPlayers = !participants || participants.length < 4;
   const isActive = session?.status === 'ACTIVE';
+
+  const submittedTimestampText = useMemo(() => {
+    if (isActive || !session?.updated_at) return null;
+    const ts = formatRelativeTime(session.updated_at);
+    const by = session.updated_by_name || session.created_by_name || 'Unknown';
+    return `Submitted ${ts} by ${by}`;
+  }, [isActive, session?.updated_at, session?.updated_by_name, session?.created_by_name]);
 
   // Auto-open Manage Players when fewer than 4 players (once per visit, only after load completes)
   useEffect(() => {
@@ -274,6 +285,40 @@ export default function SessionByCodePage() {
     });
   };
 
+  const handleSaveEditedSession = async () => {
+    await lockInSession(session.id);
+    setRefreshTrigger((t) => t + 1);
+    setIsEditingCompleted(false);
+  };
+
+  const handleCreateNewWithSamePlayers = async () => {
+    if (creatingFromPlayers || !session?.id || !participants?.length) return;
+    setCreatingFromPlayers(true);
+    setMessage(null);
+    try {
+      const res = await createSession({});
+      const newSess = res?.session ?? res;
+      if (!newSess?.code) {
+        setMessage('Could not create session. Please try again.');
+        return;
+      }
+      for (const p of participants) {
+        if (p.player_id === currentUserPlayer?.id) continue;
+        try {
+          await inviteToSession(newSess.id, p.player_id);
+        } catch (err) {
+          console.warn('Could not invite player to new session:', err);
+        }
+      }
+      router.push(`/session/${newSess.code}`);
+    } catch (err) {
+      console.error('Error creating session from players:', err);
+      setMessage(err.response?.data?.detail || err.message || 'Failed to create session');
+    } finally {
+      setCreatingFromPlayers(false);
+    }
+  };
+
   const handleLeaguesMenuClick = (action, leagueId) => {
     if (action === 'create-league') {
       router.push('/home');
@@ -286,7 +331,7 @@ export default function SessionByCodePage() {
     }
   };
 
-  if (!isAuthenticated) return null;
+  if (isInitializing || !isAuthenticated) return null;
 
   if (loading) {
     return (
@@ -367,135 +412,195 @@ export default function SessionByCodePage() {
               </Link>
 
               <header className="session-page-header">
-                <div className="session-page-title-row">
-                  {editingSessionName ? (
-                    <>
-                      <input
-                        type="text"
-                        className="session-page-title-input"
-                        value={draftSessionName}
-                        onChange={(e) => setDraftSessionName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const name = draftSessionName.trim() || session.name || 'Session';
-                            updateSession(session.id, { name })
-                              .then(() => setSession((prev) => ({ ...prev, name })))
-                              .catch((err) => console.error('Failed to rename session:', err))
-                              .finally(() => {
+                {isActive ? (
+                  <>
+                    <div className="session-page-title-row">
+                      {editingSessionName ? (
+                        <>
+                          <input
+                            type="text"
+                            className="session-page-title-input"
+                            value={draftSessionName}
+                            onChange={(e) => setDraftSessionName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const name = draftSessionName.trim() || session.name || 'Session';
+                                updateSession(session.id, { name })
+                                  .then(() => setSession((prev) => ({ ...prev, name })))
+                                  .catch((err) => console.error('Failed to rename session:', err))
+                                  .finally(() => {
+                                    setEditingSessionName(false);
+                                    setDraftSessionName('');
+                                  });
+                              } else if (e.key === 'Escape') {
                                 setEditingSessionName(false);
                                 setDraftSessionName('');
-                              });
-                          } else if (e.key === 'Escape') {
-                            setEditingSessionName(false);
-                            setDraftSessionName('');
-                          }
-                        }}
-                        autoFocus
-                        aria-label="Session name"
-                      />
-                      <button
-                        type="button"
-                        className="session-page-title-save"
-                        onClick={() => {
-                          const name = draftSessionName.trim() || session.name || 'Session';
-                          updateSession(session.id, { name })
-                            .then(() => setSession((prev) => ({ ...prev, name })))
-                            .catch((err) => console.error('Failed to rename session:', err))
-                            .finally(() => {
-                              setEditingSessionName(false);
-                              setDraftSessionName('');
-                            });
-                        }}
-                      >
-                        Save
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <h1 className="session-page-title">{session.name || 'Session'}</h1>
-                      {isCreator && (
-                        <button
-                          type="button"
-                          className="session-page-title-edit"
-                          onClick={() => {
-                            setDraftSessionName(session.name || '');
-                            setEditingSessionName(true);
-                          }}
-                          title="Rename session"
-                          aria-label="Rename session"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {!editingSessionName && (
-                    isCreator ? (
-                      <button
-                        type="button"
-                        className="session-page-delete-link"
-                        onClick={handleRequestDeleteSession}
-                        title="Delete session"
-                      >
-                        Delete Session
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="session-page-delete-link"
-                        onClick={handleLeaveSession}
-                        title="Leave this session"
-                      >
-                        Leave Session
-                      </button>
-                    )
-                  )}
-                </div>
-                <div className="session-page-meta">
-                  {session.league_id != null ? (
-                    <span className="open-sessions-list-badge league">League</span>
-                  ) : (
-                    <span className="open-sessions-list-badge pickup">Pickup</span>
-                  )}
-                  {session.created_at && (
-                    <span className="session-page-created-by">
-                      Created by {session.created_by_name || 'Unknown'} {formatRelativeTime(session.created_at)}
-                    </span>
-                  )}
-                  {session.date && (
-                    <span className="session-page-date">
-                      <Calendar size={16} /> {formatDate(session.date)}
-                    </span>
-                  )}
-                  {session.code && (
-                    <span className="session-page-share" ref={shareMenuRef}>
-                      {isActive && (
-                        <div className="session-share-dropdown">
+                              }
+                            }}
+                            autoFocus
+                            aria-label="Session name"
+                          />
                           <button
                             type="button"
-                            className="league-text-button session-share-trigger"
-                            onClick={() => setShareMenuOpen((o) => !o)}
-                            title="Invite"
+                            className="session-page-title-save"
+                            onClick={() => {
+                              const name = draftSessionName.trim() || session.name || 'Session';
+                              updateSession(session.id, { name })
+                                .then(() => setSession((prev) => ({ ...prev, name })))
+                                .catch((err) => console.error('Failed to rename session:', err))
+                                .finally(() => {
+                                  setEditingSessionName(false);
+                                  setDraftSessionName('');
+                                });
+                            }}
                           >
-                            <Share2 size={14} /> Invite <ChevronDown size={14} className={shareMenuOpen ? 'rotate-180' : ''} />
+                            Save
                           </button>
-                          {shareMenuOpen && (
-                            <div className="session-share-dropdown-menu">
-                              <button type="button" className="session-share-dropdown-item" onClick={handleCopyLink}>
-                                <Copy size={16} /> {copied ? 'Copied!' : 'Copy link'}
-                              </button>
-                              <button type="button" className="session-share-dropdown-item" onClick={handleShareVia}>
-                                <Share2 size={16} /> Share via…
-                              </button>
-                            </div>
+                        </>
+                      ) : (
+                        <>
+                          <h1 className="session-page-title">{session.name || 'Session'}</h1>
+                          {isCreator && (
+                            <button
+                              type="button"
+                              className="session-page-title-edit"
+                              onClick={() => {
+                                setDraftSessionName(session.name || '');
+                                setEditingSessionName(true);
+                              }}
+                              title="Rename session"
+                              aria-label="Rename session"
+                            >
+                              <Pencil size={16} />
+                            </button>
                           )}
-                        </div>
+                        </>
                       )}
-                    </span>
-                  )}
-                </div>
-                {!isActive && (
-                  <p className="session-page-status secondary-text">Session has ended</p>
+                      {!editingSessionName && (
+                        isCreator ? (
+                          <button
+                            type="button"
+                            className="session-page-delete-link"
+                            onClick={handleRequestDeleteSession}
+                            title="Delete session"
+                          >
+                            Delete Session
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="session-page-delete-link"
+                            onClick={handleLeaveSession}
+                            title="Leave this session"
+                          >
+                            Leave Session
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <div className="session-page-meta">
+                      {session.league_id != null ? (
+                        <span className="open-sessions-list-badge league">League</span>
+                      ) : (
+                        <span className="open-sessions-list-badge pickup">Pickup</span>
+                      )}
+                      {session.created_at && (
+                        <span className="session-page-created-by">
+                          Created by {session.created_by_name || 'Unknown'} {formatRelativeTime(session.created_at)}
+                        </span>
+                      )}
+                      {session.date && (
+                        <span className="session-page-date">
+                          <Calendar size={16} /> {formatDate(session.date)}
+                        </span>
+                      )}
+                      {session.code && (
+                        <span className="session-page-share" ref={shareMenuRef}>
+                          <div className="session-share-dropdown">
+                            <button
+                              type="button"
+                              className="league-text-button session-share-trigger"
+                              onClick={() => setShareMenuOpen((o) => !o)}
+                              title="Invite"
+                            >
+                              <Share2 size={14} /> Invite <ChevronDown size={14} className={shareMenuOpen ? 'rotate-180' : ''} />
+                            </button>
+                            {shareMenuOpen && (
+                              <div className="session-share-dropdown-menu">
+                                <button type="button" className="session-share-dropdown-item" onClick={handleCopyLink}>
+                                  <Copy size={16} /> {copied ? 'Copied!' : 'Copy link'}
+                                </button>
+                                <button type="button" className="session-share-dropdown-item" onClick={handleShareVia}>
+                                  <Share2 size={16} /> Share via…
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="session-page-meta">
+                      {session.league_id != null ? (
+                        <span className="open-sessions-list-badge league">League</span>
+                      ) : (
+                        <span className="open-sessions-list-badge pickup">Pickup</span>
+                      )}
+                      {session.created_at && (
+                        <span className="session-page-created-by">
+                          Created by {session.created_by_name || 'Unknown'} {formatRelativeTime(session.created_at)}
+                        </span>
+                      )}
+                      {session.date && (
+                        <span className="session-page-date">
+                          <Calendar size={16} /> {formatDate(session.date)}
+                        </span>
+                      )}
+                      {isCreator ? (
+                        <button
+                          type="button"
+                          className="session-page-delete-link"
+                          onClick={handleRequestDeleteSession}
+                          title="Delete session"
+                        >
+                          Delete Session
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="session-page-delete-link"
+                          onClick={handleLeaveSession}
+                          title="Leave this session"
+                        >
+                          Leave Session
+                        </button>
+                      )}
+                    </div>
+                    <div className="session-ended-block">
+                      <span className="session-ended-label">Session has ended.</span>
+                      {isCreator && (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            className="session-ended-link"
+                            onClick={handleCreateNewWithSamePlayers}
+                            disabled={creatingFromPlayers || !participants?.length}
+                            data-testid="create-new-session-with-players-button"
+                          >
+                            {creatingFromPlayers ? 'Creating…' : 'Create new session with same players'}
+                          </button>
+                          {message && (
+                            <span className="secondary-text" style={{ marginLeft: 8 }} role="alert">
+                              {message}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
               </header>
 
@@ -541,6 +646,16 @@ export default function SessionByCodePage() {
                         Manage players
                       </button>
                     )}
+                    {!isActive && isCreator && isEditingCompleted && (
+                      <button
+                        type="button"
+                        className="league-text-button"
+                        onClick={() => setIsEditingCompleted(false)}
+                        style={{ marginLeft: '16px' }}
+                      >
+                        Cancel edit
+                      </button>
+                    )}
                   </div>
 
                   <ActiveSessionPanel
@@ -555,11 +670,15 @@ export default function SessionByCodePage() {
                     contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
                     variant="non-league"
                     isAdmin={isCreator}
-                    onAddMatchClick={handleAddMatchClick}
-                    onEditMatch={handleEditMatch}
-                    onSubmitClick={handleSubmitClick}
-                    onSaveClick={null}
-                    onCancelClick={null}
+                    isSubmitted={!isActive}
+                    submittedTimestampText={submittedTimestampText ?? undefined}
+                    onEditSessionClick={isCreator && !isEditingCompleted ? () => setIsEditingCompleted(true) : null}
+                    onAddMatchClick={isActive || isEditingCompleted ? handleAddMatchClick : undefined}
+                    onEditMatch={isActive || (isCreator && isEditingCompleted) ? handleEditMatch : undefined}
+                    onSubmitClick={isActive ? handleSubmitClick : undefined}
+                    onSaveClick={!isActive && isEditingCompleted ? handleSaveEditedSession : null}
+                    onCancelClick={!isActive && isEditingCompleted ? () => setIsEditingCompleted(false) : null}
+                    isEditing={isEditingCompleted}
                     onDeleteSession={async () => {
                       await deleteSession(session.id);
                       router.push('/home?tab=my-games');

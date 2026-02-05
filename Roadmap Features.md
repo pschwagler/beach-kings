@@ -32,7 +32,10 @@ Option 2: -->
     - notification bell pulses? Or pulsing recording icon added to the navbar
     - "Open sessions" tab, or integrated into My Games?
 
-
+** TODO: invite to session via link
+- what if I don't want to be in session, shouldn't get to be invited again
+- what if I want to remove someone from a session, they shouldn't be able to access?
+- read only vs edit access
 
 ## Session Update
 - Session auto-submit after XX hours?
@@ -50,6 +53,8 @@ Option 2: -->
 - Build graph of everyone you've played against, friended, in a league with, kind of like linkedIn (1st connection, 2nd connection, etc.)
 
 
+## Import from other data sources
+- agent webscraping?
 
 
 # Tech Debt
@@ -57,3 +62,5 @@ Option 2: -->
 ## Split up styling per page
 - easier for native mobile app migration
 - smaller context eatup
+
+

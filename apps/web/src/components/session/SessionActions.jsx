@@ -1,4 +1,5 @@
-import { Plus, Save, X } from 'lucide-react';
+import { Plus, Check, X } from 'lucide-react';
+import { Button } from '../ui/UI';
 
 export default function SessionActions({
   onAddMatchClick,
@@ -7,33 +8,41 @@ export default function SessionActions({
   onCancelClick,
   isEditing = false,
 }) {
+  const showAdd = Boolean(onAddMatchClick);
+  const showSubmit = Boolean(onSubmitClick) && !isEditing;
+  const showEditActions = isEditing && (onSaveClick != null || onCancelClick != null);
+  if (!showAdd && !showSubmit && !showEditActions) {
+    return null;
+  }
   return (
     <div className="session-actions" data-testid="session-actions">
-      <button className="league-text-button primary session-btn-add" onClick={onAddMatchClick} data-testid="session-btn-add">
-        <Plus size={22} />
-        Add New Match
-      </button>
-      {isEditing ? (
-        <>
-          <button
-            className="session-btn session-btn-cancel"
-            onClick={onCancelClick}
-            data-testid="session-btn-cancel"
-          >
-            <X size={20} />
-            Cancel
-          </button>
-          <button className="session-btn session-btn-submit" onClick={onSaveClick} data-testid="session-btn-save">
-            <Save size={20} />
-            Save Changes
-          </button>
-        </>
-      ) : (
-        <button className="session-btn session-btn-submit" onClick={onSubmitClick} data-testid="session-btn-submit">
-          <Save size={20} />
-          Submit
-        </button>
+      {showAdd && (
+        <Button variant="outline" onClick={onAddMatchClick} data-testid="session-btn-add" className="session-btn">
+          <Plus size={16} />
+          Add New Match
+        </Button>
       )}
+      {showEditActions ? (
+        <>
+          {onCancelClick && (
+            <Button variant="ghost" onClick={onCancelClick} data-testid="session-btn-cancel" className="session-btn">
+              <X size={16} />
+              Cancel
+            </Button>
+          )}
+          {onSaveClick && (
+            <Button variant="success" onClick={onSaveClick} data-testid="session-btn-save" className="session-btn">
+              <Check size={16} />
+              Save Changes
+            </Button>
+          )}
+        </>
+      ) : showSubmit ? (
+        <Button variant="success" onClick={onSubmitClick} data-testid="session-btn-submit" className="session-btn">
+          <Check size={16} />
+          Submit
+        </Button>
+      ) : null}
     </div>
   );
 }

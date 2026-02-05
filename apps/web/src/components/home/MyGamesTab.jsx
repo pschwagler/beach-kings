@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Calendar } from 'lucide-react';
+import { Button } from '../ui/UI';
 import OpenSessionsList from './OpenSessionsList';
 import { createSession } from '../../services/api';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
@@ -79,15 +80,15 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
     <div className="my-games-tab-container">
       <div className="my-games-tab-header">
         <h2 className="my-games-tab-title">My Games</h2>
-        <button
-          type="button"
-          className="my-games-tab-create-btn"
+        <Button
+          variant="outline"
           onClick={handleCreateGame}
           disabled={creating}
+          className="my-games-tab-create-btn"
         >
           <Plus size={18} />
           {creating ? 'Creating…' : 'Create game'}
-        </button>
+        </Button>
       </div>
 
       {createError && (

@@ -20,6 +20,14 @@ export default function PlayerOverview({ overview, isSeason = true }) {
     return `${(winRate * 100).toFixed(1)}%`;
   };
 
+  /** Format a numeric overview value to the nearest 0.1. */
+  const roundToTenth = (value) => {
+    if (value === null || value === undefined) return '—';
+    const n = Number(value);
+    if (Number.isNaN(n)) return '—';
+    return n.toFixed(1);
+  };
+
   return (
     <div className="player-overview">
       {isSeason ? (
@@ -36,7 +44,7 @@ export default function PlayerOverview({ overview, isSeason = true }) {
             <Target size={32} className="overview-icon" />
             <div className="overview-content">
               <div className="overview-label">Points</div>
-              <div className="overview-value">{overview.points}</div>
+              <div className="overview-value">{roundToTenth(overview.points)}</div>
             </div>
           </div>
         </>
@@ -63,7 +71,7 @@ export default function PlayerOverview({ overview, isSeason = true }) {
         <TrendingUp size={32} className="overview-icon" />
         <div className="overview-content">
           <div className="overview-label">Rating</div>
-          <div className="overview-value">{overview.rating}</div>
+          <div className="overview-value">{roundToTenth(overview.rating)}</div>
         </div>
       </div>
     </div>
