@@ -210,7 +210,13 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           <div className="home-stat-label">Win Rate (Last 30 days)</div>
           <div className="home-stat-value">{games30Days > 0 ? `${winRate30Days}%` : '—'}</div>
         </div>
-      </div>
+      {/* Open sessions at top when user has any */}
+      {
+        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
+          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
+          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
+        </section>
+      }
 
       {/* Open sessions at top when user has any */}
       {openSessions && openSessions.length > 0 && (
