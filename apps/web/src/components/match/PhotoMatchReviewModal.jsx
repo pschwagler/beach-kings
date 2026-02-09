@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Check, Edit3, Loader2, AlertCircle, MessageSquare, Send, RefreshCw, Expand } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Check, Loader2, AlertCircle, Expand } from 'lucide-react';
 import { Button } from '../ui/UI';
-import {
-  editPhotoResults,
-  confirmPhotoMatches,
-  cancelPhotoSession,
-  subscribePhotoJobStream
-} from '../../services/api';
+import { usePhotoMatchReview } from './hooks/usePhotoMatchReview';
+import PhotoMatchResultsTable from './components/PhotoMatchResultsTable';
+import PhotoMatchConversation from './components/PhotoMatchConversation';
+import PhotoMatchConfirmationOptions from './components/PhotoMatchConfirmationOptions';
 
 /**
- * Modal for reviewing AI-parsed match results and confirming creation
+ * Modal for reviewing AI-parsed match results and confirming creation.
+ * Uses usePhotoMatchReview hook and subcomponents for results table, conversation, and confirmation.
  */
 export default function PhotoMatchReviewModal({
   isOpen,
@@ -22,200 +21,42 @@ export default function PhotoMatchReviewModal({
   seasonId,
   seasons = [],
   uploadedImageUrl = null,
-  onSuccess
+  onSuccess,
 }) {
-  const [jobId, setJobId] = useState(initialJobId);
-  const [status, setStatus] = useState('PENDING');
-  const [result, setResult] = useState(null);
-  const [partialMatches, setPartialMatches] = useState(null); // streamed matches while job is running
-  const [error, setError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editPrompt, setEditPrompt] = useState('');
-  const [conversationHistory, setConversationHistory] = useState([]);
-  const [selectedSeasonId, setSelectedSeasonId] = useState(seasonId);
-  const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [imageExpanded, setImageExpanded] = useState(false);
-
-  const streamAbortRef = useRef(null);
   const conversationEndRef = useRef(null);
 
-  // Scroll conversation to bottom when new messages arrive
+  const {
+    status,
+    result,
+    partialMatches,
+    error,
+    isSubmitting,
+    editPrompt,
+    setEditPrompt,
+    conversationHistory,
+    selectedSeasonId,
+    setSelectedSeasonId,
+    matchDate,
+    setMatchDate,
+    handleClose,
+    handleSendEdit,
+    handleConfirm,
+  } = usePhotoMatchReview({
+    isOpen,
+    initialJobId,
+    leagueId,
+    sessionId,
+    seasonId,
+    onClose,
+    onSuccess,
+  });
+
   useEffect(() => {
     if (conversationEndRef.current) {
       conversationEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [conversationHistory]);
-
-  // Subscribe to photo job stream when modal is open and we have a jobId
-  useEffect(() => {
-    if (!isOpen || !jobId || !leagueId || status === 'COMPLETED' || status === 'FAILED') {
-      return;
-    }
-    streamAbortRef.current = subscribePhotoJobStream(leagueId, jobId, {
-      onPartial: (data) => {
-        if (data.partial_matches != null) {
-          setPartialMatches(data.partial_matches);
-        }
-      },
-      onDone: (data) => {
-        setPartialMatches(null);
-        setStatus(data.status || 'COMPLETED');
-        if (data.status === 'COMPLETED' && data.result) {
-          setResult(data.result);
-          if (data.result.clarification_question) {
-            setConversationHistory(prev => [
-              ...prev,
-              {
-                role: 'assistant',
-                content: data.result.clarification_question,
-                timestamp: new Date().toISOString()
-              }
-            ]);
-          }
-        } else if (data.status === 'FAILED') {
-          setError(data.result?.error_message || 'Processing failed');
-        }
-      },
-      onError: (data) => {
-        setPartialMatches(null);
-        setError(data.message || 'Stream error');
-      }
-    });
-    return () => {
-      if (streamAbortRef.current) {
-        streamAbortRef.current();
-        streamAbortRef.current = null;
-      }
-    };
-  }, [isOpen, jobId, leagueId, status]);
-
-  // Reset state when modal is opened with a NEW initialJobId (not when jobId changes internally from edits)
-  const prevInitialJobIdRef = useRef(initialJobId);
-  useEffect(() => {
-    // Only reset if the PROP changed (modal opened with different job), not internal changes
-    if (initialJobId !== prevInitialJobIdRef.current) {
-      prevInitialJobIdRef.current = initialJobId;
-      setJobId(initialJobId);
-      setStatus('PENDING');
-      setResult(null);
-      setError(null);
-      setConversationHistory([]);
-      setPartialMatches(null);
-    }
-  }, [initialJobId]);
-
-  const handleClose = useCallback(async () => {
-    if (isSubmitting) return;
-
-    // Cancel the session if not confirmed
-    if (sessionId && status !== 'confirmed') {
-      try {
-        await cancelPhotoSession(leagueId, sessionId);
-      } catch (err) {
-        console.error('[PhotoMatchReviewModal] Error cancelling session:', err);
-      }
-    }
-
-    if (streamAbortRef.current) {
-      streamAbortRef.current();
-      streamAbortRef.current = null;
-    }
-
-    onClose();
-  }, [isSubmitting, sessionId, status, leagueId, onClose]);
-
-  const handleSendEdit = useCallback(async () => {
-    if (!editPrompt.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setError(null);
-
-    // Add user message to conversation
-    setConversationHistory(prev => [
-      ...prev,
-      {
-        role: 'user',
-        content: editPrompt.trim(),
-        timestamp: new Date().toISOString()
-      }
-    ]);
-
-    try {
-      const response = await editPhotoResults(leagueId, sessionId, editPrompt.trim());
-      
-      // Update job ID; SSE effect will open a new stream for the new job
-      setJobId(response.job_id);
-      setStatus('PENDING');
-      setResult(null);
-      setEditPrompt('');
-      if (streamAbortRef.current) {
-        streamAbortRef.current();
-        streamAbortRef.current = null;
-      }
-      
-    } catch (err) {
-      console.error('Error sending edit:', err);
-      setError(err.response?.data?.detail || 'Failed to send edit');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [editPrompt, isSubmitting, leagueId, sessionId]);
-
-  const handleConfirm = useCallback(async () => {
-    if (isSubmitting || !result?.matches?.length) return;
-
-    // Validate season and date
-    if (!selectedSeasonId) {
-      setError('Please select a season');
-      return;
-    }
-    if (!matchDate) {
-      setError('Please select a match date');
-      return;
-    }
-
-    // Check if all players are matched - handles both object {id, name} and separate _id fields
-    const isPlayerMatched = (player, playerId) => {
-      if (typeof player === 'object' && player?.id) return true;
-      if (playerId) return true;
-      return false;
-    };
-    
-    const unmatchedPlayers = result.matches.some(match => 
-      !isPlayerMatched(match.team1_player1, match.team1_player1_id) ||
-      !isPlayerMatched(match.team1_player2, match.team1_player2_id) ||
-      !isPlayerMatched(match.team2_player1, match.team2_player1_id) ||
-      !isPlayerMatched(match.team2_player2, match.team2_player2_id)
-    );
-
-    if (unmatchedPlayers) {
-      setError('Some players could not be matched. Please use the edit prompt to clarify player names.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await confirmPhotoMatches(leagueId, sessionId, selectedSeasonId, matchDate);
-      
-      setStatus('confirmed');
-      onSuccess(response.match_ids);
-      
-    } catch (err) {
-      console.error('Error confirming matches:', err);
-      setError(err.response?.data?.detail || 'Failed to create games');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [isSubmitting, result, selectedSeasonId, matchDate, leagueId, sessionId, onSuccess]);
-
-  const handleKeyPress = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendEdit();
-    }
-  }, [handleSendEdit]);
 
   if (!isOpen) {
     return null;
@@ -223,10 +64,8 @@ export default function PhotoMatchReviewModal({
 
   const isProcessing = status === 'PENDING' || status === 'RUNNING';
   const needsClarification = result?.status === 'needs_clarification';
-  const isSuccess = result?.status === 'success';
   const isUnreadable = result?.status === 'unreadable';
   const hasMatches = result?.matches?.length > 0;
-  // Show table with final result or streamed partial matches
   const displayMatches = result?.matches ?? partialMatches ?? [];
   const showSideBySide = Boolean(uploadedImageUrl && displayMatches.length > 0);
 
@@ -245,7 +84,6 @@ export default function PhotoMatchReviewModal({
 
   const mainContent = (
     <>
-      {/* Processing State - show full block only when no partial matches yet */}
       {isProcessing && displayMatches.length === 0 && (
         <div className="review-processing">
           <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
@@ -254,7 +92,6 @@ export default function PhotoMatchReviewModal({
         </div>
       )}
 
-      {/* Unreadable State */}
       {isUnreadable && (
         <div className="review-unreadable">
           <AlertCircle size={32} />
@@ -263,181 +100,51 @@ export default function PhotoMatchReviewModal({
         </div>
       )}
 
-      {/* Results Table - show while streaming (partialMatches) or when completed */}
       {displayMatches.length > 0 && (
-        <div className="review-results">
-          {isProcessing && (
-            <p className="processing-hint" style={{ marginBottom: '8px' }}>
-              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: '6px' }} />
-              Extracting games...
-            </p>
-          )}
-          <h3>Extracted Games ({displayMatches.length})</h3>
-          <div className="matches-table-container">
-            <table className="matches-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Team 1</th>
-                  <th>Score</th>
-                  <th>Team 2</th>
-                  <th>Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                    {displayMatches.map((match, idx) => {
-                      // Helper to get player display name
-                      // Priority: _matched field (from backend) > object.name > string > placeholder
-                      const getPlayerName = (fieldName) => {
-                        const matchedName = match[`${fieldName}_matched`];
-                        if (matchedName) return matchedName;
-                        
-                        const player = match[fieldName];
-                        if (!player) return isProcessing ? '…' : 'Unknown';
-                        if (typeof player === 'string') return player || (isProcessing ? '…' : 'Unknown');
-                        if (typeof player === 'object' && player.name) return player.name;
-                        return isProcessing ? '…' : 'Unknown';
-                      };
-                      
-                      // Check if player is matched (has an id)
-                      const isMatched = (fieldName) => {
-                        // Check for _id field first (from backend matching)
-                        if (match[`${fieldName}_id`]) return true;
-                        const player = match[fieldName];
-                        if (!player) return false;
-                        if (typeof player === 'object' && player.id) return true;
-                        return false;
-                      };
-                      
-                      return (
-                        <tr key={idx}>
-                          <td className="match-num">{idx + 1}</td>
-                          <td className={!isMatched('team1_player1') || !isMatched('team1_player2') ? 'unmatched' : ''}>
-                            <div className="player-names">
-                              <span className={!isMatched('team1_player1') ? 'player-unmatched' : ''}>
-                                {getPlayerName('team1_player1')}
-                              </span>
-                              <span className={!isMatched('team1_player2') ? 'player-unmatched' : ''}>
-                                {getPlayerName('team1_player2')}
-                              </span>
-                            </div>
-                          </td>
-                          <td className={`score ${match.team1_score == null ? 'score-unclear' : ''}`}>
-                            {match.team1_score ?? '?'}
-                          </td>
-                          <td className={!isMatched('team2_player1') || !isMatched('team2_player2') ? 'unmatched' : ''}>
-                            <div className="player-names">
-                              <span className={!isMatched('team2_player1') ? 'player-unmatched' : ''}>
-                                {getPlayerName('team2_player1')}
-                              </span>
-                              <span className={!isMatched('team2_player2') ? 'player-unmatched' : ''}>
-                                {getPlayerName('team2_player2')}
-                              </span>
-                            </div>
-                          </td>
-                          <td className={`score ${match.team2_score == null ? 'score-unclear' : ''}`}>
-                            {match.team2_score ?? '?'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PhotoMatchResultsTable matches={displayMatches} isProcessing={isProcessing} />
       )}
 
-          {/* Conversation History */}
-          {conversationHistory.length > 0 && (
-            <div className="conversation-section">
-              <h4><MessageSquare size={16} /> Conversation</h4>
-              <div className="conversation-messages">
-                {conversationHistory.map((msg, idx) => (
-                  <div key={idx} className={`message ${msg.role}`}>
-                    <span className="message-role">{msg.role === 'user' ? 'You' : 'AI'}:</span>
-                    <span className="message-content">{msg.content}</span>
-                  </div>
-                ))}
-                <div ref={conversationEndRef} />
-              </div>
-            </div>
-          )}
+      <PhotoMatchConversation
+        conversationHistory={conversationHistory}
+        editPrompt={editPrompt}
+        onEditPromptChange={setEditPrompt}
+        onSendEdit={handleSendEdit}
+        needsClarification={needsClarification}
+        clarificationQuestion={result?.clarification_question}
+        isProcessing={isProcessing}
+        showEditInput={
+          (result?.status === 'success' || needsClarification || hasMatches) && status !== 'confirmed'
+        }
+        isSubmitting={isSubmitting}
+        conversationEndRef={conversationEndRef}
+      />
 
-          {/* Clarification Needed */}
-          {needsClarification && result?.clarification_question && conversationHistory.length === 0 && (
-            <div className="clarification-needed">
-              <MessageSquare size={16} />
-              <span>{result.clarification_question}</span>
-            </div>
-          )}
+      {hasMatches && !isProcessing && status !== 'confirmed' && (
+        <PhotoMatchConfirmationOptions
+          selectedSeasonId={selectedSeasonId}
+          onSelectedSeasonIdChange={setSelectedSeasonId}
+          matchDate={matchDate}
+          onMatchDateChange={setMatchDate}
+          seasons={seasons}
+          disabled={isSubmitting}
+        />
+      )}
 
-          {/* Edit Prompt Input */}
-          {!isProcessing && (isSuccess || needsClarification || hasMatches) && status !== 'confirmed' && (
-            <div className="edit-prompt-section">
-              <label>Edit or Clarify</label>
-              <div className="edit-input-row">
-                <textarea
-                  value={editPrompt}
-                  onChange={(e) => setEditPrompt(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="E.g., 'The second game should be 21-18, not 21-19' or 'JD is John Doe'"
-                  rows={2}
-                  disabled={isSubmitting}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={handleSendEdit}
-                  disabled={!editPrompt.trim() || isSubmitting}
-                >
-                  <Send size={16} />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Season & Date Selection */}
-          {hasMatches && !isProcessing && status !== 'confirmed' && (
-            <div className="confirmation-options">
-              <div className="option-row">
-                <label>Season</label>
-                <select
-                  value={selectedSeasonId || ''}
-                  onChange={(e) => setSelectedSeasonId(e.target.value ? parseInt(e.target.value) : null)}
-                  disabled={isSubmitting}
-                >
-                  <option value="">Select season...</option>
-                  {seasons.map(season => (
-                    <option key={season.id} value={season.id}>
-                      {season.name || `Season ${season.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="option-row">
-                <label>Match Date</label>
-                <input
-                  type="date"
-                  value={matchDate}
-                  onChange={(e) => setMatchDate(e.target.value)}
-                  disabled={isSubmitting}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {status === 'confirmed' && (
-            <div className="review-success">
-              <Check size={32} />
-              <p>Games created successfully!</p>
-            </div>
-          )}
+      {status === 'confirmed' && (
+        <div className="review-success">
+          <Check size={32} />
+          <p>Games created successfully!</p>
+        </div>
+      )}
     </>
   );
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className={`modal-content photo-review-modal${showSideBySide ? ' side-by-side' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal-content photo-review-modal${showSideBySide ? ' side-by-side' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h2>Review Extracted Games</h2>
           <Button variant="close" onClick={handleClose} disabled={isSubmitting}>
@@ -456,9 +163,7 @@ export default function PhotoMatchReviewModal({
           {showSideBySide ? (
             <div className="review-body-side-by-side">
               {imagePanel}
-              <div className="review-main">
-                {mainContent}
-              </div>
+              <div className="review-main">{mainContent}</div>
             </div>
           ) : (
             <>
@@ -472,7 +177,9 @@ export default function PhotoMatchReviewModal({
                   onKeyDown={(e) => e.key === 'Enter' && setImageExpanded(true)}
                 >
                   <img src={uploadedImageUrl} alt="Uploaded scoreboard" />
-                  <span className="review-image-expand-hint"><Expand size={14} /> Click to expand</span>
+                  <span className="review-image-expand-hint">
+                    <Expand size={14} /> Click to expand
+                  </span>
                 </div>
               )}
               {mainContent}
@@ -506,7 +213,6 @@ export default function PhotoMatchReviewModal({
         </div>
       </div>
 
-      {/* Full-screen overlay when user clicks image to expand */}
       {imageExpanded && uploadedImageUrl && (
         <div
           className="image-expand-overlay"
@@ -567,7 +273,6 @@ export default function PhotoMatchReviewModal({
           overflow: hidden;
           border: 1px solid var(--border-color, #e5e7eb);
           background: var(--bg-muted, #f9fafb);
-          /* Align top with matches table: table is under h3 in review-results */
           margin-top: 28px;
         }
 

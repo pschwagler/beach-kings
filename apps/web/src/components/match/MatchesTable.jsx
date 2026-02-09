@@ -559,7 +559,6 @@ export default function MatchesTable({
             onUpdateSessionSeason={onUpdateSessionSeason}
             seasons={seasons}
             selectedSeasonId={selectedSeasonId}
-            contentVariant={contentVariant}
           />
         </div>
       )}

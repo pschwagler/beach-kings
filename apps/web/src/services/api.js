@@ -515,6 +515,19 @@ export const inviteToSession = async (sessionId, playerId) => {
 };
 
 /**
+ * Invite multiple players to a session in one request.
+ * @param {number} sessionId - Session ID
+ * @param {number[]} playerIds - Player IDs to invite
+ * @returns {Promise<{ added: number[], failed: { player_id: number, error: string }[] }>}
+ */
+export const inviteToSessionBatch = async (sessionId, playerIds) => {
+  const response = await api.post(`/api/sessions/${sessionId}/invite_batch`, {
+    player_ids: Array.isArray(playerIds) ? playerIds : [],
+  });
+  return response.data;
+};
+
+/**
  * Create a new non-league session (with shareable code).
  * @param {Object} payload - { date?, name?, court_id? } – pass { date: '...' } for a specific date
  * @returns {Promise<Object>} { status, message, session } with session.code
@@ -713,6 +726,19 @@ export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
   const response = await api.post(`/api/leagues/${leagueId}/members`, {
     player_id: playerId,
     role
+  });
+  return response.data;
+};
+
+/**
+ * Add multiple players to a league in one request.
+ * @param {number} leagueId - League ID
+ * @param {Array<{ player_id: number, role?: string }>} members - List of { player_id, role } (role defaults to 'member')
+ * @returns {Promise<{ added: Array, failed: Array<{ player_id: number, error: string }> }>}
+ */
+export const addLeagueMembersBatch = async (leagueId, members) => {
+  const response = await api.post(`/api/leagues/${leagueId}/members_batch`, {
+    members: Array.isArray(members) ? members : [],
   });
   return response.data;
 };

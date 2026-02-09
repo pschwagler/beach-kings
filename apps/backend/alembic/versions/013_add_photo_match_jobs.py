@@ -3,15 +3,13 @@
 Revision ID: 013
 Revises: 012
 Create Date: 2026-01-20
-
-Squashed: photo_match_jobs (013), PENDING enum (014), session code &
-session_participants (015), pg_trgm GIN indexes on players (016).
 """
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '013'
-down_revision = '012'
+revision = "013"
+down_revision = "012"
 branch_labels = None
 depends_on = None
 
@@ -42,9 +40,15 @@ def upgrade():
         )
     """)
 
-    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_status ON photo_match_jobs(status)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_session ON photo_match_jobs(session_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_created_at ON photo_match_jobs(created_at)")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_status ON photo_match_jobs(status)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_session ON photo_match_jobs(session_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_photo_match_jobs_created_at ON photo_match_jobs(created_at)"
+    )
 
     # --- 014: ensure PENDING in enum (idempotent for existing DBs) ---
     op.execute("""
@@ -92,8 +96,12 @@ def upgrade():
         )
     """)
 
-    op.execute("CREATE INDEX IF NOT EXISTS idx_session_participants_session_id ON session_participants(session_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_session_participants_player_id ON session_participants(player_id)")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_session_participants_session_id ON session_participants(session_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_session_participants_player_id ON session_participants(player_id)"
+    )
 
     # --- 016: pg_trgm GIN indexes on players ---
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
@@ -113,13 +121,13 @@ def downgrade():
     op.execute("DROP INDEX IF EXISTS idx_players_full_name_gin")
 
     # --- 015 ---
-    op.drop_table('session_participants')
-    op.drop_index('idx_sessions_code', table_name='sessions')
-    op.drop_column('sessions', 'code')
+    op.drop_table("session_participants")
+    op.drop_index("idx_sessions_code", table_name="sessions")
+    op.drop_column("sessions", "code")
 
     # --- 013 (014 has no downgrade) ---
-    op.drop_index('idx_photo_match_jobs_created_at', table_name='photo_match_jobs')
-    op.drop_index('idx_photo_match_jobs_session', table_name='photo_match_jobs')
-    op.drop_index('idx_photo_match_jobs_status', table_name='photo_match_jobs')
-    op.drop_table('photo_match_jobs')
-    op.execute('DROP TYPE photomatchjobstatus')
+    op.drop_index("idx_photo_match_jobs_created_at", table_name="photo_match_jobs")
+    op.drop_index("idx_photo_match_jobs_session", table_name="photo_match_jobs")
+    op.drop_index("idx_photo_match_jobs_status", table_name="photo_match_jobs")
+    op.drop_table("photo_match_jobs")
+    op.execute("DROP TYPE photomatchjobstatus")

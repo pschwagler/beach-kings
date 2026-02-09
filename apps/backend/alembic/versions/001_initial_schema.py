@@ -1,7 +1,7 @@
 """001_initial_schema
 
 Revision ID: 001
-Revises: 
+Revises:
 Create Date: 2025-11-17 17:15:00.000000
 
 Complete consolidated database schema - creates all tables from scratch.
@@ -16,14 +16,13 @@ Creates all tables based on current models including:
 - Auth tables: verification_codes, refresh_tokens, password_reset_tokens, settings
 - All enum types and indexes
 """
+
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '001'
+revision: str = "001"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -34,7 +33,7 @@ def upgrade() -> None:
     # Import models to register them with Base.metadata
     from backend.database.db import Base
     from backend.database import models  # noqa: F401
-    
+
     # Create all tables - Alembic will handle dependencies automatically
     # This is safe for initial migration since we're starting fresh
     bind = op.get_bind()
@@ -45,7 +44,7 @@ def downgrade() -> None:
     """Drop all tables."""
     from backend.database.db import Base
     from backend.database import models  # noqa: F401
-    
+
     # Drop all tables
     bind = op.get_bind()
     Base.metadata.drop_all(bind=bind, checkfirst=True)

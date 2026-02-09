@@ -36,7 +36,7 @@ export class LeaguePage extends BasePage {
       submitSessionButton: '[data-testid="session-btn-submit"], .session-btn.session-btn-submit, button:has-text("Submit")',
       confirmationModal: '[data-testid="confirmation-modal"], .confirmation-modal, .modal-overlay:has(.modal-content)',
       confirmButton: '[data-testid="confirmation-confirm"], button:has-text("Submit Scores"), button:has-text("Confirm"), button.league-text-button.primary:has-text("Submit Scores")',
-      activeSessionPanel: '[data-testid="active-session-panel"], [data-testid="active-session"], .active-session-panel',
+      activeSessionPanel: '[data-testid="active-session-panel"], .active-session-panel',
       
       // Match/Game Form
       matchModal: '[data-testid="add-match-modal"], .drawer-modal, .add-match-modal',
@@ -89,13 +89,11 @@ export class LeaguePage extends BasePage {
       () => {
         const content = document.querySelector('.league-content');
         if (!content) return false;
-        // Loading state has skeleton-text elements
         const skeletons = content.querySelectorAll('.skeleton-text');
         return skeletons.length === 0;
       },
       { timeout: 15000 }
     );
-    await this.page.waitForTimeout(300);
   }
 
   /**
@@ -105,8 +103,11 @@ export class LeaguePage extends BasePage {
     const tab = this.page.locator(this.selectors.leaderboardTab).first();
     await tab.waitFor({ state: 'visible', timeout: 10000 });
     await tab.click();
-    // Wait for tab content to load
-    await this.page.waitForTimeout(500);
+    // Wait for rankings table or empty state to appear
+    await Promise.race([
+      this.page.waitForSelector(this.selectors.rankingsTable, { state: 'attached', timeout: 10000 }),
+      this.page.waitForSelector('.rankings-table-wrapper', { state: 'attached', timeout: 10000 }),
+    ]).catch(() => {});
   }
 
   /**
@@ -116,8 +117,12 @@ export class LeaguePage extends BasePage {
     const tab = this.page.locator(this.selectors.gamesTab).first();
     await tab.waitFor({ state: 'visible', timeout: 10000 });
     await tab.click();
-    // Wait for tab content to load
-    await this.page.waitForTimeout(500);
+    // Wait for matches table or session groups to appear
+    await Promise.race([
+      this.page.waitForSelector(this.selectors.matchesTable, { state: 'attached', timeout: 10000 }),
+      this.page.waitForSelector(this.selectors.sessionGroup, { state: 'attached', timeout: 10000 }),
+      this.page.waitForSelector(this.selectors.addFirstGameButton, { state: 'attached', timeout: 10000 }),
+    ]).catch(() => {});
   }
 
   /**
@@ -148,7 +153,7 @@ export class LeaguePage extends BasePage {
     await playerRow.waitFor({ state: 'visible', timeout: 10000 });
     await playerRow.click();
     // Wait for player details drawer to open
-    await this.page.waitForTimeout(500);
+    await this.page.waitForSelector(this.selectors.playerDetailsDrawer, { state: 'visible', timeout: 5000 });
   }
 
   /**
@@ -168,9 +173,13 @@ export class LeaguePage extends BasePage {
   async selectSeason(seasonValue) {
     const selector = this.page.locator(this.selectors.seasonSelector).first();
     await selector.waitFor({ state: 'visible', timeout: 10000 });
+    // Wait for the rankings API response after selection
+    const responsePromise = this.page.waitForResponse(
+      response => response.url().includes('/api/') && response.status() === 200,
+      { timeout: 10000 }
+    ).catch(() => {});
     await selector.selectOption(seasonValue === 'all' ? '' : seasonValue);
-    // Wait for season data to load
-    await this.page.waitForTimeout(1000);
+    await responsePromise;
   }
 
   /**
@@ -180,7 +189,7 @@ export class LeaguePage extends BasePage {
     const closeButton = this.page.locator(this.selectors.playerDetailsCloseButton).first();
     if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await closeButton.click();
-      await this.page.waitForTimeout(300);
+      await this.page.waitForSelector(this.selectors.playerDetailsDrawer, { state: 'hidden', timeout: 5000 }).catch(() => {});
     }
   }
 
@@ -198,10 +207,9 @@ export class LeaguePage extends BasePage {
     );
     
     await button.click();
-    
+
     // Wait for session to be created
     await responsePromise;
-    await this.page.waitForTimeout(500);
   }
 
   /**
@@ -224,8 +232,7 @@ export class LeaguePage extends BasePage {
     await button.waitFor({ state: 'visible', timeout: 15000 });
     await button.click();
     // Wait for modal to open
-    await this.page.waitForSelector(this.selectors.matchModal, { state: 'visible', timeout: 10000 }).catch(() => {});
-    await this.page.waitForTimeout(500);
+    await this.page.waitForSelector(this.selectors.matchModal, { state: 'visible', timeout: 10000 });
   }
 
   /**
@@ -233,83 +240,40 @@ export class LeaguePage extends BasePage {
    */
   async fillMatchForm({ team1Player1, team1Player2, team2Player1, team2Player2, team1Score, team2Score }) {
     // Player inputs use PlayerDropdown component - type to search and select from dropdown
-    if (team1Player1) {
-      const input = this.page.locator(this.selectors.team1Player1Input).first();
+    // Helper: fill a player dropdown input, wait for the option, and select it
+    const selectPlayer = async (inputSelector, playerName) => {
+      const input = this.page.locator(inputSelector).first();
       await input.waitFor({ state: 'visible', timeout: 5000 });
       await input.click();
-      await input.fill(team1Player1);
-      await this.page.waitForTimeout(500);
-      // Wait for dropdown option and click it
-      const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: team1Player1 }).first();
-      await option.waitFor({ state: 'visible', timeout: 3000 });
+      await input.fill(playerName);
+      // Wait for matching dropdown option (debounce + API)
+      const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: playerName }).first();
+      await option.waitFor({ state: 'visible', timeout: 5000 });
       await option.click();
-      await this.page.waitForTimeout(300);
-    }
+      // Wait for dropdown to close (option disappears)
+      await option.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    };
+
+    if (team1Player1) await selectPlayer(this.selectors.team1Player1Input, team1Player1);
+    if (team1Player2) await selectPlayer(this.selectors.team1Player2Input, team1Player2);
+    if (team2Player1) await selectPlayer(this.selectors.team2Player1Input, team2Player1);
+    if (team2Player2) await selectPlayer(this.selectors.team2Player2Input, team2Player2);
     
-    if (team1Player2) {
-      const input = this.page.locator(this.selectors.team1Player2Input).first();
-      await input.waitFor({ state: 'visible', timeout: 5000 });
-      await input.click();
-      await input.fill(team1Player2);
-      await this.page.waitForTimeout(500);
-      const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: team1Player2 }).first();
-      await option.waitFor({ state: 'visible', timeout: 3000 });
-      await option.click();
-      await this.page.waitForTimeout(300);
-    }
-    
-    if (team2Player1) {
-      const input = this.page.locator(this.selectors.team2Player1Input).first();
-      await input.waitFor({ state: 'visible', timeout: 5000 });
-      await input.click();
-      await input.fill(team2Player1);
-      await this.page.waitForTimeout(500);
-      const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: team2Player1 }).first();
-      await option.waitFor({ state: 'visible', timeout: 3000 });
-      await option.click();
-      await this.page.waitForTimeout(300);
-    }
-    
-    if (team2Player2) {
-      const input = this.page.locator(this.selectors.team2Player2Input).first();
-      await input.waitFor({ state: 'visible', timeout: 5000 });
-      await input.click();
-      await input.fill(team2Player2);
-      await this.page.waitForTimeout(500);
-      const option = this.page.locator(this.selectors.playerDropdownOption).filter({ hasText: team2Player2 }).first();
-      await option.waitFor({ state: 'visible', timeout: 3000 });
-      await option.click();
-      await this.page.waitForTimeout(300);
-    }
-    
+    // Helper: fill a two-digit score
+    const fillScore = async (digit1Selector, digit2Selector, score) => {
+      const scoreStr = String(score).padStart(2, '0');
+      const d1 = this.page.locator(digit1Selector).first();
+      const d2 = this.page.locator(digit2Selector).first();
+      await d1.waitFor({ state: 'visible', timeout: 5000 });
+      await d1.fill(scoreStr[0]);
+      await d2.fill(scoreStr[1]);
+    };
+
     if (team1Score !== undefined) {
-      // Format score as two digits (e.g., 21 -> "21", 5 -> "05")
-      const scoreStr = String(team1Score).padStart(2, '0');
-      const digit1 = scoreStr[0];
-      const digit2 = scoreStr[1];
-      
-      const firstDigit = this.page.locator(this.selectors.team1ScoreDigit1).first();
-      const secondDigit = this.page.locator(this.selectors.team1ScoreDigit2).first();
-      
-      await firstDigit.waitFor({ state: 'visible', timeout: 5000 });
-      await firstDigit.fill(digit1);
-      await this.page.waitForTimeout(100);
-      await secondDigit.fill(digit2);
+      await fillScore(this.selectors.team1ScoreDigit1, this.selectors.team1ScoreDigit2, team1Score);
     }
-    
     if (team2Score !== undefined) {
-      // Format score as two digits (e.g., 21 -> "21", 5 -> "05")
-      const scoreStr = String(team2Score).padStart(2, '0');
-      const digit1 = scoreStr[0];
-      const digit2 = scoreStr[1];
-      
-      const firstDigit = this.page.locator(this.selectors.team2ScoreDigit1).first();
-      const secondDigit = this.page.locator(this.selectors.team2ScoreDigit2).first();
-      
-      await firstDigit.waitFor({ state: 'visible', timeout: 5000 });
-      await firstDigit.fill(digit1);
-      await this.page.waitForTimeout(100);
-      await secondDigit.fill(digit2);
+      await fillScore(this.selectors.team2ScoreDigit1, this.selectors.team2ScoreDigit2, team2Score);
     }
   }
 
@@ -334,9 +298,7 @@ export class LeaguePage extends BasePage {
       // When in edit mode, just click and wait for modal to close (changes are stored locally)
       await submitButton.click();
     }
-    
-    await this.page.waitForTimeout(500);
-    
+
     // Wait for modal to close
     await this.page.waitForSelector(this.selectors.matchModal, { state: 'hidden', timeout: 5000 }).catch(() => {});
   }
@@ -375,15 +337,9 @@ export class LeaguePage extends BasePage {
     
     // Wait for the actual API response
     await responsePromise;
-    
-    // Wait for UI to update after submission (active session should disappear)
-    await this.page.waitForTimeout(2000);
-    
+
     // Wait for active session panel to disappear as confirmation
-    await this.page.waitForSelector(this.selectors.activeSessionPanel, { state: 'hidden', timeout: 10000 }).catch(() => {
-      // If it doesn't disappear, wait a bit more and check again
-    });
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForSelector(this.selectors.activeSessionPanel, { state: 'hidden', timeout: 15000 }).catch(() => {});
   }
 
   /**
@@ -398,16 +354,12 @@ export class LeaguePage extends BasePage {
    * Rankings table only renders when there's data; empty arrays show an empty state message
    */
   async waitForRankingsTable() {
-    // Wait for either the rankings table OR the empty state message OR skeleton
-    // The table only exists if there's data, otherwise there's an empty state
+    // Wait for either the rankings table OR the empty state message
     await Promise.race([
-      this.page.waitForSelector(this.selectors.rankingsTable, { state: 'attached', timeout: 15000 }).catch(() => null),
-      this.page.waitForSelector('.loading:has-text("No rankings available")', { state: 'attached', timeout: 15000 }).catch(() => null),
-      this.page.waitForSelector('.rankings-table-wrapper', { state: 'attached', timeout: 15000 }).catch(() => null),
-    ]);
-    
-    // Give it a moment to render
-    await this.page.waitForTimeout(1000);
+      this.page.waitForSelector(this.selectors.rankingsTable, { state: 'attached', timeout: 15000 }),
+      this.page.waitForSelector('.loading:has-text("No rankings available")', { state: 'attached', timeout: 15000 }),
+      this.page.waitForSelector('.rankings-table-wrapper', { state: 'attached', timeout: 15000 }),
+    ]).catch(() => {});
   }
   
   /**
@@ -428,9 +380,11 @@ export class LeaguePage extends BasePage {
    * Wait for matches table to be visible
    */
   async waitForMatchesTable() {
-    await this.page.waitForSelector(this.selectors.matchesTable, { state: 'visible', timeout: 10000 }).catch(() => {});
-    // Also check for session groups as matches might be grouped
-    await this.page.waitForTimeout(500);
+    // Wait for matches table or session groups to appear
+    await Promise.race([
+      this.page.waitForSelector(this.selectors.matchesTable, { state: 'visible', timeout: 10000 }),
+      this.page.waitForSelector(this.selectors.sessionGroup, { state: 'visible', timeout: 10000 }),
+    ]).catch(() => {});
   }
 
   /**
@@ -497,9 +451,8 @@ export class LeaguePage extends BasePage {
     
     await editButton.waitFor({ state: 'visible', timeout: 10000 });
     await editButton.click();
-    
-    // Wait for edit mode to activate (session buttons should change)
-    await this.page.waitForTimeout(500);
+    // Wait for edit mode to activate (save button appears)
+    await this.page.waitForSelector('[data-testid="session-btn-save"]', { state: 'visible', timeout: 5000 }).catch(() => {});
   }
 
   /**
@@ -514,7 +467,6 @@ export class LeaguePage extends BasePage {
     
     // Wait for edit modal to open
     await this.page.waitForSelector(this.selectors.matchModal, { state: 'visible', timeout: 10000 });
-    await this.page.waitForTimeout(500);
   }
 
   /**
@@ -538,7 +490,6 @@ export class LeaguePage extends BasePage {
     
     // Wait for save to complete
     await responsePromise;
-    await this.page.waitForTimeout(2000);
   }
 
   /**
@@ -548,9 +499,8 @@ export class LeaguePage extends BasePage {
     const cancelButton = this.page.locator('[data-testid="session-btn-cancel"], .session-btn.session-btn-cancel').first();
     await cancelButton.waitFor({ state: 'visible', timeout: 10000 });
     await cancelButton.click();
-    
-    // Wait for edit mode to exit
-    await this.page.waitForTimeout(1000);
+    // Wait for edit mode to exit (save button disappears)
+    await this.page.waitForSelector('[data-testid="session-btn-save"]', { state: 'hidden', timeout: 5000 }).catch(() => {});
   }
 
   /**
