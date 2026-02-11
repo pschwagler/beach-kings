@@ -15,6 +15,7 @@ from slowapi import _rate_limit_exceeded_handler  # type: ignore
 from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
+from backend.api.public_routes import public_router
 from backend.database import db
 from backend.database.init_defaults import init_defaults
 from backend.services.stats_queue import get_stats_queue
@@ -136,6 +137,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router)
+app.include_router(public_router)
 
 
 @app.get("/", response_class=HTMLResponse)
