@@ -344,6 +344,7 @@ class LocationResponse(LocationBase):
     """Location response."""
 
     id: str  # Primary key: hub_id from CSV (e.g., "socal_la", "hi_oahu")
+    slug: Optional[str] = None  # SEO-friendly URL slug (e.g., "manhattan-beach")
     created_at: str
     updated_at: str
 
@@ -399,6 +400,7 @@ class LeagueBase(BaseModel):
     description: Optional[str] = None
     location_id: Optional[str] = None
     is_open: bool = True
+    is_public: Optional[bool] = True  # Whether league is visible on public pages
     whatsapp_group_id: Optional[str] = None
     gender: Optional[str] = None  # 'male', 'female', 'mixed'
     level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
