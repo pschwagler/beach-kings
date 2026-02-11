@@ -36,6 +36,8 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
+      # Internal URL for SSR calls to backend (container-to-container)
+      - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_started
