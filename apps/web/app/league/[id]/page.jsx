@@ -62,10 +62,18 @@ export async function generateMetadata({ params }) {
 /**
  * League page — server component that delegates rendering to LeaguePageClient.
  * generateMetadata() provides SEO tags; the client component handles auth + UI.
+ * Pre-fetches public league data to avoid a second request on the client.
  */
 export default async function LeaguePage({ params }) {
   const { id } = await params;
   const leagueId = parseInt(id);
 
-  return <LeaguePageClient leagueId={leagueId} />;
+  let publicLeagueData = null;
+  try {
+    publicLeagueData = await fetchBackend(`/api/public/leagues/${id}`);
+  } catch {
+    // Backend unreachable or 404 — client will handle gracefully
+  }
+
+  return <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} />;
 }
