@@ -14,6 +14,8 @@ export default function SessionHeader({ sessionName, gameCount, playerCount, isE
           <div className="editing-badge">
             Editing
           </div>
+            Editing
+          </div>
         ) : (
           <div className="recording-badge">
             <div className="recording-dot" />
