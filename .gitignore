@@ -1,3 +1,9 @@
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+*.lcov
+
 # Python
 __pycache__/
 *.py[cod]

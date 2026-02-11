@@ -2,14 +2,9 @@
  * Utility functions for league-related operations
  */
 
-export const LEVEL_OPTIONS = [
-  { value: '', label: 'Select skill level' },
-  { value: 'juniors', label: 'Juniors' },
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'Open', label: 'Open' }
-];
+import { LEVEL_OPTIONS } from '../../../utils/playerFilterOptions';
+
+export { LEVEL_OPTIONS };
 
 export const ROLE_OPTIONS = [
   { value: 'member', label: 'Member' },

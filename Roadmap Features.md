@@ -64,3 +64,6 @@ Option 2: -->
 - smaller context eatup
 
 
+## Migrate to toast for form feedback
+
+Using a global toast or notification system (like the existing NotificationContext) would provide a more consistent UX for feedback messages across the application.

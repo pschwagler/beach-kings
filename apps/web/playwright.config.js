@@ -38,32 +38,23 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers.
+   * In local dev only chromium runs (fast). Set CI=true or ALL_BROWSERS=1 to run all 3. */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    ...(process.env.CI || process.env.ALL_BROWSERS ? [
+      {
+        name: 'firefox',
+        use: { ...devices['Desktop Firefox'] },
+      },
+      {
+        name: 'webkit',
+        use: { ...devices['Desktop Safari'] },
+      },
+    ] : []),
   ],
 
   /* Run your local dev server before starting the tests */

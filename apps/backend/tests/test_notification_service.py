@@ -2,12 +2,11 @@
 Unit tests for notification service.
 Tests notification creation, retrieval, marking as read, and bulk operations.
 """
+
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from backend.services import notification_service
-from backend.database.models import Notification, NotificationType, User
+from backend.database.models import NotificationType
 from backend.services import user_service
 
 
@@ -15,9 +14,7 @@ from backend.services import user_service
 async def test_user(db_session):
     """Create a test user for notification tests."""
     user_id = await user_service.create_user(
-        session=db_session,
-        phone_number="+15551234567",
-        password_hash="hashed_password"
+        session=db_session, phone_number="+15551234567", password_hash="hashed_password"
     )
     return user_id
 
@@ -26,9 +23,7 @@ async def test_user(db_session):
 async def test_user2(db_session):
     """Create a second test user for notification tests."""
     user_id = await user_service.create_user(
-        session=db_session,
-        phone_number="+15559876543",
-        password_hash="hashed_password"
+        session=db_session, phone_number="+15559876543", password_hash="hashed_password"
     )
     return user_id
 
@@ -43,9 +38,9 @@ async def test_create_notification(db_session, test_user):
         title="Test Notification",
         message="This is a test notification",
         data={"league_id": 1},
-        link_url="/leagues/1"
+        link_url="/leagues/1",
     )
-    
+
     assert notification is not None
     assert notification["user_id"] == test_user
     assert notification["type"] == NotificationType.LEAGUE_MESSAGE.value
@@ -68,19 +63,15 @@ async def test_create_notification_validation(db_session, test_user):
             user_id=None,
             type=NotificationType.LEAGUE_MESSAGE.value,
             title="Test",
-            message="Test"
+            message="Test",
         )
-    
+
     # Missing type
     with pytest.raises(ValueError, match="type is required"):
         await notification_service.create_notification(
-            session=db_session,
-            user_id=test_user,
-            type="",
-            title="Test",
-            message="Test"
+            session=db_session, user_id=test_user, type="", title="Test", message="Test"
         )
-    
+
     # Missing title
     with pytest.raises(ValueError, match="title is required"):
         await notification_service.create_notification(
@@ -88,9 +79,9 @@ async def test_create_notification_validation(db_session, test_user):
             user_id=test_user,
             type=NotificationType.LEAGUE_MESSAGE.value,
             title="",
-            message="Test"
+            message="Test",
         )
-    
+
     # Missing message
     with pytest.raises(ValueError, match="message is required"):
         await notification_service.create_notification(
@@ -98,7 +89,7 @@ async def test_create_notification_validation(db_session, test_user):
             user_id=test_user,
             type=NotificationType.LEAGUE_MESSAGE.value,
             title="Test",
-            message=""
+            message="",
         )
 
 
@@ -110,9 +101,9 @@ async def test_create_notification_without_optional_fields(db_session, test_user
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Test",
-        message="Test message"
+        message="Test message",
     )
-    
+
     assert notification is not None
     assert notification["data"] is None
     assert notification["link_url"] is None
@@ -126,7 +117,7 @@ async def test_create_notifications_bulk(db_session, test_user, test_user2):
             "user_id": test_user,
             "type": NotificationType.LEAGUE_MESSAGE.value,
             "title": "Notification 1",
-            "message": "Message 1"
+            "message": "Message 1",
         },
         {
             "user_id": test_user2,
@@ -134,21 +125,20 @@ async def test_create_notifications_bulk(db_session, test_user, test_user2):
             "title": "Notification 2",
             "message": "Message 2",
             "data": {"league_id": 1},
-            "link_url": "/leagues/1"
+            "link_url": "/leagues/1",
         },
         {
             "user_id": test_user,
             "type": NotificationType.SEASON_START.value,
             "title": "Notification 3",
-            "message": "Message 3"
-        }
+            "message": "Message 3",
+        },
     ]
-    
+
     created = await notification_service.create_notifications_bulk(
-        session=db_session,
-        notifications_list=notifications_list
+        session=db_session, notifications_list=notifications_list
     )
-    
+
     assert len(created) == 3
     assert all(n["id"] > 0 for n in created)
     assert created[0]["user_id"] == test_user
@@ -160,10 +150,9 @@ async def test_create_notifications_bulk(db_session, test_user, test_user2):
 async def test_create_notifications_bulk_empty_list(db_session):
     """Test creating bulk notifications with empty list."""
     result = await notification_service.create_notifications_bulk(
-        session=db_session,
-        notifications_list=[]
+        session=db_session, notifications_list=[]
     )
-    
+
     assert result == []
 
 
@@ -174,44 +163,42 @@ async def test_create_notifications_bulk_validation(db_session, test_user):
     with pytest.raises(ValueError, match="user_id is required"):
         await notification_service.create_notifications_bulk(
             session=db_session,
-            notifications_list=[{
-                "type": NotificationType.LEAGUE_MESSAGE.value,
-                "title": "Test",
-                "message": "Test"
-            }]
+            notifications_list=[
+                {"type": NotificationType.LEAGUE_MESSAGE.value, "title": "Test", "message": "Test"}
+            ],
         )
-    
+
     # Missing type
     with pytest.raises(ValueError, match="type is required"):
         await notification_service.create_notifications_bulk(
             session=db_session,
-            notifications_list=[{
-                "user_id": test_user,
-                "title": "Test",
-                "message": "Test"
-            }]
+            notifications_list=[{"user_id": test_user, "title": "Test", "message": "Test"}],
         )
-    
+
     # Missing title
     with pytest.raises(ValueError, match="title is required"):
         await notification_service.create_notifications_bulk(
             session=db_session,
-            notifications_list=[{
-                "user_id": test_user,
-                "type": NotificationType.LEAGUE_MESSAGE.value,
-                "message": "Test"
-            }]
+            notifications_list=[
+                {
+                    "user_id": test_user,
+                    "type": NotificationType.LEAGUE_MESSAGE.value,
+                    "message": "Test",
+                }
+            ],
         )
-    
+
     # Missing message
     with pytest.raises(ValueError, match="message is required"):
         await notification_service.create_notifications_bulk(
             session=db_session,
-            notifications_list=[{
-                "user_id": test_user,
-                "type": NotificationType.LEAGUE_MESSAGE.value,
-                "title": "Test"
-            }]
+            notifications_list=[
+                {
+                    "user_id": test_user,
+                    "type": NotificationType.LEAGUE_MESSAGE.value,
+                    "title": "Test",
+                }
+            ],
         )
 
 
@@ -224,23 +211,22 @@ async def test_get_user_notifications(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 1",
-        message="Message 1"
+        message="Message 1",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_JOIN_REQUEST.value,
         title="Notification 2",
-        message="Message 2"
+        message="Message 2",
     )
     await db_session.commit()
-    
+
     # Get all notifications
     result = await notification_service.get_user_notifications(
-        session=db_session,
-        user_id=test_user
+        session=db_session, user_id=test_user
     )
-    
+
     assert result["total_count"] == 2
     assert len(result["notifications"]) == 2
     assert result["has_more"] is False
@@ -258,30 +244,24 @@ async def test_get_user_notifications_pagination(db_session, test_user):
             user_id=test_user,
             type=NotificationType.LEAGUE_MESSAGE.value,
             title=f"Notification {i}",
-            message=f"Message {i}"
+            message=f"Message {i}",
         )
     await db_session.commit()
-    
+
     # Get first page (limit 2)
     result = await notification_service.get_user_notifications(
-        session=db_session,
-        user_id=test_user,
-        limit=2,
-        offset=0
+        session=db_session, user_id=test_user, limit=2, offset=0
     )
-    
+
     assert result["total_count"] == 5
     assert len(result["notifications"]) == 2
     assert result["has_more"] is True
-    
+
     # Get second page
     result = await notification_service.get_user_notifications(
-        session=db_session,
-        user_id=test_user,
-        limit=2,
-        offset=2
+        session=db_session, user_id=test_user, limit=2, offset=2
     )
-    
+
     assert result["total_count"] == 5
     assert len(result["notifications"]) == 2
     assert result["has_more"] is True
@@ -296,30 +276,26 @@ async def test_get_user_notifications_unread_only(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Unread",
-        message="Message"
+        message="Message",
     )
     await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notif1["id"],
-        user_id=test_user
+        session=db_session, notification_id=notif1["id"], user_id=test_user
     )
-    
+
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Unread 2",
-        message="Message"
+        message="Message",
     )
     await db_session.commit()
-    
+
     # Get unread only
     result = await notification_service.get_user_notifications(
-        session=db_session,
-        user_id=test_user,
-        unread_only=True
+        session=db_session, user_id=test_user, unread_only=True
     )
-    
+
     assert result["total_count"] == 1
     assert len(result["notifications"]) == 1
     assert result["notifications"][0]["title"] == "Unread 2"
@@ -334,36 +310,31 @@ async def test_get_unread_count(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 1",
-        message="Message 1"
+        message="Message 1",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 2",
-        message="Message 2"
+        message="Message 2",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 3",
-        message="Message 3"
+        message="Message 3",
     )
-    
+
     # Mark one as read
     await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notif1["id"],
-        user_id=test_user
+        session=db_session, notification_id=notif1["id"], user_id=test_user
     )
     await db_session.commit()
-    
-    count = await notification_service.get_unread_count(
-        session=db_session,
-        user_id=test_user
-    )
-    
+
+    count = await notification_service.get_unread_count(session=db_session, user_id=test_user)
+
     assert count == 2
 
 
@@ -375,19 +346,17 @@ async def test_mark_as_read(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Test",
-        message="Test message"
+        message="Test message",
     )
-    
+
     assert notification["is_read"] is False
     assert notification["read_at"] is None
-    
+
     # Mark as read
     updated = await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notification["id"],
-        user_id=test_user
+        session=db_session, notification_id=notification["id"], user_id=test_user
     )
-    
+
     assert updated["is_read"] is True
     assert updated["read_at"] is not None
     assert updated["id"] == notification["id"]
@@ -401,24 +370,20 @@ async def test_mark_as_read_already_read(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Test",
-        message="Test message"
+        message="Test message",
     )
-    
+
     # Mark as read first time
     updated1 = await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notification["id"],
-        user_id=test_user
+        session=db_session, notification_id=notification["id"], user_id=test_user
     )
     read_at_1 = updated1["read_at"]
-    
+
     # Mark as read second time (should not change)
     updated2 = await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notification["id"],
-        user_id=test_user
+        session=db_session, notification_id=notification["id"], user_id=test_user
     )
-    
+
     assert updated2["is_read"] is True
     assert updated2["read_at"] == read_at_1  # Should not change
 
@@ -431,15 +396,13 @@ async def test_mark_as_read_wrong_user(db_session, test_user, test_user2):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Test",
-        message="Test message"
+        message="Test message",
     )
-    
+
     # Try to mark as read with wrong user
     with pytest.raises(ValueError, match="Notification not found or access denied"):
         await notification_service.mark_as_read(
-            session=db_session,
-            notification_id=notification["id"],
-            user_id=test_user2
+            session=db_session, notification_id=notification["id"], user_id=test_user2
         )
 
 
@@ -448,9 +411,7 @@ async def test_mark_as_read_nonexistent(db_session, test_user):
     """Test marking a nonexistent notification as read."""
     with pytest.raises(ValueError, match="Notification not found or access denied"):
         await notification_service.mark_as_read(
-            session=db_session,
-            notification_id=99999,
-            user_id=test_user
+            session=db_session, notification_id=99999, user_id=test_user
         )
 
 
@@ -463,36 +424,32 @@ async def test_mark_all_as_read(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 1",
-        message="Message 1"
+        message="Message 1",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 2",
-        message="Message 2"
+        message="Message 2",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 3",
-        message="Message 3"
+        message="Message 3",
     )
     await db_session.commit()
-    
+
     # Mark all as read
-    count = await notification_service.mark_all_as_read(
-        session=db_session,
-        user_id=test_user
-    )
-    
+    count = await notification_service.mark_all_as_read(session=db_session, user_id=test_user)
+
     assert count == 3
-    
+
     # Verify all are read
     unread_count = await notification_service.get_unread_count(
-        session=db_session,
-        user_id=test_user
+        session=db_session, user_id=test_user
     )
     assert unread_count == 0
 
@@ -500,11 +457,8 @@ async def test_mark_all_as_read(db_session, test_user):
 @pytest.mark.asyncio
 async def test_mark_all_as_read_no_notifications(db_session, test_user):
     """Test marking all as read when user has no notifications."""
-    count = await notification_service.mark_all_as_read(
-        session=db_session,
-        user_id=test_user
-    )
-    
+    count = await notification_service.mark_all_as_read(session=db_session, user_id=test_user)
+
     assert count == 0
 
 
@@ -517,29 +471,23 @@ async def test_mark_all_as_read_partial(db_session, test_user):
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 1",
-        message="Message 1"
+        message="Message 1",
     )
     await notification_service.create_notification(
         session=db_session,
         user_id=test_user,
         type=NotificationType.LEAGUE_MESSAGE.value,
         title="Notification 2",
-        message="Message 2"
+        message="Message 2",
     )
-    
+
     # Mark one as read
     await notification_service.mark_as_read(
-        session=db_session,
-        notification_id=notif1["id"],
-        user_id=test_user
+        session=db_session, notification_id=notif1["id"], user_id=test_user
     )
     await db_session.commit()
-    
-    # Mark all as read (should only mark 1)
-    count = await notification_service.mark_all_as_read(
-        session=db_session,
-        user_id=test_user
-    )
-    
-    assert count == 1
 
+    # Mark all as read (should only mark 1)
+    count = await notification_service.mark_all_as_read(session=db_session, user_id=test_user)
+
+    assert count == 1

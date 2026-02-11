@@ -3,8 +3,7 @@ const nextConfig = {
   // Enable React strict mode
   reactStrictMode: true,
   output: 'standalone',
-  
-  
+
   // Configure API rewrites for development (proxy to FastAPI backend)
   // In production, API calls go directly to NEXT_PUBLIC_API_URL (no proxy).
   // In development, we always proxy /api/* so the client can use relative URLs and

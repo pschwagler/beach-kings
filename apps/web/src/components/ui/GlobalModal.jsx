@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateLeagueModal from '../league/CreateLeagueModal';
 import PlayerProfileModal from '../player/PlayerProfileModal';
@@ -6,9 +7,10 @@ import EditWeeklyScheduleModal from '../league/EditWeeklyScheduleModal';
 import SignupModal from '../league/SignupModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import SessionSummaryModal from '../modal/SessionSummaryModal';
-import UploadPhotoModal from '../match/UploadPhotoModal';
-import PhotoMatchReviewModal from '../match/PhotoMatchReviewModal';
 import ErrorBoundary from './ErrorBoundary';
+
+const UploadPhotoModal = lazy(() => import('../match/UploadPhotoModal'));
+const PhotoMatchReviewModal = lazy(() => import('../match/PhotoMatchReviewModal'));
 
 const MODAL_COMPONENTS = {
   [MODAL_TYPES.CREATE_LEAGUE]: CreateLeagueModal,
@@ -38,11 +40,13 @@ export default function GlobalModal() {
 
   return (
     <ErrorBoundary onReset={closeModal}>
-      <ModalComponent
-        isOpen={isOpen}
-        onClose={closeModal}
-        {...modalProps}
-      />
+      <Suspense fallback={null}>
+        <ModalComponent
+          isOpen={isOpen}
+          onClose={closeModal}
+          {...modalProps}
+        />
+      </Suspense>
     </ErrorBoundary>
   );
 }

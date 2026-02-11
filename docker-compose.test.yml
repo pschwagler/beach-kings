@@ -71,7 +71,15 @@ services:
       - test-network
     volumes:
       - ./apps/backend:/app/backend  # Mount apps/backend as backend for live code changes
-    command: ["pytest", "backend/tests/", "-v", "--tb=short"]
+    command:
+      - "pytest"
+      - "backend/tests/"
+      - "-v"
+      - "--tb=short"
+      - "--cov=backend"
+      - "--cov-report=xml:backend/coverage.xml"
+      - "--cov-report=term"
+      - "--cov-fail-under=0"
 
   # Backend service for E2E tests
   backend-test:

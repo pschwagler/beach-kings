@@ -78,15 +78,15 @@ export class SessionPage extends BasePage {
    * Waits for loading to complete and React to settle (including auto-opening modals).
    */
   async waitForReady() {
-    // Wait for loading to complete
+    // Wait for loading to complete and header or error to appear
     await this.page.waitForFunction(() => {
       const loading = document.querySelector('.session-page-loading');
       const error = document.querySelector('.session-page-error');
       const ready = document.querySelector('.session-page-header');
       return !loading && (ready || error);
     }, { timeout: 15000 });
-    // Wait for React to finish pending renders (e.g., auto-opening manage players modal)
-    await this.page.waitForTimeout(500);
+    // Yield to React for pending renders (e.g., auto-opening manage players modal)
+    await this.page.evaluate(() => {});
   }
 
   /**
@@ -146,7 +146,8 @@ export class SessionPage extends BasePage {
     // Switch to "In this session" tab to see participants
     const inSessionTab = this.page.locator('[role="tab"]:has-text("In this session")');
     await inSessionTab.click();
-    await this.page.waitForTimeout(300);
+    // Wait for player list items to appear
+    await this.page.waitForSelector(this.selectors.playersListItem, { state: 'attached', timeout: 5000 }).catch(() => {});
     const items = await this.page.locator(this.selectors.playersListItem).all();
     return items.length;
   }
@@ -156,8 +157,8 @@ export class SessionPage extends BasePage {
    */
   async searchPlayer(name) {
     await this.page.fill(this.selectors.addPlayerSearch, name);
-    // Wait for debounce and results
-    await this.page.waitForTimeout(400);
+    // Wait for search results to appear (debounce + API)
+    await this.page.waitForSelector('.session-players-add-item', { state: 'attached', timeout: 5000 }).catch(() => {});
   }
 
   /**
@@ -167,9 +168,12 @@ export class SessionPage extends BasePage {
     // Find the player in the add list and click add
     const addListItem = this.page.locator(`.session-players-add-item:has-text("${name}")`);
     await addListItem.waitFor({ state: 'visible', timeout: 5000 });
+    const responsePromise = this.page.waitForResponse(
+      response => response.url().includes('/api/sessions/') && response.url().includes('/invite'),
+      { timeout: 10000 }
+    ).catch(() => {});
     await addListItem.locator(this.selectors.addPlayerButton).click();
-    // Wait for refresh
-    await this.page.waitForTimeout(500);
+    await responsePromise;
   }
 
   /**
@@ -180,13 +184,17 @@ export class SessionPage extends BasePage {
     // Switch to "In this session" tab
     const inSessionTab = this.page.locator('[role="tab"]:has-text("In this session")');
     await inSessionTab.click();
-    await this.page.waitForTimeout(300);
+    // Wait for player list items to appear
+    await this.page.waitForSelector(this.selectors.playersListItem, { state: 'attached', timeout: 5000 }).catch(() => {});
 
     const playerItem = this.page.locator(`.session-players-list-item:has-text("${name}")`);
     await playerItem.waitFor({ state: 'visible', timeout: 5000 });
     await playerItem.locator(this.selectors.removePlayerButton).click();
-    // Wait for refresh
-    await this.page.waitForTimeout(500);
+    // Wait for API response (remove or error)
+    await this.page.waitForResponse(
+      response => response.url().includes('/api/sessions/'),
+      { timeout: 10000 }
+    ).catch(() => {});
   }
 
   /**
@@ -260,8 +268,6 @@ export class SessionPage extends BasePage {
     await this.click(this.selectors.inviteButton);
     await this.page.waitForSelector(this.selectors.shareDropdown, { state: 'visible', timeout: 3000 });
     await this.click(this.selectors.copyLinkButton);
-    // Wait for copy action
-    await this.page.waitForTimeout(300);
   }
 
   /**
@@ -271,8 +277,12 @@ export class SessionPage extends BasePage {
     await this.click(this.selectors.submitButton);
     // Wait for confirmation modal
     await this.page.waitForSelector('.modal-content', { state: 'visible', timeout: 5000 });
+    const responsePromise = this.page.waitForResponse(
+      response => response.url().includes('/api/sessions/') && response.request().method() === 'PATCH',
+      { timeout: 15000 }
+    ).catch(() => {});
     await this.page.locator('.modal-content button:has-text("Submit")').click();
-    await this.page.waitForTimeout(1000);
+    await responsePromise;
   }
 
   /**

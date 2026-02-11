@@ -3,10 +3,7 @@
 import { Info } from "lucide-react";
 import { Tooltip } from "../ui/UI";
 import CityAutocomplete from "../ui/CityAutocomplete";
-import {
-  GENDER_OPTIONS,
-  SKILL_LEVEL_OPTIONS,
-} from "../../utils/playerFormConstants";
+import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
 
 /**
  * Reusable player profile form fields component.

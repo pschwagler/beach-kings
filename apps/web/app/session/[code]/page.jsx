@@ -5,9 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Copy, Calendar, LayoutList, ClipboardList, Plus, Share2, ChevronDown, Pencil } from 'lucide-react';
 import {
-  getSessionByCode,
-  getSessionMatches,
-  getSessionParticipants,
   joinSessionByCode,
   createMatch,
   updateMatch,
@@ -16,9 +13,8 @@ import {
   deleteSession,
   updateSession,
   removeSessionParticipant,
-  getUserLeagues,
   createSession,
-  inviteToSession,
+  inviteToSessionBatch,
 } from '../../../src/services/api';
 import { formatDate, formatRelativeTime } from '../../../src/utils/dateUtils';
 import { useModal, MODAL_TYPES } from '../../../src/contexts/ModalContext';
@@ -27,9 +23,10 @@ import NavBar from '../../../src/components/layout/NavBar';
 import HomeMenuBar from '../../../src/components/home/HomeMenuBar';
 import ActiveSessionPanel from '../../../src/components/session/ActiveSessionPanel';
 import SessionPlayersModal from '../../../src/components/session/SessionPlayersModal';
-import { sessionMatchToDisplayFormat, getUniquePlayersCount } from '../../../src/components/league/utils/matchUtils';
+import { getUniquePlayersCount } from '../../../src/components/league/utils/matchUtils';
 import { usePersistedViewMode } from '../../../src/hooks/usePersistedViewMode';
 import { useClickOutside } from '../../../src/hooks/useClickOutside';
+import { usePickupSession } from '../../../src/hooks/usePickupSession';
 
 const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 
@@ -41,17 +38,24 @@ const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 export default function SessionByCodePage() {
   const router = useRouter();
   const params = useParams();
+  const code = params?.code;
   const { openModal, closeModal } = useModal();
   const { isAuthenticated, isInitializing, user, currentUserPlayer, logout } = useAuth();
-  const code = params?.code;
-  const [session, setSession] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [participants, setParticipants] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  const {
+    session,
+    participants,
+    loading,
+    error,
+    refresh,
+    userLeagues,
+    isCreator,
+    hasLessThanFourPlayers,
+    membersForModal,
+    transformedMatches,
+  } = usePickupSession(code);
+
   const [copied, setCopied] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [userLeagues, setUserLeagues] = useState([]);
   const [showPlayersModal, setShowPlayersModal] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [editingSessionName, setEditingSessionName] = useState(false);
@@ -62,60 +66,11 @@ export default function SessionByCodePage() {
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
   const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
 
-  // Track one-time actions per session visit to prevent duplicates from React effects
   const visitActionsRef = useRef({
     sessionCode: null,
     autoJoinDone: false,
     managePlayersAutoOpened: false,
   });
-
-  const load = useCallback(async () => {
-    if (!code) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const sess = await getSessionByCode(code);
-      if (!sess) {
-        setError('Session not found');
-        setSession(null);
-        setMatches([]);
-        setParticipants([]);
-        return;
-      }
-      if (sess.league_id != null) {
-        const searchParams = new URLSearchParams();
-        searchParams.set('tab', 'matches');
-        if (sess.season_id != null) searchParams.set('season', String(sess.season_id));
-        router.replace(`/league/${sess.league_id}?${searchParams.toString()}`);
-        return;
-      }
-      setSession(sess);
-      const [list, partList] = await Promise.all([
-        getSessionMatches(sess.id),
-        getSessionParticipants(sess.id),
-      ]);
-      setMatches(Array.isArray(list) ? list : []);
-      setParticipants(Array.isArray(partList) ? partList : []);
-    } catch (err) {
-      console.error('Error loading session:', err);
-      setError(err.response?.data?.detail || err.message || 'Failed to load session');
-      setSession(null);
-      setMatches([]);
-      setParticipants([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [code, router]);
-
-  useEffect(() => {
-    load();
-  }, [load, refreshTrigger]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      getUserLeagues().then(setUserLeagues).catch(() => setUserLeagues([]));
-    }
-  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
@@ -142,28 +97,12 @@ export default function SessionByCodePage() {
     if (participantIds.has(currentUserPlayer.id)) return;
     visitActionsRef.current.autoJoinDone = true;
     joinSessionByCode(code)
-      .then(() => setRefreshTrigger((t) => t + 1))
+      .then(() => refresh())
       .catch(() => { visitActionsRef.current.autoJoinDone = false; });
   }, [session, code, isAuthenticated, currentUserPlayer, participants]);
 
   useClickOutside(shareMenuRef, shareMenuOpen, () => setShareMenuOpen(false));
 
-  const transformedMatches = useMemo(
-    () => (matches || []).map(sessionMatchToDisplayFormat),
-    [matches]
-  );
-
-  const membersForModal = useMemo(
-    () =>
-      (participants || []).map((p) => ({
-        player_id: p.player_id,
-        player_name: p.full_name || `Player ${p.player_id}`,
-      })),
-    [participants]
-  );
-
-  const isCreator = session?.created_by != null && currentUserPlayer?.id === session.created_by;
-  const hasLessThanFourPlayers = !participants || participants.length < 4;
   const isActive = session?.status === 'ACTIVE';
 
   const submittedTimestampText = useMemo(() => {
@@ -216,7 +155,7 @@ export default function SessionByCodePage() {
     } else {
       await createMatch({ ...matchPayload, session_id: session.id });
     }
-    setRefreshTrigger((t) => t + 1);
+    refresh();
     closeModal();
   };
 
@@ -230,7 +169,7 @@ export default function SessionByCodePage() {
       onSubmit: handleAddMatch,
       onDelete: async (matchId) => {
         await deleteMatch(matchId);
-        setRefreshTrigger((t) => t + 1);
+        refresh();
         closeModal();
       },
     });
@@ -238,7 +177,7 @@ export default function SessionByCodePage() {
 
   const handleDeleteMatch = async (matchId) => {
     await deleteMatch(matchId);
-    setRefreshTrigger((t) => t + 1);
+    refresh();
   };
 
   const handleAddMatchClick = () => {
@@ -280,14 +219,14 @@ export default function SessionByCodePage() {
       cancelText: 'Cancel',
       onConfirm: async () => {
         await lockInSession(session.id);
-        setRefreshTrigger((t) => t + 1);
+        refresh();
       },
     });
   };
 
   const handleSaveEditedSession = async () => {
     await lockInSession(session.id);
-    setRefreshTrigger((t) => t + 1);
+    refresh();
     setIsEditingCompleted(false);
   };
 
@@ -302,13 +241,11 @@ export default function SessionByCodePage() {
         setMessage('Could not create session. Please try again.');
         return;
       }
-      for (const p of participants) {
-        if (p.player_id === currentUserPlayer?.id) continue;
-        try {
-          await inviteToSession(newSess.id, p.player_id);
-        } catch (err) {
-          console.warn('Could not invite player to new session:', err);
-        }
+      const toInvite = participants
+        .filter((p) => p.player_id !== currentUserPlayer?.id)
+        .map((p) => p.player_id);
+      if (toInvite.length > 0) {
+        await inviteToSessionBatch(newSess.id, toInvite);
       }
       router.push(`/session/${newSess.code}`);
     } catch (err) {
@@ -426,7 +363,7 @@ export default function SessionByCodePage() {
                               if (e.key === 'Enter') {
                                 const name = draftSessionName.trim() || session.name || 'Session';
                                 updateSession(session.id, { name })
-                                  .then(() => setSession((prev) => ({ ...prev, name })))
+                                  .then(() => refresh())
                                   .catch((err) => console.error('Failed to rename session:', err))
                                   .finally(() => {
                                     setEditingSessionName(false);
@@ -446,7 +383,7 @@ export default function SessionByCodePage() {
                             onClick={() => {
                               const name = draftSessionName.trim() || session.name || 'Session';
                               updateSession(session.id, { name })
-                                .then(() => setSession((prev) => ({ ...prev, name })))
+                                .then(() => refresh())
                                 .catch((err) => console.error('Failed to rename session:', err))
                                 .finally(() => {
                                   setEditingSessionName(false);
@@ -712,9 +649,7 @@ export default function SessionByCodePage() {
         sessionCreatedByPlayerId={session?.created_by ?? null}
         currentUserPlayerId={currentUserPlayer?.id ?? null}
         onClose={() => { setShowPlayersModal(false); setMessage(null); }}
-        onSuccess={() => {
-          setRefreshTrigger((t) => t + 1);
-        }}
+        onSuccess={refresh}
         showMessage={(_, msg) => setMessage(msg)}
         message={message}
       />

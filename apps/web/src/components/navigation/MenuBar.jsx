@@ -119,6 +119,8 @@ export default function MenuBar({
         })}
       </nav>
 
+      {/* Ref passed for parent to use in effects/callbacks (render-prop pattern) */}
+      {/* eslint-disable-next-line react-hooks/refs -- parent consumes ref in effect, not during render */}
       {typeof children === 'function' ? children({ moreButtonRef }) : children}
     </aside>
   );

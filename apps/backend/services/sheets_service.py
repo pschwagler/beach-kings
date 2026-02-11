@@ -12,29 +12,26 @@ from oauth2client.service_account import ServiceAccountCredentials
 # from backend.database.models import Match
 
 # Google Sheets configuration
-CREDENTIALS_FILE = 'credentials.json'
-GOOGLE_SHEETS_ID = '1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA'
+CREDENTIALS_FILE = "credentials.json"
+GOOGLE_SHEETS_ID = "1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA"
 
-scope = ['https://spreadsheets.google.com/feeds',
-         'https://www.googleapis.com/auth/drive']
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 
 def get_credentials():
     """Get Google Sheets credentials from environment or file."""
-    credentials_json = os.getenv('CREDENTIALS_JSON')
+    credentials_json = os.getenv("CREDENTIALS_JSON")
     if credentials_json:
         credentials_dict = json.loads(credentials_json)
-        return ServiceAccountCredentials.from_json_keyfile_dict(
-            credentials_dict, scope)
+        return ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
     else:
-        return ServiceAccountCredentials.from_json_keyfile_name(
-            CREDENTIALS_FILE, scope)
+        return ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
 
 
 def load_matches_from_sheets(sheet_id=None):
     """
     DISABLED: This function has been disabled.
-    
+
     TODO: Re-implement to be season-specific and add proper validations.
     This function should:
     - Accept a season_id parameter
@@ -46,33 +43,33 @@ def load_matches_from_sheets(sheet_id=None):
         "This function needs to be re-implemented to be season-specific with proper validations. "
         "It should accept a season_id parameter and validate matches against season constraints."
     )
-    
+
     credentials = get_credentials()
     gc = gspread.authorize(credentials)
-    
-    # Try to open by ID first, then by name
+
+    # Try to open by ID first, then by name (unreachable while disabled)
     try:
         sh = gc.open_by_key(sheet_id)
-    except:
+    except Exception:
         sh = gc.open(sheet_id)
-    
+
     wks = sh.worksheet("Matches")
     data = wks.get_all_values()
     headers = data.pop(0)
     df = pd.DataFrame(data, columns=headers)
-    df.columns = ['DATE', 'T1P1', 'T1P2', 'T2P1', 'T2P2', 'T1SCORE', 'T2SCORE']
+    df.columns = ["DATE", "T1P1", "T1P2", "T2P1", "T2P2", "T1SCORE", "T2SCORE"]
 
     match_list = []
     for _, row in df.iterrows():
-        match = MatchData(
-            team1_player1=row['T1P1'],
-            team1_player2=row['T1P2'],
-            team2_player1=row['T2P1'],
-            team2_player2=row['T2P2'],
-            team1_score=int(row['T1SCORE']),
-            team2_score=int(row['T2SCORE']),
-            date=row['DATE']
+        match = MatchData(  # noqa: F821
+            team1_player1=row["T1P1"],
+            team1_player2=row["T1P2"],
+            team2_player1=row["T2P1"],
+            team2_player2=row["T2P2"],
+            team1_score=int(row["T1SCORE"]),
+            team2_score=int(row["T2SCORE"]),
+            date=row["DATE"],
         )
         match_list.append(match)
-    
+
     return match_list

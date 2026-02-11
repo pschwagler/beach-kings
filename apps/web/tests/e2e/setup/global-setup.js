@@ -12,15 +12,36 @@ async function globalSetup(config) {
   
   console.log(`Test database URL: ${testDbUrl.replace(/:[^:@]+@/, ':****@')}`);
   
-  // Verify database connection
+  // Verify database connection and seed required data
   try {
     const pg = await import('pg');
     const { Client } = pg.default || pg;
     const client = new Client({ connectionString: testDbUrl });
     await client.connect();
     await client.query('SELECT 1');
-    await client.end();
     console.log('✓ Test database connection successful');
+
+    // Seed test location if it doesn't exist (required for profile completion)
+    const locationResult = await client.query(
+      "SELECT id FROM locations WHERE id = 'socal_sd'"
+    );
+    if (locationResult.rows.length === 0) {
+      // First ensure the region exists
+      await client.query(`
+        INSERT INTO regions (id, name)
+        VALUES ('california', 'California')
+        ON CONFLICT (id) DO NOTHING
+      `);
+      // Then insert the location
+      await client.query(`
+        INSERT INTO locations (id, name, city, state, region_id, tier, latitude, longitude, seasonality, radius_miles)
+        VALUES ('socal_sd', 'CA - San Diego', 'Mission Beach', 'CA', 'california', 1, 32.7698, -117.2514, 'Year-Round', 30)
+        ON CONFLICT (id) DO NOTHING
+      `);
+      console.log('✓ Test location seeded');
+    }
+
+    await client.end();
   } catch (error) {
     console.error('✗ Test database connection failed:', error.message);
     console.error('Make sure the test database is running. You can start it with:');

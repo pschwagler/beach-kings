@@ -269,11 +269,20 @@ export async function completeTestUserProfile(token, profileData = {}) {
     level: 'intermediate',
     city: 'San Diego',
     state: 'CA',
+    location_id: 'socal_sd',
     ...profileData,
   };
 
-  const response = await api.put('/api/users/me/player', defaultProfile);
-  return response.data;
+  try {
+    const response = await api.put('/api/users/me/player', defaultProfile);
+    return response.data;
+  } catch (error) {
+    console.error('completeTestUserProfile failed:', {
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    throw error;
+  }
 }
 
 /**
