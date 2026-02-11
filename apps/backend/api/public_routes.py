@@ -58,3 +58,18 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(
             status_code=500, detail=f"Error fetching sitemap locations: {str(e)}"
         )
+
+
+@public_router.get("/leagues/{league_id}")
+async def get_public_league(league_id: int, session: AsyncSession = Depends(get_db_session)):
+    """
+    Get public-facing league data.
+
+    Public leagues: full info, member list, current season standings, last 20 matches.
+    Private leagues: limited info (name, location, member count, creator, games played).
+    Returns 404 if league not found.
+    """
+    result = await public_service.get_public_league(session, league_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="League not found")
+    return result

@@ -1,16 +1,24 @@
 """
-Tests for public_service — sitemap endpoint service functions.
+Tests for public_service — sitemap and public page service functions.
 """
+
+import datetime
 
 import pytest
 import pytest_asyncio
 import bcrypt
 from backend.database.models import (
     League,
+    LeagueMember,
     Location,
+    Match,
     Player,
     PlayerGlobalStats,
+    PlayerSeasonStats,
     Region,
+    Season,
+    Session,
+    SessionStatus,
 )
 from backend.services import public_service
 from backend.services import user_service
@@ -211,3 +219,243 @@ async def test_get_sitemap_locations_empty(db_session):
     """Returns empty list when no locations exist."""
     result = await public_service.get_sitemap_locations(db_session)
     assert result == []
+
+
+# ============================================================================
+# get_public_league
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def public_league_full(db_session, test_location, test_player):
+    """Create a public league with members, a season with standings, and matches."""
+    # League created by test_player
+    league = League(
+        name="Public Beach League",
+        description="A great beach league",
+        location_id=test_location.id,
+        is_public=True,
+        gender="mixed",
+        level="intermediate",
+        created_by=test_player.id,
+    )
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    # Add test_player as a member
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="admin")
+    db_session.add(member)
+
+    # Create a second player + member
+    player2 = Player(full_name="Jane Smith", user_id=None)
+    db_session.add(player2)
+    await db_session.commit()
+    await db_session.refresh(player2)
+
+    member2 = LeagueMember(league_id=league.id, player_id=player2.id, role="member")
+    db_session.add(member2)
+
+    # Create two more players for matches (4 total for 2v2)
+    player3 = Player(full_name="Bob Jones", user_id=None)
+    player4 = Player(full_name="Alice Brown", user_id=None)
+    db_session.add_all([player3, player4])
+    await db_session.commit()
+    await db_session.refresh(player3)
+    await db_session.refresh(player4)
+
+    for p in [player3, player4]:
+        db_session.add(LeagueMember(league_id=league.id, player_id=p.id, role="member"))
+
+    # Season
+    season = Season(
+        league_id=league.id,
+        name="Spring 2026",
+        start_date=datetime.date(2026, 1, 1),
+        end_date=datetime.date(2026, 6, 30),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    # Season stats (standings data)
+    stats1 = PlayerSeasonStats(
+        player_id=test_player.id, season_id=season.id, games=5, wins=4, points=12, win_rate=0.8, avg_point_diff=3.0
+    )
+    stats2 = PlayerSeasonStats(
+        player_id=player2.id, season_id=season.id, games=5, wins=2, points=6, win_rate=0.4, avg_point_diff=-1.0
+    )
+    db_session.add_all([stats1, stats2])
+
+    # Session + match
+    sess = Session(
+        date="2026-02-01", name="Session 1", status=SessionStatus.SUBMITTED, season_id=season.id
+    )
+    db_session.add(sess)
+    await db_session.commit()
+    await db_session.refresh(sess)
+
+    match = Match(
+        session_id=sess.id,
+        date="2026-02-01",
+        team1_player1_id=test_player.id,
+        team1_player2_id=player2.id,
+        team2_player1_id=player3.id,
+        team2_player2_id=player4.id,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
+    )
+    db_session.add(match)
+    await db_session.commit()
+    await db_session.refresh(match)
+
+    return {
+        "league": league,
+        "players": [test_player, player2, player3, player4],
+        "season": season,
+        "match": match,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_not_found(db_session):
+    """Returns None for nonexistent league."""
+    result = await public_service.get_public_league(db_session, 99999)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_full_data(db_session, public_league_full):
+    """Public league returns full data: info, members, standings, matches."""
+    league = public_league_full["league"]
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+    assert result["id"] == league.id
+    assert result["name"] == "Public Beach League"
+    assert result["is_public"] is True
+    assert result["gender"] == "mixed"
+    assert result["level"] == "intermediate"
+    assert result["description"] == "A great beach league"
+    assert result["creator_name"] == "Test Player"
+
+    # Location
+    assert result["location"] is not None
+    assert result["location"]["city"] == "Test City"
+    assert result["location"]["slug"] == "test-city"
+
+    # Members
+    assert result["member_count"] == 4
+    assert len(result["members"]) == 4
+    member_names = [m["full_name"] for m in result["members"]]
+    assert "Test Player" in member_names
+    assert "Jane Smith" in member_names
+
+    # Standings (ordered by points desc)
+    assert len(result["standings"]) == 2
+    assert result["standings"][0]["full_name"] == "Test Player"
+    assert result["standings"][0]["rank"] == 1
+    assert result["standings"][0]["points"] == 12
+    assert result["standings"][1]["full_name"] == "Jane Smith"
+    assert result["standings"][1]["rank"] == 2
+
+    # Current season
+    assert result["current_season"] is not None
+    assert result["current_season"]["name"] == "Spring 2026"
+
+    # Recent matches
+    assert len(result["recent_matches"]) == 1
+    match = result["recent_matches"][0]
+    assert match["team1_score"] == 21
+    assert match["team2_score"] == 15
+    assert match["winner"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_private_limited(db_session, test_location, test_player):
+    """Private league returns limited data without members/standings/matches."""
+    league = League(
+        name="Private League",
+        location_id=test_location.id,
+        is_public=False,
+        created_by=test_player.id,
+    )
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="admin")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+    assert result["name"] == "Private League"
+    assert result["is_public"] is False
+    assert result["member_count"] == 1
+    assert result["games_played"] == 0
+    assert result["creator_name"] == "Test Player"
+
+    # Full data fields should NOT be present
+    assert "members" not in result
+    assert "standings" not in result
+    assert "recent_matches" not in result
+    assert "description" not in result
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_no_season(db_session, test_location):
+    """Public league with no seasons returns empty standings/matches."""
+    league = League(name="New League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+    assert result["current_season"] is None
+    assert result["standings"] == []
+    assert result["recent_matches"] == []
+    assert result["members"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_no_location(db_session):
+    """League without a location returns location=None."""
+    league = League(name="No Loc League", location_id=None, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert result is not None
+    assert result["location"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_league_avatar_fallback(db_session, test_location, test_user):
+    """Members without avatars get generated initials."""
+    league = League(name="Avatar League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    player = Player(full_name="John Doe", user_id=test_user["id"], avatar=None)
+    db_session.add(player)
+    await db_session.commit()
+    await db_session.refresh(player)
+
+    member = LeagueMember(league_id=league.id, player_id=player.id, role="member")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_league(db_session, league.id)
+
+    assert len(result["members"]) == 1
+    # Avatar should be initials fallback, not None
+    assert result["members"][0]["avatar"] is not None
+    assert result["members"][0]["avatar"] != ""
