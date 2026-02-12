@@ -6,7 +6,7 @@ Provides read-only data access for SEO (sitemap, public pages).
 
 from typing import List, Dict, Optional
 
-from sqlalchemy import select, exists, func
+from sqlalchemy import and_, select, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -88,6 +88,153 @@ async def get_sitemap_locations(session: AsyncSession) -> List[Dict]:
         }
         for row in result.all()
     ]
+
+
+async def get_public_leagues(
+    session: AsyncSession,
+    location_id: Optional[str] = None,
+    region_id: Optional[str] = None,
+    gender: Optional[str] = None,
+    level: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> Dict:
+    """
+    Get paginated list of public leagues with filters.
+
+    Params:
+        location_id: Filter by location ID.
+        region_id: Filter by region ID.
+        gender: Filter by gender ('male', 'female', 'mixed').
+        level: Filter by skill level.
+        page: 1-based page number.
+        page_size: Items per page.
+
+    Returns:
+        Paginated dict with items, page, page_size, total_count.
+        Each item includes league info, location, member count, games played.
+    """
+    if page < 1:
+        page = 1
+    if page_size <= 0:
+        page_size = 25
+
+    # Subquery: member count per league
+    member_count_subq = (
+        select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
+        .group_by(LeagueMember.league_id)
+        .subquery()
+    )
+
+    # Subquery: games played per league (count matches across all seasons)
+    games_played_subq = (
+        select(
+            Season.league_id,
+            func.count(Match.id).label("games_played"),
+        )
+        .join(Session, Session.season_id == Season.id)
+        .join(Match, Match.session_id == Session.id)
+        .group_by(Season.league_id)
+        .subquery()
+    )
+
+    # Base query
+    base_query = (
+        select(
+            League,
+            func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
+            func.coalesce(games_played_subq.c.games_played, 0).label("games_played"),
+            Location.name.label("location_name"),
+            Location.city.label("location_city"),
+            Location.state.label("location_state"),
+            Location.slug.label("location_slug"),
+            Region.id.label("region_id"),
+            Region.name.label("region_name"),
+        )
+        .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
+        .outerjoin(games_played_subq, games_played_subq.c.league_id == League.id)
+        .outerjoin(Location, Location.id == League.location_id)
+        .outerjoin(Region, Region.id == Location.region_id)
+        .where(League.is_public == True)  # noqa: E712
+    )
+
+    # Build filter conditions
+    conditions = []
+    if location_id is not None:
+        conditions.append(League.location_id == location_id)
+    if region_id is not None:
+        conditions.append(Location.region_id == region_id)
+    if gender is not None:
+        conditions.append(League.gender == gender)
+    if level is not None:
+        conditions.append(League.level == level)
+
+    if conditions:
+        base_query = base_query.where(and_(*conditions))
+
+    # Total count
+    count_query = (
+        select(func.count(League.id))
+        .select_from(League)
+        .outerjoin(Location, Location.id == League.location_id)
+        .where(League.is_public == True)  # noqa: E712
+    )
+    if conditions:
+        count_query = count_query.where(and_(*conditions))
+    total_count = (await session.execute(count_query)).scalar() or 0
+
+    # Paginate + order by newest first
+    offset = (page - 1) * page_size
+    items_query = base_query.order_by(League.created_at.desc()).offset(offset).limit(page_size)
+
+    result = await session.execute(items_query)
+    rows = result.all()
+
+    items = [
+        {
+            "id": league.id,
+            "name": league.name,
+            "description": league.description,
+            "gender": league.gender,
+            "level": league.level,
+            "is_open": league.is_open,
+            "member_count": int(member_count),
+            "games_played": int(games_played),
+            "location": {
+                "id": league.location_id,
+                "name": location_name,
+                "city": location_city,
+                "state": location_state,
+                "slug": location_slug,
+            }
+            if league.location_id
+            else None,
+            "region": {
+                "id": r_region_id,
+                "name": region_name,
+            }
+            if r_region_id
+            else None,
+        }
+        for (
+            league,
+            member_count,
+            games_played,
+            location_name,
+            location_city,
+            location_state,
+            location_slug,
+            r_region_id,
+            region_name,
+        ) in rows
+    ]
+
+    return {
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total_count": total_count,
+    }
 
 
 async def get_public_league(session: AsyncSession, league_id: int) -> Optional[Dict]:

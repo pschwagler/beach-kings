@@ -5,9 +5,9 @@ Provides read-only endpoints for SEO (sitemap, public pages).
 All routes are prefixed with /api/public.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
@@ -58,6 +58,34 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(
             status_code=500, detail=f"Error fetching sitemap locations: {str(e)}"
         )
+
+
+@public_router.get("/leagues")
+async def list_public_leagues(
+    location_id: Optional[str] = Query(None, description="Filter by location ID"),
+    region_id: Optional[str] = Query(None, description="Filter by region ID"),
+    gender: Optional[str] = Query(None, description="Filter by gender (male, female, mixed)"),
+    level: Optional[str] = Query(None, description="Filter by skill level"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get paginated list of public leagues with optional filters.
+
+    Returns public leagues (is_public=True) with member count, games played,
+    location info, and region info. Supports filtering by location, region,
+    gender, and level. No authentication required.
+    """
+    return await public_service.get_public_leagues(
+        session,
+        location_id=location_id,
+        region_id=region_id,
+        gender=gender,
+        level=level,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @public_router.get("/leagues/{league_id}")

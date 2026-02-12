@@ -223,6 +223,209 @@ async def test_get_sitemap_locations_empty(db_session):
 
 
 # ============================================================================
+# get_public_leagues (paginated list)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_empty(db_session):
+    """Returns empty items when no leagues exist."""
+    result = await public_service.get_public_leagues(db_session)
+    assert result["items"] == []
+    assert result["total_count"] == 0
+    assert result["page"] == 1
+    assert result["page_size"] == 25
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_excludes_private(db_session, test_location):
+    """Private leagues are excluded from the list."""
+    league = League(name="Secret League", location_id=test_location.id, is_public=False)
+    db_session.add(league)
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session)
+    assert result["items"] == []
+    assert result["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_returns_public(db_session, test_location):
+    """Public leagues are returned with basic info, member count, location."""
+    league = League(
+        name="Beach League",
+        description="Fun league",
+        location_id=test_location.id,
+        is_public=True,
+        gender="mixed",
+        level="intermediate",
+        is_open=True,
+    )
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    result = await public_service.get_public_leagues(db_session)
+    assert result["total_count"] == 1
+    assert len(result["items"]) == 1
+
+    item = result["items"][0]
+    assert item["id"] == league.id
+    assert item["name"] == "Beach League"
+    assert item["description"] == "Fun league"
+    assert item["gender"] == "mixed"
+    assert item["level"] == "intermediate"
+    assert item["is_open"] is True
+    assert item["member_count"] == 0
+    assert item["games_played"] == 0
+    assert item["location"] is not None
+    assert item["location"]["city"] == "Test City"
+    assert item["location"]["slug"] == "test-city"
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_with_member_count(db_session, test_location, test_player):
+    """League member count is included."""
+    league = League(name="Members League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="member")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session)
+    assert result["items"][0]["member_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_with_games_played(db_session, test_location, test_player):
+    """League games played count is included."""
+    league = League(name="Active League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    season = Season(
+        league_id=league.id, name="S1",
+        start_date=datetime.date(2026, 1, 1),
+        end_date=datetime.date(2026, 6, 30),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    sess = Session(
+        date="2026-02-01", name="Sess 1",
+        status=SessionStatus.SUBMITTED, season_id=season.id,
+    )
+    db_session.add(sess)
+    await db_session.commit()
+    await db_session.refresh(sess)
+
+    # Need 4 players for a match
+    p2 = Player(full_name="Player Two")
+    p3 = Player(full_name="Player Three")
+    p4 = Player(full_name="Player Four")
+    db_session.add_all([p2, p3, p4])
+    await db_session.commit()
+    await db_session.refresh(p2)
+    await db_session.refresh(p3)
+    await db_session.refresh(p4)
+
+    match = Match(
+        session_id=sess.id, date="2026-02-01",
+        team1_player1_id=test_player.id, team1_player2_id=p2.id,
+        team2_player1_id=p3.id, team2_player2_id=p4.id,
+        team1_score=21, team2_score=15, winner=1,
+    )
+    db_session.add(match)
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session)
+    assert result["items"][0]["games_played"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_filter_by_gender(db_session, test_location):
+    """Gender filter returns only matching leagues."""
+    l1 = League(name="Mixed", location_id=test_location.id, is_public=True, gender="mixed")
+    l2 = League(name="Male", location_id=test_location.id, is_public=True, gender="male")
+    db_session.add_all([l1, l2])
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session, gender="male")
+    assert result["total_count"] == 1
+    assert result["items"][0]["name"] == "Male"
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_filter_by_location(db_session, test_location):
+    """Location filter returns only matching leagues."""
+    loc2 = Location(
+        id="other_loc", name="Other Beach", city="Other City",
+        state="CA", slug="other-city",
+    )
+    db_session.add(loc2)
+    await db_session.commit()
+
+    l1 = League(name="At Test", location_id=test_location.id, is_public=True)
+    l2 = League(name="At Other", location_id="other_loc", is_public=True)
+    db_session.add_all([l1, l2])
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session, location_id=test_location.id)
+    assert result["total_count"] == 1
+    assert result["items"][0]["name"] == "At Test"
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_filter_by_region(db_session, test_location, test_region):
+    """Region filter returns only leagues at locations in that region."""
+    result = await public_service.get_public_leagues(db_session, region_id=test_region.id)
+    # No leagues yet
+    assert result["total_count"] == 0
+
+    league = League(name="Regional", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session, region_id=test_region.id)
+    assert result["total_count"] == 1
+    assert result["items"][0]["name"] == "Regional"
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_pagination(db_session, test_location):
+    """Pagination returns correct slices and total count."""
+    for i in range(5):
+        db_session.add(League(name=f"League {i}", location_id=test_location.id, is_public=True))
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session, page=1, page_size=2)
+    assert result["total_count"] == 5
+    assert len(result["items"]) == 2
+    assert result["page"] == 1
+    assert result["page_size"] == 2
+
+    result2 = await public_service.get_public_leagues(db_session, page=3, page_size=2)
+    assert len(result2["items"]) == 1  # 5th item on page 3
+
+
+@pytest.mark.asyncio
+async def test_get_public_leagues_no_location(db_session):
+    """League without location returns location=None and region=None."""
+    league = League(name="No Loc", location_id=None, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+
+    result = await public_service.get_public_leagues(db_session)
+    assert result["items"][0]["location"] is None
+    assert result["items"][0]["region"] is None
+
+
+# ============================================================================
 # get_public_league
 # ============================================================================
 
