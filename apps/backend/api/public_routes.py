@@ -88,3 +88,18 @@ async def get_public_player(player_id: int, session: AsyncSession = Depends(get_
     if result is None:
         raise HTTPException(status_code=404, detail="Player not found")
     return result
+
+
+@public_router.get("/locations/{slug}")
+async def get_public_location(slug: str, session: AsyncSession = Depends(get_db_session)):
+    """
+    Get public-facing location data by slug.
+
+    Returns location info, public leagues, top 20 players by ELO,
+    courts, and aggregate stats.
+    Returns 404 if slug not found.
+    """
+    result = await public_service.get_public_location_by_slug(session, slug)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return result

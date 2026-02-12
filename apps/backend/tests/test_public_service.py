@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 import bcrypt
 from backend.database.models import (
+    Court,
     League,
     LeagueMember,
     Location,
@@ -604,3 +605,214 @@ async def test_get_public_player_private_leagues_excluded(db_session, test_playe
 
     assert result is not None
     assert len(result["league_memberships"]) == 0
+
+
+# ============================================================================
+# get_public_location_by_slug
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_not_found(db_session):
+    """Returns None for nonexistent slug."""
+    result = await public_service.get_public_location_by_slug(db_session, "nonexistent-slug")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_basic(db_session, test_location, test_region):
+    """Location by slug returns basic info with region."""
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert result["id"] == "test_loc"
+    assert result["name"] == "Test Beach"
+    assert result["city"] == "Test City"
+    assert result["state"] == "CA"
+    assert result["slug"] == "test-city"
+    assert result["region"] is not None
+    assert result["region"]["id"] == "test_region"
+    assert result["region"]["name"] == "Test Region"
+    assert result["leagues"] == []
+    assert result["top_players"] == []
+    assert result["courts"] == []
+    assert result["stats"]["total_players"] == 0
+    assert result["stats"]["total_leagues"] == 0
+    assert result["stats"]["total_matches"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_with_leagues(db_session, test_location, test_player):
+    """Location includes public leagues with member counts."""
+    league = League(
+        name="Beach League",
+        location_id=test_location.id,
+        is_public=True,
+        gender="mixed",
+        level="intermediate",
+    )
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="member")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert len(result["leagues"]) == 1
+    assert result["leagues"][0]["id"] == league.id
+    assert result["leagues"][0]["name"] == "Beach League"
+    assert result["leagues"][0]["gender"] == "mixed"
+    assert result["leagues"][0]["level"] == "intermediate"
+    assert result["leagues"][0]["member_count"] == 1
+    assert result["stats"]["total_leagues"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_excludes_private_leagues(db_session, test_location):
+    """Private leagues are excluded from location page."""
+    league = League(name="Secret League", location_id=test_location.id, is_public=False)
+    db_session.add(league)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert len(result["leagues"]) == 0
+    assert result["stats"]["total_leagues"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_with_top_players(db_session, test_location, test_player):
+    """Location includes top players by ELO who have games at this location."""
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=10, total_wins=7, current_rating=1500.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert len(result["top_players"]) == 1
+    assert result["top_players"][0]["id"] == test_player.id
+    assert result["top_players"][0]["full_name"] == "Test Player"
+    assert result["top_players"][0]["current_rating"] == 1500.0
+    assert result["top_players"][0]["avatar"] is not None
+    assert result["stats"]["total_players"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_excludes_zero_game_players(db_session, test_location, test_player):
+    """Players with 0 games are excluded from top players."""
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert len(result["top_players"]) == 0
+    assert result["stats"]["total_players"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_with_courts(db_session, test_location):
+    """Location includes courts."""
+    court = Court(name="Main Court", address="123 Beach Ave", location_id=test_location.id)
+    db_session.add(court)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert len(result["courts"]) == 1
+    assert result["courts"][0]["name"] == "Main Court"
+    assert result["courts"][0]["address"] == "123 Beach Ave"
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_match_count(db_session, test_location, test_player):
+    """Location aggregate stats include total matches across all leagues."""
+    # Create league + season + session + match
+    league = League(name="Match League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    season = Season(
+        league_id=league.id,
+        name="S1",
+        start_date=datetime.date(2026, 1, 1),
+        end_date=datetime.date(2026, 6, 30),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    sess = Session(
+        date="2026-02-01", name="Session 1", status=SessionStatus.SUBMITTED, season_id=season.id
+    )
+    db_session.add(sess)
+    await db_session.commit()
+    await db_session.refresh(sess)
+
+    # Need 4 players for a match
+    p2 = Player(full_name="Player Two")
+    p3 = Player(full_name="Player Three")
+    p4 = Player(full_name="Player Four")
+    db_session.add_all([p2, p3, p4])
+    await db_session.commit()
+    await db_session.refresh(p2)
+    await db_session.refresh(p3)
+    await db_session.refresh(p4)
+
+    match = Match(
+        session_id=sess.id,
+        date="2026-02-01",
+        team1_player1_id=test_player.id,
+        team1_player2_id=p2.id,
+        team2_player1_id=p3.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=18,
+        winner=1,
+    )
+    db_session.add(match)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "test-city")
+
+    assert result is not None
+    assert result["stats"]["total_matches"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_location_no_region(db_session):
+    """Location without a region returns region=None."""
+    location = Location(
+        id="no_region_loc",
+        name="No Region Beach",
+        city="Somewhere",
+        state="CA",
+        region_id=None,
+        slug="somewhere",
+    )
+    db_session.add(location)
+    await db_session.commit()
+
+    result = await public_service.get_public_location_by_slug(db_session, "somewhere")
+
+    assert result is not None
+    assert result["region"] is None

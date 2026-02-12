@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from backend.database.models import (
+    Court,
     League,
     LeagueMember,
     Location,
@@ -18,6 +19,7 @@ from backend.database.models import (
     Player,
     PlayerGlobalStats,
     PlayerSeasonStats,
+    Region,
     Season,
     Session,
 )
@@ -342,4 +344,153 @@ async def get_public_player(session: AsyncSession, player_id: int) -> Optional[D
         ],
         "created_at": player.created_at.isoformat() if player.created_at else None,
         "updated_at": player.updated_at.isoformat() if player.updated_at else None,
+    }
+
+
+async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
+    """
+    Get public-facing location data by URL slug.
+
+    Returns location info, public leagues, top 20 players by ELO,
+    courts, and aggregate stats (total players, matches, leagues).
+
+    Returns:
+        Dict with location data, or None if slug not found.
+    """
+    # 1. Fetch location + region
+    result = await session.execute(
+        select(Location, Region)
+        .outerjoin(Region, Location.region_id == Region.id)
+        .where(Location.slug == slug)
+    )
+    row = result.first()
+    if not row:
+        return None
+
+    location, region = row
+
+    # 2. Public leagues at this location
+    leagues_result = await session.execute(
+        select(
+            League.id,
+            League.name,
+            League.gender,
+            League.level,
+            func.count(LeagueMember.id).label("member_count"),
+        )
+        .outerjoin(LeagueMember, LeagueMember.league_id == League.id)
+        .where(
+            League.location_id == location.id,
+            League.is_public == True,  # noqa: E712
+        )
+        .group_by(League.id, League.name, League.gender, League.level)
+        .order_by(League.name.asc())
+    )
+    leagues = [
+        {
+            "id": r.id,
+            "name": r.name,
+            "gender": r.gender,
+            "level": r.level,
+            "member_count": r.member_count,
+        }
+        for r in leagues_result.all()
+    ]
+
+    # 3. Top 20 players by ELO at this location
+    players_result = await session.execute(
+        select(
+            Player.id,
+            Player.full_name,
+            Player.level,
+            Player.avatar,
+            PlayerGlobalStats.current_rating,
+            PlayerGlobalStats.total_games,
+            PlayerGlobalStats.total_wins,
+        )
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .where(
+            Player.location_id == location.id,
+            PlayerGlobalStats.total_games >= 1,
+        )
+        .order_by(PlayerGlobalStats.current_rating.desc())
+        .limit(20)
+    )
+    top_players = [
+        {
+            "id": r.id,
+            "full_name": r.full_name,
+            "level": r.level,
+            "avatar": r.avatar or generate_player_initials(r.full_name or ""),
+            "current_rating": r.current_rating,
+            "total_games": r.total_games,
+            "total_wins": r.total_wins,
+        }
+        for r in players_result.all()
+    ]
+
+    # 4. Courts at this location
+    courts_result = await session.execute(
+        select(Court.id, Court.name, Court.address)
+        .where(Court.location_id == location.id)
+        .order_by(Court.name.asc())
+    )
+    courts = [
+        {"id": r.id, "name": r.name, "address": r.address}
+        for r in courts_result.all()
+    ]
+
+    # 5. Aggregate stats
+    total_players = (
+        await session.execute(
+            select(func.count(Player.id))
+            .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+            .where(
+                Player.location_id == location.id,
+                PlayerGlobalStats.total_games >= 1,
+            )
+        )
+    ).scalar() or 0
+
+    total_leagues = (
+        await session.execute(
+            select(func.count(League.id)).where(
+                League.location_id == location.id,
+                League.is_public == True,  # noqa: E712
+            )
+        )
+    ).scalar() or 0
+
+    total_matches = (
+        await session.execute(
+            select(func.count(Match.id))
+            .join(Session, Match.session_id == Session.id)
+            .join(Season, Session.season_id == Season.id)
+            .join(League, Season.league_id == League.id)
+            .where(League.location_id == location.id)
+        )
+    ).scalar() or 0
+
+    return {
+        "id": location.id,
+        "name": location.name,
+        "city": location.city,
+        "state": location.state,
+        "slug": location.slug,
+        "latitude": location.latitude,
+        "longitude": location.longitude,
+        "region": {
+            "id": region.id,
+            "name": region.name,
+        }
+        if region
+        else None,
+        "leagues": leagues,
+        "top_players": top_players,
+        "courts": courts,
+        "stats": {
+            "total_players": total_players,
+            "total_leagues": total_leagues,
+            "total_matches": total_matches,
+        },
     }
