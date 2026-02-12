@@ -73,3 +73,18 @@ async def get_public_league(league_id: int, session: AsyncSession = Depends(get_
     if result is None:
         raise HTTPException(status_code=404, detail="League not found")
     return result
+
+
+@public_router.get("/players/{player_id}")
+async def get_public_player(player_id: int, session: AsyncSession = Depends(get_db_session)):
+    """
+    Get public-facing player profile.
+
+    Returns player info, stats, location, and public league memberships.
+    Only players with at least 1 game are publicly visible.
+    Returns 404 if player not found or has no games.
+    """
+    result = await public_service.get_public_player(session, player_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return result

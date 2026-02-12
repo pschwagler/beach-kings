@@ -6,7 +6,7 @@ import { useAuthModal } from '../../../src/contexts/AuthModalContext';
 import { LeagueProvider } from '../../../src/contexts/LeagueContext';
 import LeagueDashboard from '../../../src/components/league/LeagueDashboard';
 import NavBar from '../../../src/components/layout/NavBar';
-import PublicLeaguePage from './PublicLeaguePage';
+import PublicLeaguePage from '../../../src/components/league/PublicLeaguePage';
 
 /**
  * Client wrapper for the league page.
@@ -21,7 +21,7 @@ export default function LeaguePageClient({ leagueId, publicLeagueData }) {
     return (
       <LeagueProvider leagueId={leagueId}>
         <Suspense fallback={<div>Loading...</div>}>
-          <LeagueDashboard leagueId={leagueId} />
+          <LeagueDashboard leagueId={leagueId} publicLeagueData={publicLeagueData} />
         </Suspense>
       </LeagueProvider>
     );

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAuthModal } from '../../../src/contexts/AuthModalContext';
-import { Button } from '../../../src/components/ui/UI';
-import LevelBadge from '../../../src/components/ui/LevelBadge';
+import { useAuthModal } from '../../contexts/AuthModalContext';
+import { Button } from '../ui/UI';
+import LevelBadge from '../ui/LevelBadge';
 import './PublicLeaguePage.css';
 
 /** Max matches shown before "Show more" is required. */
@@ -19,11 +19,17 @@ function formatGender(gender) {
 }
 
 /**
- * Public league view for unauthenticated users.
+ * Public league view for unauthenticated users or authenticated non-members.
  * Shows league info, members, standings, and recent matches.
- * Private leagues show limited info with a sign-in CTA.
+ * Private leagues show limited info with a sign-in or join CTA.
+ *
+ * @param {Object} props
+ * @param {Object} props.league - Public league data from the API
+ * @param {string|number} props.leagueId - League ID
+ * @param {Function} [props.onJoinLeague] - If provided, renders join button instead of login/signup CTAs (authenticated non-member mode)
+ * @param {boolean} [props.isOpen] - Whether the league is open-join; controls "Join League" vs "Request to Join" label
  */
-export default function PublicLeaguePage({ league, leagueId }) {
+export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpen }) {
   const { openAuthModal } = useAuthModal();
 
   if (!league) {
@@ -40,6 +46,28 @@ export default function PublicLeaguePage({ league, leagueId }) {
 
   const locationLabel = league.location?.name || null;
 
+  /** Renders either a join button (authed non-member) or login/signup CTAs (unauthenticated). */
+  const renderCta = (promptText) => {
+    if (onJoinLeague) {
+      return (
+        <div className="public-league__cta-buttons">
+          <Button onClick={onJoinLeague}>
+            {isOpen ? 'Join League' : 'Request to Join'}
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <>
+        {promptText && <p>{promptText}</p>}
+        <div className="public-league__cta-buttons">
+          <Button onClick={handleSignIn}>Log In</Button>
+          <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
+        </div>
+      </>
+    );
+  };
+
   // Private leagues get a limited view
   if (!league.is_public) {
     return (
@@ -55,10 +83,7 @@ export default function PublicLeaguePage({ league, leagueId }) {
         </div>
         <div className="public-league__private-notice">
           <p>This is a private league with {league.member_count} members and {league.games_played || 0} games played.</p>
-          <div className="public-league__cta-buttons">
-            <Button onClick={handleSignIn}>Log In</Button>
-            <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
-          </div>
+          {renderCta(null)}
         </div>
       </div>
     );
@@ -78,6 +103,17 @@ export default function PublicLeaguePage({ league, leagueId }) {
           </Link>
         )}
       </div>
+
+      {!onJoinLeague && (
+        <div className="public-league__auth-prompt">
+          <span className="public-league__auth-prompt-text">
+            <button className="public-league__auth-prompt-link" onClick={handleSignIn}>Log in</button>
+            {' or '}
+            <button className="public-league__auth-prompt-link" onClick={handleSignUp}>sign up</button>
+            {' to join leagues and track your stats'}
+          </span>
+        </div>
+      )}
 
       {league.standings?.length > 0 && (
         <section className="public-league__section">
@@ -105,11 +141,7 @@ export default function PublicLeaguePage({ league, leagueId }) {
       )}
 
       <div className="public-league__footer">
-        <p>Want to track your stats and join leagues?</p>
-        <div className="public-league__cta-buttons">
-          <Button onClick={handleSignIn}>Log In</Button>
-          <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
-        </div>
+        {renderCta('Log in or sign up to join leagues and track your stats')}
       </div>
     </div>
   );

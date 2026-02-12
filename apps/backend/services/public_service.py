@@ -277,3 +277,69 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     ]
 
     return response
+
+
+async def get_public_player(session: AsyncSession, player_id: int) -> Optional[Dict]:
+    """
+    Get public-facing player profile by ID.
+
+    Returns player info, global stats, location, and public league memberships.
+    Only players with total_games >= 1 are publicly visible (returns None otherwise).
+
+    Returns:
+        Dict with player data, or None if player not found or has no games.
+    """
+    # 1. Fetch player + global stats + location
+    result = await session.execute(
+        select(Player, PlayerGlobalStats, Location)
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .outerjoin(Location, Player.location_id == Location.id)
+        .where(Player.id == player_id, PlayerGlobalStats.total_games >= 1)
+    )
+    row = result.first()
+    if not row:
+        return None
+
+    player, stats, location = row
+
+    # 2. Public league memberships
+    memberships_result = await session.execute(
+        select(League.id, League.name)
+        .join(LeagueMember, LeagueMember.league_id == League.id)
+        .where(
+            LeagueMember.player_id == player_id,
+            League.is_public == True,  # noqa: E712
+        )
+        .order_by(League.name.asc())
+    )
+
+    win_rate = round(stats.total_wins / stats.total_games, 4) if stats.total_games > 0 else 0.0
+
+    return {
+        "id": player.id,
+        "full_name": player.full_name,
+        "avatar": player.avatar or generate_player_initials(player.full_name or ""),
+        "gender": player.gender,
+        "level": player.level,
+        "location": {
+            "id": location.id,
+            "name": location.name,
+            "city": location.city,
+            "state": location.state,
+            "slug": location.slug,
+        }
+        if location
+        else None,
+        "stats": {
+            "current_rating": stats.current_rating,
+            "total_games": stats.total_games,
+            "total_wins": stats.total_wins,
+            "win_rate": win_rate,
+        },
+        "league_memberships": [
+            {"league_id": r.id, "league_name": r.name}
+            for r in memberships_result.all()
+        ],
+        "created_at": player.created_at.isoformat() if player.created_at else None,
+        "updated_at": player.updated_at.isoformat() if player.updated_at else None,
+    }

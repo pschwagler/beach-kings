@@ -10,7 +10,7 @@ import LeagueDetailsTab from './LeagueDetailsTab';
 import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
 import LeagueMenuBar from './LeagueMenuBar';
-import JoinLeaguePrompt from './JoinLeaguePrompt';
+import PublicLeaguePage from './PublicLeaguePage';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
@@ -19,7 +19,7 @@ import { getUserLeagues, updateLeague, createLeague, joinLeague, requestToJoinLe
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 import './LeagueDashboard.css';
 
-function LeagueDashboardContent({ leagueId }) {
+function LeagueDashboardContent({ leagueId, publicLeagueData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
@@ -43,6 +43,21 @@ function LeagueDashboardContent({ leagueId }) {
 
   // Get isLeagueAdmin and isLeagueMember from context
   const { isLeagueAdmin, isLeagueMember } = useLeague();
+
+  // Client-side fallback for publicLeagueData (in case SSR fetch failed)
+  const [clientPublicData, setClientPublicData] = useState(publicLeagueData);
+  useEffect(() => {
+    if (publicLeagueData) {
+      setClientPublicData(publicLeagueData);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/public/leagues/${leagueId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setClientPublicData(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [leagueId, publicLeagueData]);
 
   // Get URL query parameters for navigation
   const seasonIdParam = searchParams?.get('season');
@@ -255,7 +270,7 @@ function LeagueDashboardContent({ leagueId }) {
     );
   }
 
-  // Check if user is a league member (only check if authenticated and members are loaded)
+  // Authenticated non-member: show public league info with join button
   if (isAuthenticated && members.length > 0 && !isLeagueMember) {
     return (
       <>
@@ -280,9 +295,11 @@ function LeagueDashboardContent({ leagueId }) {
               isAuthenticated={isAuthenticated}
             />
             <main className="league-content">
-              <JoinLeaguePrompt 
-                league={league}
+              <PublicLeaguePage
+                league={clientPublicData}
+                leagueId={leagueId}
                 onJoinLeague={handleJoinLeague}
+                isOpen={league.is_open}
               />
             </main>
           </div>
@@ -408,9 +425,9 @@ function LeagueDashboardContent({ leagueId }) {
   );
 }
 
-export default function LeagueDashboard({ leagueId }) {
+export default function LeagueDashboard({ leagueId, publicLeagueData }) {
   // leagueId is passed from the Next.js page component
   return (
-    <LeagueDashboardContent leagueId={leagueId} />
+    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} />
   );
 }

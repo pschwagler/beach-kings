@@ -459,3 +459,148 @@ async def test_get_public_league_avatar_fallback(db_session, test_location, test
     # Avatar should be initials fallback, not None
     assert result["members"][0]["avatar"] is not None
     assert result["members"][0]["avatar"] != ""
+
+
+# ============================================================================
+# get_public_player
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_with_stats(db_session, test_player, test_location):
+    """Player with stats returns full profile data."""
+    # Set player fields
+    test_player.gender = "male"
+    test_player.level = "intermediate"
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=25, total_wins=15, current_rating=1450.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    assert result["id"] == test_player.id
+    assert result["full_name"] == "Test Player"
+    assert result["gender"] == "male"
+    assert result["level"] == "intermediate"
+    assert result["avatar"] is not None
+    assert result["stats"]["current_rating"] == 1450.0
+    assert result["stats"]["total_games"] == 25
+    assert result["stats"]["total_wins"] == 15
+    assert result["stats"]["win_rate"] == 0.6
+    assert "created_at" in result
+    assert "updated_at" in result
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_zero_games(db_session, test_player):
+    """Player with 0 games returns None (not publicly visible)."""
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_not_found(db_session):
+    """Nonexistent player returns None."""
+    result = await public_service.get_public_player(db_session, 99999)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_with_location(db_session, test_player, test_location):
+    """Player with location includes location data with slug."""
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    assert result["location"] is not None
+    assert result["location"]["id"] == "test_loc"
+    assert result["location"]["name"] == "Test Beach"
+    assert result["location"]["city"] == "Test City"
+    assert result["location"]["state"] == "CA"
+    assert result["location"]["slug"] == "test-city"
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_no_location(db_session, test_player):
+    """Player without location returns location=None."""
+    test_player.location_id = None
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    assert result["location"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_public_league_memberships(db_session, test_player, test_location):
+    """Player's public league memberships are listed."""
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0
+    )
+    db_session.add(stats)
+
+    league = League(name="Public League", location_id=test_location.id, is_public=True)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="member")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    assert len(result["league_memberships"]) == 1
+    assert result["league_memberships"][0]["league_id"] == league.id
+    assert result["league_memberships"][0]["league_name"] == "Public League"
+
+
+@pytest.mark.asyncio
+async def test_get_public_player_private_leagues_excluded(db_session, test_player, test_location):
+    """Private league memberships are not listed."""
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0
+    )
+    db_session.add(stats)
+
+    league = League(name="Private League", location_id=test_location.id, is_public=False)
+    db_session.add(league)
+    await db_session.commit()
+    await db_session.refresh(league)
+
+    member = LeagueMember(league_id=league.id, player_id=test_player.id, role="member")
+    db_session.add(member)
+    await db_session.commit()
+
+    result = await public_service.get_public_player(db_session, test_player.id)
+
+    assert result is not None
+    assert len(result["league_memberships"]) == 0
