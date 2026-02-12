@@ -347,6 +347,102 @@ async def get_public_player(session: AsyncSession, player_id: int) -> Optional[D
     }
 
 
+async def get_public_locations(session: AsyncSession) -> List[Dict]:
+    """
+    Get all locations with slugs for the public location directory.
+
+    Returns locations grouped by region, each with basic stats
+    (league count, player count). Only locations with a slug are included.
+
+    Returns:
+        List of dicts with region info and nested locations list.
+    """
+    # 1. Fetch all locations with slugs, joined to region
+    result = await session.execute(
+        select(Location, Region)
+        .outerjoin(Region, Location.region_id == Region.id)
+        .where(Location.slug.isnot(None))
+        .order_by(Region.name.asc(), Location.city.asc())
+    )
+    rows = result.all()
+
+    if not rows:
+        return []
+
+    # 2. Collect location IDs for batch stat queries
+    location_ids = [row.Location.id for row in rows]
+
+    # 3. League counts per location (public only)
+    league_counts_result = await session.execute(
+        select(
+            League.location_id,
+            func.count(League.id).label("league_count"),
+        )
+        .where(
+            League.location_id.in_(location_ids),
+            League.is_public == True,  # noqa: E712
+        )
+        .group_by(League.location_id)
+    )
+    league_counts = {r.location_id: r.league_count for r in league_counts_result.all()}
+
+    # 4. Player counts per location (players with >=1 game)
+    player_counts_result = await session.execute(
+        select(
+            Player.location_id,
+            func.count(Player.id).label("player_count"),
+        )
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .where(
+            Player.location_id.in_(location_ids),
+            PlayerGlobalStats.total_games >= 1,
+        )
+        .group_by(Player.location_id)
+    )
+    player_counts = {r.location_id: r.player_count for r in player_counts_result.all()}
+
+    # 5. Group by region
+    regions_map: Dict[str, Dict] = {}
+    no_region_locations: List[Dict] = []
+
+    for row in rows:
+        loc = row.Location
+        region = row.Region
+
+        loc_data = {
+            "id": loc.id,
+            "name": loc.name,
+            "city": loc.city,
+            "state": loc.state,
+            "slug": loc.slug,
+            "league_count": league_counts.get(loc.id, 0),
+            "player_count": player_counts.get(loc.id, 0),
+        }
+
+        if region:
+            if region.id not in regions_map:
+                regions_map[region.id] = {
+                    "id": region.id,
+                    "name": region.name,
+                    "locations": [],
+                }
+            regions_map[region.id]["locations"].append(loc_data)
+        else:
+            no_region_locations.append(loc_data)
+
+    result_list = list(regions_map.values())
+
+    # Append ungrouped locations under "Other" if any exist
+    if no_region_locations:
+        result_list.append({
+            "id": None,
+            "name": "Other",
+            "locations": no_region_locations,
+        })
+
+    return result_list
+
+
 async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     """
     Get public-facing location data by URL slug.

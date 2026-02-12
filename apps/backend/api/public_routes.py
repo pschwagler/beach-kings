@@ -90,6 +90,17 @@ async def get_public_player(player_id: int, session: AsyncSession = Depends(get_
     return result
 
 
+@public_router.get("/locations")
+async def list_public_locations(session: AsyncSession = Depends(get_db_session)):
+    """
+    Get all locations with slugs for the public directory.
+
+    Returns locations grouped by region, each with basic stats
+    (league count, player count). No authentication required.
+    """
+    return await public_service.get_public_locations(session)
+
+
 @public_router.get("/locations/{slug}")
 async def get_public_location(slug: str, session: AsyncSession = Depends(get_db_session)):
     """

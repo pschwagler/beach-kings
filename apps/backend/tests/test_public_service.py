@@ -608,6 +608,105 @@ async def test_get_public_player_private_leagues_excluded(db_session, test_playe
 
 
 # ============================================================================
+# get_public_locations (directory)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_empty(db_session):
+    """Returns empty list when no locations with slugs exist."""
+    result = await public_service.get_public_locations(db_session)
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_excludes_no_slug(db_session, test_location_no_slug):
+    """Locations without a slug are excluded."""
+    result = await public_service.get_public_locations(db_session)
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_grouped_by_region(db_session, test_location, test_region):
+    """Locations are grouped under their region."""
+    result = await public_service.get_public_locations(db_session)
+
+    assert len(result) == 1
+    assert result[0]["id"] == "test_region"
+    assert result[0]["name"] == "Test Region"
+    assert len(result[0]["locations"]) == 1
+    assert result[0]["locations"][0]["slug"] == "test-city"
+    assert result[0]["locations"][0]["city"] == "Test City"
+    assert result[0]["locations"][0]["state"] == "CA"
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_no_region(db_session):
+    """Locations without a region go under 'Other'."""
+    location = Location(
+        id="orphan_loc", name="Orphan Beach", city="Orphan City",
+        state="TX", region_id=None, slug="orphan-city",
+    )
+    db_session.add(location)
+    await db_session.commit()
+
+    result = await public_service.get_public_locations(db_session)
+
+    assert len(result) == 1
+    assert result[0]["id"] is None
+    assert result[0]["name"] == "Other"
+    assert len(result[0]["locations"]) == 1
+    assert result[0]["locations"][0]["slug"] == "orphan-city"
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_with_league_count(db_session, test_location):
+    """Locations include count of public leagues."""
+    league = League(name="Public L", location_id=test_location.id, is_public=True)
+    private = League(name="Private L", location_id=test_location.id, is_public=False)
+    db_session.add_all([league, private])
+    await db_session.commit()
+
+    result = await public_service.get_public_locations(db_session)
+    loc = result[0]["locations"][0]
+    assert loc["league_count"] == 1  # only public league counted
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_with_player_count(db_session, test_location, test_player):
+    """Locations include count of players with >=1 game."""
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0,
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_locations(db_session)
+    loc = result[0]["locations"][0]
+    assert loc["player_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_public_locations_excludes_zero_game_players(db_session, test_location, test_player):
+    """Players with 0 games are not counted."""
+    test_player.location_id = test_location.id
+    db_session.add(test_player)
+
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0,
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.get_public_locations(db_session)
+    loc = result[0]["locations"][0]
+    assert loc["player_count"] == 0
+
+
+# ============================================================================
 # get_public_location_by_slug
 # ============================================================================
 
