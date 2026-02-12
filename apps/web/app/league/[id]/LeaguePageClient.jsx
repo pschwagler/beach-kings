@@ -2,25 +2,20 @@
 
 import { Suspense } from 'react';
 import { useAuth } from '../../../src/contexts/AuthContext';
+import { useAuthModal } from '../../../src/contexts/AuthModalContext';
 import { LeagueProvider } from '../../../src/contexts/LeagueContext';
 import LeagueDashboard from '../../../src/components/league/LeagueDashboard';
+import NavBar from '../../../src/components/layout/NavBar';
 import PublicLeaguePage from './PublicLeaguePage';
 
 /**
  * Client wrapper for the league page.
  * Authenticated users see the full LeagueDashboard.
- * Unauthenticated users see the PublicLeaguePage with pre-fetched data.
+ * Unauthenticated users see the PublicLeaguePage with Navbar and pre-fetched data.
  */
 export default function LeaguePageClient({ leagueId, publicLeagueData }) {
-  const { isAuthenticated, isInitializing } = useAuth();
-
-  if (isInitializing) {
-    return (
-      <div className="public-league-loading">
-        <div className="public-league-loading__spinner" />
-      </div>
-    );
-  }
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
 
   if (isAuthenticated) {
     return (
@@ -32,5 +27,14 @@ export default function LeaguePageClient({ leagueId, publicLeagueData }) {
     );
   }
 
-  return <PublicLeaguePage league={publicLeagueData} leagueId={leagueId} />;
+  return (
+    <>
+      <NavBar
+        isLoggedIn={false}
+        onSignIn={() => openAuthModal('sign-in')}
+        onSignUp={() => openAuthModal('sign-up')}
+      />
+      <PublicLeaguePage league={publicLeagueData} leagueId={leagueId} />
+    </>
+  );
 }

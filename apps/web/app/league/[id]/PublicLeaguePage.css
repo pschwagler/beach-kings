@@ -4,6 +4,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 32px 20px 60px;
+  margin-top: var(--navbar-height);
 }
 
 .public-league__header {
@@ -13,7 +14,7 @@
 .public-league__name {
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--gray-900);
   margin: 0 0 12px;
 }
 
@@ -27,7 +28,7 @@
 
 .public-league__location {
   font-size: 15px;
-  color: #444;
+  color: var(--gray-700);
   font-weight: 500;
 }
 
@@ -35,42 +36,22 @@
   font-size: 13px;
   padding: 3px 10px;
   border-radius: 12px;
-  background: #eee;
-  color: #555;
+  background: var(--gray-200);
+  color: var(--gray-700);
 }
 
 .public-league__description {
   font-size: 15px;
-  color: #555;
+  color: var(--gray-700);
   line-height: 1.5;
   margin-top: 12px;
 }
 
-/* CTA bar */
-.public-league__cta-bar {
-  margin-bottom: 32px;
-}
-
-.public-league__cta {
-  padding: 12px 28px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.public-league__cta:hover {
-  background-color: #0056b3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.public-league__cta:active {
-  transform: translateY(1px);
+/* CTA buttons (footer + private notice) */
+.public-league__cta-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 
 /* Sections */
@@ -81,10 +62,10 @@
 .public-league__section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--gray-900);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--gray-300);
 }
 
 /* Standings table */
@@ -103,25 +84,40 @@
   text-align: left;
   padding: 10px 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--gray-600);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid #e5e5e5;
+  border-bottom: 2px solid var(--gray-300);
 }
 
 .public-league__table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f0;
-  color: #333;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-900);
 }
 
 .public-league__table tbody tr:hover {
-  background: #fafafa;
+  background: var(--gray-50);
 }
 
 .public-league__player-name {
   font-weight: 500;
+}
+
+/* "View all leagues in area" link */
+.public-league__area-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.public-league__area-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
 }
 
 /* Match cards */
@@ -136,9 +132,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: #fafafa;
+  background: var(--gray-50);
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--gray-200);
 }
 
 .public-league__team {
@@ -155,28 +151,61 @@
 
 .public-league__team-names {
   font-size: 14px;
-  color: #333;
+  color: var(--gray-900);
 }
 
 .public-league__team-score {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--gray-900);
   min-width: 24px;
   text-align: center;
 }
 
 .public-league__match-vs {
   font-size: 12px;
-  color: #999;
+  color: var(--ocean-gray);
   text-transform: uppercase;
   flex-shrink: 0;
+}
+
+/* Match date group headers */
+.public-league__match-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-league__match-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-top: 4px;
+}
+
+/* Show more / fewer toggle */
+.public-league__show-more {
+  all: unset;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.public-league__show-more:hover {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
 }
 
 /* Members grid */
 .public-league__members {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -185,16 +214,17 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #fafafa;
+  background: var(--gray-50);
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--gray-200);
+  min-width: 0;
 }
 
 .public-league__avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #007bff;
+  background: var(--primary);
   color: white;
   display: flex;
   align-items: center;
@@ -207,10 +237,8 @@
 .public-league__member-name {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--gray-900);
+  min-width: 0;
 }
 
 /* Private league notice */
@@ -221,7 +249,7 @@
 
 .public-league__private-notice p {
   font-size: 16px;
-  color: #666;
+  color: var(--gray-600);
   margin-bottom: 24px;
 }
 
@@ -234,18 +262,19 @@
   padding: 60px 20px;
   text-align: center;
   min-height: 400px;
+  margin-top: var(--navbar-height);
 }
 
 .public-league-empty h1 {
   font-size: 28px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--gray-900);
   margin-bottom: 12px;
 }
 
 .public-league-empty p {
   font-size: 16px;
-  color: #666;
+  color: var(--gray-600);
 }
 
 /* Loading state */
@@ -259,8 +288,8 @@
 .public-league-loading__spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e5e5e5;
-  border-top-color: #007bff;
+  border: 3px solid var(--gray-300);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: public-league-spin 0.8s linear infinite;
 }
@@ -274,12 +303,12 @@
   text-align: center;
   padding: 40px 20px;
   margin-top: 20px;
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid var(--gray-300);
 }
 
 .public-league__footer p {
   font-size: 16px;
-  color: #666;
+  color: var(--gray-600);
   margin-bottom: 16px;
 }
 
@@ -304,6 +333,6 @@
   }
 
   .public-league__members {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: 1fr;
   }
 }

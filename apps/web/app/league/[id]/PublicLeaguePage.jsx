@@ -1,8 +1,22 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { useAuthModal } from '../../../src/contexts/AuthModalContext';
+import { Button } from '../../../src/components/ui/UI';
 import LevelBadge from '../../../src/components/ui/LevelBadge';
 import './PublicLeaguePage.css';
+
+/** Max matches shown before "Show more" is required. */
+const INITIAL_MATCH_LIMIT = 10;
+
+/**
+ * Maps raw gender values to user-friendly display labels.
+ */
+function formatGender(gender) {
+  const map = { male: "Men's", female: "Women's", coed: 'Co-ed' };
+  return map[gender?.toLowerCase()] || gender;
+}
 
 /**
  * Public league view for unauthenticated users.
@@ -22,6 +36,9 @@ export default function PublicLeaguePage({ league, leagueId }) {
   }
 
   const handleSignIn = () => openAuthModal('sign-in');
+  const handleSignUp = () => openAuthModal('sign-up');
+
+  const locationLabel = league.location?.name || null;
 
   // Private leagues get a limited view
   if (!league.is_public) {
@@ -30,12 +47,18 @@ export default function PublicLeaguePage({ league, leagueId }) {
         <div className="public-league__header">
           <h1 className="public-league__name">{league.name}</h1>
           <LeagueMeta league={league} />
+          {locationLabel && (
+            <Link href={`/find-leagues?location_id=${league.location.id}`} className="public-league__area-link">
+              View all leagues in {locationLabel}
+            </Link>
+          )}
         </div>
         <div className="public-league__private-notice">
           <p>This is a private league with {league.member_count} members and {league.games_played || 0} games played.</p>
-          <button className="public-league__cta" onClick={handleSignIn}>
-            Sign in to see more
-          </button>
+          <div className="public-league__cta-buttons">
+            <Button onClick={handleSignIn}>Log In</Button>
+            <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
+          </div>
         </div>
       </div>
     );
@@ -49,12 +72,11 @@ export default function PublicLeaguePage({ league, leagueId }) {
         {league.description && (
           <p className="public-league__description">{league.description}</p>
         )}
-      </div>
-
-      <div className="public-league__cta-bar">
-        <button className="public-league__cta" onClick={handleSignIn}>
-          Sign in to join this league
-        </button>
+        {locationLabel && (
+          <Link href={`/find-leagues?location_id=${league.location.id}`} className="public-league__area-link">
+            View all leagues in {locationLabel}
+          </Link>
+        )}
       </div>
 
       {league.standings?.length > 0 && (
@@ -84,9 +106,10 @@ export default function PublicLeaguePage({ league, leagueId }) {
 
       <div className="public-league__footer">
         <p>Want to track your stats and join leagues?</p>
-        <button className="public-league__cta" onClick={handleSignIn}>
-          Sign up for Beach League Volleyball
-        </button>
+        <div className="public-league__cta-buttons">
+          <Button onClick={handleSignIn}>Log In</Button>
+          <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
+        </div>
       </div>
     </div>
   );
@@ -104,7 +127,7 @@ function LeagueMeta({ league }) {
         </span>
       )}
       {league.gender && (
-        <span className="public-league__badge">{league.gender}</span>
+        <span className="public-league__badge">{formatGender(league.gender)}</span>
       )}
       {league.level && <LevelBadge level={league.level} />}
       {league.member_count > 0 && (
@@ -140,7 +163,7 @@ function StandingsTable({ standings }) {
               <td className="public-league__player-name">{row.full_name}</td>
               <td>{row.wins}</td>
               <td>{row.games - row.wins}</td>
-              <td>{row.points}</td>
+              <td>{Math.round(row.points)}</td>
               <td>{Math.round((row.win_rate || 0) * 100)}%</td>
             </tr>
           ))}
@@ -151,28 +174,74 @@ function StandingsTable({ standings }) {
 }
 
 /**
- * List of recent match results.
+ * Formats an ISO date string into a readable label (e.g. "Feb 10, 2026").
+ */
+function formatMatchDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Groups matches by date and returns an array of { date, label, matches } objects.
+ */
+function groupMatchesByDate(matches) {
+  const groups = [];
+  let currentDate = null;
+  for (const match of matches) {
+    const dateKey = match.date || 'unknown';
+    if (dateKey !== currentDate) {
+      currentDate = dateKey;
+      groups.push({ date: dateKey, label: formatMatchDate(dateKey), matches: [] });
+    }
+    groups[groups.length - 1].matches.push(match);
+  }
+  return groups;
+}
+
+/**
+ * List of recent match results, grouped by date with a "Show more" toggle.
  */
 function MatchList({ matches }) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleMatches = expanded ? matches : matches.slice(0, INITIAL_MATCH_LIMIT);
+  const hasMore = matches.length > INITIAL_MATCH_LIMIT;
+  const groups = groupMatchesByDate(visibleMatches);
+
   return (
     <div className="public-league__matches">
-      {matches.map((match) => (
-        <div key={match.id} className="public-league__match">
-          <div className={`public-league__team ${match.winner === 'team1' ? 'public-league__team--winner' : ''}`}>
-            <span className="public-league__team-names">
-              {match.team1_player1} &amp; {match.team1_player2}
-            </span>
-            <span className="public-league__team-score">{match.team1_score}</span>
-          </div>
-          <div className="public-league__match-vs">vs</div>
-          <div className={`public-league__team ${match.winner === 'team2' ? 'public-league__team--winner' : ''}`}>
-            <span className="public-league__team-names">
-              {match.team2_player1} &amp; {match.team2_player2}
-            </span>
-            <span className="public-league__team-score">{match.team2_score}</span>
-          </div>
+      {groups.map((group) => (
+        <div key={group.date} className="public-league__match-group">
+          {group.label && (
+            <div className="public-league__match-date">{group.label}</div>
+          )}
+          {group.matches.map((match) => (
+            <div key={match.id} className="public-league__match">
+              <div className={`public-league__team ${match.winner === 'team1' ? 'public-league__team--winner' : ''}`}>
+                <span className="public-league__team-names">
+                  {match.team1_player1} &amp; {match.team1_player2}
+                </span>
+                <span className="public-league__team-score">{match.team1_score}</span>
+              </div>
+              <div className="public-league__match-vs">vs</div>
+              <div className={`public-league__team ${match.winner === 'team2' ? 'public-league__team--winner' : ''}`}>
+                <span className="public-league__team-names">
+                  {match.team2_player1} &amp; {match.team2_player2}
+                </span>
+                <span className="public-league__team-score">{match.team2_score}</span>
+              </div>
+            </div>
+          ))}
         </div>
       ))}
+      {hasMore && (
+        <button
+          className="public-league__show-more"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Show fewer' : `Show all ${matches.length} matches`}
+        </button>
+      )}
     </div>
   );
 }
