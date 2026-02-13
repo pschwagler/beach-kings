@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { fetchBackend } from '../../../../src/utils/server-fetch';
+import JsonLd from '../../../../src/components/seo/JsonLd';
 import PublicPlayerPageClient from './PublicPlayerPageClient';
 
 /**
@@ -95,11 +96,28 @@ export default async function PlayerPage({ params }) {
   // URL in metadata still points to the correct one for SEO.
   const canonicalSlug = slugify(player.full_name);
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: player.full_name,
+    url: `https://beachleaguevb.com/player/${player.id}/${canonicalSlug}`,
+    knowsAbout: 'Beach Volleyball',
+    ...(player.location && {
+      homeLocation: {
+        '@type': 'Place',
+        name: `${player.location.city}, ${player.location.state}`,
+      },
+    }),
+  };
+
   return (
-    <PublicPlayerPageClient
-      player={player}
-      canonicalSlug={canonicalSlug}
-      currentSlug={slug}
-    />
+    <>
+      <JsonLd data={jsonLd} />
+      <PublicPlayerPageClient
+        player={player}
+        canonicalSlug={canonicalSlug}
+        currentSlug={slug}
+      />
+    </>
   );
 }

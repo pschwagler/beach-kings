@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { fetchBackend } from '../../../src/utils/server-fetch';
+import JsonLd from '../../../src/components/seo/JsonLd';
 import PublicLocationPageClient from './PublicLocationPageClient';
 
 /**
@@ -70,5 +71,28 @@ export default async function LocationPage({ params }) {
     notFound();
   }
 
-  return <PublicLocationPageClient location={location} />;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Place',
+    name: `Beach Volleyball in ${location.city}, ${location.state}`,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: location.city,
+      addressRegion: location.state,
+    },
+    ...(location.latitude && location.longitude && {
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: location.latitude,
+        longitude: location.longitude,
+      },
+    }),
+  };
+
+  return (
+    <>
+      <JsonLd data={jsonLd} />
+      <PublicLocationPageClient location={location} />
+    </>
+  );
 }

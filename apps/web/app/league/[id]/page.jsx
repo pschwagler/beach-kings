@@ -1,4 +1,5 @@
 import { fetchBackend } from '../../../src/utils/server-fetch';
+import JsonLd from '../../../src/components/seo/JsonLd';
 import LeaguePageClient from './LeaguePageClient';
 
 /**
@@ -75,5 +76,29 @@ export default async function LeaguePage({ params }) {
     // Backend unreachable or 404 — client will handle gracefully
   }
 
-  return <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} />;
+  const jsonLd = publicLeagueData ? {
+    '@context': 'https://schema.org',
+    '@type': 'SportsOrganization',
+    name: publicLeagueData.name,
+    sport: 'Beach Volleyball',
+    ...(publicLeagueData.location && {
+      location: {
+        '@type': 'Place',
+        name: `${publicLeagueData.location.city}, ${publicLeagueData.location.state}`,
+      },
+    }),
+    numberOfMembers: publicLeagueData.member_count,
+    parentOrganization: {
+      '@type': 'Organization',
+      name: 'Beach League Volleyball',
+      url: 'https://beachleaguevb.com',
+    },
+  } : null;
+
+  return (
+    <>
+      {jsonLd && <JsonLd data={jsonLd} />}
+      <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} />
+    </>
+  );
 }
