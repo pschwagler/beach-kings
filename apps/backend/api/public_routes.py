@@ -8,12 +8,21 @@ All routes are prefixed with /api/public.
 from typing import List, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.services import public_service
 
-public_router = APIRouter(prefix="/api/public", tags=["public"])
+
+async def _cache_public(response: Response):
+    """Set Cache-Control headers on all public API responses (5min TTL)."""
+    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
+
+
+public_router = APIRouter(
+    prefix="/api/public", tags=["public"], dependencies=[Depends(_cache_public)]
+)
 
 
 @public_router.get("/sitemap/leagues", response_model=List[Dict])

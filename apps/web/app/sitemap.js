@@ -10,7 +10,7 @@
 import { fetchBackend } from '../src/utils/server-fetch';
 import { slugify } from '../src/utils/slugify';
 
-const BASE_URL = 'https://beachleaguevb.com';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://beachleaguevb.com';
 
 /** Static pages included in every sitemap build. */
 const STATIC_PAGES = [
