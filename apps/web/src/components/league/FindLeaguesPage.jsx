@@ -358,9 +358,9 @@ export default function FindLeaguesPage() {
                 {!isAuthenticated && (
                   <div className="find-leagues-auth-prompt">
                     <span className="find-leagues-auth-prompt__text">
-                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-in")}>Log in</button>
+                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-in")} aria-label="Log in to Beach League">Log in</button>
                       {' or '}
-                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-up")}>sign up</button>
+                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-up")} aria-label="Sign up for Beach League">sign up</button>
                       {' to join leagues and track your stats'}
                     </span>
                   </div>

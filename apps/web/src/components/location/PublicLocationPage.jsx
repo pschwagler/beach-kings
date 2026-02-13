@@ -67,9 +67,9 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
       {!isAuthenticated && (
         <div className="public-location__auth-prompt">
           <span className="public-location__auth-prompt-text">
-            <button className="public-location__auth-prompt-link" onClick={handleSignIn}>Log in</button>
+            <button className="public-location__auth-prompt-link" onClick={handleSignIn} aria-label="Log in to Beach League">Log in</button>
             {' or '}
-            <button className="public-location__auth-prompt-link" onClick={handleSignUp}>sign up</button>
+            <button className="public-location__auth-prompt-link" onClick={handleSignUp} aria-label="Sign up for Beach League">sign up</button>
             {' to join leagues and track your stats'}
           </span>
         </div>

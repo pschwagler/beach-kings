@@ -60,9 +60,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       {!isAuthenticated && (
         <div className="public-player__auth-prompt">
           <span className="public-player__auth-prompt-text">
-            <button className="public-player__auth-prompt-link" onClick={handleSignIn}>Log in</button>
+            <button className="public-player__auth-prompt-link" onClick={handleSignIn} aria-label="Log in to Beach League">Log in</button>
             {' or '}
-            <button className="public-player__auth-prompt-link" onClick={handleSignUp}>sign up</button>
+            <button className="public-player__auth-prompt-link" onClick={handleSignUp} aria-label="Sign up for Beach League">sign up</button>
             {' to join leagues and track your stats'}
           </span>
         </div>

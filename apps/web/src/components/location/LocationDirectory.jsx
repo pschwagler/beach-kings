@@ -35,9 +35,9 @@ export default function LocationDirectory({ regions, isAuthenticated }) {
       {!isAuthenticated && (
         <div className="location-directory__auth-prompt">
           <span className="location-directory__auth-prompt-text">
-            <button className="location-directory__auth-prompt-link" onClick={handleSignIn}>Log in</button>
+            <button className="location-directory__auth-prompt-link" onClick={handleSignIn} aria-label="Log in to Beach League">Log in</button>
             {' or '}
-            <button className="location-directory__auth-prompt-link" onClick={handleSignUp}>sign up</button>
+            <button className="location-directory__auth-prompt-link" onClick={handleSignUp} aria-label="Sign up for Beach League">sign up</button>
             {' to join leagues and track your stats'}
           </span>
         </div>
