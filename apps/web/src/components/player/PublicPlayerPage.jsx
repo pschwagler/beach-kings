@@ -4,15 +4,8 @@ import Link from 'next/link';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
+import { formatGender } from '../../utils/formatters';
 import './PublicPlayerPage.css';
-
-/**
- * Maps raw gender values to user-friendly display labels.
- */
-function formatGender(gender) {
-  const map = { male: "Men's", female: "Women's", coed: 'Co-ed' };
-  return map[gender?.toLowerCase()] || gender;
-}
 
 /**
  * Public player profile page for SEO and unauthenticated visitors.

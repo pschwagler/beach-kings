@@ -8,22 +8,9 @@
  */
 
 import { fetchBackend } from '../src/utils/server-fetch';
+import { slugify } from '../src/utils/slugify';
 
 const BASE_URL = 'https://beachleaguevb.com';
-
-/**
- * Convert a string to a URL-safe slug.
- * @param {string} text - Text to slugify (e.g. "John Doe")
- * @returns {string} Slugified text (e.g. "john-doe")
- */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 /** Static pages included in every sitemap build. */
 const STATIC_PAGES = [

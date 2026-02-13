@@ -5,18 +5,11 @@ import Link from 'next/link';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
+import { formatGender } from '../../utils/formatters';
 import './PublicLeaguePage.css';
 
 /** Max matches shown before "Show more" is required. */
 const INITIAL_MATCH_LIMIT = 10;
-
-/**
- * Maps raw gender values to user-friendly display labels.
- */
-function formatGender(gender) {
-  const map = { male: "Men's", female: "Women's", coed: 'Co-ed' };
-  return map[gender?.toLowerCase()] || gender;
-}
 
 /**
  * Public league view for unauthenticated users or authenticated non-members.

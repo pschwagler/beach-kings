@@ -1,21 +1,8 @@
 import { notFound } from 'next/navigation';
 import { fetchBackend } from '../../../../src/utils/server-fetch';
+import { slugify } from '../../../../src/utils/slugify';
 import JsonLd from '../../../../src/components/seo/JsonLd';
 import PublicPlayerPageClient from './PublicPlayerPageClient';
-
-/**
- * Convert a string to a URL-safe slug.
- * @param {string} text - e.g. "John Doe"
- * @returns {string} e.g. "john-doe"
- */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 /**
  * Build SEO description from player data.

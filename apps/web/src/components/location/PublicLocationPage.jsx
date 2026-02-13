@@ -4,29 +4,9 @@ import Link from 'next/link';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
+import { formatGender } from '../../utils/formatters';
+import { slugify } from '../../utils/slugify';
 import './PublicLocationPage.css';
-
-/**
- * Maps raw gender values to user-friendly display labels.
- */
-function formatGender(gender) {
-  const map = { male: "Men's", female: "Women's", coed: 'Co-ed' };
-  return map[gender?.toLowerCase()] || gender;
-}
-
-/**
- * Convert a player name to a URL-safe slug.
- * @param {string} text - e.g. "John Doe"
- * @returns {string} e.g. "john-doe"
- */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 /**
  * Public location landing page for SEO and unauthenticated visitors.

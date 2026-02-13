@@ -7,7 +7,7 @@
  * Only usable in server components, generateMetadata, sitemap.js, etc.
  */
 
-const BACKEND_URL =
+export const BACKEND_URL =
   process.env.BACKEND_INTERNAL_URL || 'http://localhost:8000';
 
 const DEFAULT_REVALIDATE = 300; // 5 minutes

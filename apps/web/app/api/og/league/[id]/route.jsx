@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { BACKEND_URL } from '../../../../../src/utils/server-fetch';
 
 /**
  * Dynamic OG image for league pages (1200x630).
@@ -16,11 +17,9 @@ export async function GET(request, { params }) {
   const logoSrc = `data:image/png;base64,${logoBuffer.toString('base64')}`;
 
   // Fetch league data from public API
-  const backendUrl =
-    process.env.BACKEND_INTERNAL_URL || 'http://localhost:8000';
   let league = null;
   try {
-    const res = await fetch(`${backendUrl}/api/public/leagues/${id}`);
+    const res = await fetch(`${BACKEND_URL}/api/public/leagues/${id}`);
     if (res.ok) {
       league = await res.json();
     }
