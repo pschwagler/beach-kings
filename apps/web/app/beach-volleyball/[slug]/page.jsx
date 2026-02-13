@@ -43,6 +43,7 @@ export async function generateMetadata({ params }) {
         title: `${title} | Beach League Volleyball`,
         description,
         type: 'website',
+        images: [{ url: `/api/og/location/${slug}`, width: 1200, height: 630 }],
       },
     };
   } catch (error) {
