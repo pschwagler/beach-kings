@@ -5,7 +5,7 @@ Provides read-only endpoints for SEO (sitemap, public pages).
 All routes are prefixed with /api/public.
 """
 
-from typing import List, Dict, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -73,8 +73,12 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
 async def list_public_leagues(
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
     region_id: Optional[str] = Query(None, description="Filter by region ID"),
-    gender: Optional[str] = Query(None, description="Filter by gender (male, female, mixed)"),
-    level: Optional[str] = Query(None, description="Filter by skill level"),
+    gender: Optional[Literal["male", "female", "mixed"]] = Query(
+        None, description="Filter by gender"
+    ),
+    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "Open"]] = Query(
+        None, description="Filter by skill level"
+    ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
