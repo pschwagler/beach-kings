@@ -11,15 +11,19 @@ const nextConfig = {
   // Proxy target: BACKEND_PROXY_TARGET (default http://localhost:8000). E2E sets it to 8001.
   async rewrites() {
     if (process.env.NODE_ENV !== 'development') {
-      return [];
+      return { beforeFiles: [], afterFiles: [], fallback: [] };
     }
     const backendTarget = process.env.BACKEND_PROXY_TARGET || 'http://localhost:8000';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendTarget}/api/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${backendTarget}/api/:path*`,
+        },
+      ],
+    };
   },
 };
 
