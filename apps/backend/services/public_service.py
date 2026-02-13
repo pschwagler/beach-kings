@@ -683,36 +683,43 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         for r in courts_result.all()
     ]
 
-    # 5. Aggregate stats
-    total_players = (
-        await session.execute(
-            select(func.count(Player.id))
-            .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
-            .where(
-                Player.location_id == location.id,
-                PlayerGlobalStats.total_games >= 1,
-            )
+    # 5. Aggregate stats (single query with scalar subqueries)
+    player_count_subq = (
+        select(func.count(Player.id))
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .where(
+            Player.location_id == location.id,
+            PlayerGlobalStats.total_games >= 1,
         )
-    ).scalar() or 0
-
-    total_leagues = (
-        await session.execute(
-            select(func.count(League.id)).where(
-                League.location_id == location.id,
-                League.is_public == True,  # noqa: E712
-            )
+        .correlate()
+        .scalar_subquery()
+    )
+    league_count_subq = (
+        select(func.count(League.id))
+        .where(
+            League.location_id == location.id,
+            League.is_public == True,  # noqa: E712
         )
-    ).scalar() or 0
-
-    total_matches = (
+        .correlate()
+        .scalar_subquery()
+    )
+    match_count_subq = (
+        select(func.count(Match.id))
+        .join(Session, Match.session_id == Session.id)
+        .join(Season, Session.season_id == Season.id)
+        .join(League, Season.league_id == League.id)
+        .where(League.location_id == location.id)
+        .correlate()
+        .scalar_subquery()
+    )
+    stats_row = (
         await session.execute(
-            select(func.count(Match.id))
-            .join(Session, Match.session_id == Session.id)
-            .join(Season, Session.season_id == Season.id)
-            .join(League, Season.league_id == League.id)
-            .where(League.location_id == location.id)
+            select(player_count_subq, league_count_subq, match_count_subq)
         )
-    ).scalar() or 0
+    ).one()
+    total_players = stats_row[0] or 0
+    total_leagues = stats_row[1] or 0
+    total_matches = stats_row[2] or 0
 
     return {
         "id": location.id,
