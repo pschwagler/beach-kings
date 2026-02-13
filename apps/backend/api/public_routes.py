@@ -5,13 +5,23 @@ Provides read-only endpoints for SEO (sitemap, public pages).
 All routes are prefixed with /api/public.
 """
 
-from typing import Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
+from backend.models.schemas import (
+    PaginatedPublicLeaguesResponse,
+    PublicLeagueDetailResponse,
+    PublicLocationDetailResponse,
+    PublicLocationDirectoryRegion,
+    PublicPlayerResponse,
+    SitemapLeagueItem,
+    SitemapLocationItem,
+    SitemapPlayerItem,
+)
 from backend.services import public_service
 
 
@@ -25,7 +35,7 @@ public_router = APIRouter(
 )
 
 
-@public_router.get("/sitemap/leagues", response_model=List[Dict])
+@public_router.get("/sitemap/leagues", response_model=List[SitemapLeagueItem])
 async def sitemap_leagues(session: AsyncSession = Depends(get_db_session)):
     """
     Get all public leagues for sitemap generation.
@@ -39,7 +49,7 @@ async def sitemap_leagues(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error fetching sitemap leagues: {str(e)}")
 
 
-@public_router.get("/sitemap/players", response_model=List[Dict])
+@public_router.get("/sitemap/players", response_model=List[SitemapPlayerItem])
 async def sitemap_players(session: AsyncSession = Depends(get_db_session)):
     """
     Get all players with at least 1 game for sitemap generation.
@@ -53,7 +63,7 @@ async def sitemap_players(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error fetching sitemap players: {str(e)}")
 
 
-@public_router.get("/sitemap/locations", response_model=List[Dict])
+@public_router.get("/sitemap/locations", response_model=List[SitemapLocationItem])
 async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
     """
     Get all locations with at least 1 league for sitemap generation.
@@ -69,7 +79,7 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
         )
 
 
-@public_router.get("/leagues")
+@public_router.get("/leagues", response_model=PaginatedPublicLeaguesResponse)
 async def list_public_leagues(
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
     region_id: Optional[str] = Query(None, description="Filter by region ID"),
@@ -101,7 +111,7 @@ async def list_public_leagues(
     )
 
 
-@public_router.get("/leagues/{league_id}")
+@public_router.get("/leagues/{league_id}", response_model=PublicLeagueDetailResponse)
 async def get_public_league(league_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing league data.
@@ -116,7 +126,7 @@ async def get_public_league(league_id: int, session: AsyncSession = Depends(get_
     return result
 
 
-@public_router.get("/players/{player_id}")
+@public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)
 async def get_public_player(player_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing player profile.
@@ -131,7 +141,7 @@ async def get_public_player(player_id: int, session: AsyncSession = Depends(get_
     return result
 
 
-@public_router.get("/locations")
+@public_router.get("/locations", response_model=List[PublicLocationDirectoryRegion])
 async def list_public_locations(session: AsyncSession = Depends(get_db_session)):
     """
     Get all locations with slugs for the public directory.
@@ -142,7 +152,7 @@ async def list_public_locations(session: AsyncSession = Depends(get_db_session))
     return await public_service.get_public_locations(session)
 
 
-@public_router.get("/locations/{slug}")
+@public_router.get("/locations/{slug}", response_model=PublicLocationDetailResponse)
 async def get_public_location(slug: str, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing location data by slug.

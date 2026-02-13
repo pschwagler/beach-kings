@@ -745,3 +745,250 @@ class UnreadCountResponse(BaseModel):
     """Unread notification count response."""
 
     count: int
+
+
+# ============================================================================
+# Public API schemas (SEO / unauthenticated endpoints)
+# ============================================================================
+
+
+class SitemapLeagueItem(BaseModel):
+    """Single league entry for sitemap generation."""
+
+    id: int
+    name: str
+    updated_at: Optional[str] = None
+
+
+class SitemapPlayerItem(BaseModel):
+    """Single player entry for sitemap generation."""
+
+    id: int
+    full_name: str
+    updated_at: Optional[str] = None
+
+
+class SitemapLocationItem(BaseModel):
+    """Single location entry for sitemap generation."""
+
+    slug: str
+    updated_at: Optional[str] = None
+
+
+class PublicLocationRef(BaseModel):
+    """Location reference used in public league/player responses."""
+
+    id: str
+    name: str
+    city: Optional[str] = None
+    state: Optional[str] = None
+    slug: Optional[str] = None
+
+
+class PublicRegionRef(BaseModel):
+    """Region reference used in public responses."""
+
+    id: str
+    name: str
+
+
+class PublicLeagueListItem(BaseModel):
+    """Single league in the paginated public leagues list."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    is_open: bool = True
+    member_count: int = 0
+    games_played: int = 0
+    location: Optional[PublicLocationRef] = None
+    region: Optional[PublicRegionRef] = None
+
+
+class PaginatedPublicLeaguesResponse(BaseModel):
+    """Paginated response for GET /api/public/leagues."""
+
+    items: List[PublicLeagueListItem]
+    page: int
+    page_size: int
+    total_count: int
+
+
+class PublicLeagueMember(BaseModel):
+    """Member entry in a public league detail response."""
+
+    player_id: int
+    full_name: str
+    level: Optional[str] = None
+    avatar: Optional[str] = None
+    role: str = "member"
+
+
+class PublicLeagueStandingEntry(BaseModel):
+    """Single standing row in a public league detail response."""
+
+    rank: int
+    player_id: int
+    full_name: str
+    games: int = 0
+    wins: int = 0
+    points: float = 0
+    win_rate: float = 0.0
+    avg_point_diff: float = 0.0
+
+
+class PublicLeagueMatchResult(BaseModel):
+    """Single match result in a public league detail response."""
+
+    id: int
+    date: Optional[str] = None
+    team1_player1: Optional[str] = None
+    team1_player2: Optional[str] = None
+    team2_player1: Optional[str] = None
+    team2_player2: Optional[str] = None
+    team1_score: int = 0
+    team2_score: int = 0
+    winner: Optional[int] = None
+
+
+class PublicLeagueSeason(BaseModel):
+    """Current season info in a public league detail response."""
+
+    id: int
+    name: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class PublicLeagueDetailResponse(BaseModel):
+    """Response for GET /api/public/leagues/{league_id}.
+
+    Public leagues include all fields.
+    Private leagues omit: description, members, standings, current_season,
+    recent_matches. They include games_played instead.
+    """
+
+    id: int
+    name: str
+    is_public: bool
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    member_count: int = 0
+    creator_name: Optional[str] = None
+    location: Optional[PublicLocationRef] = None
+    # Public-only fields
+    description: Optional[str] = None
+    members: Optional[List[PublicLeagueMember]] = None
+    current_season: Optional[PublicLeagueSeason] = None
+    standings: Optional[List[PublicLeagueStandingEntry]] = None
+    recent_matches: Optional[List[PublicLeagueMatchResult]] = None
+    # Private-only field
+    games_played: Optional[int] = None
+
+
+class PublicPlayerStats(BaseModel):
+    """Player stats in a public player profile."""
+
+    current_rating: float = 1200.0
+    total_games: int = 0
+    total_wins: int = 0
+    win_rate: float = 0.0
+
+
+class PublicPlayerLeagueMembership(BaseModel):
+    """League membership entry in a public player profile."""
+
+    league_id: int
+    league_name: str
+
+
+class PublicPlayerResponse(BaseModel):
+    """Response for GET /api/public/players/{player_id}."""
+
+    id: int
+    full_name: str
+    avatar: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    location: Optional[PublicLocationRef] = None
+    stats: PublicPlayerStats
+    league_memberships: List[PublicPlayerLeagueMembership] = []
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PublicLocationDirectoryItem(BaseModel):
+    """Single location in the directory listing."""
+
+    id: str
+    name: str
+    city: Optional[str] = None
+    state: Optional[str] = None
+    slug: str
+    league_count: int = 0
+    player_count: int = 0
+
+
+class PublicLocationDirectoryRegion(BaseModel):
+    """Region group in the location directory."""
+
+    id: Optional[str] = None
+    name: str
+    locations: List[PublicLocationDirectoryItem] = []
+
+
+class PublicLocationLeague(BaseModel):
+    """League entry on a public location detail page."""
+
+    id: int
+    name: str
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    member_count: int = 0
+
+
+class PublicLocationPlayer(BaseModel):
+    """Player entry on a public location detail page."""
+
+    id: int
+    full_name: str
+    level: Optional[str] = None
+    avatar: Optional[str] = None
+    current_rating: float = 1200.0
+    total_games: int = 0
+    total_wins: int = 0
+
+
+class PublicLocationCourt(BaseModel):
+    """Court entry on a public location detail page."""
+
+    id: int
+    name: str
+    address: Optional[str] = None
+
+
+class PublicLocationStats(BaseModel):
+    """Aggregate stats for a public location page."""
+
+    total_players: int = 0
+    total_leagues: int = 0
+    total_matches: int = 0
+
+
+class PublicLocationDetailResponse(BaseModel):
+    """Response for GET /api/public/locations/{slug}."""
+
+    id: str
+    name: str
+    city: Optional[str] = None
+    state: Optional[str] = None
+    slug: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    region: Optional[PublicRegionRef] = None
+    leagues: List[PublicLocationLeague] = []
+    top_players: List[PublicLocationPlayer] = []
+    courts: List[PublicLocationCourt] = []
+    stats: PublicLocationStats
