@@ -45,7 +45,8 @@ export async function generateMetadata({ params }) {
         type: 'website',
       },
     };
-  } catch {
+  } catch (error) {
+    console.error(`[generateMetadata] Location ${slug}:`, error.message);
     return {
       title: 'Location Not Found',
       description: 'This location could not be found on Beach League Volleyball.',
@@ -63,7 +64,8 @@ export default async function LocationPage({ params }) {
   let location = null;
   try {
     location = await fetchBackend(`/api/public/locations/${slug}`);
-  } catch {
+  } catch (error) {
+    console.error(`[LocationPage] Failed to fetch location ${slug}:`, error.message);
     notFound();
   }
 

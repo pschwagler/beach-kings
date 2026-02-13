@@ -51,7 +51,8 @@ export async function generateMetadata({ params }) {
         type: 'profile',
       },
     };
-  } catch {
+  } catch (error) {
+    console.error(`[generateMetadata] Player ${id}:`, error.message);
     return {
       title: 'Player Not Found',
       description: 'This player could not be found on Beach League Volleyball.',
@@ -71,7 +72,8 @@ export default async function PlayerPage({ params }) {
   let player = null;
   try {
     player = await fetchBackend(`/api/public/players/${playerId}`);
-  } catch {
+  } catch (error) {
+    console.error(`[PlayerPage] Failed to fetch player ${playerId}:`, error.message);
     notFound();
   }
 

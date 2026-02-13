@@ -27,9 +27,18 @@ const STATIC_PAGES = [
  */
 export default async function sitemap() {
   const [leagues, players, locations] = await Promise.all([
-    fetchBackend('/api/public/sitemap/leagues').catch(() => []),
-    fetchBackend('/api/public/sitemap/players').catch(() => []),
-    fetchBackend('/api/public/sitemap/locations').catch(() => []),
+    fetchBackend('/api/public/sitemap/leagues').catch((error) => {
+      console.error('[sitemap] Failed to fetch leagues:', error.message);
+      return [];
+    }),
+    fetchBackend('/api/public/sitemap/players').catch((error) => {
+      console.error('[sitemap] Failed to fetch players:', error.message);
+      return [];
+    }),
+    fetchBackend('/api/public/sitemap/locations').catch((error) => {
+      console.error('[sitemap] Failed to fetch locations:', error.message);
+      return [];
+    }),
   ]);
 
   const staticEntries = STATIC_PAGES.map(({ path, changeFrequency, priority }) => ({

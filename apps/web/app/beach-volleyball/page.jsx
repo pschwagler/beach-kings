@@ -24,8 +24,8 @@ export default async function BeachVolleyballPage() {
   let regions = [];
   try {
     regions = await fetchBackend('/api/public/locations');
-  } catch {
-    // Graceful degradation — render empty directory
+  } catch (error) {
+    console.error('[BeachVolleyballPage] Failed to fetch locations:', error.message);
   }
 
   return <LocationDirectoryClient regions={regions} />;

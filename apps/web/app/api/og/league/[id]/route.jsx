@@ -23,8 +23,8 @@ export async function GET(request, { params }) {
     if (res.ok) {
       league = await res.json();
     }
-  } catch {
-    // Backend unreachable — render fallback
+  } catch (error) {
+    console.error(`[OG league] Failed to fetch league ${id}:`, error.message);
   }
 
   // Fallback: logo-only image when league not found

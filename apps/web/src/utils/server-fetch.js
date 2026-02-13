@@ -26,17 +26,25 @@ export async function fetchBackend(path, options = {}) {
 
   const url = `${BACKEND_URL}${path}`;
 
-  const res = await fetch(url, {
-    next: { revalidate },
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    ...rest,
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      next: { revalidate },
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      ...rest,
+    });
+  } catch (error) {
+    console.error(`[fetchBackend] Network error for ${path}:`, error.message);
+    throw error;
+  }
 
   if (!res.ok) {
-    throw new Error(`fetchBackend ${path}: ${res.status} ${res.statusText}`);
+    const msg = `fetchBackend ${path}: ${res.status} ${res.statusText}`;
+    console.error(`[fetchBackend] ${msg}`);
+    throw new Error(msg);
   }
 
   return res.json();

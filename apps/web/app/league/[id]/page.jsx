@@ -52,7 +52,8 @@ export async function generateMetadata({ params }) {
         images: [{ url: `/api/og/league/${id}`, width: 1200, height: 630 }],
       },
     };
-  } catch {
+  } catch (error) {
+    console.error(`[generateMetadata] League ${id}:`, error.message);
     return {
       title: 'League Not Found',
       description:
@@ -73,8 +74,8 @@ export default async function LeaguePage({ params }) {
   let publicLeagueData = null;
   try {
     publicLeagueData = await fetchBackend(`/api/public/leagues/${id}`);
-  } catch {
-    // Backend unreachable or 404 — client will handle gracefully
+  } catch (error) {
+    console.error(`[LeaguePage] Failed to fetch league ${id}:`, error.message);
   }
 
   const jsonLd = publicLeagueData ? {
