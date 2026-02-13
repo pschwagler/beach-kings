@@ -49,6 +49,14 @@ export async function generateMetadata({ params }) {
         title: `${player.full_name} | Beach League Volleyball`,
         description,
         type: 'profile',
+        images: [
+          {
+            url: `/api/og/player/${id}`,
+            width: 1200,
+            height: 630,
+            alt: `${player.full_name} - Beach League Volleyball`,
+          },
+        ],
       },
     };
   } catch (error) {
