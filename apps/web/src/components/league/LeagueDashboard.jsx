@@ -61,6 +61,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
 
   // Get URL query parameters for navigation
   const seasonIdParam = searchParams?.get('season');
+  const autoAddMatch = searchParams?.get('autoAddMatch') === 'true';
 
   // Get tab from URL query parameter
   useEffect(() => {
@@ -401,8 +402,9 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
             {activeTab === 'rankings' && <LeagueRankingsTab />}
 
             {activeTab === 'matches' && (
-              <LeagueMatchesTab 
+              <LeagueMatchesTab
                 seasonIdFromUrl={seasonIdParam ? parseInt(seasonIdParam, 10) : null}
+                autoOpenAddMatch={autoAddMatch}
               />
             )}
 

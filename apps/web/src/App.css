@@ -6280,6 +6280,13 @@ select.form-select {
   flex-direction: column;
 }
 
+/* Subtle fade while fetching new results (keeps stale list visible) */
+.session-players-loading-fade {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
 .session-players-filters-row {
   display: flex;
   gap: 10px;
@@ -6436,6 +6443,168 @@ select.form-select {
   padding: 6px 8px;
 }
 
+/* ── SearchableMultiSelect (Tom Select-style) ── */
+.searchable-multiselect {
+  min-width: 180px;
+  position: relative;
+}
+
+.searchable-multiselect__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.searchable-multiselect__control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.searchable-multiselect__control:hover {
+  border-color: var(--gray-400);
+}
+
+.searchable-multiselect__control--open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+}
+
+.searchable-multiselect__value-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.searchable-multiselect__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--primary-lighter);
+  color: var(--primary);
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.searchable-multiselect__pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-multiselect__pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.searchable-multiselect__pill-remove:hover {
+  opacity: 1;
+}
+
+.searchable-multiselect__input {
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  min-width: 60px;
+  flex: 1;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--gray-900);
+}
+
+.searchable-multiselect__input::placeholder {
+  color: var(--gray-400);
+}
+
+.searchable-multiselect__indicator {
+  display: flex;
+  align-items: center;
+  color: var(--gray-400);
+  flex-shrink: 0;
+  padding-left: 2px;
+}
+
+.searchable-multiselect__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  list-style: none;
+  padding: 4px 0;
+  z-index: 20;
+}
+
+.searchable-multiselect__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--gray-900);
+  transition: background 0.1s;
+}
+
+.searchable-multiselect__option:hover {
+  background: var(--gray-100);
+}
+
+.searchable-multiselect__option--selected {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.searchable-multiselect__option--selected:hover {
+  background: var(--primary-lighter);
+  filter: brightness(0.97);
+}
+
+.searchable-multiselect__option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.searchable-multiselect__no-results {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--gray-400);
+}
+
 .session-players-filter-pills {
   display: flex;
   flex-wrap: wrap;
@@ -6585,7 +6754,7 @@ select.form-select {
     right: 0;
     bottom: 0;
     width: 100%;
-    max-height: 95vh;
+    height: 85dvh;
     border-left: none;
     border-radius: 20px 20px 0 0;
     animation: slideUpMobile 0.25s ease-out;
@@ -6594,14 +6763,6 @@ select.form-select {
 
   .session-players-drawer-body {
     padding: 16px;
-  }
-
-  .session-players-column-scroll {
-    max-height: 280px;
-  }
-
-  .session-players-add .session-players-column-scroll.session-players-add-list-wrapper {
-    max-height: 320px;
   }
 }
 

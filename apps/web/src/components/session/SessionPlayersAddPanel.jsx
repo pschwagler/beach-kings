@@ -33,6 +33,7 @@ export default function SessionPlayersAddPanel({
   filterButtonRef,
   filterPopoverRef,
   activeFilterCount,
+  userLocationId,
 }) {
   const availableToAdd = items.filter((p) => !participantIds.has(p.id));
   const hasActiveFilters =
@@ -89,6 +90,7 @@ export default function SessionPlayersAddPanel({
               locations={locations}
               leagues={leagues}
               onToggleFilter={onToggleFilter}
+              userLocationId={userLocationId}
             />
           )}
         </div>
@@ -163,8 +165,8 @@ export default function SessionPlayersAddPanel({
         </div>
       )}
 
-      <div className="session-players-column-scroll session-players-add-list-wrapper">
-        {loading ? (
+      <div className={`session-players-column-scroll session-players-add-list-wrapper${loading && items.length > 0 ? ' session-players-loading-fade' : ''}`}>
+        {loading && items.length === 0 ? (
           <p className="session-players-empty">Loading players...</p>
         ) : (
           <>

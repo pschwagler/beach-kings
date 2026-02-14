@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import NavBrand from './navbar/NavBrand';
 import RecordGamesButton from './navbar/RecordGamesButton';
 import PlayersButton from './navbar/PlayersMenu';
@@ -23,9 +24,10 @@ export default function NavBar({
 }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { openModal } = useModal();
 
   const handleRecordGamesClick = () => {
-    router.push('/home?tab=my-games');
+    openModal(MODAL_TYPES.CREATE_GAME);
   };
 
   const handlePlayersClick = () => {

@@ -1,0 +1,178 @@
+/* CreateGameModal — step-based game type chooser */
+
+.create-game-modal {
+  max-width: 440px;
+}
+
+/* Header */
+.create-game-modal__header {
+  display: flex;
+  align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--gray-200);
+  gap: 12px;
+}
+
+.create-game-modal__title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.create-game-modal__back-btn,
+.create-game-modal__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--gray-700);
+  cursor: pointer;
+  padding: 0;
+}
+
+.create-game-modal__back-btn:hover,
+.create-game-modal__close-btn:hover {
+  background: var(--gray-100);
+}
+
+/* Error */
+.create-game-modal__error {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--danger-lighter);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+/* Step 1 — option cards */
+.create-game-modal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.create-game-modal__option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+
+.create-game-modal__option:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.create-game-modal__option--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.create-game-modal__option--disabled:hover {
+  border-color: var(--gray-200);
+  background: white;
+}
+
+.create-game-modal__option-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.create-game-modal__option-icon--league {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.create-game-modal__option-icon--pickup {
+  background: var(--success-lighter);
+  color: var(--success);
+}
+
+.create-game-modal__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.create-game-modal__option-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.create-game-modal__option-desc {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.create-game-modal__option-arrow {
+  flex-shrink: 0;
+  color: var(--gray-300);
+}
+
+/* Step 2 — league list */
+.create-game-modal__leagues {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.create-game-modal__league-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.create-game-modal__league-item:hover {
+  background: var(--gray-50);
+}
+
+.create-game-modal__league-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.create-game-modal__league-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.create-game-modal__league-location {
+  font-size: 13px;
+  color: var(--gray-600);
+}
