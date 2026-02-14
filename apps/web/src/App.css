@@ -1193,47 +1193,6 @@ h1 {
   font-weight: 500;
 }
 
-/* Tabs - Retro Style */
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 3px solid var(--sand);
-  overflow-x: auto;
-}
-
-.tab {
-  background: transparent;
-  color: var(--warm-brown);
-  border: none;
-  border-bottom: 4px solid transparent;
-  padding: 12px 24px;
-  font-size: 1em;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  box-shadow: none;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  min-height: 44px;
-}
-
-.tab:hover {
-  background: rgba(255, 120, 73, 0.1);
-  color: var(--muted-red);
-  transform: none;
-  box-shadow: none;
-}
-
-.tab.active {
-  background: transparent;
-  color: var(--muted-red);
-  border-bottom: 4px solid var(--muted-red);
-  font-weight: 800;
-  box-shadow: none;
-}
-
 .content-area {
   margin-top: 24px;
 }
@@ -1612,86 +1571,11 @@ h1 {
   color: var(--primary-dark);
 }
 
-/* Tables - Retro Beach Style */
-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-top: 16px;
-  border: 3px solid var(--primary);
-  border-radius: 12px;
-  overflow: hidden;
-  background: white;
-  box-shadow: var(--shadow-md);
-}
-
-thead {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-}
-
-th {
-  color: white;
-  padding: 16px 12px;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  font-size: 0.875em;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  transition: all 0.2s;
-}
-
-th:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-th:first-child {
-  border-top-left-radius: 6px;
-}
-
-th:last-child {
-  border-top-right-radius: 6px;
-}
-
-td {
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--gray-200);
-  color: var(--gray-700);
-  font-size: 0.95em;
-}
-
-tbody tr {
-  transition: all 0.2s;
-}
-
-tbody tr:hover {
-  background: rgba(255, 120, 73, 0.05);
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
 /* Sticky first column for rankings table */
 .sticky-col {
   position: sticky;
   left: 0;
   z-index: 10;
-}
-
-thead .sticky-col {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-}
-
-tbody .sticky-col {
-  background: white;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-}
-
-tbody tr:hover .sticky-col {
-  background: rgb(255, 248, 245);
 }
 
 .crown-icon {
@@ -12274,8 +12158,7 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table-wrapper {
   overflow-x: auto;
-  border: none !important;
-  box-shadow: none !important;
+  background: white;
 }
 
 .clipboard-table {
@@ -12284,9 +12167,8 @@ button.match-config-toggle.inline svg {
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
-  /* Override global "Retro Beach" table styles: no thick border, no sand shadow */
-  border: none !important;
-  box-shadow: none !important;
+  border: none;
+  box-shadow: none;
   border-radius: 0;
 }
 
