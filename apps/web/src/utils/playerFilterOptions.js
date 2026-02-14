@@ -4,9 +4,8 @@
  *
  * Backend values:
  * - Gender: male, female
- * - Level (league): juniors, beginner, intermediate, advanced, Open (capital O)
- * - Level (player profile): beginner, intermediate, advanced, AA, Open
- * - Level (filter API): lowercase for filters (open, aa) – backend accepts both
+ * - Canonical skill levels (6): juniors, beginner, intermediate, advanced, AA, Open
+ * - Level (league filter API): lowercase for filters (open) – backend accepts both
  */
 
 /** Options for gender filter: All + Men's / Women's. Values match backend (male/female). */
@@ -45,8 +44,20 @@ export const GENDER_OPTIONS = [
   { value: 'female', label: 'Female' },
 ];
 
-/** Skill level options for player profile forms. Includes AA; backend accepts AA, Open. */
+/** Skill level options for player profile forms. Includes all 6 canonical levels. */
 export const SKILL_LEVEL_OPTIONS = [
+  { value: 'juniors', label: 'Juniors' },
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+  { value: 'AA', label: 'AA' },
+  { value: 'Open', label: 'Open' },
+];
+
+/** Level filter options for player search (FindPlayersPage). All 6 canonical levels + "All Levels". */
+export const PLAYER_LEVEL_FILTER_OPTIONS = [
+  { value: '', label: 'All Levels' },
+  { value: 'juniors', label: 'Juniors' },
   { value: 'beginner', label: 'Beginner' },
   { value: 'intermediate', label: 'Intermediate' },
   { value: 'advanced', label: 'Advanced' },

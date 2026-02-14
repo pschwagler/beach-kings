@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.db import get_db_session
 from backend.models.schemas import (
     PaginatedPublicLeaguesResponse,
+    PaginatedPublicPlayersResponse,
     PublicLeagueDetailResponse,
     PublicLocationDetailResponse,
     PublicLocationDirectoryRegion,
@@ -86,7 +87,7 @@ async def list_public_leagues(
     gender: Optional[Literal["male", "female", "mixed"]] = Query(
         None, description="Filter by gender"
     ),
-    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "Open"]] = Query(
+    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]] = Query(
         None, description="Filter by skill level"
     ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
@@ -124,6 +125,37 @@ async def get_public_league(league_id: int, session: AsyncSession = Depends(get_
     if result is None:
         raise HTTPException(status_code=404, detail="League not found")
     return result
+
+
+@public_router.get("/players", response_model=PaginatedPublicPlayersResponse)
+async def list_public_players(
+    search: Optional[str] = Query(None, description="Search by player name"),
+    location_id: Optional[str] = Query(None, description="Filter by location ID"),
+    gender: Optional[Literal["male", "female"]] = Query(
+        None, description="Filter by gender"
+    ),
+    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]] = Query(
+        None, description="Filter by skill level"
+    ),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Search publicly visible players with optional filters.
+
+    Returns paginated players with total_games >= 1. Supports filtering
+    by name, location, gender, and level. No authentication required.
+    """
+    return await public_service.search_public_players(
+        session,
+        search=search,
+        location_id=location_id,
+        gender=gender,
+        level=level,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)

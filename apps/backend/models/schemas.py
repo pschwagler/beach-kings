@@ -403,7 +403,7 @@ class LeagueBase(BaseModel):
     is_public: Optional[bool] = True  # Whether league is visible on public pages
     whatsapp_group_id: Optional[str] = None
     gender: Optional[str] = None  # 'male', 'female', 'mixed'
-    level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
+    level: Optional[str] = None  # 'juniors', 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
 
 
 class LeagueCreate(LeagueBase):
@@ -474,7 +474,7 @@ class PlayerBase(BaseModel):
     full_name: str
     nickname: Optional[str] = None
     gender: Optional[str] = None
-    level: Optional[str] = None  # 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
+    level: Optional[str] = None  # 'juniors', 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
     height: Optional[str] = None
     preferred_side: Optional[str] = None  # 'left', 'right', 'none', etc.
@@ -848,6 +848,10 @@ class PublicLeagueMatchResult(BaseModel):
     team1_player2: Optional[str] = None
     team2_player1: Optional[str] = None
     team2_player2: Optional[str] = None
+    team1_player1_id: Optional[int] = None
+    team1_player2_id: Optional[int] = None
+    team2_player1_id: Optional[int] = None
+    team2_player2_id: Optional[int] = None
     team1_score: int = 0
     team2_score: int = 0
     winner: Optional[int] = None
@@ -992,3 +996,23 @@ class PublicLocationDetailResponse(BaseModel):
     top_players: List[PublicLocationPlayer] = []
     courts: List[PublicLocationCourt] = []
     stats: PublicLocationStats
+
+
+class PublicPlayerListItem(BaseModel):
+    """Single player in the public players search results."""
+
+    id: int
+    full_name: str
+    avatar: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    location_name: Optional[str] = None
+    total_games: int = 0
+    current_rating: float = 1200.0
+
+
+class PaginatedPublicPlayersResponse(BaseModel):
+    """Response for GET /api/public/players."""
+
+    items: List[PublicPlayerListItem] = []
+    total_count: int = 0
