@@ -42,11 +42,6 @@ Each issue must include:
 
 Review the diff against these guidelines:
 
-**Constants Over Magic Numbers**
-- Replace hard-coded values with named constants
-- Use descriptive constant names that explain the value's purpose
-- Keep constants at the top of the file or in a dedicated constants file
-
 **Meaningful Names**
 - Variables, functions, and classes should reveal their purpose
 - Names should explain why something exists and how it's used
@@ -61,6 +56,11 @@ Review the diff against these guidelines:
 - Each function should do exactly one thing
 - Functions should be small and focused
 - If a function needs a comment to explain what it does, it should be split
+
+**Constants Over Magic Numbers**
+- Replace hard-coded values with named constants
+- Use descriptive constant names that explain the value's purpose
+- Keep constants at the top of the file or in a dedicated constants file
 
 **DRY (Don't Repeat Yourself)**
 - Extract repeated code into reusable functions
