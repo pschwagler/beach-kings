@@ -199,7 +199,7 @@ export default function Page() {
             className="homepage-video"
           >
             <source
-              src="/Beach_Volleyball_Champion_Crown_Moment.mp4"
+              src="/beach-league-promo.mp4"
               type="video/mp4"
             />
           </video>
