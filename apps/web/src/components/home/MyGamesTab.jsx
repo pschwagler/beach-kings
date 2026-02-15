@@ -1,22 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Plus, Calendar } from 'lucide-react';
 import { Button } from '../ui/UI';
 import OpenSessionsList from './OpenSessionsList';
-import { createSession } from '../../services/api';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import { getPlayerMatchHistory } from '../../services/api';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 /**
  * My Games tab: open sessions (where user is creator, has match, or invited) and optional recent games.
- * Clicking "Create game" starts a non-league session and navigates to /session/[code].
+ * Clicking "Create game" opens the CreateGameModal to choose league vs pickup.
  */
 export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClick }) {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState(null);
+  const { openModal } = useModal();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
@@ -54,26 +51,8 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
     loadUserMatches();
   }, [currentUserPlayer?.id]);
 
-  const handleCreateGame = async () => {
-    if (creating) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const res = await createSession({});
-      const sess = res?.session || res;
-      if (sess?.code) {
-        setRefreshTrigger((t) => t + 1);
-        router.push(`/session/${sess.code}`);
-      } else {
-        setCreateError('Session was created but no share link is available. Please try again.');
-        setRefreshTrigger((t) => t + 1);
-      }
-    } catch (err) {
-      console.error('Error creating session:', err);
-      setCreateError(err.response?.data?.detail || err.message || 'Failed to create session');
-    } finally {
-      setCreating(false);
-    }
+  const handleCreateGame = () => {
+    openModal(MODAL_TYPES.CREATE_GAME);
   };
 
   return (
@@ -83,19 +62,12 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
         <Button
           variant="outline"
           onClick={handleCreateGame}
-          disabled={creating}
           className="my-games-tab-create-btn"
         >
           <Plus size={18} />
-          {creating ? 'Creating…' : 'Create game'}
+          Create game
         </Button>
       </div>
-
-      {createError && (
-        <div className="my-games-tab-error" role="alert">
-          {createError}
-        </div>
-      )}
 
       <section className="my-games-tab-section">
         <h3 className="my-games-tab-section-title">

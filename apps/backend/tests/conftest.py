@@ -2,6 +2,11 @@
 Shared pytest configuration for backend tests.
 
 Uses PostgreSQL for consistency with production environment.
+
+SAFETY: This module REFUSES to run against any database whose name does not
+contain the substring "test".  This prevents accidental truncation / drop of
+the development or production database when environment variables are missing
+or misconfigured.
 """
 
 import os
@@ -12,14 +17,52 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 from backend.database.db import Base
 
-# Test database configuration
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    os.getenv(
-        "DATABASE_URL",
-        f"postgresql+asyncpg://{os.getenv('POSTGRES_USER', 'beachkings')}:{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'beachkings')}",
-    ),
-)
+
+def _resolve_test_database_url() -> str:
+    """Build the test database URL with safety checks.
+
+    Raises ``RuntimeError`` if the resolved URL does not point to a database
+    whose name contains "test".
+    """
+    url = os.getenv(
+        "TEST_DATABASE_URL",
+        os.getenv("DATABASE_URL", ""),
+    )
+
+    # If neither env var is set, construct from individual POSTGRES_* vars
+    # but ONLY use the test-safe defaults (port 5433, db beachkings_test).
+    if not url:
+        url = (
+            f"postgresql+asyncpg://"
+            f"{os.getenv('POSTGRES_USER', 'beachkings')}:"
+            f"{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@"
+            f"{os.getenv('POSTGRES_HOST', 'localhost')}:"
+            f"{os.getenv('POSTGRES_PORT', '5433')}/"
+            f"{os.getenv('POSTGRES_DB', 'beachkings_test')}"
+        )
+
+    # ── Safety gate: database name MUST contain "test" ──────────────────
+    # Extract the database name (last segment after the final '/').
+    db_name = url.rsplit("/", 1)[-1].split("?")[0]  # strip query params
+    if "test" not in db_name.lower():
+        raise RuntimeError(
+            f"\n{'=' * 70}\n"
+            f"  SAFETY: Refusing to run tests against database '{db_name}'.\n"
+            f"  The database name must contain 'test' to prevent accidental\n"
+            f"  data loss in development or production databases.\n\n"
+            f"  Resolved URL: {url}\n\n"
+            f"  Fix: set TEST_DATABASE_URL to a test database, e.g.:\n"
+            f"    export TEST_DATABASE_URL=postgresql+asyncpg://.../{db_name}_test\n"
+            f"  Or use 'make test' which runs tests in Docker with the correct URL.\n"
+            f"{'=' * 70}"
+        )
+
+    return url
+
+
+# Test database configuration — validated at import time so pytest fails
+# immediately with a clear message rather than silently hitting the wrong DB.
+TEST_DATABASE_URL = _resolve_test_database_url()
 
 
 @pytest_asyncio.fixture(scope="function")

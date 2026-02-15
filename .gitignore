@@ -44,6 +44,7 @@ apps/backend/database/*.db
 backend/database/*.db
 *.db-shm
 *.db-wal
+dumps/
 
 # Old vanilla HTML (replaced by React)
 static/

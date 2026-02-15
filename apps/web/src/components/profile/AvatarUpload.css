@@ -1,0 +1,160 @@
+/* AvatarUpload — BEM, design tokens */
+
+.avatar-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0 8px;
+}
+
+.avatar-upload__preview {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  cursor: pointer;
+}
+
+.avatar-upload__image {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--gray-200);
+}
+
+.avatar-upload__initials {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 600;
+  border: 3px solid var(--gray-200);
+}
+
+.avatar-upload__edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: var(--shadow-sm);
+}
+
+.avatar-upload__actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.avatar-upload__change-btn {
+  font-size: 14px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.avatar-upload__change-btn:hover {
+  background: var(--primary-lighter);
+}
+
+.avatar-upload__remove-btn {
+  font-size: 14px;
+  color: var(--danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.avatar-upload__remove-btn:hover {
+  background: var(--danger-lighter);
+}
+
+.avatar-upload__error {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Crop modal */
+.avatar-crop-modal {
+  max-width: 480px;
+  width: 90vw;
+}
+
+.avatar-crop-modal .modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.avatar-crop-modal .modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.avatar-crop-modal .modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-600);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.avatar-crop__container {
+  position: relative;
+  width: 100%;
+  height: 350px;
+  background: var(--gray-900);
+}
+
+.avatar-crop__footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.avatar-crop__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-600);
+  font-size: 14px;
+}
+
+.avatar-crop__spinner {
+  animation: avatar-spin 1s linear infinite;
+}
+
+@keyframes avatar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

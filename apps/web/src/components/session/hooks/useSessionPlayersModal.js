@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues } from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -27,6 +28,12 @@ export function useSessionPlayersModal({
   onSuccess,
   onClose,
 }) {
+  const { currentUserPlayer } = useAuth();
+  const defaultLocationIds = useMemo(
+    () => (currentUserPlayer?.location_id ? [currentUserPlayer.location_id] : []),
+    [currentUserPlayer]
+  );
+
   const [localParticipants, setLocalParticipants] = useState([]);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -144,7 +151,7 @@ export function useSessionPlayersModal({
     if (!isOpen) {
       setSearchTerm('');
       setDebouncedQ('');
-      setLocationIds([]);
+      setLocationIds(defaultLocationIds);
       setLeagueIds([]);
       setGenderFilters([]);
       setLevelFilters([]);
@@ -156,7 +163,7 @@ export function useSessionPlayersModal({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultLocationIds]);
 
   const hasMore = items.length < total;
 
@@ -309,5 +316,6 @@ export function useSessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    userLocationId: currentUserPlayer?.location_id || null,
   };
 }

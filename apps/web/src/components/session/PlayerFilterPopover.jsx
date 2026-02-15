@@ -1,12 +1,13 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { Check, Square } from 'lucide-react';
 import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
+import SearchableMultiSelect from '../ui/SearchableMultiSelect';
 
 /**
  * Reusable popover content for filtering players by Location, League, Gender, and Level.
- * Used by SessionPlayersAddPanel; can be reused on other "find players" screens.
+ * Location uses a Tom Select-style searchable multi-select; other filters use checkboxes.
  */
 const PlayerFilterPopover = forwardRef(function PlayerFilterPopover(
   {
@@ -17,9 +18,23 @@ const PlayerFilterPopover = forwardRef(function PlayerFilterPopover(
     locations = [],
     leagues = [],
     onToggleFilter,
+    userLocationId = null,
   },
   ref
 ) {
+  const locationOptions = useMemo(
+    () => {
+      const opts = locations.map((loc) => ({ id: loc.id, label: loc.name || loc.id }));
+      if (!userLocationId) return opts;
+      return opts.sort((a, b) => {
+        if (a.id === userLocationId) return -1;
+        if (b.id === userLocationId) return 1;
+        return 0;
+      });
+    },
+    [locations, userLocationId]
+  );
+
   return (
     <div
       ref={ref}
@@ -29,37 +44,13 @@ const PlayerFilterPopover = forwardRef(function PlayerFilterPopover(
       aria-label="Filter players"
     >
       <div className="session-players-filters-panel">
-        <div className="session-players-filter-multiselect" role="group" aria-label="Location filter">
-          <div className="session-players-filter-multiselect-label">Location</div>
-          <ul className="session-players-filter-multiselect-list">
-            {locations.map((loc) => {
-              const selected = locationIds.includes(loc.id);
-              return (
-                <li key={loc.id}>
-                  <button
-                    type="button"
-                    className={`session-players-filter-multiselect-option ${selected ? 'selected' : ''}`}
-                    onClick={() => onToggleFilter('location', loc.id)}
-                    aria-pressed={selected}
-                    aria-label={`${selected ? 'Remove' : 'Add'} ${loc.name || loc.id} filter`}
-                  >
-                    <span className="session-players-filter-multiselect-check" aria-hidden="true">
-                      {selected ? (
-                        <Check size={14} strokeWidth={2.5} />
-                      ) : (
-                        <Square size={14} strokeWidth={2} />
-                      )}
-                    </span>
-                    <span>{loc.name || loc.id}</span>
-                  </button>
-                </li>
-              );
-            })}
-            {locations.length === 0 && (
-              <li className="session-players-filter-multiselect-empty">No locations</li>
-            )}
-          </ul>
-        </div>
+        <SearchableMultiSelect
+          label="Location"
+          options={locationOptions}
+          selectedIds={locationIds}
+          onToggle={(id) => onToggleFilter('location', id)}
+          placeholder="Search locations..."
+        />
         <div className="session-players-filter-multiselect" role="group" aria-label="League filter">
           <div className="session-players-filter-multiselect-label">League</div>
           <ul className="session-players-filter-multiselect-list">

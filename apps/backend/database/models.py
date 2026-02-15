@@ -104,6 +104,7 @@ class Location(Base):
         String, nullable=True
     )  # When location is active (e.g., "Year-Round", "Jun-Aug")
     radius_miles = Column(Float, nullable=True)  # Radius in miles
+    slug = Column(String(100), nullable=True, unique=True)  # SEO-friendly URL slug (e.g., "manhattan-beach")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(
@@ -219,6 +220,7 @@ class League(Base):
     description = Column(Text, nullable=True)
     location_id = Column(String, ForeignKey("locations.id"), nullable=True)
     is_open = Column(Boolean, default=True, nullable=False)
+    is_public = Column(Boolean, default=True, nullable=False)  # Whether league is visible on public pages
     whatsapp_group_id = Column(String, nullable=True)
     gender = Column(String, nullable=True)  # 'male', 'female', 'mixed'
     level = Column(String, nullable=True)  # 'beginner', 'intermediate', 'advanced', 'Open', etc.

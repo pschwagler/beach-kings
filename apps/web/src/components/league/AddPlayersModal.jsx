@@ -10,6 +10,7 @@ import {
 } from '../../services/api';
 import { getPlayerDisplayName, ROLE_OPTIONS } from './utils/leagueUtils';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
 import { formatDivisionLabel } from '../../utils/divisionUtils';
 import PlayerFilterPopover from '../session/PlayerFilterPopover';
@@ -24,6 +25,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  */
 export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }) {
   const { leagueId, showMessage } = useLeague();
+  const { currentUserPlayer } = useAuth();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -119,14 +121,20 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
     fetchPage(0, false);
   }, [isOpen, debouncedQ, locationIds, leagueIds, genderFilters, levelFilters, fetchPage]);
 
-  // Reset state when modal closes
+  // Derive the default location filter from the current user's profile
+  const defaultLocationIds = useMemo(
+    () => (currentUserPlayer?.location_id ? [currentUserPlayer.location_id] : []),
+    [currentUserPlayer]
+  );
+
+  // Reset state when modal closes; default location filter to user's location
   useEffect(() => {
     if (!isOpen) {
       setSelectedPlayers([]);
       setSelectedPlayerDetails({});
       setSearchTerm('');
       setDebouncedQ('');
-      setLocationIds([]);
+      setLocationIds(defaultLocationIds);
       setLeagueIds([]);
       setGenderFilters([]);
       setLevelFilters([]);
@@ -136,7 +144,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultLocationIds]);
 
   // Close filters on click outside
   useEffect(() => {
@@ -332,6 +340,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
                     locations={locations}
                     leagues={leagues}
                     onToggleFilter={handleToggleFilter}
+                    userLocationId={currentUserPlayer?.location_id}
                   />
                 )}
               </div>
@@ -407,8 +416,8 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
             </div>
           )}
 
-          <div className="add-players-table-section">
-            {loading ? (
+          <div className={`add-players-table-section${loading && playersToDisplay.length > 0 ? ' session-players-loading-fade' : ''}`}>
+            {loading && playersToDisplay.length === 0 ? (
               <p>Loading players...</p>
             ) : playersToDisplay.length === 0 ? (
               <p className="modal-hint">

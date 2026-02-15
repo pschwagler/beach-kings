@@ -12,7 +12,7 @@ import logging
 from typing import Optional, Dict, Callable, Awaitable
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.utils.datetime_utils import utcnow
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, func
 from backend.database.models import StatsCalculationJob, StatsCalculationJobStatus, Season
 from backend.database import db
 
@@ -149,12 +149,11 @@ class StatsCalculationQueue:
     async def _count_queued_jobs(self, session: AsyncSession) -> int:
         """Count pending jobs."""
         result = await session.execute(
-            select(StatsCalculationJob).where(
-                StatsCalculationJob.status == StatsCalculationJobStatus.PENDING
-            )
+            select(func.count())
+            .select_from(StatsCalculationJob)
+            .where(StatsCalculationJob.status == StatsCalculationJobStatus.PENDING)
         )
-        jobs = result.scalars().all()
-        return len(jobs)
+        return result.scalar() or 0
 
     async def _get_first_queued_job(self, session: AsyncSession) -> Optional[StatsCalculationJob]:
         """Get first pending job."""
@@ -311,11 +310,11 @@ class StatsCalculationQueue:
                     except Exception:
                         pass
                     # Log error and continue (don't raise)
-                    print(f"Error in queue worker: {e}")
+                    logger.error(f"Error in queue worker: {e}")
                     await asyncio.sleep(5)
             except Exception as e:
                 # Log error and continue
-                print(f"Error in queue worker (outer): {e}")
+                logger.error(f"Error in queue worker (outer): {e}")
                 await asyncio.sleep(5)
 
     async def get_queue_status(self, session: AsyncSession) -> Dict:

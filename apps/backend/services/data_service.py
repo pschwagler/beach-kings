@@ -426,11 +426,22 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
 
 
 async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
-    """Get all leagues a user is a member of."""
+    """Get all leagues a user is a member of, ordered by most recent session date."""
     # Subquery to count members for each league
     member_count_subq = (
         select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
+        .subquery()
+    )
+
+    # Subquery to get the most recent session date per league
+    latest_session_subq = (
+        select(
+            Season.league_id,
+            func.max(Session.date).label("latest_session_date"),
+        )
+        .join(Session, Session.season_id == Season.id)
+        .group_by(Season.league_id)
         .subquery()
     )
 
@@ -440,14 +451,19 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             LeagueMember.role.label("membership_role"),
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
+            latest_session_subq.c.latest_session_date,
         )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
+        .outerjoin(latest_session_subq, latest_session_subq.c.league_id == League.id)
         .where(Player.user_id == user_id)
         .distinct()
-        .order_by(League.created_at.desc())
+        .order_by(
+            latest_session_subq.c.latest_session_date.desc().nulls_last(),
+            League.created_at.desc(),
+        )
     )
     rows = result.all()
     return [
@@ -466,7 +482,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
         }
-        for league, role, member_count, location_name in rows
+        for league, role, member_count, location_name, _latest_date in rows
     ]
 
 

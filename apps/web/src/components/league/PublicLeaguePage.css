@@ -1,0 +1,377 @@
+/* PublicLeaguePage — public view for unauthenticated users */
+
+.public-league {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  margin-top: var(--navbar-height);
+}
+
+.public-league__header {
+  margin-bottom: 24px;
+}
+
+.public-league__name {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 12px;
+}
+
+.public-league__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.public-league__location {
+  font-size: 15px;
+  color: var(--gray-700);
+  font-weight: 500;
+}
+
+.public-league__badge {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.public-league__description {
+  font-size: 15px;
+  color: var(--gray-700);
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+/* CTA buttons (footer + private notice) */
+.public-league__cta-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Auth prompt banner (matches find-leagues style) */
+.public-league__auth-prompt {
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: var(--primary-lighter);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.public-league__auth-prompt-text {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.public-league__auth-prompt-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.public-league__auth-prompt-link:hover {
+  color: var(--primary-dark);
+}
+
+/* Sections */
+.public-league__section {
+  margin-bottom: 36px;
+}
+
+.public-league__section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+/* Standings table */
+.public-league__table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.public-league__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.public-league__table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--gray-300);
+}
+
+.public-league__table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-900);
+}
+
+.public-league__table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.public-league__player-name {
+  font-weight: 500;
+}
+
+.public-league__player-link {
+  color: var(--gray-900);
+  text-decoration: none;
+}
+
+.public-league__player-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* "View all leagues in area" link */
+.public-league__area-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.public-league__area-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* Match cards */
+.public-league__matches {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.public-league__match {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.public-league__team {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-league__team--winner {
+  font-weight: 600;
+}
+
+.public-league__team-names {
+  font-size: 14px;
+  color: var(--gray-900);
+}
+
+.public-league__team-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  min-width: 24px;
+  text-align: center;
+}
+
+.public-league__match-vs {
+  font-size: 12px;
+  color: var(--ocean-gray);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Match date group headers */
+.public-league__match-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-league__match-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-top: 4px;
+}
+
+/* Show more / fewer toggle */
+.public-league__show-more {
+  all: unset;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.public-league__show-more:hover {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+/* Members grid */
+.public-league__members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.public-league__member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  min-width: 0;
+}
+
+.public-league__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.public-league__member-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+  min-width: 0;
+}
+
+/* Private league notice */
+.public-league__private-notice {
+  text-align: center;
+  padding: 48px 20px;
+}
+
+.public-league__private-notice p {
+  font-size: 16px;
+  color: var(--gray-600);
+  margin-bottom: 24px;
+}
+
+/* Empty state */
+.public-league-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  min-height: 400px;
+  margin-top: var(--navbar-height);
+}
+
+.public-league-empty h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.public-league-empty p {
+  font-size: 16px;
+  color: var(--gray-600);
+}
+
+/* Loading state */
+.public-league-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.public-league-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--gray-300);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: public-league-spin 0.8s linear infinite;
+}
+
+@keyframes public-league-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer CTA */
+.public-league__footer {
+  text-align: center;
+  padding: 40px 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--gray-300);
+}
+
+.public-league__footer p {
+  font-size: 16px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .public-league {
+    padding: 20px 16px 40px;
+  }
+
+  .public-league__name {
+    font-size: 22px;
+  }
+
+  .public-league__match {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .public-league__team {
+    justify-content: center;
+  }
+
+  .public-league__members {
+    grid-template-columns: 1fr;
+  }
+}

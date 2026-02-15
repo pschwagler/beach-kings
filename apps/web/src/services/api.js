@@ -647,8 +647,8 @@ export const listLeagues = async () => {
 /**
  * Query leagues with filters, ordering, and limit
  */
-export const queryLeagues = async (filters = {}) => {
-  const response = await api.post('/api/leagues/query', filters);
+export const queryLeagues = async (filters = {}, options = {}) => {
+  const response = await api.post('/api/leagues/query', filters, options);
   return response.data;
 };
 
@@ -1249,6 +1249,48 @@ export const cancelPhotoSession = async (leagueId, sessionId) => {
   const response = await api.delete(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}`
   );
+  return response.data;
+};
+
+/**
+ * Search publicly visible players with optional filters.
+ *
+ * @param {Object} params - Query parameters
+ * @param {string} [params.search] - Search by player name
+ * @param {string} [params.location_id] - Filter by location ID
+ * @param {string} [params.gender] - Filter by gender
+ * @param {string} [params.level] - Filter by skill level
+ * @param {number} [params.page] - Page number (1-based)
+ * @param {number} [params.page_size] - Items per page
+ * @returns {Promise<{items: Array, total_count: number}>}
+ */
+export const getPublicPlayers = async (params = {}, options = {}) => {
+  const response = await api.get('/api/public/players', { params, ...options });
+  return response.data;
+};
+
+/**
+ * Upload a new avatar image for the current user.
+ *
+ * @param {File|Blob} file - Image file or blob to upload
+ * @returns {Promise<{ profile_picture_url: string }>}
+ */
+export const uploadAvatar = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/api/users/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+/**
+ * Delete the current user's avatar, reverting to initials.
+ *
+ * @returns {Promise<{ message: string }>}
+ */
+export const deleteAvatar = async () => {
+  const response = await api.delete('/api/users/me/avatar');
   return response.data;
 };
 

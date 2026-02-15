@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import OpenSessionsList from './OpenSessionsList';
 import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
+import { isImageUrl } from '../../utils/avatar';
 
 const getAvatarInitial = (currentUserPlayer) => {
   if (currentUserPlayer?.nickname) {
@@ -104,7 +105,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const avatarInitial = getAvatarInitial(currentUserPlayer);
   const fullName = currentUserPlayer?.full_name || 'Player';
 
-  // Calculate stats from match history
+  // Calculate stats from match history (memoized)
   const calculateStatsFromMatches = () => {
     if (!userMatches || userMatches.length === 0) {
       // Fall back to global stats if available, otherwise use defaults
@@ -159,7 +160,10 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     return { totalGames, currentRating, games30Days, winRate30Days };
   };
 
-  const { totalGames, currentRating, games30Days, winRate30Days } = calculateStatsFromMatches();
+  const { totalGames, currentRating, games30Days, winRate30Days } = useMemo(
+    calculateStatsFromMatches,
+    [userMatches, currentUserPlayer]
+  );
 
   return (
     <div className="home-tab-container">
@@ -171,7 +175,15 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           style={{ cursor: 'pointer' }}
         >
           <div className="navbar-avatar" style={{ marginRight: '12px' }}>
-            {avatarInitial}
+            {isImageUrl(currentUserPlayer?.profile_picture_url) ? (
+              <img
+                src={currentUserPlayer.profile_picture_url}
+                alt={fullName}
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              avatarInitial
+            )}
           </div>
           <span className="home-header-name">{fullName}</span>
         </div>

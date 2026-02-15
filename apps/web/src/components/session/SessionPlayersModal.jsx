@@ -54,6 +54,7 @@ export default function SessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    userLocationId,
   } = useSessionPlayersModal({
     isOpen,
     sessionId,
@@ -184,6 +185,7 @@ export default function SessionPlayersModal({
               filterButtonRef={filterButtonRef}
               filterPopoverRef={filterPopoverRef}
               activeFilterCount={activeFilterCount}
+              userLocationId={userLocationId}
             />
           )}
         </div>

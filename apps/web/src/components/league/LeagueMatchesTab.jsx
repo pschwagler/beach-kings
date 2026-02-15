@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
@@ -8,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession } from '../../services/api';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
 
@@ -19,7 +21,12 @@ import { useActiveSession } from './hooks/useActiveSession';
 import { useSessionSeasonUpdate } from './hooks/useSessionSeasonUpdate';
 import { usePersistedViewMode } from '../../hooks/usePersistedViewMode';
 
-export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
+const MIN_PLAYERS_FOR_MATCH = 4;
+
+export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMatch = false }) {
+  const router = useRouter();
+  const { openModal } = useModal();
+  const autoOpenFiredRef = useRef(false);
   const { 
     league, 
     leagueId,
@@ -117,6 +124,38 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   }, [seasonIdFromUrl, selectedSeasonId, setSelectedSeasonId]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
+
+  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param
+  useEffect(() => {
+    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
+    // Wait until league data is ready: members loaded + seasons available + at least 4 players
+    if (!members || members.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
+
+    autoOpenFiredRef.current = true;
+
+    openModal(MODAL_TYPES.ADD_MATCH, {
+      allPlayerNames,
+      leagueMatchOnly: true,
+      defaultLeagueId: leagueId,
+      members,
+      league,
+      defaultSeasonId: selectedSeasonId,
+      onSeasonChange: setSelectedSeasonId,
+      onSubmit: async (matchData) => {
+        const payload = { ...matchData, league_id: leagueId };
+        await handleCreateMatch(payload);
+      },
+      onDelete: handleDeleteMatch,
+    });
+
+    // Clean URL param to prevent re-open on refresh
+    const url = new URL(window.location.href);
+    url.searchParams.delete('autoAddMatch');
+    router.replace(url.pathname + url.search, { scroll: false });
+    // handleCreateMatch/handleDeleteMatch omitted — defined later in function body (TDZ),
+    // safe because autoOpenFiredRef gates this to a single fire per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddMatch, members, seasons, league, leagueId, selectedSeasonId, setSelectedSeasonId, openModal, router, allPlayerNames]);
 
   // Transform matches from context for display
   const matches = useMemo(() => {
@@ -343,7 +382,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   };
 
   // Check if there are less than 4 players
-  const hasLessThanFourPlayers = !members || members.length < 4;
+  const hasLessThanFourPlayers = !members || members.length < MIN_PLAYERS_FOR_MATCH;
 
   // Show empty state if no seasons
   if (!seasons || seasons.length === 0) {

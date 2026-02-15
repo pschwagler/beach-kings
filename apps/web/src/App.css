@@ -1,4 +1,5 @@
 /* App.css - Vintage Malibu Beach Volleyball Rankings */
+@import './design-tokens.css';
 
 * {
   margin: 0;
@@ -7,82 +8,6 @@
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
-}
-
-:root {
-  --primary: #2c7a8f;
-  --primary-light: #5faec0;
-  --primary-lighter: #bfe1e7;
-  --primary-dark: #205e6f;
-  --primary-darker: #183f4a;
-
-  --muted-red: #ff7849;
-  --sunset-dark: #e76a41;
-  --sunset-light: #ff9673;
-  --coral: #ff9a76;
-  --coral-light: #ffc7b3;
-  --coral-dark: #e08361;
-  --sand: #f4e4c1;
-  --sand-light: #faf0d8;
-  --sand-dark: #d6c19c;
-  --deep-ocean: #2c7a8f;
-  --warm-brown: #8b6f47;
-  --warm-brown-light: #b89a6d;
-  --warm-brown-dark: #6b5334;
-  --seafoam: #8ed4c6;
-  --seafoam-light: #c9eee6;
-  --seafoam-dark: #5fa79b;
-  --sun-gold: #ffd78a;
-  --sun-gold-light: #ffebc2;
-  --sun-gold-dark: #e7b662;
-  --dusk-purple: #4c3a4d;
-  --dusk-purple-light: #7a6780;
-  --dusk-purple-dark: #342735;
-  --ocean-gray: #9aa7a9;
-  --ocean-gray-light: #c4cfd1;
-  --ocean-gray-dark: #6f7b7d;
-  --ocean-gray-darker: #3d4445;
-  --navy-logo-bg: #0f172a;
-  --muted-red: #cc4e4e;
-  --gold-gradient: linear-gradient(
-    90deg,
-    #c9a652 0%,
-    #ecd36f 50%,
-    #b68b34 100%
-  );
-  --gold-text: #ecd36f;
-  --gold-dark: #b68b34;
-
-  /* Grays */
-  --gray-50: #fafafa;
-  --gray-100: #f5f5f5;
-  --gray-200: #eeeeee;
-  --gray-300: #e0e0e0;
-  --gray-600: #757575;
-  --gray-700: #616161;
-  --gray-900: #212121;
-
-  /* Functional */
-  --success: #10b981;
-  --success-dark: #059669;
-  --success-light: #e8fbf0;
-  --success-lighter: #f4fdf8; /* 50% whiter than success-light */
-  --danger: #ef4444;
-  --danger-light: #ffeceb;
-
-  /* Warm shadows that fit the beach palette */
-  --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(150 110 80 / 0.12);
-  --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
-
-  /* Layout dimensions */
-  --navbar-height: 53px;
-  
-  /* Sidebar widths */
-  --sidebar-width-home: 220px;
-  --sidebar-width-league: 240px;
-  --sidebar-width-collapsed: 72px;
 }
 
 html {
@@ -796,7 +721,18 @@ table:not([class]) tr:last-child td {
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
+}
+
+.navbar-avatar-image {
+  overflow: hidden;
+}
+
+.navbar-avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .navbar-menu-button:hover .navbar-avatar {
@@ -1268,47 +1204,6 @@ h1 {
   font-weight: 500;
 }
 
-/* Tabs - Retro Style */
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 3px solid var(--sand);
-  overflow-x: auto;
-}
-
-.tab {
-  background: transparent;
-  color: var(--warm-brown);
-  border: none;
-  border-bottom: 4px solid transparent;
-  padding: 12px 24px;
-  font-size: 1em;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  box-shadow: none;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  min-height: 44px;
-}
-
-.tab:hover {
-  background: rgba(255, 120, 73, 0.1);
-  color: var(--muted-red);
-  transform: none;
-  box-shadow: none;
-}
-
-.tab.active {
-  background: transparent;
-  color: var(--muted-red);
-  border-bottom: 4px solid var(--muted-red);
-  font-weight: 800;
-  box-shadow: none;
-}
-
 .content-area {
   margin-top: 24px;
 }
@@ -1687,86 +1582,11 @@ h1 {
   color: var(--primary-dark);
 }
 
-/* Tables - Retro Beach Style */
-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-top: 16px;
-  border: 3px solid var(--primary);
-  border-radius: 12px;
-  overflow: hidden;
-  background: white;
-  box-shadow: var(--shadow-md);
-}
-
-thead {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-}
-
-th {
-  color: white;
-  padding: 16px 12px;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  font-size: 0.875em;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  transition: all 0.2s;
-}
-
-th:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-th:first-child {
-  border-top-left-radius: 6px;
-}
-
-th:last-child {
-  border-top-right-radius: 6px;
-}
-
-td {
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--gray-200);
-  color: var(--gray-700);
-  font-size: 0.95em;
-}
-
-tbody tr {
-  transition: all 0.2s;
-}
-
-tbody tr:hover {
-  background: rgba(255, 120, 73, 0.05);
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
 /* Sticky first column for rankings table */
 .sticky-col {
   position: sticky;
   left: 0;
   z-index: 10;
-}
-
-thead .sticky-col {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-}
-
-tbody .sticky-col {
-  background: white;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-}
-
-tbody tr:hover .sticky-col {
-  background: rgb(255, 248, 245);
 }
 
 .crown-icon {
@@ -2713,6 +2533,21 @@ body.drawer-open .navbar {
 .player-selector-option.disabled:hover {
   background: transparent;
   color: var(--gray-600);
+}
+
+/* View full profile link */
+.player-details__profile-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
+.player-details__profile-link:hover {
+  text-decoration: underline;
+  color: var(--primary-dark);
 }
 
 /* Season Name Display */
@@ -4738,6 +4573,39 @@ select.form-select {
   overflow-y: auto;
 }
 
+.home-content--no-sidebar {
+  margin-left: 0;
+}
+
+/* Auth prompt for unauthenticated users on find-leagues */
+.find-leagues-auth-prompt {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--primary-lighter);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.find-leagues-auth-prompt__text {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.find-leagues-auth-prompt__link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.find-leagues-auth-prompt__link:hover {
+  color: var(--primary-dark);
+}
+
 .league-message {
   padding: 12px 16px;
   border-radius: 10px;
@@ -5594,6 +5462,15 @@ select.form-select {
   font-size: 1em;
 }
 
+.league-member-name--link {
+  text-decoration: none;
+}
+
+.league-member-name--link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 .league-member-joined {
   font-size: 0.85em;
   color: var(--gray-600);
@@ -6438,6 +6315,13 @@ select.form-select {
   flex-direction: column;
 }
 
+/* Subtle fade while fetching new results (keeps stale list visible) */
+.session-players-loading-fade {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
 .session-players-filters-row {
   display: flex;
   gap: 10px;
@@ -6594,6 +6478,168 @@ select.form-select {
   padding: 6px 8px;
 }
 
+/* ── SearchableMultiSelect (Tom Select-style) ── */
+.searchable-multiselect {
+  min-width: 180px;
+  position: relative;
+}
+
+.searchable-multiselect__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.searchable-multiselect__control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.searchable-multiselect__control:hover {
+  border-color: var(--gray-400);
+}
+
+.searchable-multiselect__control--open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+}
+
+.searchable-multiselect__value-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.searchable-multiselect__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--primary-lighter);
+  color: var(--primary);
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.searchable-multiselect__pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-multiselect__pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.searchable-multiselect__pill-remove:hover {
+  opacity: 1;
+}
+
+.searchable-multiselect__input {
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  min-width: 60px;
+  flex: 1;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--gray-900);
+}
+
+.searchable-multiselect__input::placeholder {
+  color: var(--gray-400);
+}
+
+.searchable-multiselect__indicator {
+  display: flex;
+  align-items: center;
+  color: var(--gray-400);
+  flex-shrink: 0;
+  padding-left: 2px;
+}
+
+.searchable-multiselect__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  list-style: none;
+  padding: 4px 0;
+  z-index: 20;
+}
+
+.searchable-multiselect__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--gray-900);
+  transition: background 0.1s;
+}
+
+.searchable-multiselect__option:hover {
+  background: var(--gray-100);
+}
+
+.searchable-multiselect__option--selected {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.searchable-multiselect__option--selected:hover {
+  background: var(--primary-lighter);
+  filter: brightness(0.97);
+}
+
+.searchable-multiselect__option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.searchable-multiselect__no-results {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--gray-400);
+}
+
 .session-players-filter-pills {
   display: flex;
   flex-wrap: wrap;
@@ -6743,7 +6789,7 @@ select.form-select {
     right: 0;
     bottom: 0;
     width: 100%;
-    max-height: 95vh;
+    height: 85dvh;
     border-left: none;
     border-radius: 20px 20px 0 0;
     animation: slideUpMobile 0.25s ease-out;
@@ -6752,14 +6798,6 @@ select.form-select {
 
   .session-players-drawer-body {
     padding: 16px;
-  }
-
-  .session-players-column-scroll {
-    max-height: 280px;
-  }
-
-  .session-players-add .session-players-column-scroll.session-players-add-list-wrapper {
-    max-height: 320px;
   }
 }
 
@@ -9861,8 +9899,9 @@ button.match-config-toggle.inline svg {
     display: none !important;
   }
 
-  /* Hide Find Leagues menu item on mobile - it's in the More menu instead */
-  .find-leagues-menu-item-desktop {
+  /* Hide Find Leagues/Players menu items on mobile - they're in the More menu instead */
+  .find-leagues-menu-item-desktop,
+  .find-players-menu-item-desktop {
     display: none !important;
   }
 
@@ -12316,8 +12355,7 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table-wrapper {
   overflow-x: auto;
-  border: none !important;
-  box-shadow: none !important;
+  background: white;
 }
 
 .clipboard-table {
@@ -12326,9 +12364,8 @@ button.match-config-toggle.inline svg {
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
-  /* Override global "Retro Beach" table styles: no thick border, no sand shadow */
-  border: none !important;
-  box-shadow: none !important;
+  border: none;
+  box-shadow: none;
   border-radius: 0;
 }
 

@@ -123,7 +123,7 @@ if [ "${DEBUG_BACKEND:-0}" = "1" ]; then
         --port 8000 \
         --reload \
         --reload-dir /app/backend
-elif [ "${ENV:-development}" != "production" ]; then
+elif [ "${ENV:-development}" != "production" ] && [ "${ENV:-development}" != "staging" ]; then
     echo "🔄 Auto-reload enabled (development mode)"
     echo "   Watching: /app/backend for changes..."
     exec uvicorn backend.api.main:app \

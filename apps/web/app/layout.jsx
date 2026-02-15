@@ -3,11 +3,27 @@ import '../src/index.css';
 import '../src/App.css';
 
 export const metadata = {
-  title: 'Beach League Volleyball',
-  description: 'Beach League Volleyball',
+  metadataBase: new URL('https://beachleaguevb.com'),
+  title: {
+    default: 'Beach League Volleyball',
+    template: '%s | Beach League Volleyball',
+  },
+  description:
+    'Find and join beach volleyball leagues near you. Track stats, ELO ratings, standings, and connect with players in your area.',
   icons: {
     icon: '/favicon.ico',
   },
+  openGraph: {
+    type: 'website',
+    siteName: 'Beach League Volleyball',
+    images: [{ url: '/og-default.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
+  // verification: {
+  //   google: 'GSC_VERIFICATION_CODE',
+  // },
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',

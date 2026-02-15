@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { Users, MapPin, Award, LogIn, UserRoundPlus, Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Users, MapPin, LogIn, UserRoundPlus, Plus } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
-import LeagueMembersModal from "./LeagueMembersModal";
 import NavBar from "../layout/NavBar";
 import LevelBadge from "../ui/LevelBadge";
 import {
@@ -18,18 +17,31 @@ import { useAuthModal } from "../../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../../contexts/ModalContext";
 import HomeMenuBar from "../home/HomeMenuBar";
 
+/**
+ * Reads recognized filter keys from URL search params and returns
+ * an initial filters object (empty values are omitted).
+ */
+function parseInitialFilters(searchParams) {
+  const keys = ['location_id', 'region_id', 'gender', 'level'];
+  const filters = {};
+  for (const key of keys) {
+    const value = searchParams.get(key);
+    if (value) filters[key] = value;
+  }
+  return filters;
+}
+
 export default function FindLeaguesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal, closeModal } = useModal();
   const [userLeagues, setUserLeagues] = useState([]);
   const [leagues, setLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
   const [message, setMessage] = useState(null);
-  const [selectedLeagueForMembers, setSelectedLeagueForMembers] =
-    useState(null);
   const [locations, setLocations] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -93,6 +105,7 @@ export default function FindLeaguesPage() {
 
   // Fetch leagues when filters or pagination change
   useEffect(() => {
+    const controller = new AbortController();
     const fetchLeagues = async () => {
       try {
         setLoading(true);
@@ -101,18 +114,20 @@ export default function FindLeaguesPage() {
           include_joined: showJoinedLeagues,
           page,
           page_size: pageSize,
-        });
+        }, { signal: controller.signal });
         setLeagues(data.items || []);
         setTotalCount(data.total_count || 0);
       } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'CanceledError') return;
         console.error("Error fetching leagues:", err);
         setMessage({ type: "error", text: "Failed to load leagues" });
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchLeagues();
+    return () => controller.abort();
   }, [filters, page, pageSize, showJoinedLeagues]);
 
   // Filter options derived from locations + fixed enums
@@ -171,7 +186,7 @@ export default function FindLeaguesPage() {
 
   const handleJoin = async (league) => {
     if (!isAuthenticated) {
-      router.push("/");
+      openAuthModal("sign-in");
       return;
     }
 
@@ -207,16 +222,9 @@ export default function FindLeaguesPage() {
     }
   };
 
-  const handleMembersClick = (league) => {
-    setSelectedLeagueForMembers({
-      id: league.id,
-      name: league.name,
-      location_name: league.location_name,
-      level: league.level,
-      gender: league.gender,
-      member_count: league.member_count,
-      is_open: league.is_open,
-    });
+  /** Navigate to the league detail page. */
+  const handleLeagueClick = (league) => {
+    router.push(`/league/${league.id}`);
   };
 
   const renderRow = (league, idx) => {
@@ -230,14 +238,14 @@ export default function FindLeaguesPage() {
       <tr
         key={league.id || idx}
         className="leagues-table-row"
-        onClick={() => handleMembersClick(league)}
+        onClick={() => handleLeagueClick(league)}
       >
         <td className="leagues-table-cell leagues-table-name-cell">
           <button
             className="leagues-table-name-button"
             onClick={(e) => {
               e.stopPropagation();
-              handleMembersClick(league);
+              handleLeagueClick(league);
             }}
           >
             {league.name}
@@ -253,16 +261,10 @@ export default function FindLeaguesPage() {
           <span>{regionText}</span>
         </td>
         <td className="leagues-table-cell">
-          <button
-            className="leagues-table-members-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMembersClick(league);
-            }}
-          >
+          <div className="leagues-table-members-count">
             <Users size={14} />
             <span>{league.member_count || 0}</span>
-          </button>
+          </div>
         </td>
         <td className="leagues-table-cell">
           <LevelBadge level={league.level} />
@@ -337,10 +339,10 @@ export default function FindLeaguesPage() {
       />
       <div className="league-dashboard-container">
         <div className="league-dashboard">
-          <HomeMenuBar activeTab={null} />
+          {isAuthenticated && <HomeMenuBar activeTab={null} />}
 
           {/* Main Content Area */}
-          <main className="home-content">
+          <main className={isAuthenticated ? "home-content" : "home-content home-content--no-sidebar"}>
             <div className="profile-page-content">
               <div className="league-section find-leagues-page">
                 <div className="section-header">
@@ -355,6 +357,17 @@ export default function FindLeaguesPage() {
                     </button>
                   )}
                 </div>
+
+                {!isAuthenticated && (
+                  <div className="find-leagues-auth-prompt">
+                    <span className="find-leagues-auth-prompt__text">
+                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-in")} aria-label="Log in to Beach League">Log in</button>
+                      {' or '}
+                      <button className="find-leagues-auth-prompt__link" onClick={() => openAuthModal("sign-up")} aria-label="Sign up for Beach League">sign up</button>
+                      {' to join leagues and track your stats'}
+                    </span>
+                  </div>
+                )}
 
                 {message && (
                   <div
@@ -399,32 +412,6 @@ export default function FindLeaguesPage() {
                   onPageSizeChange={handlePageSizeChange}
                 />
 
-                {selectedLeagueForMembers && (
-                  <LeagueMembersModal
-                    leagueId={selectedLeagueForMembers.id}
-                    leagueName={selectedLeagueForMembers.name}
-                    locationName={selectedLeagueForMembers.location_name}
-                    level={selectedLeagueForMembers.level}
-                    gender={selectedLeagueForMembers.gender}
-                    memberCount={selectedLeagueForMembers.member_count}
-                    isOpenLeague={selectedLeagueForMembers.is_open}
-                    isMember={
-                      Array.isArray(userLeagues) &&
-                      userLeagues.some(
-                        (league) => league.id === selectedLeagueForMembers.id
-                      )
-                    }
-                    onJoin={
-                      Array.isArray(userLeagues) &&
-                      userLeagues.some(
-                        (league) => league.id === selectedLeagueForMembers.id
-                      )
-                        ? undefined
-                        : () => handleJoin(selectedLeagueForMembers)
-                    }
-                    onClose={() => setSelectedLeagueForMembers(null)}
-                  />
-                )}
               </div>
             </div>
           </main>

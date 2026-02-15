@@ -1,11 +1,23 @@
 #!/bin/bash
-# SSL Setup Script for beachleaguevb.com
-# This script installs nginx, certbot, and configures SSL certificates using DNS challenge
-# Run this script on your EC2 instance with sudo privileges
+# SSL Setup Script for beachleaguevb.com (or subdomains like dev.beachleaguevb.com)
+# This script installs nginx, certbot, and configures SSL certificates.
+# - Root domain: DNS challenge (manual TXT records) for domain + www
+# - Subdomains: HTTP-01 challenge (automatic via --nginx), no www
+#
+# Usage:
+#   sudo bash deployment/setup-ssl.sh                          # prod (beachleaguevb.com)
+#   sudo bash deployment/setup-ssl.sh dev.beachleaguevb.com    # dev
 
 set -e
 
-DOMAIN="beachleaguevb.com"
+DOMAIN="${1:-beachleaguevb.com}"
+
+# Detect if this is a subdomain (contains more than one dot)
+IS_SUBDOMAIN=false
+if [[ "$DOMAIN" == *.*.* ]]; then
+    IS_SUBDOMAIN=true
+fi
+
 NGINX_CONFIG_SOURCE="deployment/nginx/${DOMAIN}.conf"
 NGINX_CONFIG_DEST="/etc/nginx/sites-available/${DOMAIN}"
 HTTPS_TEMPLATE="deployment/nginx/${DOMAIN}-https.conf.template"
@@ -34,7 +46,8 @@ check_files() {
     if [ ! -f "$NGINX_CONFIG_SOURCE" ]; then
         log_error "nginx config file not found at ${NGINX_CONFIG_SOURCE}\n   Make sure you're running this script from the repository root"
     fi
-    if [ ! -f "$HTTPS_TEMPLATE" ]; then
+    # Subdomains use certbot --nginx (no manual HTTPS template needed)
+    if [ "$IS_SUBDOMAIN" = false ] && [ ! -f "$HTTPS_TEMPLATE" ]; then
         log_error "HTTPS template not found at ${HTTPS_TEMPLATE}"
     fi
 }
@@ -111,8 +124,6 @@ configure_nginx() {
 
 obtain_certificates() {
     echo ""
-    echo "🔐 Obtaining SSL certificates from Let's Encrypt using DNS challenge..."
-    echo ""
 
     # Check if certificates already exist
     if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
@@ -129,12 +140,34 @@ obtain_certificates() {
         fi
     fi
 
-    # Prompt for email
+    # Subdomains: use HTTP-01 challenge via nginx plugin (automatic, auto-renewable)
+    if [ "$IS_SUBDOMAIN" = true ]; then
+        echo "🔐 Obtaining SSL certificate for ${DOMAIN} using HTTP-01 challenge..."
+        echo ""
+        echo "Let's Encrypt requires an email address for renewal notifications."
+        read -p "Enter your email address: " EMAIL
+        echo ""
+
+        certbot --nginx -d "${DOMAIN}" \
+            --agree-tos --email "${EMAIL}" \
+            --non-interactive
+
+        if [ $? -ne 0 ]; then
+            log_error "Certificate generation failed"
+        fi
+
+        log_info "SSL certificate obtained (HTTP-01 via nginx plugin — auto-renewable)"
+        return
+    fi
+
+    # Root domain: use DNS challenge (manual TXT records for domain + www)
+    echo "🔐 Obtaining SSL certificates from Let's Encrypt using DNS challenge..."
+    echo ""
+
     echo "Let's Encrypt requires an email address for renewal notifications."
     read -p "Enter your email address: " EMAIL
     echo ""
-    
-    # Show DNS challenge instructions
+
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "📋 DNS CHALLENGE INSTRUCTIONS"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -154,17 +187,16 @@ obtain_certificates() {
     echo "Press Enter when you're ready to start the DNS challenge..."
     read
     echo ""
-    
-    # Run certbot with DNS challenge
+
     certbot certonly --manual --preferred-challenges dns \
         -d "${DOMAIN}" -d "www.${DOMAIN}" \
         --agree-tos --email "${EMAIL}" \
         --manual-public-ip-logging-ok
-    
+
     if [ $? -ne 0 ]; then
         log_error "Certificate generation failed"
     fi
-    
+
     log_info "SSL certificates obtained successfully"
 }
 
@@ -238,8 +270,8 @@ main() {
     configure_nginx
     obtain_certificates
     
-    # Only configure SSL if certificates were just obtained
-    if [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
+    # Only configure SSL manually for root domain (subdomains use certbot --nginx)
+    if [ "$IS_SUBDOMAIN" = false ] && [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
         configure_nginx_ssl
     fi
     
@@ -252,7 +284,9 @@ main() {
     echo ""
     echo "Your site should now be accessible at:"
     echo "  - https://${DOMAIN}"
-    echo "  - https://www.${DOMAIN}"
+    if [ "$IS_SUBDOMAIN" = false ]; then
+        echo "  - https://www.${DOMAIN}"
+    fi
     echo ""
     echo "HTTP traffic will automatically redirect to HTTPS."
     echo ""
