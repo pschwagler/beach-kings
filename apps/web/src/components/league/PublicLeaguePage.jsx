@@ -6,6 +6,7 @@ import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
+import { slugify } from '../../utils/slugify';
 import './PublicLeaguePage.css';
 
 /** Max matches shown before "Show more" is required. */
@@ -185,7 +186,11 @@ function StandingsTable({ standings }) {
           {standings.map((row) => (
             <tr key={row.player_id}>
               <td>{row.rank}</td>
-              <td className="public-league__player-name">{row.full_name}</td>
+              <td className="public-league__player-name">
+                <Link href={`/player/${row.player_id}/${slugify(row.full_name)}`} className="public-league__player-link">
+                  {row.full_name}
+                </Link>
+              </td>
               <td>{row.wins}</td>
               <td>{row.games - row.wins}</td>
               <td>{Math.round(row.points)}</td>
@@ -225,6 +230,19 @@ function groupMatchesByDate(matches) {
 }
 
 /**
+ * Renders a player name as a link to their profile when an ID is available.
+ */
+function PlayerLink({ name, playerId }) {
+  if (!name) return null;
+  if (!playerId) return name;
+  return (
+    <Link href={`/player/${playerId}/${slugify(name)}`} className="public-league__player-link">
+      {name}
+    </Link>
+  );
+}
+
+/**
  * List of recent match results, grouped by date with a "Show more" toggle.
  */
 function MatchList({ matches }) {
@@ -244,14 +262,18 @@ function MatchList({ matches }) {
             <div key={match.id} className="public-league__match">
               <div className={`public-league__team ${match.winner === 'team1' ? 'public-league__team--winner' : ''}`}>
                 <span className="public-league__team-names">
-                  {match.team1_player1} &amp; {match.team1_player2}
+                  <PlayerLink name={match.team1_player1} playerId={match.team1_player1_id} />
+                  {' & '}
+                  <PlayerLink name={match.team1_player2} playerId={match.team1_player2_id} />
                 </span>
                 <span className="public-league__team-score">{match.team1_score}</span>
               </div>
               <div className="public-league__match-vs">vs</div>
               <div className={`public-league__team ${match.winner === 'team2' ? 'public-league__team--winner' : ''}`}>
                 <span className="public-league__team-names">
-                  {match.team2_player1} &amp; {match.team2_player2}
+                  <PlayerLink name={match.team2_player1} playerId={match.team2_player1_id} />
+                  {' & '}
+                  <PlayerLink name={match.team2_player2} playerId={match.team2_player2_id} />
                 </span>
                 <span className="public-league__team-score">{match.team2_score}</span>
               </div>
@@ -280,7 +302,9 @@ function MemberGrid({ members }) {
       {members.map((member) => (
         <div key={member.player_id} className="public-league__member">
           <div className="public-league__avatar">{member.avatar}</div>
-          <span className="public-league__member-name">{member.full_name}</span>
+          <Link href={`/player/${member.player_id}/${slugify(member.full_name)}`} className="public-league__player-link public-league__member-name">
+            {member.full_name}
+          </Link>
           {member.level && <LevelBadge level={member.level} />}
         </div>
       ))}

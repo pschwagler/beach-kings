@@ -395,6 +395,10 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
             p1.full_name.label("t1p1"),
             p2.full_name.label("t1p2"),
             p3.full_name.label("t2p1"),
@@ -418,6 +422,10 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
             "team1_player2": r.t1p2,
             "team2_player1": r.t2p1,
             "team2_player2": r.t2p2,
+            "team1_player1_id": r.team1_player1_id,
+            "team1_player2_id": r.team1_player2_id,
+            "team2_player1_id": r.team2_player1_id,
+            "team2_player2_id": r.team2_player2_id,
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
@@ -744,3 +752,82 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             "total_matches": total_matches,
         },
     }
+
+
+async def search_public_players(
+    session: AsyncSession,
+    *,
+    search: Optional[str] = None,
+    location_id: Optional[str] = None,
+    gender: Optional[str] = None,
+    level: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> Dict:
+    """
+    Search publicly visible players with optional filters.
+
+    Only players with total_games >= 1 are included (same visibility rule
+    as individual public player profiles).
+
+    Returns:
+        Dict with 'items' (list of player dicts) and 'total_count'.
+    """
+    base = (
+        select(
+            Player.id,
+            Player.full_name,
+            Player.avatar,
+            Player.gender,
+            Player.level,
+            Location.name.label("location_name"),
+            PlayerGlobalStats.total_games,
+            PlayerGlobalStats.current_rating,
+        )
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .outerjoin(Location, Player.location_id == Location.id)
+        .where(PlayerGlobalStats.total_games >= 1)
+    )
+
+    if search:
+        base = base.where(Player.full_name.ilike(f"%{search}%"))
+    if location_id:
+        ids = [lid.strip() for lid in location_id.split(",") if lid.strip()]
+        if len(ids) == 1:
+            base = base.where(Player.location_id == ids[0])
+        else:
+            base = base.where(Player.location_id.in_(ids))
+    if gender:
+        base = base.where(Player.gender == gender)
+    if level:
+        base = base.where(Player.level == level)
+
+    # Total count
+    count_q = select(func.count()).select_from(base.subquery())
+    total_count = (await session.execute(count_q)).scalar() or 0
+
+    # Paginated results
+    offset = (page - 1) * page_size
+    rows = (
+        await session.execute(
+            base.order_by(PlayerGlobalStats.total_games.desc(), Player.full_name.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+    ).all()
+
+    items = [
+        {
+            "id": r.id,
+            "full_name": r.full_name,
+            "avatar": r.avatar or generate_player_initials(r.full_name or ""),
+            "gender": r.gender,
+            "level": r.level,
+            "location_name": r.location_name,
+            "total_games": r.total_games,
+            "current_rating": r.current_rating,
+        }
+        for r in rows
+    ]
+
+    return {"items": items, "total_count": total_count}

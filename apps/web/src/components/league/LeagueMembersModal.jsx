@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { X, Users, MapPin, LogIn, UserRoundPlus, ExternalLink } from 'lucide-react';
 import { getLeagueMembers } from '../../services/api';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import { slugify } from '../../utils/slugify';
 import LevelBadge from '../ui/LevelBadge';
 
 export default function LeagueMembersModal({ 
@@ -163,7 +165,17 @@ export default function LeagueMembersModal({
                       )}
                     </div>
                     <div className="league-member-left">
-                      <span className="league-member-name">{member.player_name || 'Unknown'}</span>
+                      {member.player_id && member.player_name ? (
+                        <Link
+                          href={`/player/${member.player_id}/${slugify(member.player_name)}`}
+                          className="league-member-name league-member-name--link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {member.player_name}
+                        </Link>
+                      ) : (
+                        <span className="league-member-name">{member.player_name || 'Unknown'}</span>
+                      )}
                       {member.joined_at && (
                         <span className="league-member-joined">
                           Joined {formatJoinDate(member.joined_at)}

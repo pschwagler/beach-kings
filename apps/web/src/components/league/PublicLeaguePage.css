@@ -134,6 +134,16 @@
   font-weight: 500;
 }
 
+.public-league__player-link {
+  color: var(--gray-900);
+  text-decoration: none;
+}
+
+.public-league__player-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 /* "View all leagues in area" link */
 .public-league__area-link {
   display: inline-block;

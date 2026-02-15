@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import PlayerDetails from './PlayerDetails';
 
 export default function PlayerDetailsPanel({
+  playerId,
   playerName,
   playerStats,
   playerMatchHistory,
@@ -36,6 +37,7 @@ export default function PlayerDetailsPanel({
     <>
       <div className="player-details-backdrop" onClick={onClose} />
       <PlayerDetails
+        playerId={playerId}
         playerName={playerName}
         stats={playerStats}
         matchHistory={playerMatchHistory}
