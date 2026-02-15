@@ -4501,15 +4501,13 @@ async def upload_avatar(
         # Process the image (crop, resize, compress)
         processed_bytes = avatar_service.process_avatar(file_bytes)
 
-        # Delete old avatar from S3 if exists
+        # Save old URL for cleanup after successful DB update
         old_url = player.get("profile_picture_url")
-        if old_url:
-            s3_service.delete_avatar(old_url)
 
-        # Upload to S3
+        # Upload new avatar to S3 first
         new_url = s3_service.upload_avatar(player["id"], processed_bytes)
 
-        # Update player record
+        # Update player record in DB
         result = await session.execute(
             select(Player).where(Player.id == player["id"])
         )
@@ -4518,6 +4516,10 @@ async def upload_avatar(
             player_obj.profile_picture_url = new_url
             player_obj.avatar = new_url
             await session.commit()
+
+        # Delete old avatar from S3 only after DB commit succeeds (best-effort)
+        if old_url:
+            s3_service.delete_avatar(old_url)
 
         return {"profile_picture_url": new_url}
 
