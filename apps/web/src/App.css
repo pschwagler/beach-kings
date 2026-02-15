@@ -721,7 +721,18 @@ table:not([class]) tr:last-child td {
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
+}
+
+.navbar-avatar-image {
+  overflow: hidden;
+}
+
+.navbar-avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .navbar-menu-button:hover .navbar-avatar {
@@ -2522,6 +2533,21 @@ body.drawer-open .navbar {
 .player-selector-option.disabled:hover {
   background: transparent;
   color: var(--gray-600);
+}
+
+/* View full profile link */
+.player-details__profile-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
+.player-details__profile-link:hover {
+  text-decoration: underline;
+  color: var(--primary-dark);
 }
 
 /* Season Name Display */
@@ -5434,6 +5460,15 @@ select.form-select {
   font-weight: 500;
   color: var(--gray-900);
   font-size: 1em;
+}
+
+.league-member-name--link {
+  text-decoration: none;
+}
+
+.league-member-name--link:hover {
+  color: var(--primary);
+  text-decoration: underline;
 }
 
 .league-member-joined {
@@ -9864,8 +9899,9 @@ button.match-config-toggle.inline svg {
     display: none !important;
   }
 
-  /* Hide Find Leagues menu item on mobile - it's in the More menu instead */
-  .find-leagues-menu-item-desktop {
+  /* Hide Find Leagues/Players menu items on mobile - they're in the More menu instead */
+  .find-leagues-menu-item-desktop,
+  .find-players-menu-item-desktop {
     display: none !important;
   }
 

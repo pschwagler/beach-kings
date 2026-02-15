@@ -8,6 +8,12 @@ import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import OpenSessionsList from './OpenSessionsList';
 import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
 
+/** Check whether an avatar value is an image URL (vs. initials text). */
+const isImageUrl = (avatar) => {
+  if (!avatar) return false;
+  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
+};
+
 const getAvatarInitial = (currentUserPlayer) => {
   if (currentUserPlayer?.nickname) {
     return currentUserPlayer.nickname.trim().charAt(0).toUpperCase();
@@ -171,7 +177,15 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           style={{ cursor: 'pointer' }}
         >
           <div className="navbar-avatar" style={{ marginRight: '12px' }}>
-            {avatarInitial}
+            {isImageUrl(currentUserPlayer?.profile_picture_url) ? (
+              <img
+                src={currentUserPlayer.profile_picture_url}
+                alt={fullName}
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              avatarInitial
+            )}
           </div>
           <span className="home-header-name">{fullName}</span>
         </div>

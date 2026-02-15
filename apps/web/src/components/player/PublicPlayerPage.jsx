@@ -7,6 +7,12 @@ import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import './PublicPlayerPage.css';
 
+/** Check whether an avatar value is an image URL (vs. initials text). */
+const isImageUrl = (avatar) => {
+  if (!avatar) return false;
+  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
+};
+
 /**
  * Public player profile page for SEO and unauthenticated visitors.
  * Shows player info, stats, location, and league memberships.
@@ -36,7 +42,17 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
     <div className="public-player">
       {/* Player header: avatar, name, meta */}
       <div className="public-player__header">
-        <div className="public-player__avatar">{player.avatar}</div>
+        <div className="public-player__avatar">
+          {isImageUrl(player.avatar) ? (
+            <img
+              src={player.avatar}
+              alt={player.full_name}
+              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            player.avatar
+          )}
+        </div>
         <div className="public-player__info">
           <h1 className="public-player__name">{player.full_name}</h1>
           <div className="public-player__meta">

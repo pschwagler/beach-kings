@@ -80,6 +80,10 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
       - DEBUG_BACKEND=${DEBUG_BACKEND:-0}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
+      - AWS_S3_REGION=${AWS_S3_REGION:-us-west-2}
     depends_on:
       postgres:
         condition: service_healthy
