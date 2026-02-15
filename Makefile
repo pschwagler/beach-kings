@@ -125,7 +125,7 @@ dev: ensure-docker
 	@trap 'pkill -f "next dev" 2>/dev/null || true; docker compose down' EXIT INT TERM; \
 	cd apps/web && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
 		"docker compose up postgres redis backend" \
-		"BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) npm run dev" || true; \
+		"BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) BACKEND_INTERNAL_URL=http://localhost:$(BACKEND_PORT) npm run dev" || true; \
 	pkill -f "next dev" 2>/dev/null || true; \
 	docker compose down
 
@@ -142,7 +142,7 @@ dev-frontend:
 		echo "⚠️  Frontend dependencies not found. Installing..."; \
 		cd apps/web && npm install --legacy-peer-deps; \
 	fi
-	cd apps/web && BACKEND_PROXY_TARGET=http://localhost:8000 npm run dev
+	cd apps/web && BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) BACKEND_INTERNAL_URL=http://localhost:$(BACKEND_PORT) npm run dev
 
 build:
 	@echo "Building frontend for production..."
