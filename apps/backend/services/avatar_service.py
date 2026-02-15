@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 
 # Validation constants
 MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
+MAX_IMAGE_PIXELS = 25_000_000  # 25MP (~5000x5000) — prevents decompression bombs
 AVATAR_SIZE = 512  # Output size in pixels (square)
 JPEG_QUALITY = 85
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+# Set Pillow's built-in decompression bomb guard as defense-in-depth
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def validate_avatar(file_bytes: bytes, content_type: str) -> Tuple[bool, str]:
@@ -42,7 +46,16 @@ def validate_avatar(file_bytes: bytes, content_type: str) -> Tuple[bool, str]:
 
     try:
         img = Image.open(BytesIO(file_bytes))
+        width, height = img.size
+        pixel_count = width * height
+        if pixel_count > MAX_IMAGE_PIXELS:
+            return False, (
+                f"Image dimensions too large ({width}x{height} = {pixel_count:,} pixels). "
+                f"Maximum is {MAX_IMAGE_PIXELS:,} pixels."
+            )
         img.verify()
+    except Image.DecompressionBombError:
+        return False, "Image dimensions too large (possible decompression bomb)"
     except Exception as e:
         return False, f"Invalid or corrupted image file: {str(e)}"
 
