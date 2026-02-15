@@ -103,6 +103,7 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-for-testing-only-change-in-production}
       ENABLE_SMS: "false"
       ENABLE_EMAIL: "false"
+      ALLOWED_ORIGINS: "http://localhost:3002,http://localhost:3000"
       # Disable external services in tests
       TWILIO_ACCOUNT_SID: ""
       TWILIO_AUTH_TOKEN: ""

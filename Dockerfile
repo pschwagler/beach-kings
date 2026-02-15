@@ -54,8 +54,8 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Conditionally copy credentials file if it exists (for local development)
-# In production (Railway), credentials should be provided via CREDENTIALS_JSON env var
-# Using bracket notation makes the COPY optional - won't fail if file doesn't exist
+# In production, credentials should be provided via CREDENTIALS_JSON env var
+# Bracket notation makes the COPY optional — won't fail if file doesn't exist
 COPY credentials.jso[n] ./
 
 # Environment variable to control WhatsApp service (commented out - WhatsApp service is inactive)

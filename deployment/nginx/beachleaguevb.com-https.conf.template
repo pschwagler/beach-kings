@@ -1,3 +1,6 @@
+# Rate limit zone — 30 requests/sec per IP, burst up to 60
+limit_req_zone $binary_remote_addr zone=global_https:10m rate=30r/s;
+
 # HTTPS server block template
 # This is appended to the nginx config after SSL certificates are obtained
 server {
@@ -11,11 +14,19 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    # Apply global rate limit
+    limit_req zone=global_https burst=60 nodelay;
+
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Block common vulnerability scanner paths (drop connection silently)
+    location ~* (\.php|\.env|\.git|/etc/passwd|/backup/|/bins?/|/vendor/|/wp-|/admin|/cgi-bin|/sdk|/webui|eval-stdin|\.aspx) {
+        return 444;
+    }
 
     # Proxy API requests to backend (FastAPI on port 8000)
     location /api/ {

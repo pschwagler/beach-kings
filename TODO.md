@@ -133,7 +133,6 @@ This document tracks planned features and improvements that have been deferred f
 - [x] Switch frontend to always proxy through backend
 - [x] Create proxy helper function in routes.py
 - [x] Add health monitoring endpoint
-- [x] Document Railway volume setup
 - [x] Extract PORT configuration to environment variable
 
 ## Notes
