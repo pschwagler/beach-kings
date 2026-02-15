@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X } from 'lucide-react';
 
 /**
@@ -68,10 +68,10 @@ export function ToastContainer({ toasts, onDismiss }) {
  */
 export function useToasts() {
   const [toasts, setToasts] = useState([]);
-  let nextId = 0;
+  const nextIdRef = useRef(0);
 
   const addToast = useCallback((message, { action, duration } = {}) => {
-    const id = Date.now() + nextId++;
+    const id = Date.now() + nextIdRef.current++;
     setToasts((prev) => [...prev, { id, message, action, duration }]);
     return id;
   }, []);

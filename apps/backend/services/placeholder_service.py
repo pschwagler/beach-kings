@@ -58,6 +58,13 @@ async def create_placeholder(
     Returns:
         PlaceholderPlayerResponse with player_id, name, invite_token, invite_url
     """
+    # Validate name
+    name = name.strip()
+    if not name:
+        raise ValueError("Placeholder name cannot be empty")
+    if len(name) > 100:
+        raise ValueError("Placeholder name must be 100 characters or fewer")
+
     # Create the placeholder player record
     player = Player(
         full_name=name,
@@ -517,8 +524,14 @@ async def merge_placeholder_into_player(
                 .values(player_id=target_player_id, role="member")
             )
 
-    # 6. Delete placeholder only if no conflicting matches
+    # 6. Repoint invite records to target player (preserves audit trail
+    #    before CASCADE would delete them) and delete placeholder
     if not conflicting_match_ids:
+        await session.execute(
+            update(PlayerInvite)
+            .where(PlayerInvite.player_id == placeholder_id)
+            .values(player_id=target_player_id)
+        )
         await session.execute(
             delete(Player).where(Player.id == placeholder_id)
         )

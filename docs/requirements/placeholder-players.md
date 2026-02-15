@@ -1,7 +1,7 @@
 # Feature: Placeholder Players & Invite-to-Claim Flow
 
 **Date:** 2026-02-15
-**Status:** In Progress (Epics 1-6 complete)
+**Status:** In Progress (Epics 1-6 complete, Epic 7 partial — E2E tests deferred)
 
 ## Problem Statement
 
@@ -423,18 +423,22 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 
 ---
 
-### Epic 7: Integration Testing & Polish
+### Epic 7: Integration Testing & Polish (Partial)
 > End-to-end validation and edge case hardening.
 
-- [ ] **7.1** E2E test: create placeholder → create match → verify is_ranked=false → claim invite → verify is_ranked flipped → verify ELO computed
-- [ ] **7.2** E2E test: create placeholder → create match → existing user claims → verify merge (matches transferred, placeholder deleted)
-- [ ] **7.3** E2E test: delete placeholder → verify Unknown Player substitution → verify matches preserved
-- [ ] **7.4** E2E test: reuse placeholder across multiple matches → claim → all matches updated
-- [ ] **7.5** E2E test: placeholder in league match → season standings include them → claim → league membership resolved
-- [ ] **7.6** Edge case tests: duplicate in same match, claimed token reuse, already-logged-in claim
-- [ ] **7.7** Filter "Unknown Player" from stats calculations, search results, player lists
-- [ ] **7.8** Verify placeholder players excluded from global player search/rankings but visible in scoped contexts
-- [ ] **7.9** Mobile responsiveness pass on InviteLandingPage (primary access is via texted link)
+- [ ] **7.1** E2E test: create placeholder → create match → verify is_ranked=false → claim invite → verify is_ranked flipped → verify ELO computed — **NOT DONE** (needs placeholder test fixtures)
+- [ ] **7.2** E2E test: create placeholder → create match → existing user claims → verify merge (matches transferred, placeholder deleted) — **NOT DONE** (needs placeholder test fixtures)
+- [ ] **7.3** E2E test: delete placeholder → verify Unknown Player substitution → verify matches preserved — **NOT DONE** (needs placeholder test fixtures)
+- [ ] **7.4** E2E test: reuse placeholder across multiple matches → claim → all matches updated — **NOT DONE** (needs placeholder test fixtures)
+- [ ] **7.5** E2E test: placeholder in league match → season standings include them → claim → league membership resolved — **NOT DONE** (needs placeholder test fixtures)
+- [ ] **7.6** Edge case tests: duplicate in same match, claimed token reuse, already-logged-in claim — **NOT DONE** (backend unit tests cover logic; no E2E yet)
+- [x] **7.7** Filter "Unknown Player" from stats calculations, search results, player lists — **DONE**: `get_matches_for_calculation` filters `is_ranked=True`; Unknown Player excluded from search via `status='system'` filter in `data_service.py`
+- [x] **7.8** Verify placeholder players excluded from global player search/rankings but visible in scoped contexts — **DONE**: scoping logic in `data_service.py` (`include_placeholders_for_player_id` with league/session context)
+- [ ] **7.9** Mobile responsiveness pass on InviteLandingPage (primary access is via texted link) — **PARTIALLY DONE**: CSS has mobile styles (`max-width: 480px`), but no manual QA pass yet
+
+**Implementation notes:**
+- E2E tests (7.1-7.6) deferred to follow-up PR — require placeholder test fixtures, claim flow helpers, and test infra extensions
+- 7.7 and 7.8 verified during code review; backend unit tests cover these paths
 
 **Depends on:** All previous epics
 
@@ -465,4 +469,4 @@ Epics 2+3 can be built in parallel (both only depend on Epic 1). Epics 4+5 can s
 
 **Recommendation:** Change the merge function to **not delete the placeholder** when it has an associated invite. Instead, mark it with a `status="merged"` or similar, and set `is_placeholder=False`, `user_id=NULL`. This preserves the invite chain (`PlayerInvite` → `Player`) for auditing while removing the placeholder from active use. Alternatively, move the invite FK to `ondelete="SET NULL"` so the invite survives placeholder deletion — but a dangling invite with no player is less useful than a preserved-but-inactive placeholder.
 
-**Decision:** Deferred to Epic 5 or 7. Does not block frontend work — the invite data is available during the claim transaction before commit. Recommended fix: repoint `PlayerInvite.player_id` to the target player before deleting the placeholder in the merge path, so the CASCADE doesn't fire.
+**Decision:** **RESOLVED.** Fixed in `merge_placeholder_into_player`: before deleting the placeholder, `PlayerInvite.player_id` is repointed to the target player. This prevents the CASCADE from deleting the invite row, preserving the audit trail.

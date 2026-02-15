@@ -86,6 +86,7 @@ export default function PendingInvitesTab() {
     } catch (err) {
       addToast(err.response?.data?.detail || 'Failed to delete placeholder');
     } finally {
+      setShowDeleteModal(false);
       setDeleteTarget(null);
     }
   };

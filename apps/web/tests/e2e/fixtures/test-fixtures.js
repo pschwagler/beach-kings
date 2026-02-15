@@ -8,6 +8,7 @@ import {
   createTestSeason,
   addPlayerToLeague,
   createTestSession,
+  createPlaceholderPlayer,
   cleanupTestData,
 } from '../utils/test-helpers.js';
 import { createTestUser, verifyPhone, loginWithPassword, createApiClient } from './api.js';
@@ -20,10 +21,12 @@ import { createTestUser, verifyPhone, loginWithPassword, createApiClient } from 
  *   test('my test', async ({ authedPage, testUser }) => { ... });
  *
  * Fixtures:
- *   testUser       – creates, verifies, and authenticates a fresh test user
- *   authedPage     – a Playwright page with auth tokens injected (no UI login)
- *   leagueWithPlayers – a league with an active season and 4 test players
- *   sessionWithMatches – a submitted session with 2 matches (extends leagueWithPlayers)
+ *   testUser            – creates, verifies, and authenticates a fresh test user
+ *   secondTestUser      – independent second test user (for claim flows)
+ *   authedPage          – a Playwright page with auth tokens injected (no UI login)
+ *   leagueWithPlayers   – a league with an active season and 4 test players
+ *   leagueWithPlaceholder – league + season + 3 real players + 1 placeholder + submitted match
+ *   sessionWithMatches  – a submitted session with 2 matches (extends leagueWithPlayers)
  */
 
 export { expect };
@@ -179,5 +182,115 @@ export const test = base.extend({
     await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { submit: true });
 
     await use({ sessionId, leagueId, seasonId, playerNames, playerIds });
+  }, { scope: 'test' }],
+
+  /**
+   * Creates an independent second test user (signup → verify → login → profile).
+   * Provides { phone, password, token, refreshToken, fullName }.
+   * Automatically cleans up on teardown.
+   */
+  secondTestUser: [async ({}, use) => {
+    const phone = generateTestPhoneNumber();
+    const password = 'Test1234';
+    const fullName = 'Second User';
+
+    await createTestUser({ phoneNumber: phone, password, fullName });
+    const code = await getVerificationCodeForPhone(phone);
+    if (!code) throw new Error('No verification code found for secondTestUser');
+    await verifyPhone(phone, code);
+
+    const loginResponse = await loginWithPassword(phone, password);
+    const token = loginResponse.access_token;
+    const refreshToken = loginResponse.refresh_token;
+
+    await completeTestUserProfile(token);
+
+    await use({ phone, password, fullName, token, refreshToken });
+
+    await cleanupTestData(phone);
+  }, { scope: 'test' }],
+
+  /**
+   * Creates a league with 3 real players + 1 placeholder, a session, and a
+   * submitted match that includes the placeholder in team1_player2.
+   *
+   * Provides:
+   *   { leagueId, seasonId, playerIds, playerNames,
+   *     placeholderPlayerId, placeholderName, inviteToken, matchId }
+   *
+   * Depends on: testUser
+   */
+  leagueWithPlaceholder: [async ({ testUser }, use) => {
+    const { token } = testUser;
+    const api = createApiClient(token);
+
+    // Create league + season
+    const league = await createTestLeague(token, {
+      name: `Placeholder League ${Date.now()}`,
+    });
+    const leagueId = league.id;
+
+    const season = await createTestSeason(token, leagueId, {
+      name: `PH Season ${Date.now()}`,
+    });
+    const seasonId = season.id;
+
+    // Create 3 real players and add to league
+    const playerNames = [
+      `PH Player A ${Date.now()}`,
+      `PH Player B ${Date.now()}`,
+      `PH Player C ${Date.now()}`,
+    ];
+
+    for (const name of playerNames) {
+      await addPlayerToLeague(token, leagueId, name);
+    }
+
+    // Resolve real player IDs
+    const playerIds = {};
+    for (const name of playerNames) {
+      const resp = await api.post('/api/players', { name });
+      playerIds[name] = resp.data.player_id;
+    }
+
+    // Create placeholder player via API
+    const placeholderName = `Placeholder ${Date.now()}`;
+    const phResult = await createPlaceholderPlayer(token, placeholderName, {
+      league_id: leagueId,
+    });
+    const placeholderPlayerId = phResult.player_id;
+    const inviteToken = phResult.invite_token;
+
+    // Create session
+    const session = await createTestSession(token, leagueId);
+    const sessionId = session.id;
+
+    // Create match with placeholder as team1_player2
+    const matchResp = await api.post('/api/matches', {
+      team1_player1_id: playerIds[playerNames[0]],
+      team1_player2_id: placeholderPlayerId,
+      team2_player1_id: playerIds[playerNames[1]],
+      team2_player2_id: playerIds[playerNames[2]],
+      team1_score: 21,
+      team2_score: 18,
+      session_id: sessionId,
+      season_id: seasonId,
+      league_id: leagueId,
+    });
+    const matchId = matchResp.data.match_id;
+
+    // Submit session
+    await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { submit: true });
+
+    await use({
+      leagueId,
+      seasonId,
+      playerIds,
+      playerNames,
+      placeholderPlayerId,
+      placeholderName,
+      inviteToken,
+      matchId,
+    });
   }, { scope: 'test' }],
 });

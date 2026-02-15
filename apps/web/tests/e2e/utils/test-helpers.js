@@ -403,6 +403,101 @@ export async function invitePlayerToSession(token, sessionId, playerId) {
 }
 
 /**
+ * Create a placeholder player via API.
+ *
+ * @param {string} token - Auth token
+ * @param {string} name - Display name for the placeholder
+ * @param {object} [opts] - Optional fields: phone_number, league_id
+ * @returns {{ player_id, name, invite_token, invite_url }}
+ */
+export async function createPlaceholderPlayer(token, name, opts = {}) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.post('/api/players/placeholder', { name, ...opts });
+  return response.data;
+}
+
+/**
+ * List placeholder players created by the authenticated user.
+ *
+ * @param {string} token - Auth token
+ * @returns {Array<{ player_id, name, phone_number, match_count, invite_token, invite_url, status, created_at }>}
+ */
+export async function listPlaceholderPlayers(token) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.get('/api/players/placeholder');
+  return response.data;
+}
+
+/**
+ * Get public invite details (no auth required).
+ *
+ * @param {string} inviteToken - The invite token from the URL
+ * @returns {{ inviter_name, placeholder_name, match_count, league_names, status }}
+ */
+export async function getInviteDetails(inviteToken) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient();
+  const response = await api.get(`/api/invites/${inviteToken}`);
+  return response.data;
+}
+
+/**
+ * Claim an invite (requires auth).
+ *
+ * @param {string} token - Auth token of the claiming user
+ * @param {string} inviteToken - The invite token to claim
+ * @returns {{ success, message, player_id, redirect_url, warnings }}
+ */
+export async function claimInvite(token, inviteToken) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.post(`/api/invites/${inviteToken}/claim`);
+  return response.data;
+}
+
+/**
+ * Query whether a match is ranked directly from the database.
+ *
+ * @param {number} matchId
+ * @returns {boolean}
+ */
+export async function getMatchIsRanked(matchId) {
+  const { executeQuery } = await import('../fixtures/db.js');
+  const result = await executeQuery('SELECT is_ranked FROM matches WHERE id = $1', [matchId]);
+  return result.rows[0]?.is_ranked;
+}
+
+/**
+ * Get the four player IDs from a match directly from the database.
+ *
+ * @param {number} matchId
+ * @returns {{ team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id }}
+ */
+export async function getMatchPlayerIds(matchId) {
+  const { executeQuery } = await import('../fixtures/db.js');
+  const result = await executeQuery(
+    'SELECT team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id FROM matches WHERE id = $1',
+    [matchId]
+  );
+  return result.rows[0];
+}
+
+/**
+ * Delete a placeholder player via API.
+ *
+ * @param {string} token - Auth token
+ * @param {number} playerId - Placeholder player ID to delete
+ */
+export async function deletePlaceholderPlayer(token, playerId) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.delete(`/api/players/placeholder/${playerId}`);
+  return response.data;
+}
+
+/**
  * Create a test session for a league via API (requires authentication token)
  */
 export async function createTestSession(token, leagueId, sessionData = {}) {

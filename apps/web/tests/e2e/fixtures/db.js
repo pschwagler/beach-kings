@@ -209,8 +209,51 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
       await client.query(`DELETE FROM password_reset_tokens WHERE user_id = ANY($1)`, [userIds]);
     }
 
-    // 13. Players (created by test users AND "orphan" players created via /api/players)
+    // 12b. Placeholder players + invites created by test users
     if (playerIds.length > 0) {
+      // Find placeholder players created by test users
+      const phRows = await client.query(
+        'SELECT id FROM players WHERE created_by_player_id = ANY($1) AND is_placeholder = true',
+        [playerIds]
+      );
+      const phIds = phRows.rows.map(r => r.id);
+      if (phIds.length > 0) {
+        await client.query('DELETE FROM player_invites WHERE player_id = ANY($1)', [phIds]);
+        // Null out match FKs referencing placeholder players
+        for (const col of ['team1_player1_id', 'team1_player2_id', 'team2_player1_id', 'team2_player2_id']) {
+          await client.query(`UPDATE matches SET ${col} = NULL WHERE ${col} = ANY($1)`, [phIds]);
+        }
+        await client.query('DELETE FROM league_members WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM session_participants WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM players WHERE id = ANY($1)', [phIds]);
+      }
+      // Also clean invites referencing the test user's own player_ids
+      await client.query(
+        'DELETE FROM player_invites WHERE player_id = ANY($1) OR created_by_player_id = ANY($1)',
+        [playerIds]
+      );
+    }
+
+    // 13. Players (created by test users AND "orphan" players created via /api/players)
+    //     Before deleting, remove any matches that reference these players but
+    //     weren't already cleaned up (e.g. after a claim transferred matches
+    //     from testUser's session to secondTestUser's player).
+    if (playerIds.length > 0) {
+      // Find stale match IDs referencing these players that we haven't deleted yet
+      const staleMatchRows = await client.query(
+        `SELECT id FROM matches
+         WHERE team1_player1_id = ANY($1)
+            OR team1_player2_id = ANY($1)
+            OR team2_player1_id = ANY($1)
+            OR team2_player2_id = ANY($1)`,
+        [playerIds]
+      );
+      const staleMatchIds = staleMatchRows.rows.map(r => r.id);
+      if (staleMatchIds.length > 0) {
+        await client.query('DELETE FROM elo_history WHERE match_id = ANY($1)', [staleMatchIds]);
+        await client.query('DELETE FROM season_rating_history WHERE match_id = ANY($1)', [staleMatchIds]);
+        await client.query('DELETE FROM matches WHERE id = ANY($1)', [staleMatchIds]);
+      }
       await client.query(`DELETE FROM players WHERE id = ANY($1)`, [playerIds]);
     }
 
