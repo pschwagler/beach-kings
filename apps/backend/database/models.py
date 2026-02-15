@@ -62,6 +62,14 @@ class NotificationType(str, enum.Enum):
     LEAGUE_JOIN_REQUEST = "league_join_request"
     SEASON_START = "season_start"
     SEASON_ACTIVATED = "season_activated"
+    PLACEHOLDER_CLAIMED = "placeholder_claimed"
+
+
+class InviteStatus(str, enum.Enum):
+    """Player invite status enum."""
+
+    PENDING = "pending"
+    CLAIMED = "claimed"
 
 
 class Region(Base):
@@ -184,6 +192,10 @@ class Player(Base):
     avatar = Column(String, nullable=True)  # Can store initials (e.g., "JD") or image URL
     avp_playerProfileId = Column(Integer, nullable=True)
     status = Column(String, nullable=True)
+    is_placeholder = Column(Boolean, default=False, nullable=False, server_default="false")
+    created_by_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -201,12 +213,64 @@ class Player(Base):
     session_participations = relationship(
         "SessionParticipant", foreign_keys="SessionParticipant.player_id", back_populates="player"
     )
+    created_by = relationship(
+        "Player", remote_side="Player.id", foreign_keys=[created_by_player_id]
+    )
+    created_placeholders = relationship(
+        "Player", foreign_keys=[created_by_player_id], back_populates="created_by"
+    )
+    invite = relationship(
+        "PlayerInvite", foreign_keys="PlayerInvite.player_id",
+        back_populates="player", uselist=False,
+    )
 
     __table_args__ = (
         Index("idx_players_name", "full_name"),
         Index("idx_players_user", "user_id"),
         Index("idx_players_location", "location_id"),
         Index("idx_players_avp_id", "avp_playerProfileId"),
+        Index("idx_players_created_by", "created_by_player_id"),
+    )
+
+
+class PlayerInvite(Base):
+    """Invite links for placeholder players.
+
+    One invite per placeholder player (1:1 relationship).
+    Invite links never expire. Status transitions: pending → claimed.
+    """
+
+    __tablename__ = "player_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    invite_token = Column(String(64), nullable=False, unique=True)
+    created_by_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    phone_number = Column(String, nullable=True)
+    status = Column(String, nullable=False, server_default=InviteStatus.PENDING.value)
+    claimed_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id], back_populates="invite")
+    creator = relationship("Player", foreign_keys=[created_by_player_id])
+    claimed_by_user = relationship("User", foreign_keys=[claimed_by_user_id])
+
+    __table_args__ = (
+        UniqueConstraint("player_id", name="uq_player_invites_player"),
+        CheckConstraint(
+            "status IN ('pending', 'claimed')", name="ck_player_invites_status"
+        ),
+        Index("idx_player_invites_token", "invite_token", unique=True),
+        Index("idx_player_invites_player", "player_id", unique=True),
+        Index("idx_player_invites_created_by", "created_by_player_id"),
     )
 
 

@@ -1041,73 +1041,101 @@ async def list_players_search(
     levels: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
+    include_placeholders_for_player_id: Optional[int] = None,
+    session_id: Optional[int] = None,
 ) -> Tuple[List[Dict], int]:
     """
     Search players with optional filters. Returns (items, total).
+
     Filter lists are OR within each dimension (e.g. multiple locations = player in any of them).
-    Each item has id, full_name, nickname, name (full_name only), gender, level, location_id, location_name.
+    Each item has id, full_name, nickname, name (full_name only), gender, level,
+    location_id, location_name, is_placeholder.
+
+    System records (status='system') are always excluded. Placeholder players are
+    excluded by default unless ``include_placeholders_for_player_id`` is set, in
+    which case the caller's own placeholders (and those scoped to the given
+    league_ids / session_id) are included.
     """
-    stmt = select(Player).where(True)
-    count_stmt = select(func.count(Player.id)).select_from(Player).where(True)
 
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        name_cond = or_(Player.full_name.ilike(term), Player.nickname.ilike(term))
-        stmt = stmt.where(name_cond)
-        count_stmt = count_stmt.where(name_cond)
+    def _apply_common_filters(stmt, *, for_count: bool = False):
+        """Apply shared WHERE clauses to both count and page queries."""
+        # Exclude system records (e.g. "Unknown Player")
+        stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
 
-    loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
-    if loc_ids:
-        stmt = stmt.where(Player.location_id.in_(loc_ids))
-        count_stmt = count_stmt.where(Player.location_id.in_(loc_ids))
+        # Placeholder scoping
+        if include_placeholders_for_player_id is not None:
+            # Include real players + scoped placeholders
+            placeholder_conditions = [
+                Player.created_by_player_id == include_placeholders_for_player_id,
+            ]
+            # Also include placeholders that are league members of the specified leagues
+            league_ids_clean = [x for x in (league_ids or []) if x is not None]
+            if league_ids_clean:
+                league_placeholder_subq = (
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(league_ids_clean))
+                    .distinct()
+                )
+                placeholder_conditions.append(Player.id.in_(league_placeholder_subq))
+            # Also include placeholders that are session participants
+            if session_id is not None:
+                session_placeholder_subq = (
+                    select(SessionParticipant.player_id)
+                    .where(SessionParticipant.session_id == session_id)
+                    .distinct()
+                )
+                placeholder_conditions.append(Player.id.in_(session_placeholder_subq))
 
-    if league_ids:
-        league_ids_clean = [x for x in league_ids if x is not None]
-        if league_ids_clean:
-            subq = (
-                select(LeagueMember.player_id)
-                .where(LeagueMember.league_id.in_(league_ids_clean))
-                .distinct()
+            stmt = stmt.where(
+                or_(
+                    Player.is_placeholder.is_(False),
+                    and_(Player.is_placeholder.is_(True), or_(*placeholder_conditions)),
+                )
             )
-            stmt = stmt.where(Player.id.in_(subq))
-            count_stmt = count_stmt.where(Player.id.in_(subq))
+        else:
+            # Default: exclude all placeholders
+            stmt = stmt.where(Player.is_placeholder.is_(False))
 
-    gender_vals = _normalize_list_str(genders)
-    if gender_vals:
-        stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
-        count_stmt = count_stmt.where(func.lower(Player.gender).in_(gender_vals))
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
 
-    level_vals = _normalize_list_str(levels)
-    if level_vals:
-        stmt = stmt.where(func.lower(Player.level).in_(level_vals))
-        count_stmt = count_stmt.where(func.lower(Player.level).in_(level_vals))
+        loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
+        if loc_ids:
+            stmt = stmt.where(Player.location_id.in_(loc_ids))
 
+        if league_ids:
+            league_ids_clean = [x for x in league_ids if x is not None]
+            if league_ids_clean:
+                subq = (
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(league_ids_clean))
+                    .distinct()
+                )
+                stmt = stmt.where(Player.id.in_(subq))
+
+        gender_vals = _normalize_list_str(genders)
+        if gender_vals:
+            stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
+
+        level_vals = _normalize_list_str(levels)
+        if level_vals:
+            stmt = stmt.where(func.lower(Player.level).in_(level_vals))
+
+        return stmt
+
+    # Count query
+    count_stmt = select(func.count(Player.id)).select_from(Player)
+    count_stmt = _apply_common_filters(count_stmt, for_count=True)
     total_result = await session.execute(count_stmt)
     total = total_result.scalar() or 0
 
+    # Page query (with location join)
     page_stmt = (
         select(Player, Location.name.label("location_name"))
         .outerjoin(Location, Location.id == Player.location_id)
-        .where(True)
     )
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        page_stmt = page_stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
-    if loc_ids:
-        page_stmt = page_stmt.where(Player.location_id.in_(loc_ids))
-    if league_ids:
-        league_ids_clean = [x for x in league_ids if x is not None]
-        if league_ids_clean:
-            subq = (
-                select(LeagueMember.player_id)
-                .where(LeagueMember.league_id.in_(league_ids_clean))
-                .distinct()
-            )
-            page_stmt = page_stmt.where(Player.id.in_(subq))
-    if gender_vals:
-        page_stmt = page_stmt.where(func.lower(Player.gender).in_(gender_vals))
-    if level_vals:
-        page_stmt = page_stmt.where(func.lower(Player.level).in_(level_vals))
+    page_stmt = _apply_common_filters(page_stmt)
     page_stmt = (
         page_stmt.order_by(
             func.coalesce(Player.nickname, Player.full_name).asc().nullslast(), Player.id.asc()
@@ -1133,6 +1161,7 @@ async def list_players_search(
                 "user_id": player.user_id,
                 "location_id": player.location_id,
                 "location_name": location_name,
+                "is_placeholder": player.is_placeholder,
             }
         )
     return items, total
@@ -4248,6 +4277,23 @@ async def create_match_async(
     else:
         winner = -1  # Tie
 
+    # Check for placeholder players — force is_ranked=False if any are present
+    from backend.services import placeholder_service
+
+    has_placeholders = await placeholder_service.check_match_has_placeholders(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
+    if has_placeholders:
+        is_ranked = False
+    else:
+        is_ranked = match_request.is_ranked if match_request.is_ranked is not None else True
+
     # Create match using player IDs directly from the request
     new_match = Match(
         session_id=session_id,
@@ -4260,6 +4306,7 @@ async def create_match_async(
         team2_score=match_request.team2_score,
         winner=winner,
         is_public=match_request.is_public if match_request.is_public is not None else True,
+        is_ranked=is_ranked,
     )
     session.add(new_match)
     await session.flush()
