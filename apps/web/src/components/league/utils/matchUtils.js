@@ -2,6 +2,17 @@
  * Match transformation utilities
  */
 
+/** Display-format keys for the four player positions in a match. */
+export const MATCH_POSITION_KEYS = {
+  T1P1: 'Team 1 Player 1',
+  T1P2: 'Team 1 Player 2',
+  T2P1: 'Team 2 Player 1',
+  T2P2: 'Team 2 Player 2',
+};
+
+/** Array form for iteration convenience. */
+const ALL_POSITION_KEYS = Object.values(MATCH_POSITION_KEYS);
+
 /**
  * Count unique players across matches in display format (Team 1 Player 1, etc.).
  * @param {Array<Object>} matches - Matches in display format (with 'Team 1 Player 1', etc.)
@@ -10,10 +21,9 @@
 export function getUniquePlayersCount(matches) {
   const players = new Set();
   (matches || []).forEach((match) => {
-    if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
-    if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
-    if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
-    if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
+    for (const key of ALL_POSITION_KEYS) {
+      if (match[key]) players.add(match[key]);
+    }
   });
   return players.size;
 }
@@ -29,10 +39,10 @@ function applyPlaceholderFlags(displayMatch, rawMatch, placeholderPlayerIds) {
   if (!placeholderPlayerIds || placeholderPlayerIds.size === 0) return displayMatch;
   return {
     ...displayMatch,
-    'Team 1 Player 1 IsPlaceholder': placeholderPlayerIds.has(rawMatch.team1_player1_id),
-    'Team 1 Player 2 IsPlaceholder': placeholderPlayerIds.has(rawMatch.team1_player2_id),
-    'Team 2 Player 1 IsPlaceholder': placeholderPlayerIds.has(rawMatch.team2_player1_id),
-    'Team 2 Player 2 IsPlaceholder': placeholderPlayerIds.has(rawMatch.team2_player2_id),
+    [`${MATCH_POSITION_KEYS.T1P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player1_id),
+    [`${MATCH_POSITION_KEYS.T1P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player2_id),
+    [`${MATCH_POSITION_KEYS.T2P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player1_id),
+    [`${MATCH_POSITION_KEYS.T2P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player2_id),
   };
 }
 
@@ -67,10 +77,10 @@ export function sessionMatchToDisplayFormat(match, placeholderPlayerIds) {
     'Session ID': match.session_id,
     'Session Name': match.session_name || match.date,
     'Session Status': match.session_status || null,
-    'Team 1 Player 1': match.team1_player1_name || '',
-    'Team 1 Player 2': match.team1_player2_name || '',
-    'Team 2 Player 1': match.team2_player1_name || '',
-    'Team 2 Player 2': match.team2_player2_name || '',
+    [MATCH_POSITION_KEYS.T1P1]: match.team1_player1_name || '',
+    [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
+    [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
+    [MATCH_POSITION_KEYS.T2P2]: match.team2_player2_name || '',
     'Team 1 Score': match.team1_score,
     'Team 2 Score': match.team2_score,
     Winner: winner,
@@ -128,10 +138,10 @@ export function transformMatchData(matches, placeholderPlayerIds) {
       'Session Updated At': match.session_updated_at || null,
       'Session Created By': match.session_created_by_name || null,
       'Session Updated By': match.session_updated_by_name || null,
-      'Team 1 Player 1': match.team1_player1_name || '',
-      'Team 1 Player 2': match.team1_player2_name || '',
-      'Team 2 Player 1': match.team2_player1_name || '',
-      'Team 2 Player 2': match.team2_player2_name || '',
+      [MATCH_POSITION_KEYS.T1P1]: match.team1_player1_name || '',
+      [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
+      [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
+      [MATCH_POSITION_KEYS.T2P2]: match.team2_player2_name || '',
       'Team 1 Score': match.team1_score,
       'Team 2 Score': match.team2_score,
       Winner: winner,

@@ -214,6 +214,8 @@ export default function PlayerDropdown({
   const dropdownContent = isOpen && (
     <ul
       ref={dropdownRef}
+      id="player-dropdown-listbox"
+      role="listbox"
       className="player-dropdown-list"
       style={{
         zIndex: 9999,
@@ -224,6 +226,9 @@ export default function PlayerDropdown({
         filteredPlayers.map((player, index) => (
           <li
             key={getValue(player)}
+            id={`player-option-${index}`}
+            role="option"
+            aria-selected={highlightedIndex === index}
             ref={el => optionRefs.current[index] = el}
             className={`player-dropdown-option ${highlightedIndex === index ? 'highlighted' : ''}`}
             onClick={() => handleSelectPlayer(player)}
@@ -244,6 +249,9 @@ export default function PlayerDropdown({
 
       {showCreateOption && (
         <li
+          id={`player-option-${createOptionIndex}`}
+          role="option"
+          aria-selected={highlightedIndex === createOptionIndex}
           ref={el => optionRefs.current[createOptionIndex] = el}
           className={`player-dropdown-option create-placeholder ${highlightedIndex === createOptionIndex ? 'highlighted' : ''} ${isCreating ? 'creating' : ''}`}
           onClick={handleCreatePlaceholder}
@@ -263,6 +271,11 @@ export default function PlayerDropdown({
         ref={inputRef}
         type="text"
         inputMode="text"
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-autocomplete="list"
+        aria-controls="player-dropdown-listbox"
+        aria-activedescendant={highlightedIndex >= 0 ? `player-option-${highlightedIndex}` : undefined}
         value={inputValue}
         onChange={handleInputChange}
         onFocus={handleInputFocus}

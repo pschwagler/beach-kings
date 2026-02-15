@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Copy, Trash2, Check, Link2 } from 'lucide-react';
+import { UserPlus, Trash2, Check, Link2 } from 'lucide-react';
 import { listPlaceholderPlayers, deletePlaceholderPlayer } from '../../services/api';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -28,25 +28,29 @@ export default function PendingInvitesTab() {
 
   const [toasts, addToast, dismissToast] = useToasts();
 
-  const fetchPlaceholders = useCallback(async () => {
+  const fetchPlaceholders = useCallback(async (signal) => {
     try {
       setError(null);
       const data = await listPlaceholderPlayers();
+      if (signal?.aborted) return;
       // Show only pending placeholders, sorted newest-first
       const pending = (data.placeholders || [])
         .filter((p) => p.status === 'pending')
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setPlaceholders(pending);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error('Error loading placeholders:', err);
       setError('Failed to load pending invites');
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchPlaceholders();
+    const controller = new AbortController();
+    fetchPlaceholders(controller.signal);
+    return () => controller.abort();
   }, [fetchPlaceholders]);
 
   /**

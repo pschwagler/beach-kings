@@ -254,6 +254,17 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
         await client.query('DELETE FROM season_rating_history WHERE match_id = ANY($1)', [staleMatchIds]);
         await client.query('DELETE FROM matches WHERE id = ANY($1)', [staleMatchIds]);
       }
+      // Re-clean stats tables that may have been (re-)created by stats recalc
+      // after a claim-merge transferred matches to a test player.
+      await client.query(`DELETE FROM partnership_stats WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM partnership_stats_season WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM partnership_stats_league WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats_season WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats_league WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_global_stats WHERE player_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_season_stats WHERE player_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_league_stats WHERE player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM players WHERE id = ANY($1)`, [playerIds]);
     }
 

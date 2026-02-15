@@ -7,6 +7,7 @@ is_ranked enforcement, invite details, and claim/merge flows.
 """
 
 import os
+import re
 import secrets
 import logging
 from typing import Optional, List
@@ -37,6 +38,37 @@ logger = logging.getLogger(__name__)
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachkings.com")
 
+# --- Module-level constants ---
+
+UNKNOWN_PLAYER_NAME = "Unknown Player"
+"""Sentinel name for the system player that replaces deleted placeholders."""
+
+MATCH_PLAYER_FK_COLS = [
+    "team1_player1_id",
+    "team1_player2_id",
+    "team2_player1_id",
+    "team2_player2_id",
+]
+"""The four FK columns on the Match table that reference players."""
+
+# E.164-ish: optional +, then 7–15 digits
+_PHONE_RE = re.compile(r"^\+?\d{7,15}$")
+
+
+# --- Custom exceptions ---
+
+
+class InviteNotFoundError(ValueError):
+    """Raised when an invite token does not match any record."""
+
+
+class InviteAlreadyClaimedError(ValueError):
+    """Raised when an invite has already been claimed."""
+
+
+class PlaceholderNotFoundError(ValueError):
+    """Raised when a placeholder player cannot be found."""
+
 
 async def create_placeholder(
     session: AsyncSession,
@@ -64,6 +96,14 @@ async def create_placeholder(
         raise ValueError("Placeholder name cannot be empty")
     if len(name) > 100:
         raise ValueError("Placeholder name must be 100 characters or fewer")
+
+    # Validate phone number format if provided
+    if phone_number is not None:
+        phone_number = phone_number.strip()
+        if phone_number and not _PHONE_RE.match(phone_number):
+            raise ValueError(
+                "Invalid phone number format. Expected 7-15 digits, optionally prefixed with +"
+            )
 
     # Create the placeholder player record
     player = Player(
@@ -145,18 +185,21 @@ async def list_placeholders(
     result = await session.execute(stmt)
     rows = result.all()
 
+    # Batch-fetch match counts for all placeholders in a single query
+    player_ids = [player.id for player, _ in rows]
+    match_counts: dict[int, int] = {}
+    if player_ids:
+        match_counts = await _batch_count_matches(session, player_ids)
+
     items = []
     for player, invite in rows:
-        # Count matches involving this placeholder
-        match_count = await _count_matches_for_player(session, player.id)
-
         invite_url = f"{FRONTEND_BASE_URL}/invite/{invite.invite_token}"
         items.append(
             PlaceholderListItem(
                 player_id=player.id,
                 name=player.full_name,
                 phone_number=invite.phone_number,
-                match_count=match_count,
+                match_count=match_counts.get(player.id, 0),
                 invite_token=invite.invite_token,
                 invite_url=invite_url,
                 status=invite.status,
@@ -214,7 +257,7 @@ async def delete_placeholder(
     unknown_result = await session.execute(
         select(Player).where(
             and_(
-                Player.full_name == "Unknown Player",
+                Player.full_name == UNKNOWN_PLAYER_NAME,
                 Player.status == "system",
             )
         )
@@ -223,7 +266,7 @@ async def delete_placeholder(
     if unknown_player is None:
         # Create the system record if it doesn't exist yet
         unknown_player = Player(
-            full_name="Unknown Player",
+            full_name=UNKNOWN_PLAYER_NAME,
             user_id=None,
             is_placeholder=False,
             status="system",
@@ -234,24 +277,16 @@ async def delete_placeholder(
     unknown_id = unknown_player.id
 
     # Find all matches referencing this placeholder (any of the 4 FK columns)
-    match_condition = or_(
-        Match.team1_player1_id == player_id,
-        Match.team1_player2_id == player_id,
-        Match.team2_player1_id == player_id,
-        Match.team2_player2_id == player_id,
-    )
+    match_condition = or_(*(
+        getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS
+    ))
     count_result = await session.execute(
         select(func.count(Match.id)).where(match_condition)
     )
     affected_count = count_result.scalar() or 0
 
     # Reassign each FK column and mark affected matches as unranked
-    for col_name in [
-        "team1_player1_id",
-        "team1_player2_id",
-        "team2_player1_id",
-        "team2_player2_id",
-    ]:
+    for col_name in MATCH_PLAYER_FK_COLS:
         await session.execute(
             update(Match)
             .where(getattr(Match, col_name) == player_id)
@@ -325,17 +360,55 @@ async def _count_matches_for_player(
     Returns:
         Number of matches involving this player
     """
+    condition = or_(*(
+        getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS
+    ))
     result = await session.execute(
-        select(func.count(Match.id)).where(
-            or_(
-                Match.team1_player1_id == player_id,
-                Match.team1_player2_id == player_id,
-                Match.team2_player1_id == player_id,
-                Match.team2_player2_id == player_id,
-            )
-        )
+        select(func.count(Match.id)).where(condition)
     )
     return result.scalar() or 0
+
+
+async def _batch_count_matches(
+    session: AsyncSession,
+    player_ids: list[int],
+) -> dict[int, int]:
+    """
+    Batch-count matches for multiple players in a single query.
+
+    Uses UNION ALL of the 4 FK columns, then GROUP BY player_id.
+
+    Args:
+        session: Database session
+        player_ids: List of player IDs to count matches for
+
+    Returns:
+        Dict mapping player_id → match count
+    """
+    if not player_ids:
+        return {}
+
+    from sqlalchemy import union_all
+
+    # Build a subquery that unions all 4 FK columns
+    subqueries = []
+    for col_name in MATCH_PLAYER_FK_COLS:
+        col = getattr(Match, col_name)
+        subqueries.append(
+            select(col.label("player_id"), Match.id.label("match_id"))
+            .where(col.in_(player_ids))
+        )
+
+    combined = union_all(*subqueries).subquery()
+    pid_col = combined.c.player_id
+    mid_col = combined.c.match_id
+
+    stmt = (
+        select(pid_col, func.count(func.distinct(mid_col)))
+        .group_by(pid_col)
+    )
+    result = await session.execute(stmt)
+    return {row[0]: row[1] for row in result.all()}
 
 
 # ============================================================================
@@ -362,7 +435,7 @@ async def get_invite_details(
         league_names, and status
 
     Raises:
-        ValueError: If token is not found
+        InviteNotFoundError: If token is not found
     """
     # Load invite with placeholder and creator players
     stmt = (
@@ -373,7 +446,7 @@ async def get_invite_details(
     result = await session.execute(stmt)
     row = result.first()
     if row is None:
-        raise ValueError("Invite not found")
+        raise InviteNotFoundError("Invite not found")
 
     invite, placeholder = row
 
@@ -429,19 +502,12 @@ async def merge_placeholder_into_player(
     Returns:
         Dict with conflicting_match_ids (list[int]) and transferred_matches (int)
     """
-    match_fk_cols = [
-        "team1_player1_id",
-        "team1_player2_id",
-        "team2_player1_id",
-        "team2_player2_id",
-    ]
-
     # 1. Find conflicting matches: both placeholder and target appear
     placeholder_condition = or_(*(
-        getattr(Match, col) == placeholder_id for col in match_fk_cols
+        getattr(Match, col) == placeholder_id for col in MATCH_PLAYER_FK_COLS
     ))
     target_condition = or_(*(
-        getattr(Match, col) == target_player_id for col in match_fk_cols
+        getattr(Match, col) == target_player_id for col in MATCH_PLAYER_FK_COLS
     ))
     conflict_stmt = select(Match.id).where(and_(placeholder_condition, target_condition))
     conflict_result = await session.execute(conflict_stmt)
@@ -449,14 +515,14 @@ async def merge_placeholder_into_player(
 
     # 2. Transfer non-conflicting match FKs
     transferred = 0
-    for col_name in match_fk_cols:
+    for col_name in MATCH_PLAYER_FK_COLS:
         col = getattr(Match, col_name)
+        # SQLAlchemy's IN() with an empty list generates `1 != 1` (always false),
+        # so we guard with a plain `True` literal to skip the filter entirely.
+        exclusion = ~Match.id.in_(conflicting_match_ids) if conflicting_match_ids else True
         stmt = (
             update(Match)
-            .where(and_(
-                col == placeholder_id,
-                ~Match.id.in_(conflicting_match_ids) if conflicting_match_ids else True,
-            ))
+            .where(and_(col == placeholder_id, exclusion))
             .values(**{col_name: target_player_id})
         )
         result = await session.execute(stmt)
@@ -536,6 +602,11 @@ async def merge_placeholder_into_player(
             delete(Player).where(Player.id == placeholder_id)
         )
 
+    logger.info(
+        "Merged placeholder %d → player %d: %d matches transferred, %d conflicts",
+        placeholder_id, target_player_id, transferred, len(conflicting_match_ids),
+    )
+
     return {
         "conflicting_match_ids": conflicting_match_ids,
         "transferred_matches": transferred,
@@ -590,6 +661,11 @@ async def flip_ranked_status_for_resolved_matches(
             )
             flipped += 1
 
+    if flipped:
+        logger.info(
+            "Flipped %d match(es) to ranked for player %d", flipped, player_id,
+        )
+
     return flipped
 
 
@@ -621,7 +697,9 @@ async def claim_invite(
         redirect_url
 
     Raises:
-        ValueError: If token not found or invite already claimed
+        InviteNotFoundError: If token not found
+        InviteAlreadyClaimedError: If invite already claimed
+        PlaceholderNotFoundError: If placeholder player not found
     """
     from backend.services import data_service, notification_service
     from backend.services.stats_queue import get_stats_queue
@@ -633,16 +711,16 @@ async def claim_invite(
     )
     invite = invite_result.scalar_one_or_none()
     if invite is None:
-        raise ValueError("Invite not found")
+        raise InviteNotFoundError("Invite not found")
     if invite.status == InviteStatus.CLAIMED.value:
-        raise ValueError("Invite has already been claimed")
+        raise InviteAlreadyClaimedError("Invite has already been claimed")
 
     placeholder_id = invite.player_id
 
     # Load the placeholder player
     placeholder = await session.get(Player, placeholder_id)
     if placeholder is None:
-        raise ValueError("Placeholder player not found")
+        raise PlaceholderNotFoundError("Placeholder player not found")
 
     # 2. Check if claiming user already has a player profile
     existing_player = await data_service.get_player_by_user_id(session, claiming_user_id)

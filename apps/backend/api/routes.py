@@ -1755,7 +1755,9 @@ async def delete_placeholder_player(
 
 
 @router.get("/api/invites/{token}")
+@limiter.limit("10/minute")
 async def get_invite_details(
+    request: Request,
     token: str,
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -1771,7 +1773,7 @@ async def get_invite_details(
     try:
         result = await placeholder_service.get_invite_details(session, token)
         return result
-    except ValueError:
+    except placeholder_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving invite: {str(e)}")
@@ -1799,11 +1801,12 @@ async def claim_invite(
             claiming_user_id=current_user["id"],
         )
         return result
+    except (placeholder_service.InviteNotFoundError, placeholder_service.PlaceholderNotFoundError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except placeholder_service.InviteAlreadyClaimedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error claiming invite: {str(e)}")
 

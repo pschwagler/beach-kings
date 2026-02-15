@@ -4104,7 +4104,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     if not part_player_ids:
         return []
 
-    # Fetch player info and location for all player IDs
+    # Fetch player info, location, and placeholder flag in a single query
     players_q = (
         select(
             Player.id,
@@ -4112,6 +4112,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             Player.nickname,
             Player.level,
             Player.gender,
+            Player.is_placeholder,
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Location.id == Player.location_id)
@@ -4120,13 +4121,6 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
 
-    # Look up which players are placeholders
-    placeholder_q = select(Player.id).where(
-        and_(Player.id.in_(part_player_ids), Player.is_placeholder.is_(True))
-    )
-    placeholder_result = await db_session.execute(placeholder_q)
-    placeholder_ids = {row[0] for row in placeholder_result.all()}
-
     return [
         {
             "player_id": r.id,
@@ -4134,7 +4128,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             "level": r.level,
             "gender": r.gender,
             "location_name": r.location_name,
-            "is_placeholder": r.id in placeholder_ids,
+            "is_placeholder": bool(r.is_placeholder),
         }
         for r in rows
     ]
