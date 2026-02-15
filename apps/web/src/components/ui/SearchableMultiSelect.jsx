@@ -23,6 +23,7 @@ export default function SearchableMultiSelect({
 }) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -58,6 +59,36 @@ export default function SearchableMultiSelect({
     },
     [onToggle]
   );
+
+  /** Handle keyboard navigation within the dropdown. */
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        return;
+      }
+
+      if (!isOpen) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
+      } else if (e.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+        e.preventDefault();
+        handleToggle(filtered[highlightedIndex].id);
+      }
+    },
+    [isOpen, filtered, highlightedIndex, handleToggle]
+  );
+
+  // Reset highlight when filtered list changes
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [query]);
 
   const handleContainerClick = () => {
     setIsOpen(true);
@@ -95,6 +126,7 @@ export default function SearchableMultiSelect({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setIsOpen(true)}
+            onKeyDown={handleKeyDown}
             placeholder={selectedIds.length === 0 ? placeholder : ''}
             aria-label={label || placeholder}
           />
@@ -112,14 +144,15 @@ export default function SearchableMultiSelect({
           {filtered.length === 0 ? (
             <li className="searchable-multiselect__no-results">No matches</li>
           ) : (
-            filtered.map((opt) => {
+            filtered.map((opt, idx) => {
               const selected = selectedIds.includes(opt.id);
+              const highlighted = idx === highlightedIndex;
               return (
                 <li
                   key={opt.id}
                   role="option"
                   aria-selected={selected}
-                  className={`searchable-multiselect__option ${selected ? 'searchable-multiselect__option--selected' : ''}`}
+                  className={`searchable-multiselect__option ${selected ? 'searchable-multiselect__option--selected' : ''} ${highlighted ? 'searchable-multiselect__option--highlighted' : ''}`}
                   onClick={() => handleToggle(opt.id)}
                 >
                   <span className="searchable-multiselect__option-check" aria-hidden="true">

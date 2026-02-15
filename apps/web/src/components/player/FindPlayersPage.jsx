@@ -7,12 +7,14 @@ import { Search, MapPin, X } from 'lucide-react';
 import NavBar from '../layout/NavBar';
 import HomeMenuBar from '../home/HomeMenuBar';
 import LevelBadge from '../ui/LevelBadge';
+import { Button } from '../ui/UI';
 import SearchableMultiSelect from '../ui/SearchableMultiSelect';
 import { getPublicPlayers, getLocations, getUserLeagues, createLeague } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { slugify } from '../../utils/slugify';
+import { isImageUrl } from '../../utils/avatar';
 import { formatGender } from '../../utils/formatters';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
 import './FindPlayersPage.css';
@@ -80,6 +82,7 @@ export default function FindPlayersPage() {
 
   // Fetch players when filters, search, or page change
   useEffect(() => {
+    const controller = new AbortController();
     const fetchPlayers = async () => {
       try {
         setLoading(true);
@@ -94,16 +97,18 @@ export default function FindPlayersPage() {
         if (debouncedSearch.trim()) {
           params.search = debouncedSearch.trim();
         }
-        const data = await getPublicPlayers(params);
+        const data = await getPublicPlayers(params, { signal: controller.signal });
         setPlayers(data.items || []);
         setTotalCount(data.total_count || 0);
       } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'CanceledError') return;
         console.error('Error fetching players:', err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchPlayers();
+    return () => controller.abort();
   }, [filters, locationIds, debouncedSearch, page]);
 
   const handleSignOut = async () => {
@@ -258,9 +263,9 @@ export default function FindPlayersPage() {
                     </select>
 
                     {hasActiveFilters && (
-                      <button className="find-players__clear-btn" onClick={clearFilters}>
+                      <Button variant="ghost" onClick={clearFilters}>
                         Clear filters
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -290,7 +295,7 @@ export default function FindPlayersPage() {
                           className="find-players__card"
                         >
                           <div className="find-players__card-avatar">
-                            {player.avatar && (player.avatar.startsWith('http') || player.avatar.startsWith('/'))
+                            {isImageUrl(player.avatar)
                               ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
                               : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
                             }
@@ -323,23 +328,23 @@ export default function FindPlayersPage() {
                     {/* Pagination */}
                     {totalPages > 1 && (
                       <div className="find-players__pagination">
-                        <button
-                          className="find-players__page-btn"
+                        <Button
+                          variant="outline"
                           disabled={page <= 1}
                           onClick={() => setPage((p) => p - 1)}
                         >
                           Previous
-                        </button>
+                        </Button>
                         <span className="find-players__page-info">
                           Page {page} of {totalPages}
                         </span>
-                        <button
-                          className="find-players__page-btn"
+                        <Button
+                          variant="outline"
                           disabled={page >= totalPages}
                           onClick={() => setPage((p) => p + 1)}
                         >
                           Next
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </>

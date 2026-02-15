@@ -5,13 +5,17 @@ Provides read-only endpoints for SEO (sitemap, public pages).
 All routes are prefixed with /api/public.
 """
 
+import logging
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.routes import limiter
 from backend.database.db import get_db_session
+
+logger = logging.getLogger(__name__)
 from backend.models.schemas import (
     PaginatedPublicLeaguesResponse,
     PaginatedPublicPlayersResponse,
@@ -47,7 +51,8 @@ async def sitemap_leagues(session: AsyncSession = Depends(get_db_session)):
     try:
         return await public_service.get_sitemap_leagues(session)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching sitemap leagues: {str(e)}")
+        logger.error(f"Error fetching sitemap leagues: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @public_router.get("/sitemap/players", response_model=List[SitemapPlayerItem])
@@ -61,7 +66,8 @@ async def sitemap_players(session: AsyncSession = Depends(get_db_session)):
     try:
         return await public_service.get_sitemap_players(session)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching sitemap players: {str(e)}")
+        logger.error(f"Error fetching sitemap players: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @public_router.get("/sitemap/locations", response_model=List[SitemapLocationItem])
@@ -75,13 +81,14 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
     try:
         return await public_service.get_sitemap_locations(session)
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error fetching sitemap locations: {str(e)}"
-        )
+        logger.error(f"Error fetching sitemap locations: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @public_router.get("/leagues", response_model=PaginatedPublicLeaguesResponse)
+@limiter.limit("60/minute")
 async def list_public_leagues(
+    request: Request,
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
     region_id: Optional[str] = Query(None, description="Filter by region ID"),
     gender: Optional[Literal["male", "female", "mixed"]] = Query(
@@ -113,7 +120,8 @@ async def list_public_leagues(
 
 
 @public_router.get("/leagues/{league_id}", response_model=PublicLeagueDetailResponse)
-async def get_public_league(league_id: int, session: AsyncSession = Depends(get_db_session)):
+@limiter.limit("60/minute")
+async def get_public_league(request: Request, league_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing league data.
 
@@ -128,7 +136,9 @@ async def get_public_league(league_id: int, session: AsyncSession = Depends(get_
 
 
 @public_router.get("/players", response_model=PaginatedPublicPlayersResponse)
+@limiter.limit("30/minute")
 async def list_public_players(
+    request: Request,
     search: Optional[str] = Query(None, description="Search by player name"),
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
     gender: Optional[Literal["male", "female"]] = Query(
@@ -159,7 +169,8 @@ async def list_public_players(
 
 
 @public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)
-async def get_public_player(player_id: int, session: AsyncSession = Depends(get_db_session)):
+@limiter.limit("60/minute")
+async def get_public_player(request: Request, player_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing player profile.
 
@@ -174,7 +185,8 @@ async def get_public_player(player_id: int, session: AsyncSession = Depends(get_
 
 
 @public_router.get("/locations", response_model=List[PublicLocationDirectoryRegion])
-async def list_public_locations(session: AsyncSession = Depends(get_db_session)):
+@limiter.limit("60/minute")
+async def list_public_locations(request: Request, session: AsyncSession = Depends(get_db_session)):
     """
     Get all locations with slugs for the public directory.
 
@@ -185,7 +197,8 @@ async def list_public_locations(session: AsyncSession = Depends(get_db_session))
 
 
 @public_router.get("/locations/{slug}", response_model=PublicLocationDetailResponse)
-async def get_public_location(slug: str, session: AsyncSession = Depends(get_db_session)):
+@limiter.limit("60/minute")
+async def get_public_location(request: Request, slug: str, session: AsyncSession = Depends(get_db_session)):
     """
     Get public-facing location data by slug.
 

@@ -18,6 +18,6 @@ export default function robots() {
         disallow: ['/home', '/admin-view', '/profile', '/api/'],
       },
     ],
-    sitemap: 'https://beachleaguevb.com/sitemap.xml',
+    sitemap: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://beachleaguevb.com'}/sitemap.xml`,
   };
 }

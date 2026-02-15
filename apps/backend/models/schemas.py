@@ -1016,3 +1016,5 @@ class PaginatedPublicPlayersResponse(BaseModel):
 
     items: List[PublicPlayerListItem] = []
     total_count: int = 0
+    page: int = 1
+    page_size: int = 25

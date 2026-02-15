@@ -647,8 +647,8 @@ export const listLeagues = async () => {
 /**
  * Query leagues with filters, ordering, and limit
  */
-export const queryLeagues = async (filters = {}) => {
-  const response = await api.post('/api/leagues/query', filters);
+export const queryLeagues = async (filters = {}, options = {}) => {
+  const response = await api.post('/api/leagues/query', filters, options);
   return response.data;
 };
 
@@ -1264,8 +1264,8 @@ export const cancelPhotoSession = async (leagueId, sessionId) => {
  * @param {number} [params.page_size] - Items per page
  * @returns {Promise<{items: Array, total_count: number}>}
  */
-export const getPublicPlayers = async (params = {}) => {
-  const response = await api.get('/api/public/players', { params });
+export const getPublicPlayers = async (params = {}, options = {}) => {
+  const response = await api.get('/api/public/players', { params, ...options });
   return response.data;
 };
 

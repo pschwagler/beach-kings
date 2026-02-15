@@ -16,6 +16,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://beachleaguevb.com'
 const STATIC_PAGES = [
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/find-leagues', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/find-players', changeFrequency: 'daily', priority: 0.9 },
   { path: '/beach-volleyball', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.2 },
   { path: '/terms-of-service', changeFrequency: 'yearly', priority: 0.2 },

@@ -90,21 +90,6 @@
   border-color: var(--primary);
 }
 
-.find-players__clear-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--primary);
-  background: var(--primary-lighter);
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.find-players__clear-btn:hover {
-  background: var(--primary-light);
-}
-
 /* Results count */
 .find-players__count {
   font-size: 13px;
@@ -218,26 +203,6 @@
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--gray-200);
-}
-
-.find-players__page-btn {
-  padding: 6px 16px;
-  border: 1px solid var(--gray-300);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--gray-900);
-  background: white;
-  cursor: pointer;
-}
-
-.find-players__page-btn:hover:not(:disabled) {
-  background: var(--gray-50);
-  border-color: var(--gray-300);
-}
-
-.find-players__page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .find-players__page-info {

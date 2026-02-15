@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
       POSTGRES_DB: ${POSTGRES_DB:-beachkings}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,7 +52,6 @@ services:
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-      - "${DEBUGPY_PORT:-5678}:5678"
       # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
@@ -100,7 +99,7 @@ services:
     image: redis:7-alpine
     container_name: beach-kings-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

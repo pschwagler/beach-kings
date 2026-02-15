@@ -34,7 +34,9 @@ async def get_sitemap_leagues(session: AsyncSession) -> List[Dict]:
         List of dicts with id, name, updated_at for leagues where is_public=True.
     """
     result = await session.execute(
-        select(League.id, League.name, League.updated_at).where(League.is_public == True)  # noqa: E712
+        select(League.id, League.name, League.updated_at)
+        .where(League.is_public == True)  # noqa: E712
+        .limit(50000)
     )
     return [
         {
@@ -57,6 +59,7 @@ async def get_sitemap_players(session: AsyncSession) -> List[Dict]:
         select(Player.id, Player.full_name, Player.updated_at)
         .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
         .where(PlayerGlobalStats.total_games >= 1)
+        .limit(50000)
     )
     return [
         {
@@ -76,10 +79,12 @@ async def get_sitemap_locations(session: AsyncSession) -> List[Dict]:
         List of dicts with slug, updated_at for locations with >=1 league.
     """
     result = await session.execute(
-        select(Location.slug, Location.updated_at).where(
+        select(Location.slug, Location.updated_at)
+        .where(
             Location.slug.isnot(None),
             exists(select(League.id).where(League.location_id == Location.id)),
         )
+        .limit(50000)
     )
     return [
         {
@@ -790,7 +795,9 @@ async def search_public_players(
     )
 
     if search:
-        base = base.where(Player.full_name.ilike(f"%{search}%"))
+        # Escape LIKE metacharacters to prevent wildcard injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        base = base.where(Player.full_name.ilike(f"%{safe_search}%"))
     if location_id:
         ids = [lid.strip() for lid in location_id.split(",") if lid.strip()]
         if len(ids) == 1:
@@ -830,4 +837,4 @@ async def search_public_players(
         for r in rows
     ]
 
-    return {"items": items, "total_count": total_count}
+    return {"items": items, "total_count": total_count, "page": page, "page_size": page_size}

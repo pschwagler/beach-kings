@@ -6,6 +6,7 @@ import { getLeagueMembers } from '../../services/api';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { slugify } from '../../utils/slugify';
 import LevelBadge from '../ui/LevelBadge';
+import { isImageUrl } from '../../utils/avatar';
 
 export default function LeagueMembersModal({ 
   leagueId, 
@@ -23,6 +24,15 @@ export default function LeagueMembersModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -47,11 +57,6 @@ export default function LeagueMembersModal({
     if (!dateString) return 'Unknown';
     const relative = formatRelativeTime(dateString);
     return relative || 'Unknown';
-  };
-
-  const isImageUrl = (avatar) => {
-    if (!avatar) return false;
-    return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
   };
 
   const getAvatarInitial = (playerName) => {

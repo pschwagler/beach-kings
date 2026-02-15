@@ -1,24 +1,14 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Camera, X, Loader } from 'lucide-react';
 import { heicTo, isHeic } from 'heic-to';
 import { Button } from '../ui/UI';
 import { uploadAvatar, deleteAvatar } from '../../services/api';
 import cropImage from '../../utils/cropImage';
+import { isImageUrl } from '../../utils/avatar';
 import './AvatarUpload.css';
-
-/**
- * Check whether an avatar value is an image URL (vs. initials text).
- *
- * @param {string|null} avatar - Avatar value from API
- * @returns {boolean}
- */
-const isImageUrl = (avatar) => {
-  if (!avatar) return false;
-  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
-};
 
 /**
  * Self-contained avatar upload component with crop modal.
@@ -40,6 +30,13 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Revoke object URL on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (imageSrc) URL.revokeObjectURL(imageSrc);
+    };
+  }, [imageSrc]);
 
   const avatarUrl = currentUserPlayer?.profile_picture_url;
   const hasImage = isImageUrl(avatarUrl);

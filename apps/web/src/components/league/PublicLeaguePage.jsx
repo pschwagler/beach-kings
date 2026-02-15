@@ -7,6 +7,7 @@ import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { slugify } from '../../utils/slugify';
+import { isImageUrl } from '../../utils/avatar';
 import './PublicLeaguePage.css';
 
 /** Max matches shown before "Show more" is required. */
@@ -301,7 +302,12 @@ function MemberGrid({ members }) {
     <div className="public-league__members">
       {members.map((member) => (
         <div key={member.player_id} className="public-league__member">
-          <div className="public-league__avatar">{member.avatar}</div>
+          <div className="public-league__avatar">
+            {isImageUrl(member.avatar)
+              ? <img src={member.avatar} alt={member.full_name} className="public-league__avatar-img" />
+              : <span className="public-league__avatar-initials">{member.avatar || member.full_name?.charAt(0)}</span>
+            }
+          </div>
           <Link href={`/player/${member.player_id}/${slugify(member.full_name)}`} className="public-league__player-link public-league__member-name">
             {member.full_name}
           </Link>

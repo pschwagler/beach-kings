@@ -16,6 +16,8 @@ on:
         default: false
         type: boolean
 
+permissions: {}
+
 concurrency:
   group: dev-deploy
   cancel-in-progress: true
@@ -87,31 +89,31 @@ jobs:
 
             echo "=== Writing .env ==="
             cat > .env <<'ENVEOF'
-            ENV=staging
-            ENABLE_SMS=false
-            ENABLE_EMAIL=false
-            POSTGRES_USER=beachkings
-            POSTGRES_PASSWORD=${{ secrets.DEV_POSTGRES_PASSWORD }}
-            POSTGRES_DB=beachkings
-            POSTGRES_HOST=postgres
-            POSTGRES_PORT=5432
-            JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
-            JWT_EXPIRATION_HOURS=72
-            NEXT_PUBLIC_BASE_URL=https://dev.beachleaguevb.com
-            NEXT_PUBLIC_API_URL=
-            TWILIO_ACCOUNT_SID=
-            TWILIO_AUTH_TOKEN=
-            TWILIO_PHONE_NUMBER=
-            SENDGRID_API_KEY=
-            SENDGRID_FROM_EMAIL=noreply@beachleaguevb.com
-            ADMIN_EMAIL=admin@beachleaguevb.com
-            GEOAPIFY_API_KEY=
-            CREDENTIALS_JSON=
-            GEMINI_API_KEY=
-            REDIS_HOST=redis
-            REDIS_PORT=6379
-            REDIS_DB=0
-            ENVEOF
+ENV=staging
+ENABLE_SMS=false
+ENABLE_EMAIL=false
+POSTGRES_USER=beachkings
+POSTGRES_PASSWORD=${{ secrets.DEV_POSTGRES_PASSWORD }}
+POSTGRES_DB=beachkings
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
+JWT_EXPIRATION_HOURS=72
+NEXT_PUBLIC_BASE_URL=https://dev.beachleaguevb.com
+NEXT_PUBLIC_API_URL=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=noreply@beachleaguevb.com
+ADMIN_EMAIL=admin@beachleaguevb.com
+GEOAPIFY_API_KEY=
+CREDENTIALS_JSON=
+GEMINI_API_KEY=
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+ENVEOF
 
             echo "=== Pruning old Docker resources ==="
             docker system prune -f --filter "until=48h" || true
@@ -130,24 +132,36 @@ jobs:
 
             echo "=== Health checks ==="
             # Backend health check
+            backend_healthy=false
             for i in $(seq 1 12); do
               if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
                 echo "✅ Backend is healthy"
+                backend_healthy=true
                 break
               fi
               echo "   Waiting for backend... (attempt $i/12)"
               sleep 5
             done
+            if [ "$backend_healthy" = false ]; then
+              echo "❌ Backend failed to become healthy"
+              exit 1
+            fi
 
             # Frontend health check
+            frontend_healthy=false
             for i in $(seq 1 12); do
               if curl -sf http://localhost:3000 > /dev/null 2>&1; then
                 echo "✅ Frontend is healthy"
+                frontend_healthy=true
                 break
               fi
               echo "   Waiting for frontend... (attempt $i/12)"
               sleep 5
             done
+            if [ "$frontend_healthy" = false ]; then
+              echo "❌ Frontend failed to become healthy"
+              exit 1
+            fi
 
             echo ""
             echo "=== Deploy complete ==="

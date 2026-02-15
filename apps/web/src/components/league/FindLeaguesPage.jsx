@@ -105,6 +105,7 @@ export default function FindLeaguesPage() {
 
   // Fetch leagues when filters or pagination change
   useEffect(() => {
+    const controller = new AbortController();
     const fetchLeagues = async () => {
       try {
         setLoading(true);
@@ -113,18 +114,20 @@ export default function FindLeaguesPage() {
           include_joined: showJoinedLeagues,
           page,
           page_size: pageSize,
-        });
+        }, { signal: controller.signal });
         setLeagues(data.items || []);
         setTotalCount(data.total_count || 0);
       } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'CanceledError') return;
         console.error("Error fetching leagues:", err);
         setMessage({ type: "error", text: "Failed to load leagues" });
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchLeagues();
+    return () => controller.abort();
   }, [filters, page, pageSize, showJoinedLeagues]);
 
   // Filter options derived from locations + fixed enums

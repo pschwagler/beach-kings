@@ -1100,6 +1100,132 @@ async def test_get_public_location_match_count(db_session, test_location, test_p
     assert result["stats"]["total_matches"] == 1
 
 
+# ============================================================================
+# search_public_players
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def players_for_search(db_session, test_location, test_user):
+    """Create several players with stats for search tests."""
+    players = []
+    for i, (name, gender, level) in enumerate([
+        ("Alice Johnson", "female", "intermediate"),
+        ("Bob Smith", "male", "advanced"),
+        ("Charlie Brown", "male", "beginner"),
+        ("Diana Prince", "female", "advanced"),
+    ]):
+        p = Player(
+            full_name=name,
+            gender=gender,
+            level=level,
+            location_id=test_location.id,
+        )
+        db_session.add(p)
+        await db_session.commit()
+        await db_session.refresh(p)
+        stats = PlayerGlobalStats(
+            player_id=p.id,
+            total_games=10 + i,
+            total_wins=5 + i,
+            current_rating=1200.0 + i * 50,
+        )
+        db_session.add(stats)
+        players.append(p)
+    await db_session.commit()
+    return players
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_basic(db_session, players_for_search):
+    """Basic search returns all players with games."""
+    result = await public_service.search_public_players(db_session)
+    assert result["total_count"] == 4
+    assert len(result["items"]) == 4
+    assert result["page"] == 1
+    assert result["page_size"] == 25
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_by_name(db_session, players_for_search):
+    """Search by name filters correctly."""
+    result = await public_service.search_public_players(db_session, search="alice")
+    assert result["total_count"] == 1
+    assert result["items"][0]["full_name"] == "Alice Johnson"
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_pagination(db_session, players_for_search):
+    """Pagination returns correct slices."""
+    result = await public_service.search_public_players(db_session, page=1, page_size=2)
+    assert result["total_count"] == 4
+    assert len(result["items"]) == 2
+    assert result["page"] == 1
+    assert result["page_size"] == 2
+
+    result2 = await public_service.search_public_players(db_session, page=2, page_size=2)
+    assert len(result2["items"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_filter_gender(db_session, players_for_search):
+    """Gender filter returns only matching players."""
+    result = await public_service.search_public_players(db_session, gender="female")
+    assert result["total_count"] == 2
+    for item in result["items"]:
+        assert item["gender"] == "female"
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_filter_level(db_session, players_for_search):
+    """Level filter returns only matching players."""
+    result = await public_service.search_public_players(db_session, level="advanced")
+    assert result["total_count"] == 2
+    for item in result["items"]:
+        assert item["level"] == "advanced"
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_like_wildcard_escaping(db_session, test_location):
+    """LIKE wildcards in search are escaped (% and _ don't act as wildcards)."""
+    # Create a player whose name contains a literal %
+    p = Player(full_name="Test%Player", location_id=test_location.id)
+    db_session.add(p)
+    await db_session.commit()
+    await db_session.refresh(p)
+    stats = PlayerGlobalStats(
+        player_id=p.id, total_games=5, total_wins=2, current_rating=1200.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    # Searching for "%" should only match the player with literal % in name
+    result = await public_service.search_public_players(db_session, search="%")
+    assert result["total_count"] == 1
+    assert result["items"][0]["full_name"] == "Test%Player"
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_empty_results(db_session):
+    """Returns empty items when no players match."""
+    result = await public_service.search_public_players(db_session, search="nonexistent")
+    assert result["total_count"] == 0
+    assert result["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_search_public_players_excludes_zero_games(db_session, test_player):
+    """Players with 0 games are excluded from search."""
+    stats = PlayerGlobalStats(
+        player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0
+    )
+    db_session.add(stats)
+    await db_session.commit()
+
+    result = await public_service.search_public_players(db_session)
+    assert result["total_count"] == 0
+
+
 @pytest.mark.asyncio
 async def test_get_public_location_no_region(db_session):
     """Location without a region returns region=None."""

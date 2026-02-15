@@ -4498,14 +4498,19 @@ async def upload_avatar(
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
 
-        # Process the image (crop, resize, compress)
-        processed_bytes = avatar_service.process_avatar(file_bytes)
+        # Process the image (crop, resize, compress) — CPU-bound, run off event loop
+        loop = asyncio.get_event_loop()
+        processed_bytes = await loop.run_in_executor(
+            None, avatar_service.process_avatar, file_bytes
+        )
 
         # Save old URL for cleanup after successful DB update
         old_url = player.get("profile_picture_url")
 
-        # Upload new avatar to S3 first
-        new_url = s3_service.upload_avatar(player["id"], processed_bytes)
+        # Upload new avatar to S3 first — blocking I/O, run off event loop
+        new_url = await loop.run_in_executor(
+            None, s3_service.upload_avatar, player["id"], processed_bytes
+        )
 
         # Update player record in DB
         result = await session.execute(
@@ -4519,15 +4524,15 @@ async def upload_avatar(
 
         # Delete old avatar from S3 only after DB commit succeeds (best-effort)
         if old_url:
-            s3_service.delete_avatar(old_url)
+            await loop.run_in_executor(None, s3_service.delete_avatar, old_url)
 
         return {"profile_picture_url": new_url}
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading avatar: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error uploading avatar: {str(e)}")
+        logger.error(f"Error uploading avatar: {e}")
+        raise HTTPException(status_code=500, detail="Error uploading avatar")
 
 
 @router.delete("/api/users/me/avatar")
@@ -4548,10 +4553,11 @@ async def delete_avatar(
         if not player:
             raise HTTPException(status_code=404, detail="Player profile not found")
 
-        # Delete from S3 if exists
+        # Delete from S3 if exists — blocking I/O, run off event loop
+        loop = asyncio.get_event_loop()
         old_url = player.get("profile_picture_url")
         if old_url:
-            s3_service.delete_avatar(old_url)
+            await loop.run_in_executor(None, s3_service.delete_avatar, old_url)
 
         # Clear avatar columns — revert to initials
         result = await session.execute(
@@ -4559,11 +4565,7 @@ async def delete_avatar(
         )
         player_obj = result.scalar_one_or_none()
         if player_obj:
-            # Regenerate initials from full_name
-            initials = ""
-            if player_obj.full_name:
-                parts = player_obj.full_name.strip().split()
-                initials = "".join(p[0].upper() for p in parts[:2] if p)
+            initials = data_service.generate_player_initials(player_obj.full_name or "")
             player_obj.profile_picture_url = None
             player_obj.avatar = initials or None
             await session.commit()
@@ -4573,8 +4575,8 @@ async def delete_avatar(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting avatar: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error deleting avatar: {str(e)}")
+        logger.error(f"Error deleting avatar: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting avatar")
 
 
 @router.get("/api/users/me/leagues")

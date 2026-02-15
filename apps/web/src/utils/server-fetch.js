@@ -30,6 +30,7 @@ export async function fetchBackend(path, options = {}) {
   try {
     res = await fetch(url, {
       next: { revalidate },
+      signal: AbortSignal.timeout(10000),
       headers: {
         'Content-Type': 'application/json',
         ...headers,

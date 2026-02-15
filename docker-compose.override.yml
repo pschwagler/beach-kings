@@ -1,0 +1,6 @@
+# Development overrides — automatically merged by Docker Compose.
+# Exposes debugpy port for remote debugging.
+services:
+  backend:
+    ports:
+      - "${DEBUGPY_PORT:-5678}:5678"

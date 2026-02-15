@@ -6,6 +6,7 @@ import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { slugify } from '../../utils/slugify';
+import { isImageUrl } from '../../utils/avatar';
 import './PublicLocationPage.css';
 
 /**
@@ -113,7 +114,10 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
                 href={`/player/${player.id}/${slugify(player.full_name)}`}
                 className="public-location__player-row"
               >
-                <div className="public-location__player-avatar">{player.avatar}</div>
+                {isImageUrl(player.avatar)
+                  ? <img src={player.avatar} alt={player.full_name} className="public-location__player-avatar" />
+                  : <div className="public-location__player-avatar">{player.avatar || player.full_name?.charAt(0)}</div>
+                }
                 <div className="public-location__player-info">
                   <span className="public-location__player-name">{player.full_name}</span>
                   <span className="public-location__player-stats">

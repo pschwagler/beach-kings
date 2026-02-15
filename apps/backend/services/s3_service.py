@@ -13,21 +13,26 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-# Configuration from environment
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET")
-AWS_S3_REGION = os.getenv("AWS_S3_REGION", "us-west-2")
-
 # Lazy-initialized S3 client
 _s3_client = None
+
+
+def _get_config():
+    """Read S3 configuration from environment at call time (not import time)."""
+    return {
+        "access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+        "secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+        "bucket": os.getenv("AWS_S3_BUCKET"),
+        "region": os.getenv("AWS_S3_REGION", "us-west-2"),
+    }
 
 
 def _get_s3_client():
     """Get or create the boto3 S3 client. Lazy-imports boto3 to avoid import-time dependency."""
     global _s3_client
     if _s3_client is None:
-        if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET]):
+        cfg = _get_config()
+        if not all([cfg["access_key_id"], cfg["secret_access_key"], cfg["bucket"]]):
             raise ValueError(
                 "AWS S3 environment variables not configured. "
                 "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET."
@@ -36,9 +41,9 @@ def _get_s3_client():
 
         _s3_client = boto3.client(
             "s3",
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-            region_name=AWS_S3_REGION,
+            aws_access_key_id=cfg["access_key_id"],
+            aws_secret_access_key=cfg["secret_access_key"],
+            region_name=cfg["region"],
         )
     return _s3_client
 
@@ -58,17 +63,20 @@ def upload_avatar(player_id: int, image_bytes: bytes) -> str:
         Public URL of the uploaded avatar
     """
     client = _get_s3_client()
+    cfg = _get_config()
+    bucket = cfg["bucket"]
+    region = cfg["region"]
     timestamp = int(time.time())
     key = f"avatars/{player_id}/{timestamp}.jpg"
 
     client.put_object(
-        Bucket=AWS_S3_BUCKET,
+        Bucket=bucket,
         Key=key,
         Body=image_bytes,
         ContentType="image/jpeg",
     )
 
-    url = f"https://{AWS_S3_BUCKET}.s3.{AWS_S3_REGION}.amazonaws.com/{key}"
+    url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
     logger.info(f"Uploaded avatar for player {player_id}: {key}")
     return url
 
@@ -85,12 +93,14 @@ def delete_avatar(url: str) -> bool:
     """
     try:
         client = _get_s3_client()
-        key = _extract_key_from_url(url)
+        cfg = _get_config()
+        bucket = cfg["bucket"]
+        key = _extract_key_from_url(url, bucket)
         if not key:
             logger.warning(f"Could not extract S3 key from URL: {url}")
             return False
 
-        client.delete_object(Bucket=AWS_S3_BUCKET, Key=key)
+        client.delete_object(Bucket=bucket, Key=key)
         logger.info(f"Deleted avatar from S3: {key}")
         return True
     except Exception as e:
@@ -98,21 +108,35 @@ def delete_avatar(url: str) -> bool:
         return False
 
 
-def _extract_key_from_url(url: str) -> Optional[str]:
+def _extract_key_from_url(url: str, expected_bucket: Optional[str] = None) -> Optional[str]:
     """
     Extract the S3 object key from a full S3 URL.
+
+    Validates that the URL hostname matches the expected S3 bucket before
+    extracting the key.
 
     Handles URLs like:
       https://bucket.s3.region.amazonaws.com/avatars/123/456.jpg
 
     Args:
         url: Full S3 URL
+        expected_bucket: Expected S3 bucket name for hostname validation
 
     Returns:
-        Object key string or None if parsing fails
+        Object key string or None if parsing fails or hostname doesn't match
     """
     try:
         parsed = urlparse(url)
+
+        # Validate hostname contains expected bucket if provided
+        if expected_bucket and parsed.hostname:
+            if expected_bucket not in parsed.hostname:
+                logger.warning(
+                    f"URL hostname '{parsed.hostname}' does not match "
+                    f"expected bucket '{expected_bucket}'"
+                )
+                return None
+
         # Remove leading slash from path
         key = parsed.path.lstrip("/")
         return key if key else None

@@ -4,6 +4,7 @@
  * @returns {string} Slugified text (e.g. "john-doe")
  */
 export function slugify(text) {
+  if (!text) return '';
   return text
     .toLowerCase()
     .trim()

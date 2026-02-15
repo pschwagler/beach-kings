@@ -5,13 +5,8 @@ import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
+import { isImageUrl } from '../../utils/avatar';
 import './PublicPlayerPage.css';
-
-/** Check whether an avatar value is an image URL (vs. initials text). */
-const isImageUrl = (avatar) => {
-  if (!avatar) return false;
-  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
-};
 
 /**
  * Public player profile page for SEO and unauthenticated visitors.
