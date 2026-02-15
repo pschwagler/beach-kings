@@ -53,7 +53,7 @@ def test_search_players_with_filters(mock_search, client):
     mock_search.assert_called_once()
     call_kwargs = mock_search.call_args
     # Verify params were passed through
-    assert call_kwargs.kwargs.get("search") == "alice" or call_kwargs[1].get("search") == "alice"
+    assert call_kwargs.kwargs.get("search") == "alice"
 
 
 def test_search_players_invalid_page(client):

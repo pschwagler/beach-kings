@@ -50,8 +50,8 @@ async def sitemap_leagues(session: AsyncSession = Depends(get_db_session)):
     """
     try:
         return await public_service.get_sitemap_leagues(session)
-    except Exception as e:
-        logger.error(f"Error fetching sitemap leagues: {e}")
+    except Exception:
+        logger.error("Error fetching sitemap leagues", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -65,8 +65,8 @@ async def sitemap_players(session: AsyncSession = Depends(get_db_session)):
     """
     try:
         return await public_service.get_sitemap_players(session)
-    except Exception as e:
-        logger.error(f"Error fetching sitemap players: {e}")
+    except Exception:
+        logger.error("Error fetching sitemap players", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -80,8 +80,8 @@ async def sitemap_locations(session: AsyncSession = Depends(get_db_session)):
     """
     try:
         return await public_service.get_sitemap_locations(session)
-    except Exception as e:
-        logger.error(f"Error fetching sitemap locations: {e}")
+    except Exception:
+        logger.error("Error fetching sitemap locations", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
