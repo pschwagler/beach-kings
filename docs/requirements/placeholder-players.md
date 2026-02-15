@@ -1,7 +1,7 @@
 # Feature: Placeholder Players & Invite-to-Claim Flow
 
 **Date:** 2026-02-15
-**Status:** In Progress (Epic 1 complete)
+**Status:** In Progress (Epics 1-6 complete)
 
 ## Problem Statement
 
@@ -316,85 +316,110 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 
 ---
 
-### Epic 2: Backend — Placeholder CRUD
+### Epic 2: Backend — Placeholder CRUD ✅
 > Create, list, delete, and search placeholder players. The core backend for the inline creation flow.
 
-- [ ] **2.1** `POST /api/players/placeholder` — create placeholder player + invite token. Accept `name`, optional `phone_number`, optional `league_id`. If `league_id` provided, create `LeagueMember` with role `"placeholder"`
-- [ ] **2.2** `GET /api/players/placeholder` — list current user's created placeholders with invite status, match count, phone
-- [ ] **2.3** `DELETE /api/players/placeholder/{player_id}` — creator-only. Replace placeholder with Unknown Player in all matches (update all 4 player FK columns where they match). Invalidate invite. Delete placeholder's `LeagueMember` rows. Recalculate affected session/league stats. Return count of affected matches.
-- [ ] **2.4** Modify player search/list endpoints — include placeholders scoped by context (league_id, session_id, or created_by). Add `is_placeholder` flag to player response DTOs.
-- [ ] **2.5** Modify `POST /api/matches` — when any of the 4 player IDs is a placeholder (`is_placeholder=true`), force `is_ranked=false` on the created match regardless of the request payload
-- [ ] **2.6** Unit tests for all CRUD operations, scoping logic, is_ranked enforcement
+- [x] **2.1** `POST /api/players/placeholder` — create placeholder player + invite token. Accept `name`, optional `phone_number`, optional `league_id`. If `league_id` provided, create `LeagueMember` with role `"placeholder"`
+- [x] **2.2** `GET /api/players/placeholder` — list current user's created placeholders with invite status, match count, phone
+- [x] **2.3** `DELETE /api/players/placeholder/{player_id}` — creator-only. Replace placeholder with Unknown Player in all matches (update all 4 player FK columns where they match). Invalidate invite. Delete placeholder's `LeagueMember` rows. Recalculate affected session/league stats. Return count of affected matches.
+- [x] **2.4** Modify player search/list endpoints — include placeholders scoped by context (league_id, session_id, or created_by). Add `is_placeholder` flag to player response DTOs.
+- [x] **2.5** Modify `POST /api/matches` — when any of the 4 player IDs is a placeholder (`is_placeholder=true`), force `is_ranked=false` on the created match regardless of the request payload
+- [x] **2.6** Unit tests for all CRUD operations, scoping logic, is_ranked enforcement (27 tests in `test_placeholder_crud.py`)
+
+**Implementation notes:**
+- Service layer: `placeholder_service.py` — `create_placeholder`, `list_placeholders`, `delete_placeholder`, `check_match_has_placeholders`
+- Player search scoping: `list_players_search` in `data_service.py` supports `include_placeholders_for_player_id` + `session_id` params
+- All 445 backend tests pass (27 new + 418 existing, 0 regressions)
 
 **Depends on:** Epic 1
 **Unlocks:** Epic 4
 
 ---
 
-### Epic 3: Backend — Claim & Merge
+### Epic 3: Backend — Claim & Merge ✅
 > The most complex backend epic. Handles linking, merging, ELO backfill, and notifications.
 
-- [ ] **3.1** `GET /api/invites/{token}` — public endpoint. Return inviter name, placeholder name, match count, league names, status. Limit data exposure (no scores, no opponent names).
-- [ ] **3.2** `POST /api/invites/{token}/claim` — core claim logic:
-  - Verify token is `pending`
-  - **No existing player**: set `user_id` on placeholder, set `is_placeholder=false`, update `full_name` to match user's registered name
-  - **Has existing player (merge)**: update all match FKs (check all 4 player columns + `created_by`), update `session_participants`, transfer or clean up `LeagueMember` rows, delete placeholder record
-  - Conflict detection: if claiming user already appears in a match alongside the placeholder, skip that match (leave placeholder in place) and return a warning
-  - Flip `is_ranked=true` on matches where all 4 players are now non-placeholder
-  - Update invite status to `claimed`
-  - Enqueue global stats recalculation + per-league recalculation for each affected league
-  - Create `PLACEHOLDER_CLAIMED` notification for the invite creator
-- [ ] **3.3** Data service helper: `merge_placeholder_into_player(session, placeholder_id, target_player_id)` — encapsulates all FK updates, membership transfers, and cleanup in a single transaction
-- [ ] **3.4** Data service helper: `flip_ranked_status_for_resolved_matches(session, player_id)` — find matches that previously had a placeholder but now all 4 players are linked, set `is_ranked=true`
-- [ ] **3.5** Unit tests: claim (new user), claim (merge), partial claim with conflict, ranked flip, league membership transfer, notification creation, stats recalc enqueued
+- [x] **3.1** `GET /api/invites/{token}` — public endpoint. Return inviter name, placeholder name, match count, league names, status. Limit data exposure (no scores, no opponent names).
+- [x] **3.2** `POST /api/invites/{token}/claim` — core claim logic (all paths implemented)
+- [x] **3.3** Data service helper: `merge_placeholder_into_player(session, placeholder_id, target_player_id)` — encapsulates all FK updates, membership transfers, and cleanup in a single transaction
+- [x] **3.4** Data service helper: `flip_ranked_status_for_resolved_matches(session, player_id)` — find matches that previously had a placeholder but now all 4 players are linked, set `is_ranked=true`
+- [x] **3.5** Unit tests: 27 tests in `test_placeholder_claim.py` — covers all claim/merge paths, conflicts, ranked flip, league membership transfer, notification creation, stats recalc
+
+**Implementation notes:**
+- All claim/merge logic in `placeholder_service.py` (`claim_invite`, `merge_placeholder_into_player`, `flip_ranked_status_for_resolved_matches`, `get_invite_details`)
+- Conflict detection: merge skips matches where both placeholder and target appear; returns warnings
+- Stats recalc enqueued via `stats_queue` for global + per-league
+- Notification: `PLACEHOLDER_CLAIMED` type created for invite creator
 
 **Depends on:** Epic 1
 **Unlocks:** Epic 6
 
 ---
 
-### Epic 4: Frontend — Inline Creation & Match Flow
+### Epic 4: Frontend — Inline Creation & Match Flow ✅
 > The primary UX change users will see first. Modifies the match creation flow.
 
-- [ ] **4.1** `PlaceholderBadge` component — small "Pending" tag using existing badge pattern (`var(--gray-200)` bg, `var(--ocean-gray)` text, 12px border-radius)
-- [ ] **4.2** Modify `PlayerDropdown` — when search text has no matches, show an "Add [typed name]" option at bottom with `+` icon and muted styling. On select, call `POST /api/players/placeholder`. After creation, select the new placeholder in the dropdown.
-- [ ] **4.3** `PhoneNumberPrompt` component — inline prompt below dropdown after placeholder creation. Text input + "Save" / "Skip" buttons. Calls `PATCH` on the invite to store phone. Dismissible, not blocking.
-- [ ] **4.4** Modify `AddMatchModal` — after submitting a match with placeholder(s), show a toast per placeholder with "Copy Invite Link" button. Auto-dismiss after 10s.
-- [ ] **4.5** Modify `MatchCard` / match display — show `PlaceholderBadge` next to placeholder player names. Requires player response to include `is_placeholder`.
-- [ ] **4.6** Add `createPlaceholderPlayer`, `listPlaceholderPlayers`, `deletePlaceholderPlayer` to `api.js` service layer
-- [ ] **4.7** Wire up scoped placeholder loading in `usePlayerMappings` / `usePickupSession` hooks — pass `league_id` or `session_id` to search endpoint so placeholders appear in dropdown
+- [x] **4.1** `PlaceholderBadge` component — small "Pending" tag (`var(--gray-200)` bg, `var(--ocean-gray)` text, 8px border-radius). File: `components/player/PlaceholderBadge.jsx`
+- [x] **4.2** Modify `PlayerDropdown` — "Add [typed name]" option at bottom with `+` icon when search yields no results (min 2 chars). Accepts `onCreatePlaceholder` async callback. Shows `PlaceholderBadge` next to placeholder players in list. Keyboard nav (ArrowDown/Enter) works with the create option.
+- [ ] **4.3** `PhoneNumberPrompt` component — **DEFERRED**. Requires a `PATCH /api/invites/{id}` endpoint that doesn't exist yet. Phone can be passed during creation via the existing `POST` endpoint; the inline prompt UX will be added in a follow-up.
+- [x] **4.4** Modify `AddMatchModal` — after submitting a match with placeholder(s), show a toast per placeholder with "Copy Link" button. Auto-dismiss after 10s. Uses new `Toast` / `ToastContainer` / `useToasts` components. Local `localPlaceholders` state merged into `playerOptions` via `usePlayerMappings`.
+- [x] **4.5** Modify `MatchCard` — show `PlaceholderBadge` next to placeholder player names using `IsPlaceholder` flags in display format.
+- [x] **4.6** Add `createPlaceholderPlayer`, `listPlaceholderPlayers`, `deletePlaceholderPlayer`, `getInviteDetails`, `claimInvite` to `api.js` service layer.
+- [x] **4.7** Wire up placeholder display in `usePlayerMappings` (carries `isPlaceholder` flag, merges `localPlaceholders`), `usePickupSession` (builds `placeholderPlayerIds` set for match transforms), and `LeagueMatchesTab` (passes `placeholderPlayerIds` to `transformMatchData`).
+
+**Implementation notes:**
+- Backend: Added `is_placeholder` to `list_league_members` and `get_session_participants` responses
+- New reusable `Toast` component: `components/ui/Toast.jsx` (Toast, ToastContainer, useToasts hook)
+- `matchUtils.js`: Added `buildPlaceholderIdSet()` helper and optional `placeholderPlayerIds` param to `transformMatchData` / `sessionMatchToDisplayFormat`
+- All 445 backend tests pass, frontend build compiles cleanly
 
 **Depends on:** Epic 2
 **Unlocks:** can be used independently (placeholders work without claim flow)
 
 ---
 
-### Epic 5: Frontend — Invite Landing & Claim Flow
+### Epic 5: Frontend — Invite Landing & Claim Flow ✅
 > The invited person's experience — from clicking the link to claiming their matches.
 
-- [ ] **5.1** `InviteLandingPage` at `pages/invite/[token].jsx` — public page. Calls `GET /api/invites/{token}`. Shows: Beach Kings logo, inviter name, match count, league names. Three states:
-  - **Not logged in**: "Sign Up" + "Log In" CTAs
-  - **Logged in**: "Claim These Matches" button + confirmation
-  - **Already claimed**: "These matches have already been claimed" message
-- [ ] **5.2** Auth flow integration — pass invite token as URL param through signup/login. Store token in sessionStorage during auth flow. After successful auth/verification, redirect to `/invite/{token}` for confirmation + claim.
-- [ ] **5.3** Claim confirmation UI — after auth (or if already logged in), show match count + "Claim these X matches as yours?" with Confirm/Cancel. On confirm, call `POST /api/invites/{token}/claim`. Show success state with link to "View Your Matches".
-- [ ] **5.4** Handle claim response warnings — if some matches had conflicts (claiming user already in match), show a clear message listing the conflicting matches
-- [ ] **5.5** Add Navbar to InviteLandingPage (per project rules — every page must include Navbar)
+- [x] **5.1** `InviteLandingPage` at `app/invite/[token]/page.jsx` — public page. Calls `GET /api/invites/{token}`. Shows: Beach Kings logo, inviter name, match count, league names. States: not logged in (Sign Up / Log In CTAs), logged in (Claim My Matches), already claimed (info message), loading (skeleton), error (invalid token), claiming (spinner), success (checkmark + warnings), claim error (retry).
+- [x] **5.2** Auth flow integration — uses global `AuthModal` via `useAuthModal()` context. No sessionStorage, URL params, or redirects needed. User stays on `/invite/[token]` throughout — after auth completes, `isAuthenticated` flips true reactively, page re-renders to show claim UI. Profile-completion modal suppressed via no-op `onVerifySuccess` callback.
+- [x] **5.3** Claim confirmation UI — authenticated users see invite context + "Claim My Matches" button + Cancel. On confirm, calls `POST /api/invites/{token}/claim`. Success state shows checkmark + message + "Go to Home" button.
+- [x] **5.4** Handle claim response warnings — if `claimResult.warnings` is non-empty, a `var(--sun-gold-light)` warning box displays the list of issues (e.g., conflicting matches).
+- [x] **5.5** NavBar always rendered on InviteLandingPage. Shows unauthenticated state (Sign In/Sign Up) or authenticated state with user leagues. Same pattern as landing page.
+
+**Implementation notes:**
+- Single `'use client'` component at `app/invite/[token]/page.jsx` using Next.js App Router dynamic segments
+- State machine: `pageState` (loading → loaded | error), `claimState` (idle → claiming → success | error), plus `invite.status` and `isAuthenticated`
+- Reuses global `AuthModal` from `ClientProviders` — no per-page modal rendering needed
+- `openAuthModal('sign-up', noOpVerifySuccess)` suppresses profile-completion modal after signup
+- CSS: BEM-style `.invite-page` block with ~170 lines in App.css. Mobile-first, max-width 480px card. Uses design tokens exclusively (no hard-coded colors).
+- Loading skeleton with pulse animation, inline spinner for claiming state
+- Warning box uses `var(--sun-gold-light)` background for claim conflict display
 
 **Depends on:** Epic 3
 **Unlocks:** Epic 6
 
 ---
 
-### Epic 6: Frontend — Profile Management
-> The "Pending Invites" section for managing created placeholders.
+### Epic 6: Frontend — Profile Management ✅
+> Dedicated "Pending Invites" tab for managing created placeholders.
 
-- [ ] **6.1** `PendingInvitesSection` component — card list. Each card: initials avatar, name, phone (if any), "X matches" badge, created date, status (pending/claimed). Actions: "Copy Link" button, "Delete" button.
-- [ ] **6.2** Delete confirmation dialog — warns "This will replace [name] with 'Unknown Player' in X matches. These matches will become permanently unranked. This cannot be undone." Confirm/Cancel.
-- [ ] **6.3** Integrate into `ProfilePage` — add section below existing profile content. Only shown if user has created any placeholders (pending or claimed).
-- [ ] **6.4** Copy link interaction — copies invite URL to clipboard, shows brief "Copied!" feedback
+- [x] **6.1** `PendingInvitesTab` component — card list. Each card: initials avatar, name, phone (if any), "X matches" badge, created date. Actions: "Copy Link" button, "Delete" button. Loading/empty/error states.
+- [x] **6.2** Delete confirmation using existing `ConfirmationModal` (danger variant) — warns "This will replace [name] with 'Unknown Player' in X matches. Those matches will become permanently unranked. This cannot be undone." Confirm/Cancel.
+- [x] **6.3** Integrated as its own tab in the Home dashboard — accessible via desktop sidebar (secondary items) and mobile "More" menu. Shows only pending invites (claimed placeholders become normal players, so no toggle needed until OQ-1 is resolved).
+- [x] **6.4** Copy link interaction — `navigator.clipboard.writeText()` with inline "Copied!" button feedback (2s) and toast fallback on error.
+
+**Implementation notes:**
+- Component: `components/home/PendingInvitesTab.jsx` — standalone tab (not embedded in ProfileTab)
+- Navigation: added `invites` tab to `HomeMenuBar` items (desktop sidebar + More menu on mobile)
+- CSS: BEM `.pending-invites__*` classes in App.css (~150 lines), mobile-responsive at 480px breakpoint
+- Reuses: `ConfirmationModal`, `Button` (outline/ghost variants), `Toast`/`useToasts`
+- Design decision: own tab (not profile section) keeps ProfileTab focused; matches Friends/Notifications pattern
+- Design decision: pending-only view (no claimed toggle) since claimed placeholders are either adopted or merged+deleted (OQ-1)
+- Frontend build compiles cleanly, no regressions
 
 **Depends on:** Epics 2 + 5 (needs placeholder CRUD + claim status to display correctly)
+**Unlocks:** Epic 7
 
 ---
 
@@ -440,4 +465,4 @@ Epics 2+3 can be built in parallel (both only depend on Epic 1). Epics 4+5 can s
 
 **Recommendation:** Change the merge function to **not delete the placeholder** when it has an associated invite. Instead, mark it with a `status="merged"` or similar, and set `is_placeholder=False`, `user_id=NULL`. This preserves the invite chain (`PlayerInvite` → `Player`) for auditing while removing the placeholder from active use. Alternatively, move the invite FK to `ondelete="SET NULL"` so the invite survives placeholder deletion — but a dangling invite with no player is less useful than a preserved-but-inactive placeholder.
 
-**Decision:** TBD
+**Decision:** Deferred to Epic 5 or 7. Does not block frontend work — the invite data is available during the claim transaction before commit. Recommended fix: repoint `PlayerInvite.player_id` to the target player before deleting the placeholder in the merge path, so the CASCADE doesn't fire.

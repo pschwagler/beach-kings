@@ -1020,6 +1020,7 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "player_level": player_level,
             "player_avatar": player_avatar or generate_player_initials(player_name or ""),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
+            "is_placeholder": member.role == "placeholder",
         }
         for member, player_name, player_nickname, player_level, player_avatar in rows
     ]
@@ -4118,6 +4119,14 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
+
+    # Look up which players are placeholders
+    placeholder_q = select(Player.id).where(
+        and_(Player.id.in_(part_player_ids), Player.is_placeholder.is_(True))
+    )
+    placeholder_result = await db_session.execute(placeholder_q)
+    placeholder_ids = {row[0] for row in placeholder_result.all()}
+
     return [
         {
             "player_id": r.id,
@@ -4125,6 +4134,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             "level": r.level,
             "gender": r.gender,
             "location_name": r.location_name,
+            "is_placeholder": r.id in placeholder_ids,
         }
         for r in rows
     ]

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -113,6 +113,15 @@ export default function HomeMenuBar({ activeTab }) {
       className: 'find-players-menu-item-desktop',
     },
     {
+      id: 'invites',
+      label: 'Pending Invites',
+      icon: UserPlus,
+      active: activeTab === 'invites',
+      onClick: () => handleTabChange('invites'),
+      title: 'Pending Invites',
+      className: 'pending-invites-menu-item-desktop',
+    },
+    {
       id: 'more',
       label: 'More',
       icon: Menu,
@@ -195,6 +204,20 @@ export default function HomeMenuBar({ activeTab }) {
                   >
                     <UserSearch size={18} />
                     <span>Find Players</span>
+                  </button>
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTabChange('invites');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="Pending Invites"
+                    type="button"
+                  >
+                    <UserPlus size={18} />
+                    <span>Pending Invites</span>
                   </button>
                 </div>
               </div>,

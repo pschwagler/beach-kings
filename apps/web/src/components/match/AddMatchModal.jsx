@@ -8,6 +8,8 @@ import ConfirmationModal from '../modal/ConfirmationModal';
 import { useMatchFormReducer } from './useMatchFormReducer';
 import { nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
 import { formatScore } from '../../utils/matchValidation';
+import { createPlaceholderPlayer } from '../../services/api';
+import { ToastContainer, useToasts } from '../ui/Toast';
 
 // Import custom hooks
 import { useLeagueSeasonSelection } from './hooks/useLeagueSeasonSelection';
@@ -48,6 +50,8 @@ export default function AddMatchModal({
 }) {
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
+  const [localPlaceholders, setLocalPlaceholders] = useState([]);
+  const [toasts, addToast, dismissToast] = useToasts();
   
   // Use custom hooks - sessionOnly forces non-league with session_id only
   const leagueSeasonSelection = useLeagueSeasonSelection({
@@ -107,8 +111,8 @@ export default function AddMatchModal({
   const team1ScoreRef = useRef(null);
   const team2ScoreRef = useRef(null);
 
-  // Use player mappings hook
-  const playerMappings = usePlayerMappings({ members, allPlayerNames });
+  // Use player mappings hook (includes locally created placeholders)
+  const playerMappings = usePlayerMappings({ members, allPlayerNames, localPlaceholders });
   const { playerOptions, playerNameToIdMap, getPlayerId } = playerMappings;
 
   // Use form handlers hook
@@ -121,6 +125,32 @@ export default function AddMatchModal({
     team1ScoreRef
   });
   const { handleScoreChange, handlePlayerChange } = formHandlers;
+
+  /**
+   * Create a placeholder player inline from the dropdown.
+   * Returns a player option for immediate selection.
+   */
+  const handleCreatePlaceholder = useCallback(async (name) => {
+    const leagueId = (matchType === 'league' && selectedLeagueId) ? selectedLeagueId : undefined;
+    const response = await createPlaceholderPlayer({
+      name,
+      league_id: leagueId,
+    });
+    const newPlaceholder = {
+      player_id: response.player_id,
+      name: response.name,
+      invite_token: response.invite_token,
+      invite_url: response.invite_url,
+    };
+    setLocalPlaceholders(prev => [...prev, newPlaceholder]);
+    return {
+      value: response.player_id,
+      label: response.name,
+      isPlaceholder: true,
+      inviteToken: response.invite_token,
+      inviteUrl: response.invite_url,
+    };
+  }, [matchType, selectedLeagueId]);
 
   // Reset match type and ranked state when modal opens/closes
   useEffect(() => {
@@ -206,12 +236,30 @@ export default function AddMatchModal({
 
       await onSubmit(matchPayload, editMatch ? editMatch.id : null);
 
+      // Collect placeholder players from this match for invite link toasts
+      const selectedPlayers = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
+      const placeholdersInMatch = selectedPlayers.filter(p => p && p.isPlaceholder && p.inviteUrl);
+
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
         dispatchForm({ type: 'RESET' });
       }
-      
+
       onClose();
+
+      // Show invite link toasts for placeholder players after modal closes
+      for (const ph of placeholdersInMatch) {
+        const copyLink = () => {
+          navigator.clipboard.writeText(ph.inviteUrl).catch(() => {});
+        };
+        addToast(
+          `Send invite link to ${ph.label}`,
+          {
+            action: <button onClick={copyLink}>Copy Link</button>,
+            duration: 10000,
+          }
+        );
+      }
     } catch (error) {
       console.error('Error submitting match:', error);
       setFormError('Failed to submit game. Please try again.');
@@ -438,6 +486,7 @@ export default function AddMatchModal({
               scoreRef={team1ScoreRef}
               nextScoreRef={team2ScoreRef}
               autoOpenFirstPlayer={shouldAutoOpen}
+              onCreatePlaceholder={handleCreatePlaceholder}
             />
 
             <div className="vs-divider-column">VS</div>
@@ -459,6 +508,7 @@ export default function AddMatchModal({
               player2Ref={team2Player2Ref}
               scoreRef={team2ScoreRef}
               nextScoreRef={null}
+              onCreatePlaceholder={handleCreatePlaceholder}
             />
           </div>
 
@@ -492,6 +542,7 @@ export default function AddMatchModal({
         confirmText="Delete"
         cancelText="Cancel"
       />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
@@ -652,16 +703,16 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
 }
 
 // Internal component to reduce duplication
-function TeamSection({ 
-  teamNumber, 
-  player1Value, 
-  player2Value, 
+function TeamSection({
+  teamNumber,
+  player1Value,
+  player2Value,
   scoreValue,
   player1Field,
   player2Field,
   scoreField,
-  isWinner, 
-  onPlayerChange, 
+  isWinner,
+  onPlayerChange,
   onScoreChange,
   allPlayerNames,
   getExcludedPlayers,
@@ -669,7 +720,8 @@ function TeamSection({
   player2Ref,
   scoreRef,
   nextScoreRef,
-  autoOpenFirstPlayer = false
+  autoOpenFirstPlayer = false,
+  onCreatePlaceholder = null,
 }) {
   return (
     <div className={`team-section ${isWinner ? 'is-winner' : ''}`} data-testid={`team-${teamNumber}-section`}>
@@ -692,6 +744,7 @@ function TeamSection({
               placeholder="Player 1"
               excludePlayers={getExcludedPlayers(player1Value)}
               autoOpen={autoOpenFirstPlayer}
+              onCreatePlaceholder={onCreatePlaceholder}
             />
           </div>
           <div ref={player2Ref}>
@@ -701,6 +754,7 @@ function TeamSection({
               allPlayerNames={allPlayerNames || []}
               placeholder="Player 2"
               excludePlayers={getExcludedPlayers(player2Value)}
+              onCreatePlaceholder={onCreatePlaceholder}
             />
           </div>
         </div>

@@ -7,7 +7,7 @@ import { useLeague } from '../../contexts/LeagueContext';
 import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
-import { transformMatchData } from './utils/matchUtils';
+import { transformMatchData, buildPlaceholderIdSet } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
@@ -76,6 +76,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     refreshMatchData
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
+
+  // Build set of placeholder player IDs for match display badges
+  const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
 
   // Build player name mappings from members only (members have player_id and player_name from API)
   const { allPlayerNames, playerNameToId, playerIdToName, getPlayerIdFromMap } = useMemo(() => {
@@ -170,8 +173,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       // This allows the add matches card to show for seasons with no matches
       return [];
     }
-    return transformMatchData(matchesData);
-  }, [selectedSeasonData]);
+    return transformMatchData(matchesData, placeholderPlayerIds);
+  }, [selectedSeasonData, placeholderPlayerIds]);
 
   const sessionEditing = useSessionEditing({
     matches,
@@ -368,8 +371,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       return null; // Data loaded but no matches property yet
     }
     
-    return transformMatchData(matchesData);
-  }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap]);
+    return transformMatchData(matchesData, placeholderPlayerIds);
+  }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap, placeholderPlayerIds]);
 
   const handleCreateSeasonSuccess = async () => {
     await refreshSeasons();
