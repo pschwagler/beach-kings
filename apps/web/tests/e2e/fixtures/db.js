@@ -2,12 +2,33 @@ import pg from 'pg';
 const { Client } = pg;
 
 /**
- * Get a database connection for testing
+ * Validate that a connection string targets a test database.
+ * Throws if the database name does not contain "test".
+ *
+ * @param {string} connectionString - PostgreSQL connection URL
+ */
+function assertTestDatabase(connectionString) {
+  // Extract DB name: last path segment, strip query params
+  const dbName = connectionString.split('/').pop().split('?')[0];
+  if (!dbName || !dbName.toLowerCase().includes('test')) {
+    throw new Error(
+      `SAFETY: Refusing to connect to database '${dbName}'. ` +
+      `The database name must contain 'test' to prevent accidental data loss. ` +
+      `Set TEST_DATABASE_URL to a test database or use 'make test'.`
+    );
+  }
+}
+
+/**
+ * Get a database connection for testing.
+ * SAFETY: Refuses to connect if the database name doesn't contain "test".
  */
 export function getDbClient() {
-  const connectionString = process.env.TEST_DATABASE_URL || 
+  const connectionString = process.env.TEST_DATABASE_URL ||
     `postgresql://${process.env.POSTGRES_USER || 'beachkings'}:${process.env.POSTGRES_PASSWORD || 'beachkings'}@${process.env.POSTGRES_HOST || 'localhost'}:${process.env.POSTGRES_PORT || '5433'}/${process.env.TEST_POSTGRES_DB || 'beachkings_test'}`;
-  
+
+  assertTestDatabase(connectionString);
+
   return new Client({
     connectionString,
   });
@@ -244,14 +265,23 @@ export async function getVerificationCode(phoneNumber) {
 }
 
 /**
- * Reset database state - truncate all tables (use with caution)
+ * Reset database state - truncate all tables.
+ * SAFETY: Only operates on databases whose name contains "test" (enforced by getDbClient).
  */
 export async function resetDatabase() {
   const client = getDbClient();
   try {
     await client.connect();
-    // Disable foreign key checks temporarily (PostgreSQL doesn't have this, so we delete in order)
-    // Delete in reverse dependency order
+
+    // Double-check: query the actual database name from the connection
+    const result = await client.query('SELECT current_database()');
+    const dbName = result.rows[0]?.current_database;
+    if (!dbName || !dbName.toLowerCase().includes('test')) {
+      throw new Error(
+        `SAFETY: resetDatabase() connected to '${dbName}' which is not a test database. Aborting.`
+      );
+    }
+
     await client.query('TRUNCATE TABLE matches, sessions, seasons, league_members, leagues, players, verification_codes, users RESTART IDENTITY CASCADE');
   } finally {
     await client.end();

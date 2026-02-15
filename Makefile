@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -44,7 +44,8 @@ help:
 	@echo "  make docker-up         - Start all services with Docker Compose"
 	@echo ""
 	@echo "🧹 Maintenance:"
-	@echo "  make clean             - Remove build artifacts and Docker containers/volumes"
+	@echo "  make clean             - Remove build artifacts and containers (preserves DB)"
+	@echo "  make clean-volumes     - Remove ALL Docker volumes (⚠️  destroys DB data)"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
 	@echo ""
@@ -167,18 +168,12 @@ start: ensure-docker
 	@NODE_ENV=production docker compose up --build
 
 clean:
-	@echo "Cleaning up..."
-	@echo "Stopping and removing Docker containers and volumes..."
-	@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || true
-	@docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	@echo "Cleaning up (preserving database volumes)..."
+	@echo "Stopping Docker containers..."
+	@docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true
+	@docker compose -f docker-compose.test.yml down 2>/dev/null || true
 	@if [ -n "$$(docker ps -a --filter 'name=beach-kings' --format '{{.ID}}' 2>/dev/null)" ]; then \
 		docker ps -a --filter "name=beach-kings" --format "{{.ID}}" | xargs docker rm -f 2>/dev/null || true; \
-	fi
-	@if [ -n "$$(docker volume ls --filter 'name=beach-kings' --format '{{.Name}}' 2>/dev/null)" ]; then \
-		docker volume ls --filter "name=beach-kings" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
-	fi
-	@if [ -n "$$(docker volume ls --filter 'name=postgres_data' --format '{{.Name}}' 2>/dev/null)" ]; then \
-		docker volume ls --filter "name=postgres_data" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
 	fi
 	@echo "Removing build artifacts..."
 	rm -rf apps/web/dist
@@ -192,7 +187,23 @@ clean:
 	rm -rf apps/*/node_modules
 	rm -rf packages/*/node_modules
 	rm -rf services/*/node_modules
-	@echo "✅ Cleanup complete!"
+	@echo "✅ Cleanup complete! (Database volumes preserved)"
+	@echo "   Run 'make clean-volumes' to also remove database volumes."
+
+clean-volumes:
+	@echo "⚠️  This will DESTROY all database data (dev AND test)."
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	@echo "Removing Docker volumes..."
+	@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || true
+	@docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	@if [ -n "$$(docker volume ls --filter 'name=beach-kings' --format '{{.Name}}' 2>/dev/null)" ]; then \
+		docker volume ls --filter "name=beach-kings" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
+	fi
+	@if [ -n "$$(docker volume ls --filter 'name=postgres_data' --format '{{.Name}}' 2>/dev/null)" ]; then \
+		docker volume ls --filter "name=postgres_data" --format "{{.Name}}" | xargs docker volume rm 2>/dev/null || true; \
+	fi
+	@echo "✅ All volumes removed!"
 
 clean-venv:
 	@echo "Removing Python virtual environment..."

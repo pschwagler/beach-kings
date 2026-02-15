@@ -406,14 +406,16 @@ async function ensureTestInfrastructure() {
   if (status.missing.includes('backend-test') || status.missing.includes('postgres-test')) {
     console.log('Resetting test database to ensure clean state...');
     try {
-      // Stop containers first
+      // Stop test containers only (scoped to docker-compose.test.yml)
       execSync(
         `${composeCommand} -f ${COMPOSE_FILE} stop postgres-test backend-test 2>/dev/null || true`,
         { cwd: projectRoot, stdio: 'pipe' }
       );
-      // Remove containers and volumes
+      // Remove test containers WITHOUT volumes (-v flag removed).
+      // Volumes are managed by docker-compose.test.yml and are test-only,
+      // but removing them here is unnecessary and risks confusion with dev volumes.
       execSync(
-        `${composeCommand} -f ${COMPOSE_FILE} rm -f -v postgres-test 2>/dev/null || true`,
+        `${composeCommand} -f ${COMPOSE_FILE} rm -f postgres-test 2>/dev/null || true`,
         { cwd: projectRoot, stdio: 'pipe' }
       );
     } catch (error) {
