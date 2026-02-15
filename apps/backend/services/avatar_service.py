@@ -37,7 +37,7 @@ def validate_avatar(file_bytes: bytes, content_type: str) -> Tuple[bool, str]:
     if len(file_bytes) > MAX_FILE_SIZE_BYTES:
         return False, f"File size exceeds maximum of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB"
 
-    if content_type and content_type not in ALLOWED_CONTENT_TYPES:
+    if not content_type or content_type not in ALLOWED_CONTENT_TYPES:
         return False, f"Invalid file type '{content_type}'. Allowed: JPEG, PNG, WebP, HEIC"
 
     try:
