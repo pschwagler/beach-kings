@@ -1,0 +1,170 @@
+# Deploy to dev environment (dev.beachleaguevb.com)
+# Manual trigger with optional prod DB snapshot restore.
+name: Deploy Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "main"
+        type: string
+      refresh_db:
+        description: "Restore fresh prod DB snapshot (sanitized)"
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: dev-deploy
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Snapshot prod DB (only when refresh_db is true)
+  # ---------------------------------------------------------------------------
+  snapshot:
+    if: ${{ inputs.refresh_db }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create snapshot on prod
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          script: |
+            cd ~/beach-kings
+            bash deployment/dev/snapshot-db.sh
+
+      - name: Copy snapshot from prod to runner
+        run: |
+          mkdir -p /tmp/snapshots
+          echo "${{ secrets.PROD_EC2_SSH_KEY }}" > /tmp/prod_key
+          chmod 600 /tmp/prod_key
+          scp -o StrictHostKeyChecking=no -i /tmp/prod_key \
+            ubuntu@${{ secrets.PROD_EC2_HOST }}:~/snapshots/latest.sql.gz \
+            /tmp/snapshots/latest.sql.gz
+          rm -f /tmp/prod_key
+
+      - name: Copy snapshot from runner to dev
+        run: |
+          echo "${{ secrets.DEV_EC2_SSH_KEY }}" > /tmp/dev_key
+          chmod 600 /tmp/dev_key
+          ssh -o StrictHostKeyChecking=no -i /tmp/dev_key \
+            ${{ secrets.DEV_EC2_USER }}@${{ secrets.DEV_EC2_HOST }} \
+            "mkdir -p ~/snapshots"
+          scp -o StrictHostKeyChecking=no -i /tmp/dev_key \
+            /tmp/snapshots/latest.sql.gz \
+            ${{ secrets.DEV_EC2_USER }}@${{ secrets.DEV_EC2_HOST }}:~/snapshots/latest.sql.gz
+          rm -f /tmp/dev_key
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Deploy to dev EC2
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: [snapshot]
+    # Run even when snapshot was skipped (refresh_db=false)
+    if: ${{ always() && (needs.snapshot.result == 'success' || needs.snapshot.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to dev EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ${{ secrets.DEV_EC2_USER }}
+          key: ${{ secrets.DEV_EC2_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+            cd ~/beach-kings
+
+            echo "=== Fetching branch: ${{ inputs.branch }} ==="
+            git fetch --all
+            git checkout ${{ inputs.branch }}
+            git pull origin ${{ inputs.branch }}
+
+            echo "=== Writing .env ==="
+            cat > .env <<'ENVEOF'
+ENV=staging
+ENABLE_SMS=false
+ENABLE_EMAIL=false
+POSTGRES_USER=beachkings
+POSTGRES_PASSWORD=${{ secrets.DEV_POSTGRES_PASSWORD }}
+POSTGRES_DB=beachkings
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
+JWT_EXPIRATION_HOURS=72
+NEXT_PUBLIC_BASE_URL=https://dev.beachleaguevb.com
+NEXT_PUBLIC_API_URL=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=noreply@beachleaguevb.com
+ADMIN_EMAIL=admin@beachleaguevb.com
+GEOAPIFY_API_KEY=
+CREDENTIALS_JSON=
+GEMINI_API_KEY=
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+ENVEOF
+
+            echo "=== Pruning old Docker resources ==="
+            docker system prune -f --filter "until=48h" || true
+
+            # Restore DB snapshot if refresh_db was requested
+            if [ "${{ inputs.refresh_db }}" = "true" ]; then
+              echo "=== Restoring DB snapshot ==="
+              bash deployment/dev/restore-db.sh ~/snapshots/latest.sql.gz
+            fi
+
+            echo "=== Building and starting containers ==="
+            docker compose up -d --build
+
+            echo "=== Waiting for services to start ==="
+            sleep 15
+
+            echo "=== Health checks ==="
+            # Backend health check
+            backend_healthy=false
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
+                echo "✅ Backend is healthy"
+                backend_healthy=true
+                break
+              fi
+              echo "   Waiting for backend... (attempt $i/12)"
+              sleep 5
+            done
+            if [ "$backend_healthy" = false ]; then
+              echo "❌ Backend failed to become healthy"
+              exit 1
+            fi
+
+            # Frontend health check
+            frontend_healthy=false
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+                echo "✅ Frontend is healthy"
+                frontend_healthy=true
+                break
+              fi
+              echo "   Waiting for frontend... (attempt $i/12)"
+              sleep 5
+            done
+            if [ "$frontend_healthy" = false ]; then
+              echo "❌ Frontend failed to become healthy"
+              exit 1
+            fi
+
+            echo ""
+            echo "=== Deploy complete ==="
+            echo "🌐 https://dev.beachleaguevb.com"
+            echo "📦 Branch: ${{ inputs.branch }}"
+            echo "🗄️  DB refresh: ${{ inputs.refresh_db }}"

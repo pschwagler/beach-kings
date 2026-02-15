@@ -63,6 +63,7 @@ def get_gemini_client():
         if not GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is not set")
         from google import genai
+
         _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
     return _gemini_client
 
@@ -71,78 +72,75 @@ def get_gemini_client():
 # Image Preprocessing
 # ============================================================================
 
-def validate_image_file(
-    file_content: bytes,
-    content_type: str,
-    filename: str
-) -> Tuple[bool, str]:
+
+def validate_image_file(file_content: bytes, content_type: str, filename: str) -> Tuple[bool, str]:
     """
     Validate uploaded image file.
-    
+
     Args:
         file_content: Raw file bytes
         content_type: MIME type from upload
         filename: Original filename
-        
+
     Returns:
         Tuple of (is_valid, error_message)
     """
     # Check file size
     if len(file_content) > MAX_IMAGE_SIZE_BYTES:
-        return False, f"File size exceeds maximum of {MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB"
-    
+        return False, f"File size exceeds maximum of {MAX_IMAGE_SIZE_BYTES // (1024 * 1024)}MB"
+
     # Check extension
     ext = os.path.splitext(filename.lower())[1]
     if ext not in ALLOWED_EXTENSIONS:
         return False, f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
-    
+
     # Try to open with PIL to validate it's a real image
     try:
         img = Image.open(BytesIO(file_content))
         img.verify()  # Verify it's a valid image
     except Exception as e:
         return False, f"Invalid or corrupted image file: {str(e)}"
-    
+
     return True, ""
 
 
 def preprocess_image(image_bytes: bytes) -> Tuple[bytes, str]:
     """
     Convert image to JPEG and downscale to max height ~400px.
-    
+
     Args:
         image_bytes: Raw image bytes
-        
+
     Returns:
         Tuple of (processed_bytes, base64_encoded_string)
     """
     # Open image
     img = Image.open(BytesIO(image_bytes))
-    
+
     # Convert to RGB if necessary (handles RGBA, P mode, etc.)
-    if img.mode in ('RGBA', 'P', 'LA'):
+    if img.mode in ("RGBA", "P", "LA"):
         # Create white background for transparency
-        background = Image.new('RGB', img.size, (255, 255, 255))
-        if img.mode == 'P':
-            img = img.convert('RGBA')
-        background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
         img = background
-    elif img.mode != 'RGB':
-        img = img.convert('RGB')
-    
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
     # Downscale if needed (maintain aspect ratio)
     if img.height > MAX_IMAGE_HEIGHT:
         ratio = MAX_IMAGE_HEIGHT / img.height
         new_width = int(img.width * ratio)
         img = img.resize((new_width, MAX_IMAGE_HEIGHT), Image.Resampling.LANCZOS)
-    
+
     # Save as JPEG
     output = BytesIO()
-    img.save(output, format='JPEG', quality=85, optimize=True)
+    img.save(output, format="JPEG", quality=85, optimize=True)
     processed_bytes = output.getvalue()
-    
+
     # Encode to base64
-    base64_encoded = base64.b64encode(processed_bytes).decode('utf-8')
+    base64_encoded = base64.b64encode(processed_bytes).decode("utf-8")
 
     return processed_bytes, base64_encoded
 
@@ -150,6 +148,7 @@ def preprocess_image(image_bytes: bytes) -> Tuple[bytes, str]:
 # ============================================================================
 # Redis Session Management
 # ============================================================================
+
 
 def generate_session_id() -> str:
     """Generate a unique session ID."""
@@ -162,24 +161,22 @@ def _make_redis_key(session_id: str) -> str:
 
 
 async def store_session_data(
-    session_id: str,
-    data: Dict[str, Any],
-    expiry_seconds: int = SESSION_TTL_SECONDS
+    session_id: str, data: Dict[str, Any], expiry_seconds: int = SESSION_TTL_SECONDS
 ) -> bool:
     """
     Store session data in Redis with TTL.
-    
+
     Args:
         session_id: Unique session identifier
         data: Session data dictionary
         expiry_seconds: TTL in seconds (default 15 minutes)
-        
+
     Returns:
         True if successful, False otherwise
     """
     redis_key = _make_redis_key(session_id)
     json_data = json.dumps(data, default=str)
-    
+
     success = await redis_service.redis_set(redis_key, json_data, expiry_seconds)
     if success:
         logger.debug(f"Stored session data for {session_id}")
@@ -191,15 +188,15 @@ async def store_session_data(
 async def get_session_data(session_id: str) -> Optional[Dict[str, Any]]:
     """
     Get session data from Redis.
-    
+
     Args:
         session_id: Unique session identifier
-        
+
     Returns:
         Session data dictionary or None if not found
     """
     redis_key = _make_redis_key(session_id)
-    
+
     try:
         data = await redis_service.redis_get(redis_key)
         if data:
@@ -211,18 +208,16 @@ async def get_session_data(session_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def update_session_data(
-    session_id: str,
-    updates: Dict[str, Any],
-    refresh_ttl: bool = True
+    session_id: str, updates: Dict[str, Any], refresh_ttl: bool = True
 ) -> bool:
     """
     Update existing session data in Redis.
-    
+
     Args:
         session_id: Unique session identifier
         updates: Dictionary of fields to update
         refresh_ttl: Whether to refresh the TTL
-        
+
     Returns:
         True if successful, False otherwise
     """
@@ -230,20 +225,20 @@ async def update_session_data(
     if existing is None:
         logger.warning(f"Session {session_id} not found for update")
         return False
-    
+
     existing.update(updates)
     existing["last_updated"] = utcnow().isoformat()
-    
+
     return await store_session_data(session_id, existing)
 
 
 async def cleanup_session(session_id: str) -> bool:
     """
     Delete session data from Redis.
-    
+
     Args:
         session_id: Unique session identifier
-        
+
     Returns:
         True if successful, False otherwise
     """
@@ -258,52 +253,50 @@ async def cleanup_session(session_id: str) -> bool:
 # Player Name Matching
 # ============================================================================
 
+
 def calculate_name_similarity(name1: str, name2: str) -> float:
     """
     Calculate similarity between two names using SequenceMatcher.
-    
+
     Args:
         name1: First name
         name2: Second name
-        
+
     Returns:
         Similarity score between 0 and 1
     """
     # Normalize names
     n1 = name1.lower().strip()
     n2 = name2.lower().strip()
-    
+
     return SequenceMatcher(None, n1, n2).ratio()
 
 
-def match_player_name(
-    extracted_name: str,
-    league_members: List[Dict]
-) -> Optional[Dict]:
+def match_player_name(extracted_name: str, league_members: List[Dict]) -> Optional[Dict]:
     """
     Fuzzy match extracted player name against league members.
-    
+
     Args:
         extracted_name: Name extracted from image
         league_members: List of league member dictionaries
-        
+
     Returns:
         Dict with player_id, confidence, matched_name or None if no match
     """
     if not extracted_name or not league_members:
         return None
-    
+
     best_match = None
     best_score = 0.0
-    
+
     for member in league_members:
         player_name = member.get("player_name", "")
         player_nickname = member.get("player_nickname", "")
         player_id = member.get("player_id")
-        
+
         # Check full name match
         score = calculate_name_similarity(extracted_name, player_name)
-        
+
         # Check nickname match (high confidence if exact or close match)
         if player_nickname:
             nickname_score = calculate_name_similarity(extracted_name, player_nickname)
@@ -311,73 +304,62 @@ def match_player_name(
                 score = max(score, 0.95)
             elif nickname_score > 0.7:
                 score = max(score, 0.85)
-        
+
         # Check if extracted name is a partial match of full name
         if extracted_name.lower() in player_name.lower():
             score = max(score, 0.8)
-        
+
         # Check first name only
         first_name = player_name.split()[0] if player_name else ""
         if first_name:
             first_name_score = calculate_name_similarity(extracted_name, first_name)
             if first_name_score > 0.9:  # Strong first name match
                 score = max(score, 0.85)
-        
+
         if score > best_score:
             best_score = score
-            best_match = {
-                "player_id": player_id,
-                "confidence": score,
-                "matched_name": player_name
-            }
-    
+            best_match = {"player_id": player_id, "confidence": score, "matched_name": player_name}
+
     # Only return if confidence is above threshold
     if best_match and best_match["confidence"] >= 0.6:
         return best_match
-    
+
     return None
 
 
 def match_all_players_in_matches(
-    parsed_matches: List[Dict],
-    league_members: List[Dict]
+    parsed_matches: List[Dict], league_members: List[Dict]
 ) -> Tuple[List[Dict], List[str]]:
     """
     Match all player names in parsed matches to league members.
-    
+
     Args:
         parsed_matches: List of match dictionaries with player names
         league_members: List of league member dictionaries
-        
+
     Returns:
         Tuple of (matches_with_ids, unmatched_names)
     """
     unmatched_names = []
     result_matches = []
-    
-    player_fields = [
-        "team1_player1", "team1_player2",
-        "team2_player1", "team2_player2"
-    ]
-    
+
+    player_fields = ["team1_player1", "team1_player2", "team2_player1", "team2_player2"]
+
     valid_player_ids = {m.get("player_id") for m in league_members}
     # Build lookup dict for player names by ID (league members have "player_name" not "first_name"/"last_name")
-    player_names_by_id = {
-        m.get("player_id"): m.get("player_name", "")
-        for m in league_members
-    }
-    
+    player_names_by_id = {m.get("player_id"): m.get("player_name", "") for m in league_members}
+
     for match in parsed_matches:
         result_match = match.copy()
-        
+
         for field in player_fields:
             player_data = match.get(field)
             id_field = f"{field}_id"
-            
+
             if isinstance(player_data, dict):
                 player_id = player_data.get("id")
                 player_name = player_data.get("name", "")
-                
+
                 if player_id and player_id in valid_player_ids:
                     result_match[id_field] = player_id
                     result_match[f"{field}_confidence"] = 1.0
@@ -398,7 +380,7 @@ def match_all_players_in_matches(
             else:
                 extracted_name = str(player_data) if player_data else ""
                 match_result = match_player_name(extracted_name, league_members)
-                
+
                 if match_result:
                     result_match[id_field] = match_result["player_id"]
                     result_match[f"{field}_confidence"] = match_result["confidence"]
@@ -408,9 +390,9 @@ def match_all_players_in_matches(
                     result_match[f"{field}_confidence"] = 0
                     if extracted_name and extracted_name not in unmatched_names:
                         unmatched_names.append(extracted_name)
-        
+
         result_matches.append(result_match)
-    
+
     return result_matches, unmatched_names
 
 
@@ -642,7 +624,9 @@ def _text_from_chunk(chunk: Any) -> Optional[str]:
         return None
     if getattr(chunk, "text", None):
         return chunk.text
-    if not (chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts):
+    if not (
+        chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts
+    ):
         return None
     part = chunk.candidates[0].content.parts[0]
     return getattr(part, "text", None) or None
@@ -743,9 +727,7 @@ def _parse_extraction_array(response_text: str) -> List[Dict]:
 
 
 async def clarify_scores_chat(
-    previous_response: str,
-    user_prompt: str,
-    league_members: List[Dict]
+    previous_response: str, user_prompt: str, league_members: List[Dict]
 ) -> Dict[str, Any]:
     """
     Call Gemini with text-only clarification request (no image).
@@ -762,7 +744,9 @@ async def clarify_scores_chat(
     """
     client = get_gemini_client()
     system_prompt = build_clarification_prompt_for_array(league_members)
-    user_message = f"Previous extraction:\n{previous_response}\n\nUser's correction/answer:\n{user_prompt}"
+    user_message = (
+        f"Previous extraction:\n{previous_response}\n\nUser's correction/answer:\n{user_prompt}"
+    )
 
     def _call() -> str:
         from google.genai import types
@@ -777,7 +761,12 @@ async def clarify_scores_chat(
                 "thinking_config": types.ThinkingConfig(thinking_level="low"),
             },
         )
-        if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        if (
+            response
+            and response.candidates
+            and response.candidates[0].content
+            and response.candidates[0].content.parts
+        ):
             return (response.candidates[0].content.parts[0].text or "") or ""
         return ""
 
@@ -809,14 +798,14 @@ async def clarify_scores_chat(
 def repair_json(text: str) -> str:
     """
     Attempt to repair common JSON errors from LLM output.
-    
+
     Common errors:
     - }}, instead of },  (extra closing brace in arrays)
     - Missing closing brackets
     """
     # Fix }}, -> }, (common error where model outputs extra } in arrays)
-    repaired = re.sub(r'\}\},', '},', text)
-    # Fix }}" -> }," 
+    repaired = re.sub(r"\}\},", "},", text)
+    # Fix }}" -> },"
     repaired = re.sub(r'\}\}"', '},"', repaired)
     return repaired
 
@@ -824,25 +813,25 @@ def repair_json(text: str) -> str:
 def parse_openai_response(response_text: str) -> Dict[str, Any]:
     """
     Parse OpenAI response text to extract JSON.
-    
+
     Args:
         response_text: Raw response from OpenAI
-        
+
     Returns:
         Parsed dictionary
     """
     if not response_text:
         raise ValueError("Empty response from OpenAI")
-    
+
     # Strip whitespace
     response_text = response_text.strip()
-    
+
     # Try direct JSON parse
     try:
         return json.loads(response_text)
     except json.JSONDecodeError:
         pass
-    
+
     # Try with JSON repair (fix common LLM errors)
     try:
         repaired = repair_json(response_text)
@@ -850,95 +839,85 @@ def parse_openai_response(response_text: str) -> Dict[str, Any]:
             return json.loads(repaired)
     except json.JSONDecodeError:
         pass
-    
+
     # Try to find JSON in markdown code blocks (```json ... ``` or ``` ... ```)
-    json_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?\s*```', response_text)
+    json_match = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", response_text)
     if json_match:
         try:
             return json.loads(json_match.group(1).strip())
         except json.JSONDecodeError:
             pass
-    
+
     # Try to find a JSON object starting with { and ending with }
     # Use a more greedy approach to find the outermost braces
-    brace_start = response_text.find('{')
+    brace_start = response_text.find("{")
     if brace_start != -1:
         # Find matching closing brace
         depth = 0
         for i, char in enumerate(response_text[brace_start:], start=brace_start):
-            if char == '{':
+            if char == "{":
                 depth += 1
-            elif char == '}':
+            elif char == "}":
                 depth -= 1
                 if depth == 0:
-                    json_str = response_text[brace_start:i+1]
+                    json_str = response_text[brace_start : i + 1]
                     try:
                         return json.loads(json_str)
                     except json.JSONDecodeError:
                         break
-    
+
     # Last resort: try regex for JSON object
-    json_match = re.search(r'\{[\s\S]*\}', response_text)
+    json_match = re.search(r"\{[\s\S]*\}", response_text)
     if json_match:
         try:
             return json.loads(json_match.group(0))
         except json.JSONDecodeError:
             pass
-    
-    raise ValueError(f"Could not parse JSON from response")
+
+    raise ValueError("Could not parse JSON from response")
 
 
 # ============================================================================
 # Job Management
 # ============================================================================
 
-async def create_photo_match_job(
-    db_session: AsyncSession,
-    league_id: int,
-    session_id: str
-) -> int:
+
+async def create_photo_match_job(db_session: AsyncSession, league_id: int, session_id: str) -> int:
     """
     Create a new PhotoMatchJob in the database.
-    
+
     Args:
         db_session: Database session
         league_id: League ID
         session_id: Redis session ID
-        
+
     Returns:
         Job ID
     """
     job = PhotoMatchJob(
-        league_id=league_id,
-        session_id=session_id,
-        status=PhotoMatchJobStatus.PENDING
+        league_id=league_id, session_id=session_id, status=PhotoMatchJobStatus.PENDING
     )
     db_session.add(job)
     await db_session.flush()
     await db_session.commit()
     await db_session.refresh(job)
-    
+
     logger.info(f"Created PhotoMatchJob {job.id} for session {session_id}")
     return job.id
 
 
-async def get_photo_match_job(
-    db_session: AsyncSession,
-    job_id: int
-) -> Optional[PhotoMatchJob]:
+async def get_photo_match_job(db_session: AsyncSession, job_id: int) -> Optional[PhotoMatchJob]:
     """
     Get a PhotoMatchJob by ID.
-    
+
     Args:
         db_session: Database session
         job_id: Job ID
-        
+
     Returns:
         PhotoMatchJob or None
     """
-    result = await db_session.execute(
-        select(PhotoMatchJob).where(PhotoMatchJob.id == job_id)
-    )
+    result = await db_session.execute(select(PhotoMatchJob).where(PhotoMatchJob.id == job_id))
     return result.scalar_one_or_none()
 
 
@@ -947,11 +926,11 @@ async def update_job_status(
     job_id: int,
     status: PhotoMatchJobStatus,
     result_data: Optional[str] = None,
-    error_message: Optional[str] = None
+    error_message: Optional[str] = None,
 ) -> None:
     """
     Update job status and optional result/error.
-    
+
     Args:
         db_session: Database session
         job_id: Job ID
@@ -960,34 +939,32 @@ async def update_job_status(
         error_message: Error message if failed
     """
     updates = {"status": status}
-    
+
     if status == PhotoMatchJobStatus.RUNNING:
         updates["started_at"] = utcnow()
     elif status in [PhotoMatchJobStatus.COMPLETED, PhotoMatchJobStatus.FAILED]:
         updates["completed_at"] = utcnow()
-    
+
     if result_data is not None:
         updates["result_data"] = result_data
     if error_message is not None:
         updates["error_message"] = error_message
-    
+
     await db_session.execute(
-        update(PhotoMatchJob)
-        .where(PhotoMatchJob.id == job_id)
-        .values(**updates)
+        update(PhotoMatchJob).where(PhotoMatchJob.id == job_id).values(**updates)
     )
     await db_session.commit()
-    
+
     logger.info(f"Updated job {job_id} status to {status.value}")
 
 
 async def check_idempotency(session_id: str) -> Optional[List[int]]:
     """
     Check if matches have already been created for this session.
-    
+
     Args:
         session_id: Redis session ID
-        
+
     Returns:
         List of match IDs if already created, None otherwise
     """
@@ -1068,7 +1045,10 @@ async def stream_photo_job_events(
                     "done",
                     {
                         "status": "FAILED",
-                        "result": {"status": "FAILED", "error_message": job.error_message or "Processing failed"},
+                        "result": {
+                            "status": "FAILED",
+                            "error_message": job.error_message or "Processing failed",
+                        },
                     },
                 )
                 return
@@ -1091,12 +1071,9 @@ async def stream_photo_job_events(
 # Main Processing Functions
 # ============================================================================
 
+
 async def process_photo_job(
-    job_id: int,
-    league_id: int,
-    session_id: str,
-    image_base64: str,
-    league_members: List[Dict]
+    job_id: int, league_id: int, session_id: str, image_base64: str, league_members: List[Dict]
 ) -> None:
     """
     Process a photo match job asynchronously with Gemini streaming.
@@ -1155,8 +1132,7 @@ async def process_photo_job(
 
             if result.get("matches"):
                 matches_with_ids, unmatched = match_all_players_in_matches(
-                    result["matches"],
-                    league_members
+                    result["matches"], league_members
                 )
                 result["matches"] = matches_with_ids
                 if unmatched:
@@ -1165,49 +1141,47 @@ async def process_photo_job(
                         f"I couldn't match these player names: {', '.join(unmatched)}. Please clarify."
                     )
 
-            await update_session_data(session_id, {
-                "parsed_matches": result.get("matches", []),
-                "status": result.get("status"),
-                "clarification_question": result.get("clarification_question"),
-                "raw_response": result.get("raw_response"),
-                "last_job_id": job_id,
-                "partial_matches": result.get("matches", []),
-            })
-            result_json = json.dumps({
-                "status": result.get("status"),
-                "matches": result.get("matches", []),
-                "clarification_question": result.get("clarification_question"),
-                "error_message": result.get("error_message"),
-            }, default=str)
+            await update_session_data(
+                session_id,
+                {
+                    "parsed_matches": result.get("matches", []),
+                    "status": result.get("status"),
+                    "clarification_question": result.get("clarification_question"),
+                    "raw_response": result.get("raw_response"),
+                    "last_job_id": job_id,
+                    "partial_matches": result.get("matches", []),
+                },
+            )
+            result_json = json.dumps(
+                {
+                    "status": result.get("status"),
+                    "matches": result.get("matches", []),
+                    "clarification_question": result.get("clarification_question"),
+                    "error_message": result.get("error_message"),
+                },
+                default=str,
+            )
             await update_job_status(
-                db_session, job_id,
-                PhotoMatchJobStatus.COMPLETED,
-                result_data=result_json
+                db_session, job_id, PhotoMatchJobStatus.COMPLETED, result_data=result_json
             )
 
         except Exception as e:
             logger.error(f"Error processing photo job {job_id}: {e}", exc_info=True)
             await update_job_status(
-                db_session, job_id,
-                PhotoMatchJobStatus.FAILED,
-                error_message=str(e)
+                db_session, job_id, PhotoMatchJobStatus.FAILED, error_message=str(e)
             )
 
 
 async def process_clarification_job(
-    job_id: int,
-    league_id: int,
-    session_id: str,
-    league_members: List[Dict],
-    user_prompt: str
+    job_id: int, league_id: int, session_id: str, league_members: List[Dict], user_prompt: str
 ) -> None:
     """
     Process a clarification/edit request asynchronously.
-    
+
     This function handles follow-up requests where users provide corrections
     or clarifications to previously parsed match data. It uses a cheaper
     text-only model instead of re-processing the image.
-    
+
     Args:
         job_id: Job ID
         league_id: League ID
@@ -1222,26 +1196,25 @@ async def process_clarification_job(
 
             # Get existing session data with the raw_response
             session_data = await get_session_data(session_id)
-            
+
             if not session_data:
                 raise ValueError(f"Session {session_id} not found or expired")
-            
+
             previous_response = session_data.get("raw_response")
             if not previous_response:
                 raise ValueError("No previous response found in session for clarification")
-            
+
             # Call AI to process the clarification
             result = await clarify_scores_chat(
                 previous_response=previous_response,
                 user_prompt=user_prompt,
-                league_members=league_members
+                league_members=league_members,
             )
-            
+
             # Match player names to IDs (do this for any status with matches, not just "success")
             if result.get("matches"):
                 matches_with_ids, unmatched = match_all_players_in_matches(
-                    result["matches"],
-                    league_members
+                    result["matches"], league_members
                 )
                 result["matches"] = matches_with_ids
 
@@ -1250,37 +1223,41 @@ async def process_clarification_job(
                     result["status"] = "needs_clarification"
                     existing_q = result.get("clarification_question", "")
                     unmatched_q = f"I couldn't match these player names: {', '.join(unmatched)}. Please clarify."
-                    result["clarification_question"] = f"{existing_q} {unmatched_q}".strip() if existing_q else unmatched_q
-            
+                    result["clarification_question"] = (
+                        f"{existing_q} {unmatched_q}".strip() if existing_q else unmatched_q
+                    )
+
             # Store result in session (update raw_response for potential further clarifications)
-            await update_session_data(session_id, {
-                "parsed_matches": result.get("matches", []),
-                "status": result.get("status"),
-                "clarification_question": result.get("clarification_question"),
-                "raw_response": result.get("raw_response"),
-                "last_job_id": job_id
-            })
+            await update_session_data(
+                session_id,
+                {
+                    "parsed_matches": result.get("matches", []),
+                    "status": result.get("status"),
+                    "clarification_question": result.get("clarification_question"),
+                    "raw_response": result.get("raw_response"),
+                    "last_job_id": job_id,
+                },
+            )
 
             # Update job with result
-            result_json = json.dumps({
-                "status": result.get("status"),
-                "matches": result.get("matches", []),
-                "clarification_question": result.get("clarification_question"),
-                "error_message": result.get("error_message")
-            }, default=str)
+            result_json = json.dumps(
+                {
+                    "status": result.get("status"),
+                    "matches": result.get("matches", []),
+                    "clarification_question": result.get("clarification_question"),
+                    "error_message": result.get("error_message"),
+                },
+                default=str,
+            )
 
             await update_job_status(
-                db_session, job_id,
-                PhotoMatchJobStatus.COMPLETED,
-                result_data=result_json
+                db_session, job_id, PhotoMatchJobStatus.COMPLETED, result_data=result_json
             )
 
         except Exception as e:
             logger.error(f"Error processing clarification job {job_id}: {e}", exc_info=True)
             await update_job_status(
-                db_session, job_id,
-                PhotoMatchJobStatus.FAILED,
-                error_message=str(e)
+                db_session, job_id, PhotoMatchJobStatus.FAILED, error_message=str(e)
             )
 
 
@@ -1289,18 +1266,18 @@ async def create_matches_from_session(
     session_id: str,
     season_id: int,
     match_date: str,
-    created_by_player_id: Optional[int] = None
+    created_by_player_id: Optional[int] = None,
 ) -> Tuple[bool, List[int], str]:
     """
     Create matches from a confirmed photo session.
-    
+
     Args:
         db_session: Database session
         session_id: Redis session ID
         season_id: Season to create matches in
         match_date: Date for the matches
         created_by_player_id: Player ID of creator
-        
+
     Returns:
         Tuple of (success, match_ids, message)
     """
@@ -1308,28 +1285,37 @@ async def create_matches_from_session(
     existing_ids = await check_idempotency(session_id)
     if existing_ids:
         return True, existing_ids, "Matches already created"
-    
+
     # Get session data
     session_data = await get_session_data(session_id)
     if not session_data:
         return False, [], "Session not found or expired"
-    
+
     parsed_matches = session_data.get("parsed_matches", [])
     if not parsed_matches:
         return False, [], "No matches to create"
-    
+
     # Validate all players have IDs
     for i, match in enumerate(parsed_matches):
-        for field in ["team1_player1_id", "team1_player2_id", "team2_player1_id", "team2_player2_id"]:
+        for field in [
+            "team1_player1_id",
+            "team1_player2_id",
+            "team2_player1_id",
+            "team2_player2_id",
+        ]:
             if not match.get(field):
-                return False, [], f"Match {i+1} has unresolved player: {field.replace('_id', '')}"
-    
+                return (
+                    False,
+                    [],
+                    f"Match {i + 1} has unresolved player: {field.replace('_id', '')}",
+                )
+
     # Create matches
     created_ids = []
     try:
         for match in parsed_matches:
             from backend.models.schemas import CreateMatchRequest
-            
+
             match_request = CreateMatchRequest(
                 season_id=season_id,
                 team1_player1_id=match["team1_player1_id"],
@@ -1337,34 +1323,30 @@ async def create_matches_from_session(
                 team2_player1_id=match["team2_player1_id"],
                 team2_player2_id=match["team2_player2_id"],
                 team1_score=match["team1_score"],
-                team2_score=match["team2_score"]
+                team2_score=match["team2_score"],
             )
-            
+
             # Get or create session for the season
             session_obj = await data_service.get_or_create_active_league_session(
                 db_session,
                 league_id=session_data.get("league_id"),
-                date=match_date,
-                season_id=season_id
+                session_date=match_date,
+                season_id=season_id,
             )
-            
+
             match_id = await data_service.create_match_async(
-                db_session,
-                match_request,
-                session_obj["id"],
-                match_date
+                db_session, match_request, session_obj["id"], match_date
             )
             created_ids.append(match_id)
-        
+
         # Mark session as completed
-        await update_session_data(session_id, {
-            "matches_created": True,
-            "created_match_ids": created_ids
-        })
-        
+        await update_session_data(
+            session_id, {"matches_created": True, "created_match_ids": created_ids}
+        )
+
         logger.info(f"Created {len(created_ids)} matches from session {session_id}")
         return True, created_ids, f"Created {len(created_ids)} matches"
-        
+
     except Exception as e:
         logger.error(f"Error creating matches: {e}", exc_info=True)
         return False, created_ids, f"Error creating matches: {str(e)}"

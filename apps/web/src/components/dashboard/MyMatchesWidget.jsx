@@ -53,7 +53,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
         <div className={`dashboard-matches-list ${showAll ? 'dashboard-matches-list-expanded' : ''}`}>
           {(showAll ? matches : matches.slice(0, 5)).map((match, idx) => {
             const result = getMatchResult(match);
-            const isClickable = onMatchClick && match['League ID'];
+            const isClickable = onMatchClick && (match['League ID'] || match['Session Code']);
             
             const handleClick = () => {
               if (isClickable) {

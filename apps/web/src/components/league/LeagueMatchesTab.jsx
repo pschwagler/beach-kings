@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
@@ -8,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession } from '../../services/api';
+import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
 
@@ -16,10 +18,15 @@ import { useDataRefresh } from './hooks/useDataRefresh';
 import { useMatchOperations } from './hooks/useMatchOperations';
 import { useSessionEditing } from './hooks/useSessionEditing';
 import { useActiveSession } from './hooks/useActiveSession';
-import { usePlayerNameMapping } from './hooks/usePlayerNameMapping';
 import { useSessionSeasonUpdate } from './hooks/useSessionSeasonUpdate';
+import { usePersistedViewMode } from '../../hooks/usePersistedViewMode';
 
-export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
+const MIN_PLAYERS_FOR_MATCH = 4;
+
+export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMatch = false }) {
+  const router = useRouter();
+  const { openModal } = useModal();
+  const autoOpenFiredRef = useRef(false);
   const { 
     league, 
     leagueId,
@@ -53,22 +60,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
-  // View mode state: persist in localStorage so it survives refresh/navigation
-  const [viewMode, setViewModeState] = useState(() => {
-    if (typeof window === 'undefined') return 'cards';
-    try {
-      const stored = localStorage.getItem(MATCHES_VIEW_STORAGE_KEY);
-      if (stored === 'cards' || stored === 'clipboard') return stored;
-    } catch (_) { /* ignore */ }
-    return 'cards';
-  });
-
-  const setViewMode = (mode) => {
-    setViewModeState(mode);
-    try {
-      localStorage.setItem(MATCHES_VIEW_STORAGE_KEY, mode);
-    } catch (_) { /* ignore */ }
-  };
+  const [viewMode, setViewMode] = usePersistedViewMode(MATCHES_VIEW_STORAGE_KEY, 'cards');
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
@@ -85,17 +77,25 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
 
-  const playerNameMapping = usePlayerNameMapping({ leagueId, members });
-  const { allPlayerNames, playerNameToId, getPlayerIdFromMap } = playerNameMapping;
-  
-  // Create reverse map (ID to name) for converting player IDs to names in pending matches
-  const playerIdToName = useMemo(() => {
-    const map = new Map();
-    playerNameToId.forEach((playerId, playerName) => {
-      map.set(playerId, playerName);
-    });
-    return map;
-  }, [playerNameToId]);
+  // Build player name mappings from members only (members have player_id and player_name from API)
+  const { allPlayerNames, playerNameToId, playerIdToName, getPlayerIdFromMap } = useMemo(() => {
+    const idToName = new Map();
+    const nameToId = new Map();
+    if (members && members.length > 0) {
+      members.forEach((m) => {
+        const name = m.player_name || `Player ${m.player_id}`;
+        idToName.set(m.player_id, name);
+        nameToId.set(name, m.player_id);
+      });
+    }
+    const names = Array.from(nameToId.keys()).sort((a, b) => a.localeCompare(b));
+    return {
+      allPlayerNames: names,
+      playerNameToId: nameToId,
+      playerIdToName: idToName,
+      getPlayerIdFromMap: (name) => nameToId.get(name) || null,
+    };
+  }, [members]);
 
   const matchOperations = useMatchOperations({
     playerNameToId,
@@ -124,6 +124,38 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   }, [seasonIdFromUrl, selectedSeasonId, setSelectedSeasonId]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
+
+  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param
+  useEffect(() => {
+    if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
+    // Wait until league data is ready: members loaded + seasons available + at least 4 players
+    if (!members || members.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
+
+    autoOpenFiredRef.current = true;
+
+    openModal(MODAL_TYPES.ADD_MATCH, {
+      allPlayerNames,
+      leagueMatchOnly: true,
+      defaultLeagueId: leagueId,
+      members,
+      league,
+      defaultSeasonId: selectedSeasonId,
+      onSeasonChange: setSelectedSeasonId,
+      onSubmit: async (matchData) => {
+        const payload = { ...matchData, league_id: leagueId };
+        await handleCreateMatch(payload);
+      },
+      onDelete: handleDeleteMatch,
+    });
+
+    // Clean URL param to prevent re-open on refresh
+    const url = new URL(window.location.href);
+    url.searchParams.delete('autoAddMatch');
+    router.replace(url.pathname + url.search, { scroll: false });
+    // handleCreateMatch/handleDeleteMatch omitted — defined later in function body (TDZ),
+    // safe because autoOpenFiredRef gates this to a single fire per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddMatch, members, seasons, league, leagueId, selectedSeasonId, setSelectedSeasonId, openModal, router, allPlayerNames]);
 
   // Transform matches from context for display
   const matches = useMemo(() => {
@@ -350,7 +382,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null }) {
   };
 
   // Check if there are less than 4 players
-  const hasLessThanFourPlayers = !members || members.length < 4;
+  const hasLessThanFourPlayers = !members || members.length < MIN_PLAYERS_FOR_MATCH;
 
   // Show empty state if no seasons
   if (!seasons || seasons.length === 0) {

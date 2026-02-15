@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, Target, Award, HelpCircle } from 'lucide-react';
+import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
-import { getPlayerMatchHistory } from '../../services/api';
+import OpenSessionsList from './OpenSessionsList';
+import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
+import { isImageUrl } from '../../utils/avatar';
 
 const getAvatarInitial = (currentUserPlayer) => {
   if (currentUserPlayer?.nickname) {
@@ -21,6 +23,33 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const router = useRouter();
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [openSessions, setOpenSessions] = useState([]);
+  const [openSessionsRefreshTrigger, setOpenSessionsRefreshTrigger] = useState(0);
+
+  // Load open sessions (for top-of-home block)
+  useEffect(() => {
+    const loadOpenSessions = async () => {
+      try {
+        const data = await getOpenSessions();
+        setOpenSessions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading open sessions:', err);
+        setOpenSessions([]);
+      }
+    };
+    loadOpenSessions();
+  }, [openSessionsRefreshTrigger]);
+
+  // Refresh open sessions when page becomes visible (e.g., returning from session page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setOpenSessionsRefreshTrigger((t) => t + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Load user matches
   useEffect(() => {
@@ -76,7 +105,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const avatarInitial = getAvatarInitial(currentUserPlayer);
   const fullName = currentUserPlayer?.full_name || 'Player';
 
-  // Calculate stats from match history
+  // Calculate stats from match history (memoized)
   const calculateStatsFromMatches = () => {
     if (!userMatches || userMatches.length === 0) {
       // Fall back to global stats if available, otherwise use defaults
@@ -131,7 +160,10 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     return { totalGames, currentRating, games30Days, winRate30Days };
   };
 
-  const { totalGames, currentRating, games30Days, winRate30Days } = calculateStatsFromMatches();
+  const { totalGames, currentRating, games30Days, winRate30Days } = useMemo(
+    calculateStatsFromMatches,
+    [userMatches, currentUserPlayer]
+  );
 
   return (
     <div className="home-tab-container">
@@ -143,7 +175,15 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           style={{ cursor: 'pointer' }}
         >
           <div className="navbar-avatar" style={{ marginRight: '12px' }}>
-            {avatarInitial}
+            {isImageUrl(currentUserPlayer?.profile_picture_url) ? (
+              <img
+                src={currentUserPlayer.profile_picture_url}
+                alt={fullName}
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              avatarInitial
+            )}
           </div>
           <span className="home-header-name">{fullName}</span>
         </div>
@@ -184,6 +224,14 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         </div>
       </div>
 
+      {/* Open sessions at top when user has any */}
+      {openSessions && openSessions.length > 0 && (
+        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
+          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
+          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
+        </section>
+      )}
+
       {/* Main Content Grid */}
       <div className="home-content-grid">
         <MyLeaguesWidget 
@@ -191,11 +239,20 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           onLeagueClick={navigateToLeague}
           onLeaguesUpdate={onLeaguesUpdate}
         />
-        <MyMatchesWidget 
-          matches={userMatches}
-          currentUserPlayer={currentUserPlayer}
-          onMatchClick={handleMatchClick}
-        />
+        <div className="home-my-games-widget-wrapper">
+          <MyMatchesWidget 
+            matches={userMatches}
+            currentUserPlayer={currentUserPlayer}
+            onMatchClick={handleMatchClick}
+          />
+          <button
+            type="button"
+            className="home-widget-view-all secondary-text"
+            onClick={() => onTabChange('my-games')}
+          >
+            View open sessions
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -47,7 +47,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline(alembic_cfg=None) -> None:
     """Run migrations in 'offline' mode (generates SQL without connecting).
-    
+
     Args:
         alembic_cfg: Optional Alembic Config object. If not provided, uses context.config.
     """
@@ -76,18 +76,18 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations(alembic_cfg=None) -> None:
     """Run migrations in async mode.
-    
+
     Args:
         alembic_cfg: Optional Alembic Config object. If not provided, uses context.config.
     """
     config_obj = alembic_cfg if alembic_cfg is not None else config
     if config_obj is None:
         raise ValueError("Alembic config is required for async migrations")
-    
+
     # Override sqlalchemy.url with our async URL
     configuration = config_obj.get_section(config_obj.config_ini_section)
     configuration["sqlalchemy.url"] = DATABASE_URL
-    
+
     logger.info("Creating database connection...")
     connectable = async_engine_from_config(
         configuration,
@@ -111,7 +111,9 @@ async def run_async_migrations(alembic_cfg=None) -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode (called by Alembic CLI)."""
     logger.info("Starting database migrations...")
-    logger.info(f"Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'configured'}")
+    logger.info(
+        f"Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'configured'}"
+    )
     try:
         asyncio.run(run_async_migrations())
         logger.info("✓ Migrations completed successfully")
@@ -122,27 +124,27 @@ def run_migrations_online() -> None:
 
 async def run_migrations_online_programmatic() -> None:
     """Run migrations programmatically (called from main.py).
-    
+
     Uses Alembic's command API to properly initialize context.
     Raises exceptions if migrations fail.
     """
     # Get the backend directory (where alembic.ini is located)
     backend_dir = Path(__file__).parent.parent
     alembic_ini_path = backend_dir / "alembic.ini"
-    
+
     if not alembic_ini_path.exists():
         raise FileNotFoundError(f"Alembic config file not found: {alembic_ini_path}")
-    
+
     # Initialize Alembic config
     alembic_cfg = alembic_config.Config(str(alembic_ini_path))
     alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
-    
+
     # Use command API which properly initializes context
     # Run in thread since command.upgrade is sync, and change to backend directory
     original_cwd = os.getcwd()
     try:
         os.chdir(str(backend_dir))
-        
+
         def run_upgrade():
             try:
                 # Run upgrade - Alembic will log which migrations it's running
@@ -151,7 +153,7 @@ async def run_migrations_online_programmatic() -> None:
             except Exception as e:
                 logger.error(f"Migration execution failed: {e}", exc_info=True)
                 raise
-        
+
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
             await loop.run_in_executor(executor, run_upgrade)

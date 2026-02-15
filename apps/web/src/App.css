@@ -1,4 +1,5 @@
 /* App.css - Vintage Malibu Beach Volleyball Rankings */
+@import './design-tokens.css';
 
 * {
   margin: 0;
@@ -7,82 +8,6 @@
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
-}
-
-:root {
-  --primary: #2c7a8f;
-  --primary-light: #5faec0;
-  --primary-lighter: #bfe1e7;
-  --primary-dark: #205e6f;
-  --primary-darker: #183f4a;
-
-  --muted-red: #ff7849;
-  --sunset-dark: #e76a41;
-  --sunset-light: #ff9673;
-  --coral: #ff9a76;
-  --coral-light: #ffc7b3;
-  --coral-dark: #e08361;
-  --sand: #f4e4c1;
-  --sand-light: #faf0d8;
-  --sand-dark: #d6c19c;
-  --deep-ocean: #2c7a8f;
-  --warm-brown: #8b6f47;
-  --warm-brown-light: #b89a6d;
-  --warm-brown-dark: #6b5334;
-  --seafoam: #8ed4c6;
-  --seafoam-light: #c9eee6;
-  --seafoam-dark: #5fa79b;
-  --sun-gold: #ffd78a;
-  --sun-gold-light: #ffebc2;
-  --sun-gold-dark: #e7b662;
-  --dusk-purple: #4c3a4d;
-  --dusk-purple-light: #7a6780;
-  --dusk-purple-dark: #342735;
-  --ocean-gray: #9aa7a9;
-  --ocean-gray-light: #c4cfd1;
-  --ocean-gray-dark: #6f7b7d;
-  --ocean-gray-darker: #3d4445;
-  --navy-logo-bg: #0f172a;
-  --muted-red: #cc4e4e;
-  --gold-gradient: linear-gradient(
-    90deg,
-    #c9a652 0%,
-    #ecd36f 50%,
-    #b68b34 100%
-  );
-  --gold-text: #ecd36f;
-  --gold-dark: #b68b34;
-
-  /* Grays */
-  --gray-50: #fafafa;
-  --gray-100: #f5f5f5;
-  --gray-200: #eeeeee;
-  --gray-300: #e0e0e0;
-  --gray-600: #757575;
-  --gray-700: #616161;
-  --gray-900: #212121;
-
-  /* Functional */
-  --success: #10b981;
-  --success-dark: #059669;
-  --success-light: #e8fbf0;
-  --success-lighter: #f4fdf8; /* 50% whiter than success-light */
-  --danger: #ef4444;
-  --danger-light: #ffeceb;
-
-  /* Warm shadows that fit the beach palette */
-  --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(150 110 80 / 0.12);
-  --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
-
-  /* Layout dimensions */
-  --navbar-height: 53px;
-  
-  /* Sidebar widths */
-  --sidebar-width-home: 220px;
-  --sidebar-width-league: 240px;
-  --sidebar-width-collapsed: 72px;
 }
 
 html {
@@ -118,6 +43,68 @@ body {
 /* Ensure all elements inherit the font family */
 button, input, select, textarea, table, th, td, span, div, p, h1, h2, h3, h4, h5, h6, a, label {
   font-family: inherit;
+}
+
+/* Modern base resets for button and table (avoid blocky browser defaults) */
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 0;
+  margin: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: inherit;
+}
+
+/* Unclassed tables get a minimal modern look; classed tables keep their own styles */
+table:not([class]) {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+table:not([class]) th,
+table:not([class]) td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+table:not([class]) th {
+  font-weight: 600;
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+
+table:not([class]) tr:last-child td {
+  border-bottom: none;
 }
 
 /* Legal Pages Styling */
@@ -734,7 +721,18 @@ button, input, select, textarea, table, th, td, span, div, p, h1, h2, h3, h4, h5
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
+}
+
+.navbar-avatar-image {
+  overflow: hidden;
+}
+
+.navbar-avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .navbar-menu-button:hover .navbar-avatar {
@@ -1044,14 +1042,14 @@ h1 {
   border: none;
 }
 
-.btn-success:hover {
-  background: var(--deep-ocean);
+.btn-success:hover:not(:disabled) {
+  background: var(--primary-dark);
   box-shadow: none;
   transform: none;
 }
 
-.btn-success:active {
-  background: var(--deep-ocean);
+.btn-success:active:not(:disabled) {
+  background: var(--primary-dark);
   box-shadow: none;
   transform: scale(0.98);
 }
@@ -1095,6 +1093,38 @@ h1 {
   background: #047857;
   box-shadow: none;
   transform: scale(0.98);
+}
+
+/* Ghost: transparent bg, gray text - for secondary actions (Cancel) */
+.button.btn-ghost {
+  background: transparent;
+  color: var(--gray-700);
+  border: none;
+}
+
+.button.btn-ghost:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.button.btn-ghost:active:not(:disabled) {
+  background: var(--gray-200);
+}
+
+/* Outline: bordered primary - for secondary CTAs (Add New Match) */
+.button.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.button.btn-outline:hover:not(:disabled) {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.button.btn-outline:active:not(:disabled) {
+  background: rgba(44, 122, 143, 0.15);
 }
 
 .loading {
@@ -1172,47 +1202,6 @@ h1 {
   margin-bottom: 20px;
   border-left: 4px solid var(--success);
   font-weight: 500;
-}
-
-/* Tabs - Retro Style */
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 3px solid var(--sand);
-  overflow-x: auto;
-}
-
-.tab {
-  background: transparent;
-  color: var(--warm-brown);
-  border: none;
-  border-bottom: 4px solid transparent;
-  padding: 12px 24px;
-  font-size: 1em;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  box-shadow: none;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  min-height: 44px;
-}
-
-.tab:hover {
-  background: rgba(255, 120, 73, 0.1);
-  color: var(--muted-red);
-  transform: none;
-  box-shadow: none;
-}
-
-.tab.active {
-  background: transparent;
-  color: var(--muted-red);
-  border-bottom: 4px solid var(--muted-red);
-  font-weight: 800;
-  box-shadow: none;
 }
 
 .content-area {
@@ -1593,86 +1582,11 @@ h1 {
   color: var(--primary-dark);
 }
 
-/* Tables - Retro Beach Style */
-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-top: 16px;
-  border: 3px solid var(--primary);
-  border-radius: 12px;
-  overflow: hidden;
-  background: white;
-  box-shadow: var(--shadow-md);
-}
-
-thead {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-}
-
-th {
-  color: white;
-  padding: 16px 12px;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  font-size: 0.875em;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  transition: all 0.2s;
-}
-
-th:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-th:first-child {
-  border-top-left-radius: 6px;
-}
-
-th:last-child {
-  border-top-right-radius: 6px;
-}
-
-td {
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--gray-200);
-  color: var(--gray-700);
-  font-size: 0.95em;
-}
-
-tbody tr {
-  transition: all 0.2s;
-}
-
-tbody tr:hover {
-  background: rgba(255, 120, 73, 0.05);
-}
-
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
 /* Sticky first column for rankings table */
 .sticky-col {
   position: sticky;
   left: 0;
   z-index: 10;
-}
-
-thead .sticky-col {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-}
-
-tbody .sticky-col {
-  background: white;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-}
-
-tbody tr:hover .sticky-col {
-  background: rgb(255, 248, 245);
 }
 
 .crown-icon {
@@ -2619,6 +2533,21 @@ body.drawer-open .navbar {
 .player-selector-option.disabled:hover {
   background: transparent;
   color: var(--gray-600);
+}
+
+/* View full profile link */
+.player-details__profile-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--primary);
+  text-decoration: none;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
+.player-details__profile-link:hover {
+  text-decoration: underline;
+  color: var(--primary-dark);
 }
 
 /* Season Name Display */
@@ -4644,6 +4573,39 @@ select.form-select {
   overflow-y: auto;
 }
 
+.home-content--no-sidebar {
+  margin-left: 0;
+}
+
+/* Auth prompt for unauthenticated users on find-leagues */
+.find-leagues-auth-prompt {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--primary-lighter);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.find-leagues-auth-prompt__text {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.find-leagues-auth-prompt__link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.find-leagues-auth-prompt__link:hover {
+  color: var(--primary-dark);
+}
+
 .league-message {
   padding: 12px 16px;
   border-radius: 10px;
@@ -5500,6 +5462,15 @@ select.form-select {
   font-size: 1em;
 }
 
+.league-member-name--link {
+  text-decoration: none;
+}
+
+.league-member-name--link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 .league-member-joined {
   font-size: 0.85em;
   color: var(--gray-600);
@@ -6082,6 +6053,15 @@ select.form-select {
   color: var(--gray-900);
   font-size: 0.95em;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.add-players-table-name .add-players-table-meta {
+  font-size: 0.8em;
+  font-weight: 400;
+  color: var(--gray-500);
 }
 
 .add-players-table-actions {
@@ -6113,6 +6093,712 @@ select.form-select {
 
 .add-players-table-add:active {
   transform: scale(0.95);
+}
+
+/* Session Players Drawer */
+.session-players-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  isolation: isolate;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.session-players-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(900px, 100%);
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-left: 1px solid var(--gray-200);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+  z-index: 2002;
+  isolation: isolate;
+  animation: slideInFromRight 0.25s ease-out;
+  overflow: hidden;
+}
+
+.session-players-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
+.session-players-drawer-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.session-players-modal-intro {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin: 0;
+  padding: 12px 20px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.session-players-drawer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 20px;
+}
+
+.session-players-view-tabs {
+  display: flex;
+  gap: 0;
+  padding: 4px;
+  background: var(--gray-100);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.session-players-view-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-view-tab:hover {
+  color: var(--gray-800);
+  background: var(--gray-200);
+}
+
+.session-players-view-tab.active {
+  color: var(--primary);
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.session-players-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.session-players-column-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-600);
+  margin: 0 0 12px 0;
+}
+
+.session-players-column-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.session-players-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-players-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--gray-100);
+  background: white;
+}
+
+.session-players-list-item:last-child {
+  border-bottom: none;
+}
+
+.session-players-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-players-row-name {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.session-players-row-meta-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.session-players-row-meta {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-players-location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.session-players-creator-badge {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.session-players-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.session-players-remove:hover:not(:disabled) {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.session-players-add .session-players-column-scroll {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Subtle fade while fetching new results (keeps stale list visible) */
+.session-players-loading-fade {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.session-players-filters-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.session-players-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-players-filters-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.session-players-filters-toggle:hover {
+  background: var(--gray-200);
+}
+
+.session-players-filters-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  color: white;
+  background: var(--primary);
+  border-radius: 8px;
+}
+
+.session-players-filters-trigger-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.session-players-filters-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-200);
+  z-index: 100;
+}
+
+.session-players-filters-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: flex-start;
+}
+
+.session-players-filters-panel .form-select {
+  min-width: 120px;
+}
+
+/* Multiselect filter sections: show all options with selected state */
+.session-players-filter-multiselect {
+  min-width: 140px;
+}
+
+.session-players-filter-multiselect-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+
+.session-players-filter-multiselect-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.session-players-filter-multiselect-list li {
+  margin: 0;
+}
+
+.session-players-filter-multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  color: var(--gray-800);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-filter-multiselect-option:hover {
+  background: var(--gray-100);
+}
+
+.session-players-filter-multiselect-option.selected {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.session-players-filter-multiselect-option.selected:hover {
+  background: var(--primary-lighter);
+  filter: brightness(0.97);
+}
+
+.session-players-filter-multiselect-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--gray-400);
+}
+
+.session-players-filter-multiselect-option.selected .session-players-filter-multiselect-check {
+  color: var(--primary);
+}
+
+.session-players-filter-multiselect-empty {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  padding: 6px 8px;
+}
+
+/* ── SearchableMultiSelect (Tom Select-style) ── */
+.searchable-multiselect {
+  min-width: 180px;
+  position: relative;
+}
+
+.searchable-multiselect__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.searchable-multiselect__control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.searchable-multiselect__control:hover {
+  border-color: var(--gray-400);
+}
+
+.searchable-multiselect__control--open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+}
+
+.searchable-multiselect__value-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.searchable-multiselect__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--primary-lighter);
+  color: var(--primary);
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.searchable-multiselect__pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-multiselect__pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.searchable-multiselect__pill-remove:hover {
+  opacity: 1;
+}
+
+.searchable-multiselect__input {
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  min-width: 60px;
+  flex: 1;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--gray-900);
+}
+
+.searchable-multiselect__input::placeholder {
+  color: var(--gray-400);
+}
+
+.searchable-multiselect__indicator {
+  display: flex;
+  align-items: center;
+  color: var(--gray-400);
+  flex-shrink: 0;
+  padding-left: 2px;
+}
+
+.searchable-multiselect__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  list-style: none;
+  padding: 4px 0;
+  z-index: 20;
+}
+
+.searchable-multiselect__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--gray-900);
+  transition: background 0.1s;
+}
+
+.searchable-multiselect__option:hover {
+  background: var(--gray-100);
+}
+
+.searchable-multiselect__option--selected {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.searchable-multiselect__option--selected:hover {
+  background: var(--primary-lighter);
+  filter: brightness(0.97);
+}
+
+.searchable-multiselect__option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.searchable-multiselect__no-results {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--gray-400);
+}
+
+.session-players-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.session-players-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  padding: 4px 8px;
+  padding-right: 4px;
+  border-radius: 999px;
+}
+
+.session-players-filter-pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--gray-600);
+  transition: background 0.15s, color 0.15s;
+}
+
+.session-players-filter-pill-remove:hover {
+  background: var(--gray-300);
+  color: var(--gray-900);
+}
+
+.session-players-add-list-wrapper {
+  flex: 1;
+}
+
+.session-players-add-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-players-add-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--gray-100);
+  background: white;
+  transition: background 0.15s;
+}
+
+.session-players-add-item:last-child {
+  border-bottom: none;
+}
+
+.session-players-add-item:hover {
+  background: var(--gray-50);
+}
+
+.session-players-add-item .session-players-row-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-players-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(44, 122, 143, 0.1);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.session-players-add-btn:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+}
+
+.session-players-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.session-players-load-more {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.session-players-load-more:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.session-players-drawer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
+.session-players-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.session-players-message {
+  color: var(--color-error, #dc2626);
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .session-players-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 85dvh;
+    border-left: none;
+    border-radius: 20px 20px 0 0;
+    animation: slideUpMobile 0.25s ease-out;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .session-players-drawer-body {
+    padding: 16px;
+  }
 }
 
 .add-players-table-remove {
@@ -6419,6 +7105,517 @@ select.form-select {
   font-size: 0.95rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Non-League Sessions - Session Page */
+.session-page {
+  max-width: 640px;
+  margin-left: 0;
+  margin-right: auto;
+  padding: 24px 20px 48px;
+}
+
+.session-page-loading,
+.session-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 48px 24px;
+  gap: 16px;
+}
+
+.session-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+.session-page-back:hover {
+  color: var(--primary-dark);
+}
+
+.session-page-header {
+  margin-bottom: 24px;
+}
+
+.session-page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.session-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.session-page-title-input {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  padding: 4px 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  min-width: 200px;
+  flex: 1;
+}
+
+.session-page-title-save {
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.session-page-title-save:hover {
+  background: var(--primary-light);
+}
+
+.session-page-title-edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.session-page-title-edit:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+.session-page-delete-link {
+  font-size: small;
+  color: var(--color-error, #dc2626);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+}
+
+.session-page-delete-link:hover {
+  color: var(--color-error-dark, #b91c1c);
+}
+
+.session-page-created-by {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.session-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.session-page-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-page-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-page-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--gray-700);
+}
+
+.session-page-copy:hover {
+  background: var(--gray-200);
+}
+
+.session-share-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.session-share-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-share-trigger svg.rotate-180 {
+  transform: rotate(180deg);
+}
+
+.session-share-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 160px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: slideDown 0.2s ease-out;
+}
+
+.session-share-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: white;
+  border: none;
+  font-size: 0.9rem;
+  color: var(--gray-900);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.session-share-dropdown-item:hover {
+  background: var(--gray-50);
+}
+
+.session-share-dropdown-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.session-share-dropdown-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.session-page-status {
+  margin-top: 8px;
+}
+
+.session-ended-block {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+}
+
+.session-ended-label {
+  color: var(--gray-600);
+}
+
+.session-ended-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.session-ended-link:hover:not(:disabled) {
+  color: var(--primary-darker);
+}
+
+.session-ended-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.session-page-matches {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+  margin-bottom: 24px;
+}
+
+.session-page-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 16px;
+}
+
+.session-page-matches-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-page-match-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.session-page-match-teams {
+  color: var(--gray-700);
+}
+
+.session-page-match-score {
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.session-page-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.session-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.session-page-btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary-dark);
+  box-shadow: 4px 4px 0 var(--primary-dark);
+}
+
+.session-page-btn.primary:hover {
+  background: var(--primary-light);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--primary-dark);
+}
+
+.session-page-btn.secondary {
+  background: white;
+  color: var(--primary);
+  border-color: var(--primary);
+  text-decoration: none;
+}
+
+.session-page-btn.secondary:hover {
+  background: var(--primary-lighter);
+}
+
+/* Non-League Sessions - Open Sessions List */
+.open-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.open-sessions-list-loading,
+.open-sessions-list-error,
+.open-sessions-list-empty {
+  text-align: center;
+  padding: 32px 24px;
+  color: var(--gray-600);
+}
+
+.open-sessions-list-empty .empty-icon {
+  color: var(--gray-300);
+  margin-bottom: 12px;
+}
+
+.open-sessions-list-empty .empty-subtext {
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.open-sessions-list-ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.open-sessions-list-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.open-sessions-list-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.open-sessions-list-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.open-sessions-list-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--gray-900);
+}
+
+.open-sessions-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.open-sessions-list-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.open-sessions-list-badge.league {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.open-sessions-list-badge.pickup {
+  background: var(--coral-light);
+  color: var(--coral-dark);
+}
+
+.open-sessions-list-participation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.open-sessions-list-count {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.open-sessions-list-card-right {
+  display: flex;
+  align-items: center;
+}
+
+/* Non-League Sessions - My Games Tab */
+.my-games-tab-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 640px;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.my-games-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.my-games-tab-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+/* Create game button - outline primary, minimal aesthetic */
+.my-games-tab-create-btn {
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.my-games-tab-error {
+  color: var(--color-error, #dc2626);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--danger-light, #ffeceb);
+  border-radius: 8px;
+}
+
+.my-games-tab-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.my-games-tab-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 16px;
+}
+
+/* Home Widget - View Open Sessions */
+.home-widget-view-all {
+  display: block;
+  width: 100%;
+  padding: 8px 0;
+  margin-top: 8px;
+  text-align: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.home-widget-view-all:hover {
+  color: var(--primary-dark) !important;
 }
 
 .match-date-header-container {
@@ -7241,6 +8438,15 @@ button.match-config-toggle.inline svg {
   flex-wrap: wrap;
 }
 
+.editing-badge {
+  background-color: #f59e0b;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .recording-badge {
   display: inline-flex;
   align-items: center;
@@ -7305,6 +8511,12 @@ button.match-config-toggle.inline svg {
   color: var(--muted-red);
 }
 
+.session-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .session-stats {
   display: flex;
   gap: 20px;
@@ -7365,13 +8577,14 @@ button.match-config-toggle.inline svg {
 .session-actions {
   display: flex;
   gap: 12px;
+  margin-top: 20px;
   margin-bottom: 24px;
   justify-content: flex-start;
   flex-wrap: wrap;
 }
 
 .session-btn {
-  padding: 8px;
+  padding: 6px 12px;
   border-radius: 6px;
   font-size: 0.8em;
   font-weight: 500;
@@ -7382,19 +8595,6 @@ button.match-config-toggle.inline svg {
   transition: all 0.15s ease;
   border: none;
   font-family: "Urbanist", sans-serif;
-}
-
-.session-btn-add {
-  background: var(--primary);
-  color: white;
-}
-
-.session-btn-add:hover {
-  background: var(--deep-ocean);
-}
-
-.session-btn-add:active {
-  background: var(--deep-ocean);
 }
 
 .session-btn-upload {
@@ -7408,26 +8608,6 @@ button.match-config-toggle.inline svg {
 
 .session-btn-upload:active {
   background: var(--secondary-dark, #4338ca);
-}
-
-.session-btn-submit {
-  background: var(--muted-red);
-  color: white;
-  white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(255, 120, 73, 0.2);
-}
-
-.session-btn-submit:hover {
-  background: #e55a2b;
-  color: white;
-  box-shadow: 0 4px 8px rgba(255, 120, 73, 0.3);
-  transform: translateY(-1px);
-}
-
-.session-btn-submit:active {
-  background: #cc4a24;
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(255, 120, 73, 0.2);
 }
 
 .session-btn-delete {
@@ -7470,8 +8650,27 @@ button.match-config-toggle.inline svg {
   min-width: 0;
 }
 
-.session-btn-delete-header {
+/* Delete header button: red underlined text, matches session page style */
+.session-btn.session-btn-delete.session-btn-delete-header {
+  font-size: small;
+  color: var(--color-error, #dc2626);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  box-shadow: none;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.session-btn.session-btn-delete.session-btn-delete-header:hover {
+  color: var(--color-error-dark, #b91c1c);
+  background: none;
+  transform: none;
+}
+
+.session-btn.session-btn-delete.session-btn-delete-header:active {
+  background: none;
 }
 
 .session-season-selector {
@@ -8700,8 +9899,9 @@ button.match-config-toggle.inline svg {
     display: none !important;
   }
 
-  /* Hide Find Leagues menu item on mobile - it's in the More menu instead */
-  .find-leagues-menu-item-desktop {
+  /* Hide Find Leagues/Players menu items on mobile - they're in the More menu instead */
+  .find-leagues-menu-item-desktop,
+  .find-players-menu-item-desktop {
     display: none !important;
   }
 
@@ -10729,9 +11929,71 @@ button.match-config-toggle.inline svg {
     gap: 10px;
   }
 
-  .session-btn-cancel {
-    color: white;
-    background-color: var(--ocean-gray);
+  /* Clipboard table: remove blocky border & --sand shadow (match rankings table treatment) */
+  .clipboard-table-wrapper {
+    box-shadow: none;
+    border: none;
+  }
+
+  .clipboard-table {
+    table-layout: fixed;
+    font-size: 0.9rem;
+    box-shadow: none;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    padding-left: 8px;
+    padding-right: 6px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    padding-left: 6px;
+    padding-right: 6px;
+    min-width: 32px;
+  }
+
+  .clipboard-table .player-cell {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.95rem;
+  }
+
+  .match-date-header {
+    font-size: 0.95em;
+    padding-bottom: 4px;
+  }
+
+  .match-date-header-stats {
+    gap: 8px;
+  }
+
+  .match-date-header-stats .session-stat {
+    font-size: 0.8em;
   }
 }
 @media (max-width: 576px) {
@@ -10752,7 +12014,6 @@ button.match-config-toggle.inline svg {
     font-size: 0.8em;
   }
 
-
   .session-empty-state {
     padding: 32px 16px;
   }
@@ -10760,6 +12021,57 @@ button.match-config-toggle.inline svg {
   .session-empty-icon {
     width: 32px;
     height: 32px;
+  }
+
+  /* Clipboard table: even tighter on small phones */
+  .clipboard-table {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.7rem;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    padding-left: 6px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    min-width: 28px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.8rem;
+  }
+
+  .clipboard-table .player-cell {
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.9rem;
+  }
+
+  .match-date-header {
+    font-size: 0.9em;
+    padding-bottom: 2px;
   }
 }
 @media (max-width: 768px) {
@@ -11043,12 +12355,33 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table-wrapper {
   overflow-x: auto;
+  background: white;
 }
 
 .clipboard-table {
   width: 100%;
+  max-width: 33.5rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Enforce column widths: # ~20px (1.25rem), team columns 200px (12.5rem) */
+.clipboard-col-id {
+  width: 1.25rem;
+}
+.clipboard-col-team {
+  width: 12.5rem;
+}
+.clipboard-col-score {
+  width: 3.25rem;
+}
+
+.clipboard-score-header {
+  text-align: center !important;
 }
 
 .clipboard-table th,
@@ -11069,6 +12402,33 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table tr:last-child td {
   border-bottom: none;
+}
+
+/* On bigger screens, add space between Team 2 score and Team 2 names (padding-right on score cell + padding-left on names column) */
+@media (min-width: 769px) {
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    padding-right: 1.5rem !important;
+  }
+  .clipboard-table-wrapper .clipboard-table th.clipboard-col-team2,
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-team2 {
+    padding-left: 1.5rem !important;
+  }
+}
+
+/* On large viewports, widen Team 2 score column to create gap before Team 2 names */
+@media (min-width: 900px) {
+  .clipboard-table colgroup col:nth-child(4) {
+    width: 6rem;
+  }
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    text-align: left !important;
+    padding-left: 1rem !important;
+  }
+}
+
+/* Prevent wrapping of player names on desktop */
+.clipboard-table .player-cell {
+  white-space: nowrap;
 }
 
 .player-cell {
@@ -11225,4 +12585,5 @@ button.match-config-toggle.inline svg {
 }
 .clipboard-loser {
   color: var(--gray-800);
+  font-weight: 400;
 }

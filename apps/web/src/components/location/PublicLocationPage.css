@@ -1,0 +1,301 @@
+/* PublicLocationPage — public location landing page for SEO / unauthenticated users */
+
+.public-location {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  margin-top: var(--navbar-height);
+}
+
+/* Header */
+.public-location__header {
+  margin-bottom: 24px;
+}
+
+.public-location__title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 8px;
+}
+
+.public-location__region {
+  font-size: 15px;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+/* Aggregate stats strip */
+.public-location__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.public-location__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.public-location__stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.public-location__stat-label {
+  font-size: 13px;
+  color: var(--gray-600);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Auth prompt banner (matches PublicPlayerPage / PublicLeaguePage style) */
+.public-location__auth-prompt {
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: var(--primary-lighter);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.public-location__auth-prompt-text {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.public-location__auth-prompt-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.public-location__auth-prompt-link:hover {
+  color: var(--primary-dark);
+}
+
+/* Sections */
+.public-location__section {
+  margin-bottom: 36px;
+}
+
+.public-location__section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+/* League cards */
+.public-location__leagues {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-location__league-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.public-location__league-card:hover {
+  background: var(--primary-lighter);
+  border-color: var(--primary-light);
+}
+
+.public-location__league-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.public-location__league-card:hover .public-location__league-name {
+  color: var(--primary-dark);
+}
+
+.public-location__league-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-location__badge {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.public-location__league-members {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+/* Top players */
+.public-location__players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-location__player-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.public-location__player-row:hover {
+  background: var(--gray-50);
+}
+
+.public-location__player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.public-location__player-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.public-location__player-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.public-location__player-stats {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+/* Courts */
+.public-location__courts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-location__court-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.public-location__court-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.public-location__court-address {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+/* Footer CTA */
+.public-location__footer {
+  text-align: center;
+  padding: 40px 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--gray-300);
+}
+
+.public-location__footer p {
+  font-size: 16px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+.public-location__cta-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Empty state */
+.public-location-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  min-height: 400px;
+  margin-top: var(--navbar-height);
+}
+
+.public-location-empty h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.public-location-empty p {
+  font-size: 16px;
+  color: var(--gray-600);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .public-location {
+    padding: 20px 16px 40px;
+  }
+
+  .public-location__title {
+    font-size: 22px;
+  }
+
+  .public-location__league-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .public-location__player-row {
+    padding: 10px 12px;
+  }
+}

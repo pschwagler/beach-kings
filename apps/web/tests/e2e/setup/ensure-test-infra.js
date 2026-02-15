@@ -210,7 +210,8 @@ async function waitForHealthy(service, maxWait = 60000) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
-            const response = await fetch('http://localhost:8001/api/leagues', {
+            const apiUrl = process.env.TEST_API_URL || 'http://localhost:8001';
+            const response = await fetch(`${apiUrl}/api/leagues`, {
               signal: controller.signal,
               headers: { 'Accept': 'application/json' }
             }).catch(() => null);
@@ -334,7 +335,7 @@ async function ensureTestInfrastructure() {
           console.log(`  Process: ${processInfo.substring(0, 80)}${processInfo.length > 80 ? '...' : ''}`);
         }
         console.log(`  Playwright will reuse this existing server (reuseExistingServer: true)`);
-        console.log(`  Make sure it's configured with TEST_API_URL=${process.env.TEST_API_URL || 'http://localhost:8001'}`);
+        console.log(`  Make sure it's started with BACKEND_PROXY_TARGET=http://localhost:8001 (test backend)`);
         
         // Verify the server is actually responding
         try {
@@ -405,14 +406,16 @@ async function ensureTestInfrastructure() {
   if (status.missing.includes('backend-test') || status.missing.includes('postgres-test')) {
     console.log('Resetting test database to ensure clean state...');
     try {
-      // Stop containers first
+      // Stop test containers only (scoped to docker-compose.test.yml)
       execSync(
         `${composeCommand} -f ${COMPOSE_FILE} stop postgres-test backend-test 2>/dev/null || true`,
         { cwd: projectRoot, stdio: 'pipe' }
       );
-      // Remove containers and volumes
+      // Remove test containers WITHOUT volumes (-v flag removed).
+      // Volumes are managed by docker-compose.test.yml and are test-only,
+      // but removing them here is unnecessary and risks confusion with dev volumes.
       execSync(
-        `${composeCommand} -f ${COMPOSE_FILE} rm -f -v postgres-test 2>/dev/null || true`,
+        `${composeCommand} -f ${COMPOSE_FILE} rm -f postgres-test 2>/dev/null || true`,
         { cwd: projectRoot, stdio: 'pipe' }
       );
     } catch (error) {

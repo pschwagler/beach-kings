@@ -12,39 +12,12 @@
   font-size: 32px;
   font-weight: 600;
   margin-bottom: 16px;
-  color: #1a1a1a;
+  color: var(--gray-900);
 }
 
 .join-league-prompt__description {
   font-size: 18px;
-  color: #666;
+  color: var(--gray-600);
   margin-bottom: 32px;
   max-width: 500px;
-}
-
-.join-league-prompt__button {
-  padding: 14px 32px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.join-league-prompt__button:hover {
-  background-color: #0056b3;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.join-league-prompt__button:active {
-  transform: translateY(1px);
-}
-
-.join-league-prompt__button:focus {
-  outline: 2px solid #0056b3;
-  outline-offset: 2px;
 }

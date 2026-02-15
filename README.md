@@ -55,6 +55,8 @@ For each player:
 
 ## 🏗️ Architecture
 
+The default branch is `develop`. Open PRs against `develop`; CI (lint + tests) and code review run on PRs targeting `develop`.
+
 ### Tech Stack
 
 **Backend:**

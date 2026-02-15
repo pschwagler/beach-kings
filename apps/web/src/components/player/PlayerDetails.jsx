@@ -1,10 +1,12 @@
 import { X } from 'lucide-react';
+import Link from 'next/link';
 import PlayerSelector from './PlayerSelector';
 import PlayerOverview from './PlayerOverview';
 import MatchHistoryTable from '../match/MatchHistoryTable';
 import PlayerStatsTable from './PlayerStatsTable';
+import { slugify } from '../../utils/slugify';
 
-export default function PlayerDetails({ playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange, leagueName, seasonName }) {
+export default function PlayerDetails({ playerId, playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange, leagueName, seasonName }) {
   const overview = stats?.overview || {};
   const playerStats = stats?.stats || [];
   const hasStats = playerStats.length > 0;
@@ -23,11 +25,21 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
         <X size={20} />
       </button>
       
-      <PlayerSelector 
+      <PlayerSelector
         playerName={playerName}
         allPlayers={allPlayers}
         onPlayerChange={onPlayerChange}
       />
+
+      {playerId && playerName && (
+        <Link
+          href={`/player/${playerId}/${slugify(playerName)}`}
+          className="player-details__profile-link"
+          onClick={onClose}
+        >
+          View full profile
+        </Link>
+      )}
 
       {(leagueName || seasonName) && (
         <div className="player-details-season-name">

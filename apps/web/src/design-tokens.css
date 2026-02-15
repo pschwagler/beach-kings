@@ -1,0 +1,108 @@
+/*
+ * Design Tokens — Beach Kings
+ * ============================
+ * Single source of truth for all colors, shadows, spacing, and layout values.
+ * Every component CSS file should reference these tokens via var(--token-name).
+ *
+ * NEVER hard-code hex colors in component CSS — always use a token here.
+ * If a new color is needed, add it here first, then reference it.
+ *
+ * Token groups:
+ *   --primary-*       Teal ocean brand colors (buttons, links, accents)
+ *   --sunset-* / --coral-* / --sand-*   Warm beach palette
+ *   --seafoam-*       Cool accent greens
+ *   --sun-gold-*      Gold/yellow accents
+ *   --warm-brown-*    Earthy browns
+ *   --dusk-purple-*   Evening tones
+ *   --ocean-gray-*    Neutral cool grays
+ *   --gray-*          Pure neutral grays (50–900)
+ *   --success / --danger   Functional status colors
+ *   --shadow-*        Warm-tinted elevation shadows
+ */
+
+:root {
+  /* Brand — teal ocean */
+  --primary: #2c7a8f;
+  --primary-light: #5faec0;
+  --primary-lighter: #bfe1e7;
+  --primary-dark: #205e6f;
+  --primary-darker: #183f4a;
+  --primary-rgb: 44, 122, 143;
+
+  /* Warm accents */
+  --muted-red: #ff7849;
+  --sunset-dark: #e76a41;
+  --sunset-light: #ff9673;
+  --coral: #ff9a76;
+  --coral-light: #ffc7b3;
+  --coral-dark: #e08361;
+  --sand: #f4e4c1;
+  --sand-light: #faf0d8;
+  --sand-dark: #d6c19c;
+  --deep-ocean: #2c7a8f;
+  --warm-brown: #8b6f47;
+  --warm-brown-light: #b89a6d;
+  --warm-brown-dark: #6b5334;
+
+  /* Cool accents */
+  --seafoam: #8ed4c6;
+  --seafoam-light: #c9eee6;
+  --seafoam-dark: #5fa79b;
+  --sun-gold: #ffd78a;
+  --sun-gold-light: #ffebc2;
+  --sun-gold-dark: #e7b662;
+  --dusk-purple: #4c3a4d;
+  --dusk-purple-light: #7a6780;
+  --dusk-purple-dark: #342735;
+
+  /* Neutral cool grays */
+  --ocean-gray: #9aa7a9;
+  --ocean-gray-light: #c4cfd1;
+  --ocean-gray-dark: #6f7b7d;
+  --ocean-gray-darker: #3d4445;
+  --navy-logo-bg: #0f172a;
+  --muted-red: #cc4e4e;
+
+  /* Gold gradient */
+  --gold-gradient: linear-gradient(
+    90deg,
+    #c9a652 0%,
+    #ecd36f 50%,
+    #b68b34 100%
+  );
+  --gold-text: #ecd36f;
+  --gold-dark: #b68b34;
+
+  /* Pure neutral grays */
+  --gray-50: #fafafa;
+  --gray-100: #f5f5f5;
+  --gray-200: #eeeeee;
+  --gray-300: #e0e0e0;
+  --gray-400: #9e9e9e;
+  --gray-600: #757575;
+  --gray-700: #616161;
+  --gray-900: #212121;
+
+  /* Functional status */
+  --success: #10b981;
+  --success-dark: #059669;
+  --success-light: #e8fbf0;
+  --success-lighter: #f4fdf8;
+  --danger: #ef4444;
+  --danger-light: #ffeceb;
+  --danger-lighter: #fef2f2;
+
+  /* Warm-tinted elevation shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(150 110 80 / 0.12);
+  --shadow-xl: 0 20px 25px -5px rgb(150 110 80 / 0.15);
+
+  /* Layout dimensions */
+  --navbar-height: 53px;
+
+  /* Sidebar widths */
+  --sidebar-width-home: 220px;
+  --sidebar-width-league: 240px;
+  --sidebar-width-collapsed: 72px;
+}

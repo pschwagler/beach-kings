@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { X, Users, MapPin, LogIn, UserRoundPlus, ExternalLink } from 'lucide-react';
 import { getLeagueMembers } from '../../services/api';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import { slugify } from '../../utils/slugify';
 import LevelBadge from '../ui/LevelBadge';
+import { isImageUrl } from '../../utils/avatar';
 
 export default function LeagueMembersModal({ 
   leagueId, 
@@ -21,6 +24,15 @@ export default function LeagueMembersModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -45,11 +57,6 @@ export default function LeagueMembersModal({
     if (!dateString) return 'Unknown';
     const relative = formatRelativeTime(dateString);
     return relative || 'Unknown';
-  };
-
-  const isImageUrl = (avatar) => {
-    if (!avatar) return false;
-    return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
   };
 
   const getAvatarInitial = (playerName) => {
@@ -163,7 +170,17 @@ export default function LeagueMembersModal({
                       )}
                     </div>
                     <div className="league-member-left">
-                      <span className="league-member-name">{member.player_name || 'Unknown'}</span>
+                      {member.player_id && member.player_name ? (
+                        <Link
+                          href={`/player/${member.player_id}/${slugify(member.player_name)}`}
+                          className="league-member-name league-member-name--link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {member.player_name}
+                        </Link>
+                      ) : (
+                        <span className="league-member-name">{member.player_name || 'Unknown'}</span>
+                      )}
                       {member.joined_at && (
                         <span className="league-member-joined">
                           Joined {formatJoinDate(member.joined_at)}

@@ -4,6 +4,7 @@ import MatchCard from './MatchCard';
 import SessionMatchesClipboardTable from './SessionMatchesClipboardTable';
 
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
+import SessionGroupHeader from '../session/SessionGroupHeader';
 import { MatchesTableSkeleton } from '../ui/Skeletons';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
@@ -558,7 +559,6 @@ export default function MatchesTable({
             onUpdateSessionSeason={onUpdateSessionSeason}
             seasons={seasons}
             selectedSeasonId={selectedSeasonId}
-            contentVariant={contentVariant}
           />
         </div>
       )}
@@ -670,6 +670,14 @@ export default function MatchesTable({
             ? seasons.find(s => s.id === seasonId) 
             : null;
           
+          const timestampText = group.lastUpdated ? (() => {
+            const timestamp = formatRelativeTime(group.lastUpdated);
+            const user = group.updatedBy || group.createdBy;
+            if (group.status === 'EDITED' && user) return `Edited ${timestamp} by ${user}`;
+            if (group.status === 'SUBMITTED' && user) return `Submitted ${timestamp} by ${user}`;
+            return timestamp;
+          })() : null;
+
           return (
             <div 
               key={key} 
@@ -677,49 +685,23 @@ export default function MatchesTable({
               data-session-id={group.type === 'session' ? group.id : undefined}
               data-testid="session-group"
             >
-              <h3 className="match-date-header">
-                <span className="match-date-header-left">
-                  {group.name}
-                  {canEdit && (
-                    <button
-                      className="edit-session-button"
-                      onClick={() => onEnterEditMode(group.id)}
-                      title="Edit Session"
-                      data-testid="edit-session-button"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  )}
-                  {sessionSeason && (
-                    <span className="season-badge">
-                      {sessionSeason.name || `Season ${sessionSeason.id}`}
-                    </span>
-                  )}
-                </span>
-                {group.type === 'session' && sessionGameCount > 0 && (
-                  <div 
-                    className="session-stats session-stats-clickable match-date-header-stats"
-                    onClick={() => {
-                      openModal(MODAL_TYPES.SESSION_SUMMARY, {
-                        title: group.name || "Session Summary",
-                        gameCount: sessionGameCount,
-                        playerCount: sessionPlayerCount,
-                        matches: group.matches,
-                        season: sessionSeason
-                      });
-                    }}
-                  >
-                    <div className="session-stat">
-                      <Trophy size={16} />
-                      {sessionGameCount} {sessionGameCount === 1 ? 'game' : 'games'}
-                    </div>
-                    <div className="session-stat">
-                      <Users size={16} />
-                      {sessionPlayerCount} {sessionPlayerCount === 1 ? 'player' : 'players'}
-                    </div>
-                  </div>
-                )}
-              </h3>
+              <SessionGroupHeader
+                sessionName={group.name}
+                gameCount={sessionGameCount}
+                playerCount={sessionPlayerCount}
+                onStatsClick={group.type === 'session' && sessionGameCount > 0 ? () => {
+                  openModal(MODAL_TYPES.SESSION_SUMMARY, {
+                    title: group.name || "Session Summary",
+                    gameCount: sessionGameCount,
+                    playerCount: sessionPlayerCount,
+                    matches: group.matches,
+                    season: sessionSeason
+                  });
+                } : undefined}
+                onEditClick={canEdit ? () => onEnterEditMode(group.id) : undefined}
+                timestampText={contentVariant === 'cards' ? timestampText : undefined}
+                seasonBadge={sessionSeason ? (sessionSeason.name || `Season ${sessionSeason.id}`) : undefined}
+              />
               {contentVariant === 'clipboard' ? (
                 <SessionMatchesClipboardTable
                   matches={group.matches}
@@ -741,32 +723,15 @@ export default function MatchesTable({
                   }}
                 />
               ) : (
-                <>
-                  <div className="match-cards">
-                    {group.matches.map((match, idx) => (
-                      <MatchCard
-                        key={idx}
-                        match={match}
-                        onPlayerClick={onPlayerClick}
-                      />
-                    ))}
-                  </div>
-                  {group.lastUpdated && (
-                    <div className="session-timestamp">
-                      {(() => {
-                        const timestamp = formatRelativeTime(group.lastUpdated);
-                        const user = group.updatedBy || group.createdBy;
-                        if (group.status === 'EDITED' && user) {
-                          return `Edited ${timestamp} by ${user}`;
-                        }
-                        if (group.status === 'SUBMITTED' && user) {
-                          return `Submitted ${timestamp} by ${user}`;
-                        }
-                        return timestamp;
-                      })()}
-                    </div>
-                  )}
-                </>
+                <div className="match-cards">
+                  {group.matches.map((match, idx) => (
+                    <MatchCard
+                      key={idx}
+                      match={match}
+                      onPlayerClick={onPlayerClick}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           );

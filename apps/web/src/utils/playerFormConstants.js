@@ -1,16 +1,5 @@
 /**
- * Shared constants for player profile forms
+ * @deprecated Use playerFilterOptions.js instead.
+ * Re-exports GENDER_OPTIONS and SKILL_LEVEL_OPTIONS for backwards compatibility.
  */
-
-export const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-];
-
-export const SKILL_LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'AA', label: 'AA' },
-  { value: 'Open', label: 'Open' },
-];
+export { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from './playerFilterOptions';

@@ -5,7 +5,7 @@ FastAPI server that provides REST endpoints for ELO calculations and statistics.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import logging
@@ -15,9 +15,9 @@ from slowapi import _rate_limit_exceeded_handler  # type: ignore
 from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
+from backend.api.public_routes import public_router
 from backend.database import db
 from backend.database.init_defaults import init_defaults
-from backend.services import data_service, sheets_service, calculation_service
 from backend.services.stats_queue import get_stats_queue
 from backend.services import settings_service
 
@@ -27,8 +27,7 @@ from backend.services import settings_service
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 numeric_level = getattr(logging, log_level, logging.INFO)
 logging.basicConfig(
-    level=numeric_level,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=numeric_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ async def lifespan(app: FastAPI):
     """Lifespan handler for startup and shutdown events."""
     # Startup
     logger.info("Starting up Beach Volleyball ELO API...")
-    
+
     # Initialize database (create tables if they don't exist)
     # This is a fallback for tables that might not be in migrations yet
     try:
@@ -48,16 +47,17 @@ async def lifespan(app: FastAPI):
         logger.error(f"Database initialization failed: {e}", exc_info=True)
         # Don't raise - allow app to start even if initialization fails
         # (useful for development, but you might want to raise in production)
-    
+
     # Initialize default values (settings, etc.)
     try:
         await init_defaults()
         logger.info("✓ Default values initialized")
-        
+
         # Check for log level setting in database and apply it
         try:
             from backend.database.db import AsyncSessionLocal
             from backend.services import data_service
+
             async with AsyncSessionLocal() as session:
                 log_level_setting = await data_service.get_setting(session, "log_level")
                 if log_level_setting:
@@ -74,16 +74,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
-    
+
     # Register stats calculation callbacks (must be done before starting worker)
     try:
         from backend.services.data_service import register_stats_queue_callbacks
+
         register_stats_queue_callbacks()
         logger.info("✓ Stats calculation callbacks registered")
     except Exception as e:
         logger.error(f"Failed to register stats calculation callbacks: {e}", exc_info=True)
         # Don't raise - allow app to start, but calculations will fail if callbacks aren't registered
-    
+
     # Start stats calculation queue worker
     try:
         queue = get_stats_queue()
@@ -94,10 +95,10 @@ async def lifespan(app: FastAPI):
         # Don't raise - allow app to start even if queue worker fails
 
     yield  # App is running
-    
+
     # Shutdown (if needed)
     logger.info("Shutting down Beach Volleyball ELO API...")
-    
+
     # Stop stats calculation queue worker
     try:
         queue = get_stats_queue()
@@ -105,7 +106,7 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Stats calculation queue worker stopped")
     except Exception as e:
         logger.error(f"Error stopping stats calculation queue worker: {e}", exc_info=True)
-    
+
     # Close Redis connection
     try:
         await settings_service.close_redis_connection()
@@ -118,7 +119,7 @@ app = FastAPI(
     title="Beach Volleyball ELO API",
     description="API for calculating and retrieving beach volleyball ELO ratings and statistics",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Setup rate limiter
@@ -136,12 +137,14 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router)
+app.include_router(public_router)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """API root endpoint - frontend is served separately."""
-    return HTMLResponse(content="""
+    return HTMLResponse(
+        content="""
         <!DOCTYPE html>
         <html>
             <head>
@@ -163,7 +166,8 @@ async def root():
                 <p><em>Note: Frontend is served separately by Next.js service.</em></p>
             </body>
         </html>
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

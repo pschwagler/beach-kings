@@ -4,11 +4,12 @@
 
 import axios from 'axios';
 
-// Base URL - empty string for same-origin, or set to API URL for development
-// In Next.js, we use process.env.NEXT_PUBLIC_API_URL for client-side env vars
+// In development we use relative /api (empty base) so Next.js proxy decides the backend;
+// no compile-time URL is inlined, avoiding .next cache poisoning between dev and E2E.
+// In production we use NEXT_PUBLIC_API_URL.
 // eslint-disable-next-line no-undef
-const API_BASE_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_API_URL || '')
+const API_BASE_URL = typeof window !== 'undefined'
+  ? (process.env.NODE_ENV === 'development' ? '' : (process.env.NEXT_PUBLIC_API_URL || ''))
   : '';
 
 const ACCESS_TOKEN_KEY = 'beach_access_token';
@@ -235,10 +236,37 @@ export const getRankings = async (queryParams = {}) => {
 };
 
 /**
- * Get list of all players
+ * Get list of players with optional search and filters. Returns { items, total }.
+ * @param {Object} params - Optional: { q, location_id, league_id, limit, offset }
  */
-export const getPlayers = async () => {
-  const response = await api.get('/api/players');
+/**
+ * Get players with optional search and filters. Supports multi-select filters via arrays.
+ * @param {Object} params - q, location_id (string or string[]), league_id (number or number[]),
+ *   gender (string or string[]), level (string or string[]), limit, offset
+ */
+export const getPlayers = async (params = {}) => {
+  const {
+    q,
+    location_id,
+    league_id,
+    gender,
+    level,
+    limit = 50,
+    offset = 0,
+  } = params;
+  const searchParams = new URLSearchParams();
+  if (q != null && q !== '') searchParams.set('q', String(q));
+  const locationIds = Array.isArray(location_id) ? location_id : (location_id != null && location_id !== '' ? [location_id] : []);
+  locationIds.forEach((id) => searchParams.append('location_id', String(id)));
+  const leagueIds = Array.isArray(league_id) ? league_id : (league_id != null && league_id !== '' ? [Number(league_id)] : []);
+  leagueIds.forEach((id) => searchParams.append('league_id', String(id)));
+  const genders = Array.isArray(gender) ? gender : (gender != null && gender !== '' ? [gender] : []);
+  genders.forEach((g) => searchParams.append('gender', String(g)));
+  const levels = Array.isArray(level) ? level : (level != null && level !== '' ? [level] : []);
+  levels.forEach((l) => searchParams.append('level', String(l)));
+  searchParams.set('limit', String(limit));
+  searchParams.set('offset', String(offset));
+  const response = await api.get(`/api/players?${searchParams.toString()}`);
   return response.data;
 };
 
@@ -421,10 +449,91 @@ export const getActiveSession = async (leagueId) => {
 };
 
 /**
- * Create a new session
+ * Get open sessions for the current user (creator, has match, or invited).
+ * @returns {Promise<Array>} Array of session objects with participation, match_count, etc.
  */
-export const createSession = async (date = null) => {
-  const response = await api.post('/api/sessions', { date });
+export const getOpenSessions = async () => {
+  const response = await api.get('/api/sessions/open');
+  return response.data;
+};
+
+/**
+ * Get a session by its shareable code.
+ * @param {string} code - Session code
+ * @returns {Promise<Object>} Session object
+ */
+export const getSessionByCode = async (code) => {
+  const response = await api.get(`/api/sessions/by-code/${encodeURIComponent(code)}`);
+  return response.data;
+};
+
+/**
+ * Get all matches for a session.
+ * @param {number} sessionId - Session ID
+ * @returns {Promise<Array>} Array of match objects
+ */
+export const getSessionMatches = async (sessionId) => {
+  const response = await api.get(`/api/sessions/${sessionId}/matches`);
+  return response.data;
+};
+
+/**
+ * Get list of players in a session (participants + players who have matches).
+ */
+export const getSessionParticipants = async (sessionId) => {
+  const response = await api.get(`/api/sessions/${sessionId}/participants`);
+  return response.data;
+};
+
+/**
+ * Remove a player from session participants. Fails if player has matches in this session.
+ */
+export const removeSessionParticipant = async (sessionId, playerId) => {
+  const response = await api.delete(`/api/sessions/${sessionId}/participants/${playerId}`);
+  return response.data;
+};
+
+/**
+ * Join a session by code (adds current user's player to participants).
+ * @param {string} code - Session code
+ * @returns {Promise<Object>} { status, message, session }
+ */
+export const joinSessionByCode = async (code) => {
+  const response = await api.post('/api/sessions/join', { code: code.trim().toUpperCase() });
+  return response.data;
+};
+
+/**
+ * Invite a player to a session.
+ * @param {number} sessionId - Session ID
+ * @param {number} playerId - Player ID to invite
+ * @returns {Promise<Object>} { status, message }
+ */
+export const inviteToSession = async (sessionId, playerId) => {
+  const response = await api.post(`/api/sessions/${sessionId}/invite`, { player_id: playerId });
+  return response.data;
+};
+
+/**
+ * Invite multiple players to a session in one request.
+ * @param {number} sessionId - Session ID
+ * @param {number[]} playerIds - Player IDs to invite
+ * @returns {Promise<{ added: number[], failed: { player_id: number, error: string }[] }>}
+ */
+export const inviteToSessionBatch = async (sessionId, playerIds) => {
+  const response = await api.post(`/api/sessions/${sessionId}/invite_batch`, {
+    player_ids: Array.isArray(playerIds) ? playerIds : [],
+  });
+  return response.data;
+};
+
+/**
+ * Create a new non-league session (with shareable code).
+ * @param {Object} payload - { date?, name?, court_id? } – pass { date: '...' } for a specific date
+ * @returns {Promise<Object>} { status, message, session } with session.code
+ */
+export const createSession = async (payload = {}) => {
+  const response = await api.post('/api/sessions', { ...payload });
   return response.data;
 };
 
@@ -538,8 +647,8 @@ export const listLeagues = async () => {
 /**
  * Query leagues with filters, ordering, and limit
  */
-export const queryLeagues = async (filters = {}) => {
-  const response = await api.post('/api/leagues/query', filters);
+export const queryLeagues = async (filters = {}, options = {}) => {
+  const response = await api.post('/api/leagues/query', filters, options);
   return response.data;
 };
 
@@ -617,6 +726,19 @@ export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
   const response = await api.post(`/api/leagues/${leagueId}/members`, {
     player_id: playerId,
     role
+  });
+  return response.data;
+};
+
+/**
+ * Add multiple players to a league in one request.
+ * @param {number} leagueId - League ID
+ * @param {Array<{ player_id: number, role?: string }>} members - List of { player_id, role } (role defaults to 'member')
+ * @returns {Promise<{ added: Array, failed: Array<{ player_id: number, error: string }> }>}
+ */
+export const addLeagueMembersBatch = async (leagueId, members) => {
+  const response = await api.post(`/api/leagues/${leagueId}/members_batch`, {
+    members: Array.isArray(members) ? members : [],
   });
   return response.data;
 };
@@ -1127,6 +1249,48 @@ export const cancelPhotoSession = async (leagueId, sessionId) => {
   const response = await api.delete(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}`
   );
+  return response.data;
+};
+
+/**
+ * Search publicly visible players with optional filters.
+ *
+ * @param {Object} params - Query parameters
+ * @param {string} [params.search] - Search by player name
+ * @param {string} [params.location_id] - Filter by location ID
+ * @param {string} [params.gender] - Filter by gender
+ * @param {string} [params.level] - Filter by skill level
+ * @param {number} [params.page] - Page number (1-based)
+ * @param {number} [params.page_size] - Items per page
+ * @returns {Promise<{items: Array, total_count: number}>}
+ */
+export const getPublicPlayers = async (params = {}, options = {}) => {
+  const response = await api.get('/api/public/players', { params, ...options });
+  return response.data;
+};
+
+/**
+ * Upload a new avatar image for the current user.
+ *
+ * @param {File|Blob} file - Image file or blob to upload
+ * @returns {Promise<{ profile_picture_url: string }>}
+ */
+export const uploadAvatar = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/api/users/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+/**
+ * Delete the current user's avatar, reverting to initials.
+ *
+ * @returns {Promise<{ message: string }>}
+ */
+export const deleteAvatar = async () => {
+  const response = await api.delete('/api/users/me/avatar');
   return response.data;
 };
 

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
       POSTGRES_DB: ${POSTGRES_DB:-beachkings}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -36,6 +36,8 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-production}
+      # Internal URL for SSR calls to backend (container-to-container)
+      - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_started
@@ -50,7 +52,6 @@ services:
     container_name: beach-kings-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-      - "${DEBUGPY_PORT:-5678}:5678"
       # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
@@ -78,6 +79,10 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
       - DEBUG_BACKEND=${DEBUG_BACKEND:-0}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
+      - AWS_S3_REGION=${AWS_S3_REGION:-us-west-2}
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,7 +99,7 @@ services:
     image: redis:7-alpine
     container_name: beach-kings-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

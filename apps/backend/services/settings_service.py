@@ -26,11 +26,11 @@ REDIS_KEY_PREFIX = "settings:"
 def get_bool_env(key: str, default: bool = True) -> bool:
     """
     Parse a boolean environment variable from a string value.
-    
+
     Args:
         key: Environment variable name
         default: Default value if the variable is not set
-        
+
     Returns:
         bool: Parsed boolean value
     """
@@ -66,13 +66,13 @@ async def _clear_cache():
         redis_client = await redis_service.get_redis_client()
         if redis_client is None:
             return
-        
+
         # Find all keys with the settings prefix
         pattern = f"{REDIS_KEY_PREFIX}*"
         keys = []
         async for key in redis_client.scan_iter(match=pattern):
             keys.append(key)
-        
+
         if keys:
             await redis_client.delete(*keys)
             logger.info(f"Cleared {len(keys)} cached settings from Redis")
@@ -85,18 +85,18 @@ async def get_setting_with_fallback(
     key: str,
     env_var: Optional[str] = None,
     default: Optional[str] = None,
-    fallback_to_cache: bool = True
+    fallback_to_cache: bool = True,
 ) -> Optional[str]:
     """
     Get a setting value from database first, then env var, then default.
-    
+
     Args:
         session: Database session (optional)
         key: Setting key in database
         env_var: Environment variable name to fall back to
         default: Default value if neither database nor env var is set
         fallback_to_cache: If True and no session, use cache
-        
+
     Returns:
         Setting value as string, or None
     """
@@ -110,19 +110,19 @@ async def get_setting_with_fallback(
                 return value
         except Exception as e:
             logger.warning(f"Error reading setting {key} from database: {e}")
-    
+
     # Try cache if session not available or database failed
     if fallback_to_cache:
         cached = await _get_cached_setting(key)
         if cached is not None:
             return cached
-    
+
     # Fall back to environment variable
     if env_var:
         value = os.getenv(env_var)
         if value is not None:
             return value
-    
+
     # Return default
     return default
 
@@ -132,26 +132,26 @@ async def get_bool_setting(
     key: str,
     env_var: Optional[str] = None,
     default: bool = True,
-    fallback_to_cache: bool = True
+    fallback_to_cache: bool = True,
 ) -> bool:
     """
     Get a boolean setting value.
-    
+
     Args:
         session: Database session (optional)
         key: Setting key in database
         env_var: Environment variable name to fall back to
         default: Default value if neither database nor env var is set
         fallback_to_cache: If True and no session, use cache
-        
+
     Returns:
         bool: Setting value as boolean
     """
     value = await get_setting_with_fallback(session, key, env_var, None, fallback_to_cache)
-    
+
     if value is None:
         return default
-    
+
     # Parse boolean string
     return value.lower() in ("true", "1", "yes")
 
@@ -161,26 +161,26 @@ async def get_float_setting(
     key: str,
     env_var: Optional[str] = None,
     default: Optional[float] = None,
-    fallback_to_cache: bool = True
+    fallback_to_cache: bool = True,
 ) -> Optional[float]:
     """
     Get a float setting value.
-    
+
     Args:
         session: Database session (optional)
         key: Setting key in database
         env_var: Environment variable name to fall back to
         default: Default value if neither database nor env var is set
         fallback_to_cache: If True and no session, use cache
-        
+
     Returns:
         float: Setting value as float, or default
     """
     value = await get_setting_with_fallback(session, key, env_var, None, fallback_to_cache)
-    
+
     if value is None:
         return default
-    
+
     try:
         return float(value)
     except (ValueError, TypeError):
@@ -196,7 +196,7 @@ async def invalidate_settings_cache():
 async def close_redis_connection():
     """
     Close Redis connection (call on application shutdown).
-    
+
     Note: This delegates to the centralized redis_service.
     Kept for backwards compatibility with existing shutdown code.
     """

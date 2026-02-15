@@ -38,40 +38,31 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers.
+   * In local dev only chromium runs (fast). Set CI=true or ALL_BROWSERS=1 to run all 3. */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    ...(process.env.CI || process.env.ALL_BROWSERS ? [
+      {
+        name: 'firefox',
+        use: { ...devices['Desktop Firefox'] },
+      },
+      {
+        name: 'webkit',
+        use: { ...devices['Desktop Safari'] },
+      },
+    ] : []),
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: `rm -f .next/dev/lock 2>/dev/null || true && PORT=3002 NEXT_PUBLIC_API_URL=${process.env.TEST_API_URL || 'http://localhost:8001'} npm run dev`,
+    command: `rm -f .next/dev/lock 2>/dev/null || true && PORT=3002 BACKEND_PROXY_TARGET=${process.env.TEST_API_URL || 'http://localhost:8001'} npm run dev`,
     url: 'http://localhost:3002',
     // In CI, always start a fresh server. In local dev, reuse if available (faster)
-    // Note: Make sure the server on 3002 is the test server with TEST_API_URL
+    // Note: Server on 3002 must be started with BACKEND_PROXY_TARGET=http://localhost:8001 for test backend
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

@@ -6,6 +6,7 @@ name: Gemini PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches: [develop]
 
 defaults:
   run:

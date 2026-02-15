@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle, Save } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import PlayerProfileFields from '../player/PlayerProfileFields';
 import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
+import AvatarUpload from '../profile/AvatarUpload';
 
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
@@ -308,6 +309,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           <span>{errorMessage}</span>
         </div>
       )}
+
+      <AvatarUpload currentUserPlayer={currentUserPlayer} fetchCurrentUser={fetchCurrentUser} />
 
       <form className="profile-page__form" onSubmit={handleSubmit}>
         {/* Account Info */}

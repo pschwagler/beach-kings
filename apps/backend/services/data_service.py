@@ -5,43 +5,76 @@ Handles all CRUD operations for the ELO system.
 
 from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 from datetime import datetime, date, time, timedelta
-from collections import defaultdict
 import pytz
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
-from sqlalchemy import select, update, delete, func, and_, or_, text, cast, Integer, Float, String
-from sqlalchemy.orm import selectinload, aliased
+from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
+from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
 from sqlalchemy.sql import func as sql_func
-from backend.database import db
 from backend.database.models import (
-    League, LeagueMember, LeagueMessage, LeagueConfig, LeagueRequest, Season, Location, Court, Player, User,
-    Session, Match, Setting, PartnershipStats, OpponentStats, 
-    EloHistory, SeasonRatingHistory, PlayerSeasonStats, SessionStatus, PlayerGlobalStats,
-    WeeklySchedule, Signup, SignupPlayer, SignupEvent,
-    OpenSignupsMode, SignupEventType,
-    PartnershipStatsSeason, OpponentStatsSeason, 
-    PlayerLeagueStats, PartnershipStatsLeague, OpponentStatsLeague,
-    StatsCalculationJob, StatsCalculationJobStatus,
-    Region, ScoringSystem
+    League,
+    LeagueMember,
+    LeagueMessage,
+    LeagueConfig,
+    LeagueRequest,
+    Season,
+    Location,
+    Court,
+    Player,
+    User,
+    Session,
+    Match,
+    Setting,
+    PartnershipStats,
+    OpponentStats,
+    SessionParticipant,
+    EloHistory,
+    SeasonRatingHistory,
+    PlayerSeasonStats,
+    SessionStatus,
+    PlayerGlobalStats,
+    WeeklySchedule,
+    Signup,
+    SignupPlayer,
+    SignupEvent,
+    OpenSignupsMode,
+    SignupEventType,
+    PartnershipStatsSeason,
+    OpponentStatsSeason,
+    PlayerLeagueStats,
+    PartnershipStatsLeague,
+    OpponentStatsLeague,
+    Region,
+    ScoringSystem,
 )
+
 # MatchData removed - now using Match ORM model directly
 from backend.services import calculation_service
+
 # Lazy import to avoid circular dependency with stats_queue
 from backend.utils.constants import INITIAL_ELO
 from backend.utils.datetime_utils import utcnow, format_session_date
 import csv
 import io
 import logging
+import secrets
+import string
 
 logger = logging.getLogger(__name__)
+
+# Session code: alphanumeric (uppercase + digits), default length 8
+SESSION_CODE_ALPHABET = string.ascii_uppercase + string.digits
+SESSION_CODE_LENGTH = 8
+SESSION_CODE_MAX_ATTEMPTS = 10
 
 #
 # Helper functions
 #
+
 
 def generate_player_initials(name: str) -> str:
     """
@@ -51,9 +84,9 @@ def generate_player_initials(name: str) -> str:
     """
     if not name or not name.strip():
         return ""
-    
+
     name_parts = name.strip().split()
-    
+
     if len(name_parts) == 0:
         return ""
     elif len(name_parts) == 1:
@@ -73,6 +106,7 @@ def generate_player_initials(name: str) -> str:
 # These use SQLAlchemy ORM with async sessions
 #
 
+
 async def create_league(
     session: AsyncSession,
     name: str,
@@ -82,7 +116,7 @@ async def create_league(
     whatsapp_group_id: Optional[str],
     creator_user_id: int,
     gender: Optional[str] = None,
-    level: Optional[str] = None
+    level: Optional[str] = None,
 ) -> Dict:
     """Create a new league."""
     league = League(
@@ -92,29 +126,23 @@ async def create_league(
         is_open=is_open,
         whatsapp_group_id=whatsapp_group_id,
         gender=gender,
-        level=level
+        level=level,
     )
     session.add(league)
     await session.flush()  # Get the league ID
-    
+
     # Get creator's player_id
-    result = await session.execute(
-        select(Player).where(Player.user_id == creator_user_id)
-    )
+    result = await session.execute(select(Player).where(Player.user_id == creator_user_id))
     player = result.scalar_one_or_none()
     if not player:
         raise ValueError("Player not found for user_id")
-    
+
     # Add creator as admin member
-    member = LeagueMember(
-        league_id=league.id,
-        player_id=player.id,
-        role="admin"
-    )
+    member = LeagueMember(league_id=league.id, player_id=player.id, role="admin")
     session.add(member)
     await session.commit()
     await session.refresh(league)
-    
+
     return {
         "id": league.id,
         "name": league.name,
@@ -136,7 +164,7 @@ async def list_leagues(
     gender: Optional[str] = None,
     level: Optional[str] = None,
     order: Optional[str] = None,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
 ) -> List[Dict]:
     """
     List all leagues with optional filters, ordering, and limit.
@@ -146,14 +174,11 @@ async def list_leagues(
     """
     # Subquery to count members for each league
     member_count_subq = (
-        select(
-            LeagueMember.league_id,
-            func.count(LeagueMember.id).label("member_count")
-        )
+        select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
         .subquery()
     )
-    
+
     # Build the base query with joins
     query = (
         select(
@@ -161,13 +186,13 @@ async def list_leagues(
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
             Location.region_id.label("region_id"),
-            Region.name.label("region_name")
+            Region.name.label("region_name"),
         )
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
         .outerjoin(Region, Region.id == Location.region_id)
     )
-    
+
     # Apply filters
     conditions = []
     if location_id is not None:
@@ -178,17 +203,17 @@ async def list_leagues(
         conditions.append(League.gender == gender)
     if level is not None:
         conditions.append(League.level == level)
-    
+
     if conditions:
         query = query.where(and_(*conditions))
-    
+
     # Apply ordering
     if order:
         # Parse order string (e.g., "created_at:desc" or "name:asc")
         order_parts = order.split(":")
         order_field = order_parts[0]
         order_direction = order_parts[1].lower() if len(order_parts) > 1 else "asc"
-        
+
         if order_field == "name":
             order_column = League.name
         elif order_field == "created_at":
@@ -197,7 +222,7 @@ async def list_leagues(
             order_column = func.coalesce(member_count_subq.c.member_count, 0)
         else:
             order_column = League.created_at  # default
-        
+
         if order_direction == "desc":
             query = query.order_by(order_column.desc())
         else:
@@ -205,14 +230,14 @@ async def list_leagues(
     else:
         # Default ordering by created_at desc
         query = query.order_by(League.created_at.desc())
-    
+
     # Apply limit
     if limit is not None and limit > 0:
         query = query.limit(limit)
-    
+
     result = await session.execute(query)
     rows = result.all()
-    
+
     return [
         {
             "id": league.id,
@@ -261,27 +286,22 @@ async def query_leagues(
         page = 1
     if page_size <= 0:
         page_size = 25
-    
+
     # Optionally include or exclude leagues the current user has joined.
     # When include_joined is False and a user_id is provided, we'll exclude their joined leagues.
     # When include_joined is True or None, we don't filter by membership.
     player_id: Optional[int] = None
     if user_id is not None:
-        player_result = await session.execute(
-            select(Player.id).where(Player.user_id == user_id)
-        )
+        player_result = await session.execute(select(Player.id).where(Player.user_id == user_id))
         player_id = player_result.scalar_one_or_none()
 
     # Subquery to count members for each league
     member_count_subq = (
-        select(
-            LeagueMember.league_id,
-            func.count(LeagueMember.id).label("member_count")
-        )
+        select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
         .subquery()
     )
-    
+
     # Base query for items
     base_query = (
         select(
@@ -289,13 +309,13 @@ async def query_leagues(
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
             Location.region_id.label("region_id"),
-            Region.name.label("region_name")
+            Region.name.label("region_name"),
         )
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
         .outerjoin(Region, Region.id == Location.region_id)
     )
-    
+
     # Build filter conditions (shared between count and items)
     conditions = []
     if location_id is not None:
@@ -311,30 +331,30 @@ async def query_leagues(
     if include_joined is False and player_id is not None:
         conditions.append(
             League.id.not_in(
-                select(LeagueMember.league_id).where(
-                    LeagueMember.player_id == player_id
-                )
+                select(LeagueMember.league_id).where(LeagueMember.player_id == player_id)
             )
         )
-    
+
     if conditions:
         base_query = base_query.where(and_(*conditions))
-    
+
     # Total count query (no member_count / region_name needed)
-    count_query = select(func.count(League.id)).select_from(League).outerjoin(
-        Location, Location.id == League.location_id
+    count_query = (
+        select(func.count(League.id))
+        .select_from(League)
+        .outerjoin(Location, Location.id == League.location_id)
     )
     if conditions:
         count_query = count_query.where(and_(*conditions))
     count_result = await session.execute(count_query)
     total_count = count_result.scalar() or 0
-    
+
     # Apply ordering to items query
     if order:
         order_parts = order.split(":")
         order_field = order_parts[0]
         order_direction = order_parts[1].lower() if len(order_parts) > 1 else "asc"
-        
+
         if order_field == "name":
             order_column = League.name
         elif order_field == "created_at":
@@ -343,20 +363,20 @@ async def query_leagues(
             order_column = func.coalesce(member_count_subq.c.member_count, 0)
         else:
             order_column = League.created_at  # default
-        
+
         if order_direction == "desc":
             base_query = base_query.order_by(order_column.desc())
         else:
             base_query = base_query.order_by(order_column.asc())
     else:
         base_query = base_query.order_by(League.created_at.desc())
-    
+
     offset = (page - 1) * page_size
     items_query = base_query.offset(offset).limit(page_size)
-    
+
     result = await session.execute(items_query)
     rows = result.all()
-    
+
     items = [
         {
             "id": league.id,
@@ -376,7 +396,7 @@ async def query_leagues(
         }
         for league, member_count, location_name, league_region_id, league_region_name in rows
     ]
-    
+
     return {
         "items": items,
         "page": page,
@@ -387,9 +407,7 @@ async def query_leagues(
 
 async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
     """Get a league by ID."""
-    result = await session.execute(
-        select(League).where(League.id == league_id)
-    )
+    result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         return None
@@ -408,31 +426,44 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
 
 
 async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
-    """Get all leagues a user is a member of."""
+    """Get all leagues a user is a member of, ordered by most recent session date."""
     # Subquery to count members for each league
     member_count_subq = (
-        select(
-            LeagueMember.league_id,
-            func.count(LeagueMember.id).label("member_count")
-        )
+        select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
         .subquery()
     )
-    
+
+    # Subquery to get the most recent session date per league
+    latest_session_subq = (
+        select(
+            Season.league_id,
+            func.max(Session.date).label("latest_session_date"),
+        )
+        .join(Session, Session.season_id == Season.id)
+        .group_by(Season.league_id)
+        .subquery()
+    )
+
     result = await session.execute(
         select(
             League,
             LeagueMember.role.label("membership_role"),
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
-            Location.name.label("location_name")
+            Location.name.label("location_name"),
+            latest_session_subq.c.latest_session_date,
         )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
+        .outerjoin(latest_session_subq, latest_session_subq.c.league_id == League.id)
         .where(Player.user_id == user_id)
         .distinct()
-        .order_by(League.created_at.desc())
+        .order_by(
+            latest_session_subq.c.latest_session_date.desc().nulls_last(),
+            League.created_at.desc(),
+        )
     )
     rows = result.all()
     return [
@@ -451,7 +482,7 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
         }
-        for league, role, member_count, location_name in rows
+        for league, role, member_count, location_name, _latest_date in rows
     ]
 
 
@@ -464,7 +495,7 @@ async def update_league(
     is_open: bool,
     whatsapp_group_id: Optional[str],
     gender: Optional[str] = None,
-    level: Optional[str] = None
+    level: Optional[str] = None,
 ) -> Optional[Dict]:
     """Update a league."""
     update_values = {
@@ -472,25 +503,21 @@ async def update_league(
         "description": description,
         "location_id": location_id,
         "is_open": is_open,
-        "whatsapp_group_id": whatsapp_group_id
+        "whatsapp_group_id": whatsapp_group_id,
     }
     if gender is not None:
         update_values["gender"] = gender
     if level is not None:
         update_values["level"] = level
-    
-    await session.execute(
-        update(League)
-        .where(League.id == league_id)
-        .values(**update_values)
-    )
+
+    await session.execute(update(League).where(League.id == league_id).values(**update_values))
     await session.commit()
     return await get_league(session, league_id)
 
 
 async def delete_league(session: AsyncSession, league_id: int) -> bool:
     """Delete a league.
-    
+
     Deletes all related records first to avoid foreign key constraint violations:
     - LeagueMember records
     - LeagueMessage records
@@ -499,23 +526,13 @@ async def delete_league(session: AsyncSession, league_id: int) -> bool:
     - Then the League itself
     """
     # Delete related records first
-    await session.execute(
-        delete(LeagueMember).where(LeagueMember.league_id == league_id)
-    )
-    await session.execute(
-        delete(LeagueMessage).where(LeagueMessage.league_id == league_id)
-    )
-    await session.execute(
-        delete(LeagueConfig).where(LeagueConfig.league_id == league_id)
-    )
-    await session.execute(
-        delete(Season).where(Season.league_id == league_id)
-    )
-    
+    await session.execute(delete(LeagueMember).where(LeagueMember.league_id == league_id))
+    await session.execute(delete(LeagueMessage).where(LeagueMessage.league_id == league_id))
+    await session.execute(delete(LeagueConfig).where(LeagueConfig.league_id == league_id))
+    await session.execute(delete(Season).where(Season.league_id == league_id))
+
     # Now delete the league
-    result = await session.execute(
-        delete(League).where(League.id == league_id)
-    )
+    result = await session.execute(delete(League).where(League.id == league_id))
     await session.commit()
     return result.rowcount > 0
 
@@ -547,7 +564,7 @@ async def create_season(
 ) -> Dict:
     """
     Create a season.
-    
+
     Args:
         session: Database session
         league_id: League ID
@@ -567,21 +584,23 @@ async def create_season(
         )
         season_count = result.scalar() or 0
         name = f"Season {season_count + 1}"
-    
+
     # Determine scoring system
     if scoring_system:
         scoring_system_enum = ScoringSystem(scoring_system)
     else:
         # Default to points_system
         scoring_system_enum = ScoringSystem.POINTS_SYSTEM
-    
+
     # Build point_system JSON
     if point_system:
         # Use provided point_system (for backward compatibility)
         # Validate that point_system type matches scoring_system
         try:
             point_system_dict_check = json.loads(point_system)
-            if point_system_dict_check.get("type") and scoring_system_enum.value != point_system_dict_check.get("type"):
+            if point_system_dict_check.get(
+                "type"
+            ) and scoring_system_enum.value != point_system_dict_check.get("type"):
                 raise ValueError(
                     f"scoring_system '{scoring_system_enum.value}' does not match "
                     f"point_system type '{point_system_dict_check.get('type')}'"
@@ -598,7 +617,7 @@ async def create_season(
             point_system_dict = {
                 "type": "points_system",
                 "points_per_win": points_per_win_val,
-                "points_per_loss": points_per_loss_val
+                "points_per_loss": points_per_loss_val,
             }
         else:  # SEASON_RATING
             point_system_dict = {
@@ -606,19 +625,23 @@ async def create_season(
                 # All players start at 100 rating in Season Rating mode
             }
         point_system_json = json.dumps(point_system_dict)
-    
+
     season = Season(
         league_id=league_id,
         name=name,
-        start_date=datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date,
-        end_date=datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date,
+        start_date=datetime.fromisoformat(start_date).date()
+        if isinstance(start_date, str)
+        else start_date,
+        end_date=datetime.fromisoformat(end_date).date()
+        if isinstance(end_date, str)
+        else end_date,
         scoring_system=scoring_system_enum,
         point_system=point_system_json,
     )
     session.add(season)
     await session.commit()
     await session.refresh(season)
-    
+
     return {
         "id": season.id,
         "league_id": season.league_id,
@@ -635,12 +658,9 @@ async def create_season(
 async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
     """List seasons for a league."""
     result = await session.execute(
-        select(Season)
-        .where(Season.league_id == league_id)
-        .order_by(Season.start_date.desc())
+        select(Season).where(Season.league_id == league_id).order_by(Season.start_date.desc())
     )
     seasons = result.scalars().all()
-    current_date = date.today()
     return [
         {
             "id": s.id,
@@ -659,9 +679,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
 
 async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
     """Get a season by ID."""
-    result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    result = await session.execute(select(Season).where(Season.id == season_id))
     season = result.scalar_one_or_none()
     if not season:
         return None
@@ -700,9 +718,7 @@ async def get_sessions(session: AsyncSession) -> List[Dict]:
 
 async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
     """Get a session by ID."""
-    result = await session.execute(
-        select(Session).where(Session.id == session_id)
-    )
+    result = await session.execute(select(Session).where(Session.id == session_id))
     s = result.scalar_one_or_none()
     if not s:
         return None
@@ -711,8 +727,10 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "date": s.date,
         "name": s.name,
         "status": s.status.value if s.status else None,
+        "code": s.code,
         "season_id": s.season_id,
         "court_id": s.court_id,
+        "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
     }
 
@@ -742,44 +760,42 @@ async def get_active_session(session: AsyncSession) -> Optional[Dict]:
 async def get_or_create_active_league_session(
     session: AsyncSession,
     league_id: int,
-    date: str,
+    session_date: str,
     name: Optional[str] = None,
     created_by: Optional[int] = None,
-    season_id: Optional[int] = None
+    season_id: Optional[int] = None,
 ) -> Dict:
     """
     Get or create an active session for a league and date atomically.
     Uses SELECT FOR UPDATE to prevent race conditions.
-    
+
     Args:
         session: Database session
         league_id: League ID
-        date: Session date
+        session_date: Session date
         name: Optional session name
         created_by: Optional player ID who created the session
         season_id: Optional season ID - if provided, use this season instead of finding active season
-        
+
     Returns:
         Dict with session info
     """
     # Verify league exists
-    result = await session.execute(
-        select(League).where(League.id == league_id)
-    )
+    result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
-    
+
     # Use provided season_id, or find the most recent active season for this league
     if season_id:
         season_result = await session.execute(
-            select(Season).where(
-                and_(Season.id == season_id, Season.league_id == league_id)
-            )
+            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
         )
         active_season = season_result.scalar_one_or_none()
         if not active_season:
-            raise ValueError(f"Season {season_id} not found or does not belong to league {league_id}")
+            raise ValueError(
+                f"Season {season_id} not found or does not belong to league {league_id}"
+            )
     else:
         # Find the most recent active season for this league (based on date range)
         current_date = date.today()
@@ -789,17 +805,19 @@ async def get_or_create_active_league_session(
                 and_(
                     Season.league_id == league_id,
                     Season.start_date <= current_date,
-                    Season.end_date >= current_date
+                    Season.end_date >= current_date,
                 )
             )
             .order_by(Season.created_at.desc())
             .limit(1)
         )
         active_season = season_result.scalar_one_or_none()
-        
+
         if not active_season:
-            raise ValueError(f"League {league_id} does not have an active season. Please create a season with dates that include today's date.")
-    
+            raise ValueError(
+                f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
+            )
+
     # Try to get existing active session for this date and season
     # Use SELECT FOR UPDATE to lock the row and prevent race conditions
     # We'll try without nowait first, then retry if needed
@@ -808,15 +826,15 @@ async def get_or_create_active_league_session(
             select(Session)
             .where(
                 and_(
-                    Session.date == date,
+                    Session.date == session_date,
                     Session.season_id == active_season.id,
-                    Session.status == SessionStatus.ACTIVE
+                    Session.status == SessionStatus.ACTIVE,
                 )
             )
             .with_for_update()  # Lock matching rows (waits if locked by another transaction)
         )
         existing_session = result.scalar_one_or_none()
-        
+
         if existing_session:
             # Return existing session
             return {
@@ -829,12 +847,11 @@ async def get_or_create_active_league_session(
     except Exception:
         # If SELECT FOR UPDATE fails, retry without lock (another transaction may have created it)
         result = await session.execute(
-            select(Session)
-            .where(
+            select(Session).where(
                 and_(
-                    Session.date == date,
+                    Session.date == session_date,
                     Session.season_id == active_season.id,
-                    Session.status == SessionStatus.ACTIVE
+                    Session.status == SessionStatus.ACTIVE,
                 )
             )
         )
@@ -847,34 +864,31 @@ async def get_or_create_active_league_session(
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
             }
-    
+
     # No existing session found, create a new one
     # Count existing sessions for this date and season to generate proper session name
     count_result = await session.execute(
         select(func.count(Session.id)).where(
-            and_(
-                Session.date == date,
-                Session.season_id == active_season.id
-            )
+            and_(Session.date == session_date, Session.season_id == active_season.id)
         )
     )
     session_count = count_result.scalar() or 0
-    
+
     # Generate session name with numbering (format date consistently)
-    formatted_date = format_session_date(date)
+    formatted_date = format_session_date(session_date)
     if name:
         session_name = name
     elif session_count == 0:
         session_name = formatted_date
     else:
         session_name = f"{formatted_date} Session #{session_count + 1}"
-    
+
     new_session = Session(
-        date=date,
+        date=session_date,
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
-        created_by=created_by
+        created_by=created_by,
     )
     session.add(new_session)
     await session.flush()  # Flush to get the ID
@@ -893,22 +907,21 @@ async def create_league_session(
     league_id: int,
     date: str,
     name: Optional[str],
-    created_by: Optional[int] = None
+    created_by: Optional[int] = None,
 ) -> Dict:
     """
     Create a league session. Automatically uses the league's most recent active season.
     Now includes duplicate prevention - will raise ValueError if active session already exists.
     """
     # Verify league exists
-    result = await session.execute(
-        select(League).where(League.id == league_id)
-    )
+    result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
-    
+
     # Find the most recent active season for this league (based on date range)
     from datetime import date as date_type
+
     current_date = date_type.today()
     season_result = await session.execute(
         select(Season)
@@ -916,42 +929,43 @@ async def create_league_session(
             and_(
                 Season.league_id == league_id,
                 Season.start_date <= current_date,
-                Season.end_date >= current_date
+                Season.end_date >= current_date,
             )
         )
         .order_by(Season.created_at.desc())
         .limit(1)
     )
     active_season = season_result.scalar_one_or_none()
-    
+
     if not active_season:
-        raise ValueError(f"League {league_id} does not have an active season. Please create a season with dates that include today's date.")
-    
+        raise ValueError(
+            f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
+        )
+
     # Check if active session already exists for this date and season
     result = await session.execute(
         select(Session).where(
             and_(
                 Session.date == date,
                 Session.season_id == active_season.id,
-                Session.status == SessionStatus.ACTIVE
+                Session.status == SessionStatus.ACTIVE,
             )
         )
     )
     existing_session = result.scalar_one_or_none()
     if existing_session:
-        raise ValueError(f"An active session '{existing_session.name}' already exists for this date. Please submit the current session before creating a new one.")
-    
+        raise ValueError(
+            f"An active session '{existing_session.name}' already exists for this date. Please submit the current session before creating a new one."
+        )
+
     # Count existing sessions for this date and season to generate proper session name
     count_result = await session.execute(
         select(func.count(Session.id)).where(
-            and_(
-                Session.date == date,
-                Session.season_id == active_season.id
-            )
+            and_(Session.date == date, Session.season_id == active_season.id)
         )
     )
     session_count = count_result.scalar() or 0
-    
+
     # Generate session name with numbering (format date consistently)
     formatted_date = format_session_date(date)
     if name:
@@ -960,13 +974,13 @@ async def create_league_session(
         session_name = formatted_date
     else:
         session_name = f"{formatted_date} Session #{session_count + 1}"
-    
+
     new_session = Session(
         date=date,
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
-        created_by=created_by
+        created_by=created_by,
     )
     session.add(new_session)
     await session.commit()
@@ -981,14 +995,14 @@ async def create_league_session(
 
 
 async def list_league_members(session: AsyncSession, league_id: int) -> List[Dict]:
-    """List league members."""
+    """List league members. player_name is full_name only (nicknames used on backend for matching only)."""
     result = await session.execute(
         select(
             LeagueMember,
             Player.full_name.label("player_name"),
             Player.nickname.label("player_nickname"),
             Player.level.label("player_level"),
-            Player.avatar.label("player_avatar")
+            Player.avatar.label("player_avatar"),
         )
         .join(Player, Player.id == LeagueMember.player_id)
         .where(LeagueMember.league_id == league_id)
@@ -1001,15 +1015,127 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "league_id": member.league_id,
             "player_id": member.player_id,
             "role": member.role,
-            "player_name": player_name,
+            "player_name": player_name or f"Player {member.player_id}",
             "player_nickname": player_nickname,
             "player_level": player_level,
-            # Use stored avatar if present, otherwise fallback to initials from full name
-            "player_avatar": player_avatar or generate_player_initials(player_name),
+            "player_avatar": player_avatar or generate_player_initials(player_name or ""),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
         }
         for member, player_name, player_nickname, player_level, player_avatar in rows
     ]
+
+
+def _normalize_list_str(lst: Optional[List[str]]) -> List[str]:
+    """Return non-empty stripped strings from a list."""
+    if not lst:
+        return []
+    return [s.strip().lower() for s in lst if s is not None and str(s).strip()]
+
+
+async def list_players_search(
+    session: AsyncSession,
+    q: Optional[str] = None,
+    location_ids: Optional[List[str]] = None,
+    league_ids: Optional[List[int]] = None,
+    genders: Optional[List[str]] = None,
+    levels: Optional[List[str]] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Tuple[List[Dict], int]:
+    """
+    Search players with optional filters. Returns (items, total).
+    Filter lists are OR within each dimension (e.g. multiple locations = player in any of them).
+    Each item has id, full_name, nickname, name (full_name only), gender, level, location_id, location_name.
+    """
+    stmt = select(Player).where(True)
+    count_stmt = select(func.count(Player.id)).select_from(Player).where(True)
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        name_cond = or_(Player.full_name.ilike(term), Player.nickname.ilike(term))
+        stmt = stmt.where(name_cond)
+        count_stmt = count_stmt.where(name_cond)
+
+    loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
+    if loc_ids:
+        stmt = stmt.where(Player.location_id.in_(loc_ids))
+        count_stmt = count_stmt.where(Player.location_id.in_(loc_ids))
+
+    if league_ids:
+        league_ids_clean = [x for x in league_ids if x is not None]
+        if league_ids_clean:
+            subq = (
+                select(LeagueMember.player_id)
+                .where(LeagueMember.league_id.in_(league_ids_clean))
+                .distinct()
+            )
+            stmt = stmt.where(Player.id.in_(subq))
+            count_stmt = count_stmt.where(Player.id.in_(subq))
+
+    gender_vals = _normalize_list_str(genders)
+    if gender_vals:
+        stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
+        count_stmt = count_stmt.where(func.lower(Player.gender).in_(gender_vals))
+
+    level_vals = _normalize_list_str(levels)
+    if level_vals:
+        stmt = stmt.where(func.lower(Player.level).in_(level_vals))
+        count_stmt = count_stmt.where(func.lower(Player.level).in_(level_vals))
+
+    total_result = await session.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    page_stmt = (
+        select(Player, Location.name.label("location_name"))
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(True)
+    )
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        page_stmt = page_stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
+    if loc_ids:
+        page_stmt = page_stmt.where(Player.location_id.in_(loc_ids))
+    if league_ids:
+        league_ids_clean = [x for x in league_ids if x is not None]
+        if league_ids_clean:
+            subq = (
+                select(LeagueMember.player_id)
+                .where(LeagueMember.league_id.in_(league_ids_clean))
+                .distinct()
+            )
+            page_stmt = page_stmt.where(Player.id.in_(subq))
+    if gender_vals:
+        page_stmt = page_stmt.where(func.lower(Player.gender).in_(gender_vals))
+    if level_vals:
+        page_stmt = page_stmt.where(func.lower(Player.level).in_(level_vals))
+    page_stmt = (
+        page_stmt.order_by(
+            func.coalesce(Player.nickname, Player.full_name).asc().nullslast(), Player.id.asc()
+        )
+        .limit(min(limit, 500))
+        .offset(offset)
+    )
+    page_result = await session.execute(page_stmt)
+    rows = page_result.all()
+
+    items = []
+    for player, location_name in rows:
+        # name is full_name only; nicknames used on backend for matching only
+        name = player.full_name if player.full_name else f"Player {player.id}"
+        items.append(
+            {
+                "id": player.id,
+                "full_name": player.full_name,
+                "nickname": player.nickname,
+                "name": name,
+                "gender": player.gender,
+                "level": player.level,
+                "user_id": player.user_id,
+                "location_id": player.location_id,
+                "location_name": location_name,
+            }
+        )
+    return items, total
 
 
 async def create_location(
@@ -1018,19 +1144,13 @@ async def create_location(
     city: Optional[str],
     state: Optional[str],
     country: str = "USA",
-    location_id: Optional[str] = None
+    location_id: Optional[str] = None,
 ) -> Dict:
     """Create a location."""
     if not location_id:
         raise ValueError("location_id is required when creating a location")
-    
-    location = Location(
-        id=location_id,
-        name=name,
-        city=city,
-        state=state,
-        country=country
-    )
+
+    location = Location(id=location_id, name=name, city=city, state=state, country=country)
     session.add(location)
     await session.commit()
     await session.refresh(location)
@@ -1094,7 +1214,7 @@ async def update_location(
     name: Optional[str],
     city: Optional[str],
     state: Optional[str],
-    country: Optional[str]
+    country: Optional[str],
 ) -> Optional[Dict]:
     """Update a location."""
     update_values = {}
@@ -1106,18 +1226,14 @@ async def update_location(
         update_values["state"] = state
     if country is not None:
         update_values["country"] = country
-    
+
     if update_values:
         await session.execute(
-            update(Location)
-            .where(Location.id == location_id)
-            .values(**update_values)
+            update(Location).where(Location.id == location_id).values(**update_values)
         )
         await session.commit()
-    
-    result = await session.execute(
-        select(Location).where(Location.id == location_id)
-    )
+
+    result = await session.execute(select(Location).where(Location.id == location_id))
     location = result.scalar_one_or_none()
     if not location:
         return None
@@ -1135,9 +1251,7 @@ async def update_location(
 
 async def delete_location(session: AsyncSession, location_id: str) -> bool:
     """Delete a location."""
-    result = await session.execute(
-        delete(Location).where(Location.id == location_id)
-    )
+    result = await session.execute(delete(Location).where(Location.id == location_id))
     await session.commit()
     return result.rowcount > 0
 
@@ -1147,15 +1261,10 @@ async def create_court(
     name: str,
     address: Optional[str],
     location_id: str,
-    geoJson: Optional[str]
+    geoJson: Optional[str],
 ) -> Dict:
     """Create a court."""
-    court = Court(
-        name=name,
-        address=address,
-        location_id=location_id,
-        geoJson=geoJson
-    )
+    court = Court(name=name, address=address, location_id=location_id, geoJson=geoJson)
     session.add(court)
     await session.commit()
     await session.refresh(court)
@@ -1175,7 +1284,7 @@ async def list_courts(session: AsyncSession, location_id: Optional[str] = None) 
     query = select(Court).order_by(Court.name.asc())
     if location_id is not None:
         query = query.where(Court.location_id == location_id)
-    
+
     result = await session.execute(query)
     courts = result.scalars().all()
     return [
@@ -1198,7 +1307,7 @@ async def update_court(
     name: Optional[str],
     address: Optional[str],
     location_id: Optional[str],
-    geoJson: Optional[str]
+    geoJson: Optional[str],
 ) -> Optional[Dict]:
     """Update a court."""
     update_values = {}
@@ -1210,18 +1319,12 @@ async def update_court(
         update_values["location_id"] = location_id
     if geoJson is not None:
         update_values["geoJson"] = geoJson
-    
+
     if update_values:
-        await session.execute(
-            update(Court)
-            .where(Court.id == court_id)
-            .values(**update_values)
-        )
+        await session.execute(update(Court).where(Court.id == court_id).values(**update_values))
         await session.commit()
-    
-    result = await session.execute(
-        select(Court).where(Court.id == court_id)
-    )
+
+    result = await session.execute(select(Court).where(Court.id == court_id))
     court = result.scalar_one_or_none()
     if not court:
         return None
@@ -1238,25 +1341,16 @@ async def update_court(
 
 async def delete_court(session: AsyncSession, court_id: int) -> bool:
     """Delete a court."""
-    result = await session.execute(
-        delete(Court).where(Court.id == court_id)
-    )
+    result = await session.execute(delete(Court).where(Court.id == court_id))
     await session.commit()
     return result.rowcount > 0
 
 
 async def add_league_member(
-    session: AsyncSession,
-    league_id: int,
-    player_id: int,
-    role: str = "member"
+    session: AsyncSession, league_id: int, player_id: int, role: str = "member"
 ) -> Dict:
     """Add a league member."""
-    member = LeagueMember(
-        league_id=league_id,
-        player_id=player_id,
-        role=role
-    )
+    member = LeagueMember(league_id=league_id, player_id=player_id, role=role)
     session.add(member)
     await session.commit()
     await session.refresh(member)
@@ -1268,11 +1362,49 @@ async def add_league_member(
     }
 
 
-async def is_league_member(
-    session: AsyncSession,
-    league_id: int,
-    player_id: int
-) -> bool:
+async def add_league_members_batch(
+    session: AsyncSession, league_id: int, members: List[Dict]
+) -> Dict:
+    """
+    Add multiple league members in one request.
+
+    Args:
+        session: Database session.
+        league_id: League ID.
+        members: List of dicts with keys player_id (int) and role (str, default "member").
+
+    Returns:
+        Dict with "added" (list of member dicts) and "failed" (list of
+        {"player_id": int, "error": str}).
+    """
+    added: List[Dict] = []
+    failed: List[Dict] = []
+    for item in members:
+        player_id = item.get("player_id")
+        role = item.get("role", "member")
+        if player_id is None:
+            failed.append({"player_id": player_id, "error": "Missing player_id"})
+            continue
+        try:
+            pid = int(player_id)
+        except (TypeError, ValueError):
+            failed.append({"player_id": player_id, "error": "Invalid player_id"})
+            continue
+        try:
+            if await is_league_member(session, league_id, pid):
+                failed.append({"player_id": pid, "error": "Already a member"})
+                continue
+            member = await add_league_member(session, league_id, pid, role)
+            added.append(member)
+        except Exception as e:
+            err_msg = str(e)
+            if "foreign key" in err_msg.lower() or "unique" in err_msg.lower():
+                err_msg = "Player not found or already a member"
+            failed.append({"player_id": pid, "error": err_msg})
+    return {"added": added, "failed": failed}
+
+
+async def is_league_member(session: AsyncSession, league_id: int, player_id: int) -> bool:
     """Check if a player is a member of a league."""
     result = await session.execute(
         select(LeagueMember)
@@ -1283,14 +1415,13 @@ async def is_league_member(
 
 
 async def get_league_member_by_player(
-    session: AsyncSession,
-    league_id: int,
-    player_id: int
+    session: AsyncSession, league_id: int, player_id: int
 ) -> Optional[Dict]:
     """Get league member by player_id."""
     result = await session.execute(
-        select(LeagueMember)
-        .where(and_(LeagueMember.league_id == league_id, LeagueMember.player_id == player_id))
+        select(LeagueMember).where(
+            and_(LeagueMember.league_id == league_id, LeagueMember.player_id == player_id)
+        )
     )
     member = result.scalar_one_or_none()
     if not member:
@@ -1304,10 +1435,7 @@ async def get_league_member_by_player(
 
 
 async def update_league_member(
-    session: AsyncSession,
-    league_id: int,
-    member_id: int,
-    role: str
+    session: AsyncSession, league_id: int, member_id: int, role: str
 ) -> Optional[Dict]:
     """Update a league member."""
     await session.execute(
@@ -1316,10 +1444,11 @@ async def update_league_member(
         .values(role=role)
     )
     await session.commit()
-    
+
     result = await session.execute(
-        select(LeagueMember)
-        .where(and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id))
+        select(LeagueMember).where(
+            and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id)
+        )
     )
     member = result.scalar_one_or_none()
     if not member:
@@ -1332,46 +1461,40 @@ async def update_league_member(
     }
 
 
-async def remove_league_member(
-    session: AsyncSession,
-    league_id: int,
-    member_id: int
-) -> bool:
+async def remove_league_member(session: AsyncSession, league_id: int, member_id: int) -> bool:
     """Remove a league member."""
     result = await session.execute(
-        delete(LeagueMember)
-        .where(and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id))
+        delete(LeagueMember).where(
+            and_(LeagueMember.id == member_id, LeagueMember.league_id == league_id)
+        )
     )
     await session.commit()
     return result.rowcount > 0
 
 
-async def get_league_member_user_ids(session: AsyncSession, league_id: int, exclude_user_id: Optional[int] = None) -> List[int]:
+async def get_league_member_user_ids(
+    session: AsyncSession, league_id: int, exclude_user_id: Optional[int] = None
+) -> List[int]:
     """
     Get user IDs for all league members.
-    
+
     Args:
         session: Database session
         league_id: ID of the league
         exclude_user_id: Optional user ID to exclude from results
-        
+
     Returns:
         List of user IDs
     """
     query = (
         select(Player.user_id)
         .join(LeagueMember, LeagueMember.player_id == Player.id)
-        .where(
-            and_(
-                LeagueMember.league_id == league_id,
-                Player.user_id.isnot(None)
-            )
-        )
+        .where(and_(LeagueMember.league_id == league_id, Player.user_id.isnot(None)))
     )
-    
+
     if exclude_user_id is not None:
         query = query.where(Player.user_id != exclude_user_id)
-    
+
     result = await session.execute(query)
     user_ids = [row[0] for row in result.all() if row[0] is not None]
     return user_ids
@@ -1380,11 +1503,11 @@ async def get_league_member_user_ids(session: AsyncSession, league_id: int, excl
 async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> List[int]:
     """
     Get user IDs for all league admins.
-    
+
     Args:
         session: Database session
         league_id: ID of the league
-        
+
     Returns:
         List of user IDs
     """
@@ -1395,7 +1518,7 @@ async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> Li
             and_(
                 LeagueMember.league_id == league_id,
                 LeagueMember.role == "admin",
-                Player.user_id.isnot(None)
+                Player.user_id.isnot(None),
             )
         )
     )
@@ -1403,36 +1526,27 @@ async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> Li
     return user_ids
 
 
-async def create_league_request(
-    session: AsyncSession,
-    league_id: int,
-    player_id: int
-) -> Dict:
+async def create_league_request(session: AsyncSession, league_id: int, player_id: int) -> Dict:
     """Create a join request for an invite-only league."""
     # Check if a pending request already exists
     existing_request = await session.execute(
-        select(LeagueRequest)
-        .where(
+        select(LeagueRequest).where(
             and_(
                 LeagueRequest.league_id == league_id,
                 LeagueRequest.player_id == player_id,
-                LeagueRequest.status == "pending"
+                LeagueRequest.status == "pending",
             )
         )
     )
     if existing_request.scalar_one_or_none():
         raise ValueError("A pending join request already exists for this league")
-    
+
     # Create new request
-    request = LeagueRequest(
-        league_id=league_id,
-        player_id=player_id,
-        status="pending"
-    )
+    request = LeagueRequest(league_id=league_id, player_id=player_id, status="pending")
     session.add(request)
     await session.commit()
     await session.refresh(request)
-    
+
     return {
         "id": request.id,
         "league_id": request.league_id,
@@ -1445,17 +1559,13 @@ async def create_league_request(
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:
     """Get all unique player names."""
-    result = await session.execute(
-        select(Player.full_name).order_by(Player.full_name.asc())
-    )
+    result = await session.execute(select(Player.full_name).order_by(Player.full_name.asc()))
     return [row[0] for row in result.all()]
 
 
 async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional[Dict]:
     """Get player profile by user_id."""
-    result = await session.execute(
-        select(Player).where(Player.user_id == user_id)
-    )
+    result = await session.execute(select(Player).where(Player.user_id == user_id))
     player = result.scalar_one_or_none()
     if not player:
         return None
@@ -1492,12 +1602,12 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         .where(Player.user_id == user_id)
     )
     row = result.first()
-    
+
     if not row:
         return None
-    
+
     player, global_stats = row
-    
+
     return {
         "id": player.id,
         "full_name": player.full_name,
@@ -1519,7 +1629,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
             "current_rating": global_stats.current_rating if global_stats else 1200.0,
             "total_games": global_stats.total_games if global_stats else 0,
             "total_wins": global_stats.total_wins if global_stats else 0,
-        }
+        },
     }
 
 
@@ -1538,12 +1648,12 @@ async def upsert_user_player(
     state: Optional[str] = None,
     city_latitude: Optional[float] = None,
     city_longitude: Optional[float] = None,
-    distance_to_location: Optional[float] = None
+    distance_to_location: Optional[float] = None,
 ) -> Optional[Dict]:
     """
     Upsert (create or update) player profile linked to a user.
     Creates player if it doesn't exist, updates if it does.
-    
+
     Args:
         session: Database session
         user_id: User ID
@@ -1560,7 +1670,7 @@ async def upsert_user_player(
         city_latitude: City latitude coordinate (optional)
         city_longitude: City longitude coordinate (optional)
         distance_to_location: Distance to default location in miles (optional)
-        
+
     Returns:
         Player dict, or None if error (e.g., creation without full_name)
     """
@@ -1572,13 +1682,11 @@ async def upsert_user_player(
         except ValueError:
             # Invalid date format, ignore
             pass
-    
+
     # Check if player exists
-    result = await session.execute(
-        select(Player).where(Player.user_id == user_id)
-    )
+    result = await session.execute(select(Player).where(Player.user_id == user_id))
     player = result.scalar_one_or_none()
-    
+
     if not player:
         # Create player if it doesn't exist
         if full_name is None:
@@ -1597,7 +1705,7 @@ async def upsert_user_player(
             state=state,
             city_latitude=city_latitude,
             city_longitude=city_longitude,
-            distance_to_location=distance_to_location
+            distance_to_location=distance_to_location,
         )
         session.add(player)
         await session.commit()
@@ -1605,7 +1713,8 @@ async def upsert_user_player(
     else:
         # Update existing player
         update_values = {
-            k: v for k, v in {
+            k: v
+            for k, v in {
                 "full_name": full_name,
                 "nickname": nickname,
                 "gender": gender,
@@ -1618,19 +1727,18 @@ async def upsert_user_player(
                 "state": state,
                 "city_latitude": city_latitude,
                 "city_longitude": city_longitude,
-                "distance_to_location": distance_to_location
-            }.items() if v is not None
+                "distance_to_location": distance_to_location,
+            }.items()
+            if v is not None
         }
-        
+
         if update_values:
             await session.execute(
-                update(Player)
-                .where(Player.user_id == user_id)
-                .values(**update_values)
+                update(Player).where(Player.user_id == user_id).values(**update_values)
             )
             await session.commit()
             await session.refresh(player)
-    
+
     return {
         "id": player.id,
         "full_name": player.full_name,
@@ -1658,15 +1766,13 @@ async def upsert_user_player(
 async def get_or_create_player(session: AsyncSession, name: str) -> int:
     """Get player ID by name, or create if doesn't exist."""
     # Try to get existing player
-    result = await session.execute(
-        select(Player.id).where(Player.full_name == name)
-    )
+    result = await session.execute(select(Player.id).where(Player.full_name == name))
     # Use first() instead of scalar_one_or_none() to handle duplicate names gracefully
     player_id = result.scalars().first()
-    
+
     if player_id:
         return player_id
-    
+
     # Create new player
     player = Player(full_name=name)
     session.add(player)
@@ -1686,8 +1792,8 @@ def _sort_rankings_all_seasons(rankings: List[Dict]) -> List[Dict]:
             -(p.get("Wins") or 0),  # Negative for descending
             -(p.get("Win Rate") or 0.0),
             -(p.get("Avg Pt Diff") or 0.0),
-            -(p.get("ELO") or 0)
-        )
+            -(p.get("ELO") or 0),
+        ),
     )
 
 
@@ -1702,88 +1808,85 @@ def _sort_rankings_single_season(rankings: List[Dict]) -> List[Dict]:
             -(p.get("Points") or 0),  # Negative for descending
             -(p.get("Avg Pt Diff") or 0.0),
             -(p.get("Win Rate") or 0.0),
-            -(p.get("ELO") or 0)
-        )
+            -(p.get("ELO") or 0),
+        ),
     )
 
 
 async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> List[Dict]:
     """
     Get current player rankings ordered by points.
-    
+
     Args:
         session: Database session
         body: Optional query parameters dict with:
             - season_id: Optional[int] - filter by season (if not provided, gets latest stats across all seasons)
             - league_id: Optional[int] - filter by league (when season_id is not provided, gets stats across all seasons in the league)
-    
+
     Returns:
         List of player rankings with stats
     """
     if body is None:
         body = {}
-    
+
     season_id = body.get("season_id")
     league_id = body.get("league_id")
-    
+
     try:
         # If league_id is provided (and season_id is not), use PlayerLeagueStats
         if league_id is not None and season_id is None:
             # Query PlayerLeagueStats directly for league-level stats
-            stats_subq = select(
-                PlayerLeagueStats.player_id,
-                PlayerLeagueStats.points,
-                PlayerLeagueStats.games,
-                PlayerLeagueStats.wins,
-                PlayerLeagueStats.win_rate,
-                PlayerLeagueStats.avg_point_diff
-            ).where(
-                PlayerLeagueStats.league_id == int(league_id)
-            ).subquery()
+            stats_subq = (
+                select(
+                    PlayerLeagueStats.player_id,
+                    PlayerLeagueStats.points,
+                    PlayerLeagueStats.games,
+                    PlayerLeagueStats.wins,
+                    PlayerLeagueStats.win_rate,
+                    PlayerLeagueStats.avg_point_diff,
+                )
+                .where(PlayerLeagueStats.league_id == int(league_id))
+                .subquery()
+            )
         else:
             # Use PlayerSeasonStats (existing logic for season_id or default)
             # Create subqueries for latest stats per player
             # Get the most recent stats for each player (by updated_at, then by id as tiebreaker)
-            
+
             # Subquery to get the latest stat row ID for each player
             # Using ROW_NUMBER equivalent: get max updated_at, then max id as tiebreaker
             latest_stats_subq = select(
                 PlayerSeasonStats.player_id,
-                func.max(PlayerSeasonStats.updated_at).label("max_updated_at")
+                func.max(PlayerSeasonStats.updated_at).label("max_updated_at"),
             )
-            
+
             # Filter by season if provided
             if season_id is not None:
                 latest_stats_subq = latest_stats_subq.where(
                     PlayerSeasonStats.season_id == int(season_id)
                 )
-            
-            latest_stats_subq = latest_stats_subq.group_by(
-                PlayerSeasonStats.player_id
-            ).subquery()
-            
+
+            latest_stats_subq = latest_stats_subq.group_by(PlayerSeasonStats.player_id).subquery()
+
             # Get the max id for each player with max updated_at (to handle ties)
             latest_id_subq = select(
-                PlayerSeasonStats.player_id,
-                func.max(PlayerSeasonStats.id).label("max_id")
+                PlayerSeasonStats.player_id, func.max(PlayerSeasonStats.id).label("max_id")
             ).join(
                 latest_stats_subq,
                 and_(
                     PlayerSeasonStats.player_id == latest_stats_subq.c.player_id,
-                    PlayerSeasonStats.updated_at == latest_stats_subq.c.max_updated_at
-                )
+                    PlayerSeasonStats.updated_at == latest_stats_subq.c.max_updated_at,
+                ),
             )
-            
+
             # Apply season filter to the join if provided
             if season_id is not None:
                 latest_id_subq = latest_id_subq.where(
                     PlayerSeasonStats.season_id == int(season_id)
                 )
-            
-            latest_id_subq = latest_id_subq.group_by(
-                PlayerSeasonStats.player_id
-            ).subquery()
-            
+
+            latest_id_subq = latest_id_subq.group_by(PlayerSeasonStats.player_id).subquery()
+
             # Join with actual stats using both player_id and id
             stats_subq = select(
                 PlayerSeasonStats.player_id,
@@ -1791,50 +1894,45 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 PlayerSeasonStats.games,
                 PlayerSeasonStats.wins,
                 PlayerSeasonStats.win_rate,
-                PlayerSeasonStats.avg_point_diff
+                PlayerSeasonStats.avg_point_diff,
             ).join(
                 latest_id_subq,
                 and_(
                     PlayerSeasonStats.player_id == latest_id_subq.c.player_id,
-                    PlayerSeasonStats.id == latest_id_subq.c.max_id
-                )
+                    PlayerSeasonStats.id == latest_id_subq.c.max_id,
+                ),
             )
-            
+
             # Apply season filter if provided
             if season_id is not None:
-                stats_subq = stats_subq.where(
-                    PlayerSeasonStats.season_id == int(season_id)
-                )
-            
+                stats_subq = stats_subq.where(PlayerSeasonStats.season_id == int(season_id))
+
             stats_subq = stats_subq.subquery()
-        
+
         # Main query with COALESCE for defaults
         # Join with PlayerGlobalStats to get current ELO rating (league/season agnostic)
-        query = select(
-            Player.id.label("player_id"),
-            Player.full_name.label("name"),
-            Player.avatar.label("avatar"),
-            Player.profile_picture_url.label("profile_picture_url"),
-            func.coalesce(stats_subq.c.points, 0).label("points"),
-            func.coalesce(stats_subq.c.games, 0).label("games"),
-            func.coalesce(stats_subq.c.wins, 0).label("wins"),
-            func.coalesce(stats_subq.c.win_rate, 0.0).label("win_rate"),
-            func.coalesce(stats_subq.c.avg_point_diff, 0.0).label("avg_point_diff"),
-            func.coalesce(PlayerGlobalStats.current_rating, INITIAL_ELO).label("current_elo")
-        ).select_from(
-            Player
-        ).outerjoin(
-            stats_subq, Player.id == stats_subq.c.player_id
-        ).outerjoin(
-            PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id
-        ).order_by(
-            func.coalesce(stats_subq.c.points, 0).desc(),
-            Player.full_name.asc()
+        query = (
+            select(
+                Player.id.label("player_id"),
+                Player.full_name.label("name"),
+                Player.avatar.label("avatar"),
+                Player.profile_picture_url.label("profile_picture_url"),
+                func.coalesce(stats_subq.c.points, 0).label("points"),
+                func.coalesce(stats_subq.c.games, 0).label("games"),
+                func.coalesce(stats_subq.c.wins, 0).label("wins"),
+                func.coalesce(stats_subq.c.win_rate, 0.0).label("win_rate"),
+                func.coalesce(stats_subq.c.avg_point_diff, 0.0).label("avg_point_diff"),
+                func.coalesce(PlayerGlobalStats.current_rating, INITIAL_ELO).label("current_elo"),
+            )
+            .select_from(Player)
+            .outerjoin(stats_subq, Player.id == stats_subq.c.player_id)
+            .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
+            .order_by(func.coalesce(stats_subq.c.points, 0).desc(), Player.full_name.asc())
         )
-        
+
         result = await session.execute(query)
         rows = result.all()
-        
+
         # Build rankings list with all stats
         rankings = [
             {
@@ -1847,11 +1945,12 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 "Wins": row.wins or 0,
                 "Losses": (row.games or 0) - (row.wins or 0),
                 "Avg Pt Diff": row.avg_point_diff or 0.0,
-                "ELO": round(row.current_elo or 1200)
+                "ELO": round(row.current_elo or 1200),
             }
-            for row in rows if row.points > 0 or row.games > 0  # Only return players with stats
+            for row in rows
+            if row.points > 0 or row.games > 0  # Only return players with stats
         ]
-        
+
         # Sort by different logic depending on whether filtering by season or league
         if league_id is not None and season_id is None:
             # "All Seasons" selected: Wins → Win Rate → Avg Pt Diff → ELO (all descending)
@@ -1859,11 +1958,11 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         else:
             # Single season: Points → Avg Pt Diff → Win Rate → ELO (all descending)
             rankings_sorted = _sort_rankings_single_season(rankings)
-        
+
         # Add season_rank (1-indexed) based on default sorting
         for idx, player in enumerate(rankings_sorted):
             player["season_rank"] = idx + 1
-        
+
         return rankings_sorted
     except Exception:
         # If query fails, return empty list (stats haven't been calculated yet)
@@ -1887,46 +1986,40 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
-    
+
     # Build the query with joins
-    query = select(
-        Match.id,
-        Match.date,
-        Match.session_id,
-        Session.name.label("session_name"),
-        Session.status.label("session_status"),
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        Match.team1_score,
-        Match.team2_score,
-        Match.winner,
-        cast(0, Integer).label("team1_elo_change"),
-        cast(0, Integer).label("team2_elo_change")
-    ).select_from(
-        Match
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).order_by(
-        func.coalesce(Session.id, 999999).desc(),
-        Match.id.desc()
+    query = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            cast(0, Integer).label("team1_elo_change"),
+            cast(0, Integer).label("team2_elo_change"),
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .order_by(func.coalesce(Session.id, 999999).desc(), Match.id.desc())
     )
-    
+
     if limit:
         query = query.limit(limit)
-    
+
     result = await session.execute(query)
     rows = result.all()
-    
+
     return [
         {
             "id": row.id,
@@ -1948,79 +2041,80 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
     ]
 
 
-async def lock_in_session(session: AsyncSession, session_id: int, updated_by: Optional[int] = None) -> Optional[Dict]:
+async def lock_in_session(
+    session: AsyncSession, session_id: int, updated_by: Optional[int] = None
+) -> Optional[Dict]:
     """
     Lock in a session - sets status to SUBMITTED if ACTIVE, or EDITED if already SUBMITTED/EDITED.
     Also enqueues stats calculations (both global and season-specific).
-    
+
     Returns:
         Dict with success status, season_id, and job IDs, or None if session not found
     """
     # Get current session to check its status and get season_id
-    result = await session.execute(
-        select(Session).where(Session.id == session_id)
-    )
+    result = await session.execute(select(Session).where(Session.id == session_id))
     session_obj = result.scalar_one_or_none()
-    
+
     if not session_obj:
         return None
-    
+
     season_id = session_obj.season_id
-    
+
     # Determine new status: SUBMITTED if currently ACTIVE, EDITED if already SUBMITTED/EDITED
     if session_obj.status == SessionStatus.ACTIVE:
         new_status = SessionStatus.SUBMITTED
     else:
         new_status = SessionStatus.EDITED
-    
+
     result = await session.execute(
         update(Session)
         .where(Session.id == session_id)
         .values(status=new_status, updated_by=updated_by, updated_at=func.now())
     )
     await session.commit()
-    
+
     if result.rowcount == 0:
         return None
-    
+
     # Enqueue both global and league stats calculations
     # Lazy import to avoid circular dependency
     from backend.services.stats_queue import get_stats_queue
+
     queue = get_stats_queue()
-    
+
     # Enqueue global stats calculation
     global_job_id = await queue.enqueue_calculation(session, "global", None)
-    
+
     # Enqueue league stats calculation if session has a season (get league_id from season)
     league_job_id = None
     if season_id:
         # Get league_id from season
-        season_result = await session.execute(
-            select(Season).where(Season.id == season_id)
-        )
+        season_result = await session.execute(select(Season).where(Season.id == season_id))
         season_obj = season_result.scalar_one_or_none()
         if season_obj:
-            league_job_id = await queue.enqueue_calculation(session, "league", season_obj.league_id)
-    
+            league_job_id = await queue.enqueue_calculation(
+                session, "league", season_obj.league_id
+            )
+
     return {
         "success": True,
         "season_id": season_id,
         "global_job_id": global_job_id,
-        "league_job_id": league_job_id
+        "league_job_id": league_job_id,
     }
 
 
 async def update_session(
-    session: AsyncSession, 
-    session_id: int, 
+    session: AsyncSession,
+    session_id: int,
     name: Optional[str] = None,
     date: Optional[str] = None,
     season_id: Optional[int] = None,
-    update_season_id: bool = False
+    update_season_id: bool = False,
 ) -> Optional[Dict]:
     """
     Update a session's fields (name, date, season_id).
-    
+
     Args:
         session: Database session
         session_id: ID of session to update
@@ -2028,22 +2122,20 @@ async def update_session(
         date: New session date (optional)
         season_id: New season_id (optional, can be None to remove season)
         update_season_id: If True, update season_id even if it's None (to allow removing season)
-    
+
     Returns:
         Dict with updated session info, or None if session not found
-    
+
     Raises:
         ValueError: If season_id is provided but season doesn't exist
     """
     # Get current session to verify it exists
-    result = await session.execute(
-        select(Session).where(Session.id == session_id)
-    )
+    result = await session.execute(select(Session).where(Session.id == session_id))
     session_obj = result.scalar_one_or_none()
-    
+
     if not session_obj:
         return None
-    
+
     # Build update values dict (only include fields that are provided)
     update_values = {}
     if name is not None:
@@ -2053,14 +2145,12 @@ async def update_session(
     if update_season_id or season_id is not None:
         # Verify season exists if season_id is provided (not None)
         if season_id is not None:
-            season_result = await session.execute(
-                select(Season).where(Season.id == season_id)
-            )
+            season_result = await session.execute(select(Season).where(Season.id == season_id))
             season_obj = season_result.scalar_one_or_none()
             if not season_obj:
                 raise ValueError(f"Season {season_id} not found")
         update_values["season_id"] = season_id
-    
+
     # If no fields to update, return current session
     if not update_values:
         return {
@@ -2068,33 +2158,27 @@ async def update_session(
             "season_id": session_obj.season_id,
             "status": session_obj.status.value if session_obj.status else None,
             "name": session_obj.name,
-            "date": session_obj.date
+            "date": session_obj.date,
         }
-    
+
     # Update the session
     update_values["updated_at"] = func.now()
-    await session.execute(
-        update(Session)
-        .where(Session.id == session_id)
-        .values(**update_values)
-    )
+    await session.execute(update(Session).where(Session.id == session_id).values(**update_values))
     await session.commit()
-    
+
     # Return updated session info
-    result = await session.execute(
-        select(Session).where(Session.id == session_id)
-    )
+    result = await session.execute(select(Session).where(Session.id == session_id))
     updated_session = result.scalar_one_or_none()
-    
+
     if not updated_session:
         return None
-    
+
     return {
         "id": updated_session.id,
         "season_id": updated_session.season_id,
         "status": updated_session.status.value if updated_session.status else None,
         "name": updated_session.name,
-        "date": updated_session.date
+        "date": updated_session.date,
     }
 
 
@@ -2102,74 +2186,76 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
     """
     Delete an active session and all its matches - async version.
     Only ACTIVE sessions can be deleted.
-    
+
     Returns:
         True if successful, False if session not found or not active
-        
+
     Raises:
         ValueError: If session is not active (already submitted/edited)
     """
     # Check if session exists and is active
-    result = await session.execute(
-        select(Session).where(Session.id == session_id)
-    )
+    result = await session.execute(select(Session).where(Session.id == session_id))
     session_obj = result.scalar_one_or_none()
-    
+
     if not session_obj:
         return False
-    
+
     if session_obj.status != SessionStatus.ACTIVE:
         raise ValueError("Cannot delete a session that has already been submitted")
-    
+
     # Delete matches first (foreign key constraint)
-    await session.execute(
-        delete(Match).where(Match.session_id == session_id)
-    )
-    
+    await session.execute(delete(Match).where(Match.session_id == session_id))
+
     # Delete the session
-    await session.execute(
-        delete(Session).where(Session.id == session_id)
-    )
+    await session.execute(delete(Session).where(Session.id == session_id))
     await session.commit()
     return True
 
 
-async def update_season(
-    session: AsyncSession,
-    season_id: int,
-    **fields
-) -> Optional[Dict]:
+async def update_season(session: AsyncSession, season_id: int, **fields) -> Optional[Dict]:
     """
     Update a season - async version.
-    
+
     When changing scoring system, updates point_system configuration accordingly.
     """
     # Get current season to preserve initial_rating if changing scoring system
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         return None
-    
-    allowed = {"name", "start_date", "end_date", "point_system", "scoring_system", "points_per_win", "points_per_loss"}
+
+    allowed = {
+        "name",
+        "start_date",
+        "end_date",
+        "point_system",
+        "scoring_system",
+        "points_per_win",
+        "points_per_loss",
+    }
     updates = {k: v for k, v in fields.items() if k in allowed}
-    
+
     if not updates:
         return await get_season(session, season_id)
-    
+
     # Handle scoring system changes
-    scoring_system_changed = "scoring_system" in updates or "points_per_win" in updates or "points_per_loss" in updates
+    scoring_system_changed = (
+        "scoring_system" in updates or "points_per_win" in updates or "points_per_loss" in updates
+    )
     if scoring_system_changed:
         # Build new point_system JSON
-        scoring_system_val = updates.get("scoring_system", season.scoring_system if season.scoring_system else "points_system")
+        scoring_system_val = updates.get(
+            "scoring_system", season.scoring_system if season.scoring_system else "points_system"
+        )
         scoring_system_enum = ScoringSystem(scoring_system_val)
-        
+
         # Validate consistency if point_system is being set directly
         if "point_system" in updates and updates["point_system"]:
             try:
                 point_system_dict_check = json.loads(updates["point_system"])
-                if point_system_dict_check.get("type") and scoring_system_enum.value != point_system_dict_check.get("type"):
+                if point_system_dict_check.get(
+                    "type"
+                ) and scoring_system_enum.value != point_system_dict_check.get("type"):
                     raise ValueError(
                         f"scoring_system '{scoring_system_enum.value}' does not match "
                         f"point_system type '{point_system_dict_check.get('type')}'"
@@ -2177,7 +2263,7 @@ async def update_season(
             except (json.JSONDecodeError, TypeError):
                 # Invalid JSON, will be overwritten
                 pass
-        
+
         if scoring_system_enum == ScoringSystem.POINTS_SYSTEM:
             points_per_win_val = updates.get("points_per_win")
             if points_per_win_val is None:
@@ -2190,7 +2276,7 @@ async def update_season(
                         points_per_win_val = 3
                 else:
                     points_per_win_val = 3
-            
+
             points_per_loss_val = updates.get("points_per_loss")
             if points_per_loss_val is None:
                 # Try to get from existing config
@@ -2202,17 +2288,15 @@ async def update_season(
                         points_per_loss_val = 1
                 else:
                     points_per_loss_val = 1
-            
+
             point_system_dict = {
                 "type": "points_system",
                 "points_per_win": points_per_win_val,
-                "points_per_loss": points_per_loss_val
+                "points_per_loss": points_per_loss_val,
             }
         else:  # SEASON_RATING
-            point_system_dict = {
-                "type": "season_rating"
-            }
-        
+            point_system_dict = {"type": "season_rating"}
+
         updates["point_system"] = json.dumps(point_system_dict)
         updates["scoring_system"] = scoring_system_enum
         # Remove points_per_win and points_per_loss from updates (they're in point_system now)
@@ -2220,30 +2304,27 @@ async def update_season(
         updates.pop("points_per_loss", None)
     else:
         scoring_system_changed = False
-    
+
     # Convert date strings to date objects if needed
     if "start_date" in updates and isinstance(updates["start_date"], str):
         updates["start_date"] = datetime.fromisoformat(updates["start_date"]).date()
     if "end_date" in updates and isinstance(updates["end_date"], str):
         updates["end_date"] = datetime.fromisoformat(updates["end_date"]).date()
-    
-    await session.execute(
-        update(Season)
-        .where(Season.id == season_id)
-        .values(**updates)
-    )
+
+    await session.execute(update(Season).where(Season.id == season_id).values(**updates))
     await session.commit()
-    
+
     # Trigger stats recalculation if scoring system changed
     if scoring_system_changed:
         try:
             from backend.services.stats_queue import get_stats_queue
+
             queue = get_stats_queue()
             await queue.enqueue_calculation(session, "league", season.league_id)
         except Exception:
             # Don't fail the update if queueing fails - stats can be recalculated manually
             pass
-    
+
     return await get_season(session, season_id)
 
 
@@ -2254,62 +2335,53 @@ async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
         select(EloHistory.date).distinct().order_by(EloHistory.date.asc())
     )
     dates = [row[0] for row in result.all()]
-    
+
     if not dates:
         return []
-    
+
     # Get all players
-    result = await session.execute(
-        select(Player.full_name).order_by(Player.full_name.asc())
-    )
+    result = await session.execute(select(Player.full_name).order_by(Player.full_name.asc()))
     player_names = [row[0] for row in result.all()]
-    
+
     # Build timeline data
     timeline = []
-    for date in dates:
-        row_data = {"Date": date}
-        
+    for d in dates:
+        row_data = {"Date": d}
+
         for player_name in player_names:
             # Get the ELO at this date for this player
             result = await session.execute(
                 select(EloHistory.elo_after)
                 .join(Player, EloHistory.player_id == Player.id)
-                .where(
-                    and_(
-                        Player.full_name == player_name,
-                        EloHistory.date <= date
-                    )
-                )
+                .where(and_(Player.full_name == player_name, EloHistory.date <= date))
                 .order_by(EloHistory.date.desc(), EloHistory.id.desc())
                 .limit(1)
             )
             elo_result = result.scalar_one_or_none()
-            
+
             if elo_result:
                 row_data[player_name] = elo_result
             else:
                 # Player hasn't played yet at this date, use initial ELO
                 row_data[player_name] = INITIAL_ELO
-        
+
         timeline.append(row_data)
-    
+
     return timeline
 
 
 async def get_setting(session: AsyncSession, key: str) -> Optional[str]:
     """
     Get a setting value - async version.
-    
+
     Args:
         session: Database session
         key: Setting key
-        
+
     Returns:
         Setting value or None if not found
     """
-    result = await session.execute(
-        select(Setting).where(Setting.key == key)
-    )
+    result = await session.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
     return setting.value if setting else None
 
@@ -2317,7 +2389,7 @@ async def get_setting(session: AsyncSession, key: str) -> Optional[str]:
 async def set_setting(session: AsyncSession, key: str, value: str) -> None:
     """
     Set a setting value (upsert) - async version.
-    
+
     Args:
         session: Database session
         key: Setting key
@@ -2325,24 +2397,20 @@ async def set_setting(session: AsyncSession, key: str, value: str) -> None:
     """
     stmt = insert(Setting).values(key=key, value=value)
     stmt = stmt.on_conflict_do_update(
-        index_elements=['key'],
-        set_=dict(value=stmt.excluded.value, updated_at=sql_func.now())
+        index_elements=["key"], set_=dict(value=stmt.excluded.value, updated_at=sql_func.now())
     )
     await session.execute(stmt)
     await session.commit()
 
 
-async def get_season_matches_with_elo(
-    session: AsyncSession,
-    season_id: int
-) -> List[Dict]:
+async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> List[Dict]:
     """
     Get all matches for a season with ELO changes per player.
-    
+
     Args:
         session: Database session
         season_id: Season ID to filter matches
-        
+
     Returns:
         List of match dictionaries with ELO changes per player
     """
@@ -2351,66 +2419,57 @@ async def get_season_matches_with_elo(
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
-    
+
     # Build the query for matches
-    query = select(
-        Match.id,
-        Match.date,
-        Match.session_id,
-        Session.name.label("session_name"),
-        Session.status.label("session_status"),
-        Session.season_id.label("session_season_id"),
-        Match.team1_player1_id,
-        Match.team1_player2_id,
-        Match.team2_player1_id,
-        Match.team2_player2_id,
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        Match.team1_score,
-        Match.team2_score,
-        Match.winner
-    ).select_from(
-        Match
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).where(
-        Session.season_id == season_id
-        # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
-        # Active sessions won't have ELO history yet, which is fine - elo_by_match will be empty for them
-    ).order_by(
-        Match.id.desc()
+    query = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Session.season_id.label("session_season_id"),
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(
+            Session.season_id == season_id
+            # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
+            # Active sessions won't have ELO history yet, which is fine - elo_by_match will be empty for them
+        )
+        .order_by(Match.id.desc())
     )
-    
+
     # Execute query
     result = await session.execute(query)
     match_rows = result.all()
-    
+
     # Get all match IDs
     match_ids = [row.id for row in match_rows]
-    
+
     # Query ELO history for all matches
     elo_history_query = select(
-        EloHistory.match_id,
-        EloHistory.player_id,
-        EloHistory.elo_after,
-        EloHistory.elo_change
-    ).where(
-        EloHistory.match_id.in_(match_ids)
-    )
-    
+        EloHistory.match_id, EloHistory.player_id, EloHistory.elo_after, EloHistory.elo_change
+    ).where(EloHistory.match_id.in_(match_ids))
+
     elo_result = await session.execute(elo_history_query)
     elo_rows = elo_result.all()
-    
+
     # Group ELO changes by match_id
     elo_by_match = {}
     for elo_row in elo_rows:
@@ -2422,9 +2481,9 @@ async def get_season_matches_with_elo(
         elo_by_match[match_id][elo_row.player_id] = {
             "elo_before": round(elo_before, 1),
             "elo_after": round(elo_row.elo_after, 1),
-            "elo_change": round(elo_row.elo_change, 1)
+            "elo_change": round(elo_row.elo_change, 1),
         }
-    
+
     # Build result list
     matches = []
     for row in match_rows:
@@ -2446,24 +2505,21 @@ async def get_season_matches_with_elo(
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
-            "elo_changes": elo_by_match.get(row.id, {})
+            "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
-    
+
     return matches
 
 
-async def get_league_matches_with_elo(
-    session: AsyncSession,
-    league_id: int
-) -> List[Dict]:
+async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> List[Dict]:
     """
     Get all matches for a league (across all seasons) with ELO changes per player.
-    
+
     Args:
         session: Database session
         league_id: League ID to filter matches
-        
+
     Returns:
         List of match dictionaries with ELO changes per player
     """
@@ -2472,67 +2528,57 @@ async def get_league_matches_with_elo(
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
-    
+
     # Build the query for matches - filter by league through Season
-    query = select(
-        Match.id,
-        Match.date,
-        Match.session_id,
-        Session.name.label("session_name"),
-        Session.status.label("session_status"),
-        Session.season_id.label("session_season_id"),
-        Match.team1_player1_id,
-        Match.team1_player2_id,
-        Match.team2_player1_id,
-        Match.team2_player2_id,
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        Match.team1_score,
-        Match.team2_score,
-        Match.winner
-    ).select_from(
-        Match
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        Season, Session.season_id == Season.id
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).where(
-        Season.league_id == league_id
-        # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
-    ).order_by(
-        Match.id.desc()
+    query = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Session.season_id.label("session_season_id"),
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(
+            Season.league_id == league_id
+            # Include all session statuses (SUBMITTED, EDITED, ACTIVE)
+        )
+        .order_by(Match.id.desc())
     )
-    
+
     # Execute query
     result = await session.execute(query)
     match_rows = result.all()
-    
+
     # Get all match IDs
     match_ids = [row.id for row in match_rows]
-    
+
     # Query ELO history for all matches
     elo_history_query = select(
-        EloHistory.match_id,
-        EloHistory.player_id,
-        EloHistory.elo_after,
-        EloHistory.elo_change
-    ).where(
-        EloHistory.match_id.in_(match_ids)
-    )
-    
+        EloHistory.match_id, EloHistory.player_id, EloHistory.elo_after, EloHistory.elo_change
+    ).where(EloHistory.match_id.in_(match_ids))
+
     elo_result = await session.execute(elo_history_query)
     elo_rows = elo_result.all()
-    
+
     # Group ELO changes by match_id
     elo_by_match = {}
     for elo_row in elo_rows:
@@ -2544,9 +2590,9 @@ async def get_league_matches_with_elo(
         elo_by_match[match_id][elo_row.player_id] = {
             "elo_before": round(elo_before, 1),
             "elo_after": round(elo_row.elo_after, 1),
-            "elo_change": round(elo_row.elo_change, 1)
+            "elo_change": round(elo_row.elo_change, 1),
         }
-    
+
     # Build result list
     matches = []
     for row in match_rows:
@@ -2568,21 +2614,19 @@ async def get_league_matches_with_elo(
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
-            "elo_changes": elo_by_match.get(row.id, {})
+            "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
-    
+
     return matches
 
 
 async def query_matches(
-    session: AsyncSession,
-    body: Dict,
-    user: Optional[Dict] = None
+    session: AsyncSession, body: Dict, user: Optional[Dict] = None
 ) -> List[Dict]:
     """
     Query matches with filtering - async version.
-    
+
     Args:
         session: Database session
         body: Query parameters dict with:
@@ -2595,7 +2639,7 @@ async def query_matches(
             - sort_by: str (default 'id') - 'date' or 'id'
             - sort_dir: str (default 'desc') - 'asc' or 'desc'
         user: Optional user dict for permission checks
-    
+
     Returns:
         List of match dictionaries
     """
@@ -2607,13 +2651,13 @@ async def query_matches(
     season_id = body.get("season_id")
     sort_by = body.get("sort_by", "id")
     sort_dir = body.get("sort_dir", "desc")
-    
+
     # Validate sort_by and sort_dir
     if sort_by not in ["id", "date"]:
         sort_by = "id"
     if sort_dir not in ["asc", "desc"]:
         sort_dir = "desc"
-    
+
     # Create aliases for players
     p1 = aliased(Player)
     p2 = aliased(Player)
@@ -2621,102 +2665,90 @@ async def query_matches(
     p4 = aliased(Player)
     creator = aliased(Player)
     updater = aliased(Player)
-    
+
     # Build the query with joins
-    query = select(
-        Match.id,
-        Match.date,
-        Match.session_id,
-        Session.name.label("session_name"),
-        Session.status.label("session_status"),
-        Session.created_at.label("session_created_at"),
-        Session.updated_at.label("session_updated_at"),
-        Session.created_by.label("session_created_by"),
-        Session.updated_by.label("session_updated_by"),
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        creator.full_name.label("session_created_by_name"),
-        updater.full_name.label("session_updated_by_name"),
-        Match.team1_score,
-        Match.team2_score,
-        Match.winner,
-        Match.is_public,
-        cast(0, Integer).label("team1_elo_change"),
-        cast(0, Integer).label("team2_elo_change")
-    ).select_from(
-        Match
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        Season, Session.season_id == Season.id
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).outerjoin(
-        creator, Session.created_by == creator.id
-    ).outerjoin(
-        updater, Session.updated_by == updater.id
+    query = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Session.created_at.label("session_created_at"),
+            Session.updated_at.label("session_updated_at"),
+            Session.created_by.label("session_created_by"),
+            Session.updated_by.label("session_updated_by"),
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            creator.full_name.label("session_created_by_name"),
+            updater.full_name.label("session_updated_by_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            Match.is_public,
+            cast(0, Integer).label("team1_elo_change"),
+            cast(0, Integer).label("team2_elo_change"),
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .outerjoin(creator, Session.created_by == creator.id)
+        .outerjoin(updater, Session.updated_by == updater.id)
     )
-    
+
     # Build WHERE conditions
     conditions = []
-    
+
     if submitted_only:
         # Only show matches from submitted/edited sessions, or matches without sessions
         conditions.append(
             or_(
                 Match.session_id.is_(None),
-                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED])
+                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
             )
         )
     # If submitted_only is False, we include all matches (no filter)
-    
+
     if not include_non_public:
-        conditions.append(Match.is_public == True)
-    
+        conditions.append(Match.is_public.is_(True))
+
     # Filter by league_id (through sessions -> seasons)
     # Only include matches that have a session with a season in the specified league
     if league_id is not None:
-        conditions.append(
-            and_(
-                Session.season_id.isnot(None),
-                Season.league_id == int(league_id)
-            )
-        )
-    
+        conditions.append(and_(Session.season_id.isnot(None), Season.league_id == int(league_id)))
+
     # Filter by season_id
     if season_id is not None:
         conditions.append(Session.season_id == int(season_id))
-    
+
     # Apply WHERE conditions
     if conditions:
         query = query.where(and_(*conditions))
-    
+
     # Apply ORDER BY
     if sort_by == "date":
         order_column = Match.date
     else:
         order_column = Match.id
-    
+
     if sort_dir.lower() == "asc":
         query = query.order_by(order_column.asc())
     else:
         query = query.order_by(order_column.desc())
-    
+
     # Apply limit and offset
     query = query.limit(limit).offset(offset)
-    
+
     # Execute query
     result = await session.execute(query)
     rows = result.all()
-    
+
     # Convert to dict format matching the old API
     return [
         {
@@ -2725,8 +2757,12 @@ async def query_matches(
             "session_id": row.session_id,
             "session_name": row.session_name,
             "session_status": row.session_status.value if row.session_status else None,
-            "session_created_at": row.session_created_at.isoformat() if row.session_created_at else None,
-            "session_updated_at": row.session_updated_at.isoformat() if row.session_updated_at else None,
+            "session_created_at": row.session_created_at.isoformat()
+            if row.session_created_at
+            else None,
+            "session_updated_at": row.session_updated_at.isoformat()
+            if row.session_updated_at
+            else None,
             "session_created_by": row.session_created_by,
             "session_updated_by": row.session_updated_by,
             "session_created_by_name": row.session_created_by_name,
@@ -2749,7 +2785,7 @@ async def query_matches(
 async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optional[Dict]:
     """
     Get detailed stats for a player by ID including partnerships and opponents - async version.
-    
+
     Returns dict with structure:
     {
         "name": str,
@@ -2767,31 +2803,28 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     }
     """
     # Get player basic stats
-    result = await session.execute(
-        select(Player).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one_or_none()
-    
+
     if not player:
         return None
-    
+
     player_name = player.full_name or player.nickname or f"Player {player_id}"
-    
+
     # Get global ELO rating (league/season agnostic)
     result = await session.execute(
-        select(PlayerGlobalStats)
-        .where(PlayerGlobalStats.player_id == player.id)
+        select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player.id)
     )
     global_stats = result.scalar_one_or_none()
     current_elo = global_stats.current_rating if global_stats else INITIAL_ELO
-    
+
     # Get latest season stats for games, wins, points, etc. (season-specific)
     games = 0
     wins = 0
     points = 0
     win_rate = 0.0
     avg_point_diff = 0.0
-    
+
     # Try to get from player_season_stats (latest)
     result = await session.execute(
         select(PlayerSeasonStats)
@@ -2806,10 +2839,10 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
         points = season_stats.points
         win_rate = season_stats.win_rate
         avg_point_diff = season_stats.avg_point_diff
-    
+
     # Get partnerships
     PartnerPlayer = aliased(Player)
-    
+
     result = await session.execute(
         select(PartnershipStats, PartnerPlayer.full_name.label("partner_name"))
         .join(PartnerPlayer, PartnershipStats.partner_id == PartnerPlayer.id)
@@ -2819,19 +2852,21 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     partnerships = []
     for row in result.all():
         partnership, partner_name = row
-        partnerships.append({
-            "Partner/Opponent": partner_name,
-            "Points": partnership.points,
-            "Games": partnership.games,
-            "Wins": partnership.wins,
-            "Losses": partnership.games - partnership.wins,
-            "Win Rate": partnership.win_rate,
-            "Avg Pt Diff": partnership.avg_point_diff
-        })
-    
+        partnerships.append(
+            {
+                "Partner/Opponent": partner_name,
+                "Points": partnership.points,
+                "Games": partnership.games,
+                "Wins": partnership.wins,
+                "Losses": partnership.games - partnership.wins,
+                "Win Rate": partnership.win_rate,
+                "Avg Pt Diff": partnership.avg_point_diff,
+            }
+        )
+
     # Get opponents
     OpponentPlayer = aliased(Player)
-    
+
     result = await session.execute(
         select(OpponentStats, OpponentPlayer.full_name.label("opponent_name"))
         .join(OpponentPlayer, OpponentStats.opponent_id == OpponentPlayer.id)
@@ -2841,23 +2876,25 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     opponents = []
     for row in result.all():
         opponent_stat, opponent_name = row
-        opponents.append({
-            "Partner/Opponent": opponent_name,
-            "Points": opponent_stat.points,
-            "Games": opponent_stat.games,
-            "Wins": opponent_stat.wins,
-            "Losses": opponent_stat.games - opponent_stat.wins,
-            "Win Rate": opponent_stat.win_rate,
-            "Avg Pt Diff": opponent_stat.avg_point_diff
-        })
-    
+        opponents.append(
+            {
+                "Partner/Opponent": opponent_name,
+                "Points": opponent_stat.points,
+                "Games": opponent_stat.games,
+                "Wins": opponent_stat.wins,
+                "Losses": opponent_stat.games - opponent_stat.wins,
+                "Win Rate": opponent_stat.win_rate,
+                "Avg Pt Diff": opponent_stat.avg_point_diff,
+            }
+        )
+
     # Get match history (simplified - would need to join with players table)
     # For now, return empty list - this can be enhanced later
     match_history = []
-    
+
     # Calculate rank (simplified - would need full rankings)
     rank = None
-    
+
     return {
         "name": player_name,
         "current_elo": round(current_elo),
@@ -2870,139 +2907,125 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
         "rank": rank,
         "partnerships": partnerships,
         "opponents": opponents,
-        "match_history": match_history
+        "match_history": match_history,
     }
 
 
 async def get_player_season_partnership_opponent_stats(
-    session: AsyncSession,
-    player_id: int,
-    season_id: int
+    session: AsyncSession, player_id: int, season_id: int
 ) -> Dict:
     """
     Get partnership and opponent stats for a player in a season.
-    
+
     Args:
         session: Database session
         player_id: Player ID
         season_id: Season ID
-        
+
     Returns:
         Dict with 'partnerships' and 'opponents' lists
     """
     # Get partnerships
     PartnerPlayer = aliased(Player)
-    
+
     result = await session.execute(
-        select(
-            PartnershipStatsSeason,
-            PartnerPlayer.full_name.label("partner_name")
-        )
+        select(PartnershipStatsSeason, PartnerPlayer.full_name.label("partner_name"))
         .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
         .where(
             and_(
                 PartnershipStatsSeason.player_id == player_id,
-                PartnershipStatsSeason.season_id == season_id
+                PartnershipStatsSeason.season_id == season_id,
             )
         )
         .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
     )
-    
+
     partnerships = []
     for row in result.all():
         partnership, partner_name = row
-        partnerships.append({
-            "Partner/Opponent": partner_name,
-            "Points": partnership.points,
-            "Games": partnership.games,
-            "Wins": partnership.wins,
-            "Losses": partnership.games - partnership.wins,
-            "Win Rate": partnership.win_rate,
-            "Avg Pt Diff": partnership.avg_point_diff
-        })
-    
+        partnerships.append(
+            {
+                "Partner/Opponent": partner_name,
+                "Points": partnership.points,
+                "Games": partnership.games,
+                "Wins": partnership.wins,
+                "Losses": partnership.games - partnership.wins,
+                "Win Rate": partnership.win_rate,
+                "Avg Pt Diff": partnership.avg_point_diff,
+            }
+        )
+
     # Get opponents
     OpponentPlayer = aliased(Player)
-    
+
     result = await session.execute(
-        select(
-            OpponentStatsSeason,
-            OpponentPlayer.full_name.label("opponent_name")
-        )
+        select(OpponentStatsSeason, OpponentPlayer.full_name.label("opponent_name"))
         .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
         .where(
             and_(
                 OpponentStatsSeason.player_id == player_id,
-                OpponentStatsSeason.season_id == season_id
+                OpponentStatsSeason.season_id == season_id,
             )
         )
         .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
     )
-    
+
     opponents = []
     for row in result.all():
         opponent_stat, opponent_name = row
-        opponents.append({
-            "Partner/Opponent": opponent_name,
-            "Points": opponent_stat.points,
-            "Games": opponent_stat.games,
-            "Wins": opponent_stat.wins,
-            "Losses": opponent_stat.games - opponent_stat.wins,
-            "Win Rate": opponent_stat.win_rate,
-            "Avg Pt Diff": opponent_stat.avg_point_diff
-        })
-    
-    return {
-        "partnerships": partnerships,
-        "opponents": opponents
-    }
+        opponents.append(
+            {
+                "Partner/Opponent": opponent_name,
+                "Points": opponent_stat.points,
+                "Games": opponent_stat.games,
+                "Wins": opponent_stat.wins,
+                "Losses": opponent_stat.games - opponent_stat.wins,
+                "Win Rate": opponent_stat.win_rate,
+                "Avg Pt Diff": opponent_stat.avg_point_diff,
+            }
+        )
+
+    return {"partnerships": partnerships, "opponents": opponents}
 
 
-async def get_all_player_season_stats(
-    session: AsyncSession,
-    season_id: int
-) -> Dict[int, Dict]:
+async def get_all_player_season_stats(session: AsyncSession, season_id: int) -> Dict[int, Dict]:
     """
     Get all player season stats for a specific season.
-    
+
     Args:
         session: Database session
         season_id: Season ID
-        
+
     Returns:
         Dict mapping player_id to season stats
     """
     # Get all player season stats for this season
     result = await session.execute(
-        select(
-            PlayerSeasonStats,
-            Player.full_name.label("player_name")
-        )
+        select(PlayerSeasonStats, Player.full_name.label("player_name"))
         .join(Player, PlayerSeasonStats.player_id == Player.id)
         .where(PlayerSeasonStats.season_id == season_id)
     )
     rows = result.all()
-    
+
     # Get rankings to calculate rank
     rankings = await get_rankings(session, {"season_id": season_id})
-    
+
     # Create a map of player_id to rank
     player_rank_map = {}
     for idx, ranking in enumerate(rankings):
         if "player_id" in ranking:
             player_rank_map[ranking["player_id"]] = idx + 1
-    
+
     # Get global ELO ratings for all players (league/season agnostic)
     player_ids = [row[0].player_id for row in rows]
     global_elo_map = {}
     if player_ids:
         result = await session.execute(
-            select(PlayerGlobalStats)
-            .where(PlayerGlobalStats.player_id.in_(player_ids))
+            select(PlayerGlobalStats).where(PlayerGlobalStats.player_id.in_(player_ids))
         )
         for global_stat in result.scalars().all():
             global_elo_map[global_stat.player_id] = global_stat.current_rating
-    
+
     # Build result dict
     player_stats = {}
     for row in rows:
@@ -3020,111 +3043,106 @@ async def get_all_player_season_stats(
             "win_rate": season_stats.win_rate,
             "points": season_stats.points,
             "avg_point_diff": season_stats.avg_point_diff,
-            "rank": player_rank_map.get(season_stats.player_id)
+            "rank": player_rank_map.get(season_stats.player_id),
         }
-    
+
     return player_stats
 
 
 async def get_all_player_season_partnership_opponent_stats(
-    session: AsyncSession,
-    season_id: int
+    session: AsyncSession, season_id: int
 ) -> Dict[int, Dict]:
     """
     Get all partnership and opponent stats for all players in a season.
-    
+
     Args:
         session: Database session
         season_id: Season ID
-        
+
     Returns:
         Dict mapping player_id to dict with 'partnerships' and 'opponents' lists
     """
     # Get all partnerships for this season
     PartnerPlayer = aliased(Player)
-    
+
     partnership_result = await session.execute(
-        select(
-            PartnershipStatsSeason,
-            PartnerPlayer.full_name.label("partner_name")
-        )
+        select(PartnershipStatsSeason, PartnerPlayer.full_name.label("partner_name"))
         .join(PartnerPlayer, PartnershipStatsSeason.partner_id == PartnerPlayer.id)
         .where(PartnershipStatsSeason.season_id == season_id)
         .order_by(PartnershipStatsSeason.points.desc(), PartnershipStatsSeason.win_rate.desc())
     )
-    
+
     # Group partnerships by player_id
     partnerships_by_player = {}
     for row in partnership_result.all():
         partnership, partner_name = row
         player_id = partnership.player_id
-        
+
         if player_id not in partnerships_by_player:
             partnerships_by_player[player_id] = []
-        
-        partnerships_by_player[player_id].append({
-            "Partner/Opponent": partner_name,
-            "Points": partnership.points,
-            "Games": partnership.games,
-            "Wins": partnership.wins,
-            "Losses": partnership.games - partnership.wins,
-            "Win Rate": partnership.win_rate,
-            "Avg Pt Diff": partnership.avg_point_diff
-        })
-    
+
+        partnerships_by_player[player_id].append(
+            {
+                "Partner/Opponent": partner_name,
+                "Points": partnership.points,
+                "Games": partnership.games,
+                "Wins": partnership.wins,
+                "Losses": partnership.games - partnership.wins,
+                "Win Rate": partnership.win_rate,
+                "Avg Pt Diff": partnership.avg_point_diff,
+            }
+        )
+
     # Get all opponents for this season
     OpponentPlayer = aliased(Player)
-    
+
     opponent_result = await session.execute(
-        select(
-            OpponentStatsSeason,
-            OpponentPlayer.full_name.label("opponent_name")
-        )
+        select(OpponentStatsSeason, OpponentPlayer.full_name.label("opponent_name"))
         .join(OpponentPlayer, OpponentStatsSeason.opponent_id == OpponentPlayer.id)
         .where(OpponentStatsSeason.season_id == season_id)
         .order_by(OpponentStatsSeason.points.desc(), OpponentStatsSeason.win_rate.desc())
     )
-    
+
     # Group opponents by player_id
     opponents_by_player = {}
     for row in opponent_result.all():
         opponent_stat, opponent_name = row
         player_id = opponent_stat.player_id
-        
+
         if player_id not in opponents_by_player:
             opponents_by_player[player_id] = []
-        
-        opponents_by_player[player_id].append({
-            "Partner/Opponent": opponent_name,
-            "Points": opponent_stat.points,
-            "Games": opponent_stat.games,
-            "Wins": opponent_stat.wins,
-            "Losses": opponent_stat.games - opponent_stat.wins,
-            "Win Rate": opponent_stat.win_rate,
-            "Avg Pt Diff": opponent_stat.avg_point_diff
-        })
-    
+
+        opponents_by_player[player_id].append(
+            {
+                "Partner/Opponent": opponent_name,
+                "Points": opponent_stat.points,
+                "Games": opponent_stat.games,
+                "Wins": opponent_stat.wins,
+                "Losses": opponent_stat.games - opponent_stat.wins,
+                "Win Rate": opponent_stat.win_rate,
+                "Avg Pt Diff": opponent_stat.avg_point_diff,
+            }
+        )
+
     # Combine into result dict
     result = {}
     all_player_ids = set(list(partnerships_by_player.keys()) + list(opponents_by_player.keys()))
-    
+
     for player_id in all_player_ids:
         result[player_id] = {
             "partnerships": partnerships_by_player.get(player_id, []),
-            "opponents": opponents_by_player.get(player_id, [])
+            "opponents": opponents_by_player.get(player_id, []),
         }
-    
+
     return result
 
 
 async def get_player_season_stats(
-    session: AsyncSession, 
-    player_id: int, 
-    season_id: int
+    session: AsyncSession, player_id: int, season_id: int
 ) -> Optional[Dict]:
     """
     Get player stats for a specific season - async version.
-    
+
     Returns dict with structure:
     {
         "player_id": int,
@@ -3141,28 +3159,25 @@ async def get_player_season_stats(
     }
     """
     # Get player
-    result = await session.execute(
-        select(Player).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one_or_none()
-    
+
     if not player:
         return None
-    
+
     # Get season stats
     result = await session.execute(
         select(PlayerSeasonStats)
         .where(
             and_(
-                PlayerSeasonStats.player_id == player_id,
-                PlayerSeasonStats.season_id == season_id
+                PlayerSeasonStats.player_id == player_id, PlayerSeasonStats.season_id == season_id
             )
         )
         .order_by(PlayerSeasonStats.updated_at.desc())
         .limit(1)
     )
     season_stats = result.scalar_one_or_none()
-    
+
     if not season_stats:
         # Return default values if no stats found
         return {
@@ -3176,9 +3191,9 @@ async def get_player_season_stats(
             "win_rate": 0.0,
             "points": 0,
             "avg_point_diff": 0.0,
-            "rank": None
+            "rank": None,
         }
-    
+
     # Calculate rank by getting position in rankings for this season
     rankings = await get_rankings(session, {"season_id": season_id})
     rank = None
@@ -3186,14 +3201,14 @@ async def get_player_season_stats(
         if ranking.get("player_id") == player_id:
             rank = idx + 1
             break
-    
+
     # Get global ELO rating (league/season agnostic)
     result = await session.execute(
         select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
     )
     global_stat = result.scalar_one_or_none()
     current_elo = global_stat.current_rating if global_stat else INITIAL_ELO
-    
+
     return {
         "player_id": player_id,
         "player_name": player.full_name,
@@ -3205,18 +3220,16 @@ async def get_player_season_stats(
         "win_rate": season_stats.win_rate,
         "points": season_stats.points,
         "avg_point_diff": season_stats.avg_point_diff,
-        "rank": rank
+        "rank": rank,
     }
 
 
 async def get_player_league_stats(
-    session: AsyncSession, 
-    player_id: int, 
-    league_id: int
+    session: AsyncSession, player_id: int, league_id: int
 ) -> Optional[Dict]:
     """
     Get player stats for a specific league - async version.
-    
+
     Returns dict with structure:
     {
         "player_id": int,
@@ -3233,28 +3246,25 @@ async def get_player_league_stats(
     }
     """
     # Get player
-    result = await session.execute(
-        select(Player).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player).where(Player.id == player_id))
     player = result.scalar_one_or_none()
-    
+
     if not player:
         return None
-    
+
     # Get league stats
     result = await session.execute(
         select(PlayerLeagueStats)
         .where(
             and_(
-                PlayerLeagueStats.player_id == player_id,
-                PlayerLeagueStats.league_id == league_id
+                PlayerLeagueStats.player_id == player_id, PlayerLeagueStats.league_id == league_id
             )
         )
         .order_by(PlayerLeagueStats.updated_at.desc())
         .limit(1)
     )
     league_stats = result.scalar_one_or_none()
-    
+
     if not league_stats:
         # Return default values if no stats found
         return {
@@ -3268,16 +3278,16 @@ async def get_player_league_stats(
             "win_rate": 0.0,
             "points": 0,
             "avg_point_diff": 0.0,
-            "rank": None
+            "rank": None,
         }
-    
+
     # Get global ELO rating (league/season agnostic)
     result = await session.execute(
         select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
     )
     global_stat = result.scalar_one_or_none()
     current_elo = global_stat.current_rating if global_stat else INITIAL_ELO
-    
+
     # Calculate rank by getting position in rankings for this league
     rankings = await get_rankings(session, {"league_id": league_id})
     rank = None
@@ -3285,7 +3295,7 @@ async def get_player_league_stats(
         if ranking.get("player_id") == player_id:
             rank = idx + 1
             break
-    
+
     return {
         "player_id": player_id,
         "player_name": player.full_name,
@@ -3297,55 +3307,48 @@ async def get_player_league_stats(
         "win_rate": league_stats.win_rate,
         "points": league_stats.points,
         "avg_point_diff": league_stats.avg_point_diff,
-        "rank": rank
+        "rank": rank,
     }
 
 
-async def get_all_player_league_stats(
-    session: AsyncSession,
-    league_id: int
-) -> Dict[int, Dict]:
+async def get_all_player_league_stats(session: AsyncSession, league_id: int) -> Dict[int, Dict]:
     """
     Get all player league stats for a specific league.
-    
+
     Args:
         session: Database session
         league_id: League ID
-        
+
     Returns:
         Dict mapping player_id to league stats
     """
     # Get all player league stats for this league
     result = await session.execute(
-        select(
-            PlayerLeagueStats,
-            Player.full_name.label("player_name")
-        )
+        select(PlayerLeagueStats, Player.full_name.label("player_name"))
         .join(Player, PlayerLeagueStats.player_id == Player.id)
         .where(PlayerLeagueStats.league_id == league_id)
     )
     rows = result.all()
-    
+
     # Get rankings to calculate rank
     rankings = await get_rankings(session, {"league_id": league_id})
-    
+
     # Create a map of player_id to rank
     player_rank_map = {}
     for idx, ranking in enumerate(rankings):
         if "player_id" in ranking:
             player_rank_map[ranking["player_id"]] = idx + 1
-    
+
     # Get global ELO ratings for all players (league/season agnostic)
     player_ids = [row[0].player_id for row in rows]
     global_elo_map = {}
     if player_ids:
         result = await session.execute(
-            select(PlayerGlobalStats)
-            .where(PlayerGlobalStats.player_id.in_(player_ids))
+            select(PlayerGlobalStats).where(PlayerGlobalStats.player_id.in_(player_ids))
         )
         for global_stat in result.scalars().all():
             global_elo_map[global_stat.player_id] = global_stat.current_rating
-    
+
     # Build result dict
     player_stats = {}
     for row in rows:
@@ -3363,25 +3366,23 @@ async def get_all_player_league_stats(
             "win_rate": league_stats.win_rate,
             "points": league_stats.points,
             "avg_point_diff": league_stats.avg_point_diff,
-            "rank": player_rank_map.get(league_stats.player_id)
+            "rank": player_rank_map.get(league_stats.player_id),
         }
-    
+
     return player_stats
 
 
 async def get_player_league_partnership_opponent_stats(
-    session: AsyncSession,
-    player_id: int,
-    league_id: int
+    session: AsyncSession, player_id: int, league_id: int
 ) -> Dict:
     """
     Get partnership and opponent stats for a player in a league.
-    
+
     Args:
         session: Database session
         player_id: Player ID
         league_id: League ID
-        
+
     Returns:
         Dict with partnership_stats and opponent_stats
     """
@@ -3392,7 +3393,7 @@ async def get_player_league_partnership_opponent_stats(
         .where(PartnershipStatsLeague.league_id == league_id)
     )
     partnership_rows = result.scalars().all()
-    
+
     # Get opponent stats
     result = await session.execute(
         select(OpponentStatsLeague)
@@ -3400,78 +3401,74 @@ async def get_player_league_partnership_opponent_stats(
         .where(OpponentStatsLeague.league_id == league_id)
     )
     opponent_rows = result.scalars().all()
-    
+
     # Get player names for partnerships
     partner_ids = [ps.partner_id for ps in partnership_rows]
     opponent_ids = [os.opponent_id for os in opponent_rows]
     all_player_ids = list(set(partner_ids + opponent_ids))
-    
+
     player_name_map = {}
     if all_player_ids:
-        result = await session.execute(
-            select(Player).where(Player.id.in_(all_player_ids))
-        )
+        result = await session.execute(select(Player).where(Player.id.in_(all_player_ids)))
         for player in result.scalars().all():
             player_name_map[player.id] = player.full_name
-    
+
     partnership_stats = []
     for ps in partnership_rows:
-        partnership_stats.append({
-            "partner_id": ps.partner_id,
-            "partner_name": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
-            "games": ps.games,
-            "wins": ps.wins,
-            "points": ps.points,
-            "win_rate": ps.win_rate,
-            "avg_point_diff": ps.avg_point_diff
-        })
-    
+        partnership_stats.append(
+            {
+                "partner_id": ps.partner_id,
+                "partner_name": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
+                "games": ps.games,
+                "wins": ps.wins,
+                "points": ps.points,
+                "win_rate": ps.win_rate,
+                "avg_point_diff": ps.avg_point_diff,
+            }
+        )
+
     opponent_stats = []
     for os in opponent_rows:
-        opponent_stats.append({
-            "opponent_id": os.opponent_id,
-            "opponent_name": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
-            "games": os.games,
-            "wins": os.wins,
-            "points": os.points,
-            "win_rate": os.win_rate,
-            "avg_point_diff": os.avg_point_diff
-        })
-    
-    return {
-        "partnership_stats": partnership_stats,
-        "opponent_stats": opponent_stats
-    }
+        opponent_stats.append(
+            {
+                "opponent_id": os.opponent_id,
+                "opponent_name": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
+                "games": os.games,
+                "wins": os.wins,
+                "points": os.points,
+                "win_rate": os.win_rate,
+                "avg_point_diff": os.avg_point_diff,
+            }
+        )
+
+    return {"partnership_stats": partnership_stats, "opponent_stats": opponent_stats}
 
 
 async def get_all_player_league_partnership_opponent_stats(
-    session: AsyncSession,
-    league_id: int
+    session: AsyncSession, league_id: int
 ) -> Dict[int, Dict]:
     """
     Get all partnership and opponent stats for all players in a league.
-    
+
     Args:
         session: Database session
         league_id: League ID
-        
+
     Returns:
         Dict mapping player_id to partnership and opponent stats
     """
     # Get all partnership stats for this league
     result = await session.execute(
-        select(PartnershipStatsLeague)
-        .where(PartnershipStatsLeague.league_id == league_id)
+        select(PartnershipStatsLeague).where(PartnershipStatsLeague.league_id == league_id)
     )
     partnership_rows = result.scalars().all()
-    
+
     # Get all opponent stats for this league
     result = await session.execute(
-        select(OpponentStatsLeague)
-        .where(OpponentStatsLeague.league_id == league_id)
+        select(OpponentStatsLeague).where(OpponentStatsLeague.league_id == league_id)
     )
     opponent_rows = result.scalars().all()
-    
+
     # Get all player IDs and names
     player_ids = set()
     for ps in partnership_rows:
@@ -3480,56 +3477,60 @@ async def get_all_player_league_partnership_opponent_stats(
     for os in opponent_rows:
         player_ids.add(os.player_id)
         player_ids.add(os.opponent_id)
-    
+
     player_name_map = {}
     if player_ids:
-        result = await session.execute(
-            select(Player).where(Player.id.in_(player_ids))
-        )
+        result = await session.execute(select(Player).where(Player.id.in_(player_ids)))
         for player in result.scalars().all():
             player_name_map[player.id] = player.full_name
-    
+
     # Group by player_id - match format of season stats
     result_dict = {}
-    
+
     for ps in partnership_rows:
         if ps.player_id not in result_dict:
             result_dict[ps.player_id] = {"partnerships": [], "opponents": []}
-        result_dict[ps.player_id]["partnerships"].append({
-            "Partner/Opponent": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
-            "Points": ps.points,
-            "Games": ps.games,
-            "Wins": ps.wins,
-            "Losses": ps.games - ps.wins,
-            "Win Rate": ps.win_rate,
-            "Avg Pt Diff": ps.avg_point_diff
-        })
-    
+        result_dict[ps.player_id]["partnerships"].append(
+            {
+                "Partner/Opponent": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
+                "Points": ps.points,
+                "Games": ps.games,
+                "Wins": ps.wins,
+                "Losses": ps.games - ps.wins,
+                "Win Rate": ps.win_rate,
+                "Avg Pt Diff": ps.avg_point_diff,
+            }
+        )
+
     for os in opponent_rows:
         if os.player_id not in result_dict:
             result_dict[os.player_id] = {"partnerships": [], "opponents": []}
-        result_dict[os.player_id]["opponents"].append({
-            "Partner/Opponent": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
-            "Points": os.points,
-            "Games": os.games,
-            "Wins": os.wins,
-            "Losses": os.games - os.wins,
-            "Win Rate": os.win_rate,
-            "Avg Pt Diff": os.avg_point_diff
-        })
-    
+        result_dict[os.player_id]["opponents"].append(
+            {
+                "Partner/Opponent": player_name_map.get(
+                    os.opponent_id, f"Player {os.opponent_id}"
+                ),
+                "Points": os.points,
+                "Games": os.games,
+                "Wins": os.wins,
+                "Losses": os.games - os.wins,
+                "Win Rate": os.win_rate,
+                "Avg Pt Diff": os.avg_point_diff,
+            }
+        )
+
     return result_dict
 
 
 async def export_matches_to_csv(session: AsyncSession) -> str:
     """
     Export all matches (locked-in sessions only) to CSV format matching Google Sheets import format.
-    
+
     Format: DATE, T1P1, T1P2, T2P1, T2P2, T1SCORE, T2SCORE
-    
+
     Args:
         session: Database session
-    
+
     Returns:
         str: CSV formatted string with header and all matches
     """
@@ -3538,153 +3539,152 @@ async def export_matches_to_csv(session: AsyncSession) -> str:
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
-    
+
     # Build query for matches from submitted sessions or without sessions
-    query = select(
-        Match.date,
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        Match.team1_score,
-        Match.team2_score
-    ).select_from(
-        Match
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).where(
-        or_(
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.session_id.is_(None)
+    query = (
+        select(
+            Match.date,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
         )
-    ).order_by(
-        Match.id.asc()
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(
+            or_(
+                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+                Match.session_id.is_(None),
+            )
+        )
+        .order_by(Match.id.asc())
     )
-    
+
     result = await session.execute(query)
     matches = result.all()
-    
+
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
-    
+
     # Write header matching Google Sheets format
-    writer.writerow(['Date', 'Team 1', '', 'Team 2', '', 'Team 1 Score', 'Team 2 Score'])
-    
+    writer.writerow(["Date", "Team 1", "", "Team 2", "", "Team 1 Score", "Team 2 Score"])
+
     # Write match data
     for match in matches:
-        writer.writerow([
-            match.date,
-            match.team1_player1_name,
-            match.team1_player2_name,
-            match.team2_player1_name,
-            match.team2_player2_name,
-            match.team1_score,
-            match.team2_score
-        ])
-    
+        writer.writerow(
+            [
+                match.date,
+                match.team1_player1_name,
+                match.team1_player2_name,
+                match.team2_player1_name,
+                match.team2_player2_name,
+                match.team1_score,
+                match.team2_score,
+            ]
+        )
+
     return output.getvalue()
 
 
-async def get_player_match_history_by_id(session: AsyncSession, player_id: int) -> Optional[List[Dict]]:
+async def get_player_match_history_by_id(
+    session: AsyncSession, player_id: int
+) -> Optional[List[Dict]]:
     """
     Get match history for a specific player by ID - async version.
-    
+
     Args:
         session: Database session
         player_id: ID of the player
-    
+
     Returns:
         List of matches if player found (may be empty)
         None if player not found
     """
     # Verify player exists
-    result = await session.execute(
-        select(Player.id).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player.id).where(Player.id == player_id))
     if not result.scalar_one_or_none():
         return None  # Player not found
-    
+
     # Create aliases for players
     p1 = aliased(Player)
     p2 = aliased(Player)
     p3 = aliased(Player)
     p4 = aliased(Player)
     eh = aliased(EloHistory)
-    
+
     # Get all matches where player participated
-    query = select(
-        Match.id,
-        Match.date,
-        Match.session_id,
-        Match.team1_player1_id,
-        Match.team1_player2_id,
-        Match.team2_player1_id,
-        Match.team2_player2_id,
-        Match.team1_score,
-        Match.team2_score,
-        Match.winner,
-        cast(0, Integer).label("team1_elo_change"),  # Note: ELO changes not stored in matches table
-        cast(0, Integer).label("team2_elo_change"),
-        p1.full_name.label("team1_player1_name"),
-        p2.full_name.label("team1_player2_name"),
-        p3.full_name.label("team2_player1_name"),
-        p4.full_name.label("team2_player2_name"),
-        eh.elo_after,
-        Session.status.label("session_status"),
-        Session.name.label("session_name"),
-        Session.season_id.label("season_id"),
-        Season.league_id.label("league_id")
-    ).select_from(
-        Match
-    ).outerjoin(
-        p1, Match.team1_player1_id == p1.id
-    ).outerjoin(
-        p2, Match.team1_player2_id == p2.id
-    ).outerjoin(
-        p3, Match.team2_player1_id == p3.id
-    ).outerjoin(
-        p4, Match.team2_player2_id == p4.id
-    ).outerjoin(
-        eh, and_(eh.match_id == Match.id, eh.player_id == player_id)
-    ).outerjoin(
-        Session, Match.session_id == Session.id
-    ).outerjoin(
-        Season, Session.season_id == Season.id
-    ).where(
-        or_(
-            Match.team1_player1_id == player_id,
-            Match.team1_player2_id == player_id,
-            Match.team2_player1_id == player_id,
-            Match.team2_player2_id == player_id
+    query = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+            cast(0, Integer).label(
+                "team1_elo_change"
+            ),  # Note: ELO changes not stored in matches table
+            cast(0, Integer).label("team2_elo_change"),
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            eh.elo_after,
+            Session.status.label("session_status"),
+            Session.name.label("session_name"),
+            Session.code.label("session_code"),
+            Session.season_id.label("season_id"),
+            Season.league_id.label("league_id"),
         )
-    ).order_by(
-        Match.id.desc()
+        .select_from(Match)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .outerjoin(eh, and_(eh.match_id == Match.id, eh.player_id == player_id))
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(Season, Session.season_id == Season.id)
+        .where(
+            or_(
+                Match.team1_player1_id == player_id,
+                Match.team1_player2_id == player_id,
+                Match.team2_player1_id == player_id,
+                Match.team2_player2_id == player_id,
+            )
+        )
+        .order_by(Match.id.desc())
     )
-    
+
     result = await session.execute(query)
     rows = result.all()
-    
+
     results = []
     for row in rows:
         # Determine which team the player was on
         if row.team1_player1_id == player_id or row.team1_player2_id == player_id:
             # Player on team 1
-            partner = row.team1_player2_name if row.team1_player1_id == player_id else row.team1_player1_name
+            partner = (
+                row.team1_player2_name
+                if row.team1_player1_id == player_id
+                else row.team1_player1_name
+            )
             opponent1 = row.team2_player1_name
             opponent2 = row.team2_player2_name
             player_score = row.team1_score
             opponent_score = row.team2_score
             elo_change = row.team1_elo_change or 0
-            
+
             if row.winner == 1:
                 match_result = "W"
             elif row.winner == -1:
@@ -3693,119 +3693,550 @@ async def get_player_match_history_by_id(session: AsyncSession, player_id: int) 
                 match_result = "L"
         else:
             # Player on team 2
-            partner = row.team2_player2_name if row.team2_player1_id == player_id else row.team2_player1_name
+            partner = (
+                row.team2_player2_name
+                if row.team2_player1_id == player_id
+                else row.team2_player1_name
+            )
             opponent1 = row.team1_player1_name
             opponent2 = row.team1_player2_name
             player_score = row.team2_score
             opponent_score = row.team1_score
             elo_change = row.team2_elo_change or 0
-            
+
             if row.winner == 2:
                 match_result = "W"
             elif row.winner == -1:
                 match_result = "T"
             else:
                 match_result = "L"
-        
+
         # Handle session_status - it might be an enum or already a string
         session_status_value = None
         if row.session_status:
-            if hasattr(row.session_status, 'value'):
+            if hasattr(row.session_status, "value"):
                 session_status_value = row.session_status.value
             else:
                 session_status_value = str(row.session_status)
-        
-        results.append({
-            "Date": row.date,
-            "Partner": partner,
-            "Opponent 1": opponent1,
-            "Opponent 2": opponent2,
-            "Result": match_result,
-            "Score": f"{player_score}-{opponent_score}",
-            "ELO Change": elo_change,
-            "ELO After": row.elo_after,
-            "Session Status": session_status_value,
-            "Session ID": row.session_id,
-            "Session Name": row.session_name,
-            "Season ID": row.season_id,
-            "League ID": row.league_id
-        })
-    
+
+        results.append(
+            {
+                "Date": row.date,
+                "Partner": partner,
+                "Opponent 1": opponent1,
+                "Opponent 2": opponent2,
+                "Result": match_result,
+                "Score": f"{player_score}-{opponent_score}",
+                "ELO Change": elo_change,
+                "ELO After": row.elo_after,
+                "Session Status": session_status_value,
+                "Session ID": row.session_id,
+                "Session Name": row.session_name,
+                "Session Code": row.session_code,
+                "Season ID": row.season_id,
+                "League ID": row.league_id,
+            }
+        )
+
     return results
 
 
-async def create_session(session: AsyncSession, date: str) -> Dict:
+async def _generate_session_code(db_session: AsyncSession) -> str:
     """
-    Create a new session.
-    
+    Generate a unique short alphanumeric code for a session.
+    Retries on collision up to SESSION_CODE_MAX_ATTEMPTS.
+    """
+    for _ in range(SESSION_CODE_MAX_ATTEMPTS):
+        code = "".join(secrets.choice(SESSION_CODE_ALPHABET) for _ in range(SESSION_CODE_LENGTH))
+        result = await db_session.execute(select(Session.id).where(Session.code == code))
+        if result.scalar_one_or_none() is None:
+            return code
+    raise ValueError("Failed to generate unique session code")
+
+
+async def create_session(
+    session: AsyncSession,
+    date: str,
+    name: Optional[str] = None,
+    court_id: Optional[int] = None,
+    created_by: Optional[int] = None,
+) -> Dict:
+    """
+    Create a new non-league session (no season_id).
+    Generates a unique shareable code and optionally adds creator to participants.
+
     Args:
         session: Database session
         date: Date string (e.g., '11/7/2025')
-        
+        name: Optional session name (defaults to date-based name)
+        court_id: Optional court ID
+        created_by: Optional player ID who created the session
+
     Returns:
-        Dict with session info
-        
+        Dict with session info including code
+
     Raises:
-        ValueError: If an active session already exists for this date
+        ValueError: If code generation fails after retries
     """
-    # Check if active session exists for this date
+    # Count existing non-league sessions for this date (for default name)
     result = await session.execute(
-        select(Session).where(
-            and_(Session.date == date, Session.status == SessionStatus.ACTIVE)
+        select(func.count(Session.id)).where(
+            and_(Session.date == date, Session.season_id.is_(None))
         )
     )
-    active_session = result.scalar_one_or_none()
-    if active_session:
-        raise ValueError(f"An active session '{active_session.name}' already exists for this date. Please submit the current session before creating a new one.")
-    
-    # Count existing sessions for this date
-    result = await session.execute(
-        select(func.count(Session.id)).where(Session.date == date)
-    )
     count = result.scalar() or 0
-    
-    # Generate session name (format date consistently)
+
     formatted_date = format_session_date(date)
-    if count == 0:
-        name = formatted_date
-    else:
-        name = f"{formatted_date} Session #{count + 1}"
-    
-    # Create the session
+    session_name = (
+        name
+        if name
+        else (formatted_date if count == 0 else f"{formatted_date} Session #{count + 1}")
+    )
+
+    code = await _generate_session_code(session)
+
     new_session = Session(
         date=date,
-        name=name,
-        status=SessionStatus.ACTIVE
+        name=session_name,
+        status=SessionStatus.ACTIVE,
+        code=code,
+        season_id=None,
+        court_id=court_id,
+        created_by=created_by,
     )
     session.add(new_session)
     await session.flush()
+
+    if created_by is not None:
+        participant = SessionParticipant(
+            session_id=new_session.id, player_id=created_by, invited_by=None
+        )
+        session.add(participant)
     await session.commit()
     await session.refresh(new_session)
-    
+
     return {
         "id": new_session.id,
         "date": new_session.date,
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
-        "created_at": new_session.created_at.isoformat() if new_session.created_at else ""
+        "code": new_session.code,
+        "season_id": new_session.season_id,
+        "court_id": new_session.court_id,
+        "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
 
 
-async def create_match_async(
-    session: AsyncSession,
-    match_request: 'CreateMatchRequest',
+async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -> List[Dict]:
+    """
+    Return all ACTIVE sessions where the player is creator, has a match, or is invited.
+    Includes league and non-league sessions. Ordered by session updated_at desc.
+    """
+    # Subquery: session IDs where player has at least one match
+    match_sess = (
+        select(Match.session_id)
+        .where(
+            and_(
+                Match.session_id.isnot(None),
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .distinct()
+    )
+
+    # Subquery: session IDs where player is in session_participants
+    part_sess = select(SessionParticipant.session_id).where(
+        SessionParticipant.player_id == player_id
+    )
+
+    # Sessions: ACTIVE and (created_by = player OR session_id in match_sess OR session_id in part_sess)
+    creator_alias = aliased(Player)
+    q = (
+        select(
+            Session.id,
+            Session.code,
+            Session.date,
+            Session.name,
+            Session.status,
+            Session.season_id,
+            Session.created_by,
+            Session.updated_at,
+            Season.league_id,
+            creator_alias.full_name.label("created_by_name"),
+        )
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(creator_alias, Session.created_by == creator_alias.id)
+        .where(Session.status == SessionStatus.ACTIVE)
+        .where(
+            or_(
+                Session.created_by == player_id,
+                Session.id.in_(match_sess.scalar_subquery()),
+                Session.id.in_(part_sess.scalar_subquery()),
+            )
+        )
+        .order_by(Session.updated_at.desc())
+    )
+    result = await db_session.execute(q)
+    rows = result.all()
+
+    # Match count per session
+    session_ids = [r.id for r in rows]
+    if not session_ids:
+        return []
+
+    count_q = (
+        select(Match.session_id, func.count(Match.id).label("match_count"))
+        .where(Match.session_id.in_(session_ids))
+        .group_by(Match.session_id)
+    )
+    count_result = await db_session.execute(count_q)
+    match_counts = {r.session_id: r.match_count for r in count_result.all()}
+
+    # Session IDs where this player has at least one match
+    match_sess_ids_q = (
+        select(Match.session_id)
+        .where(
+            and_(
+                Match.session_id.isnot(None),
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .distinct()
+    )
+    match_sess_ids_result = await db_session.execute(match_sess_ids_q)
+    session_ids_with_match = {row[0] for row in match_sess_ids_result.all()}
+
+    out = []
+    for r in rows:
+        if r.created_by == player_id:
+            participation = "creator"
+        elif r.id in session_ids_with_match:
+            participation = "player"
+        else:
+            participation = "invited"
+        created_by_name = getattr(r, "created_by_name", None)
+        out.append(
+            {
+                "id": r.id,
+                "code": r.code,
+                "date": r.date,
+                "name": r.name,
+                "status": r.status.value if r.status else None,
+                "season_id": r.season_id,
+                "league_id": r.league_id,
+                "match_count": match_counts.get(r.id, 0),
+                "participation": participation,
+                "created_by": r.created_by,
+                "created_by_name": created_by_name,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
+    return out
+
+
+async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[Dict]:
+    """Return session by code, with league_id, created_by_name, updated_at, updated_by_name; None if not found."""
+    creator = aliased(Player)
+    updater = aliased(Player)
+    q = (
+        select(Session, Season.league_id, creator.full_name, updater.full_name)
+        .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(creator, Session.created_by == creator.id)
+        .outerjoin(updater, Session.updated_by == updater.id)
+        .where(Session.code == code)
+    )
+    result = await db_session.execute(q)
+    row = result.one_or_none()
+    if not row:
+        return None
+    s, league_id, created_by_name, updated_by_name = row
+    return {
+        "id": s.id,
+        "code": s.code,
+        "date": s.date,
+        "name": s.name,
+        "status": s.status.value if s.status else None,
+        "season_id": s.season_id,
+        "court_id": s.court_id,
+        "league_id": league_id,
+        "created_by": s.created_by,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "created_by_name": created_by_name,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        "updated_by": s.updated_by,
+        "updated_by_name": updated_by_name,
+    }
+
+
+async def get_session_matches(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Get all matches for a session with player names and scores.
+    Returns list of match dicts (id, date, team names, scores, winner, session_name, session_status).
+    """
+    p1 = aliased(Player)
+    p2 = aliased(Player)
+    p3 = aliased(Player)
+    p4 = aliased(Player)
+    q = (
+        select(
+            Match.id,
+            Match.date,
+            Match.session_id,
+            Session.name.label("session_name"),
+            Session.status.label("session_status"),
+            Match.team1_player1_id,
+            Match.team1_player2_id,
+            Match.team2_player1_id,
+            Match.team2_player2_id,
+            p1.full_name.label("team1_player1_name"),
+            p2.full_name.label("team1_player2_name"),
+            p3.full_name.label("team2_player1_name"),
+            p4.full_name.label("team2_player2_name"),
+            Match.team1_score,
+            Match.team2_score,
+            Match.winner,
+        )
+        .select_from(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .outerjoin(p1, Match.team1_player1_id == p1.id)
+        .outerjoin(p2, Match.team1_player2_id == p2.id)
+        .outerjoin(p3, Match.team2_player1_id == p3.id)
+        .outerjoin(p4, Match.team2_player2_id == p4.id)
+        .where(Match.session_id == session_id)
+        .order_by(Match.id.desc())
+    )
+    result = await db_session.execute(q)
+    rows = result.all()
+    return [
+        {
+            "id": r.id,
+            "date": r.date,
+            "session_id": r.session_id,
+            "session_name": r.session_name,
+            "session_status": r.session_status.value if r.session_status else None,
+            "team1_player1_id": r.team1_player1_id,
+            "team1_player1_name": r.team1_player1_name or "",
+            "team1_player2_id": r.team1_player2_id,
+            "team1_player2_name": r.team1_player2_name or "",
+            "team2_player1_id": r.team2_player1_id,
+            "team2_player1_name": r.team2_player1_name or "",
+            "team2_player2_id": r.team2_player2_id,
+            "team2_player2_name": r.team2_player2_name or "",
+            "team1_score": r.team1_score,
+            "team2_score": r.team2_score,
+            "winner": r.winner,
+        }
+        for r in rows
+    ]
+
+
+async def get_session_participants(db_session: AsyncSession, session_id: int) -> List[Dict]:
+    """
+    Return list of players in the session: session_participants plus any player
+    who appears in a match in this session (deduped by player_id).
+    Returns list of dicts with player_id, full_name.
+    """
+    # Player IDs from session_participants
+    part_q = select(SessionParticipant.player_id).where(
+        SessionParticipant.session_id == session_id
+    )
+    part_result = await db_session.execute(part_q)
+    part_player_ids = {row[0] for row in part_result.all()}
+
+    # Player IDs from matches in this session
+    match_q = select(
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ).where(Match.session_id == session_id)
+    match_result = await db_session.execute(match_q)
+    for row in match_result.all():
+        for pid in (
+            row.team1_player1_id,
+            row.team1_player2_id,
+            row.team2_player1_id,
+            row.team2_player2_id,
+        ):
+            if pid is not None:
+                part_player_ids.add(pid)
+
+    if not part_player_ids:
+        return []
+
+    # Fetch player info and location for all player IDs
+    players_q = (
+        select(
+            Player.id,
+            Player.full_name,
+            Player.nickname,
+            Player.level,
+            Player.gender,
+            Location.name.label("location_name"),
+        )
+        .outerjoin(Location, Location.id == Player.location_id)
+        .where(Player.id.in_(part_player_ids))
+    )
+    players_result = await db_session.execute(players_q)
+    rows = players_result.all()
+    return [
+        {
+            "player_id": r.id,
+            "full_name": r.full_name or r.nickname or f"Player {r.id}",
+            "level": r.level,
+            "gender": r.gender,
+            "location_name": r.location_name,
+        }
+        for r in rows
+    ]
+
+
+async def remove_session_participant(
+    db_session: AsyncSession,
     session_id: int,
-    date: str
+    player_id: int,
+) -> bool:
+    """
+    Remove a player from session participants. Returns True if removed.
+    Returns False if player was not in participants or has matches in this session
+    (cannot remove a player who has played in the session).
+    """
+    # Check if player has any match in this session
+    match_check = await db_session.execute(
+        select(Match.id)
+        .where(
+            and_(
+                Match.session_id == session_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .limit(1)
+    )
+    if match_check.scalar_one_or_none() is not None:
+        return False  # Has matches; do not allow remove
+
+    result = await db_session.execute(
+        delete(SessionParticipant).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    await db_session.commit()
+    return result.rowcount > 0
+
+
+async def add_session_participant(
+    db_session: AsyncSession,
+    session_id: int,
+    player_id: int,
+    invited_by: Optional[int] = None,
+) -> bool:
+    """Add a player to session participants (idempotent). Returns True if added or already present."""
+    existing = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return True
+    rec = SessionParticipant(session_id=session_id, player_id=player_id, invited_by=invited_by)
+    db_session.add(rec)
+    await db_session.commit()
+    return True
+
+
+async def join_session_by_code(
+    db_session: AsyncSession, code: str, player_id: int
+) -> Optional[Dict]:
+    """
+    Resolve session by code; if ACTIVE, add player to participants and return session summary.
+    Returns None if session not found or not ACTIVE.
+    """
+    sess = await get_session_by_code(db_session, code)
+    if not sess or sess.get("status") != "ACTIVE":
+        return None
+    await add_session_participant(db_session, sess["id"], player_id, invited_by=None)
+    return sess
+
+
+async def can_user_add_match_to_session(
+    db_session: AsyncSession, session_id: int, session_obj: Dict, user_id: int
+) -> bool:
+    """
+    For non-league sessions (season_id is None), return True iff user's player is
+    creator, has a match in the session, or is in session_participants.
+    """
+    if session_obj.get("season_id") is not None:
+        return True  # League session: caller uses league-admin check
+    player_result = await db_session.execute(select(Player.id).where(Player.user_id == user_id))
+    player_id = player_result.scalar_one_or_none()
+    if player_id is None:
+        return False
+    if session_obj.get("created_by") == player_id:
+        return True
+    # Has match in session?
+    match_q = (
+        select(Match.id)
+        .where(
+            and_(
+                Match.session_id == session_id,
+                or_(
+                    Match.team1_player1_id == player_id,
+                    Match.team1_player2_id == player_id,
+                    Match.team2_player1_id == player_id,
+                    Match.team2_player2_id == player_id,
+                ),
+            )
+        )
+        .limit(1)
+    )
+    match_result = await db_session.execute(match_q)
+    if match_result.scalar_one_or_none() is not None:
+        return True
+    # In participants?
+    part_result = await db_session.execute(
+        select(SessionParticipant.id).where(
+            and_(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.player_id == player_id,
+            )
+        )
+    )
+    return part_result.scalar_one_or_none() is not None
+
+
+async def create_match_async(
+    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int, date: str
 ) -> int:
     """
     Create a new match in a session - async version.
-    
+
     Args:
         session: Database session
         match_request: CreateMatchRequest schema with player IDs
         session_id: Session ID
         date: Match date
-        
+
     Returns:
         Match ID
     """
@@ -3816,7 +4247,7 @@ async def create_match_async(
         winner = 2
     else:
         winner = -1  # Tie
-    
+
     # Create match using player IDs directly from the request
     new_match = Match(
         session_id=session_id,
@@ -3828,42 +4259,40 @@ async def create_match_async(
         team1_score=match_request.team1_score,
         team2_score=match_request.team2_score,
         winner=winner,
-        is_public=match_request.is_public if match_request.is_public is not None else True
+        is_public=match_request.is_public if match_request.is_public is not None else True,
     )
     session.add(new_match)
     await session.flush()
     await session.commit()
     await session.refresh(new_match)
-    
+
     return new_match.id
 
 
 async def update_match_async(
     session: AsyncSession,
     match_id: int,
-    match_request: 'UpdateMatchRequest',
-    updated_by: Optional[int] = None
+    match_request: "UpdateMatchRequest",
+    updated_by: Optional[int] = None,
 ) -> bool:
     """
     Update an existing match - async version.
-    
+
     Args:
         session: Database session
         match_id: Match ID to update
         match_request: UpdateMatchRequest schema with player IDs
         updated_by: Player ID who updated the match (optional)
-        
+
     Returns:
         True if successful, False if match not found
     """
     # Get match
-    result = await session.execute(
-        select(Match).where(Match.id == match_id)
-    )
+    result = await session.execute(select(Match).where(Match.id == match_id))
     match = result.scalar_one_or_none()
     if not match:
         return False
-    
+
     # Determine winner
     if match_request.team1_score > match_request.team2_score:
         winner = 1
@@ -3871,7 +4300,7 @@ async def update_match_async(
         winner = 2
     else:
         winner = -1  # Tie
-    
+
     # Update match using player IDs directly from the request
     match.team1_player1_id = match_request.team1_player1_id
     match.team1_player2_id = match_request.team1_player2_id
@@ -3884,7 +4313,7 @@ async def update_match_async(
         match.is_public = match_request.is_public
     if updated_by is not None:
         match.updated_by = updated_by
-    
+
     # Update the session's updated_by and updated_at if the session exists
     if match.session_id and updated_by is not None:
         await session.execute(
@@ -3892,7 +4321,7 @@ async def update_match_async(
             .where(Session.id == match.session_id)
             .values(updated_by=updated_by, updated_at=func.now())
         )
-    
+
     await session.commit()
     return True
 
@@ -3901,23 +4330,19 @@ async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
     """
     Delete a match from the database - async version.
     Also deletes associated elo_history records to avoid foreign key constraint violations.
-    
+
     Args:
         session: Database session
         match_id: ID of the match to delete
-        
+
     Returns:
         True if successful, False if match not found
     """
     # First, delete associated elo_history records
-    await session.execute(
-        delete(EloHistory).where(EloHistory.match_id == match_id)
-    )
-    
+    await session.execute(delete(EloHistory).where(EloHistory.match_id == match_id))
+
     # Then delete the match
-    result = await session.execute(
-        delete(Match).where(Match.id == match_id)
-    )
+    result = await session.execute(delete(Match).where(Match.id == match_id))
     await session.commit()
     return result.rowcount > 0
 
@@ -3925,11 +4350,11 @@ async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
 async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict]:
     """
     Get a specific match by ID - async version.
-    
+
     Args:
         session: Database session
         match_id: Match ID
-    
+
     Returns:
         Match dict or None if not found
     """
@@ -3939,18 +4364,18 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
         .where(Match.id == match_id)
     )
     row = result.first()
-    
+
     if not row:
         return None
-    
+
     match, session_status = row
-    
+
     # Get player names
     team1_p1 = await session.get(Player, match.team1_player1_id)
     team1_p2 = await session.get(Player, match.team1_player2_id)
     team2_p1 = await session.get(Player, match.team2_player1_id)
     team2_p2 = await session.get(Player, match.team2_player2_id)
-    
+
     return {
         "id": match.id,
         "session_id": match.session_id,
@@ -3961,7 +4386,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
         "team2_player2": team2_p2.full_name if team2_p2 else None,
         "team1_score": match.team1_score,
         "team2_score": match.team2_score,
-        "session_status": session_status.value if session_status else None
+        "session_status": session_status.value if session_status else None,
     }
 
 
@@ -3969,47 +4394,46 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
 # Async Stats Calculation Functions
 # ============================================================================
 
+
 async def load_ranked_matches_async(
-    session: AsyncSession, 
-    season_id: Optional[int] = None,
-    league_id: Optional[int] = None
+    session: AsyncSession, season_id: Optional[int] = None, league_id: Optional[int] = None
 ) -> List[Match]:
     """
     Load ranked matches from database.
-    
+
     Only includes matches from finalized sessions (SUBMITTED or EDITED) or matches with no session.
-    
+
     Args:
         session: Database session
         season_id: Optional season ID to filter by
         league_id: Optional league ID to filter by (filters through Session -> Season -> league_id)
-        
+
     Returns:
         List of Match objects
     """
     conditions = [
-        Match.is_ranked == True,
+        Match.is_ranked.is_(True),
         or_(
             Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Session.id.is_(None)
-        )
+            Session.id.is_(None),
+        ),
     ]
-    
+
     # Build query with necessary joins
     query = select(Match).outerjoin(Session, Match.session_id == Session.id)
-    
+
     # Add league_id filtering if provided (requires joining Season table)
     if league_id is not None:
         query = query.outerjoin(Season, Session.season_id == Season.id)
         conditions.append(Season.league_id == league_id)
-    
+
     # Add season_id filtering if provided
     if season_id is not None:
         conditions.append(Session.season_id == season_id)
-    
+
     query = query.where(and_(*conditions))
     query = query.order_by(Match.id.asc())
-    
+
     result = await session.execute(query)
     return list(result.scalars().all())
 
@@ -4057,12 +4481,12 @@ async def delete_all_stats_async(session: AsyncSession) -> None:
     await session.execute(delete(PartnershipStats))
     await session.execute(delete(OpponentStats))
     await session.execute(delete(PlayerGlobalStats))
-    
+
     # Delete all league stats
     await session.execute(delete(PartnershipStatsLeague))
     await session.execute(delete(OpponentStatsLeague))
     await session.execute(delete(PlayerLeagueStats))
-    
+
     # Delete all season stats
     await session.execute(delete(PartnershipStatsSeason))
     await session.execute(delete(OpponentStatsSeason))
@@ -4072,28 +4496,34 @@ async def delete_all_stats_async(session: AsyncSession) -> None:
 def _chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        yield lst[i : i + n]
 
 
-async def insert_elo_history_async(session: AsyncSession, elo_history_list: List[EloHistory]) -> None:
+async def insert_elo_history_async(
+    session: AsyncSession, elo_history_list: List[EloHistory]
+) -> None:
     """Bulk insert ELO history records in chunks."""
     if not elo_history_list:
         return
-    
+
     for chunk in _chunks(elo_history_list, 1000):
         session.add_all(chunk)
 
 
-async def insert_season_rating_history_async(session: AsyncSession, season_rating_history_list: List[SeasonRatingHistory]) -> None:
+async def insert_season_rating_history_async(
+    session: AsyncSession, season_rating_history_list: List[SeasonRatingHistory]
+) -> None:
     """Bulk insert season rating history records in chunks."""
     if not season_rating_history_list:
         return
-    
+
     for chunk in _chunks(season_rating_history_list, 1000):
         session.add_all(chunk)
 
 
-async def upsert_player_global_stats_async(session: AsyncSession, elo_history_list: List[EloHistory], matches: List[Match]) -> None:
+async def upsert_player_global_stats_async(
+    session: AsyncSession, elo_history_list: List[EloHistory], matches: List[Match]
+) -> None:
     """
     Update PlayerGlobalStats based on elo_history and match data.
     For each player, calculate:
@@ -4103,7 +4533,7 @@ async def upsert_player_global_stats_async(session: AsyncSession, elo_history_li
     """
     if not elo_history_list:
         return
-    
+
     # Group elo_history by player_id and get latest rating
     player_latest_elo = {}
     for elo_record in elo_history_list:
@@ -4111,21 +4541,21 @@ async def upsert_player_global_stats_async(session: AsyncSession, elo_history_li
             player_latest_elo[elo_record.player_id] = elo_record.elo_after
         # Since elo_history_list is ordered by match date, last one is latest
         player_latest_elo[elo_record.player_id] = elo_record.elo_after
-    
+
     # Count games and wins for each player
     player_games = {}
     player_wins = {}
-    
+
     for match in matches:
         # Get player IDs directly from Match ORM object
         team1_player_ids = [match.team1_player1_id, match.team1_player2_id]
         team2_player_ids = [match.team2_player1_id, match.team2_player2_id]
         all_player_ids = [pid for pid in team1_player_ids + team2_player_ids if pid is not None]
-        
+
         # Count games for all 4 players
         for player_id in all_player_ids:
             player_games[player_id] = player_games.get(player_id, 0) + 1
-        
+
         # Count wins for winning team
         # winner is 1 = team1, 2 = team2, -1 = tie
         if match.winner == 1:
@@ -4139,110 +4569,108 @@ async def upsert_player_global_stats_async(session: AsyncSession, elo_history_li
                 if player_id is not None:
                     player_wins[player_id] = player_wins.get(player_id, 0) + 1
         # If winner is -1 (tie), no one wins
-    
+
     # Get all unique player IDs from both elo_history and matches
     all_player_ids = set(player_latest_elo.keys()) | set(player_games.keys())
-    
+
     # Upsert PlayerGlobalStats for each player
     for player_id in all_player_ids:
         # Use latest ELO if available, otherwise use INITIAL_ELO
         current_rating = player_latest_elo.get(player_id, INITIAL_ELO)
-        
-        stmt = pg_insert(PlayerGlobalStats).values(
-            player_id=player_id,
-            current_rating=current_rating,
-            total_games=player_games.get(player_id, 0),
-            total_wins=player_wins.get(player_id, 0)
-        ).on_conflict_do_update(
-            index_elements=['player_id'],
-            set_=dict(
+
+        stmt = (
+            pg_insert(PlayerGlobalStats)
+            .values(
+                player_id=player_id,
                 current_rating=current_rating,
                 total_games=player_games.get(player_id, 0),
                 total_wins=player_wins.get(player_id, 0),
-                updated_at=func.now()
+            )
+            .on_conflict_do_update(
+                index_elements=["player_id"],
+                set_=dict(
+                    current_rating=current_rating,
+                    total_games=player_games.get(player_id, 0),
+                    total_wins=player_wins.get(player_id, 0),
+                    updated_at=func.now(),
+                ),
             )
         )
         await session.execute(stmt)
 
 
-async def insert_partnership_stats_async(session: AsyncSession, partnerships: List[PartnershipStats]) -> None:
+async def insert_partnership_stats_async(
+    session: AsyncSession, partnerships: List[PartnershipStats]
+) -> None:
     """Bulk insert partnership stats in chunks."""
     if not partnerships:
         return
-    
+
     for chunk in _chunks(partnerships, 1000):
         session.add_all(chunk)
 
 
-async def insert_opponent_stats_async(session: AsyncSession, opponents: List[OpponentStats]) -> None:
+async def insert_opponent_stats_async(
+    session: AsyncSession, opponents: List[OpponentStats]
+) -> None:
     """Bulk insert opponent stats in chunks."""
     if not opponents:
         return
-    
+
     for chunk in _chunks(opponents, 1000):
         session.add_all(chunk)
 
 
 async def insert_partnership_stats_season_async(
-    session: AsyncSession, 
-    partnerships: List[PartnershipStatsSeason], 
-    season_id: int
+    session: AsyncSession, partnerships: List[PartnershipStatsSeason], season_id: int
 ) -> None:
     """Bulk insert season-specific partnership stats in chunks."""
     if not partnerships:
         return
-    
+
     for chunk in _chunks(partnerships, 1000):
         session.add_all(chunk)
 
 
 async def insert_opponent_stats_season_async(
-    session: AsyncSession, 
-    opponents: List[OpponentStatsSeason], 
-    season_id: int
+    session: AsyncSession, opponents: List[OpponentStatsSeason], season_id: int
 ) -> None:
     """Bulk insert season-specific opponent stats in chunks."""
     if not opponents:
         return
-    
+
     for chunk in _chunks(opponents, 1000):
         session.add_all(chunk)
 
 
 async def insert_partnership_stats_league_async(
-    session: AsyncSession, 
-    partnerships: List[PartnershipStatsLeague], 
-    league_id: int
+    session: AsyncSession, partnerships: List[PartnershipStatsLeague], league_id: int
 ) -> None:
     """Bulk insert league-specific partnership stats in chunks."""
     if not partnerships:
         return
-    
+
     for chunk in _chunks(partnerships, 1000):
         session.add_all(chunk)
 
 
 async def insert_opponent_stats_league_async(
-    session: AsyncSession, 
-    opponents: List[OpponentStatsLeague], 
-    league_id: int
+    session: AsyncSession, opponents: List[OpponentStatsLeague], league_id: int
 ) -> None:
     """Bulk insert league-specific opponent stats in chunks."""
     if not opponents:
         return
-    
+
     for chunk in _chunks(opponents, 1000):
         session.add_all(chunk)
 
 
 async def upsert_player_season_stats_async(
-    session: AsyncSession, 
-    tracker: 'calculation_service.StatsTracker', 
-    season_id: int
+    session: AsyncSession, tracker: "calculation_service.StatsTracker", season_id: int
 ) -> None:
     """
     Upsert player season stats from tracker.
-    
+
     Args:
         session: Database session
         tracker: StatsTracker from calculation service
@@ -4250,84 +4678,84 @@ async def upsert_player_season_stats_async(
     """
     player_stats_list = []
     for player_id, player_stats in tracker.players.items():
-        player_stats_list.append({
-            "player_id": player_id,
-            "season_id": season_id,
-            "games": player_stats.game_count,
-            "wins": player_stats.win_count,
-            "points": player_stats.points,
-            "win_rate": round(player_stats.win_rate, 3),
-            "avg_point_diff": round(player_stats.avg_point_diff, 1)
-        })
-    
+        player_stats_list.append(
+            {
+                "player_id": player_id,
+                "season_id": season_id,
+                "games": player_stats.game_count,
+                "wins": player_stats.win_count,
+                "points": player_stats.points,
+                "win_rate": round(player_stats.win_rate, 3),
+                "avg_point_diff": round(player_stats.avg_point_diff, 1),
+            }
+        )
+
     if not player_stats_list:
         return
-    
+
     # Use upsert for player season stats
     stmt = insert(PlayerSeasonStats).values(player_stats_list)
     stmt = stmt.on_conflict_do_update(
-        index_elements=['player_id', 'season_id'],
+        index_elements=["player_id", "season_id"],
         set_=dict(
             games=stmt.excluded.games,
             wins=stmt.excluded.wins,
             points=stmt.excluded.points,
             win_rate=stmt.excluded.win_rate,
             avg_point_diff=stmt.excluded.avg_point_diff,
-            updated_at=sql_func.now()
-        )
+            updated_at=sql_func.now(),
+        ),
     )
-    
+
     await session.execute(stmt)
 
 
 async def calculate_global_stats_async(session: AsyncSession) -> Dict:
     """
     Calculate global stats from all ranked matches.
-    
+
     This function:
     1. Loads all ranked matches
     2. Processes them through calculation service
     3. Calculates all stats in memory first
     4. Deletes all global stats
     5. Inserts new global stats
-    
+
     All operations happen within a single transaction to ensure consistency.
     If calculation fails, old stats remain visible.
-    
+
     Args:
         session: Database session
-        
+
     Returns:
         Dict with player_count and match_count
     """
     # Load all ranked matches
     matches = await load_ranked_matches_async(session)
-    
+
     if not matches:
         # No matches - delete stats and return
         await delete_global_stats_async(session)
         await session.commit()
         return {"player_count": 0, "match_count": 0}
-    
+
     # Process matches through calculation service (in-memory, fast)
     # Note: player_id_map is no longer needed since we use IDs directly
-    partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        matches
-    )
-    
+    partnerships, opponents, elo_history_list = calculation_service.process_matches(matches)
+
     # Now delete old stats and insert new ones (all calculated, so if this fails, transaction rolls back)
     await delete_global_stats_async(session)
-    
+
     # Insert new stats (within same transaction)
     await insert_elo_history_async(session, elo_history_list)
     await insert_partnership_stats_async(session, partnerships)
     await insert_opponent_stats_async(session, opponents)
     await upsert_player_global_stats_async(session, elo_history_list, matches)
-    
+
     # Commit the transaction - readers now see new stats
     # If any error occurs, transaction rolls back and old stats remain
     await session.commit()
-    
+
     # Count unique players from matches
     unique_players = set()
     for match in matches:
@@ -4335,47 +4763,40 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
         unique_players.add(match.team1_player2_id)
         unique_players.add(match.team2_player1_id)
         unique_players.add(match.team2_player2_id)
-    
-    return {
-        "player_count": len(unique_players),
-        "match_count": len(matches)
-    }
+
+    return {"player_count": len(unique_players), "match_count": len(matches)}
 
 
 async def _calculate_season_stats_from_matches(
-    session: AsyncSession, 
-    season_id: int, 
-    season_matches: List[Match]
+    session: AsyncSession, season_id: int, season_matches: List[Match]
 ) -> Dict:
     """
     Helper function to calculate season stats from a list of matches.
     Used internally by calculate_league_stats_async.
-    
+
     Args:
         session: Database session
         season_id: Season ID
         season_matches: List of matches for this season
-        
+
     Returns:
         Dict with player_count and match_count
     """
     # Load season to get scoring system configuration
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         raise ValueError(f"Season {season_id} not found")
-    
+
     # Get scoring configuration with error handling
     try:
         scoring_config = calculation_service.get_scoring_config(season.point_system)
     except Exception:
         # Fallback to default if parsing fails
         scoring_config = {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
-    
+
     is_season_rating = season.scoring_system == ScoringSystem.SEASON_RATING.value
-    
+
     # Calculate initial ratings if Season Rating mode
     # All players start at 100 rating in Season Rating mode
     initial_ratings: Dict[int, float] = {}
@@ -4386,7 +4807,7 @@ async def _calculate_season_stats_from_matches(
                 select(LeagueMember.player_id).where(LeagueMember.league_id == season.league_id)
             )
             all_league_member_ids = [row[0] for row in league_members_result.all()]
-            
+
             # All players start at 100 in Season Rating mode
             initial_rating = 100.0
             for player_id in all_league_member_ids:
@@ -4394,20 +4815,20 @@ async def _calculate_season_stats_from_matches(
         except Exception:
             # On error, continue with empty dict (stats calculation will handle missing initial ratings)
             pass
-    
+
     if not season_matches:
         # No matches - delete stats and return
         await delete_season_stats_async(session, season_id)
         return {"player_count": 0, "match_count": 0}
-    
+
     # Create tracker and process matches once (avoid duplicate processing)
     tracker = calculation_service.StatsTracker(
         initial_ratings=initial_ratings if is_season_rating else None,
-        scoring_config=scoring_config
+        scoring_config=scoring_config,
     )
     for match in season_matches:
         tracker.process_match(match)
-    
+
     # Build partnership and opponent stats from tracker
     partnership_season_list = []
     for player_id, player_stats in tracker.players.items():
@@ -4418,7 +4839,7 @@ async def _calculate_season_stats_from_matches(
             points = calculation_service.calculate_points(wins, losses, scoring_config)
             total_pt_diff = player_stats.point_diff_with.get(partner_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
-            
+
             partnership_season_list.append(
                 PartnershipStatsSeason(
                     player_id=player_id,
@@ -4428,10 +4849,10 @@ async def _calculate_season_stats_from_matches(
                     wins=wins,
                     points=points,
                     win_rate=round(win_rate, 3),
-                    avg_point_diff=round(avg_pt_diff, 1)
+                    avg_point_diff=round(avg_pt_diff, 1),
                 )
             )
-    
+
     opponent_season_list = []
     for player_id, player_stats in tracker.players.items():
         for opponent_id, games in player_stats.games_against.items():
@@ -4441,7 +4862,7 @@ async def _calculate_season_stats_from_matches(
             points = calculation_service.calculate_points(wins, losses, scoring_config)
             total_pt_diff = player_stats.point_diff_against.get(opponent_id, 0)
             avg_pt_diff = total_pt_diff / games if games > 0 else 0
-            
+
             opponent_season_list.append(
                 OpponentStatsSeason(
                     player_id=player_id,
@@ -4451,65 +4872,72 @@ async def _calculate_season_stats_from_matches(
                     wins=wins,
                     points=points,
                     win_rate=round(win_rate, 3),
-                    avg_point_diff=round(avg_pt_diff, 1)
+                    avg_point_diff=round(avg_pt_diff, 1),
                 )
             )
-    
+
     # Prepare player season stats list (calculate first, before deleting)
     player_stats_list = []
     for player_id, player_stats in tracker.players.items():
-        player_stats_list.append({
-            "player_id": player_id,
-            "season_id": season_id,
-            "games": player_stats.game_count,
-            "wins": player_stats.win_count,
-            "points": player_stats.points,
-            "win_rate": round(player_stats.win_rate, 3),
-            "avg_point_diff": round(player_stats.avg_point_diff, 1)
-        })
-    
+        player_stats_list.append(
+            {
+                "player_id": player_id,
+                "season_id": season_id,
+                "games": player_stats.game_count,
+                "wins": player_stats.win_count,
+                "points": player_stats.points,
+                "win_rate": round(player_stats.win_rate, 3),
+                "avg_point_diff": round(player_stats.avg_point_diff, 1),
+            }
+        )
+
     # Build season rating history if Season Rating mode
     season_rating_history_list = []
     if is_season_rating:
         for player_id, player_stats in tracker.players.items():
-            for match_id, rating_after, rating_change, date in player_stats.match_season_rating_history:
+            for (
+                match_id,
+                rating_after,
+                rating_change,
+                date,
+            ) in player_stats.match_season_rating_history:
                 season_rating_history = SeasonRatingHistory(
                     player_id=player_id,
                     season_id=season_id,
                     match_id=match_id,
-                    date=date or '',
+                    date=date or "",
                     rating_after=round(rating_after, 2),
-                    rating_change=round(rating_change, 2)
+                    rating_change=round(rating_change, 2),
                 )
                 season_rating_history_list.append(season_rating_history)
-    
+
     # Now delete old stats and insert new ones (all calculated, so if this fails, transaction rolls back)
     await delete_season_stats_async(session, season_id)
-    
+
     # Insert new season-specific stats (within same transaction)
     await insert_partnership_stats_season_async(session, partnership_season_list, season_id)
     await insert_opponent_stats_season_async(session, opponent_season_list, season_id)
-    
+
     # Insert season rating history if Season Rating mode
     if season_rating_history_list:
         await insert_season_rating_history_async(session, season_rating_history_list)
-    
+
     # Insert player season stats
     if player_stats_list:
         stmt = insert(PlayerSeasonStats).values(player_stats_list)
         stmt = stmt.on_conflict_do_update(
-            index_elements=['player_id', 'season_id'],
+            index_elements=["player_id", "season_id"],
             set_=dict(
                 games=stmt.excluded.games,
                 wins=stmt.excluded.wins,
                 points=stmt.excluded.points,
                 win_rate=stmt.excluded.win_rate,
                 avg_point_diff=stmt.excluded.avg_point_diff,
-                updated_at=sql_func.now()
-            )
+                updated_at=sql_func.now(),
+            ),
         )
         await session.execute(stmt)
-    
+
     # Count unique players in this season
     unique_players = set()
     for match in season_matches:
@@ -4521,17 +4949,14 @@ async def _calculate_season_stats_from_matches(
             unique_players.add(match.team2_player1_id)
         if match.team2_player2_id:
             unique_players.add(match.team2_player2_id)
-    
-    return {
-        "player_count": len(unique_players),
-        "match_count": len(season_matches)
-    }
+
+    return {"player_count": len(unique_players), "match_count": len(season_matches)}
 
 
 async def calculate_league_stats_async(session: AsyncSession, league_id: int) -> Dict:
     """
     Calculate league-level stats and all season stats for a league.
-    
+
     This function:
     1. Loads all ranked matches for the league (across all seasons) - single query
     2. Gets all seasons for the league
@@ -4548,17 +4973,17 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
     Args:
         session: Database session
         league_id: League ID
-        
+
     Returns:
         Dict with league_player_count, league_match_count, and season_counts
     """
     # Load all ranked matches for the league (across all seasons) - single query
     all_matches = await load_ranked_matches_async(session, league_id=league_id)
-    
+
     # Get all seasons for the league
     seasons = await list_seasons(session, league_id)
     season_ids = [s["id"] for s in seasons]
-    
+
     if not all_matches:
         # No matches - delete all stats and return
         await delete_league_stats_async(session, league_id)
@@ -4568,9 +4993,11 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
         return {
             "league_player_count": 0,
             "league_match_count": 0,
-            "season_counts": {season_id: {"player_count": 0, "match_count": 0} for season_id in season_ids}
+            "season_counts": {
+                season_id: {"player_count": 0, "match_count": 0} for season_id in season_ids
+            },
         }
-    
+
     # Get session_id -> season_id mapping for all matches
     # Query all sessions for matches that have session_id
     session_ids = {m.session_id for m in all_matches if m.session_id}
@@ -4582,18 +5009,16 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
         for sess_id, sess_season_id in sessions_result:
             if sess_season_id:
                 session_to_season_map[sess_id] = sess_season_id
-    
+
     # Process all matches through calculation service to get league-level stats
     # Note: player_id_map is no longer needed since we use IDs directly
-    partnerships, opponents, elo_history_list = calculation_service.process_matches(
-        all_matches
-    )
-    
+    partnerships, opponents, elo_history_list = calculation_service.process_matches(all_matches)
+
     # Create tracker for player league stats (process all matches to get player-level stats)
     league_tracker = calculation_service.StatsTracker()
     for match in all_matches:
         league_tracker.process_match(match)
-    
+
     # Convert partnerships and opponents to league-specific models
     partnership_league_list = []
     for ps in partnerships:
@@ -4606,10 +5031,10 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
                 wins=ps.wins,
                 points=ps.points,
                 win_rate=ps.win_rate,
-                avg_point_diff=ps.avg_point_diff
+                avg_point_diff=ps.avg_point_diff,
             )
         )
-    
+
     opponent_league_list = []
     for os in opponents:
         opponent_league_list.append(
@@ -4621,46 +5046,48 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
                 wins=os.wins,
                 points=os.points,
                 win_rate=os.win_rate,
-                avg_point_diff=os.avg_point_diff
+                avg_point_diff=os.avg_point_diff,
             )
         )
-    
+
     # Prepare player league stats list
     player_league_stats_list = []
     for player_id, player_stats in league_tracker.players.items():
-        player_league_stats_list.append({
-            "player_id": player_id,
-            "league_id": league_id,
-            "games": player_stats.game_count,
-            "wins": player_stats.win_count,
-            "points": player_stats.points,
-            "win_rate": round(player_stats.win_rate, 3),
-            "avg_point_diff": round(player_stats.avg_point_diff, 1)
-        })
-    
+        player_league_stats_list.append(
+            {
+                "player_id": player_id,
+                "league_id": league_id,
+                "games": player_stats.game_count,
+                "wins": player_stats.win_count,
+                "points": player_stats.points,
+                "win_rate": round(player_stats.win_rate, 3),
+                "avg_point_diff": round(player_stats.avg_point_diff, 1),
+            }
+        )
+
     # Now delete old league stats and insert new ones
     await delete_league_stats_async(session, league_id)
-    
+
     # Insert new league-specific stats (within same transaction)
     await insert_partnership_stats_league_async(session, partnership_league_list, league_id)
     await insert_opponent_stats_league_async(session, opponent_league_list, league_id)
-    
+
     # Insert player league stats
     if player_league_stats_list:
         stmt = insert(PlayerLeagueStats).values(player_league_stats_list)
         stmt = stmt.on_conflict_do_update(
-            index_elements=['player_id', 'league_id'],
+            index_elements=["player_id", "league_id"],
             set_=dict(
                 games=stmt.excluded.games,
                 wins=stmt.excluded.wins,
                 points=stmt.excluded.points,
                 win_rate=stmt.excluded.win_rate,
                 avg_point_diff=stmt.excluded.avg_point_diff,
-                updated_at=sql_func.now()
-            )
+                updated_at=sql_func.now(),
+            ),
         )
         await session.execute(stmt)
-    
+
     # Now calculate stats for each season
     # Group matches by season_id for efficient processing
     matches_by_season: Dict[int, List[Match]] = {}
@@ -4670,14 +5097,16 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
             if season_id not in matches_by_season:
                 matches_by_season[season_id] = []
             matches_by_season[season_id].append(match)
-    
+
     # Calculate stats for each season
     season_counts = {}
     for season_id in season_ids:
         season_matches = matches_by_season.get(season_id, [])
-        season_result = await _calculate_season_stats_from_matches(session, season_id, season_matches)
+        season_result = await _calculate_season_stats_from_matches(
+            session, season_id, season_matches
+        )
         season_counts[season_id] = season_result
-    
+
     # Count unique players in league
     unique_league_players = set()
     for match in all_matches:
@@ -4689,13 +5118,13 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
             unique_league_players.add(match.team2_player1_id)
         if match.team2_player2_id:
             unique_league_players.add(match.team2_player2_id)
-    
+
     await session.commit()
-    
+
     return {
         "league_player_count": len(unique_league_players),
         "league_match_count": len(all_matches),
-        "season_counts": season_counts
+        "season_counts": season_counts,
     }
 
 
@@ -4703,49 +5132,51 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
 async def calculate_season_stats_async(session: AsyncSession, season_id: int) -> Dict:
     """
     Calculate season-specific stats from ranked matches in a season.
-    
+
     This is a backward compatibility wrapper that calls the helper function.
     For new code, use calculate_league_stats_async instead.
-    
+
     Args:
         session: Database session
         season_id: Season ID
-        
+
     Returns:
         Dict with player_count and match_count
     """
     # Load ranked matches for this season
     matches = await load_ranked_matches_async(session, season_id=season_id)
-    
+
     # Use the helper function to calculate season stats
     result = await _calculate_season_stats_from_matches(session, season_id, matches)
-    
+
     # Commit the transaction
     await session.commit()
-    
+
     return result
 
 
 def register_stats_queue_callbacks() -> None:
     """
     Register stats calculation callbacks with the stats queue.
-    
+
     This function should be called during application startup, before the
     stats queue worker is started. It registers the calculation functions
     with the queue so they can be executed when jobs are processed.
-    
+
     This breaks the circular dependency between stats_queue and data_service
     by using dependency injection instead of direct imports.
     """
     from backend.services.stats_queue import get_stats_queue
+
     queue = get_stats_queue()
     queue.register_calculation_callbacks(
         global_calc_callback=calculate_global_stats_async,
-        league_calc_callback=calculate_league_stats_async
+        league_calc_callback=calculate_league_stats_async,
     )
 
 
 # Weekly Schedule functions
+
 
 async def create_weekly_schedule(
     session: AsyncSession,
@@ -4759,37 +5190,41 @@ async def create_weekly_schedule(
     open_signups_time: Optional[str],
     start_date: str,
     end_date: str,
-    creator_player_id: Optional[int] = None
+    creator_player_id: Optional[int] = None,
 ) -> Dict:
     """Create a weekly schedule and auto-generate signups."""
     # Validate season exists
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         raise ValueError("Season not found")
-    
+
     # Parse dates
-    start_date_obj = datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date
-    end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
-    
+    start_date_obj = (
+        datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date
+    )
+    end_date_obj = (
+        datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
+    )
+
     # Validate start_date is not after end_date
     if start_date_obj > end_date_obj:
         raise ValueError("start_date cannot be after end_date")
-    
+
     # Validate start_date is not before season start_date
     if start_date_obj < season.start_date:
-        raise ValueError(f"start_date cannot be before season start_date ({season.start_date.isoformat()})")
-    
+        raise ValueError(
+            f"start_date cannot be before season start_date ({season.start_date.isoformat()})"
+        )
+
     # Validate end_date doesn't exceed 6 months or season end
     max_end_date = min(
         date.today() + timedelta(days=180),  # 6 months
-        season.end_date
+        season.end_date,
     )
     if end_date_obj > max_end_date:
         raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
-    
+
     # Create schedule
     schedule = WeeklySchedule(
         season_id=season_id,
@@ -4803,20 +5238,20 @@ async def create_weekly_schedule(
         start_date=start_date_obj,
         end_date=end_date_obj,
         created_by=creator_player_id,
-        updated_by=creator_player_id
+        updated_by=creator_player_id,
     )
     session.add(schedule)
     await session.flush()
-    
+
     # Generate signups
     await _generate_signups_from_schedule(session, schedule, season)
-    
+
     # Recalculate open times for all signups in the season to ensure consistency
     await recalculate_open_signups_for_season(session, season_id)
-    
+
     await session.commit()
     await session.refresh(schedule)
-    
+
     return _weekly_schedule_to_dict(schedule)
 
 
@@ -4833,9 +5268,7 @@ async def get_weekly_schedules(session: AsyncSession, season_id: int) -> List[Di
 
 async def get_weekly_schedule(session: AsyncSession, schedule_id: int) -> Optional[Dict]:
     """Get a weekly schedule by ID."""
-    result = await session.execute(
-        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
-    )
+    result = await session.execute(select(WeeklySchedule).where(WeeklySchedule.id == schedule_id))
     schedule = result.scalar_one_or_none()
     if not schedule:
         return None
@@ -4854,24 +5287,20 @@ async def update_weekly_schedule(
     open_signups_time: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    updater_player_id: Optional[int] = None
+    updater_player_id: Optional[int] = None,
 ) -> Optional[Dict]:
     """Update a weekly schedule and regenerate affected signups."""
-    result = await session.execute(
-        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
-    )
+    result = await session.execute(select(WeeklySchedule).where(WeeklySchedule.id == schedule_id))
     schedule = result.scalar_one_or_none()
     if not schedule:
         return None
-    
+
     # Get season for validation
-    season_result = await session.execute(
-        select(Season).where(Season.id == schedule.season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == schedule.season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         raise ValueError("Season not found")
-    
+
     # Update fields
     if day_of_week is not None:
         schedule.day_of_week = day_of_week
@@ -4888,27 +5317,32 @@ async def update_weekly_schedule(
     if open_signups_time is not None:
         schedule.open_signups_time = open_signups_time
     if start_date is not None:
-        start_date_obj = datetime.fromisoformat(start_date).date() if isinstance(start_date, str) else start_date
+        start_date_obj = (
+            datetime.fromisoformat(start_date).date()
+            if isinstance(start_date, str)
+            else start_date
+        )
         if start_date_obj < season.start_date:
-            raise ValueError(f"start_date cannot be before season start_date ({season.start_date.isoformat()})")
+            raise ValueError(
+                f"start_date cannot be before season start_date ({season.start_date.isoformat()})"
+            )
         if schedule.end_date and start_date_obj > schedule.end_date:
             raise ValueError("start_date cannot be after end_date")
         schedule.start_date = start_date_obj
     if end_date is not None:
-        end_date_obj = datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
-        max_end_date = min(
-            date.today() + timedelta(days=180),
-            season.end_date
+        end_date_obj = (
+            datetime.fromisoformat(end_date).date() if isinstance(end_date, str) else end_date
         )
+        max_end_date = min(date.today() + timedelta(days=180), season.end_date)
         if end_date_obj > max_end_date:
             raise ValueError(f"end_date cannot exceed {max_end_date.isoformat()}")
         if schedule.start_date and end_date_obj < schedule.start_date:
             raise ValueError("end_date cannot be before start_date")
         schedule.end_date = end_date_obj
-    
+
     if updater_player_id is not None:
         schedule.updated_by = updater_player_id
-    
+
     # Calculate the end of the current week (Sunday)
     # Preserve signups from the current week (Monday-Sunday), delete only future weeks
     today = date.today()
@@ -4916,63 +5350,58 @@ async def update_weekly_schedule(
     days_since_monday = today.weekday()
     current_week_monday = today - timedelta(days=days_since_monday)
     current_week_sunday = current_week_monday + timedelta(days=6)
-    
+
     # Delete only future week signups (after current week Sunday)
     # Convert Sunday to UTC datetime at end of day (23:59:59)
     utc = pytz.UTC
-    current_week_sunday_end = utc.localize(
-        datetime.combine(current_week_sunday, time(23, 59, 59))
-    )
-    
+    current_week_sunday_end = utc.localize(datetime.combine(current_week_sunday, time(23, 59, 59)))
+
     await session.execute(
         delete(Signup).where(
             and_(
                 Signup.weekly_schedule_id == schedule_id,
-                Signup.scheduled_datetime > current_week_sunday_end
+                Signup.scheduled_datetime > current_week_sunday_end,
             )
         ),
-        execution_options={"synchronize_session": False}
+        execution_options={"synchronize_session": False},
     )
     # Regenerate signups, skipping current week to preserve existing signups
     await _generate_signups_from_schedule(session, schedule, season, skip_current_week=True)
-    
+
     # Recalculate open times for all signups in the season to ensure consistency
     await recalculate_open_signups_for_season(session, schedule.season_id)
-    
+
     await session.commit()
     await session.refresh(schedule)
-    
+
     return _weekly_schedule_to_dict(schedule)
 
 
 async def delete_weekly_schedule(session: AsyncSession, schedule_id: int) -> bool:
     """Delete a weekly schedule and its generated future signups only."""
     now_utc = utcnow()
-    
-    result = await session.execute(
-        select(WeeklySchedule).where(WeeklySchedule.id == schedule_id)
-    )
+
+    result = await session.execute(select(WeeklySchedule).where(WeeklySchedule.id == schedule_id))
     schedule = result.scalar_one_or_none()
     if not schedule:
         return False
-    
+
     # Delete only future generated signups (cascade will handle signup_players and signup_events)
     # Past signups are preserved for historical records
     await session.execute(
         delete(Signup).where(
-            Signup.weekly_schedule_id == schedule_id,
-            Signup.scheduled_datetime > now_utc
+            Signup.weekly_schedule_id == schedule_id, Signup.scheduled_datetime > now_utc
         )
     )
-    
+
     # Delete schedule
     await session.delete(schedule)
-    
+
     # Recalculate open times for all signups in the season to ensure consistency
     await recalculate_open_signups_for_season(session, schedule.season_id)
-    
+
     await session.commit()
-    
+
     return True
 
 
@@ -4980,10 +5409,10 @@ async def _generate_signups_from_schedule(
     session: AsyncSession,
     schedule: WeeklySchedule,
     season: Season,
-    skip_current_week: bool = False
+    skip_current_week: bool = False,
 ):
     """Generate signups from a weekly schedule for the schedule duration.
-    
+
     Args:
         session: Database session
         schedule: WeeklySchedule instance
@@ -4992,13 +5421,13 @@ async def _generate_signups_from_schedule(
     """
     utc = pytz.UTC
     now_utc = utcnow()
-    
+
     # Calculate start date - use schedule.start_date if available, otherwise fall back to max(today, season.start_date)
-    if hasattr(schedule, 'start_date') and schedule.start_date:
+    if hasattr(schedule, "start_date") and schedule.start_date:
         base_start_date = schedule.start_date
     else:
         base_start_date = max(date.today(), season.start_date)
-    
+
     # If skipping current week, start from next Monday
     if skip_current_week:
         today = date.today()
@@ -5008,17 +5437,17 @@ async def _generate_signups_from_schedule(
         start_date = max(next_monday, base_start_date)
     else:
         start_date = base_start_date
-    
+
     end_date = min(schedule.end_date, season.end_date)
-    
+
     # Parse start_time
     # IMPORTANT: start_time is stored as "HH:MM" and should be interpreted as UTC time
     # The frontend should send times in UTC, but if it sends local time, we need timezone info
     # For now, we'll treat it as UTC to match the expected behavior
-    time_parts = schedule.start_time.split(':')
+    time_parts = schedule.start_time.split(":")
     start_hour = int(time_parts[0])
     start_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
-    
+
     # Generate signups for each occurrence
     current_date = start_date
     while current_date <= end_date:
@@ -5030,12 +5459,12 @@ async def _generate_signups_from_schedule(
             scheduled_datetime = utc.localize(
                 datetime.combine(current_date, time(start_hour, start_minute))
             )
-            
+
             # Calculate open_signups_at based on mode
             open_signups_at = await _calculate_open_signups_at(
                 session, schedule, scheduled_datetime, season
             )
-            
+
             # Only create if scheduled_datetime is in the future or today
             if scheduled_datetime >= now_utc.replace(hour=0, minute=0, second=0, microsecond=0):
                 signup = Signup(
@@ -5046,14 +5475,14 @@ async def _generate_signups_from_schedule(
                     open_signups_at=open_signups_at,
                     weekly_schedule_id=schedule.id,
                     created_by=schedule.created_by,
-                    updated_by=schedule.updated_by
+                    updated_by=schedule.updated_by,
                 )
                 session.add(signup)
                 # Flush to ensure this signup is visible for the next iteration's open_signups_at calculation
                 await session.flush()
-        
+
         current_date += timedelta(days=1)
-    
+
     await session.flush()
 
 
@@ -5061,79 +5490,76 @@ def _get_previous_calendar_week_range(scheduled_datetime: datetime) -> Tuple[dat
     """
     Calculate the start and end of the previous calendar week (Monday-Sunday)
     relative to the scheduled_datetime.
-    
+
     Returns:
         Tuple[datetime, datetime]: (start_time, end_time) in UTC
     """
     utc = pytz.UTC
-    
+
     # Calculate start of the current week (Monday) based on scheduled_datetime
     # scheduled_datetime is already UTC
     sched_date = scheduled_datetime.date()
     days_since_monday = sched_date.weekday()
     current_week_monday_date = sched_date - timedelta(days=days_since_monday)
-    
+
     # Previous week range: [Prev Monday 00:00, Current Monday 00:00)
     prev_week_monday_date = current_week_monday_date - timedelta(days=7)
-    
+
     prev_week_start = utc.localize(datetime.combine(prev_week_monday_date, time(0, 0, 0)))
     current_week_start = utc.localize(datetime.combine(current_week_monday_date, time(0, 0, 0)))
-    
+
     return prev_week_start, current_week_start
 
 
 async def _calculate_open_signups_at(
-    session: AsyncSession,
-    schedule: WeeklySchedule,
-    scheduled_datetime: datetime,
-    season: Season
+    session: AsyncSession, schedule: WeeklySchedule, scheduled_datetime: datetime, season: Season
 ) -> Optional[datetime]:
     """Calculate when signups should open for a scheduled datetime. Returns None for always open."""
     utc = pytz.UTC
-    
+
     if schedule.open_signups_mode == OpenSignupsMode.ALWAYS_OPEN:
         # NULL means always open
         return None
-    
+
     elif schedule.open_signups_mode == OpenSignupsMode.SPECIFIC_DAY_TIME:
         # Open at specific day/time the week before
         if not schedule.open_signups_day_of_week or not schedule.open_signups_time:
             # Fallback to always open if not configured
             return None
-        
+
         # Find the previous week's occurrence of open_signups_day_of_week
-        time_parts = schedule.open_signups_time.split(':')
+        time_parts = schedule.open_signups_time.split(":")
         open_hour = int(time_parts[0])
         open_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
-        
+
         # Go back 7 days from scheduled_datetime, then find the matching day
         target_date = scheduled_datetime.date() - timedelta(days=7)
         days_until_target = (schedule.open_signups_day_of_week - target_date.weekday()) % 7
         if days_until_target == 0 and target_date.weekday() != schedule.open_signups_day_of_week:
             days_until_target = 7
         open_date = target_date + timedelta(days=days_until_target)
-        
+
         return utc.localize(datetime.combine(open_date, time(open_hour, open_minute)))
-    
+
     else:  # AUTO_AFTER_LAST_SESSION
         # Open immediately after the last session of the previous week
         # We need to find the last session of the PREVIOUS CALENDAR WEEK (Mon-Sun)
         # This ensures all signups for the current week open at the same time
-        
+
         prev_week_start, current_week_start = _get_previous_calendar_week_range(scheduled_datetime)
-        
+
         result = await session.execute(
             select(Signup)
             .where(
                 Signup.season_id == season.id,
                 Signup.scheduled_datetime >= prev_week_start,
-                Signup.scheduled_datetime < current_week_start
+                Signup.scheduled_datetime < current_week_start,
             )
             .order_by(Signup.scheduled_datetime.desc())
             .limit(1)
         )
         last_signup = result.scalar_one_or_none()
-        
+
         if last_signup:
             # Immediately after last session ends
             return last_signup.scheduled_datetime + timedelta(hours=last_signup.duration_hours)
@@ -5142,40 +5568,29 @@ async def _calculate_open_signups_at(
             return None
 
 
-
-
-
-async def recalculate_open_signups_for_season(
-    session: AsyncSession,
-    season_id: int
-) -> None:
+async def recalculate_open_signups_for_season(session: AsyncSession, season_id: int) -> None:
     """
     Recalculate open_signups_at for all future signups in a season.
     This is called when a schedule is added/updated/deleted to ensure
     dynamic opening times are consistent across all schedules.
     """
     now_utc = utcnow()
-    
+
     # Get all future signups for this season
     # We also include signups from the current week to ensure consistency
     # Start from today's date at 00:00
     today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-    
+
     result = await session.execute(
         select(Signup, WeeklySchedule)
         .join(WeeklySchedule, Signup.weekly_schedule_id == WeeklySchedule.id)
-        .where(
-            Signup.season_id == season_id,
-            Signup.scheduled_datetime >= today_start
-        )
+        .where(Signup.season_id == season_id, Signup.scheduled_datetime >= today_start)
         .order_by(Signup.scheduled_datetime.asc())
     )
     rows = result.all()
-    
+
     # Get season for context
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         return
@@ -5187,12 +5602,12 @@ async def recalculate_open_signups_for_season(
             new_open_at = await _calculate_open_signups_at(
                 session, schedule, signup.scheduled_datetime, season
             )
-            
+
             # Update if changed
             if signup.open_signups_at != new_open_at:
                 signup.open_signups_at = new_open_at
                 session.add(signup)
-    
+
     await session.flush()
 
 
@@ -5217,6 +5632,7 @@ def _weekly_schedule_to_dict(schedule: WeeklySchedule) -> Dict:
 
 # Signup functions
 
+
 async def create_signup(
     session: AsyncSession,
     season_id: int,
@@ -5224,29 +5640,29 @@ async def create_signup(
     duration_hours: float,
     court_id: Optional[int],
     open_signups_at: Optional[str] = None,
-    creator_player_id: Optional[int] = None
+    creator_player_id: Optional[int] = None,
 ) -> Dict:
     """Create an ad-hoc signup."""
     utc = pytz.UTC
     now_utc = utcnow()
-    
+
     # Parse datetimes (assume UTC)
-    scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace('Z', '+00:00'))
+    scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace("Z", "+00:00"))
     if scheduled_dt.tzinfo is None:
         scheduled_dt = utc.localize(scheduled_dt)
-    
+
     # If open_signups_at is not provided, store NULL (always open)
     if open_signups_at is None:
         open_dt = None
     else:
-        open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
+        open_dt = datetime.fromisoformat(open_signups_at.replace("Z", "+00:00"))
         if open_dt.tzinfo is None:
             open_dt = utc.localize(open_dt)
-        
+
         # Validate open_signups_at is not in the past
         if open_dt < now_utc:
             raise ValueError("open_signups_at cannot be in the past")
-    
+
     signup = Signup(
         season_id=season_id,
         scheduled_datetime=scheduled_dt,
@@ -5254,12 +5670,12 @@ async def create_signup(
         court_id=court_id,
         open_signups_at=open_dt,  # NULL means always open
         created_by=creator_player_id,
-        updated_by=creator_player_id
+        updated_by=creator_player_id,
     )
     session.add(signup)
     await session.commit()
     await session.refresh(signup)
-    
+
     return await _signup_to_dict(session, signup)
 
 
@@ -5268,11 +5684,11 @@ async def get_signups(
     season_id: int,
     upcoming_only: bool = False,
     past_only: bool = False,
-    include_players: bool = False
+    include_players: bool = False,
 ) -> List[Dict]:
     """Get signups for a season."""
     now_utc = utcnow()
-    
+
     if include_players:
         # Single query with JOIN to get signups and players
         query = (
@@ -5280,24 +5696,24 @@ async def get_signups(
                 Signup,
                 SignupPlayer.player_id,
                 Player.full_name.label("player_name"),
-                SignupPlayer.signed_up_at
+                SignupPlayer.signed_up_at,
             )
             .select_from(Signup)
             .outerjoin(SignupPlayer, Signup.id == SignupPlayer.signup_id)
             .outerjoin(Player, SignupPlayer.player_id == Player.id)
             .where(Signup.season_id == season_id)
         )
-        
+
         if upcoming_only:
             query = query.where(Signup.scheduled_datetime >= now_utc)
         elif past_only:
             query = query.where(Signup.scheduled_datetime < now_utc)
-        
+
         query = query.order_by(Signup.scheduled_datetime.asc(), SignupPlayer.signed_up_at.asc())
-        
+
         result = await session.execute(query)
         rows = result.all()
-        
+
         # Group players by signup
         signups_dict = {}
         for row in rows:
@@ -5305,45 +5721,47 @@ async def get_signups(
             player_id = row[1]  # SignupPlayer.player_id
             player_name = row[2]  # Player.full_name
             signed_up_at = row[3]  # SignupPlayer.signed_up_at
-            
+
             if signup.id not in signups_dict:
-                signups_dict[signup.id] = {
-                    "signup": signup,
-                    "players": []
-                }
-            
+                signups_dict[signup.id] = {"signup": signup, "players": []}
+
             # Only add player if it exists (LEFT JOIN can return None)
             if player_id is not None and player_name is not None:
-                signups_dict[signup.id]["players"].append({
-                    "player_id": player_id,
-                    "player_name": player_name,
-                    "signed_up_at": signed_up_at.isoformat() if signed_up_at else None
-                })
-        
+                signups_dict[signup.id]["players"].append(
+                    {
+                        "player_id": player_id,
+                        "player_name": player_name,
+                        "signed_up_at": signed_up_at.isoformat() if signed_up_at else None,
+                    }
+                )
+
         # Convert to list of dicts
-        return [await _signup_to_dict_with_players(session, data["signup"], data["players"]) for data in signups_dict.values()]
+        return [
+            await _signup_to_dict_with_players(session, data["signup"], data["players"])
+            for data in signups_dict.values()
+        ]
     else:
         # Simple query without players
         query = select(Signup).where(Signup.season_id == season_id)
-        
+
         if upcoming_only:
             query = query.where(Signup.scheduled_datetime >= now_utc)
         elif past_only:
             query = query.where(Signup.scheduled_datetime < now_utc)
-        
+
         query = query.order_by(Signup.scheduled_datetime.asc())
-        
+
         result = await session.execute(query)
         signups = result.scalars().all()
-        
+
         return [await _signup_to_dict(session, s, include_players=False) for s in signups]
 
 
-async def get_signup(session: AsyncSession, signup_id: int, include_players: bool = False) -> Optional[Dict]:
+async def get_signup(
+    session: AsyncSession, signup_id: int, include_players: bool = False
+) -> Optional[Dict]:
     """Get a signup by ID."""
-    result = await session.execute(
-        select(Signup).where(Signup.id == signup_id)
-    )
+    result = await session.execute(select(Signup).where(Signup.id == signup_id))
     signup = result.scalar_one_or_none()
     if not signup:
         return None
@@ -5357,156 +5775,137 @@ async def update_signup(
     duration_hours: Optional[float] = None,
     court_id: Optional[int] = None,
     open_signups_at: Optional[str] = None,
-    updater_player_id: Optional[int] = None
+    updater_player_id: Optional[int] = None,
 ) -> Optional[Dict]:
     """Update a signup."""
     utc = pytz.UTC
     now_utc = utcnow()
-    
-    result = await session.execute(
-        select(Signup).where(Signup.id == signup_id)
-    )
+
+    result = await session.execute(select(Signup).where(Signup.id == signup_id))
     signup = result.scalar_one_or_none()
     if not signup:
         return None
-    
+
     if scheduled_datetime is not None:
-        scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace('Z', '+00:00'))
+        scheduled_dt = datetime.fromisoformat(scheduled_datetime.replace("Z", "+00:00"))
         if scheduled_dt.tzinfo is None:
             scheduled_dt = utc.localize(scheduled_dt)
         signup.scheduled_datetime = scheduled_dt
-    
+
     if duration_hours is not None:
         signup.duration_hours = duration_hours
-    
+
     if court_id is not None:
         signup.court_id = court_id
-    
+
     if open_signups_at is not None:
-        open_dt = datetime.fromisoformat(open_signups_at.replace('Z', '+00:00'))
+        open_dt = datetime.fromisoformat(open_signups_at.replace("Z", "+00:00"))
         if open_dt.tzinfo is None:
             open_dt = utc.localize(open_dt)
         # Validate not in the past
         if open_dt < now_utc:
             raise ValueError("open_signups_at cannot be in the past")
         signup.open_signups_at = open_dt
-    
+
     if updater_player_id is not None:
         signup.updated_by = updater_player_id
-    
+
     await session.commit()
     await session.refresh(signup)
-    
+
     return await _signup_to_dict(session, signup)
 
 
 async def delete_signup(session: AsyncSession, signup_id: int) -> bool:
     """Delete a signup."""
-    result = await session.execute(
-        select(Signup).where(Signup.id == signup_id)
-    )
+    result = await session.execute(select(Signup).where(Signup.id == signup_id))
     signup = result.scalar_one_or_none()
     if not signup:
         return False
-    
+
     await session.delete(signup)
     await session.commit()
-    
+
     return True
 
 
 async def signup_player(
-    session: AsyncSession,
-    signup_id: int,
-    player_id: int,
-    creator_player_id: Optional[int] = None
+    session: AsyncSession, signup_id: int, player_id: int, creator_player_id: Optional[int] = None
 ) -> bool:
     """Add a player to a signup."""
     now_utc = utcnow()
-    
+
     # Get signup and validate it's open
-    result = await session.execute(
-        select(Signup).where(Signup.id == signup_id)
-    )
+    result = await session.execute(select(Signup).where(Signup.id == signup_id))
     signup = result.scalar_one_or_none()
     if not signup:
         raise ValueError("Signup not found")
-    
+
     # NULL open_signups_at means always open
     if signup.open_signups_at is not None and signup.open_signups_at > now_utc:
         raise ValueError("Signups are not yet open for this session")
-    
+
     # Check if already signed up
     existing = await session.execute(
         select(SignupPlayer).where(
-            SignupPlayer.signup_id == signup_id,
-            SignupPlayer.player_id == player_id
+            SignupPlayer.signup_id == signup_id, SignupPlayer.player_id == player_id
         )
     )
     if existing.scalar_one_or_none():
         return False  # Already signed up
-    
+
     # Add player
-    signup_player = SignupPlayer(
-        signup_id=signup_id,
-        player_id=player_id
-    )
+    signup_player = SignupPlayer(signup_id=signup_id, player_id=player_id)
     session.add(signup_player)
-    
+
     # Log event
     event = SignupEvent(
         signup_id=signup_id,
         player_id=player_id,
         event_type=SignupEventType.SIGNUP,
-        created_by=creator_player_id or player_id
+        created_by=creator_player_id or player_id,
     )
     session.add(event)
-    
+
     await session.commit()
     return True
 
 
 async def dropout_player(
-    session: AsyncSession,
-    signup_id: int,
-    player_id: int,
-    creator_player_id: Optional[int] = None
+    session: AsyncSession, signup_id: int, player_id: int, creator_player_id: Optional[int] = None
 ) -> bool:
     """Remove a player from a signup."""
     now_utc = utcnow()
-    
+
     # Get signup and validate it's open
-    result = await session.execute(
-        select(Signup).where(Signup.id == signup_id)
-    )
+    result = await session.execute(select(Signup).where(Signup.id == signup_id))
     signup = result.scalar_one_or_none()
     if not signup:
         raise ValueError("Signup not found")
-    
+
     # NULL open_signups_at means always open
     if signup.open_signups_at is not None and signup.open_signups_at > now_utc:
         raise ValueError("Signups are not yet open for this session")
-    
+
     # Remove player
     result = await session.execute(
         delete(SignupPlayer).where(
-            SignupPlayer.signup_id == signup_id,
-            SignupPlayer.player_id == player_id
+            SignupPlayer.signup_id == signup_id, SignupPlayer.player_id == player_id
         )
     )
-    
+
     if result.rowcount == 0:
         return False  # Not signed up
-    
+
     # Log event
     event = SignupEvent(
         signup_id=signup_id,
         player_id=player_id,
         event_type=SignupEventType.DROPOUT,
-        created_by=creator_player_id or player_id
+        created_by=creator_player_id or player_id,
     )
     session.add(event)
-    
+
     await session.commit()
     return True
 
@@ -5520,12 +5919,12 @@ async def get_signup_players(session: AsyncSession, signup_id: int) -> List[Dict
         .order_by(SignupPlayer.signed_up_at.asc())
     )
     rows = result.all()
-    
+
     return [
         {
             "player_id": sp.player_id,
             "player_name": p.full_name,
-            "signed_up_at": sp.signed_up_at.isoformat() if sp.signed_up_at else None
+            "signed_up_at": sp.signed_up_at.isoformat() if sp.signed_up_at else None,
         }
         for sp, p in rows
     ]
@@ -5540,7 +5939,7 @@ async def get_signup_events(session: AsyncSession, signup_id: int) -> List[Dict]
         .order_by(SignupEvent.created_at.desc())
     )
     rows = result.all()
-    
+
     return [
         {
             "id": event.id,
@@ -5548,29 +5947,30 @@ async def get_signup_events(session: AsyncSession, signup_id: int) -> List[Dict]
             "player_name": p.full_name,
             "event_type": event.event_type.value,
             "created_at": event.created_at.isoformat() if event.created_at else None,
-            "created_by": event.created_by
+            "created_by": event.created_by,
         }
         for event, p in rows
     ]
 
 
-async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players: bool = False) -> Dict:
+async def _signup_to_dict(
+    session: AsyncSession, signup: Signup, include_players: bool = False
+) -> Dict:
     """Convert Signup model to dict."""
     utc = pytz.UTC
     now_utc = utcnow()
-    
+
     # Get player count
     count_result = await session.execute(
-        select(func.count(SignupPlayer.player_id))
-        .where(SignupPlayer.signup_id == signup.id)
+        select(func.count(SignupPlayer.player_id)).where(SignupPlayer.signup_id == signup.id)
     )
     player_count = count_result.scalar() or 0
-    
+
     # Handle naive datetimes (timezone-naive datetimes)
     scheduled_dt = signup.scheduled_datetime
     if scheduled_dt and scheduled_dt.tzinfo is None:
         scheduled_dt = utc.localize(scheduled_dt)
-        
+
     open_at = signup.open_signups_at
     if open_at and open_at.tzinfo is None:
         open_at = utc.localize(open_at)
@@ -5579,11 +5979,13 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
     # NULL open_signups_at means always open
     is_open = open_at is None or open_at <= now_utc
     is_past = scheduled_dt < now_utc
-    
+
     result = {
         "id": signup.id,
         "season_id": signup.season_id,
-        "scheduled_datetime": signup.scheduled_datetime.isoformat() if signup.scheduled_datetime else None,
+        "scheduled_datetime": signup.scheduled_datetime.isoformat()
+        if signup.scheduled_datetime
+        else None,
         "duration_hours": signup.duration_hours,
         "court_id": signup.court_id,
         "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
@@ -5594,26 +5996,30 @@ async def _signup_to_dict(session: AsyncSession, signup: Signup, include_players
         "created_at": signup.created_at.isoformat() if signup.created_at else None,
         "updated_at": signup.updated_at.isoformat() if signup.updated_at else None,
     }
-    
+
     if include_players:
         result["players"] = await get_signup_players(session, signup.id)
-    
+
     return result
 
 
-async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, players: List[Dict]) -> Dict:
+async def _signup_to_dict_with_players(
+    session: AsyncSession, signup: Signup, players: List[Dict]
+) -> Dict:
     """Convert Signup model to dict with pre-loaded players list (optimized version)."""
     now_utc = utcnow()
-    
+
     # Compute is_open and is_past
     # NULL open_signups_at means always open
     is_open = signup.open_signups_at is None or signup.open_signups_at <= now_utc
     is_past = signup.scheduled_datetime < now_utc
-    
+
     return {
         "id": signup.id,
         "season_id": signup.season_id,
-        "scheduled_datetime": signup.scheduled_datetime.isoformat() if signup.scheduled_datetime else None,
+        "scheduled_datetime": signup.scheduled_datetime.isoformat()
+        if signup.scheduled_datetime
+        else None,
         "duration_hours": signup.duration_hours,
         "court_id": signup.court_id,
         "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
@@ -5623,7 +6029,7 @@ async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, pl
         "is_past": is_past,
         "created_at": signup.created_at.isoformat() if signup.created_at else None,
         "updated_at": signup.updated_at.isoformat() if signup.updated_at else None,
-        "players": players  # Use pre-loaded players
+        "players": players,  # Use pre-loaded players
     }
 
 
@@ -5631,7 +6037,10 @@ async def _signup_to_dict_with_players(session: AsyncSession, signup: Signup, pl
 # League Messages
 #
 
-async def get_league_messages(session: AsyncSession, league_id: int, limit: int = 100) -> List[Dict]:
+
+async def get_league_messages(
+    session: AsyncSession, league_id: int, limit: int = 100
+) -> List[Dict]:
     """Get messages for a league with player names."""
     result = await session.execute(
         select(LeagueMessage, Player.full_name)
@@ -5643,40 +6052,37 @@ async def get_league_messages(session: AsyncSession, league_id: int, limit: int 
     )
     messages = []
     for msg, player_name in result.all():
-        messages.append({
-            "id": msg.id,
-            "league_id": msg.league_id,
-            "user_id": msg.user_id,
-            "player_name": player_name or "Unknown",
-            "message": msg.message_text,
-            "created_at": msg.created_at.isoformat() if msg.created_at else None
-        })
+        messages.append(
+            {
+                "id": msg.id,
+                "league_id": msg.league_id,
+                "user_id": msg.user_id,
+                "player_name": player_name or "Unknown",
+                "message": msg.message_text,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
+        )
     return messages
 
 
-async def create_league_message(session: AsyncSession, league_id: int, user_id: int, message_text: str) -> Dict:
+async def create_league_message(
+    session: AsyncSession, league_id: int, user_id: int, message_text: str
+) -> Dict:
     """Create a new league message."""
-    new_message = LeagueMessage(
-        league_id=league_id,
-        user_id=user_id,
-        message_text=message_text
-    )
+    new_message = LeagueMessage(league_id=league_id, user_id=user_id, message_text=message_text)
     session.add(new_message)
     await session.commit()
     await session.refresh(new_message)
-    
+
     # Get player name
-    result = await session.execute(
-        select(Player.full_name)
-        .where(Player.user_id == user_id)
-    )
+    result = await session.execute(select(Player.full_name).where(Player.user_id == user_id))
     player_name = result.scalar_one_or_none() or "Unknown"
-    
+
     return {
         "id": new_message.id,
         "league_id": new_message.league_id,
         "user_id": new_message.user_id,
         "player_name": player_name,
         "message": new_message.message_text,
-        "created_at": new_message.created_at.isoformat() if new_message.created_at else None
+        "created_at": new_message.created_at.isoformat() if new_message.created_at else None,
     }

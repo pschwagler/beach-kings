@@ -1,0 +1,32 @@
+---
+description: Production-grade quality mindset - refactor-first, no shortcuts, leave code better than you found it
+alwaysApply: true
+---
+
+# Production Quality Mindset
+
+This project is maturing from rapid prototyping toward production-grade software. Every change should reflect that.
+
+## Refactor-First Principle
+
+- **Before adding**: Scan the area for duplication, inconsistent patterns, or tech debt—refactor or extract first.
+- **When touching code**: Leave it cleaner than you found it. Small improvements compound.
+- **When fixing bugs**: Address root cause and surrounding fragility, not just the symptom.
+- **When implementing features**: Prefer solid abstractions over quick copy-paste.
+
+## No Shortcuts
+
+- Don't ship "good enough for now" if a cleaner solution is 20% more effort.
+- Avoid TODO/FIXME as a substitute for doing it right—resolve or ticket properly.
+- Resist one-off hacks; generalize when the pattern will recur.
+
+## Quality Bar
+
+- **Code**: DRY, well-named, single-responsibility, with docstrings where behavior isn't obvious.
+- **Tests**: Unit tests for logic; integration tests for flows. Fix or extend tests when changing behavior.
+- **UI**: Modern, accessible, consistent with the design system. No inline magic numbers or ad-hoc styles.
+
+## Time Investment
+
+- Spend the extra time to refactor, document, and test. It pays off.
+- When unsure, err toward the more maintainable, explicit solution.

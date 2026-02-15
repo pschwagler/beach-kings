@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
+import { GENDER_OPTIONS_LEAGUE, LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
 
 const INITIAL_FORM_STATE = {
   name: '',
@@ -15,20 +16,10 @@ const INITIAL_FORM_STATE = {
   location_id: ''
 };
 
-// Gender options - Mixed is disabled as it's not supported yet
+/** Gender options for league create; Mixed is disabled as not supported yet. */
 const GENDER_OPTIONS = [
-  { value: 'male', label: "Men's" },
-  { value: 'female', label: "Women's" },
-  { value: 'mixed', label: 'Mixed', disabled: true }
-];
-
-const LEVEL_OPTIONS = [
-  { value: '', label: 'Select skill level' },
-  { value: 'juniors', label: 'Juniors' },
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'Open', label: 'Open' }
+  ...GENDER_OPTIONS_LEAGUE,
+  { value: 'mixed', label: 'Mixed', disabled: true },
 ];
 
 export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {

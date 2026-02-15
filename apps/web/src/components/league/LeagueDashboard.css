@@ -9,7 +9,8 @@
 .league-dashboard {
   display: flex;
   max-width: 1600px;
-  margin: 0 auto;
+  margin-left: 0;
+  margin-right: auto;
   min-height: calc(100dvh - var(--navbar-height));
   background: transparent;
 }

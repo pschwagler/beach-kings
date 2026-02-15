@@ -182,6 +182,7 @@ export function usePlayerDetailsDrawer({
     const displaySeasonName = selectedSeasonId === null ? null : seasonName;
 
     openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
+      playerId,
       playerName,
       playerStats: stats,
       playerMatchHistory: matchHistory,

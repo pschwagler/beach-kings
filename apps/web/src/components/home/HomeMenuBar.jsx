@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search, Bell } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -70,6 +70,14 @@ export default function HomeMenuBar({ activeTab }) {
       title: 'Leagues',
     },
     {
+      id: 'my-games',
+      label: 'My Games',
+      icon: Calendar,
+      active: activeTab === 'my-games',
+      onClick: () => handleTabChange('my-games'),
+      title: 'My Games',
+    },
+    {
       id: 'friends',
       label: 'Friends',
       icon: Users,
@@ -94,6 +102,15 @@ export default function HomeMenuBar({ activeTab }) {
       onClick: () => router.push('/find-leagues'),
       title: 'Find New Leagues',
       className: 'find-leagues-menu-item-desktop',
+    },
+    {
+      id: 'find-players',
+      label: 'Find Players',
+      icon: UserSearch,
+      active: false,
+      onClick: () => router.push('/find-players'),
+      title: 'Find Players',
+      className: 'find-players-menu-item-desktop',
     },
     {
       id: 'more',
@@ -164,6 +181,20 @@ export default function HomeMenuBar({ activeTab }) {
                   >
                     <Search size={18} />
                     <span>Find New Leagues</span>
+                  </button>
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push('/find-players');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="Find Players"
+                    type="button"
+                  >
+                    <UserSearch size={18} />
+                    <span>Find Players</span>
                   </button>
                 </div>
               </div>,

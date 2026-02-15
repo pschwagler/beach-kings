@@ -3,14 +3,13 @@ PostgreSQL database connection and management using SQLAlchemy async mode.
 """
 
 import os
-import asyncio
 from typing import AsyncGenerator
 from contextlib import contextmanager
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
     AsyncSession,
     async_sessionmaker,
-    AsyncEngine
+    AsyncEngine,
 )
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import create_engine, text
@@ -24,7 +23,7 @@ load_dotenv()
 # Defaults to localhost for local dev, or uses service name 'postgres' in Docker
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    f"postgresql+asyncpg://{os.getenv('POSTGRES_USER', 'beachkings')}:{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'beachkings')}"
+    f"postgresql+asyncpg://{os.getenv('POSTGRES_USER', 'beachkings')}:{os.getenv('POSTGRES_PASSWORD', 'beachkings')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'beachkings')}",
 )
 
 # Create async engine
@@ -49,6 +48,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
+
     pass
 
 
@@ -60,7 +60,7 @@ from backend.database import models  # noqa: F401, E402
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency function for FastAPI to get database session.
-    
+
     Usage in FastAPI routes:
         async def my_route(session: AsyncSession = Depends(get_db_session)):
             ...
@@ -82,15 +82,14 @@ async def init_database():
         # Create all tables (checkfirst=True means it won't error if tables already exist)
         def create_tables(sync_conn):
             Base.metadata.create_all(bind=sync_conn, checkfirst=True)
-        await conn.run_sync(create_tables)
-    
 
+        await conn.run_sync(create_tables)
 
 
 async def flush_all_tables():
     """
     DISABLED: This function has been disabled.
-    
+
     TODO: Re-implement to be season-specific and add proper validations.
     This function should only delete sessions & matches for a specific season,
     not all data across all tables.
@@ -115,7 +114,7 @@ def get_db():
     sync_url = DATABASE_URL.replace("+asyncpg", "")
     sync_engine = create_engine(sync_url, pool_pre_ping=True)
     SyncSessionLocal = sessionmaker(bind=sync_engine)
-    
+
     @contextmanager
     def _get_db():
         session = SyncSessionLocal()
@@ -125,7 +124,7 @@ def get_db():
                 def __init__(self, sess):
                     self.session = sess
                     self._closed = False
-                
+
                 def execute(self, query, params=None):
                     # Convert SQLite-style ? placeholders to PostgreSQL $1, $2, etc.
                     if params:
@@ -135,34 +134,34 @@ def get_db():
                     else:
                         result = self.session.execute(text(query))
                     return result
-                
+
                 def executemany(self, query, params_list):
                     query = query.replace("?", "%s")
                     self.session.execute(text(query), params_list)
-                
+
                 def commit(self):
                     self.session.commit()
-                
+
                 def close(self):
                     if not self._closed:
                         self.session.close()
                         self._closed = True
-                
+
                 def __enter__(self):
                     return self
-                
+
                 def __exit__(self, exc_type, exc_val, exc_tb):
                     if exc_type:
                         self.session.rollback()
                     else:
                         self.session.commit()
                     self.close()
-            
+
             yield ConnectionWrapper(session)
         except Exception:
             session.rollback()
             raise
         finally:
             session.close()
-    
+
     return _get_db()
