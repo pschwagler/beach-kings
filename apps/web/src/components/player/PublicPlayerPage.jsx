@@ -6,6 +6,7 @@ import { UserPlus, UserCheck, Clock, Users } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/UI';
+import { ToastContainer, useToasts } from '../ui/Toast';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { isImageUrl } from '../../utils/avatar';
@@ -35,6 +36,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const [incomingRequestId, setIncomingRequestId] = useState(null);
   const [mutualFriends, setMutualFriends] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [toasts, addToast, dismissToast] = useToasts();
 
   // Fetch friend status and mutual friends for authenticated users
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       await sendFriendRequest(player.id);
       setFriendStatus('pending_outgoing');
     } catch (err) {
-      console.error('Error sending friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to send friend request');
     } finally {
       setActionLoading(false);
     }
@@ -103,7 +105,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       setFriendStatus('friend');
       setMutualFriends([]);
     } catch (err) {
-      console.error('Error accepting friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to accept friend request');
     } finally {
       setActionLoading(false);
     }
@@ -115,7 +117,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       await removeFriend(player.id);
       setFriendStatus('none');
     } catch (err) {
-      console.error('Error removing friend:', err);
+      addToast(err.response?.data?.detail || 'Failed to remove friend');
     } finally {
       setActionLoading(false);
     }
@@ -290,6 +292,8 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

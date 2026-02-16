@@ -23,6 +23,20 @@ import './FindPlayersPage.css';
 const PAGE_SIZE = 25;
 
 /**
+ * Renders a friend connection badge for a player card in search results.
+ */
+function FriendBadge({ friendStatuses, playerId }) {
+  if (!friendStatuses) return null;
+  const status = friendStatuses.statuses?.[String(playerId)];
+  const mutualCount = friendStatuses.mutual_counts?.[String(playerId)] || 0;
+  if (status === 'friend') return <span className="find-players__card-badge find-players__card-badge--friend">Friend</span>;
+  if (status === 'pending_outgoing') return <span className="find-players__card-badge find-players__card-badge--pending">Request Sent</span>;
+  if (status === 'pending_incoming') return <span className="find-players__card-badge find-players__card-badge--incoming">Wants to connect</span>;
+  if (mutualCount > 0) return <span className="find-players__card-badge find-players__card-badge--mutual">{mutualCount} mutual friend{mutualCount !== 1 ? 's' : ''}</span>;
+  return null;
+}
+
+/**
  * Reads recognized filter keys from URL search params.
  */
 function parseInitialFilters(searchParams) {
@@ -332,15 +346,7 @@ export default function FindPlayersPage() {
                               <span className="find-players__card-rating">
                                 {Math.round(player.current_rating || 1200)}
                               </span>
-                              {friendStatuses && (() => {
-                                const status = friendStatuses.statuses?.[String(player.id)];
-                                const mutualCount = friendStatuses.mutual_counts?.[String(player.id)] || 0;
-                                if (status === 'friend') return <span className="find-players__card-badge find-players__card-badge--friend">Friend</span>;
-                                if (status === 'pending_outgoing') return <span className="find-players__card-badge find-players__card-badge--pending">Request Sent</span>;
-                                if (status === 'pending_incoming') return <span className="find-players__card-badge find-players__card-badge--incoming">Wants to connect</span>;
-                                if (mutualCount > 0) return <span className="find-players__card-badge find-players__card-badge--mutual">{mutualCount} mutual friend{mutualCount !== 1 ? 's' : ''}</span>;
-                                return null;
-                              })()}
+                              <FriendBadge friendStatuses={friendStatuses} playerId={player.id} />
                             </div>
                           </div>
                         </Link>

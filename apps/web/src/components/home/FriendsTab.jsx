@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Search, MapPin, UserPlus, UserCheck, UserX, X } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { ToastContainer, useToasts } from '../ui/Toast';
 import LevelBadge from '../ui/LevelBadge';
 import {
   getFriends,
@@ -71,6 +72,7 @@ export default function FriendsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState({});
   const [confirmUnfriend, setConfirmUnfriend] = useState(null);
+  const [toasts, addToast, dismissToast] = useToasts();
 
   // Load all data on mount
   useEffect(() => {
@@ -117,7 +119,7 @@ export default function FriendsTab() {
       const sugData = await getFriendSuggestions(10);
       setSuggestions(sugData || []);
     } catch (err) {
-      console.error('Error accepting friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to accept friend request');
     } finally {
       setActionLoadingFor(`accept-${requestId}`, false);
     }
@@ -129,7 +131,7 @@ export default function FriendsTab() {
       await declineFriendRequest(requestId);
       setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
     } catch (err) {
-      console.error('Error declining friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to decline friend request');
     } finally {
       setActionLoadingFor(`decline-${requestId}`, false);
     }
@@ -141,7 +143,7 @@ export default function FriendsTab() {
       await cancelFriendRequest(requestId);
       setOutgoingRequests((prev) => prev.filter((r) => r.id !== requestId));
     } catch (err) {
-      console.error('Error cancelling friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to cancel friend request');
     } finally {
       setActionLoadingFor(`cancel-${requestId}`, false);
     }
@@ -158,7 +160,7 @@ export default function FriendsTab() {
       const sugData = await getFriendSuggestions(10);
       setSuggestions(sugData || []);
     } catch (err) {
-      console.error('Error removing friend:', err);
+      addToast(err.response?.data?.detail || 'Failed to remove friend');
     } finally {
       setActionLoadingFor(`unfriend-${playerId}`, false);
     }
@@ -173,7 +175,7 @@ export default function FriendsTab() {
       const outData = await getFriendRequests('outgoing');
       setOutgoingRequests(outData || []);
     } catch (err) {
-      console.error('Error sending friend request:', err);
+      addToast(err.response?.data?.detail || 'Failed to send friend request');
     } finally {
       setActionLoadingFor(`send-${playerId}`, false);
     }
@@ -420,6 +422,8 @@ export default function FriendsTab() {
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

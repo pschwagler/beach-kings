@@ -463,7 +463,6 @@ async def get_friends(
                 "avatar": p.avatar,
                 "location_name": p.location_name,
                 "level": p.level,
-                "mutual_friend_count": 0,  # Calculated below for perf
             }
         )
 
@@ -504,7 +503,7 @@ async def get_friend_requests(
     result = await session.execute(query)
     requests = result.scalars().all()
 
-    return [await _format_friend_request(session, req) for req in requests]
+    return await _format_friend_requests_batch(session, requests)
 
 
 async def get_mutual_friends(
@@ -618,14 +617,41 @@ async def batch_friend_status(
         else:
             statuses[str(tid)] = "none"
 
-    # Compute mutual friend counts for non-friends
-    mutual_counts = {}
-    for tid in target_player_ids:
-        if tid in my_friends or tid == player_id:
-            mutual_counts[str(tid)] = 0
-        else:
-            their_friends = await get_friend_ids(session, tid)
-            mutual_counts[str(tid)] = len(my_friends & their_friends)
+    # Compute mutual friend counts in a single query instead of per-target
+    mutual_counts = {str(tid): 0 for tid in target_player_ids}
+    non_friend_ids = [
+        tid for tid in target_player_ids
+        if tid != player_id and tid not in my_friends
+    ]
+    if non_friend_ids and my_friends:
+        # Find friends of each target that overlap with my_friends
+        friend_id_col = case(
+            (Friend.player1_id.in_(non_friend_ids), Friend.player2_id),
+            else_=Friend.player1_id,
+        )
+        target_id_col = case(
+            (Friend.player1_id.in_(non_friend_ids), Friend.player1_id),
+            else_=Friend.player2_id,
+        )
+        mutual_query = (
+            select(
+                target_id_col.label("target_id"),
+                func.count().label("cnt"),
+            )
+            .where(
+                and_(
+                    or_(
+                        Friend.player1_id.in_(non_friend_ids),
+                        Friend.player2_id.in_(non_friend_ids),
+                    ),
+                    friend_id_col.in_(list(my_friends)),
+                )
+            )
+            .group_by(target_id_col)
+        )
+        mutual_result = await session.execute(mutual_query)
+        for row in mutual_result.all():
+            mutual_counts[str(row.target_id)] = row.cnt
 
     return {"statuses": statuses, "mutual_counts": mutual_counts}
 
@@ -737,11 +763,63 @@ async def get_friend_suggestions(
     return suggestions
 
 
+async def _format_friend_requests_batch(
+    session: AsyncSession, requests: List[FriendRequest]
+) -> List[Dict]:
+    """
+    Batch-format FriendRequest ORM objects into response dicts with player names.
+
+    Fetches all referenced player info in a single query instead of per-request.
+
+    Args:
+        session: Database session
+        requests: List of FriendRequest ORM objects
+
+    Returns:
+        List of dicts matching FriendRequestResponse schema
+    """
+    if not requests:
+        return []
+
+    # Collect all unique player IDs
+    player_ids = set()
+    for req in requests:
+        player_ids.add(req.sender_player_id)
+        player_ids.add(req.receiver_player_id)
+
+    # Single query for all player info
+    result = await session.execute(
+        select(Player.id, Player.full_name, Player.avatar).where(
+            Player.id.in_(list(player_ids))
+        )
+    )
+    player_map = {row.id: row for row in result.all()}
+
+    formatted = []
+    for req in requests:
+        sender = player_map.get(req.sender_player_id)
+        receiver = player_map.get(req.receiver_player_id)
+        formatted.append({
+            "id": req.id,
+            "sender_player_id": req.sender_player_id,
+            "sender_name": sender.full_name if sender else "Unknown",
+            "sender_avatar": sender.avatar if sender else None,
+            "receiver_player_id": req.receiver_player_id,
+            "receiver_name": receiver.full_name if receiver else "Unknown",
+            "receiver_avatar": receiver.avatar if receiver else None,
+            "status": req.status,
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+        })
+    return formatted
+
+
 async def _format_friend_request(
     session: AsyncSession, friend_request: FriendRequest
 ) -> Dict:
     """
-    Format a FriendRequest ORM object into a response dict with player names.
+    Format a single FriendRequest ORM object into a response dict.
+
+    Delegates to _format_friend_requests_batch for a single item.
 
     Args:
         session: Database session
@@ -750,32 +828,5 @@ async def _format_friend_request(
     Returns:
         Dict matching FriendRequestResponse schema
     """
-    # Get sender info
-    sender_result = await session.execute(
-        select(Player.full_name, Player.avatar).where(
-            Player.id == friend_request.sender_player_id
-        )
-    )
-    sender = sender_result.one_or_none()
-
-    # Get receiver info
-    receiver_result = await session.execute(
-        select(Player.full_name, Player.avatar).where(
-            Player.id == friend_request.receiver_player_id
-        )
-    )
-    receiver = receiver_result.one_or_none()
-
-    return {
-        "id": friend_request.id,
-        "sender_player_id": friend_request.sender_player_id,
-        "sender_name": sender.full_name if sender else "Unknown",
-        "sender_avatar": sender.avatar if sender else None,
-        "receiver_player_id": friend_request.receiver_player_id,
-        "receiver_name": receiver.full_name if receiver else "Unknown",
-        "receiver_avatar": receiver.avatar if receiver else None,
-        "status": friend_request.status,
-        "created_at": (
-            friend_request.created_at.isoformat() if friend_request.created_at else None
-        ),
-    }
+    results = await _format_friend_requests_batch(session, [friend_request])
+    return results[0]

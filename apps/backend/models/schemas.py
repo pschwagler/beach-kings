@@ -637,7 +637,7 @@ class FriendRequestResponse(BaseModel):
     receiver_name: str
     receiver_avatar: Optional[str] = None
     status: str
-    created_at: str
+    created_at: Optional[str] = None
 
 
 class FriendListItem(BaseModel):
@@ -649,7 +649,6 @@ class FriendListItem(BaseModel):
     avatar: Optional[str] = None
     location_name: Optional[str] = None
     level: Optional[str] = None
-    mutual_friend_count: int = 0
 
 
 class FriendListResponse(BaseModel):
@@ -662,7 +661,7 @@ class FriendListResponse(BaseModel):
 class FriendBatchStatusRequest(BaseModel):
     """Request to check friend status for multiple players."""
 
-    player_ids: List[int]
+    player_ids: List[int] = Field(..., max_length=100)
 
 
 class FriendBatchStatusResponse(BaseModel):

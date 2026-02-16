@@ -60,7 +60,6 @@ class FriendRequestStatus(str, enum.Enum):
 
     PENDING = "pending"
     ACCEPTED = "accepted"
-    DECLINED = "declined"
 
 
 class NotificationType(str, enum.Enum):
