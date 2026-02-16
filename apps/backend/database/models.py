@@ -19,6 +19,7 @@ from sqlalchemy import (
     CheckConstraint,
     Index,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -409,7 +410,7 @@ class Season(Base):
 
 
 class Court(Base):
-    """Court locations."""
+    """Court locations with discovery & review support."""
 
     __tablename__ = "courts"
 
@@ -418,6 +419,27 @@ class Court(Base):
     address = Column(String, nullable=True)
     location_id = Column(String, ForeignKey("locations.id"), nullable=False)
     geoJson = Column(Text, nullable=True)
+    # Discovery fields
+    description = Column(Text, nullable=True)
+    court_count = Column(Integer, nullable=True)
+    surface_type = Column(String(50), nullable=True)  # 'sand', 'grass', 'indoor_sand'
+    is_free = Column(Boolean, nullable=True)
+    cost_info = Column(Text, nullable=True)
+    has_lights = Column(Boolean, nullable=True)
+    has_restrooms = Column(Boolean, nullable=True)
+    has_parking = Column(Boolean, nullable=True)
+    parking_info = Column(Text, nullable=True)
+    nets_provided = Column(Boolean, nullable=True)
+    hours = Column(Text, nullable=True)
+    phone = Column(String(30), nullable=True)
+    website = Column(String(500), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    average_rating = Column(Float, nullable=True)
+    review_count = Column(Integer, nullable=True, server_default="0")
+    status = Column(String(20), nullable=True, server_default="approved")  # pending/approved/rejected
+    is_active = Column(Boolean, nullable=True, server_default="true")
+    slug = Column(String(200), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(
@@ -432,10 +454,20 @@ class Court(Base):
     sessions = relationship("Session", back_populates="court")
     weekly_schedules = relationship("WeeklySchedule", back_populates="court")
     signups = relationship("Signup", back_populates="court")
+    reviews = relationship("CourtReview", back_populates="court", cascade="all, delete-orphan")
+    edit_suggestions = relationship(
+        "CourtEditSuggestion", back_populates="court", cascade="all, delete-orphan"
+    )
     creator = relationship("Player", foreign_keys=[created_by], backref="created_courts")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_courts")
 
-    __table_args__ = (Index("idx_courts_location", "location_id"),)
+    __table_args__ = (
+        Index("idx_courts_location", "location_id"),
+        Index("idx_courts_slug", "slug", unique=True),
+        Index("idx_courts_status", "status"),
+        Index("idx_courts_lat_lng", "latitude", "longitude"),
+        Index("idx_courts_is_active", "is_active"),
+    )
 
 
 class Friend(Base):
@@ -1256,4 +1288,134 @@ class Notification(Base):
     __table_args__ = (
         Index("idx_notifications_user_unread", "user_id", "is_read", "created_at"),
         Index("idx_notifications_user_created", "user_id", "created_at"),
+    )
+
+
+class CourtTag(Base):
+    """Curated tags for court reviews (quality, vibe, facility)."""
+
+    __tablename__ = "court_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False)
+    slug = Column(String(50), nullable=False, unique=True)
+    category = Column(String(30), nullable=False)  # 'quality', 'vibe', 'facility'
+    sort_order = Column(Integer, nullable=False, server_default="0")
+
+    # Relationships
+    review_tags = relationship("CourtReviewTag", back_populates="tag")
+
+    __table_args__ = (
+        Index("idx_court_tags_category", "category"),
+    )
+
+
+class CourtReview(Base):
+    """User reviews for courts (one per user per court)."""
+
+    __tablename__ = "court_reviews"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    review_text = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    court = relationship("Court", back_populates="reviews")
+    player = relationship("Player", foreign_keys=[player_id], backref="court_reviews")
+    review_tags = relationship(
+        "CourtReviewTag", back_populates="review", cascade="all, delete-orphan"
+    )
+    photos = relationship(
+        "CourtReviewPhoto", back_populates="review", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("court_id", "player_id", name="uq_court_reviews_court_player"),
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_court_reviews_rating_range"),
+        Index("idx_court_reviews_court", "court_id"),
+        Index("idx_court_reviews_player", "player_id"),
+        Index("idx_court_reviews_created", "created_at"),
+    )
+
+
+class CourtReviewTag(Base):
+    """Join table linking reviews to curated tags."""
+
+    __tablename__ = "court_review_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(
+        Integer, ForeignKey("court_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    tag_id = Column(
+        Integer, ForeignKey("court_tags.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Relationships
+    review = relationship("CourtReview", back_populates="review_tags")
+    tag = relationship("CourtTag", back_populates="review_tags")
+
+    __table_args__ = (
+        UniqueConstraint("review_id", "tag_id", name="uq_court_review_tags_review_tag"),
+        Index("idx_court_review_tags_review", "review_id"),
+        Index("idx_court_review_tags_tag", "tag_id"),
+    )
+
+
+class CourtReviewPhoto(Base):
+    """Photos attached to court reviews (max 3 per review)."""
+
+    __tablename__ = "court_review_photos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(
+        Integer, ForeignKey("court_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    s3_key = Column(String(500), nullable=False)
+    url = Column(String(500), nullable=False)
+    sort_order = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    review = relationship("CourtReview", back_populates="photos")
+
+    __table_args__ = (
+        Index("idx_court_review_photos_review", "review_id"),
+    )
+
+
+class CourtEditSuggestion(Base):
+    """User-submitted edit suggestions for court info."""
+
+    __tablename__ = "court_edit_suggestions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    suggested_by = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    changes = Column(JSONB, nullable=False)  # JSON object of field -> new_value
+    status = Column(String(20), nullable=False, server_default="pending")
+    reviewed_by = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    court = relationship("Court", back_populates="edit_suggestions")
+    suggester = relationship("Player", foreign_keys=[suggested_by], backref="court_edit_suggestions")
+    reviewer = relationship("Player", foreign_keys=[reviewed_by], backref="reviewed_court_suggestions")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')",
+            name="ck_court_edit_suggestions_status",
+        ),
+        Index("idx_court_edit_suggestions_court", "court_id"),
+        Index("idx_court_edit_suggestions_status", "status"),
     )

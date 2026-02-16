@@ -863,12 +863,126 @@ export const logout = async () => {
   return response.data;
 };
 
+/** Fetch public location list (regions + locations) for dropdowns. */
+export const getPublicLocations = async () => {
+  const response = await api.get('/api/public/locations');
+  return response.data;
+};
+
 /**
- * Court API methods
+ * Court API methods (legacy — admin CRUD)
  */
 export const getCourts = async (locationId = null) => {
   const params = locationId ? { location_id: locationId } : {};
   const response = await api.get('/api/courts', { params });
+  return response.data;
+};
+
+/**
+ * Court Discovery API methods (public + auth)
+ */
+
+/** List approved courts with optional filters and pagination. */
+export const getPublicCourts = async (filters = {}) => {
+  const response = await api.get('/api/public/courts', { params: filters });
+  return response.data;
+};
+
+/** Get full court detail by slug. */
+export const getPublicCourtBySlug = async (slug) => {
+  const response = await api.get(`/api/public/courts/${slug}`);
+  return response.data;
+};
+
+/** Get all curated court tags. */
+export const getCourtTags = async () => {
+  const response = await api.get('/api/public/courts/tags');
+  return response.data;
+};
+
+/** Get nearby courts by lat/lng. */
+export const getNearbyCourts = async (lat, lng, radius = 25, excludeId = null) => {
+  const params = { lat, lng, radius };
+  if (excludeId) params.exclude = excludeId;
+  const response = await api.get('/api/public/courts/nearby', { params });
+  return response.data;
+};
+
+/** Submit a new court for admin approval. */
+export const submitCourt = async (data) => {
+  const response = await api.post('/api/courts/submit', data);
+  return response.data;
+};
+
+/** Update court info (creator or admin). */
+export const updateCourtDiscovery = async (courtId, data) => {
+  const response = await api.put(`/api/courts/${courtId}/update`, data);
+  return response.data;
+};
+
+/** Create a review for a court. */
+export const createCourtReview = async (courtId, data) => {
+  const response = await api.post(`/api/courts/${courtId}/reviews`, data);
+  return response.data;
+};
+
+/** Update an existing review. */
+export const updateCourtReview = async (courtId, reviewId, data) => {
+  const response = await api.put(`/api/courts/${courtId}/reviews/${reviewId}`, data);
+  return response.data;
+};
+
+/** Delete a review. */
+export const deleteCourtReview = async (courtId, reviewId) => {
+  const response = await api.delete(`/api/courts/${courtId}/reviews/${reviewId}`);
+  return response.data;
+};
+
+/** Upload a photo to a review (multipart form data). */
+export const uploadReviewPhoto = async (courtId, reviewId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(
+    `/api/courts/${courtId}/reviews/${reviewId}/photos`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data;
+};
+
+/** Submit an edit suggestion for a court. */
+export const suggestCourtEdit = async (courtId, changes) => {
+  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes });
+  return response.data;
+};
+
+/** List edit suggestions for a court (creator/admin). */
+export const getCourtEditSuggestions = async (courtId) => {
+  const response = await api.get(`/api/courts/${courtId}/suggestions`);
+  return response.data;
+};
+
+/** Approve or reject an edit suggestion. */
+export const resolveCourtEditSuggestion = async (suggestionId, action) => {
+  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`);
+  return response.data;
+};
+
+/** Admin: list pending court submissions. */
+export const getAdminPendingCourts = async () => {
+  const response = await api.get('/api/admin/courts/pending');
+  return response.data;
+};
+
+/** Admin: approve a court. */
+export const adminApproveCourt = async (courtId) => {
+  const response = await api.put(`/api/admin/courts/${courtId}/approve`);
+  return response.data;
+};
+
+/** Admin: reject a court. */
+export const adminRejectCourt = async (courtId) => {
+  const response = await api.put(`/api/admin/courts/${courtId}/reject`);
   return response.data;
 };
 

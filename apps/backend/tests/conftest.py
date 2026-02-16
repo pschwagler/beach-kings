@@ -65,6 +65,75 @@ def _resolve_test_database_url() -> str:
 TEST_DATABASE_URL = _resolve_test_database_url()
 
 
+async def _patch_missing_columns(conn):
+    """Add columns to existing tables that create_all cannot alter.
+
+    Each entry: (table, column, DDL fragment).
+    Only runs ALTER if the table exists but the column does not.
+    """
+    patches = [
+        # Migration 019
+        ("matches", "ranked_intent", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        # Migration 020 — court discovery columns on the courts table
+        ("courts", "description", "TEXT"),
+        ("courts", "court_count", "INTEGER"),
+        ("courts", "surface_type", "VARCHAR(50)"),
+        ("courts", "is_free", "BOOLEAN"),
+        ("courts", "cost_info", "TEXT"),
+        ("courts", "has_lights", "BOOLEAN"),
+        ("courts", "has_restrooms", "BOOLEAN"),
+        ("courts", "has_parking", "BOOLEAN"),
+        ("courts", "parking_info", "TEXT"),
+        ("courts", "nets_provided", "BOOLEAN"),
+        ("courts", "hours", "TEXT"),
+        ("courts", "phone", "VARCHAR(30)"),
+        ("courts", "website", "VARCHAR(500)"),
+        ("courts", "latitude", "FLOAT"),
+        ("courts", "longitude", "FLOAT"),
+        ("courts", "average_rating", "FLOAT"),
+        ("courts", "review_count", "INTEGER DEFAULT 0"),
+        ("courts", "status", "VARCHAR(20) DEFAULT 'approved'"),
+        ("courts", "is_active", "BOOLEAN DEFAULT TRUE"),
+        ("courts", "slug", "VARCHAR(200)"),
+        ("courts", "created_by", "INTEGER"),
+        ("courts", "updated_by", "INTEGER"),
+    ]
+    # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
+    type_patches = [
+        ("court_edit_suggestions", "changes", "JSONB", "text"),
+    ]
+    for table, column, target_type, old_type in type_patches:
+        tbl_exists = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_exists.scalar() is not None:
+            col_type = await conn.execute(text(
+                "SELECT data_type FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ), {"t": table, "c": column})
+            current_type = col_type.scalar()
+            if current_type and current_type == old_type:
+                await conn.execute(text(
+                    f'ALTER TABLE {table} ALTER COLUMN "{column}" '
+                    f"TYPE {target_type} USING \"{column}\"::{target_type.lower()}"
+                ))
+
+    for table, column, ddl in patches:
+        tbl_exists = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_exists.scalar() is None:
+            continue  # table doesn't exist yet; create_all will handle it
+        col_exists = await conn.execute(text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :t AND column_name = :c"
+        ), {"t": table, "c": column})
+        if col_exists.scalar() is None:
+            await conn.execute(text(
+                f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'
+            ))
+
+
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Create a test database engine for the entire test session."""
@@ -82,24 +151,10 @@ async def test_engine():
         # Ensure models are imported so Base.metadata includes all tables
         from backend.database import models  # noqa: F401
 
-        # Patch: add ranked_intent column if matches table exists without it.
-        # create_all won't add new columns to existing tables from persistent
-        # test volumes, so we add it manually before create_all.
-        result = await conn.execute(text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = 'matches' AND column_name = 'ranked_intent'"
-        ))
-        if result.scalar() is None:
-            # Table may not exist yet (first run) — only ALTER if it does
-            tbl = await conn.execute(text(
-                "SELECT 1 FROM information_schema.tables "
-                "WHERE table_name = 'matches'"
-            ))
-            if tbl.scalar() is not None:
-                await conn.execute(text(
-                    "ALTER TABLE matches ADD COLUMN ranked_intent BOOLEAN "
-                    "NOT NULL DEFAULT TRUE"
-                ))
+        # Patch: add new columns to existing tables that create_all won't alter.
+        # create_all creates missing tables but doesn't add columns to existing
+        # ones from persistent test volumes — we add them manually first.
+        await _patch_missing_columns(conn)
 
         await conn.run_sync(Base.metadata.create_all)
 

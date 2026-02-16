@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw } from 'lucide-react';
-import { getAdminConfig, updateAdminConfig, getAdminFeedback, updateFeedbackResolution } from '../services/api';
+import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { getAdminConfig, updateAdminConfig, getAdminFeedback, updateFeedbackResolution, getAdminPendingCourts, adminApproveCourt, adminRejectCourt } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { getUserLeagues } from '../services/api';
@@ -24,6 +24,9 @@ function AdminView() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSearch, setFeedbackSearch] = useState('');
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [pendingCourts, setPendingCourts] = useState([]);
+  const [courtsLoading, setCourtsLoading] = useState(false);
+  const [courtActionId, setCourtActionId] = useState(null);
   
   // Form state
   const [enableSms, setEnableSms] = useState(false);
@@ -51,6 +54,7 @@ function AdminView() {
   useEffect(() => {
     loadConfig();
     loadFeedback();
+    loadPendingCourts();
   }, []);
 
   // Load user leagues for navbar
@@ -127,6 +131,34 @@ function AdminView() {
     }
   };
   
+  const loadPendingCourts = async () => {
+    try {
+      setCourtsLoading(true);
+      const data = await getAdminPendingCourts();
+      setPendingCourts(data);
+    } catch (err) {
+      console.error('Error loading pending courts:', err);
+    } finally {
+      setCourtsLoading(false);
+    }
+  };
+
+  const handleCourtAction = async (courtId, action) => {
+    setCourtActionId(courtId);
+    try {
+      if (action === 'approve') {
+        await adminApproveCourt(courtId);
+      } else {
+        await adminRejectCourt(courtId);
+      }
+      setPendingCourts((prev) => prev.filter((c) => c.id !== courtId));
+    } catch (err) {
+      console.error(`Error ${action}ing court:`, err);
+    } finally {
+      setCourtActionId(null);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -387,6 +419,82 @@ function AdminView() {
           </button>
         </div>
         
+        {/* Court Submissions */}
+        <div className="admin-feedback-section">
+          <div className="admin-section-header">
+            <h2>Court Submissions</h2>
+            <button
+              onClick={loadPendingCourts}
+              disabled={courtsLoading}
+              className="admin-refresh-btn"
+              aria-label="Refresh pending courts"
+              title="Refresh pending courts"
+            >
+              <RefreshCw size={18} className={courtsLoading ? 'spinning' : ''} />
+            </button>
+          </div>
+
+          {courtsLoading ? (
+            <p>Loading pending courts...</p>
+          ) : pendingCourts.length === 0 ? (
+            <p>No pending court submissions.</p>
+          ) : (
+            <div className="admin-feedback-table-container">
+              <table className="admin-feedback-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Submitted</th>
+                    <th>Surface</th>
+                    <th>Courts</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingCourts.map((court) => (
+                    <tr key={court.id}>
+                      <td>{court.id}</td>
+                      <td className="feedback-text-cell">
+                        <div className="feedback-text">{court.name}</div>
+                      </td>
+                      <td className="feedback-text-cell">
+                        <div className="feedback-text">{court.address || 'N/A'}</div>
+                      </td>
+                      <td>{formatDate(court.created_at)}</td>
+                      <td>{court.surface_type || 'N/A'}</td>
+                      <td>{court.court_count || 'N/A'}</td>
+                      <td>
+                        <div className="admin-court-actions">
+                          <button
+                            className="admin-court-action-btn admin-court-action-btn--approve"
+                            onClick={() => handleCourtAction(court.id, 'approve')}
+                            disabled={courtActionId === court.id}
+                            aria-label="Approve court"
+                            title="Approve"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                          <button
+                            className="admin-court-action-btn admin-court-action-btn--reject"
+                            onClick={() => handleCourtAction(court.id, 'reject')}
+                            disabled={courtActionId === court.id}
+                            aria-label="Reject court"
+                            title="Reject"
+                          >
+                            <XCircle size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         <div className="admin-feedback-section">
           <div className="admin-section-header">
             <h2>Feedback</h2>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
+import StarRating from '../ui/StarRating';
 import { formatGender } from '../../utils/formatters';
 import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
@@ -136,15 +137,38 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
       {/* Courts section */}
       {courts?.length > 0 && (
         <section className="public-location__section">
-          <h2 className="public-location__section-title">Courts</h2>
+          <div className="public-location__section-header">
+            <h2 className="public-location__section-title">Courts</h2>
+            <Link href="/courts" className="public-location__view-all">
+              View All Courts &rarr;
+            </Link>
+          </div>
           <div className="public-location__courts">
             {courts.map((court) => (
-              <div key={court.id} className="public-location__court-card">
-                <span className="public-location__court-name">{court.name}</span>
-                {court.address && (
-                  <span className="public-location__court-address">{court.address}</span>
-                )}
-              </div>
+              <Link
+                key={court.id}
+                href={`/courts/${court.slug || court.id}`}
+                className="public-location__court-card"
+              >
+                <div className="public-location__court-info">
+                  <span className="public-location__court-name">{court.name}</span>
+                  {court.address && (
+                    <span className="public-location__court-address">{court.address}</span>
+                  )}
+                </div>
+                <div className="public-location__court-rating">
+                  {court.review_count > 0 ? (
+                    <>
+                      <StarRating value={court.average_rating || 0} size={14} />
+                      <span className="public-location__court-review-count">
+                        ({court.review_count})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="public-location__court-new-badge">New</span>
+                  )}
+                </div>
+              </Link>
             ))}
           </div>
         </section>

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.services import auth_service, user_service, data_service
 from backend.database.db import get_db_session
-from backend.database.models import LeagueMember, Player, Season, WeeklySchedule, Signup
+from backend.database.models import Court, LeagueMember, Player, Season, WeeklySchedule, Signup
 
 security = HTTPBearer()
 
@@ -92,6 +92,38 @@ async def require_user(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+async def require_verified_player(
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Require an authenticated, verified user with an existing player profile.
+
+    Returns a dict with both user fields and player_id.
+    Raises 403 if user is not verified or has no player record.
+    """
+    if not user.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Phone verification required",
+        )
+
+    result = await session.execute(
+        select(Player).where(
+            Player.user_id == user["id"],
+            Player.is_placeholder == False,  # noqa: E712
+        )
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Player profile required",
+        )
+
+    return {**user, "player_id": player.id}
+
+
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
     """
     Determine if the user is a system admin.
@@ -105,6 +137,36 @@ async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
         return user.get("phone_number") in phones
     except Exception:
         return False
+
+
+async def require_court_owner_or_admin(
+    session: AsyncSession, court_id: int, user: dict
+) -> Court:
+    """
+    Verify the user is the court creator or a system admin.
+
+    Args:
+        session: Database session
+        court_id: Court to check ownership of
+        user: Authenticated user dict (must include player_id)
+
+    Returns:
+        The Court ORM instance.
+
+    Raises:
+        HTTPException 404 if court not found, 403 if not authorized.
+    """
+    from sqlalchemy import select as sa_select
+
+    result = await session.execute(sa_select(Court).where(Court.id == court_id))
+    court = result.scalar_one_or_none()
+    if not court:
+        raise HTTPException(status_code=404, detail="Court not found")
+
+    is_admin = await _is_system_admin(session, user)
+    if court.created_by != user["player_id"] and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return court
 
 
 async def _has_league_role(
