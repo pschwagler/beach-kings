@@ -34,6 +34,23 @@
   border-bottom: 1px solid var(--gray-300);
 }
 
+/* Back Link — matches session-page-back style */
+
+.court-detail__back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+.court-detail__back-link:hover {
+  color: var(--primary-dark);
+}
+
 /* Header */
 
 .court-detail__header {

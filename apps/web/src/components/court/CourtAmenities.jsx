@@ -5,7 +5,7 @@ import {
   ParkingCircle,
   Bath,
   Network,
-  DollarSign,
+  CircleCheck,
 } from 'lucide-react';
 
 const AMENITY_CONFIG = [
@@ -13,7 +13,7 @@ const AMENITY_CONFIG = [
   { key: 'has_restrooms', label: 'Restrooms', icon: Bath },
   { key: 'has_parking', label: 'Parking', icon: ParkingCircle },
   { key: 'nets_provided', label: 'Nets Provided', icon: Network },
-  { key: 'is_free', label: 'Free', icon: DollarSign },
+  { key: 'is_free', label: 'Free', icon: CircleCheck },
 ];
 
 /**

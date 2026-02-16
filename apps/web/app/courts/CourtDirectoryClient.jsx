@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useAuthModal } from '../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague } from '../../src/services/api';
+import { getUserLeagues, createLeague, getPublicCourts } from '../../src/services/api';
 import NavBar from '../../src/components/layout/NavBar';
 import CourtListView from '../../src/components/court/CourtListView';
 import CourtMap from '../../src/components/court/CourtMap';
@@ -29,6 +29,7 @@ export default function CourtDirectoryClient({ initialCourts }) {
   const [userLeagues, setUserLeagues] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewMode, setViewMode] = useState('list');
+  const [mapCourts, setMapCourts] = useState(null);
 
   // Restore saved view preference
   useEffect(() => {
@@ -37,6 +38,14 @@ export default function CourtDirectoryClient({ initialCourts }) {
       if (saved === 'map' || saved === 'list') setViewMode(saved);
     } catch {}
   }, []);
+
+  // Fetch all courts when map view is activated
+  useEffect(() => {
+    if (viewMode !== 'map' || mapCourts) return;
+    getPublicCourts({ page: 1, page_size: 500 })
+      .then((data) => setMapCourts(data.items || []))
+      .catch((err) => console.error('Error loading map courts:', err));
+  }, [viewMode, mapCourts]);
 
   const handleViewChange = (mode) => {
     setViewMode(mode);
@@ -76,8 +85,6 @@ export default function CourtDirectoryClient({ initialCourts }) {
     }
     setShowAddForm(true);
   };
-
-  const courts = initialCourts?.items || [];
 
   return (
     <>
@@ -133,9 +140,23 @@ export default function CourtDirectoryClient({ initialCourts }) {
         )}
 
         {viewMode === 'map' ? (
-          <CourtMap courts={courts} />
+          <CourtMap
+            courts={mapCourts || initialCourts?.items || []}
+            userLocation={
+              currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
+                ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
+                : null
+            }
+          />
         ) : (
-          <CourtListView initialCourts={initialCourts} />
+          <CourtListView
+            initialCourts={initialCourts}
+            userLocation={
+              currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
+                ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
+                : null
+            }
+          />
         )}
       </div>
     </>

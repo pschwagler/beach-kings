@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { getPublicCourts } from '../../services/api';
 import CourtCard from './CourtCard';
@@ -17,20 +17,24 @@ const SURFACE_OPTIONS = [
 /**
  * Filterable, paginated court list for the directory page.
  *
- * Supports filters: search, surface_type, is_free, min_rating.
- * Fetches data from public courts API with pagination.
+ * Requests browser geolocation on mount. When available (or provided via
+ * userLocation prop), passes user_lat/user_lng to the API so results are
+ * sorted by distance (nearest first).
  *
  * @param {Object} props
  * @param {Array} [props.initialCourts] - SSR-prefetched courts
  * @param {number} [props.initialTotal] - SSR total count
  * @param {string} [props.locationId] - Pre-filter by location hub
+ * @param {Object} [props.userLocation] - { latitude, longitude } fallback from player profile
  */
-export default function CourtListView({ initialCourts, initialTotal, locationId }) {
+export default function CourtListView({ initialCourts, initialTotal, locationId, userLocation }) {
   const [courts, setCourts] = useState(initialCourts?.items || []);
   const [totalCount, setTotalCount] = useState(initialTotal || initialCourts?.total_count || 0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [userPos, setUserPos] = useState(userLocation || null);
+  const geoAttempted = useRef(false);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -39,6 +43,18 @@ export default function CourtListView({ initialCourts, initialTotal, locationId 
   const [minRating, setMinRating] = useState(null);
 
   const PAGE_SIZE = 20;
+
+  // Request browser geolocation once
+  useEffect(() => {
+    if (geoAttempted.current) return;
+    geoAttempted.current = true;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserPos({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => {}, // silently fall back to userLocation prop
+      { timeout: 5000, maximumAge: 300000 }
+    );
+  }, []);
 
   const fetchCourts = useCallback(async (pageNum = 1, resetList = true) => {
     setLoading(true);
@@ -49,6 +65,10 @@ export default function CourtListView({ initialCourts, initialTotal, locationId 
       if (surfaceType) filters.surface_type = surfaceType;
       if (isFree !== null) filters.is_free = isFree;
       if (minRating) filters.min_rating = minRating;
+      if (userPos) {
+        filters.user_lat = userPos.latitude;
+        filters.user_lng = userPos.longitude;
+      }
 
       const data = await getPublicCourts(filters);
       if (resetList) {
@@ -63,9 +83,9 @@ export default function CourtListView({ initialCourts, initialTotal, locationId 
     } finally {
       setLoading(false);
     }
-  }, [locationId, search, surfaceType, isFree, minRating]);
+  }, [locationId, search, surfaceType, isFree, minRating, userPos]);
 
-  // Refetch when filters change
+  // Refetch when filters or user position change
   useEffect(() => {
     fetchCourts(1, true);
   }, [fetchCourts]);
@@ -169,6 +189,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId 
       {/* Results count */}
       <div className="court-list__count">
         {totalCount} court{totalCount !== 1 ? 's' : ''} found
+        {userPos && <span className="court-list__count-hint"> · sorted by distance</span>}
       </div>
 
       {/* Grid */}

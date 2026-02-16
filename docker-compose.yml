@@ -24,11 +24,12 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        # NEXT_PUBLIC_API_URL must be set at build time for Next.js
+        # NEXT_PUBLIC_* vars must be set at build time (Next.js inlines them during compilation)
         # - For production with nginx: use empty string (frontend paths already include /api)
         # - For local dev without nginx: use http://localhost:8000
         # Note: Frontend API calls already include /api prefix, so don't add it here
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
+        - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN:-}
     container_name: beach-kings-frontend
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
@@ -90,6 +91,7 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/backend:/app/backend
+      - ./scripts:/app/scripts
       # - ./services/whatsapp:/app/services/whatsapp  # WhatsApp service is inactive
     networks:
       - beach-kings-network

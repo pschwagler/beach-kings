@@ -282,14 +282,18 @@ async def list_public_courts(
     has_parking: Optional[bool] = Query(None, description="Filter courts with parking"),
     nets_provided: Optional[bool] = Query(None, description="Filter courts with nets"),
     search: Optional[str] = Query(None, description="Search by name or address"),
+    user_lat: Optional[float] = Query(None, description="User latitude for distance sort"),
+    user_lng: Optional[float] = Query(None, description="User longitude for distance sort"),
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
     List approved courts with optional filters and pagination.
 
     Supports filtering by location, surface type, amenities, rating, and free/paid.
+    When user_lat/user_lng are provided, results are sorted by distance and include
+    distance_miles in each item.
     Returns court cards with average rating, top tags, and thumbnail photo.
     """
     return await court_service.list_courts_public(
@@ -303,6 +307,8 @@ async def list_public_courts(
         has_parking=has_parking,
         nets_provided=nets_provided,
         search=search,
+        user_lat=user_lat,
+        user_lng=user_lng,
         page=page,
         page_size=page_size,
     )

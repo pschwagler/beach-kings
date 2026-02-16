@@ -1,10 +1,14 @@
 """
-Seed court tags and default courts from CSV files on startup.
+Seed court tags and courts for all locations from CSV files on startup.
 
-Idempotent: skips rows that already exist (matched by slug).
+Idempotent: creates new rows and backfills missing coordinates on existing rows.
+Does NOT overwrite existing court data — users may edit courts based on their
+experience, and those changes should be preserved across restarts.
+To force a full re-seed, delete rows from the courts table first.
 """
 
 import csv
+import json
 import logging
 from pathlib import Path
 
@@ -47,23 +51,47 @@ async def _seed_court_tags(session) -> int:
     return created
 
 
-async def _seed_courts_from_csv(session, csv_filename: str) -> int:
-    """Seed courts from a CSV file. Returns count of new rows."""
+def _make_geojson(lat: float, lng: float) -> str:
+    """Build a GeoJSON Point string from latitude and longitude."""
+    return json.dumps({"type": "Point", "coordinates": [lng, lat]})
+
+
+async def _seed_courts_from_csv(session, csv_filename: str) -> tuple[int, int]:
+    """Seed courts from a CSV file. Returns (created, updated) counts."""
     csv_path = SEED_DIR / csv_filename
     if not csv_path.exists():
         logger.warning("Courts CSV not found: %s", csv_path)
-        return 0
+        return 0, 0
 
     def _bool(val: str) -> bool:
         return val.strip().lower() == "true"
 
     created = 0
+    updated = 0
     with open(csv_path, "r", encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            lat = float(row["latitude"]) if row.get("latitude") else None
+            lng = float(row["longitude"]) if row.get("longitude") else None
+            geo = _make_geojson(lat, lng) if lat and lng else None
+
             result = await session.execute(
                 select(Court).where(Court.slug == row["slug"])
             )
-            if result.scalar_one_or_none():
+            existing = result.scalar_one_or_none()
+            if existing:
+                # Backfill missing coordinates on existing courts
+                changed = False
+                if existing.latitude is None and lat is not None:
+                    existing.latitude = lat
+                    changed = True
+                if existing.longitude is None and lng is not None:
+                    existing.longitude = lng
+                    changed = True
+                if existing.geoJson is None and geo is not None:
+                    existing.geoJson = geo
+                    changed = True
+                if changed:
+                    updated += 1
                 continue
 
             session.add(
@@ -79,8 +107,9 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> int:
                     has_restrooms=_bool(row["has_restrooms"]),
                     has_parking=_bool(row["has_parking"]),
                     nets_provided=_bool(row["nets_provided"]),
-                    latitude=float(row["latitude"]) if row.get("latitude") else None,
-                    longitude=float(row["longitude"]) if row.get("longitude") else None,
+                    latitude=lat,
+                    longitude=lng,
+                    geoJson=geo,
                     description=row.get("description") or None,
                     status="approved",
                     is_active=True,
@@ -89,7 +118,7 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> int:
             created += 1
 
     await session.flush()
-    return created
+    return created, updated
 
 
 async def seed_courts():
@@ -99,8 +128,10 @@ async def seed_courts():
         if tags_created:
             logger.info("Seeded %d new court tags", tags_created)
 
-        courts_created = await _seed_courts_from_csv(session, "nyc_courts.csv")
+        courts_created, courts_updated = await _seed_courts_from_csv(session, "courts.csv")
         if courts_created:
-            logger.info("Seeded %d new NYC courts", courts_created)
+            logger.info("Seeded %d new courts", courts_created)
+        if courts_updated:
+            logger.info("Backfilled coordinates on %d existing courts", courts_updated)
 
         await session.commit()

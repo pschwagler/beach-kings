@@ -1,6 +1,7 @@
 /* Court Map */
 
 .court-map {
+  position: relative;
   width: 100%;
   height: 500px;
   border-radius: 8px;
@@ -8,7 +9,8 @@
   border: 1px solid var(--gray-200);
 }
 
-.court-map--no-token {
+.court-map--no-token,
+.court-map--loading {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,6 +83,87 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+}
+
+.court-map__popup-distance {
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 600;
+  margin: 4px 0 0;
+}
+
+/* User location dot */
+
+.court-map__user-dot {
+  width: 14px;
+  height: 14px;
+  background: var(--primary);
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 59, 130, 246), 0.3);
+}
+
+/* Map style toggle */
+
+.court-map__style-toggle {
+  position: absolute;
+  bottom: 24px;
+  left: 12px;
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-sm);
+  z-index: 1;
+}
+
+.court-map__style-btn {
+  padding: 6px 12px;
+  border: none;
+  background: white;
+  color: var(--gray-700);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.court-map__style-btn:not(:last-child) {
+  border-right: 1px solid var(--gray-300);
+}
+
+.court-map__style-btn:hover {
+  background: var(--gray-50);
+}
+
+.court-map__style-btn--active {
+  background: var(--primary-lighter);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Locate me button */
+
+.court-map__locate-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--gray-700);
+  box-shadow: var(--shadow-sm);
+  z-index: 1;
+}
+
+.court-map__locate-btn:hover {
+  background: var(--gray-50);
+  color: var(--primary);
 }
 
 /* View Toggle */

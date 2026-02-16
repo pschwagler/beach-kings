@@ -132,6 +132,11 @@
   color: var(--gray-600);
 }
 
+.court-list__count-hint {
+  color: var(--primary);
+  font-weight: 500;
+}
+
 .court-list__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

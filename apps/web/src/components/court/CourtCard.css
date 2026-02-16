@@ -86,6 +86,13 @@
   white-space: nowrap;
 }
 
+.court-card__distance {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 0;
+}
+
 .court-card__meta {
   display: flex;
   align-items: center;

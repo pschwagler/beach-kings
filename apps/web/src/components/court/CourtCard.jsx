@@ -26,6 +26,7 @@ export default function CourtCard({ court }) {
     is_free,
     top_tags = [],
     photo_url,
+    distance_miles,
   } = court;
 
   const surfaceLabel = getSurfaceLabel(surface_type);
@@ -61,6 +62,10 @@ export default function CourtCard({ court }) {
         </div>
 
         {address && <p className="court-card__address">{address}</p>}
+
+        {distance_miles != null && (
+          <p className="court-card__distance">{distance_miles} mi away</p>
+        )}
 
         <div className="court-card__meta">
           {court_count && (

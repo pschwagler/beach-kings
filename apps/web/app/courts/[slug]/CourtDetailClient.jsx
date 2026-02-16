@@ -14,7 +14,7 @@ import CourtReviewSection from '../../../src/components/court/CourtReviewSection
 import NearbyCourtsList from '../../../src/components/court/NearbyCourtsList';
 import SuggestEditForm from '../../../src/components/court/SuggestEditForm';
 import { Button } from '../../../src/components/ui/UI';
-import { Pencil } from 'lucide-react';
+import { Pencil, ArrowLeft } from 'lucide-react';
 import '../../../src/components/court/CourtDetail.css';
 
 /**
@@ -100,6 +100,10 @@ export default function CourtDetailClient({ court, slug }) {
       />
 
       <div className="court-detail">
+        <a href="/courts" className="court-detail__back-link">
+          <ArrowLeft size={18} /> Browse All Courts
+        </a>
+
         <CourtDetailHeader court={court} />
 
         {court.all_photos?.length > 0 && (

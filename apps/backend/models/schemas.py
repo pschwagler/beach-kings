@@ -1156,6 +1156,7 @@ class CourtListItem(BaseModel):
     review_count: int = 0
     top_tags: List[str] = []
     photo_url: Optional[str] = None  # First review photo as thumbnail
+    distance_miles: Optional[float] = None  # Present when user_lat/user_lng provided
 
 
 class PaginatedCourtsResponse(BaseModel):

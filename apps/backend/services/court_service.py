@@ -6,11 +6,12 @@ and nearby-court calculations using haversine distance.
 """
 
 import logging
+import math
 import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, case, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -104,11 +105,17 @@ async def list_courts_public(
     has_parking: Optional[bool] = None,
     nets_provided: Optional[bool] = None,
     search: Optional[str] = None,
+    user_lat: Optional[float] = None,
+    user_lng: Optional[float] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Dict:
     """
     List approved, active courts with optional filters and pagination.
+
+    When ``user_lat`` and ``user_lng`` are provided, results are sorted by
+    distance (nearest first) and each item includes ``distance_miles``.
+    Otherwise results are sorted alphabetically by name.
 
     Args:
         session: Database session.
@@ -121,12 +128,16 @@ async def list_courts_public(
         has_parking: Filter courts with parking.
         nets_provided: Filter courts with nets.
         search: Free-text search on name or address.
+        user_lat: User latitude for distance-based sorting.
+        user_lng: User longitude for distance-based sorting.
         page: Page number (1-indexed).
         page_size: Items per page (default 20).
 
     Returns:
         Dict with ``items``, ``total_count``, ``page``, ``page_size``.
     """
+    sort_by_distance = user_lat is not None and user_lng is not None
+
     base = select(Court).where(
         and_(Court.status == "approved", Court.is_active == True)  # noqa: E712
     )
@@ -158,15 +169,48 @@ async def list_courts_public(
     count_q = select(func.count()).select_from(base.subquery())
     total_count = (await session.execute(count_q)).scalar() or 0
 
-    # Fetch page
+    # Build distance expression for SQL-level sort when user coords provided.
+    # Uses the Haversine approximation via PostgreSQL math functions:
+    #   d = 3959 * acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lng2-lng1))
+    dist_col = None
+    if sort_by_distance:
+        rad = math.pi / 180.0
+        u_lat_r = user_lat * rad
+        u_lng_r = user_lng * rad
+        dist_col = (
+            literal(3959.0)
+            * func.acos(
+                func.least(
+                    literal(1.0),
+                    func.sin(literal(u_lat_r))
+                    * func.sin(Court.latitude * rad)
+                    + func.cos(literal(u_lat_r))
+                    * func.cos(Court.latitude * rad)
+                    * func.cos(Court.longitude * rad - literal(u_lng_r)),
+                )
+            )
+        ).label("distance_miles")
+
     offset = (page - 1) * page_size
-    courts_q = (
-        base.outerjoin(Location, Court.location_id == Location.id)
-        .add_columns(Location.name.label("location_name"))
-        .order_by(Court.name)
-        .offset(offset)
-        .limit(page_size)
+    courts_q = base.outerjoin(Location, Court.location_id == Location.id).add_columns(
+        Location.name.label("location_name")
     )
+
+    if dist_col is not None:
+        # Add distance column; push courts without coords to the end
+        courts_q = courts_q.add_columns(
+            case(
+                (
+                    and_(Court.latitude.isnot(None), Court.longitude.isnot(None)),
+                    dist_col,
+                ),
+                else_=literal(999999.0),
+            ).label("distance_miles")
+        ).order_by("distance_miles")
+    else:
+        courts_q = courts_q.order_by(Court.name)
+
+    courts_q = courts_q.offset(offset).limit(page_size)
     rows = (await session.execute(courts_q)).all()
 
     # Batch-load tags and thumbnails to avoid N+1 queries
@@ -178,28 +222,29 @@ async def list_courts_public(
     for row in rows:
         court = row[0]
         loc_name = row[1]
-
-        items.append(
-            {
-                "id": court.id,
-                "name": court.name,
-                "slug": court.slug or "",
-                "address": court.address,
-                "location_id": court.location_id,
-                "location_name": loc_name,
-                "court_count": court.court_count,
-                "surface_type": court.surface_type,
-                "is_free": court.is_free,
-                "has_lights": court.has_lights,
-                "nets_provided": court.nets_provided,
-                "latitude": court.latitude,
-                "longitude": court.longitude,
-                "average_rating": court.average_rating,
-                "review_count": court.review_count or 0,
-                "top_tags": tags_map.get(court.id, []),
-                "photo_url": photos_map.get(court.id),
-            }
-        )
+        item = {
+            "id": court.id,
+            "name": court.name,
+            "slug": court.slug or "",
+            "address": court.address,
+            "location_id": court.location_id,
+            "location_name": loc_name,
+            "court_count": court.court_count,
+            "surface_type": court.surface_type,
+            "is_free": court.is_free,
+            "has_lights": court.has_lights,
+            "nets_provided": court.nets_provided,
+            "latitude": court.latitude,
+            "longitude": court.longitude,
+            "average_rating": court.average_rating,
+            "review_count": court.review_count or 0,
+            "top_tags": tags_map.get(court.id, []),
+            "photo_url": photos_map.get(court.id),
+        }
+        if dist_col is not None:
+            d = row[2]
+            item["distance_miles"] = round(d, 1) if d < 999999.0 else None
+        items.append(item)
 
     return {
         "items": items,
