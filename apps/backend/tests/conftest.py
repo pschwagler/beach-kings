@@ -77,12 +77,30 @@ async def test_engine():
         pool_pre_ping=True,
     )
 
-    # Recreate all tables (drop first to pick up schema changes)
+    # Create all tables
     async with engine.begin() as conn:
         # Ensure models are imported so Base.metadata includes all tables
         from backend.database import models  # noqa: F401
 
-        await conn.run_sync(Base.metadata.drop_all)
+        # Patch: add ranked_intent column if matches table exists without it.
+        # create_all won't add new columns to existing tables from persistent
+        # test volumes, so we add it manually before create_all.
+        result = await conn.execute(text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'matches' AND column_name = 'ranked_intent'"
+        ))
+        if result.scalar() is None:
+            # Table may not exist yet (first run) — only ALTER if it does
+            tbl = await conn.execute(text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_name = 'matches'"
+            ))
+            if tbl.scalar() is not None:
+                await conn.execute(text(
+                    "ALTER TABLE matches ADD COLUMN ranked_intent BOOLEAN "
+                    "NOT NULL DEFAULT TRUE"
+                ))
+
         await conn.run_sync(Base.metadata.create_all)
 
     # Monkey-patch AsyncSessionLocal to use the test engine
