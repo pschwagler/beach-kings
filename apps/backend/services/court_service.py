@@ -959,12 +959,10 @@ async def create_edit_suggestion(
     changes: dict,
 ) -> Dict:
     """Create a court edit suggestion."""
-    import json
-
     suggestion = CourtEditSuggestion(
         court_id=court_id,
         suggested_by=suggested_by_player_id,
-        changes=json.dumps(changes),
+        changes=changes,
         status="pending",
     )
     session.add(suggestion)
@@ -983,8 +981,6 @@ async def list_edit_suggestions(
     session: AsyncSession, court_id: int
 ) -> List[Dict]:
     """List pending edit suggestions for a court."""
-    import json
-
     q = (
         select(CourtEditSuggestion, Player.full_name)
         .outerjoin(Player, CourtEditSuggestion.suggested_by == Player.id)
@@ -998,7 +994,7 @@ async def list_edit_suggestions(
             "court_id": s.court_id,
             "suggested_by": s.suggested_by,
             "suggester_name": name,
-            "changes": json.loads(s.changes) if isinstance(s.changes, str) else s.changes,
+            "changes": s.changes,
             "status": s.status,
             "reviewed_by": s.reviewed_by,
             "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -1021,7 +1017,6 @@ async def resolve_edit_suggestion(
     If approved, apply changes to the court.
     Returns updated suggestion dict or None if not found.
     """
-    import json
     from datetime import datetime, timezone
 
     result = await session.execute(
@@ -1036,7 +1031,7 @@ async def resolve_edit_suggestion(
     suggestion.reviewed_at = datetime.now(timezone.utc)
 
     if action == "approved":
-        changes = json.loads(suggestion.changes) if isinstance(suggestion.changes, str) else suggestion.changes
+        changes = suggestion.changes
         # Only apply known court fields
         allowed_fields = {
             "name", "address", "description", "court_count", "surface_type",

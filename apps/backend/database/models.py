@@ -19,6 +19,7 @@ from sqlalchemy import (
     CheckConstraint,
     Index,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -1397,7 +1398,7 @@ class CourtEditSuggestion(Base):
     suggested_by = Column(
         Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
     )
-    changes = Column(Text, nullable=False)  # JSON string of field -> new_value
+    changes = Column(JSONB, nullable=False)  # JSON object of field -> new_value
     status = Column(String(20), nullable=False, server_default="pending")
     reviewed_by = Column(
         Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True

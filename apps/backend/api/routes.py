@@ -1585,14 +1585,14 @@ async def delete_court_review(
         if not result:
             raise HTTPException(status_code=404, detail="Review not found or not authorized")
 
-        # Async S3 photo cleanup (fire-and-forget)
+        # Concurrent S3 photo cleanup
         photo_keys = result.pop("photo_s3_keys", [])
         if photo_keys:
-            for key in photo_keys:
-                try:
-                    await s3_service.delete_file(key)
-                except Exception as exc:
-                    logger.error("Failed to delete S3 photo: %s — %s", key, exc, exc_info=True)
+            delete_tasks = [asyncio.to_thread(s3_service.delete_file, key) for key in photo_keys]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            for key, res in zip(photo_keys, results):
+                if isinstance(res, Exception):
+                    logger.error("Failed to delete S3 photo: %s — %s", key, res, exc_info=True)
 
         return result
     except HTTPException:
@@ -1622,7 +1622,7 @@ async def upload_review_photo(
         # Process and upload
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{review_id}/{uuid.uuid4()}.jpg"
-        url = await s3_service.upload_file(processed, s3_key, content_type="image/jpeg")
+        url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
 
         result = await court_service.add_review_photo(
             session,

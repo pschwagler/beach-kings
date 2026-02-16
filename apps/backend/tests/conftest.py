@@ -98,6 +98,26 @@ async def _patch_missing_columns(conn):
         ("courts", "created_by", "INTEGER"),
         ("courts", "updated_by", "INTEGER"),
     ]
+    # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
+    type_patches = [
+        ("court_edit_suggestions", "changes", "JSONB", "text"),
+    ]
+    for table, column, target_type, old_type in type_patches:
+        tbl_exists = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_exists.scalar() is not None:
+            col_type = await conn.execute(text(
+                "SELECT data_type FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ), {"t": table, "c": column})
+            current_type = col_type.scalar()
+            if current_type and current_type == old_type:
+                await conn.execute(text(
+                    f'ALTER TABLE {table} ALTER COLUMN "{column}" '
+                    f"TYPE {target_type} USING \"{column}\"::{target_type.lower()}"
+                ))
+
     for table, column, ddl in patches:
         tbl_exists = await conn.execute(text(
             "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
