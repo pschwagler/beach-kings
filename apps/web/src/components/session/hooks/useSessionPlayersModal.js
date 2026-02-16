@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues } from '../../../services/api';
+import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues, createPlaceholderPlayer, getPublicPlayers } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const PAGE_SIZE = 25;
@@ -52,6 +52,7 @@ export function useSessionPlayersModal({
   const [pendingAddIds, setPendingAddIds] = useState(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerView, setDrawerView] = useState('add-player');
+  const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);
   const debounceRef = useRef(null);
   const prevOpenRef = useRef(false);
   const hasMutatedRef = useRef(false);
@@ -261,6 +262,60 @@ export function useSessionPlayersModal({
     setOffset(0);
   }, []);
 
+  /**
+   * Create a placeholder player and add them to the session roster.
+   * @param {string} name - Player name
+   * @param {Object} [extras] - Optional gender/level
+   */
+  /**
+   * Create a placeholder player, add to session, and return invite data for the modal.
+   * @param {string} name - Player name
+   * @param {Object} [extras] - Optional gender/level
+   * @returns {Promise<{value: number, label: string, name: string, inviteUrl: string, inviteToken: string}|null>}
+   */
+  const handleCreatePlaceholder = useCallback(async (name, extras = {}) => {
+    if (!sessionId || !name?.trim() || isCreatingPlaceholder) return null;
+    setIsCreatingPlaceholder(true);
+    try {
+      const response = await createPlaceholderPlayer({
+        name: name.trim(),
+        gender: extras.gender || undefined,
+        level: extras.level || undefined,
+      });
+      const newPlayer = {
+        id: response.player_id,
+        name: response.name,
+        player_id: response.player_id,
+        full_name: response.name,
+      };
+      handleAdd(newPlayer);
+      showMessage?.('success', `${response.name} created and added to session`);
+      return {
+        value: response.player_id,
+        label: response.name,
+        name: response.name,
+        inviteUrl: response.invite_url,
+        inviteToken: response.invite_token,
+        isPlaceholder: true,
+      };
+    } catch (err) {
+      const detail = err.response?.data?.detail || 'Failed to create player';
+      showMessage?.('error', detail);
+      throw new Error(detail);
+    } finally {
+      setIsCreatingPlaceholder(false);
+    }
+  }, [sessionId, isCreatingPlaceholder, handleAdd, showMessage]);
+
+  /**
+   * Search registered players by name for duplicate checking in the create form.
+   * @param {string} query - Search term
+   * @returns {Promise<{items: Array}>}
+   */
+  const handleSearchPlayers = useCallback((query) => {
+    return getPublicPlayers({ search: query, page_size: 5 });
+  }, []);
+
   const handleToggleFilter = useCallback((key, value) => {
     if (key === 'location') {
       setLocationIds((prev) =>
@@ -316,6 +371,9 @@ export function useSessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    handleCreatePlaceholder,
+    isCreatingPlaceholder,
+    handleSearchPlayers,
     userLocationId: currentUserPlayer?.location_id || null,
   };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Trash2, Check, Link2 } from 'lucide-react';
+import { UserPlus, Trash2, Check, Share2 } from 'lucide-react';
 import { listPlaceholderPlayers, deletePlaceholderPlayer } from '../../services/api';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -54,15 +54,31 @@ export default function PendingInvitesTab() {
   }, [fetchPlaceholders]);
 
   /**
-   * Copy invite URL to clipboard with brief visual feedback.
+   * Share invite URL via navigator.share with clipboard copy fallback.
    */
-  const handleCopyLink = async (placeholder) => {
+  const handleShare = async (placeholder) => {
     try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({
+          title: 'Beach League Invite',
+          url: placeholder.invite_url,
+          text: `${placeholder.name} — claim your matches on Beach League`,
+        });
+        return;
+      }
       await navigator.clipboard.writeText(placeholder.invite_url);
       setCopiedId(placeholder.player_id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      addToast('Failed to copy link');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(placeholder.invite_url);
+          setCopiedId(placeholder.player_id);
+          setTimeout(() => setCopiedId(null), 2000);
+        } catch {
+          addToast('Failed to share link');
+        }
+      }
     }
   };
 
@@ -146,7 +162,7 @@ export default function PendingInvitesTab() {
           <UserPlus size={48} className="pending-invites__empty-icon" />
           <p className="pending-invites__empty-title">No pending invites</p>
           <p className="pending-invites__empty-desc">
-            When you add a new player during match creation, they&apos;ll appear here so you can send them an invite link.
+            During match creation or session setup, you can type a new name and create a placeholder player on the spot. They&apos;ll appear here with an invite link to share.
           </p>
         </div>
       ) : (
@@ -174,8 +190,8 @@ export default function PendingInvitesTab() {
                 <Button
                   variant="outline"
                   className="pending-invites__copy-btn"
-                  onClick={() => handleCopyLink(p)}
-                  title="Copy invite link"
+                  onClick={() => handleShare(p)}
+                  title="Share invite link"
                 >
                   {copiedId === p.player_id ? (
                     <>
@@ -184,8 +200,8 @@ export default function PendingInvitesTab() {
                     </>
                   ) : (
                     <>
-                      <Link2 size={14} />
-                      <span>Copy Link</span>
+                      <Share2 size={14} />
+                      <span>Share</span>
                     </>
                   )}
                 </Button>

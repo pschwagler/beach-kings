@@ -54,6 +54,9 @@ export default function SessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    handleCreatePlaceholder,
+    isCreatingPlaceholder,
+    handleSearchPlayers,
     userLocationId,
   } = useSessionPlayersModal({
     isOpen,
@@ -186,6 +189,9 @@ export default function SessionPlayersModal({
               filterPopoverRef={filterPopoverRef}
               activeFilterCount={activeFilterCount}
               userLocationId={userLocationId}
+              onCreatePlaceholder={handleCreatePlaceholder}
+              isCreatingPlaceholder={isCreatingPlaceholder}
+              onSearchPlayers={handleSearchPlayers}
             />
           )}
         </div>

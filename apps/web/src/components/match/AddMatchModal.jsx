@@ -8,7 +8,7 @@ import ConfirmationModal from '../modal/ConfirmationModal';
 import { useMatchFormReducer } from './useMatchFormReducer';
 import { nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
 import { formatScore } from '../../utils/matchValidation';
-import { createPlaceholderPlayer } from '../../services/api';
+import { createPlaceholderPlayer, getPublicPlayers } from '../../services/api';
 import { ToastContainer, useToasts } from '../ui/Toast';
 
 // Import custom hooks
@@ -127,14 +127,34 @@ export default function AddMatchModal({
   const { handleScoreChange, handlePlayerChange } = formHandlers;
 
   /**
+   * Search registered players by name for duplicate checking in PlayerDropdown.
+   */
+  const handleSearchPlayers = useCallback(async (query) => {
+    return getPublicPlayers({ search: query, page_size: 5 });
+  }, []);
+
+  /** Set of player IDs currently in the league, for PlayerDropdown membership hints. */
+  const leagueMemberIds = useMemo(() => {
+    return new Set(members.map(m => m.player_id));
+  }, [members]);
+
+  /**
    * Create a placeholder player inline from the dropdown.
    * Returns a player option for immediate selection.
    */
-  const handleCreatePlaceholder = useCallback(async (name) => {
+  /**
+   * Create a placeholder player inline from the dropdown.
+   * @param {string} name - Player name
+   * @param {Object} [extras] - Optional gender/level
+   * @returns {Object} Player option for immediate selection
+   */
+  const handleCreatePlaceholder = useCallback(async (name, extras = {}) => {
     const leagueId = (matchType === 'league' && selectedLeagueId) ? selectedLeagueId : undefined;
     const response = await createPlaceholderPlayer({
       name,
       league_id: leagueId,
+      gender: extras.gender || undefined,
+      level: extras.level || undefined,
     });
     const newPlaceholder = {
       player_id: response.player_id,
@@ -249,13 +269,27 @@ export default function AddMatchModal({
 
       // Show invite link toasts for placeholder players after modal closes
       for (const ph of placeholdersInMatch) {
-        const copyLink = () => {
-          navigator.clipboard.writeText(ph.inviteUrl).catch(() => {});
+        const shareLink = async () => {
+          try {
+            if (typeof navigator !== 'undefined' && navigator.share) {
+              await navigator.share({
+                title: 'Beach League Invite',
+                url: ph.inviteUrl,
+                text: `${ph.label} — claim your matches on Beach League`,
+              });
+              return;
+            }
+            navigator.clipboard.writeText(ph.inviteUrl).catch(() => {});
+          } catch (err) {
+            if (err.name !== 'AbortError') {
+              navigator.clipboard?.writeText(ph.inviteUrl).catch(() => {});
+            }
+          }
         };
         addToast(
           `Send invite link to ${ph.label}`,
           {
-            action: <button onClick={copyLink}>Copy Link</button>,
+            action: <button onClick={shareLink}>Share</button>,
             duration: 10000,
           }
         );
@@ -324,52 +358,54 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Collapsible (hidden when sessionOnly) */}
-          {!editMatch && !sessionOnly && (
+          {/* Match Configuration Section - Collapsible */}
+          {!editMatch && (
             <div className="match-config-section">
               <div className="match-config-header-row">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="match-config-toggle inline"
                   onClick={() => setIsConfigExpanded(!isConfigExpanded)}
                 >
                   <Settings size={16} strokeWidth={2.5} />
                   <span className="match-info-title">Game Info</span>
                 </button>
-                
-                <button 
-                  type="button" 
+
+                <button
+                  type="button"
                   className="match-config-chevron-button"
                   onClick={() => setIsConfigExpanded(!isConfigExpanded)}
                 >
                   <ChevronDown size={16} className={`config-chevron ${isConfigExpanded ? 'rotate-180' : ''}`} />
                 </button>
               </div>
-              
+
               {isConfigExpanded && (
                 <div className="match-config-inline-controls">
-                  <div className="match-type-toggle compact">
-                    <button
-                      type="button"
-                      className={`match-type-option compact ${matchType === 'non-league' ? 'active' : ''}`}
-                      onClick={() => {
-                        if (!leagueMatchOnly) {
-                          setMatchType('non-league');
-                        }
-                      }}
-                      disabled={leagueMatchOnly}
-                    >
-                      Non-League
-                    </button>
-                    <button
-                      type="button"
-                      className={`match-type-option compact ${matchType === 'league' ? 'active' : ''}`}
-                      onClick={() => setMatchType('league')}
-                      disabled={leagueMatchOnly}
-                    >
-                      League
-                    </button>
-                  </div>
+                  {!sessionOnly && (
+                    <div className="match-type-toggle compact">
+                      <button
+                        type="button"
+                        className={`match-type-option compact ${matchType === 'non-league' ? 'active' : ''}`}
+                        onClick={() => {
+                          if (!leagueMatchOnly) {
+                            setMatchType('non-league');
+                          }
+                        }}
+                        disabled={leagueMatchOnly}
+                      >
+                        Non-League
+                      </button>
+                      <button
+                        type="button"
+                        className={`match-type-option compact ${matchType === 'league' ? 'active' : ''}`}
+                        onClick={() => setMatchType('league')}
+                        disabled={leagueMatchOnly}
+                      >
+                        League
+                      </button>
+                    </div>
+                  )}
 
                   <div className="ranked-toggle-switch compact">
                     <button
@@ -399,8 +435,8 @@ export default function AddMatchModal({
                   </div>
                 </div>
               )}
-              
-              {isConfigExpanded && matchType === 'league' && (
+
+              {!sessionOnly && isConfigExpanded && matchType === 'league' && (
                 <div className="match-config-item compact league-season-item">
                   <div className="league-season-combined-inline">
                     <div className="league-dropdown-container compact" ref={leagueDropdownRef}>
@@ -487,6 +523,10 @@ export default function AddMatchModal({
               nextScoreRef={team2ScoreRef}
               autoOpenFirstPlayer={shouldAutoOpen}
               onCreatePlaceholder={handleCreatePlaceholder}
+              onSearchPlayers={handleSearchPlayers}
+              leagueMemberIds={leagueMemberIds}
+              leagueGender={league?.gender}
+              leagueLevel={league?.level}
             />
 
             <div className="vs-divider-column">VS</div>
@@ -509,6 +549,10 @@ export default function AddMatchModal({
               scoreRef={team2ScoreRef}
               nextScoreRef={null}
               onCreatePlaceholder={handleCreatePlaceholder}
+              onSearchPlayers={handleSearchPlayers}
+              leagueMemberIds={leagueMemberIds}
+              leagueGender={league?.gender}
+              leagueLevel={league?.level}
             />
           </div>
 
@@ -722,6 +766,10 @@ function TeamSection({
   nextScoreRef,
   autoOpenFirstPlayer = false,
   onCreatePlaceholder = null,
+  onSearchPlayers = null,
+  leagueMemberIds = null,
+  leagueGender = null,
+  leagueLevel = null,
 }) {
   return (
     <div className={`team-section ${isWinner ? 'is-winner' : ''}`} data-testid={`team-${teamNumber}-section`}>
@@ -745,6 +793,10 @@ function TeamSection({
               excludePlayers={getExcludedPlayers(player1Value)}
               autoOpen={autoOpenFirstPlayer}
               onCreatePlaceholder={onCreatePlaceholder}
+              onSearchPlayers={onSearchPlayers}
+              leagueMemberIds={leagueMemberIds}
+              leagueGender={leagueGender}
+              leagueLevel={leagueLevel}
             />
           </div>
           <div ref={player2Ref}>
@@ -755,6 +807,10 @@ function TeamSection({
               placeholder="Player 2"
               excludePlayers={getExcludedPlayers(player2Value)}
               onCreatePlaceholder={onCreatePlaceholder}
+              onSearchPlayers={onSearchPlayers}
+              leagueMemberIds={leagueMemberIds}
+              leagueGender={leagueGender}
+              leagueLevel={leagueLevel}
             />
           </div>
         </div>

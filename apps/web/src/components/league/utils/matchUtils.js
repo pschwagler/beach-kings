@@ -84,6 +84,7 @@ export function sessionMatchToDisplayFormat(match, placeholderPlayerIds) {
     'Team 1 Score': match.team1_score,
     'Team 2 Score': match.team2_score,
     Winner: winner,
+    'Is Ranked': match.is_ranked ?? true,
     'Team 1 ELO Change': 0,
     'Team 2 ELO Change': 0,
   };
@@ -145,6 +146,7 @@ export function transformMatchData(matches, placeholderPlayerIds) {
       'Team 1 Score': match.team1_score,
       'Team 2 Score': match.team2_score,
       Winner: winner,
+      'Is Ranked': match.is_ranked ?? true,
       'Team 1 ELO Change': team1EloChange,
       'Team 2 ELO Change': team2EloChange,
     };

@@ -529,6 +529,8 @@ class CreatePlaceholderRequest(BaseModel):
     name: str
     phone_number: Optional[str] = None
     league_id: Optional[int] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
 
 
 class PlaceholderPlayerResponse(BaseModel):

@@ -66,6 +66,15 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
           {match['Team 2 Score']}
         </div>
       </div>
+
+      {/* Ranked/Unranked badge strip below teams */}
+      <div className="match-card-ranked-strip">
+        {match['Is Ranked'] === false ? (
+          <span className="match-card-badge match-card-badge--unranked">Unranked</span>
+        ) : (
+          <span className="match-card-badge match-card-badge--ranked">Ranked</span>
+        )}
+      </div>
     </div>
   );
 }

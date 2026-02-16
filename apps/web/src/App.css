@@ -2022,6 +2022,32 @@ h1 {
   transform: translateY(-2px);
 }
 
+/* Ranked/Unranked badge strip below match teams */
+.match-card-ranked-strip {
+  text-align: center;
+  padding: 2px 0;
+  background: var(--gray-100);
+  border-top: 1px solid var(--gray-200);
+}
+
+.match-card-badge {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
+
+.match-card-badge--ranked {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.match-card-badge--unranked {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
 .match-card-header {
   background: var(--gray-100);
   padding: 8px 12px;
@@ -12103,7 +12129,6 @@ button.match-config-toggle.inline svg {
   }
 
   .clipboard-table {
-    table-layout: fixed;
     font-size: 0.9rem;
     box-shadow: none;
   }
@@ -12527,8 +12552,7 @@ button.match-config-toggle.inline svg {
 
 .clipboard-table {
   width: 100%;
-  max-width: 33.5rem;
-  table-layout: fixed;
+  table-layout: auto;
   border-collapse: collapse;
   font-size: 0.95rem;
   border: none;
@@ -12536,19 +12560,45 @@ button.match-config-toggle.inline svg {
   border-radius: 0;
 }
 
-/* Enforce column widths: # ~20px (1.25rem), team columns 200px (12.5rem) */
+/* Column width hints for auto layout */
 .clipboard-col-id {
-  width: 1.25rem;
+  width: 2%;
 }
 .clipboard-col-team {
-  width: 12.5rem;
+  /* auto-sized by content */
 }
 .clipboard-col-score {
-  width: 3.25rem;
+  width: 8%;
+}
+.clipboard-col-badge {
+  width: 60px;
 }
 
 .clipboard-score-header {
   text-align: center !important;
+}
+
+/* Clipboard table ranked/unranked badges */
+.clipboard-badge-cell {
+  text-align: center;
+}
+
+.clipboard-ranked-badge {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.clipboard-ranked-badge--ranked {
+  color: var(--primary-dark);
+  background: var(--primary-lighter);
+}
+
+.clipboard-ranked-badge--unranked {
+  color: var(--gray-600);
+  background: var(--gray-200);
 }
 
 .clipboard-table th,

@@ -76,6 +76,8 @@ async def create_placeholder(
     created_by_player_id: int,
     phone_number: Optional[str] = None,
     league_id: Optional[int] = None,
+    gender: Optional[str] = None,
+    level: Optional[str] = None,
 ) -> PlaceholderPlayerResponse:
     """
     Create a placeholder player with an associated invite link.
@@ -86,6 +88,8 @@ async def create_placeholder(
         created_by_player_id: Player ID of the creator
         phone_number: Optional phone number for SMS invite
         league_id: Optional league to add the placeholder to as a member
+        gender: Optional gender (male/female)
+        level: Optional skill level
 
     Returns:
         PlaceholderPlayerResponse with player_id, name, invite_token, invite_url
@@ -111,6 +115,8 @@ async def create_placeholder(
         is_placeholder=True,
         created_by_player_id=created_by_player_id,
         user_id=None,
+        gender=gender,
+        level=level,
     )
     session.add(player)
     await session.flush()

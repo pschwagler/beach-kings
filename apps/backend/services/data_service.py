@@ -2032,6 +2032,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
             cast(0, Integer).label("team1_elo_change"),
             cast(0, Integer).label("team2_elo_change"),
         )
@@ -2064,6 +2065,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
             "team1_elo_change": row.team1_elo_change,
             "team2_elo_change": row.team2_elo_change,
         }
@@ -2470,6 +2472,7 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2535,6 +2538,7 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -2579,6 +2583,7 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2644,6 +2649,7 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -4035,6 +4041,7 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -4065,6 +4072,7 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
+            "is_ranked": r.is_ranked,
         }
         for r in rows
     ]

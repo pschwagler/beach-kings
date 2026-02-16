@@ -1686,6 +1686,8 @@ async def create_placeholder_player(
             created_by_player_id=player["id"],
             phone_number=request.phone_number,
             league_id=request.league_id,
+            gender=request.gender,
+            level=request.level,
         )
         return result
     except HTTPException:
