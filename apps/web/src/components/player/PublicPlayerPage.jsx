@@ -39,6 +39,13 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   // Fetch friend status and mutual friends for authenticated users
   useEffect(() => {
     if (!isAuthenticated || !player?.id) return;
+
+    // Self-detection: skip API call if viewing own profile
+    if (currentUserPlayer?.id === player.id) {
+      setFriendStatus('self');
+      return;
+    }
+
     const load = async () => {
       try {
         const statusData = await batchFriendStatus([player.id]);
@@ -62,7 +69,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       }
     };
     load();
-  }, [isAuthenticated, player?.id]);
+  }, [isAuthenticated, player?.id, currentUserPlayer?.id]);
 
   if (!player) {
     return (

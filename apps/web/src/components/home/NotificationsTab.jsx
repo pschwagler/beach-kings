@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { Bell, Check, Filter } from 'lucide-react';
-import { approveLeagueJoinRequest, rejectLeagueJoinRequest } from '../../services/api';
+import {
+  approveLeagueJoinRequest,
+  rejectLeagueJoinRequest,
+  acceptFriendRequest,
+  declineFriendRequest,
+} from '../../services/api';
 import '../notifications/NotificationInbox.css';
 
 export default function NotificationsTab() {
@@ -84,19 +89,32 @@ export default function NotificationsTab() {
 
   const handleNotificationAction = async (e, notification, action) => {
     e.stopPropagation();
-    
-    try {
-      const { league_id, request_id } = notification.data || {};
-      
-      if (!league_id || !request_id) {
-        console.error('Missing league_id or request_id in notification data');
-        return;
-      }
 
-      if (action.action === 'approve') {
-        await approveLeagueJoinRequest(league_id, request_id);
-      } else if (action.action === 'reject') {
-        await rejectLeagueJoinRequest(league_id, request_id);
+    try {
+      // Friend request actions
+      if (action.action === 'accept_friend' || action.action === 'decline_friend') {
+        const { friend_request_id } = notification.data || {};
+        if (!friend_request_id) {
+          console.error('Missing friend_request_id in notification data');
+          return;
+        }
+        if (action.action === 'accept_friend') {
+          await acceptFriendRequest(friend_request_id);
+        } else {
+          await declineFriendRequest(friend_request_id);
+        }
+      } else {
+        // League actions (approve/reject)
+        const { league_id, request_id } = notification.data || {};
+        if (!league_id || !request_id) {
+          console.error('Missing league_id or request_id in notification data');
+          return;
+        }
+        if (action.action === 'approve') {
+          await approveLeagueJoinRequest(league_id, request_id);
+        } else if (action.action === 'reject') {
+          await rejectLeagueJoinRequest(league_id, request_id);
+        }
       }
 
       // Mark notification as read and refresh

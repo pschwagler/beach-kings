@@ -158,6 +158,18 @@ async def send_friend_request(
                 "This player already sent you a friend request. Accept it instead."
             )
 
+    # Batch-fetch sender name and receiver user_id in one query
+    player_result = await session.execute(
+        select(Player.id, Player.full_name, Player.user_id).where(
+            Player.id.in_([sender_player_id, receiver_player_id])
+        )
+    )
+    player_map = {row.id: row for row in player_result.all()}
+    sender_row = player_map.get(sender_player_id)
+    receiver_row = player_map.get(receiver_player_id)
+    sender_name = sender_row.full_name if sender_row else "Someone"
+    receiver_user_id = receiver_row.user_id if receiver_row else None
+
     # Create the request
     friend_request = FriendRequest(
         sender_player_id=sender_player_id,
@@ -167,19 +179,6 @@ async def send_friend_request(
     session.add(friend_request)
     await session.flush()
     await session.refresh(friend_request)
-
-    # Get sender name for notification
-    sender_result = await session.execute(
-        select(Player.full_name, Player.user_id).where(Player.id == sender_player_id)
-    )
-    sender_row = sender_result.one_or_none()
-    sender_name = sender_row.full_name if sender_row else "Someone"
-
-    # Get receiver user_id for notification
-    receiver_result = await session.execute(
-        select(Player.user_id).where(Player.id == receiver_player_id)
-    )
-    receiver_user_id = receiver_result.scalar_one_or_none()
 
     # Send notification to receiver
     if receiver_user_id:
@@ -193,6 +192,10 @@ async def send_friend_request(
                 data={
                     "sender_player_id": sender_player_id,
                     "friend_request_id": friend_request.id,
+                    "actions": [
+                        {"label": "Accept", "action": "accept_friend", "style": "primary"},
+                        {"label": "Decline", "action": "decline_friend", "style": "secondary"},
+                    ],
                 },
                 link_url="/home?tab=friends",
             )
@@ -248,17 +251,17 @@ async def accept_friend_request(
     session.add(friendship)
     await session.flush()
 
-    # Get receiver name for notification
-    receiver_result = await session.execute(
-        select(Player.full_name).where(Player.id == receiver_player_id)
+    # Batch-fetch receiver name and sender user_id in one query
+    player_result = await session.execute(
+        select(Player.id, Player.full_name, Player.user_id).where(
+            Player.id.in_([receiver_player_id, friend_request.sender_player_id])
+        )
     )
-    receiver_name = receiver_result.scalar_one_or_none() or "Someone"
-
-    # Get sender user_id for notification
-    sender_result = await session.execute(
-        select(Player.user_id).where(Player.id == friend_request.sender_player_id)
-    )
-    sender_user_id = sender_result.scalar_one_or_none()
+    player_map = {row.id: row for row in player_result.all()}
+    receiver_row = player_map.get(receiver_player_id)
+    sender_row = player_map.get(friend_request.sender_player_id)
+    receiver_name = receiver_row.full_name if receiver_row else "Someone"
+    sender_user_id = sender_row.user_id if sender_row else None
 
     # Notify sender that request was accepted
     if sender_user_id:
@@ -280,17 +283,17 @@ async def accept_friend_request(
 
 async def decline_friend_request(
     session: AsyncSession, request_id: int, receiver_player_id: int
-) -> Dict:
+) -> None:
     """
-    Decline a pending friend request.
+    Decline a pending friend request by deleting it.
+
+    Deletes the row so the sender can re-send later without hitting
+    the UniqueConstraint on (sender_player_id, receiver_player_id).
 
     Args:
         session: Database session
         request_id: Friend request ID
         receiver_player_id: Player ID of the receiver (current user)
-
-    Returns:
-        Dict with updated friend request data
 
     Raises:
         ValueError: If request not found, wrong receiver, or not pending
@@ -307,11 +310,8 @@ async def decline_friend_request(
     if friend_request.status != FriendRequestStatus.PENDING.value:
         raise ValueError("Friend request is no longer pending")
 
-    friend_request.status = FriendRequestStatus.DECLINED.value
-    friend_request.responded_at = utcnow()
+    await session.delete(friend_request)
     await session.flush()
-
-    return await _format_friend_request(session, friend_request)
 
 
 async def cancel_friend_request(

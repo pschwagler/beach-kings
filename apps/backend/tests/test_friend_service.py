@@ -136,19 +136,42 @@ async def test_accept_wrong_receiver(db_session, players):
 
 @pytest.mark.asyncio
 async def test_decline_friend_request(db_session, players):
-    """Test declining a request changes status to declined."""
+    """Test declining a request deletes the row."""
     req = await friend_service.send_friend_request(
         db_session, players["alice"], players["bob"]
     )
-    result = await friend_service.decline_friend_request(
+    await friend_service.decline_friend_request(
         db_session, req["id"], players["bob"]
     )
-    assert result["status"] == "declined"
 
     # Should not be friends
     assert not await friend_service.are_friends(
         db_session, players["alice"], players["bob"]
     )
+
+    # Row should be gone — no pending request in either direction
+    pending = await friend_service.get_pending_request(
+        db_session, players["alice"], players["bob"]
+    )
+    assert pending is None
+
+
+@pytest.mark.asyncio
+async def test_decline_then_re_request(db_session, players):
+    """Test that after declining, the sender can re-send a request."""
+    req = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    await friend_service.decline_friend_request(
+        db_session, req["id"], players["bob"]
+    )
+
+    # Sender should be able to re-request without UniqueConstraint error
+    new_req = await friend_service.send_friend_request(
+        db_session, players["alice"], players["bob"]
+    )
+    assert new_req["status"] == "pending"
+    assert new_req["id"] != req["id"]
 
 
 @pytest.mark.asyncio

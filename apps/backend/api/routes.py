@@ -5554,19 +5554,18 @@ async def accept_friend_request(
         raise HTTPException(status_code=500, detail="Error accepting friend request")
 
 
-@router.post("/api/friends/requests/{request_id}/decline", response_model=FriendRequestResponse)
+@router.post("/api/friends/requests/{request_id}/decline", status_code=204)
 async def decline_friend_request(
     request_id: int,
     user: dict = Depends(require_user),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Decline a pending friend request."""
+    """Decline a pending friend request (deletes the row so sender can re-request)."""
     try:
         player_id = await friend_service.get_player_id_for_user(session, user["id"])
         if not player_id:
             raise HTTPException(status_code=404, detail="Player profile not found")
-        result = await friend_service.decline_friend_request(session, request_id, player_id)
-        return result
+        await friend_service.decline_friend_request(session, request_id, player_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
