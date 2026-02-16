@@ -37,6 +37,7 @@ from backend.services import (
     email_service,
     rate_limiting_service,
     settings_service,
+    placeholder_service,
 )
 from backend.services import notification_service
 from backend.services import photo_match_service
@@ -76,6 +77,12 @@ from backend.models.schemas import (
     LeagueCreate,
     LeagueResponse,
     PlayerUpdate,
+    CreatePlaceholderRequest,
+    PlaceholderPlayerResponse,
+    PlaceholderListResponse,
+    DeletePlaceholderResponse,
+    InviteDetailsResponse,
+    ClaimInviteResponse,
     WeeklyScheduleCreate,
     WeeklyScheduleResponse,
     WeeklyScheduleUpdate,
@@ -1596,15 +1603,26 @@ async def list_players(
     level: Optional[List[str]] = Query(None),
     limit: int = 50,
     offset: int = 0,
+    include_placeholders: bool = False,
+    session_id: Optional[int] = None,
+    current_user: Optional[dict] = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
     Get list of players with optional search and filters. Always returns { items, total }.
 
     Query params: q (search name), location_id (repeatable), league_id (repeatable),
-    gender (repeatable), level (repeatable), limit (default 50), offset (default 0).
+    gender (repeatable), level (repeatable), limit (default 50), offset (default 0),
+    include_placeholders (bool, requires auth), session_id (int, for placeholder scoping).
     """
     try:
+        # Resolve placeholder scoping — requires auth
+        include_placeholders_for_player_id = None
+        if include_placeholders and current_user:
+            player = await data_service.get_player_by_user_id(session, current_user["id"])
+            if player:
+                include_placeholders_for_player_id = player["id"]
+
         items, total = await data_service.list_players_search(
             session,
             q=q,
@@ -1614,10 +1632,187 @@ async def list_players(
             levels=level,
             limit=limit,
             offset=offset,
+            include_placeholders_for_player_id=include_placeholders_for_player_id,
+            session_id=session_id,
         )
         return {"items": items, "total": total}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading players: {str(e)}")
+
+
+# --- Placeholder Player endpoints ---
+
+
+@router.post("/api/players/placeholder")
+async def create_placeholder_player(
+    request: CreatePlaceholderRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Create a placeholder player with an invite link.
+
+    Request body:
+        {
+            "name": "John Smith",
+            "phone_number": "+15551234567",  // optional
+            "league_id": 1                    // optional
+        }
+
+    Returns:
+        PlaceholderPlayerResponse
+    """
+    try:
+        if not request.name or not request.name.strip():
+            raise HTTPException(status_code=400, detail="Name is required")
+
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+
+        # Validate league exists if provided
+        if request.league_id is not None:
+            from backend.database.models import League
+
+            league_result = await session.execute(
+                select(League).where(League.id == request.league_id)
+            )
+            if league_result.scalar_one_or_none() is None:
+                raise HTTPException(status_code=404, detail="League not found")
+
+        result = await placeholder_service.create_placeholder(
+            session=session,
+            name=request.name.strip(),
+            created_by_player_id=player["id"],
+            phone_number=request.phone_number,
+            league_id=request.league_id,
+            gender=request.gender,
+            level=request.level,
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating placeholder: {str(e)}")
+
+
+@router.get("/api/players/placeholder")
+async def list_placeholder_players(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    List all placeholder players created by the current user.
+
+    Returns:
+        PlaceholderListResponse
+    """
+    try:
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+
+        result = await placeholder_service.list_placeholders(session, player["id"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing placeholders: {str(e)}")
+
+
+@router.delete("/api/players/placeholder/{player_id}")
+async def delete_placeholder_player(
+    player_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Delete a placeholder player and reassign its matches to "Unknown Player".
+
+    Returns:
+        DeletePlaceholderResponse
+    """
+    try:
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        if not player:
+            raise HTTPException(status_code=404, detail="Player profile not found")
+
+        result = await placeholder_service.delete_placeholder(
+            session=session,
+            player_id=player_id,
+            creator_player_id=player["id"],
+        )
+        return result
+    except HTTPException:
+        raise
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Placeholder player not found")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="You can only delete placeholders you created")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting placeholder: {str(e)}")
+
+
+# --- Invite Claim endpoints ---
+
+
+@router.get("/api/invites/{token}")
+@limiter.limit("30/minute")
+async def get_invite_details(
+    request: Request,
+    token: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get public-facing invite details for the landing page.
+
+    No authentication required. Returns inviter name, placeholder name,
+    match count, league names, and current invite status.
+
+    Returns:
+        InviteDetailsResponse
+    """
+    try:
+        result = await placeholder_service.get_invite_details(session, token)
+        return result
+    except placeholder_service.InviteNotFoundError:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving invite: {str(e)}")
+
+
+@router.post("/api/invites/{token}/claim")
+async def claim_invite(
+    token: str,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Claim an invite, linking the placeholder's matches to the authenticated user.
+
+    If the user has no player profile, the placeholder becomes their profile.
+    If the user already has a player profile, the placeholder's data is merged.
+
+    Returns:
+        ClaimInviteResponse
+    """
+    try:
+        result = await placeholder_service.claim_invite(
+            session=session,
+            token=token,
+            claiming_user_id=current_user["id"],
+        )
+        return result
+    except (placeholder_service.InviteNotFoundError, placeholder_service.PlaceholderNotFoundError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except placeholder_service.InviteAlreadyClaimedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except placeholder_service.MergeConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error claiming invite: {str(e)}")
 
 
 @router.post("/api/players")

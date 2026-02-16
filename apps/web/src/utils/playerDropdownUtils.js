@@ -54,6 +54,18 @@ export function isPlayerExcluded(player, excludePlayers) {
 }
 
 /**
+ * Check if any filtered player label exactly matches the search term (case-insensitive).
+ * @param {Array} filteredPlayers - Normalized player options
+ * @param {string} searchTerm - Trimmed search input
+ * @returns {boolean} True if an exact match exists
+ */
+export function hasExactMatch(filteredPlayers, searchTerm) {
+  if (!searchTerm) return false;
+  const lower = searchTerm.toLowerCase();
+  return filteredPlayers.some(p => p.label.toLowerCase() === lower);
+}
+
+/**
  * Filter players based on search term and exclusions
  */
 export function filterPlayers(normalizedPlayers, excludePlayers, searchTerm) {

@@ -3,7 +3,6 @@ import cors from "cors";
 import clientManager from "./WhatsAppClientManager.js";
 
 const app = express();
-// Use WHATSAPP_PORT instead of PORT to avoid conflicts with Railway's PORT env var
 const PORT = process.env.WHATSAPP_PORT || 3001;
 
 // Middleware

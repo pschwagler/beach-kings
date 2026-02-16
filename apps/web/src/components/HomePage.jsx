@@ -12,6 +12,7 @@ import ProfileTab from "./home/ProfileTab";
 import LeaguesTab from "./home/LeaguesTab";
 import MyGamesTab from "./home/MyGamesTab";
 import FriendsTab from "./home/FriendsTab";
+import PendingInvitesTab from "./home/PendingInvitesTab";
 import NotificationsTab from "./home/NotificationsTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
@@ -199,6 +200,8 @@ export default function HomePage() {
               )}
 
               {activeTab === "friends" && <FriendsTab />}
+
+              {activeTab === "invites" && <PendingInvitesTab />}
 
               {activeTab === "notifications" && <NotificationsTab />}
             </div>

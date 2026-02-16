@@ -4,6 +4,7 @@ import { Crown } from 'lucide-react';
 import { Tooltip } from '../ui/UI';
 import { getFirstPlacePlayer } from '../../utils/playerUtils';
 import { RankingsTableSkeleton } from '../ui/Skeletons';
+import PlaceholderBadge from '../player/PlaceholderBadge';
 
 // Helper function to check if avatar is an image URL
 const isImageUrl = (avatar) => {
@@ -28,7 +29,7 @@ const PlayerAvatar = ({ avatar, playerName }) => {
   );
 };
 
-export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null }) {
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null, placeholderPlayerIds = null }) {
   const router = useRouter();
   const pathname = usePathname();
   
@@ -283,6 +284,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                       <Crown size={15} className="crown-icon-modern" />
                     )}
                     <span>{player.Name}</span>
+                    {placeholderPlayerIds?.has(player.player_id) && <PlaceholderBadge />}
                   </span>
                 </td>
                 <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.Points)}</td>

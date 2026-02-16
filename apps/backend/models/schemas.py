@@ -515,8 +515,79 @@ class PlayerResponse(PlayerBase):
     id: int
     user_id: Optional[int] = None
     avp_playerProfileId: Optional[int] = None
+    is_placeholder: bool = False
     created_at: str
     updated_at: str
+
+
+# --- Placeholder Player Schemas ---
+
+
+class CreatePlaceholderRequest(BaseModel):
+    """Request to create a placeholder player."""
+
+    name: str
+    phone_number: Optional[str] = None
+    league_id: Optional[int] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+
+
+class PlaceholderPlayerResponse(BaseModel):
+    """Response after creating a placeholder player."""
+
+    player_id: int
+    name: str
+    invite_token: str
+    invite_url: str
+
+
+class PlaceholderListItem(BaseModel):
+    """Single placeholder in the creator's list."""
+
+    player_id: int
+    name: str
+    phone_number: Optional[str] = None
+    match_count: int = 0
+    invite_token: str
+    invite_url: str
+    status: str
+    created_at: str
+
+
+class PlaceholderListResponse(BaseModel):
+    """List of placeholders created by the current user."""
+
+    placeholders: List[PlaceholderListItem]
+
+
+class DeletePlaceholderResponse(BaseModel):
+    """Response after deleting a placeholder."""
+
+    affected_matches: int
+
+
+# --- Invite Schemas ---
+
+
+class InviteDetailsResponse(BaseModel):
+    """Public-facing invite details for the landing page."""
+
+    inviter_name: str
+    placeholder_name: str
+    match_count: int
+    league_names: List[str]
+    status: str
+
+
+class ClaimInviteResponse(BaseModel):
+    """Response after claiming an invite."""
+
+    success: bool
+    message: str
+    player_id: int
+    redirect_url: Optional[str] = None
+    warnings: Optional[List[str]] = None
 
 
 class PlayerSeasonStatsResponse(BaseModel):
