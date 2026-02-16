@@ -67,12 +67,19 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         </div>
       </div>
 
-      {/* Ranked/Unranked badge strip below teams */}
+      {/* Ranked/Unranked/Pending badge strip below teams */}
       <div className="match-card-ranked-strip">
-        {match['Is Ranked'] === false ? (
-          <span className="match-card-badge match-card-badge--unranked">Unranked</span>
-        ) : (
+        {match['Is Ranked'] ? (
           <span className="match-card-badge match-card-badge--ranked">Ranked</span>
+        ) : match['Ranked Intent'] ? (
+          <span
+            className="match-card-badge match-card-badge--pending"
+            title="Will become ranked when all players register"
+          >
+            Pending
+          </span>
+        ) : (
+          <span className="match-card-badge match-card-badge--unranked">Unranked</span>
         )}
       </div>
     </div>

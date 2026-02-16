@@ -1757,7 +1757,7 @@ async def delete_placeholder_player(
 
 
 @router.get("/api/invites/{token}")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 async def get_invite_details(
     request: Request,
     token: str,
@@ -1807,6 +1807,8 @@ async def claim_invite(
         raise HTTPException(status_code=404, detail=str(e))
     except placeholder_service.InviteAlreadyClaimedError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except placeholder_service.MergeConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

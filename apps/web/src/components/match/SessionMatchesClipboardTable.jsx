@@ -103,10 +103,17 @@ export default function SessionMatchesClipboardTable({
                     </div>
                   </td>
                   <td className="clipboard-badge-cell">
-                    {match['Is Ranked'] === false ? (
-                      <span className="clipboard-ranked-badge clipboard-ranked-badge--unranked">Unranked</span>
-                    ) : (
+                    {match['Is Ranked'] ? (
                       <span className="clipboard-ranked-badge clipboard-ranked-badge--ranked">Ranked</span>
+                    ) : match['Ranked Intent'] ? (
+                      <span
+                        className="clipboard-ranked-badge clipboard-ranked-badge--pending"
+                        title="Will become ranked when all players register"
+                      >
+                        Pending
+                      </span>
+                    ) : (
+                      <span className="clipboard-ranked-badge clipboard-ranked-badge--unranked">Unranked</span>
                     )}
                   </td>
                   {showActions && (

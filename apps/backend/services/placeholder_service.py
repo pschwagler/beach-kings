@@ -10,7 +10,7 @@ import os
 import re
 import secrets
 import logging
-from typing import Optional, List
+from typing import Optional
 
 from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,6 +68,10 @@ class InviteAlreadyClaimedError(ValueError):
 
 class PlaceholderNotFoundError(ValueError):
     """Raised when a placeholder player cannot be found."""
+
+
+class MergeConflictError(ValueError):
+    """Raised when placeholder and target both appear in the same match."""
 
 
 async def create_placeholder(
@@ -493,12 +497,12 @@ async def merge_placeholder_into_player(
     Merge a placeholder player into an existing real player in a single transaction.
 
     Steps:
-      1. Detect conflicting matches (both placeholder and target appear)
-      2. Transfer non-conflicting match FKs to target
+      1. Reject if any match contains both placeholder and target (data entry error)
+      2. Transfer match FKs to target
       3. Transfer match created_by references
       4. Transfer session_participants (skip duplicates)
       5. Transfer league memberships (skip duplicates)
-      6. Delete placeholder if no conflicting matches remain
+      6. Delete placeholder
 
     Args:
         session: Database session
@@ -506,9 +510,12 @@ async def merge_placeholder_into_player(
         target_player_id: ID of the real player absorbing the placeholder
 
     Returns:
-        Dict with conflicting_match_ids (list[int]) and transferred_matches (int)
+        Dict with transferred_matches (int)
+
+    Raises:
+        MergeConflictError: If any match contains both placeholder and target
     """
-    # 1. Find conflicting matches: both placeholder and target appear
+    # 1. Reject if placeholder and target both appear in any match
     placeholder_condition = or_(*(
         getattr(Match, col) == placeholder_id for col in MATCH_PLAYER_FK_COLS
     ))
@@ -519,16 +526,19 @@ async def merge_placeholder_into_player(
     conflict_result = await session.execute(conflict_stmt)
     conflicting_match_ids = [row[0] for row in conflict_result.all()]
 
-    # 2. Transfer non-conflicting match FKs
+    if conflicting_match_ids:
+        raise MergeConflictError(
+            f"{len(conflicting_match_ids)} match(es) contain both the placeholder "
+            f"and your player profile. This placeholder cannot be claimed by you."
+        )
+
+    # 2. Transfer match FKs from placeholder to target
     transferred = 0
     for col_name in MATCH_PLAYER_FK_COLS:
         col = getattr(Match, col_name)
-        # SQLAlchemy's IN() with an empty list generates `1 != 1` (always false),
-        # so we guard with a plain `True` literal to skip the filter entirely.
-        exclusion = ~Match.id.in_(conflicting_match_ids) if conflicting_match_ids else True
         stmt = (
             update(Match)
-            .where(and_(col == placeholder_id, exclusion))
+            .where(col == placeholder_id)
             .values(**{col_name: target_player_id})
         )
         result = await session.execute(stmt)
@@ -598,25 +608,21 @@ async def merge_placeholder_into_player(
 
     # 6. Repoint invite records to target player (preserves audit trail
     #    before CASCADE would delete them) and delete placeholder
-    if not conflicting_match_ids:
-        await session.execute(
-            update(PlayerInvite)
-            .where(PlayerInvite.player_id == placeholder_id)
-            .values(player_id=target_player_id)
-        )
-        await session.execute(
-            delete(Player).where(Player.id == placeholder_id)
-        )
-
-    logger.info(
-        "Merged placeholder %d → player %d: %d matches transferred, %d conflicts",
-        placeholder_id, target_player_id, transferred, len(conflicting_match_ids),
+    await session.execute(
+        update(PlayerInvite)
+        .where(PlayerInvite.player_id == placeholder_id)
+        .values(player_id=target_player_id)
+    )
+    await session.execute(
+        delete(Player).where(Player.id == placeholder_id)
     )
 
-    return {
-        "conflicting_match_ids": conflicting_match_ids,
-        "transferred_matches": transferred,
-    }
+    logger.info(
+        "Merged placeholder %d → player %d: %d matches transferred",
+        placeholder_id, target_player_id, transferred,
+    )
+
+    return {"transferred_matches": transferred}
 
 
 async def flip_ranked_status_for_resolved_matches(
@@ -657,9 +663,9 @@ async def flip_ranked_status_for_resolved_matches(
             match.team2_player1_id,
             match.team2_player2_id,
         ]
-        # Check if any are still placeholders
+        # Only flip to ranked when user originally intended ranked and no placeholders remain
         has_placeholder = await check_match_has_placeholders(session, all_player_ids)
-        if not has_placeholder:
+        if not has_placeholder and match.ranked_intent:
             await session.execute(
                 update(Match)
                 .where(Match.id == match.id)
@@ -731,7 +737,6 @@ async def claim_invite(
     # 2. Check if claiming user already has a player profile
     existing_player = await data_service.get_player_by_user_id(session, claiming_user_id)
 
-    warnings: List[str] = []
     target_player_id: int
 
     if existing_player is None:
@@ -744,16 +749,11 @@ async def claim_invite(
         )
         target_player_id = placeholder_id
     else:
-        # --- Merge path ---
+        # --- Merge path (raises MergeConflictError if both appear in a match) ---
         target_player_id = existing_player["id"]
-        merge_result = await merge_placeholder_into_player(
+        await merge_placeholder_into_player(
             session, placeholder_id, target_player_id
         )
-        if merge_result["conflicting_match_ids"]:
-            warnings.append(
-                f"{len(merge_result['conflicting_match_ids'])} match(es) already "
-                f"include you and the placeholder — these were skipped during merge."
-            )
 
     # 3. Flip ranked status on affected matches
     flipped = await flip_ranked_status_for_resolved_matches(session, target_player_id)
@@ -813,6 +813,6 @@ async def claim_invite(
         success=True,
         message="Invite claimed successfully.",
         player_id=target_player_id,
-        warnings=warnings if warnings else None,
+        warnings=None,
         redirect_url=redirect_url,
     )

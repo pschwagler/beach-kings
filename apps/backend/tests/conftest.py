@@ -77,11 +77,12 @@ async def test_engine():
         pool_pre_ping=True,
     )
 
-    # Create all tables
+    # Recreate all tables (drop first to pick up schema changes)
     async with engine.begin() as conn:
         # Ensure models are imported so Base.metadata includes all tables
         from backend.database import models  # noqa: F401
 
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     # Monkey-patch AsyncSessionLocal to use the test engine

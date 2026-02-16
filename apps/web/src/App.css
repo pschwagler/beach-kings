@@ -2048,6 +2048,11 @@ h1 {
   color: var(--gray-600);
 }
 
+.match-card-badge--pending {
+  background: var(--warning-light);
+  color: var(--warning-dark);
+}
+
 .match-card-header {
   background: var(--gray-100);
   padding: 8px 12px;
@@ -12703,6 +12708,11 @@ button.match-config-toggle.inline svg {
 .clipboard-ranked-badge--unranked {
   color: var(--gray-600);
   background: var(--gray-200);
+}
+
+.clipboard-ranked-badge--pending {
+  color: var(--warning-dark);
+  background: var(--warning-light);
 }
 
 .clipboard-table th,

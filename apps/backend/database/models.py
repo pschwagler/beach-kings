@@ -575,7 +575,10 @@ class Match(Base):
     is_public = Column(Boolean, default=True, nullable=False)
     is_ranked = Column(
         Boolean, default=True, nullable=False
-    )  # Whether match counts toward rankings
+    )  # Effective ranked status (computed from ranked_intent + placeholder presence)
+    ranked_intent = Column(
+        Boolean, default=True, nullable=False
+    )  # User's original ranked/unranked choice (preserved across placeholder claims)
     created_by = Column(
         Integer, ForeignKey("players.id"), nullable=True
     )  # Player who created the match

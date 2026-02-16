@@ -88,13 +88,16 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   };
 
   const handleMatchClick = (match) => {
+    const sessionCode = match?.['Session Code'];
+    if (sessionCode) {
+      router.push(`/session/${sessionCode}`);
+      return;
+    }
     const leagueId = match['League ID'];
-    const seasonId = match['Season ID'];
-    
     if (leagueId) {
-      // Construct URL with tab and season (if available)
       const params = new URLSearchParams();
       params.set('tab', 'matches');
+      const seasonId = match['Season ID'];
       if (seasonId) {
         params.set('season', seasonId.toString());
       }

@@ -5,7 +5,7 @@ Tests:
 - get_invite_details: valid/invalid token, match count, league names, claimed status
 - claim_invite (new user): placeholder becomes user's player
 - claim_invite (merge): match FKs transferred, placeholder deleted
-- Conflict handling: skipped matches, warnings, placeholder retained
+- Conflict handling: MergeConflictError when both players appear in same match
 - flip_ranked_status: unranked→ranked after all placeholders resolved
 - League membership transfer on claim
 - Notification creation for invite creator
@@ -191,7 +191,7 @@ async def placeholder_in_league(db_session, creator_player, test_league):
 # ============================================================================
 
 
-def _make_match(session_id, p1, p2, p3, p4, is_ranked=False):
+def _make_match(session_id, p1, p2, p3, p4, is_ranked=False, ranked_intent=True):
     """Create a Match object with sensible defaults."""
     return Match(
         session_id=session_id,
@@ -204,6 +204,7 @@ def _make_match(session_id, p1, p2, p3, p4, is_ranked=False):
         team2_score=15,
         winner=1,
         is_ranked=is_ranked,
+        ranked_intent=ranked_intent,
     )
 
 
@@ -419,11 +420,11 @@ class TestClaimConflicts:
     """Tests for claim when claiming user already appears in match with placeholder."""
 
     @pytest.mark.asyncio
-    async def test_conflicting_matches_skipped(
+    async def test_conflicting_matches_reject_claim(
         self, db_session, creator_player, claiming_user, claiming_player,
         other_player, test_session, placeholder_with_invite
     ):
-        """Matches where both placeholder and target exist are skipped."""
+        """Claim is rejected when both placeholder and target appear in a match."""
         ph = placeholder_with_invite
 
         # Conflict: claiming_player and placeholder both in the match
@@ -433,28 +434,20 @@ class TestClaimConflicts:
         )
         db_session.add(conflict_match)
         await db_session.commit()
-        conflict_id = conflict_match.id
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
-            mock_queue.return_value.enqueue_calculation = AsyncMock()
-            result = await placeholder_service.claim_invite(
-                db_session, ph.invite_token, claiming_user
-            )
-
-        assert result.warnings is not None
-        assert len(result.warnings) == 1
-        assert "1 match(es)" in result.warnings[0]
-
-        # The conflicting match should still reference the placeholder
-        match = await db_session.get(Match, conflict_id)
-        assert match.team1_player2_id == ph.player_id
+        with pytest.raises(placeholder_service.MergeConflictError, match="1 match"):
+            with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+                mock_queue.return_value.enqueue_calculation = AsyncMock()
+                await placeholder_service.claim_invite(
+                    db_session, ph.invite_token, claiming_user
+                )
 
     @pytest.mark.asyncio
-    async def test_placeholder_not_deleted_with_conflicts(
+    async def test_placeholder_preserved_on_conflict(
         self, db_session, creator_player, claiming_user, claiming_player,
         other_player, test_session, placeholder_with_invite
     ):
-        """Placeholder is NOT deleted when conflicting matches exist."""
+        """Placeholder and match are untouched when merge is rejected."""
         ph = placeholder_with_invite
         conflict_match = _make_match(
             test_session.id, claiming_player.id, ph.player_id,
@@ -462,14 +455,22 @@ class TestClaimConflicts:
         )
         db_session.add(conflict_match)
         await db_session.commit()
+        conflict_id = conflict_match.id
 
-        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
-            mock_queue.return_value.enqueue_calculation = AsyncMock()
-            await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
+        with pytest.raises(placeholder_service.MergeConflictError):
+            with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+                mock_queue.return_value.enqueue_calculation = AsyncMock()
+                await placeholder_service.claim_invite(
+                    db_session, ph.invite_token, claiming_user
+                )
 
         # Placeholder should still exist
         player = await db_session.get(Player, ph.player_id)
         assert player is not None
+
+        # Match should still reference the placeholder
+        match = await db_session.get(Match, conflict_id)
+        assert match.team1_player2_id == ph.player_id
 
 
 # ============================================================================
@@ -566,6 +567,31 @@ class TestFlipRankedStatus:
 
         updated = await db_session.get(Match, match_id)
         assert updated.is_ranked is True
+
+    @pytest.mark.asyncio
+    async def test_stays_unranked_when_intent_is_unranked(
+        self, db_session, creator_player, claiming_user,
+        other_player, test_session, placeholder_with_invite
+    ):
+        """Match stays unranked after claim when ranked_intent=False."""
+        ph = placeholder_with_invite
+        match = _make_match(
+            test_session.id, creator_player.id, ph.player_id,
+            other_player.id, creator_player.id,
+            is_ranked=False, ranked_intent=False,
+        )
+        db_session.add(match)
+        await db_session.commit()
+        match_id = match.id
+
+        # Claim as new user → placeholder becomes real
+        with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
+            mock_queue.return_value.enqueue_calculation = AsyncMock()
+            await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
+
+        updated = await db_session.get(Match, match_id)
+        assert updated.is_ranked is False  # Intent was unranked, stays unranked
+        assert updated.ranked_intent is False
 
 
 # ============================================================================

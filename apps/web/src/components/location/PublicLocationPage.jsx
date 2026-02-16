@@ -123,7 +123,7 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
                   <span className="public-location__player-stats">
                     {Math.round(player.current_rating)} rating
                     {' \u00B7 '}
-                    {player.total_wins}W\u2013{player.total_games - player.total_wins}L
+                    {player.total_wins}W{'\u2013'}{player.total_games - player.total_wins}L
                   </span>
                 </div>
                 {player.level && <LevelBadge level={player.level} />}

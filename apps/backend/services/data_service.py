@@ -2473,6 +2473,7 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             Match.team2_score,
             Match.winner,
             Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2539,6 +2540,7 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             "team2_score": row.team2_score,
             "winner": row.winner,
             "is_ranked": row.is_ranked,
+            "ranked_intent": row.ranked_intent,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -2584,6 +2586,7 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             Match.team2_score,
             Match.winner,
             Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2650,6 +2653,7 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             "team2_score": row.team2_score,
             "winner": row.winner,
             "is_ranked": row.is_ranked,
+            "ranked_intent": row.ranked_intent,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -3677,6 +3681,8 @@ async def get_player_match_history_by_id(
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
             eh.elo_after,
+            Match.is_ranked,
+            Match.ranked_intent,
             Session.status.label("session_status"),
             Session.name.label("session_name"),
             Session.code.label("session_code"),
@@ -3771,6 +3777,8 @@ async def get_player_match_history_by_id(
                 "Session Code": row.session_code,
                 "Season ID": row.season_id,
                 "League ID": row.league_id,
+                "Is Ranked": row.is_ranked,
+                "Ranked Intent": row.ranked_intent,
             }
         )
 
@@ -4042,6 +4050,7 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             Match.team2_score,
             Match.winner,
             Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -4073,6 +4082,7 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             "team2_score": r.team2_score,
             "winner": r.winner,
             "is_ranked": r.is_ranked,
+            "ranked_intent": r.ranked_intent,
         }
         for r in rows
     ]
@@ -4289,9 +4299,10 @@ async def create_match_async(
     else:
         winner = -1  # Tie
 
-    # Check for placeholder players — force is_ranked=False if any are present
+    # Store the user's ranked intent; compute effective is_ranked
     from backend.services import placeholder_service
 
+    ranked_intent = match_request.is_ranked if match_request.is_ranked is not None else True
     has_placeholders = await placeholder_service.check_match_has_placeholders(
         session,
         [
@@ -4301,10 +4312,7 @@ async def create_match_async(
             match_request.team2_player2_id,
         ],
     )
-    if has_placeholders:
-        is_ranked = False
-    else:
-        is_ranked = match_request.is_ranked if match_request.is_ranked is not None else True
+    is_ranked = ranked_intent and not has_placeholders
 
     # Create match using player IDs directly from the request
     new_match = Match(
@@ -4318,6 +4326,7 @@ async def create_match_async(
         team2_score=match_request.team2_score,
         winner=winner,
         is_public=match_request.is_public if match_request.is_public is not None else True,
+        ranked_intent=ranked_intent,
         is_ranked=is_ranked,
     )
     session.add(new_match)
@@ -4370,6 +4379,23 @@ async def update_match_async(
     match.winner = winner
     if match_request.is_public is not None:
         match.is_public = match_request.is_public
+
+    # Update ranked intent and recompute effective ranked status
+    if match_request.is_ranked is not None:
+        from backend.services import placeholder_service
+
+        match.ranked_intent = match_request.is_ranked
+        has_placeholders = await placeholder_service.check_match_has_placeholders(
+            session,
+            [
+                match.team1_player1_id,
+                match.team1_player2_id,
+                match.team2_player1_id,
+                match.team2_player2_id,
+            ],
+        )
+        match.is_ranked = match.ranked_intent and not has_placeholders
+
     if updated_by is not None:
         match.updated_by = updated_by
 
