@@ -5515,16 +5515,13 @@ async def update_admin_config(
 @router.post("/api/friends/request", response_model=FriendRequestResponse)
 async def send_friend_request(
     payload: FriendRequestCreate,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Send a friend request to another player."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
         result = await friend_service.send_friend_request(
-            session, player_id, payload.receiver_player_id
+            session, user["player_id"], payload.receiver_player_id
         )
         return result
     except ValueError as e:
@@ -5537,15 +5534,12 @@ async def send_friend_request(
 @router.post("/api/friends/requests/{request_id}/accept", response_model=FriendRequestResponse)
 async def accept_friend_request(
     request_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Accept a pending friend request."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        result = await friend_service.accept_friend_request(session, request_id, player_id)
+        result = await friend_service.accept_friend_request(session, request_id, user["player_id"])
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -5557,15 +5551,12 @@ async def accept_friend_request(
 @router.post("/api/friends/requests/{request_id}/decline", status_code=204)
 async def decline_friend_request(
     request_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Decline a pending friend request (deletes the row so sender can re-request)."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        await friend_service.decline_friend_request(session, request_id, player_id)
+        await friend_service.decline_friend_request(session, request_id, user["player_id"])
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -5576,15 +5567,12 @@ async def decline_friend_request(
 @router.delete("/api/friends/requests/{request_id}")
 async def cancel_friend_request(
     request_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Cancel an outgoing friend request."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        await friend_service.cancel_friend_request(session, request_id, player_id)
+        await friend_service.cancel_friend_request(session, request_id, user["player_id"])
         return {"status": "ok", "message": "Friend request cancelled"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -5596,15 +5584,12 @@ async def cancel_friend_request(
 @router.delete("/api/friends/{player_id}")
 async def remove_friend(
     player_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Remove a friend (unfriend)."""
     try:
-        my_player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not my_player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        await friend_service.remove_friend(session, my_player_id, player_id)
+        await friend_service.remove_friend(session, user["player_id"], player_id)
         return {"status": "ok", "message": "Friend removed"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -5617,16 +5602,13 @@ async def remove_friend(
 async def get_friends(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get current user's friends list (paginated)."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
         offset = (page - 1) * page_size
-        result = await friend_service.get_friends(session, player_id, limit=page_size, offset=offset)
+        result = await friend_service.get_friends(session, user["player_id"], limit=page_size, offset=offset)
         return result
     except Exception as e:
         logger.error(f"Error fetching friends: {e}")
@@ -5636,15 +5618,12 @@ async def get_friends(
 @router.get("/api/friends/requests")
 async def get_friend_requests(
     direction: str = Query("both", regex="^(incoming|outgoing|both)$"),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get pending friend requests."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        requests = await friend_service.get_friend_requests(session, player_id, direction=direction)
+        requests = await friend_service.get_friend_requests(session, user["player_id"], direction=direction)
         return requests
     except Exception as e:
         logger.error(f"Error fetching friend requests: {e}")
@@ -5654,15 +5633,12 @@ async def get_friend_requests(
 @router.get("/api/friends/suggestions")
 async def get_friend_suggestions(
     limit: int = Query(10, ge=1, le=50),
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get friend suggestions based on shared leagues."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        suggestions = await friend_service.get_friend_suggestions(session, player_id, limit=limit)
+        suggestions = await friend_service.get_friend_suggestions(session, user["player_id"], limit=limit)
         return suggestions
     except Exception as e:
         logger.error(f"Error fetching friend suggestions: {e}")
@@ -5672,16 +5648,13 @@ async def get_friend_suggestions(
 @router.post("/api/friends/batch-status", response_model=FriendBatchStatusResponse)
 async def batch_friend_status(
     payload: FriendBatchStatusRequest,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get friend status for multiple player IDs (for search results)."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
         result = await friend_service.batch_friend_status(
-            session, player_id, payload.player_ids
+            session, user["player_id"], payload.player_ids
         )
         return result
     except Exception as e:
@@ -5692,15 +5665,12 @@ async def batch_friend_status(
 @router.get("/api/friends/mutual/{other_player_id}")
 async def get_mutual_friends(
     other_player_id: int,
-    user: dict = Depends(require_user),
+    user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get mutual friends between the current user and another player."""
     try:
-        player_id = await friend_service.get_player_id_for_user(session, user["id"])
-        if not player_id:
-            raise HTTPException(status_code=404, detail="Player profile not found")
-        mutual = await friend_service.get_mutual_friends(session, player_id, other_player_id)
+        mutual = await friend_service.get_mutual_friends(session, user["player_id"], other_player_id)
         return mutual
     except Exception as e:
         logger.error(f"Error fetching mutual friends: {e}")
