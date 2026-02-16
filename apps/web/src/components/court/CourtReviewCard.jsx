@@ -47,8 +47,8 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
             {confirming ? (
               <span className="court-review-card__confirm">
                 Delete?{' '}
-                <button onClick={handleDelete} disabled={deleting}>Yes</button>
-                <button onClick={() => setConfirming(false)}>No</button>
+                <button onClick={handleDelete} disabled={deleting} aria-label="Confirm delete review">Yes</button>
+                <button onClick={() => setConfirming(false)} aria-label="Cancel delete">No</button>
               </span>
             ) : (
               <button onClick={() => setConfirming(true)} aria-label="Delete review" className="court-review-card__action-btn">

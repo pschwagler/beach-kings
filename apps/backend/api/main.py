@@ -18,6 +18,7 @@ from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
 from backend.database import db
 from backend.database.init_defaults import init_defaults
+from backend.database.seed_courts import seed_courts
 from backend.services.stats_queue import get_stats_queue
 from backend.services import settings_service
 
@@ -74,6 +75,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
+
+    # Seed court tags and default courts
+    try:
+        await seed_courts()
+        logger.info("✓ Court seed data initialized")
+    except Exception as e:
+        logger.error(f"Failed to seed court data: {e}", exc_info=True)
 
     # Register stats calculation callbacks (must be done before starting worker)
     try:

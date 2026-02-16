@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import StarRating from '../ui/StarRating';
+import { getSurfaceLabel } from '../../constants/court';
 import './CourtCard.css';
 
 /**
@@ -27,11 +28,7 @@ export default function CourtCard({ court }) {
     photo_url,
   } = court;
 
-  const surfaceLabel = {
-    sand: 'Sand',
-    grass: 'Grass',
-    indoor_sand: 'Indoor Sand',
-  }[surface_type] || surface_type;
+  const surfaceLabel = getSurfaceLabel(surface_type);
 
   return (
     <Link href={`/courts/${slug}`} className="court-card">
@@ -72,8 +69,8 @@ export default function CourtCard({ court }) {
             </span>
           )}
           {surfaceLabel && <span className="court-card__meta-item">{surfaceLabel}</span>}
-          {is_free !== null && is_free !== undefined && (
-            <span className="court-card__meta-item">{is_free ? 'Free' : 'Paid'}</span>
+          {is_free === false && (
+            <span className="court-card__meta-item">$</span>
           )}
         </div>
 

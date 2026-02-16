@@ -5,6 +5,7 @@ import { Upload, X } from 'lucide-react';
 import { createCourtReview, updateCourtReview, uploadReviewPhoto, getCourtTags } from '../../services/api';
 import StarRating from '../ui/StarRating';
 import { Button } from '../ui/UI';
+import { MAX_PHOTOS_PER_REVIEW } from '../../constants/court';
 
 /**
  * Inline review form for creating/editing a court review.
@@ -18,6 +19,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
   );
   const [allTags, setAllTags] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [photoUrls, setPhotoUrls] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
@@ -25,6 +27,13 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
   useEffect(() => {
     getCourtTags().then(setAllTags).catch(() => {});
   }, []);
+
+  // Create and revoke object URLs to prevent memory leaks
+  useEffect(() => {
+    const urls = photos.map((file) => URL.createObjectURL(file));
+    setPhotoUrls(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [photos]);
 
   const toggleTag = (tagId) => {
     setSelectedTagIds((prev) =>
@@ -34,7 +43,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
 
   const handlePhotoSelect = (e) => {
     const files = Array.from(e.target.files || []);
-    const maxNew = 3 - photos.length;
+    const maxNew = MAX_PHOTOS_PER_REVIEW - photos.length;
     setPhotos((prev) => [...prev, ...files.slice(0, maxNew)]);
   };
 
@@ -143,11 +152,11 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
 
       {!existingReview && (
         <div className="court-review-form__photos">
-          <label>Photos (up to 3)</label>
+          <label>Photos (up to {MAX_PHOTOS_PER_REVIEW})</label>
           <div className="court-review-form__photo-previews">
             {photos.map((file, i) => (
               <div key={i} className="court-review-form__photo-preview">
-                <img src={URL.createObjectURL(file)} alt={`Upload ${i + 1}`} />
+                <img src={photoUrls[i]} alt={`Upload ${i + 1}`} />
                 <button
                   type="button"
                   className="court-review-form__photo-remove"
@@ -158,7 +167,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
                 </button>
               </div>
             ))}
-            {photos.length < 3 && (
+            {photos.length < MAX_PHOTOS_PER_REVIEW && (
               <button
                 type="button"
                 className="court-review-form__photo-add"

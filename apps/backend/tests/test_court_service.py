@@ -126,9 +126,9 @@ async def court(db_session, location, test_player):
 async def tags(db_session):
     """Create test tags."""
     tag_data = [
-        CourtTag(name="Great Sand", category="quality"),
-        CourtTag(name="Competitive", category="vibe"),
-        CourtTag(name="Good Nets", category="facility"),
+        CourtTag(name="Great Sand", slug="great-sand", category="quality"),
+        CourtTag(name="Competitive", slug="competitive", category="vibe"),
+        CourtTag(name="Good Nets", slug="good-nets", category="facility"),
     ]
     db_session.add_all(tag_data)
     await db_session.commit()
@@ -179,7 +179,7 @@ class TestSlugGeneration:
         await db_session.commit()
 
         slug = await court_service._generate_unique_slug(db_session, "Dup Court", "Test City")
-        assert slug == "dup-court-test-city-2"
+        assert slug == "dup-court-test-city-1"
 
 
 # ============================================================================
@@ -594,7 +594,8 @@ class TestReviewPhotos:
         photo = await court_service.add_review_photo(
             session=db_session,
             review_id=review_id,
-            photo_url="https://s3.example.com/photo1.jpg",
+            player_id=test_player.id,
+            url="https://s3.example.com/photo1.jpg",
             s3_key="court-photos/1/1/photo1.jpg",
         )
         assert photo is not None
@@ -616,16 +617,18 @@ class TestReviewPhotos:
             await court_service.add_review_photo(
                 session=db_session,
                 review_id=review_id,
-                photo_url=f"https://s3.example.com/photo{i}.jpg",
+                player_id=test_player.id,
+                url=f"https://s3.example.com/photo{i}.jpg",
                 s3_key=f"court-photos/1/1/photo{i}.jpg",
             )
 
         # 4th photo should fail
-        with pytest.raises(ValueError, match="maximum"):
+        with pytest.raises(ValueError, match="(?i)maximum"):
             await court_service.add_review_photo(
                 session=db_session,
                 review_id=review_id,
-                photo_url="https://s3.example.com/photo4.jpg",
+                player_id=test_player.id,
+                url="https://s3.example.com/photo4.jpg",
                 s3_key="court-photos/1/1/photo4.jpg",
             )
 

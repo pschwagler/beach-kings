@@ -1,6 +1,6 @@
 .court-directory {
   max-width: 1200px;
-  margin: 0 auto;
+  margin: var(--navbar-height) auto 0;
   padding: 24px 16px 40px;
 }
 

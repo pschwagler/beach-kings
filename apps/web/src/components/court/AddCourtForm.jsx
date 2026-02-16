@@ -2,16 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { submitCourt } from '../../services/api';
+import { submitCourt, getPublicLocations } from '../../services/api';
 import { Button } from '../ui/UI';
 import Toast from '../ui/Toast';
+import { SURFACE_OPTIONS } from '../../constants/court';
 import './AddCourtForm.css';
-
-const SURFACE_OPTIONS = [
-  { value: 'sand', label: 'Sand' },
-  { value: 'grass', label: 'Grass' },
-  { value: 'indoor_sand', label: 'Indoor Sand' },
-];
 
 /**
  * Multi-field form for submitting a new court for admin approval.
@@ -44,18 +39,17 @@ export default function AddCourtForm({ onClose, onSuccess }) {
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
-    // Fetch locations for dropdown
-    import('../../services/api').then(({ default: api }) => {
-      api.get('/api/public/locations').then((res) => {
+    getPublicLocations()
+      .then((regions) => {
         const locs = [];
-        (res.data || []).forEach((region) => {
+        (regions || []).forEach((region) => {
           (region.locations || []).forEach((loc) => {
             locs.push({ id: loc.id, name: loc.name });
           });
         });
         setLocations(locs);
-      }).catch(() => {});
-    });
+      })
+      .catch(() => {});
   }, []);
 
   const handleChange = (field, value) => {

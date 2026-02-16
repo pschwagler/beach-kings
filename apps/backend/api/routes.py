@@ -44,6 +44,7 @@ from backend.services import photo_match_service
 from backend.services import avatar_service
 from backend.services import s3_service
 from backend.services import court_service
+from backend.services import court_photo_service
 from backend.services import geocoding_service
 from backend.services.websocket_manager import get_websocket_manager
 from backend.services import location_service
@@ -55,6 +56,7 @@ from backend.api.auth_dependencies import (
     require_verified_player,
     require_system_admin,
     require_admin_phone,
+    require_court_owner_or_admin,
     make_require_league_admin,
     make_require_league_member,
     make_require_league_admin_from_season,
@@ -112,11 +114,21 @@ import httpx
 import os
 import logging
 import traceback
+import uuid
+from enum import Enum
 from typing import Optional, Dict, Any, List
 from datetime import date, datetime, timedelta
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
+
+
+class SuggestionAction(str, Enum):
+    """Allowed actions for resolving a court edit suggestion."""
+
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
 
 router = APIRouter()
 
@@ -1470,19 +1482,7 @@ async def update_court_discovery(
     Only the court creator or a system admin can update court fields.
     """
     try:
-        from backend.api.auth_dependencies import _is_system_admin
-
-        # Check ownership or admin
-        court_result = await session.execute(
-            select(data_service.Court).where(data_service.Court.id == court_id)
-        )
-        court = court_result.scalar_one_or_none()
-        if not court:
-            raise HTTPException(status_code=404, detail="Court not found")
-
-        is_admin = await _is_system_admin(session, user)
-        if court.created_by != user["player_id"] and not is_admin:
-            raise HTTPException(status_code=403, detail="Not authorized to update this court")
+        await require_court_owner_or_admin(session, court_id, user)
 
         result = await court_service.update_court_fields(
             session,
@@ -1591,8 +1591,8 @@ async def delete_court_review(
             for key in photo_keys:
                 try:
                     await s3_service.delete_file(key)
-                except Exception:
-                    logger.warning("Failed to delete S3 photo: %s", key)
+                except Exception as exc:
+                    logger.error("Failed to delete S3 photo: %s — %s", key, exc, exc_info=True)
 
         return result
     except HTTPException:
@@ -1619,9 +1619,6 @@ async def upload_review_photo(
     Two-step: create review first, then upload photos separately.
     """
     try:
-        import uuid
-        from backend.services import court_photo_service
-
         # Process and upload
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{review_id}/{uuid.uuid4()}.jpg"
@@ -1682,19 +1679,7 @@ async def list_court_edit_suggestions(
 ):
     """List edit suggestions for a court (creator or admin)."""
     try:
-        from backend.api.auth_dependencies import _is_system_admin
-
-        court_result = await session.execute(
-            select(data_service.Court).where(data_service.Court.id == court_id)
-        )
-        court = court_result.scalar_one_or_none()
-        if not court:
-            raise HTTPException(status_code=404, detail="Court not found")
-
-        is_admin = await _is_system_admin(session, user)
-        if court.created_by != user["player_id"] and not is_admin:
-            raise HTTPException(status_code=403, detail="Not authorized")
-
+        await require_court_owner_or_admin(session, court_id, user)
         return await court_service.list_edit_suggestions(session, court_id)
     except HTTPException:
         raise
@@ -1706,16 +1691,31 @@ async def list_court_edit_suggestions(
 @router.put("/api/courts/suggestions/{suggestion_id}", response_model=dict)
 async def resolve_court_edit_suggestion(
     suggestion_id: int,
-    action: str = Query(..., regex="^(approved|rejected)$"),
+    action: SuggestionAction = Query(...),
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Approve or reject an edit suggestion (court creator or admin)."""
     try:
+        # Look up the suggestion to find its court, then verify ownership
+        from sqlalchemy import select as sa_select
+        from backend.database.models import CourtEditSuggestion
+
+        suggestion_result = await session.execute(
+            sa_select(CourtEditSuggestion.court_id).where(
+                CourtEditSuggestion.id == suggestion_id
+            )
+        )
+        court_id = suggestion_result.scalar_one_or_none()
+        if court_id is None:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+
+        await require_court_owner_or_admin(session, court_id, user)
+
         result = await court_service.resolve_edit_suggestion(
             session,
             suggestion_id=suggestion_id,
-            action=action,
+            action=action.value,
             reviewer_player_id=user["player_id"],
         )
         if not result:

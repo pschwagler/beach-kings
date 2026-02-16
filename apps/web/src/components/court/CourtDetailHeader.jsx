@@ -2,16 +2,13 @@
 
 import { MapPin } from 'lucide-react';
 import StarRating from '../ui/StarRating';
+import { getSurfaceLabel } from '../../constants/court';
 
 /**
  * Court detail page header: name, rating, address, badges.
  */
 export default function CourtDetailHeader({ court }) {
-  const surfaceLabel = {
-    sand: 'Sand',
-    grass: 'Grass',
-    indoor_sand: 'Indoor Sand',
-  }[court.surface_type] || court.surface_type;
+  const surfaceLabel = getSurfaceLabel(court.surface_type);
 
   return (
     <div className="court-detail__header">
@@ -43,10 +40,8 @@ export default function CourtDetailHeader({ court }) {
           </span>
         )}
         {surfaceLabel && <span className="court-detail__badge">{surfaceLabel}</span>}
-        {court.is_free !== null && court.is_free !== undefined && (
-          <span className={`court-detail__badge${court.is_free ? ' court-detail__badge--free' : ''}`}>
-            {court.is_free ? 'Free' : 'Paid'}
-          </span>
+        {court.is_free === false && (
+          <span className="court-detail__badge">$</span>
         )}
         {court.has_lights && <span className="court-detail__badge">Lights</span>}
         {court.nets_provided && <span className="court-detail__badge">Nets Provided</span>}

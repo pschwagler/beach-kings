@@ -2,7 +2,7 @@
 
 .court-detail {
   max-width: 900px;
-  margin: 0 auto;
+  margin: var(--navbar-height) auto 0;
   padding: 24px 16px 40px;
 }
 
@@ -94,7 +94,7 @@
 
 .court-detail__badge--free {
   color: var(--success);
-  background: #e6f9f0;
+  background: var(--success-light);
 }
 
 /* Photo Gallery */

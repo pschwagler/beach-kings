@@ -8,6 +8,7 @@ Falls back to (None, None) on any failure so court creation is never blocked.
 import logging
 import os
 from typing import Optional, Tuple
+from urllib.parse import quote
 
 import httpx
 
@@ -37,11 +38,9 @@ async def geocode_address(address: str) -> Tuple[Optional[float], Optional[float
         return None, None
 
     try:
-        url = f"{MAPBOX_GEOCODING_URL}/{httpx.URL(address).raw_path or address}.json"
-        # Use the search endpoint correctly
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{MAPBOX_GEOCODING_URL}/{address}.json",
+                f"{MAPBOX_GEOCODING_URL}/{quote(address, safe='')}.json",
                 params={
                     "access_token": token,
                     "limit": 1,

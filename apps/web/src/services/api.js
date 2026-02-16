@@ -863,6 +863,12 @@ export const logout = async () => {
   return response.data;
 };
 
+/** Fetch public location list (regions + locations) for dropdowns. */
+export const getPublicLocations = async () => {
+  const response = await api.get('/api/public/locations');
+  return response.data;
+};
+
 /**
  * Court API methods (legacy — admin CRUD)
  */

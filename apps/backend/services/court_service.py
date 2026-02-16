@@ -29,6 +29,11 @@ from backend.utils.geo_utils import calculate_distance_miles
 logger = logging.getLogger(__name__)
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE-special characters (%, _) so they match literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 # ---------------------------------------------------------------------------
 # Slug helpers
 # ---------------------------------------------------------------------------
@@ -105,7 +110,22 @@ async def list_courts_public(
     """
     List approved, active courts with optional filters and pagination.
 
-    Returns a PaginatedCourtsResponse-shaped dict with items + metadata.
+    Args:
+        session: Database session.
+        location_id: Filter by location hub ID (e.g. ``socal_sd``).
+        surface_type: Filter by surface (``sand``, ``grass``, ``indoor_sand``).
+        min_rating: Minimum average rating (1–5).
+        is_free: Filter free (True) or paid (False) courts.
+        has_lights: Filter courts with lights.
+        has_restrooms: Filter courts with restrooms.
+        has_parking: Filter courts with parking.
+        nets_provided: Filter courts with nets.
+        search: Free-text search on name or address.
+        page: Page number (1-indexed).
+        page_size: Items per page (default 20).
+
+    Returns:
+        Dict with ``items``, ``total_count``, ``page``, ``page_size``.
     """
     base = select(Court).where(
         and_(Court.status == "approved", Court.is_active == True)  # noqa: E712
@@ -129,7 +149,7 @@ async def list_courts_public(
     if nets_provided is not None:
         base = base.where(Court.nets_provided == nets_provided)
     if search:
-        pattern = f"%{search}%"
+        pattern = f"%{_escape_like(search)}%"
         base = base.where(
             or_(Court.name.ilike(pattern), Court.address.ilike(pattern))
         )
@@ -149,16 +169,15 @@ async def list_courts_public(
     )
     rows = (await session.execute(courts_q)).all()
 
+    # Batch-load tags and thumbnails to avoid N+1 queries
+    court_ids = [row[0].id for row in rows]
+    tags_map = await _batch_get_top_tags(session, court_ids, limit=3)
+    photos_map = await _batch_get_thumbnails(session, court_ids)
+
     items = []
     for row in rows:
         court = row[0]
         loc_name = row[1]
-
-        # Fetch top tags for this court (most-used across reviews)
-        top_tags = await _get_court_top_tags(session, court.id, limit=3)
-
-        # Get first photo as thumbnail
-        photo_url = await _get_court_thumbnail(session, court.id)
 
         items.append(
             {
@@ -177,8 +196,8 @@ async def list_courts_public(
                 "longitude": court.longitude,
                 "average_rating": court.average_rating,
                 "review_count": court.review_count or 0,
-                "top_tags": top_tags,
-                "photo_url": photo_url,
+                "top_tags": tags_map.get(court.id, []),
+                "photo_url": photos_map.get(court.id),
             }
         )
 
@@ -190,37 +209,73 @@ async def list_courts_public(
     }
 
 
-async def _get_court_top_tags(
-    session: AsyncSession, court_id: int, limit: int = 3
-) -> List[str]:
-    """Return the most-used tag names for a court (across all reviews)."""
-    q = (
-        select(CourtTag.name, func.count(CourtReviewTag.id).label("cnt"))
-        .join(CourtReviewTag, CourtTag.id == CourtReviewTag.tag_id)
-        .join(CourtReview, CourtReviewTag.review_id == CourtReview.id)
-        .where(CourtReview.court_id == court_id)
-        .group_by(CourtTag.name)
-        .order_by(func.count(CourtReviewTag.id).desc())
-        .limit(limit)
+async def _batch_get_top_tags(
+    session: AsyncSession, court_ids: List[int], limit: int = 3
+) -> Dict[int, List[str]]:
+    """Return the top-N most-used tag names for each court in a single query."""
+    if not court_ids:
+        return {}
+
+    # Rank tags per court by frequency, then filter to top N
+    ranked = (
+        select(
+            CourtReview.court_id,
+            CourtTag.name,
+            func.count(CourtReviewTag.id).label("cnt"),
+            func.row_number()
+            .over(
+                partition_by=CourtReview.court_id,
+                order_by=func.count(CourtReviewTag.id).desc(),
+            )
+            .label("rn"),
+        )
+        .join(CourtReviewTag, CourtReview.id == CourtReviewTag.review_id)
+        .join(CourtTag, CourtReviewTag.tag_id == CourtTag.id)
+        .where(CourtReview.court_id.in_(court_ids))
+        .group_by(CourtReview.court_id, CourtTag.name)
+        .subquery()
     )
+
+    q = select(ranked.c.court_id, ranked.c.name).where(ranked.c.rn <= limit)
     result = await session.execute(q)
-    return [row[0] for row in result.all()]
+
+    tags_map: Dict[int, List[str]] = {cid: [] for cid in court_ids}
+    for court_id, tag_name in result.all():
+        tags_map[court_id].append(tag_name)
+    return tags_map
 
 
-async def _get_court_thumbnail(
-    session: AsyncSession, court_id: int
-) -> Optional[str]:
-    """Return the URL of the most recent photo for a court, or None."""
-    q = (
-        select(CourtReviewPhoto.url)
+async def _batch_get_thumbnails(
+    session: AsyncSession, court_ids: List[int]
+) -> Dict[int, Optional[str]]:
+    """Return the most recent photo URL for each court in a single query."""
+    if not court_ids:
+        return {}
+
+    # Rank photos per court by recency, then pick the first
+    ranked = (
+        select(
+            CourtReview.court_id,
+            CourtReviewPhoto.url,
+            func.row_number()
+            .over(
+                partition_by=CourtReview.court_id,
+                order_by=CourtReviewPhoto.created_at.desc(),
+            )
+            .label("rn"),
+        )
         .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
-        .where(CourtReview.court_id == court_id)
-        .order_by(CourtReviewPhoto.created_at.desc())
-        .limit(1)
+        .where(CourtReview.court_id.in_(court_ids))
+        .subquery()
     )
+
+    q = select(ranked.c.court_id, ranked.c.url).where(ranked.c.rn == 1)
     result = await session.execute(q)
-    row = result.first()
-    return row[0] if row else None
+
+    photos_map: Dict[int, Optional[str]] = {}
+    for court_id, url in result.all():
+        photos_map[court_id] = url
+    return photos_map
 
 
 # ---------------------------------------------------------------------------

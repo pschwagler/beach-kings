@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import Map, { Marker, Popup, NavigationControl } from 'react-map-gl';
+import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import { MapPin } from 'lucide-react';
 import StarRating from '../ui/StarRating';
 import 'mapbox-gl/dist/mapbox-gl.css';
