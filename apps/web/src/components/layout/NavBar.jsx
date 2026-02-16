@@ -58,6 +58,10 @@ export default function NavBar({
     router.push(isAuthenticated ? '/home' : '/');
   };
 
+  const handleCourtsClick = () => {
+    router.push('/courts');
+  };
+
   return (
     <nav className="navbar" data-nextjs-scroll-focus-boundary>
       <div className="navbar-container">
@@ -82,6 +86,14 @@ export default function NavBar({
                 strokeLinejoin="round"
               />
             </svg>
+          </button>
+          <button
+            type="button"
+            className="navbar-courts-button"
+            onClick={handleCourtsClick}
+            aria-label="Courts"
+          >
+            Courts
           </button>
         </div>
 

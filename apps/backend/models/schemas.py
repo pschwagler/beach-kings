@@ -1089,3 +1089,226 @@ class PaginatedPublicPlayersResponse(BaseModel):
     total_count: int = 0
     page: int = 1
     page_size: int = 25
+
+
+# ============================================================================
+# Court Discovery & Reviews schemas
+# ============================================================================
+
+
+class CourtTagResponse(BaseModel):
+    """Single curated review tag."""
+
+    id: int
+    name: str
+    slug: str
+    category: str
+    sort_order: int = 0
+
+
+class CourtReviewPhotoResponse(BaseModel):
+    """Photo attached to a court review."""
+
+    id: int
+    url: str
+    sort_order: int = 0
+
+
+class CourtReviewAuthor(BaseModel):
+    """Minimal author info embedded in a review response."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+
+
+class CourtReviewResponse(BaseModel):
+    """Single court review with tags, photos, and author."""
+
+    id: int
+    court_id: int
+    rating: int
+    review_text: Optional[str] = None
+    author: CourtReviewAuthor
+    tags: List[CourtTagResponse] = []
+    photos: List[CourtReviewPhotoResponse] = []
+    created_at: str
+    updated_at: str
+
+
+class CourtListItem(BaseModel):
+    """Court card in directory listing."""
+
+    id: int
+    name: str
+    slug: str
+    address: Optional[str] = None
+    location_id: str
+    location_name: Optional[str] = None
+    court_count: Optional[int] = None
+    surface_type: Optional[str] = None
+    is_free: Optional[bool] = None
+    has_lights: Optional[bool] = None
+    nets_provided: Optional[bool] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    average_rating: Optional[float] = None
+    review_count: int = 0
+    top_tags: List[str] = []
+    photo_url: Optional[str] = None  # First review photo as thumbnail
+
+
+class PaginatedCourtsResponse(BaseModel):
+    """Paginated response for GET /api/public/courts."""
+
+    items: List[CourtListItem] = []
+    total_count: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class CourtDetailResponse(BaseModel):
+    """Full court detail for GET /api/public/courts/{slug}."""
+
+    id: int
+    name: str
+    slug: str
+    address: Optional[str] = None
+    description: Optional[str] = None
+    location_id: str
+    location_name: Optional[str] = None
+    court_count: Optional[int] = None
+    surface_type: Optional[str] = None
+    is_free: Optional[bool] = None
+    cost_info: Optional[str] = None
+    has_lights: Optional[bool] = None
+    has_restrooms: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    parking_info: Optional[str] = None
+    nets_provided: Optional[bool] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    average_rating: Optional[float] = None
+    review_count: int = 0
+    status: str = "approved"
+    is_active: bool = True
+    created_by: Optional[int] = None
+    reviews: List[CourtReviewResponse] = []
+    all_photos: List[CourtReviewPhotoResponse] = []  # Aggregated across reviews
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class CourtNearbyItem(BaseModel):
+    """Nearby court with distance."""
+
+    id: int
+    name: str
+    slug: str
+    address: Optional[str] = None
+    surface_type: Optional[str] = None
+    average_rating: Optional[float] = None
+    review_count: int = 0
+    distance_miles: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class CreateCourtRequest(BaseModel):
+    """Request to submit a new court for approval."""
+
+    name: str
+    address: str
+    location_id: str
+    description: Optional[str] = None
+    court_count: Optional[int] = None
+    surface_type: Optional[str] = None  # 'sand', 'grass', 'indoor_sand'
+    is_free: Optional[bool] = None
+    cost_info: Optional[str] = None
+    has_lights: Optional[bool] = None
+    has_restrooms: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    parking_info: Optional[str] = None
+    nets_provided: Optional[bool] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class UpdateCourtRequest(BaseModel):
+    """Request to update court info (creator or admin)."""
+
+    name: Optional[str] = None
+    address: Optional[str] = None
+    description: Optional[str] = None
+    court_count: Optional[int] = None
+    surface_type: Optional[str] = None
+    is_free: Optional[bool] = None
+    cost_info: Optional[str] = None
+    has_lights: Optional[bool] = None
+    has_restrooms: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    parking_info: Optional[str] = None
+    nets_provided: Optional[bool] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+class CreateReviewRequest(BaseModel):
+    """Request to create a court review."""
+
+    rating: int = Field(ge=1, le=5)
+    review_text: Optional[str] = None
+    tag_ids: List[int] = []
+
+
+class UpdateReviewRequest(BaseModel):
+    """Request to update a court review."""
+
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    review_text: Optional[str] = None
+    tag_ids: Optional[List[int]] = None
+
+
+class CourtEditSuggestionRequest(BaseModel):
+    """Request to suggest edits to a court."""
+
+    changes: dict  # field -> new_value
+
+
+class CourtEditSuggestionResponse(BaseModel):
+    """Response for a court edit suggestion."""
+
+    id: int
+    court_id: int
+    suggested_by: int
+    suggester_name: Optional[str] = None
+    changes: dict
+    status: str = "pending"
+    reviewed_by: Optional[int] = None
+    created_at: str
+    reviewed_at: Optional[str] = None
+
+
+class ReviewActionResponse(BaseModel):
+    """Response after creating/updating/deleting a review."""
+
+    review_id: Optional[int] = None
+    average_rating: Optional[float] = None
+    review_count: int = 0
+
+
+class SitemapCourtItem(BaseModel):
+    """Single court entry for sitemap generation."""
+
+    slug: str
+    updated_at: Optional[str] = None

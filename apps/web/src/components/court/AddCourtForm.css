@@ -1,0 +1,126 @@
+.add-court-form {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.add-court-form__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.add-court-form__header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.add-court-form__close {
+  background: none;
+  border: none;
+  color: var(--gray-500);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.add-court-form__close:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+.add-court-form__info {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0 0 20px;
+}
+
+.add-court-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.add-court-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-court-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.add-court-form__field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.add-court-form__field input,
+.add-court-form__field select,
+.add-court-form__field textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--gray-900);
+}
+
+.add-court-form__field input:focus,
+.add-court-form__field select:focus,
+.add-court-form__field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+}
+
+.add-court-form__amenities {
+  grid-column: 1 / -1;
+}
+
+.add-court-form__amenity-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.add-court-form__checkboxes {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.add-court-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.add-court-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .add-court-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-court-form__checkboxes {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

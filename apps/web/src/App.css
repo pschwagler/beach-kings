@@ -658,6 +658,24 @@ table:not([class]) tr:last-child td {
   height: 22px;
 }
 
+.navbar-courts-button {
+  background: transparent;
+  border: none;
+  color: var(--gold-text);
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.navbar-courts-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .navbar-menu-group {
   position: relative;
 }
@@ -2052,7 +2070,6 @@ h1 {
   background: var(--warning-light);
   color: var(--warning-dark);
 }
-
 .match-card-header {
   background: var(--gray-100);
   padding: 8px 12px;
@@ -8524,6 +8541,59 @@ button.match-config-toggle.inline svg {
   stroke-width: 2.5;
 }
 
+/* Ranked/Unranked badge strip at the bottom of match card */
+.match-card-ranked-strip {
+  text-align: center;
+  padding: 2px 0;
+  background: var(--gray-100);
+  border-top: 1px solid var(--gray-200);
+}
+
+.match-card-badge {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
+
+.match-card-badge--ranked {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.match-card-badge--unranked {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
+/* Ranked/Unranked badge in clipboard table */
+.clipboard-ranked-badge {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.clipboard-ranked-badge--ranked {
+  color: var(--primary-dark);
+  background: var(--primary-lighter);
+}
+
+.clipboard-ranked-badge--unranked {
+  color: var(--gray-600);
+  background: var(--gray-200);
+}
+
+.clipboard-badge-cell {
+  text-align: center;
+}
+
+.clipboard-col-badge {
+  width: 60px;
+}
+
 /* Active Session Row in Match History */
 .active-session-row {
   background: rgba(16, 185, 129, 0.05) !important;
@@ -11901,6 +11971,49 @@ button.match-config-toggle.inline svg {
   }
 }
 
+/* Admin Court Actions */
+.admin-court-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-court-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-court-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-court-action-btn--approve {
+  color: var(--success);
+}
+
+.admin-court-action-btn--approve:hover:not(:disabled) {
+  background: #e6f9f0;
+  border-color: var(--success);
+}
+
+.admin-court-action-btn--reject {
+  color: var(--danger);
+}
+
+.admin-court-action-btn--reject:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: var(--danger);
+}
+
 @media (max-width: 576px) {
   .modal-overlay {
     padding: 0;
@@ -12714,7 +12827,6 @@ button.match-config-toggle.inline svg {
   color: var(--warning-dark);
   background: var(--warning-light);
 }
-
 .clipboard-table th,
 .clipboard-table td {
   padding: 12px 16px;

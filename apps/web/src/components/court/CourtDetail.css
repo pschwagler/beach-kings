@@ -1,0 +1,616 @@
+/* Court Detail Page */
+
+.court-detail {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.court-detail--not-found {
+  text-align: center;
+  padding-top: 80px;
+}
+
+.court-detail--not-found h1 {
+  font-size: 22px;
+  color: var(--gray-900);
+}
+
+.court-detail--not-found p {
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+.court-detail--not-found a {
+  color: var(--primary);
+}
+
+.court-detail__section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+/* Header */
+
+.court-detail__header {
+  margin-bottom: 24px;
+}
+
+.court-detail__name {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 8px;
+}
+
+.court-detail__rating-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.court-detail__review-count {
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.court-detail__new-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-lighter);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.court-detail__address {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0 0 12px;
+}
+
+.court-detail__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.court-detail__badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-700);
+  background: var(--gray-200);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.court-detail__badge--free {
+  color: var(--success);
+  background: #e6f9f0;
+}
+
+/* Photo Gallery */
+
+.court-detail__gallery {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.court-detail__gallery-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 0;
+}
+
+.court-detail__gallery-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.court-detail__gallery-img {
+  flex: 0 0 auto;
+  width: 280px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  scroll-snap-align: start;
+}
+
+.court-detail__gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: white;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  color: var(--gray-700);
+  z-index: 2;
+}
+
+.court-detail__gallery-nav--left { left: 8px; }
+.court-detail__gallery-nav--right { right: 8px; }
+
+.court-detail__gallery-nav:hover {
+  background: var(--gray-50);
+}
+
+/* Amenities */
+
+.court-detail__amenities {
+  margin-bottom: 24px;
+}
+
+.court-detail__amenities-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.court-detail__amenity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-700);
+  background: var(--gray-50);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.court-detail__amenity svg {
+  color: var(--primary);
+}
+
+/* Info Section */
+
+.court-detail__info-section,
+.court-detail__description {
+  margin-bottom: 24px;
+}
+
+.court-detail__info-row {
+  font-size: 14px;
+  color: var(--gray-700);
+  margin: 4px 0;
+}
+
+.court-detail__info-row a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.court-detail__info-row a:hover {
+  text-decoration: underline;
+}
+
+.court-detail__description p {
+  font-size: 14px;
+  color: var(--gray-700);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Reviews */
+
+.court-detail__reviews {
+  margin-bottom: 24px;
+}
+
+.court-detail__reviews-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.court-detail__reviews-header .court-detail__section-title {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.court-detail__no-reviews {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--gray-600);
+}
+
+.court-detail__reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Review Card */
+
+.court-review-card {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+}
+
+.court-review-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.court-review-card__author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.court-review-card__author-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.court-review-card__date {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.court-review-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.court-review-card__action-btn {
+  background: none;
+  border: none;
+  color: var(--gray-500);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.court-review-card__action-btn:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+.court-review-card__confirm {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.court-review-card__confirm button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  margin-left: 4px;
+}
+
+.court-review-card__confirm button:first-of-type {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.court-review-card__text {
+  font-size: 14px;
+  color: var(--gray-700);
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.court-review-card__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.court-review-card__tag {
+  font-size: 11px;
+  color: var(--gray-700);
+  background: var(--gray-200);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.court-review-card__photos {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.court-review-card__photos img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* Review Form */
+
+.court-review-form {
+  border: 1px solid var(--primary-lighter);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--gray-50);
+  margin-bottom: 16px;
+}
+
+.court-review-form__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 16px;
+}
+
+.court-review-form__error {
+  font-size: 13px;
+  color: var(--danger);
+  margin: 0 0 12px;
+}
+
+.court-review-form__rating {
+  margin-bottom: 16px;
+}
+
+.court-review-form__rating label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 4px;
+}
+
+.court-review-form__field {
+  margin-bottom: 16px;
+}
+
+.court-review-form__field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 4px;
+}
+
+.court-review-form__field textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.court-review-form__field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+}
+
+.court-review-form__tags {
+  margin-bottom: 16px;
+}
+
+.court-review-form__tags > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.court-review-form__tag-group {
+  margin-bottom: 8px;
+}
+
+.court-review-form__tag-category {
+  font-size: 12px;
+  color: var(--gray-500);
+  text-transform: capitalize;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.court-review-form__tag-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.court-review-form__tag-chip {
+  font-size: 12px;
+  color: var(--gray-700);
+  background: white;
+  border: 1px solid var(--gray-300);
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.court-review-form__tag-chip:hover {
+  border-color: var(--primary);
+}
+
+.court-review-form__tag-chip--selected {
+  color: white;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.court-review-form__photos {
+  margin-bottom: 16px;
+}
+
+.court-review-form__photos > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.court-review-form__photo-previews {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.court-review-form__photo-preview {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.court-review-form__photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.court-review-form__photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+}
+
+.court-review-form__photo-add {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 2px dashed var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  color: var(--gray-500);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.court-review-form__photo-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.court-review-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Nearby Courts */
+
+.court-detail__nearby {
+  margin-top: 32px;
+}
+
+.court-detail__nearby-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.court-detail__nearby-card {
+  flex: 0 0 auto;
+  width: 220px;
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  background: white;
+  transition: box-shadow 0.15s ease;
+}
+
+.court-detail__nearby-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.court-detail__nearby-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 6px;
+}
+
+.court-detail__nearby-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.court-detail__nearby-new {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.court-detail__nearby-card p {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .court-detail {
+    padding: 16px 12px 32px;
+  }
+
+  .court-detail__name {
+    font-size: 22px;
+  }
+
+  .court-detail__gallery-img {
+    width: 240px;
+    height: 170px;
+  }
+
+  .court-detail__gallery-nav {
+    display: none;
+  }
+}

@@ -92,6 +92,38 @@ async def require_user(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+async def require_verified_player(
+    user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Require an authenticated, verified user with an existing player profile.
+
+    Returns a dict with both user fields and player_id.
+    Raises 403 if user is not verified or has no player record.
+    """
+    if not user.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Phone verification required",
+        )
+
+    result = await session.execute(
+        select(Player).where(
+            Player.user_id == user["id"],
+            Player.is_placeholder == False,  # noqa: E712
+        )
+    )
+    player = result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Player profile required",
+        )
+
+    return {**user, "player_id": player.id}
+
+
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
     """
     Determine if the user is a system admin.

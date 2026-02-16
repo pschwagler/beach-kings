@@ -1,0 +1,51 @@
+.court-directory {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.court-directory__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.court-directory__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.court-directory__subtitle {
+  font-size: 15px;
+  color: var(--gray-600);
+  margin: 4px 0 0;
+}
+
+.court-directory__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .court-directory {
+    padding: 16px 12px 32px;
+  }
+
+  .court-directory__header {
+    flex-direction: column;
+  }
+
+  .court-directory__title {
+    font-size: 20px;
+  }
+
+  .court-directory__actions {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+}
