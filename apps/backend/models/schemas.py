@@ -620,6 +620,58 @@ class FriendResponse(BaseModel):
     created_at: str
 
 
+class FriendRequestCreate(BaseModel):
+    """Request to send a friend request."""
+
+    receiver_player_id: int
+
+
+class FriendRequestResponse(BaseModel):
+    """Friend request response."""
+
+    id: int
+    sender_player_id: int
+    sender_name: str
+    sender_avatar: Optional[str] = None
+    receiver_player_id: int
+    receiver_name: str
+    receiver_avatar: Optional[str] = None
+    status: str
+    created_at: str
+
+
+class FriendListItem(BaseModel):
+    """Single friend in the friends list."""
+
+    id: int
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    location_name: Optional[str] = None
+    level: Optional[str] = None
+    mutual_friend_count: int = 0
+
+
+class FriendListResponse(BaseModel):
+    """Paginated friends list response."""
+
+    items: List[FriendListItem]
+    total_count: int
+
+
+class FriendBatchStatusRequest(BaseModel):
+    """Request to check friend status for multiple players."""
+
+    player_ids: List[int]
+
+
+class FriendBatchStatusResponse(BaseModel):
+    """Batch friend status response."""
+
+    statuses: dict  # { player_id: "friend"|"pending_outgoing"|"pending_incoming"|"none" }
+    mutual_counts: dict  # { player_id: int }
+
+
 # Update SessionResponse to include new fields
 class SessionResponse(BaseModel):
     """Session data."""

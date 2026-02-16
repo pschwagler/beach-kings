@@ -1,16 +1,28 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { UserPlus, UserCheck, Clock, Users } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { isImageUrl } from '../../utils/avatar';
+import {
+  batchFriendStatus,
+  sendFriendRequest,
+  acceptFriendRequest,
+  removeFriend,
+  getMutualFriends,
+  getFriendRequests,
+} from '../../services/api';
+import { slugify } from '../../utils/slugify';
 import './PublicPlayerPage.css';
 
 /**
  * Public player profile page for SEO and unauthenticated visitors.
- * Shows player info, stats, location, and league memberships.
+ * Shows player info, stats, location, league memberships, and friend actions.
  *
  * @param {Object} props
  * @param {Object} props.player - Public player data from the API
@@ -18,6 +30,39 @@ import './PublicPlayerPage.css';
  */
 export default function PublicPlayerPage({ player, isAuthenticated }) {
   const { openAuthModal } = useAuthModal();
+  const { currentUserPlayer } = useAuth();
+  const [friendStatus, setFriendStatus] = useState(null); // 'friend'|'pending_outgoing'|'pending_incoming'|'none'|'self'
+  const [incomingRequestId, setIncomingRequestId] = useState(null);
+  const [mutualFriends, setMutualFriends] = useState([]);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch friend status and mutual friends for authenticated users
+  useEffect(() => {
+    if (!isAuthenticated || !player?.id) return;
+    const load = async () => {
+      try {
+        const statusData = await batchFriendStatus([player.id]);
+        const status = statusData.statuses?.[String(player.id)] || 'none';
+        setFriendStatus(status);
+
+        // If incoming, find the request ID
+        if (status === 'pending_incoming') {
+          const requests = await getFriendRequests('incoming');
+          const match = requests.find((r) => r.sender_player_id === player.id);
+          if (match) setIncomingRequestId(match.id);
+        }
+
+        // Fetch mutual friends if not already friends
+        if (status !== 'friend' && status !== 'self') {
+          const mutual = await getMutualFriends(player.id);
+          setMutualFriends(mutual || []);
+        }
+      } catch (err) {
+        console.error('Error loading friend data:', err);
+      }
+    };
+    load();
+  }, [isAuthenticated, player?.id]);
 
   if (!player) {
     return (
@@ -31,7 +76,76 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const handleSignIn = () => openAuthModal('sign-in');
   const handleSignUp = () => openAuthModal('sign-up');
 
+  const handleSendRequest = async () => {
+    setActionLoading(true);
+    try {
+      await sendFriendRequest(player.id);
+      setFriendStatus('pending_outgoing');
+    } catch (err) {
+      console.error('Error sending friend request:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!incomingRequestId) return;
+    setActionLoading(true);
+    try {
+      await acceptFriendRequest(incomingRequestId);
+      setFriendStatus('friend');
+      setMutualFriends([]);
+    } catch (err) {
+      console.error('Error accepting friend request:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnfriend = async () => {
+    setActionLoading(true);
+    try {
+      await removeFriend(player.id);
+      setFriendStatus('none');
+    } catch (err) {
+      console.error('Error removing friend:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const { stats } = player;
+
+  const renderFriendButton = () => {
+    if (!isAuthenticated || friendStatus === null || friendStatus === 'self') return null;
+
+    if (friendStatus === 'friend') {
+      return (
+        <Button variant="outline" onClick={handleUnfriend} disabled={actionLoading}>
+          <UserCheck size={16} /> Friends
+        </Button>
+      );
+    }
+    if (friendStatus === 'pending_outgoing') {
+      return (
+        <Button variant="outline" disabled>
+          <Clock size={16} /> Request Sent
+        </Button>
+      );
+    }
+    if (friendStatus === 'pending_incoming') {
+      return (
+        <Button onClick={handleAcceptRequest} disabled={actionLoading}>
+          <UserPlus size={16} /> Accept Request
+        </Button>
+      );
+    }
+    return (
+      <Button onClick={handleSendRequest} disabled={actionLoading}>
+        <UserPlus size={16} /> Add Friend
+      </Button>
+    );
+  };
 
   return (
     <div className="public-player">
@@ -64,6 +178,10 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
             )}
             {player.level && <LevelBadge level={player.level} />}
           </div>
+          {/* Friend action button */}
+          <div className="public-player__friend-action">
+            {renderFriendButton()}
+          </div>
         </div>
       </div>
 
@@ -77,6 +195,33 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
             {' to join leagues and track your stats'}
           </span>
         </div>
+      )}
+
+      {/* Mutual friends */}
+      {isAuthenticated && mutualFriends.length > 0 && (
+        <section className="public-player__section">
+          <h2 className="public-player__section-title">
+            <Users size={16} /> {mutualFriends.length} Mutual Friend{mutualFriends.length !== 1 ? 's' : ''}
+          </h2>
+          <div className="public-player__mutual-friends">
+            {mutualFriends.map((mf) => (
+              <Link
+                key={mf.player_id}
+                href={`/player/${mf.player_id}/${slugify(mf.full_name)}`}
+                className="public-player__mutual-friend"
+              >
+                <div className="public-player__mutual-friend-avatar">
+                  {isImageUrl(mf.avatar) ? (
+                    <img src={mf.avatar} alt={mf.full_name} />
+                  ) : (
+                    mf.avatar || mf.full_name?.charAt(0)
+                  )}
+                </div>
+                <span className="public-player__mutual-friend-name">{mf.full_name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Stats grid */}

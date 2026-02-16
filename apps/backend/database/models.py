@@ -55,6 +55,14 @@ class ScoringSystem(str, enum.Enum):
     SEASON_RATING = "season_rating"
 
 
+class FriendRequestStatus(str, enum.Enum):
+    """Friend request status enum."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
 class NotificationType(str, enum.Enum):
     """Notification type enum."""
 
@@ -64,6 +72,8 @@ class NotificationType(str, enum.Enum):
     SEASON_START = "season_start"
     SEASON_ACTIVATED = "season_activated"
     PLACEHOLDER_CLAIMED = "placeholder_claimed"
+    FRIEND_REQUEST = "friend_request"
+    FRIEND_ACCEPTED = "friend_accepted"
 
 
 class InviteStatus(str, enum.Enum):
@@ -491,6 +501,31 @@ class Friend(Base):
         CheckConstraint("player1_id < player2_id"),
         Index("idx_friends_player1", "player1_id"),
         Index("idx_friends_player2", "player2_id"),
+    )
+
+
+class FriendRequest(Base):
+    """Friend request between two players."""
+
+    __tablename__ = "friend_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    receiver_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    sender = relationship("Player", foreign_keys=[sender_player_id], backref="sent_friend_requests")
+    receiver = relationship(
+        "Player", foreign_keys=[receiver_player_id], backref="received_friend_requests"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("sender_player_id", "receiver_player_id", name="uq_friend_request_sender_receiver"),
+        Index("idx_friend_requests_receiver_status", "receiver_player_id", "status"),
+        Index("idx_friend_requests_sender", "sender_player_id"),
     )
 
 
