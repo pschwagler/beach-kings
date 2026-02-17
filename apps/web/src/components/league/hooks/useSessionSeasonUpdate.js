@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { updateSessionSeason } from '../../../services/api';
+import { useToast } from '../../../contexts/ToastContext';
 
 /**
  * Hook to handle complex session season update logic
@@ -18,8 +19,8 @@ export function useSessionSeasonUpdate({
   seasons,
   selectedSeasonId,
   getSeasonIdForRefresh,
-  showMessage
 }) {
+  const { showToast } = useToast();
   /**
    * Update a session's season ID
    * Handles data loading, refresh logic, and filter updates
@@ -134,9 +135,7 @@ export function useSessionSeasonUpdate({
         }
       }
     } catch (err) {
-      if (showMessage) {
-        showMessage('error', err.response?.data?.detail || 'Failed to update session season');
-      }
+      showToast(err.response?.data?.detail || 'Failed to update session season', 'error');
       throw err;
     }
   }, [
@@ -152,7 +151,7 @@ export function useSessionSeasonUpdate({
     seasons,
     selectedSeasonId,
     getSeasonIdForRefresh,
-    showMessage
+    showToast
   ]);
 
   return {

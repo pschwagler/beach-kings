@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toast Pattern Comparison — Beach Kings</title>
+<style>
+  /* ── Design Tokens (from design-tokens.css) ── */
+  :root {
+    --primary: #2c7a8f;
+    --primary-light: #5faec0;
+    --primary-dark: #205e6f;
+    --seafoam-dark: #5fa79b;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #eeeeee;
+    --gray-300: #e0e0e0;
+    --gray-600: #757575;
+    --gray-700: #616161;
+    --gray-800: #424242;
+    --gray-900: #212121;
+    --success: #10b981;
+    --success-dark: #059669;
+    --success-light: #e8fbf0;
+    --danger: #ef4444;
+    --danger-light: #ffeceb;
+    --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);
+    --shadow-md: 0 4px 6px -1px rgb(150 110 80 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(150 110 80 / 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f2f5;
+    padding: 32px 16px 120px;
+    color: var(--gray-900);
+  }
+  h1 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .subtitle { text-align: center; color: var(--gray-600); font-size: 14px; margin-bottom: 40px; }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .demo-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+  }
+  .demo-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .demo-card__title { font-size: 15px; font-weight: 600; }
+  .demo-card__badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .demo-card__badge--current { background: var(--primary-light); color: white; }
+  .demo-card__badge--new { background: var(--success); color: white; }
+  .demo-card__desc { font-size: 13px; color: var(--gray-600); margin-bottom: 16px; line-height: 1.4; }
+  .demo-card__samples { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ─────────────────────────────────────────────
+     Pattern 1: Dark Snackbar (current useToasts)
+     ───────────────────────────────────────────── */
+  .toast-dark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--gray-900);
+    color: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    font-size: 14px;
+  }
+  .toast-dark__msg { flex: 1; line-height: 1.3; }
+  .toast-dark__close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.5); cursor: pointer;
+    padding: 4px; display: flex; align-items: center;
+  }
+  .toast-dark__close:hover { color: white; }
+
+  /* ─────────────────────────────────────────────
+     Pattern 2: League Feedback Toast (showMessage)
+     ───────────────────────────────────────────── */
+  .toast-league {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+    background: var(--gray-50);
+    color: var(--gray-800);
+    border: 1px solid var(--gray-200);
+  }
+  .toast-league__icon { flex-shrink: 0; }
+  .toast-league__icon--success { color: var(--seafoam-dark); }
+  .toast-league__icon--error { color: var(--danger); }
+
+  /* ─────────────────────────────────────────────
+     Pattern 3: Inline Alert Banner (auth-modal)
+     ───────────────────────────────────────────── */
+  .alert-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .alert-banner--success { background: var(--success-light); color: var(--success-dark); }
+  .alert-banner--error { background: var(--danger-light); color: var(--danger); }
+
+  /* ─────────────────────────────────────────────
+     Pattern 4: browser alert() — simulated
+     ───────────────────────────────────────────── */
+  .fake-alert {
+    background: #f0f0f0;
+    border: 2px solid #c0c0c0;
+    border-radius: 4px;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    color: #333;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+  }
+  .fake-alert__title {
+    font-size: 11px; color: #888; margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .fake-alert__btn {
+    margin-top: 12px;
+    background: #e0e0e0; border: 1px solid #b0b0b0;
+    padding: 4px 20px; border-radius: 4px;
+    font-size: 12px; cursor: pointer;
+  }
+
+  /* ─────────────────────────────────────────────
+     Proposal A: Dark Snackbar + colored accent
+     ───────────────────────────────────────────── */
+  .toast-accent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--gray-900);
+    color: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    font-size: 14px;
+    border-left: 3px solid var(--success);
+  }
+  .toast-accent--error { border-left-color: var(--danger); }
+  .toast-accent__icon { flex-shrink: 0; opacity: 0.9; }
+  .toast-accent__icon--success { color: #34d399; }
+  .toast-accent__icon--error { color: #f87171; }
+  .toast-accent__msg { flex: 1; line-height: 1.3; }
+  .toast-accent__close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.5); cursor: pointer;
+    padding: 4px; display: flex; align-items: center;
+  }
+
+  /* ─────────────────────────────────────────────
+     Proposal B: Glass morphism toast
+     ───────────────────────────────────────────── */
+  .toast-glass {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--gray-900);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 14px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .toast-glass__icon { flex-shrink: 0; }
+  .toast-glass__icon--success { color: var(--success); }
+  .toast-glass__icon--error { color: var(--danger); }
+  .toast-glass__msg { flex: 1; line-height: 1.3; font-weight: 500; }
+  .toast-glass__close {
+    background: none; border: none;
+    color: var(--gray-600); cursor: pointer;
+    padding: 4px; display: flex; align-items: center;
+  }
+
+  /* ─────────────────────────────────────────────
+     Proposal C: Soft colored toast (like Notion/Linear)
+     ───────────────────────────────────────────── */
+  .toast-soft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .toast-soft--success {
+    background: var(--success-light);
+    color: var(--success-dark);
+    border: 1px solid rgba(16,185,129,0.15);
+  }
+  .toast-soft--error {
+    background: var(--danger-light);
+    color: var(--danger);
+    border: 1px solid rgba(239,68,68,0.15);
+  }
+  .toast-soft__icon { flex-shrink: 0; }
+  .toast-soft__msg { flex: 1; line-height: 1.3; }
+  .toast-soft__close {
+    background: none; border: none;
+    color: inherit; opacity: 0.5;
+    cursor: pointer; padding: 4px;
+    display: flex; align-items: center;
+  }
+
+  /* SVG icons */
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; }
+
+  /* Section divider */
+  .divider {
+    text-align: center;
+    color: var(--gray-600);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 16px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--gray-300);
+  }
+</style>
+</head>
+<body>
+
+<h1>Toast Pattern Comparison</h1>
+<p class="subtitle">Current patterns vs. proposals — all shown with "You and Alex are now friends!"</p>
+
+<div class="demo-grid">
+
+  <!-- ════ CURRENT PATTERNS ════ -->
+
+  <div class="divider">Current Patterns</div>
+
+  <!-- 1. Dark Snackbar -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">1. Dark Snackbar (useToasts)</span>
+      <span class="demo-card__badge demo-card__badge--current">Current</span>
+    </div>
+    <p class="demo-card__desc">Used in FriendsTab &amp; PublicPlayerPage for errors. No type variants — success looks identical to error.</p>
+    <div class="demo-card__samples">
+      <div class="toast-dark">
+        <span class="toast-dark__msg">You and Alex are now friends!</span>
+        <button class="toast-dark__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="toast-dark">
+        <span class="toast-dark__msg">Failed to accept friend request</span>
+        <button class="toast-dark__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. League Feedback Toast -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">2. League Feedback Toast (showMessage)</span>
+      <span class="demo-card__badge demo-card__badge--current">Current</span>
+    </div>
+    <p class="demo-card__desc">Used in all league pages. Light background, icon-prefixed, no close button. League-scoped only.</p>
+    <div class="demo-card__samples">
+      <div class="toast-league">
+        <svg class="icon toast-league__icon toast-league__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>You and Alex are now friends!</span>
+      </div>
+      <div class="toast-league">
+        <svg class="icon toast-league__icon toast-league__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Failed to accept friend request</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Inline Alert Banner -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">3. Inline Alert Banner (auth-modal)</span>
+      <span class="demo-card__badge demo-card__badge--current">Current</span>
+    </div>
+    <p class="demo-card__desc">Used in auth/profile/feedback forms. Inline (not floating), colored background.</p>
+    <div class="demo-card__samples">
+      <div class="alert-banner alert-banner--success">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        You and Alex are now friends!
+      </div>
+      <div class="alert-banner alert-banner--error">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Failed to accept friend request
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Browser alert() -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">4. Browser alert()</span>
+      <span class="demo-card__badge demo-card__badge--current">Current</span>
+    </div>
+    <p class="demo-card__desc">Used in schedule/signup modals and NotificationInbox. Native, blocking, no styling.</p>
+    <div class="demo-card__samples">
+      <div class="fake-alert">
+        <div class="fake-alert__title">localhost:3000 says</div>
+        You and Alex are now friends!
+        <div><button class="fake-alert__btn">OK</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PROPOSALS ════ -->
+
+  <div class="divider">Proposals</div>
+
+  <!-- A. Dark + colored accent -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">A. Dark + Colored Accent</span>
+      <span class="demo-card__badge demo-card__badge--new">Proposal</span>
+    </div>
+    <p class="demo-card__desc">Extends the existing dark snackbar with a left border accent and icon. Minimal change to current Toast component.</p>
+    <div class="demo-card__samples">
+      <div class="toast-accent">
+        <svg class="icon toast-accent__icon toast-accent__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="toast-accent__msg">You and Alex are now friends!</span>
+        <button class="toast-accent__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="toast-accent toast-accent--error">
+        <svg class="icon toast-accent__icon toast-accent__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span class="toast-accent__msg">Failed to accept friend request</span>
+        <button class="toast-accent__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B. Glass morphism -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">B. Glass Toast</span>
+      <span class="demo-card__badge demo-card__badge--new">Proposal</span>
+    </div>
+    <p class="demo-card__desc">Frosted glass effect. Light, modern, works on any background. Similar vibe to macOS/iOS notifications.</p>
+    <div class="demo-card__samples">
+      <div class="toast-glass">
+        <svg class="icon toast-glass__icon toast-glass__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="toast-glass__msg">You and Alex are now friends!</span>
+        <button class="toast-glass__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="toast-glass">
+        <svg class="icon toast-glass__icon toast-glass__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span class="toast-glass__msg">Failed to accept friend request</span>
+        <button class="toast-glass__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C. Soft colored -->
+  <div class="demo-card">
+    <div class="demo-card__header">
+      <span class="demo-card__title">C. Soft Colored (Notion/Linear style)</span>
+      <span class="demo-card__badge demo-card__badge--new">Proposal</span>
+    </div>
+    <p class="demo-card__desc">Tinted background matches the type. Clear visual distinction between success and error. Clean and modern.</p>
+    <div class="demo-card__samples">
+      <div class="toast-soft toast-soft--success">
+        <svg class="icon toast-soft__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="toast-soft__msg">You and Alex are now friends!</span>
+        <button class="toast-soft__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="toast-soft toast-soft--error">
+        <svg class="icon toast-soft__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span class="toast-soft__msg">Failed to accept friend request</span>
+        <button class="toast-soft__close">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

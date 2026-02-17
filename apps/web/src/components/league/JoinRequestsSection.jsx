@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UserPlus, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { approveLeagueJoinRequest, rejectLeagueJoinRequest } from '../../services/api';
 import ConfirmationModal from '../modal/ConfirmationModal';
@@ -19,7 +20,8 @@ export default function JoinRequestsSection({
   rejectedRequests = [],
   onRequestProcessed
 }) {
-  const { leagueId, showMessage } = useLeague();
+  const { leagueId } = useLeague();
+  const { showToast } = useToast();
   const [declinedExpanded, setDeclinedExpanded] = useState(false);
   const [pendingDecline, setPendingDecline] = useState(null);
   const [processingId, setProcessingId] = useState(null);
@@ -34,10 +36,10 @@ export default function JoinRequestsSection({
     setProcessingId(requestId);
     try {
       await approveLeagueJoinRequest(leagueId, requestId);
-      showMessage?.('success', 'Join request approved');
+      showToast('Join request approved', 'success');
       await onRequestProcessed?.();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to approve request');
+      showToast(err.response?.data?.detail || 'Failed to approve request', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -48,11 +50,11 @@ export default function JoinRequestsSection({
     setProcessingId(requestId);
     try {
       await rejectLeagueJoinRequest(leagueId, requestId);
-      showMessage?.('success', 'Join request declined');
+      showToast('Join request declined', 'success');
       setPendingDecline(null);
       await onRequestProcessed?.();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to decline request');
+      showToast(err.response?.data?.detail || 'Failed to decline request', 'error');
       setPendingDecline(null);
     } finally {
       setProcessingId(null);

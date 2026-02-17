@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { createLeagueSeason } from "../../services/api";
 import { useLeague } from "../../contexts/LeagueContext";
+import { useToast } from '../../contexts/ToastContext';
 import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
 
 export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
-  const { leagueId, showMessage } = useLeague();
+  const { leagueId } = useLeague();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     start_date: "",
@@ -64,7 +66,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
 
   const handleSubmit = async () => {
     if (!formData.start_date || !formData.end_date) {
-      showMessage?.("error", "Start date and end date are required");
+      showToast("Start date and end date are required", "error");
       return;
     }
 
@@ -85,9 +87,9 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
       onSuccess();
       onClose();
     } catch (err) {
-      showMessage?.(
-        "error",
-        err.response?.data?.detail || "Failed to create season"
+      showToast(
+        err.response?.data?.detail || "Failed to create season",
+        "error"
       );
     }
   };

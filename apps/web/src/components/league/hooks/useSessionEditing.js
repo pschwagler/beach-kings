@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { lockInLeagueSession } from '../../../services/api';
+import { useToast } from '../../../contexts/ToastContext';
 
 /**
  * Hook to manage session editing state and pending changes
@@ -11,8 +12,8 @@ export function useSessionEditing({
   refreshData,
   refreshSeasonData,
   getSeasonIdForRefresh,
-  showMessage
 }) {
+  const { showToast } = useToast();
   const [editingSessions, setEditingSessions] = useState(new Set());
   const [pendingMatchChanges, setPendingMatchChanges] = useState(new Map());
   const [editingSessionMetadata, setEditingSessionMetadata] = useState(new Map());
@@ -170,12 +171,10 @@ export function useSessionEditing({
         await refreshData({ sessions: true, season: true, matches: true });
       }
     } catch (err) {
-      if (showMessage) {
-        showMessage('error', err.response?.data?.detail || 'Failed to save session');
-      }
+      showToast(err.response?.data?.detail || 'Failed to save session', 'error');
       throw err;
     }
-  }, [pendingMatchChanges, leagueId, refreshData, refreshSeasonData, getSeasonIdForRefresh, showMessage]);
+  }, [pendingMatchChanges, leagueId, refreshData, refreshSeasonData, getSeasonIdForRefresh, showToast]);
 
   /**
    * Add a pending match to a session being edited

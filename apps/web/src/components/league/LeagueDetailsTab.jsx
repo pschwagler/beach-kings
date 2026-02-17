@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import {
@@ -31,9 +32,9 @@ export default function LeagueDetailsTab() {
     refreshMembers,
     refreshSeasons,
     updateLeague: updateLeagueInContext,
-    updateMember,
-    showMessage
+    updateMember
   } = useLeague();
+  const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   const { locations } = useApp();
   const router = useRouter();
@@ -56,9 +57,9 @@ export default function LeagueDetailsTab() {
     } catch (err) {
       setJoinRequests({ pending: [], rejected: [] });
       const message = err.response?.data?.detail ?? err.message ?? 'Failed to load join requests';
-      showMessage?.('error', message);
+      showToast(message, 'error');
     }
-  }, [leagueId, isLeagueAdmin, showMessage]);
+  }, [leagueId, isLeagueAdmin, showToast]);
 
   useEffect(() => {
     fetchJoinRequests();
@@ -75,7 +76,7 @@ export default function LeagueDetailsTab() {
       // Update the member in place without refreshing (to preserve sort order)
       updateMember(memberId, { role: newRole });
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update role');
+      showToast(err.response?.data?.detail || 'Failed to update role', 'error');
     }
   };
 
@@ -90,7 +91,7 @@ export default function LeagueDetailsTab() {
       await refreshMembers();
       setMemberToRemove(null);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to remove player');
+      showToast(err.response?.data?.detail || 'Failed to remove player', 'error');
       setMemberToRemove(null);
     }
   };
@@ -123,12 +124,12 @@ export default function LeagueDetailsTab() {
 
     try {
       await leaveLeague(leagueId);
-      showMessage?.('success', `You have left ${league.name}`);
+      showToast(`You have left ${league.name}`, 'success');
       setShowLeaveConfirmModal(false);
       // Navigate back to home leagues tab
       router.push('/home?tab=leagues');
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to leave league');
+      showToast(err.response?.data?.detail || 'Failed to leave league', 'error');
       setShowLeaveConfirmModal(false);
     }
   };

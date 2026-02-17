@@ -5,7 +5,7 @@ import { UserPlus, Trash2, Share2 } from 'lucide-react';
 import { listPlaceholderPlayers, deletePlaceholderPlayer } from '../../services/api';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
-import Toast, { ToastContainer, useToasts } from '../ui/Toast';
+import { useToast } from '../../contexts/ToastContext';
 import useShare from '../../hooks/useShare';
 
 /**
@@ -24,7 +24,7 @@ export default function PendingInvitesTab() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [toasts, addToast, dismissToast] = useToasts();
+  const { showToast } = useToast();
   const { shareInvite } = useShare();
 
   const fetchPlaceholders = useCallback(async (signal) => {
@@ -74,14 +74,15 @@ export default function PendingInvitesTab() {
     if (!deleteTarget) return;
     try {
       const result = await deletePlaceholderPlayer(deleteTarget.player_id);
-      addToast(
-        `Removed ${deleteTarget.name}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`
+      showToast(
+        `Removed ${deleteTarget.name}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`,
+        'success'
       );
       setPlaceholders((prev) =>
         prev.filter((p) => p.player_id !== deleteTarget.player_id)
       );
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to delete placeholder');
+      showToast(err.response?.data?.detail || 'Failed to delete placeholder', 'error');
     } finally {
       setShowDeleteModal(false);
       setDeleteTarget(null);
@@ -204,7 +205,6 @@ export default function PendingInvitesTab() {
         confirmButtonClass="danger"
       />
 
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

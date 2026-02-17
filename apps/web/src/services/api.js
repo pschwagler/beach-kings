@@ -672,6 +672,19 @@ export const requestToJoinLeague = async (leagueId) => {
 };
 
 /**
+ * Get pending and rejected join requests for a league (admin only).
+ * @returns {Promise<{ pending: Array<{ id: number, player_name: string, created_at: string }>, rejected: Array<...> }>}
+ */
+export const getLeagueJoinRequests = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/join-requests`);
+  const data = response.data;
+  return {
+    pending: Array.isArray(data?.pending) ? data.pending : [],
+    rejected: Array.isArray(data?.rejected) ? data.rejected : []
+  };
+};
+
+/**
  * Approve a league join request (admin only)
  */
 export const approveLeagueJoinRequest = async (leagueId, requestId) => {

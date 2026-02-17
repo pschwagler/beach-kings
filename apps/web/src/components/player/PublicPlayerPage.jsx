@@ -6,7 +6,6 @@ import { UserPlus, UserCheck, Clock, Users } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/UI';
-import { ToastContainer, useToasts } from '../ui/Toast';
 import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { isImageUrl } from '../../utils/avatar';
@@ -19,6 +18,7 @@ import {
   getFriendRequests,
 } from '../../services/api';
 import { slugify } from '../../utils/slugify';
+import { useToast } from '../../contexts/ToastContext';
 import './PublicPlayerPage.css';
 
 /**
@@ -36,7 +36,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const [incomingRequestId, setIncomingRequestId] = useState(null);
   const [mutualFriends, setMutualFriends] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
-  const [toasts, addToast, dismissToast] = useToasts();
+  const { showToast } = useToast();
 
   // Fetch friend status and mutual friends for authenticated users
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       await sendFriendRequest(player.id);
       setFriendStatus('pending_outgoing');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to send friend request');
+      showToast(err.response?.data?.detail || 'Failed to send friend request', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -104,8 +104,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       await acceptFriendRequest(incomingRequestId);
       setFriendStatus('friend');
       setMutualFriends([]);
+      showToast('Friend request accepted!', 'success');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to accept friend request');
+      showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -117,7 +118,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       await removeFriend(player.id);
       setFriendStatus('none');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to remove friend');
+      showToast(err.response?.data?.detail || 'Failed to remove friend', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -316,7 +317,6 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
         </div>
       )}
 
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

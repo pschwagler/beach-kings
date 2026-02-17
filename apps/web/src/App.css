@@ -5977,6 +5977,42 @@ select.form-select {
   padding: 20px 24px;
 }
 
+/* Join Requests: empty state and declined section */
+.league-join-requests-empty {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 0.95em;
+  color: var(--gray-600);
+}
+
+.league-join-requests-declined {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.league-join-requests-declined-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 6px 0;
+  font-size: 0.9em;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.league-join-requests-declined-toggle:hover {
+  text-decoration: underline;
+}
+
+.league-join-requests-declined-list {
+  margin-top: 12px;
+}
+
 .league-table-wrapper {
   overflow-x: auto;
 }

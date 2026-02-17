@@ -20,6 +20,7 @@ from backend.database import db
 from backend.database.init_defaults import init_defaults
 from backend.database.seed_courts import seed_courts
 from backend.services.stats_queue import get_stats_queue
+from backend.services.session_cleanup_service import get_session_cleanup_service
 from backend.services import settings_service
 
 # Set up logging
@@ -102,6 +103,14 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start stats calculation queue worker: {e}", exc_info=True)
         # Don't raise - allow app to start even if queue worker fails
 
+    # Start session cleanup worker (auto-submit/delete stale sessions)
+    try:
+        cleanup_service = get_session_cleanup_service()
+        cleanup_service.start()
+        logger.info("✓ Session cleanup worker started")
+    except Exception as e:
+        logger.error(f"Failed to start session cleanup worker: {e}", exc_info=True)
+
     yield  # App is running
 
     # Shutdown (if needed)
@@ -114,6 +123,14 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Stats calculation queue worker stopped")
     except Exception as e:
         logger.error(f"Error stopping stats calculation queue worker: {e}", exc_info=True)
+
+    # Stop session cleanup worker
+    try:
+        cleanup_service = get_session_cleanup_service()
+        cleanup_service.stop()
+        logger.info("✓ Session cleanup worker stopped")
+    except Exception as e:
+        logger.error(f"Error stopping session cleanup worker: {e}", exc_info=True)
 
     # Close Redis connection
     try:

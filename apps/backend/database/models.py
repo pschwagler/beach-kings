@@ -68,11 +68,14 @@ class NotificationType(str, enum.Enum):
     LEAGUE_MESSAGE = "league_message"
     LEAGUE_INVITE = "league_invite"
     LEAGUE_JOIN_REQUEST = "league_join_request"
+    LEAGUE_JOIN_REJECTED = "league_join_rejected"
     SEASON_START = "season_start"
     SEASON_ACTIVATED = "season_activated"
     PLACEHOLDER_CLAIMED = "placeholder_claimed"
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
+    SESSION_AUTO_SUBMITTED = "session_auto_submitted"
+    SESSION_AUTO_DELETED = "session_auto_deleted"
 
 
 class InviteStatus(str, enum.Enum):

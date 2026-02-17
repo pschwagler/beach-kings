@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { Bell, Check, Filter } from 'lucide-react';
 import {
   approveLeagueJoinRequest,
@@ -14,6 +15,7 @@ import '../notifications/NotificationInbox.css';
 
 export default function NotificationsTab() {
   const router = useRouter();
+  const { showToast } = useToast();
   const {
     notifications,
     isLoading,
@@ -123,7 +125,7 @@ export default function NotificationsTab() {
       await fetchUnreadCount();
     } catch (error) {
       console.error(`Error performing ${action.action} action:`, error);
-      alert(error.response?.data?.detail || `Failed to ${action.action} request`);
+      showToast(error.response?.data?.detail || `Failed to ${action.action} request`, 'error');
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Monday' },
@@ -38,6 +39,7 @@ function localTimeToUTC(localTimeStr) {
 }
 
 export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, onClose, onSubmit }) {
+  const { showToast } = useToast();
   // Determine if this is add mode (no schedule.id) or edit mode
   const isEditMode = schedule && schedule.id;
   
@@ -97,20 +99,20 @@ export default function EditWeeklyScheduleModal({ schedule = {}, seasonEndDate, 
   
   const handleSubmit = async () => {
     if (!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date) {
-      alert('Day of week, start time, start date, and end date are required');
+      showToast('Day of week, start time, start date, and end date are required', 'error');
       return;
     }
     
     // Validate that start_date is not after end_date
     const selectedEndDate = new Date(formData.end_date);
     if (selectedStartDate > selectedEndDate) {
-      alert('Start date cannot be after end date');
+      showToast('Start date cannot be after end date', 'error');
       return;
     }
     
     if (formData.open_signups_mode === 'specific_day_time') {
       if (!formData.open_signups_day_of_week || !formData.open_signups_time) {
-        alert('Open signups day and time are required for specific day/time mode');
+        showToast('Open signups day and time are required for specific day/time mode', 'error');
         return;
       }
     }

@@ -6,11 +6,13 @@ import { RefreshCw, ExternalLink, Loader2, MessageCircle, Download } from 'lucid
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { exportMatchesToCSV } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 
 export default function ControlPanel({ onLoadFromSheets }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -40,7 +42,7 @@ export default function ControlPanel({ onLoadFromSheets }) {
       await exportMatchesToCSV();
     } catch (error) {
       console.error('Error exporting CSV:', error);
-      alert('Failed to export CSV. Please try again.');
+      showToast('Failed to export CSV. Please try again.', 'error');
     }
   };
 

@@ -1,3 +1,6 @@
+# Project board
+- Task tracking: https://github.com/users/pschwagler/projects/2
+
 # Rules for codebase
 - All methods should aim to be DRY, refactored, and professional / production ready
 - All methods should be well-documented with docstrings

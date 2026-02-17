@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Search, MapPin, UserPlus, UserCheck, MoreVertical, X } from 'lucide-react';
 import { Button } from '../ui/UI';
-import { ToastContainer, useToasts } from '../ui/Toast';
 import LevelBadge from '../ui/LevelBadge';
 import {
   getFriends,
@@ -20,6 +19,7 @@ import {
 import { isImageUrl } from '../../utils/avatar';
 import { slugify } from '../../utils/slugify';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useToast } from '../../contexts/ToastContext';
 import './FriendsTab.css';
 
 /**
@@ -74,7 +74,7 @@ export default function FriendsTab() {
   const [actionLoading, setActionLoading] = useState({});
   const [openMenu, setOpenMenu] = useState(null);
   const [confirmUnfriend, setConfirmUnfriend] = useState(null);
-  const [toasts, addToast, dismissToast] = useToasts();
+  const { showToast } = useToast();
   const { notifications, markAsRead, fetchUnreadCount } = useNotifications();
   const menuRef = useRef(null);
 
@@ -151,8 +151,9 @@ export default function FriendsTab() {
       // Also refresh suggestions since accepted friend should disappear
       const sugData = await getFriendSuggestions(10);
       setSuggestions(sugData || []);
+      showToast('Friend request accepted!', 'success');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to accept friend request');
+      showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
     } finally {
       setActionLoadingFor(`accept-${requestId}`, false);
     }
@@ -165,7 +166,7 @@ export default function FriendsTab() {
       await dismissFriendNotification(requestId);
       setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to decline friend request');
+      showToast(err.response?.data?.detail || 'Failed to decline friend request', 'error');
     } finally {
       setActionLoadingFor(`decline-${requestId}`, false);
     }
@@ -177,7 +178,7 @@ export default function FriendsTab() {
       await cancelFriendRequest(requestId);
       setOutgoingRequests((prev) => prev.filter((r) => r.id !== requestId));
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to cancel friend request');
+      showToast(err.response?.data?.detail || 'Failed to cancel friend request', 'error');
     } finally {
       setActionLoadingFor(`cancel-${requestId}`, false);
     }
@@ -194,7 +195,7 @@ export default function FriendsTab() {
       const sugData = await getFriendSuggestions(10);
       setSuggestions(sugData || []);
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to remove friend');
+      showToast(err.response?.data?.detail || 'Failed to remove friend', 'error');
     } finally {
       setActionLoadingFor(`unfriend-${playerId}`, false);
     }
@@ -209,7 +210,7 @@ export default function FriendsTab() {
       const outData = await getFriendRequests('outgoing');
       setOutgoingRequests(outData || []);
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to send friend request');
+      showToast(err.response?.data?.detail || 'Failed to send friend request', 'error');
     } finally {
       setActionLoadingFor(`send-${playerId}`, false);
     }
@@ -471,7 +472,6 @@ export default function FriendsTab() {
         </div>
       )}
 
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

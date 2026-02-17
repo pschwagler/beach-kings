@@ -83,6 +83,7 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | DELETE | `/api/leagues/{league_id}/members/{member_id}` | League Admin | Remove member |
 | POST | `/api/leagues/{league_id}/join` | User | Join open league |
 | POST | `/api/leagues/{league_id}/request-join` | User | Request to join invite-only league |
+| GET | `/api/leagues/{league_id}/join-requests` | League Admin | List pending join requests |
 | POST | `/api/leagues/{league_id}/join-requests/{request_id}/approve` | League Admin | Approve join request |
 | POST | `/api/leagues/{league_id}/join-requests/{request_id}/reject` | League Admin | Reject join request |
 | POST | `/api/leagues/{league_id}/leave` | User | Leave league |

@@ -2,10 +2,12 @@ import { LEVEL_OPTIONS } from './utils/leagueUtils';
 import { updateLeague } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useApp } from '../../contexts/AppContext';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function LeagueInfoSection({ league, onUpdate }) {
-  const { isLeagueAdmin, leagueId, showMessage } = useLeague();
+  const { isLeagueAdmin, leagueId } = useLeague();
   const { locations } = useApp();
+  const { showToast } = useToast();
 
   const handleLevelChange = async (e) => {
     const newLevel = e.target.value || null;
@@ -21,7 +23,7 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       });
       onUpdate?.(updatedLeague);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update skill level');
+      showToast(err.response?.data?.detail || 'Failed to update skill level', 'error');
       // Reset to original value on error
       e.target.value = league?.level || '';
     }
@@ -41,7 +43,7 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       });
       onUpdate?.(updatedLeague);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update location');
+      showToast(err.response?.data?.detail || 'Failed to update location', 'error');
       // Reset to original value on error
       e.target.value = league?.location_id ? String(league.location_id) : '';
     }
@@ -61,7 +63,7 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       });
       onUpdate?.(updatedLeague);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update access');
+      showToast(err.response?.data?.detail || 'Failed to update access', 'error');
       // Reset to original value on error
       e.target.value = league?.is_open ? 'open' : 'invite-only';
     }

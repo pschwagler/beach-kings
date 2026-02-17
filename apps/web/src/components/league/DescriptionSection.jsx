@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Edit2 } from 'lucide-react';
 import { updateLeague } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function DescriptionSection({ league, onUpdate }) {
-  const { isLeagueAdmin, leagueId, showMessage } = useLeague();
+  const { isLeagueAdmin, leagueId } = useLeague();
+  const { showToast } = useToast();
   const [description, setDescription] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -39,7 +41,7 @@ export default function DescriptionSection({ league, onUpdate }) {
       onUpdate(updatedLeague);
       setIsEditing(false);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update description');
+      showToast(err.response?.data?.detail || 'Failed to update description', 'error');
     }
   };
 

@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { getUserLeagues, updateLeague, createLeague, joinLeague, requestToJoinLeague } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 import './LeagueDashboard.css';
 
@@ -26,6 +27,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
+  const { showToast } = useToast();
   // Initialize activeTab from URL params immediately
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams?.get('tab');
@@ -34,7 +36,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
     }
     return 'rankings';
   });
-  const { message, showMessage } = useLeague();
   const [userLeagues, setUserLeagues] = useState([]);
   
   // League name editing
@@ -111,7 +112,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
 
   const handleUpdateLeagueName = async () => {
     if (!leagueName.trim()) {
-      showMessage('error', 'League name is required');
+      showToast('League name is required', 'error');
       setLeagueName(league?.name || '');
       setIsEditingName(false);
       return;
@@ -131,7 +132,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
       updateLeagueInContext(updatedLeague);
       setIsEditingName(false);
     } catch (err) {
-      showMessage('error', err.response?.data?.detail || 'Failed to update league name');
+      showToast(err.response?.data?.detail || 'Failed to update league name', 'error');
       setLeagueName(league?.name || '');
       setIsEditingName(false);
     }
@@ -182,16 +183,16 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
     try {
       if (league.is_open) {
         await joinLeague(leagueId);
-        showMessage('success', `Successfully joined ${league.name}!`);
+        showToast(`Successfully joined ${league.name}!`, 'success');
         // Reload the page to refresh league membership
         window.location.reload();
       } else {
         await requestToJoinLeague(leagueId);
-        showMessage('success', `Join request submitted for ${league.name}. League admins will be notified.`);
+        showToast(`Join request submitted for ${league.name}. League admins will be notified.`, 'success');
       }
     } catch (err) {
       const errorMsg = err.response?.data?.detail || 'Failed to join league';
-      showMessage('error', errorMsg);
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -388,13 +389,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
                     )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Message Alert */}
-            {message && (
-              <div className={`league-message ${message.type}`}>
-                {message.text}
               </div>
             )}
 

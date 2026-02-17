@@ -8,6 +8,7 @@ import { AuthModalProvider, useAuthModal } from '../src/contexts/AuthModalContex
 import { ModalProvider } from '../src/contexts/ModalContext';
 import { DrawerProvider } from '../src/contexts/DrawerContext';
 import { NotificationProvider } from '../src/contexts/NotificationContext';
+import { ToastProvider } from '../src/contexts/ToastContext';
 import AuthModal from '../src/components/auth/AuthModal';
 import GlobalModal from '../src/components/ui/GlobalModal';
 import GlobalDrawer from '../src/components/ui/GlobalDrawer';
@@ -61,9 +62,11 @@ export default function ClientProviders({ children }) {
           <AuthModalProvider>
             <ModalProvider>
               <DrawerProvider>
-                <LayoutContent>
-                  {children}
-                </LayoutContent>
+                <ToastProvider>
+                  <LayoutContent>
+                    {children}
+                  </LayoutContent>
+                </ToastProvider>
               </DrawerProvider>
             </ModalProvider>
           </AuthModalProvider>

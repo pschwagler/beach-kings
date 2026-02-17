@@ -565,6 +565,37 @@ async def notify_player_about_join_approval(
         logger.warning(f"Failed to create notification for join approval: {e}")
 
 
+async def notify_player_about_join_rejection(
+    session: AsyncSession, league_id: int, player_user_id: int, league_name: Optional[str] = None
+) -> None:
+    """
+    Notify a player that their join request was rejected.
+
+    Args:
+        session: Database session
+        league_id: ID of the league
+        player_user_id: User ID of the player
+        league_name: Optional league name (will be fetched if not provided)
+    """
+    try:
+        # Fetch league name if not provided
+        if league_name is None:
+            result = await session.execute(select(League.name).where(League.id == league_id))
+            league_name = result.scalar_one_or_none() or "the league"
+
+        await create_notification(
+            session=session,
+            user_id=player_user_id,
+            type=NotificationType.LEAGUE_JOIN_REJECTED.value,
+            title="Join request declined",
+            message=f"Your request to join {league_name} was declined.",
+            data={"league_id": league_id},
+            link_url=f"/league/{league_id}",
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create notification for join rejection: {e}")
+
+
 async def notify_members_about_season_activated(
     session: AsyncSession,
     league_id: int,

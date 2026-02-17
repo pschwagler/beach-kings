@@ -11,7 +11,7 @@ PostgreSQL database with 45 tables. SQLAlchemy ORM models in `apps/backend/datab
 | `OpenSignupsMode` | `auto_after_last_session`, `specific_day_time`, `always_open` |
 | `SignupEventType` | `signup`, `dropout` |
 | `FriendRequestStatus` | `pending`, `accepted` |
-| `NotificationType` | `league_message`, `league_invite`, `league_join_request`, `season_start`, `season_activated`, `placeholder_claimed`, `friend_request`, `friend_accepted` |
+| `NotificationType` | `league_message`, `league_invite`, `league_join_request`, `season_start`, `season_activated`, `placeholder_claimed`, `friend_request`, `friend_accepted`, `session_auto_submitted`, `session_auto_deleted` |
 | `InviteStatus` | `pending`, `claimed` |
 | `StatsCalculationJobStatus` | `pending`, `running`, `completed`, `failed` |
 | `PhotoMatchJobStatus` | `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` |

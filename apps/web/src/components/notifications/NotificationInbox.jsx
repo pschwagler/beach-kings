@@ -3,11 +3,13 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { approveLeagueJoinRequest, rejectLeagueJoinRequest, acceptFriendRequest, declineFriendRequest } from '../../services/api';
 import './NotificationInbox.css';
 
 export default function NotificationInbox({ onClose }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const { 
     notifications, 
     isLoading, 
@@ -83,7 +85,7 @@ export default function NotificationInbox({ onClose }) {
       await fetchNotifications(50, 0, true); // Refresh unread notifications
     } catch (error) {
       console.error(`Error performing ${action.action} action:`, error);
-      alert(error.response?.data?.detail || `Failed to ${action.action} request`);
+      showToast(error.response?.data?.detail || `Failed to ${action.action} request`, 'error');
     }
   };
 
