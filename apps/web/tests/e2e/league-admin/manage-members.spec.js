@@ -36,8 +36,8 @@ test.describe('Manage Members', () => {
     await expect(searchInput).toBeVisible();
     await searchInput.fill('Test');
 
-    // Wait for search results
-    await page.waitForTimeout(500); // debounce
+    // Wait for search results (debounced API call)
+    await page.waitForResponse((resp) => resp.url().includes('/api/players') && resp.status() === 200, { timeout: 10000 });
     const playerRow = page.locator('.add-players-table-row').first();
     await expect(playerRow).toBeVisible({ timeout: 10000 });
 
@@ -126,8 +126,8 @@ test.describe('Manage Members', () => {
     await expect(roleSelect).toBeVisible({ timeout: 5000 });
     await roleSelect.selectOption('admin');
 
-    // Wait for the update to apply
-    await page.waitForTimeout(1000);
+    // Wait for the role update API call to complete
+    await page.waitForResponse((resp) => resp.url().includes('/api/leagues/') && resp.url().includes('/members/') && resp.request().method() === 'PUT' && resp.status() === 200, { timeout: 10000 });
 
     // Reload and verify the role persists
     await page.reload();

@@ -503,7 +503,7 @@ async def get_league_join_requests(
     except Exception as e:
         logger.error(f"Error listing join requests: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Error listing join requests: {str(e)}"
+            status_code=500, detail="Error listing join requests"
         )
 
 

@@ -15,6 +15,10 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const showMessage = useCallback((type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 5000);
+  }, []);
   
   // Season data state
   const [seasonData, setSeasonData] = useState({}); // Maps season_id to data
@@ -658,10 +662,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     },
     // League ID and message utilities
     leagueId,
-    showMessage: (type, text) => {
-      setMessage({ type, text });
-      setTimeout(() => setMessage(null), 5000);
-    },
+    showMessage,
     message,
   };
 
