@@ -16,9 +16,11 @@ RUN npx turbo prune --scope=@beach-kings/web --docker
 FROM node:20-slim AS builder
 WORKDIR /app
 
-# Accept build argument for API URL
+# Accept build arguments for NEXT_PUBLIC_* env vars (inlined at build time by Next.js)
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_MAPBOX_TOKEN
+ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
 
 # Copy the pruned monorepo from the pruner stage
 # json/ contains package.json files, full/ contains source code

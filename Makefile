@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate seed-users dev-login mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -48,6 +48,11 @@ help:
 	@echo "  make clean-volumes     - Remove ALL Docker volumes (⚠️  destroys DB data)"
 	@echo "  make clean-venv        - Remove Python virtual environment"
 	@echo "  make migrate           - Run database migrations (alembic upgrade head)"
+	@echo ""
+	@echo "🔧 Dev Tools:"
+	@echo "  make seed-users          - Create 3 test users with easy passwords (test1234)"
+	@echo "  make dev-login ID=1      - Get auth tokens for a player (by player ID)"
+	@echo "  make dev-login           - List all available players"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  make test              - Run tests in Docker containers"
@@ -220,6 +225,20 @@ migrate:
 	fi
 	@docker exec beach-kings-backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
+
+seed-users:
+	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
+		echo "❌ Backend container is not running. Start it with 'make dev'"; \
+		exit 1; \
+	fi
+	@docker exec beach-kings-backend bash -c "cd /app && PYTHONPATH=/app python scripts/seed_test_users.py"
+
+dev-login:
+	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
+		echo "❌ Backend container is not running. Start it with 'make dev'"; \
+		exit 1; \
+	fi
+	@docker exec beach-kings-backend bash -c "cd /app && PYTHONPATH=/app python scripts/dev_login.py '$(ID)'"
 
 test: ensure-docker
 	@echo "🧪 Running tests in Docker containers..."

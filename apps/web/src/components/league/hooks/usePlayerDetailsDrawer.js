@@ -177,9 +177,13 @@ export function usePlayerDetailsDrawer({
 
     const stats = computePlayerStats(playerId);
     const matchHistory = computePlayerMatchHistory(playerId);
-    
+
     // If "All Seasons" is selected, don't show season name
     const displaySeasonName = selectedSeasonId === null ? null : seasonName;
+
+    // Check if player is a placeholder (unregistered)
+    const member = members?.find(m => m.player_id === playerId);
+    const isPlaceholder = member?.is_placeholder ?? false;
 
     openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
       playerId,
@@ -190,8 +194,9 @@ export function usePlayerDetailsDrawer({
       onPlayerChange: handlePlayerChange,
       leagueName,
       seasonName: displaySeasonName,
+      isPlaceholder,
     });
-  }, [computePlayerStats, computePlayerMatchHistory, allPlayerNames, leagueName, seasonName, openDrawer, handlePlayerChange, selectedSeasonId]);
+  }, [computePlayerStats, computePlayerMatchHistory, allPlayerNames, leagueName, seasonName, openDrawer, handlePlayerChange, selectedSeasonId, members]);
 
   // Handle player click - can take either (playerId, playerName) or just (playerName)
   const handlePlayerClick = useCallback((playerIdOrName, playerName = null) => {

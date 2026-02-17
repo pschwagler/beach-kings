@@ -672,6 +672,19 @@ export const requestToJoinLeague = async (leagueId) => {
 };
 
 /**
+ * Get pending and rejected join requests for a league (admin only).
+ * @returns {Promise<{ pending: Array<{ id: number, player_name: string, created_at: string }>, rejected: Array<...> }>}
+ */
+export const getLeagueJoinRequests = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/join-requests`);
+  const data = response.data;
+  return {
+    pending: Array.isArray(data?.pending) ? data.pending : [],
+    rejected: Array.isArray(data?.rejected) ? data.rejected : []
+  };
+};
+
+/**
  * Approve a league join request (admin only)
  */
 export const approveLeagueJoinRequest = async (leagueId, requestId) => {
@@ -863,12 +876,126 @@ export const logout = async () => {
   return response.data;
 };
 
+/** Fetch public location list (regions + locations) for dropdowns. */
+export const getPublicLocations = async () => {
+  const response = await api.get('/api/public/locations');
+  return response.data;
+};
+
 /**
- * Court API methods
+ * Court API methods (legacy — admin CRUD)
  */
 export const getCourts = async (locationId = null) => {
   const params = locationId ? { location_id: locationId } : {};
   const response = await api.get('/api/courts', { params });
+  return response.data;
+};
+
+/**
+ * Court Discovery API methods (public + auth)
+ */
+
+/** List approved courts with optional filters and pagination. */
+export const getPublicCourts = async (filters = {}) => {
+  const response = await api.get('/api/public/courts', { params: filters });
+  return response.data;
+};
+
+/** Get full court detail by slug. */
+export const getPublicCourtBySlug = async (slug) => {
+  const response = await api.get(`/api/public/courts/${slug}`);
+  return response.data;
+};
+
+/** Get all curated court tags. */
+export const getCourtTags = async () => {
+  const response = await api.get('/api/public/courts/tags');
+  return response.data;
+};
+
+/** Get nearby courts by lat/lng. */
+export const getNearbyCourts = async (lat, lng, radius = 25, excludeId = null) => {
+  const params = { lat, lng, radius };
+  if (excludeId) params.exclude = excludeId;
+  const response = await api.get('/api/public/courts/nearby', { params });
+  return response.data;
+};
+
+/** Submit a new court for admin approval. */
+export const submitCourt = async (data) => {
+  const response = await api.post('/api/courts/submit', data);
+  return response.data;
+};
+
+/** Update court info (creator or admin). */
+export const updateCourtDiscovery = async (courtId, data) => {
+  const response = await api.put(`/api/courts/${courtId}/update`, data);
+  return response.data;
+};
+
+/** Create a review for a court. */
+export const createCourtReview = async (courtId, data) => {
+  const response = await api.post(`/api/courts/${courtId}/reviews`, data);
+  return response.data;
+};
+
+/** Update an existing review. */
+export const updateCourtReview = async (courtId, reviewId, data) => {
+  const response = await api.put(`/api/courts/${courtId}/reviews/${reviewId}`, data);
+  return response.data;
+};
+
+/** Delete a review. */
+export const deleteCourtReview = async (courtId, reviewId) => {
+  const response = await api.delete(`/api/courts/${courtId}/reviews/${reviewId}`);
+  return response.data;
+};
+
+/** Upload a photo to a review (multipart form data). */
+export const uploadReviewPhoto = async (courtId, reviewId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(
+    `/api/courts/${courtId}/reviews/${reviewId}/photos`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data;
+};
+
+/** Submit an edit suggestion for a court. */
+export const suggestCourtEdit = async (courtId, changes) => {
+  const response = await api.post(`/api/courts/${courtId}/suggest-edit`, { changes });
+  return response.data;
+};
+
+/** List edit suggestions for a court (creator/admin). */
+export const getCourtEditSuggestions = async (courtId) => {
+  const response = await api.get(`/api/courts/${courtId}/suggestions`);
+  return response.data;
+};
+
+/** Approve or reject an edit suggestion. */
+export const resolveCourtEditSuggestion = async (suggestionId, action) => {
+  const response = await api.put(`/api/courts/suggestions/${suggestionId}?action=${action}`);
+  return response.data;
+};
+
+/** Admin: list pending court submissions. */
+export const getAdminPendingCourts = async () => {
+  const response = await api.get('/api/admin/courts/pending');
+  return response.data;
+};
+
+/** Admin: approve a court. */
+export const adminApproveCourt = async (courtId) => {
+  const response = await api.put(`/api/admin/courts/${courtId}/approve`);
+  return response.data;
+};
+
+/** Admin: reject a court. */
+export const adminRejectCourt = async (courtId) => {
+  const response = await api.put(`/api/admin/courts/${courtId}/reject`);
   return response.data;
 };
 
@@ -1252,6 +1379,112 @@ export const cancelPhotoSession = async (leagueId, sessionId) => {
   return response.data;
 };
 
+// ============================================================================
+// Friends API
+// ============================================================================
+
+/**
+ * Send a friend request to another player.
+ * @param {number} receiverPlayerId - Player ID to send request to
+ */
+export const sendFriendRequest = async (receiverPlayerId) => {
+  const response = await api.post('/api/friends/request', {
+    receiver_player_id: receiverPlayerId,
+  });
+  return response.data;
+};
+
+/**
+ * Accept a pending friend request.
+ * @param {number} requestId - Friend request ID
+ */
+export const acceptFriendRequest = async (requestId) => {
+  const response = await api.post(`/api/friends/requests/${requestId}/accept`);
+  return response.data;
+};
+
+/**
+ * Decline a pending friend request.
+ * @param {number} requestId - Friend request ID
+ */
+export const declineFriendRequest = async (requestId) => {
+  const response = await api.post(`/api/friends/requests/${requestId}/decline`);
+  return response.data;
+};
+
+/**
+ * Cancel an outgoing friend request.
+ * @param {number} requestId - Friend request ID
+ */
+export const cancelFriendRequest = async (requestId) => {
+  const response = await api.delete(`/api/friends/requests/${requestId}`);
+  return response.data;
+};
+
+/**
+ * Remove a friend (unfriend).
+ * @param {number} playerId - Player ID to unfriend
+ */
+export const removeFriend = async (playerId) => {
+  const response = await api.delete(`/api/friends/${playerId}`);
+  return response.data;
+};
+
+/**
+ * Get current user's friends list (paginated).
+ * @param {number} page - Page number (1-based)
+ * @param {number} pageSize - Items per page
+ */
+export const getFriends = async (page = 1, pageSize = 50) => {
+  const response = await api.get('/api/friends', {
+    params: { page, page_size: pageSize },
+  });
+  return response.data;
+};
+
+/**
+ * Get pending friend requests.
+ * @param {string} direction - "incoming", "outgoing", or "both"
+ */
+export const getFriendRequests = async (direction = 'both') => {
+  const response = await api.get('/api/friends/requests', {
+    params: { direction },
+  });
+  return response.data;
+};
+
+/**
+ * Get friend suggestions based on shared leagues.
+ * @param {number} limit - Max suggestions
+ */
+export const getFriendSuggestions = async (limit = 10) => {
+  const response = await api.get('/api/friends/suggestions', {
+    params: { limit },
+  });
+  return response.data;
+};
+
+/**
+ * Get friend status for multiple player IDs (for search results/player cards).
+ * @param {number[]} playerIds - Player IDs to check
+ * @returns {Promise<{statuses: Object, mutual_counts: Object}>}
+ */
+export const batchFriendStatus = async (playerIds) => {
+  const response = await api.post('/api/friends/batch-status', {
+    player_ids: playerIds,
+  });
+  return response.data;
+};
+
+/**
+ * Get mutual friends between current user and another player.
+ * @param {number} otherPlayerId - Other player's ID
+ */
+export const getMutualFriends = async (otherPlayerId) => {
+  const response = await api.get(`/api/friends/mutual/${otherPlayerId}`);
+  return response.data;
+};
+
 /**
  * Search publicly visible players with optional filters.
  *
@@ -1291,6 +1524,69 @@ export const uploadAvatar = async (file) => {
  */
 export const deleteAvatar = async () => {
   const response = await api.delete('/api/users/me/avatar');
+  return response.data;
+};
+
+/**
+ * Placeholder Player API functions
+ */
+
+/**
+ * Create a placeholder player with an invite link.
+ * @param {Object} data - { name: string, phone_number?: string, league_id?: number }
+ * @returns {Promise<{ player_id: number, name: string, invite_token: string, invite_url: string }>}
+ */
+export const createPlaceholderPlayer = async (data) => {
+  const response = await api.post('/api/players/placeholder', data);
+  return response.data;
+};
+
+/**
+ * List placeholder players created by the current user.
+ * @returns {Promise<{ placeholders: Array<{ player_id, name, phone_number, match_count, invite_token, invite_url, status, created_at }> }>}
+ */
+export const listPlaceholderPlayers = async () => {
+  const response = await api.get('/api/players/placeholder');
+  return response.data;
+};
+
+/**
+ * Delete a placeholder player (replaces with Unknown Player in matches).
+ * @param {number} playerId - Placeholder player ID
+ * @returns {Promise<{ affected_matches: number }>}
+ */
+export const deletePlaceholderPlayer = async (playerId) => {
+  const response = await api.delete(`/api/players/placeholder/${playerId}`);
+  return response.data;
+};
+
+/**
+ * Get the invite URL for a placeholder player.
+ * @param {number} playerId - Placeholder player ID
+ * @returns {Promise<{ invite_url: string }>}
+ */
+export const getPlayerInviteUrl = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/invite-url`);
+  return response.data;
+};
+
+/**
+ * Get invite details for landing page (public endpoint).
+ * @param {string} token - Invite token
+ * @returns {Promise<{ inviter_name, placeholder_name, match_count, league_names, status }>}
+ */
+export const getInviteDetails = async (token) => {
+  const response = await api.get(`/api/invites/${encodeURIComponent(token)}`);
+  return response.data;
+};
+
+/**
+ * Claim an invite (link placeholder to current user).
+ * @param {string} token - Invite token
+ * @returns {Promise<{ success, message, player_id, warnings, redirect_url }>}
+ */
+export const claimInvite = async (token) => {
+  const response = await api.post(`/api/invites/${encodeURIComponent(token)}/claim`);
   return response.data;
 };
 

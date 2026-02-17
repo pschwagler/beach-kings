@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { updateSeason } from "../../services/api";
-import { useLeague } from "../../contexts/LeagueContext";
+import { useToast } from '../../contexts/ToastContext';
 import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
 
 export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) {
-  const { showMessage } = useLeague();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     start_date: "",
@@ -68,7 +68,7 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
 
   const handleSubmit = async () => {
     if (!formData.start_date || !formData.end_date) {
-      showMessage?.("error", "Start date and end date are required");
+      showToast("Start date and end date are required", "error");
       return;
     }
 
@@ -89,9 +89,9 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
       onSuccess();
       onClose();
     } catch (err) {
-      showMessage?.(
-        "error",
-        err.response?.data?.detail || "Failed to update season"
+      showToast(
+        err.response?.data?.detail || "Failed to update season",
+        "error"
       );
     }
   };

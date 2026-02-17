@@ -10,6 +10,7 @@ import {
 } from '../../services/api';
 import { getPlayerDisplayName, ROLE_OPTIONS } from './utils/leagueUtils';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
 import { formatDivisionLabel } from '../../utils/divisionUtils';
@@ -24,7 +25,8 @@ const SEARCH_DEBOUNCE_MS = 300;
  * and shows added/failed counts on partial failure.
  */
 export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }) {
-  const { leagueId, showMessage } = useLeague();
+  const { leagueId } = useLeague();
+  const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -105,14 +107,14 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
         setTotal(count);
       } catch (err) {
         console.error('Error loading players:', err);
-        showMessage?.('error', 'Failed to load players');
+        showToast('Failed to load players', 'error');
         if (!append) setItems([]);
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [debouncedQ, locationIds, leagueIds, genderFilters, levelFilters, showMessage]
+    [debouncedQ, locationIds, leagueIds, genderFilters, levelFilters, showToast]
   );
 
   useEffect(() => {
@@ -238,7 +240,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
 
   const handleSubmit = useCallback(async () => {
     if (selectedPlayers.length === 0) {
-      showMessage?.('error', 'Please select at least one player');
+      showToast('Please select at least one player', 'error');
       return;
     }
     setSubmitting(true);
@@ -251,18 +253,18 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
           added.length > 0
             ? `${added.length} added; ${failed.length} failed (e.g. ${failed[0].error})`
             : failed.map((f) => f.error).join('; ');
-        showMessage?.('error', msg);
+        showToast(msg, 'error');
       }
       if (added.length > 0) {
         onSuccess?.();
         onClose?.();
       }
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to add players');
+      showToast(err.response?.data?.detail || 'Failed to add players', 'error');
     } finally {
       setSubmitting(false);
     }
-  }, [leagueId, selectedPlayers, showMessage, onSuccess, onClose]);
+  }, [leagueId, selectedPlayers, showToast, onSuccess, onClose]);
 
   // Build list: selected at top (with role), then available from items. Use stored details so selected names/division show even when not in current page.
   const selectedList = useMemo(() => {

@@ -207,6 +207,30 @@
   color: var(--gray-600);
 }
 
+/* Section header with "View All" link */
+.public-location__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-location__section-header .public-location__section-title {
+  flex: 1;
+}
+
+.public-location__view-all {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.public-location__view-all:hover {
+  text-decoration: underline;
+}
+
 /* Courts */
 .public-location__courts {
   display: flex;
@@ -216,12 +240,27 @@
 
 .public-location__court-card {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 12px 16px;
   background: var(--gray-50);
   border-radius: 8px;
   border: 1px solid var(--gray-200);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.public-location__court-card:hover {
+  background: var(--primary-lighter);
+  border-color: var(--primary-light);
+}
+
+.public-location__court-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .public-location__court-name {
@@ -230,9 +269,34 @@
   color: var(--gray-900);
 }
 
+.public-location__court-card:hover .public-location__court-name {
+  color: var(--primary-dark);
+}
+
 .public-location__court-address {
   font-size: 13px;
   color: var(--gray-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-location__court-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.public-location__court-review-count {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.public-location__court-new-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
 }
 
 /* Footer CTA */

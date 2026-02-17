@@ -6,9 +6,9 @@ https://github.com/pschwagler/beach-kings
 
 # FETCH CONTEXT (run these first)
 
-You are working off of https://github.com/pschwagler/beach-kings/issues/46. Run `gh issue view 46 --repo pschwagler/beach-kings --json title,body,comments` and use the JSON to get the issues with bodies and comments.
+You are working off of https://github.com/pschwagler/beach-kings/issues/50. Run `gh issue view 50 --repo pschwagler/beach-kings --json title,body,comments` and use the JSON to get the issues with bodies and comments.
 
-**Pull latest code** Pull latest feature/ps/seo branch from remote.
+**Pull latest code** Pull latest feature/ps/dev-environment branch from remote.
 
 **Last 10 RALPH commits:** Run `git log --grep='RALPH' -n 10 --format='%H%n%ad%n%B---' --date=short` from the repo root. Use the output to understand what work has been done (or write it to e.g. `ralph/previous-commits.txt` and read that file).
 

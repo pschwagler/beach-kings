@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues } from '../../../services/api';
+import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues, createPlaceholderPlayer, getPublicPlayers } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/ToastContext';
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -15,7 +16,6 @@ const SEARCH_DEBOUNCE_MS = 300;
  * @param {boolean} opts.isOpen
  * @param {number|null} opts.sessionId
  * @param {Array} opts.participants
- * @param {function(string, string)} [opts.showMessage]
  * @param {function()} [opts.onSuccess]
  * @param {function()} [opts.onClose]
  * @returns {Object} State and handlers for SessionPlayersModal and its panels
@@ -24,10 +24,10 @@ export function useSessionPlayersModal({
   isOpen,
   sessionId,
   participants = [],
-  showMessage,
   onSuccess,
   onClose,
 }) {
+  const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   const defaultLocationIds = useMemo(
     () => (currentUserPlayer?.location_id ? [currentUserPlayer.location_id] : []),
@@ -52,6 +52,7 @@ export function useSessionPlayersModal({
   const [pendingAddIds, setPendingAddIds] = useState(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerView, setDrawerView] = useState('add-player');
+  const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);
   const debounceRef = useRef(null);
   const prevOpenRef = useRef(false);
   const hasMutatedRef = useRef(false);
@@ -131,14 +132,14 @@ export function useSessionPlayersModal({
         setTotal(count);
       } catch (err) {
         console.error('Error loading players:', err);
-        showMessage?.('error', 'Failed to load players');
+        showToast('Failed to load players', 'error');
         if (!append) setItems([]);
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [debouncedQ, locationIds, leagueIds, genderFilters, levelFilters, showMessage]
+    [debouncedQ, locationIds, leagueIds, genderFilters, levelFilters, showToast]
   );
 
   useEffect(() => {
@@ -189,18 +190,18 @@ export function useSessionPlayersModal({
               added.length > 0
                 ? `${added.length} added; ${failed.length} failed (e.g. ${failed[0].error})`
                 : failed.map((f) => f.error).join('; ');
-            showMessage?.('error', msg);
+            showToast(msg, 'error');
           }
           if (added.length > 0) hasMutatedRef.current = true;
         } catch (err) {
           const detail = err.response?.data?.detail || err.message || 'Failed to add players';
-          showMessage?.('error', detail);
+          showToast(detail, 'error');
         }
       }
       if (hasMutatedRef.current) onSuccess?.();
       onClose?.();
     },
-    [pendingAddIds, sessionId, showMessage, onSuccess, onClose]
+    [pendingAddIds, sessionId, showToast, onSuccess, onClose]
   );
 
   const handleRemove = useCallback(
@@ -230,12 +231,12 @@ export function useSessionPlayersModal({
         } else if (detail.includes('creator cannot remove')) {
           msg = 'Session creator cannot be removed from the session';
         } else if (detail) msg = detail;
-        showMessage?.('error', msg);
+        showToast(msg, 'error');
       } finally {
         setRemovingId(null);
       }
     },
-    [sessionId, removingId, pendingAddIds, showMessage]
+    [sessionId, removingId, pendingAddIds, showToast]
   );
 
   const handleAdd = useCallback((player) => {
@@ -259,6 +260,60 @@ export function useSessionPlayersModal({
     if (key === 'gender') setGenderFilters((prev) => prev.filter((g) => g !== value));
     if (key === 'level') setLevelFilters((prev) => prev.filter((l) => l !== value));
     setOffset(0);
+  }, []);
+
+  /**
+   * Create a placeholder player and add them to the session roster.
+   * @param {string} name - Player name
+   * @param {Object} [extras] - Optional gender/level
+   */
+  /**
+   * Create a placeholder player, add to session, and return invite data for the modal.
+   * @param {string} name - Player name
+   * @param {Object} [extras] - Optional gender/level
+   * @returns {Promise<{value: number, label: string, name: string, inviteUrl: string, inviteToken: string}|null>}
+   */
+  const handleCreatePlaceholder = useCallback(async (name, extras = {}) => {
+    if (!sessionId || !name?.trim() || isCreatingPlaceholder) return null;
+    setIsCreatingPlaceholder(true);
+    try {
+      const response = await createPlaceholderPlayer({
+        name: name.trim(),
+        gender: extras.gender || undefined,
+        level: extras.level || undefined,
+      });
+      const newPlayer = {
+        id: response.player_id,
+        name: response.name,
+        player_id: response.player_id,
+        full_name: response.name,
+      };
+      handleAdd(newPlayer);
+      showToast(`${response.name} created and added to session`, 'success');
+      return {
+        value: response.player_id,
+        label: response.name,
+        name: response.name,
+        inviteUrl: response.invite_url,
+        inviteToken: response.invite_token,
+        isPlaceholder: true,
+      };
+    } catch (err) {
+      const detail = err.response?.data?.detail || 'Failed to create player';
+      showToast(detail, 'error');
+      throw new Error(detail);
+    } finally {
+      setIsCreatingPlaceholder(false);
+    }
+  }, [sessionId, isCreatingPlaceholder, handleAdd, showToast]);
+
+  /**
+   * Search registered players by name for duplicate checking in the create form.
+   * @param {string} query - Search term
+   * @returns {Promise<{items: Array}>}
+   */
+  const handleSearchPlayers = useCallback((query) => {
+    return getPublicPlayers({ search: query, page_size: 5 });
   }, []);
 
   const handleToggleFilter = useCallback((key, value) => {
@@ -316,6 +371,9 @@ export function useSessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    handleCreatePlaceholder,
+    isCreatingPlaceholder,
+    handleSearchPlayers,
     userLocationId: currentUserPlayer?.location_id || null,
   };
 }

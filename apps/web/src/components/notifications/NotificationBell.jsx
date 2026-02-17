@@ -34,13 +34,14 @@ export default function NotificationBell() {
     <div className="notification-bell-container" ref={bellRef}>
       <button
         className="notification-bell-button"
+        data-testid="notification-bell"
         onClick={toggleInbox}
         aria-label="Notifications"
         aria-expanded={isOpen}
       >
         <Bell className="notification-bell-icon" size={20} />
         {unreadCount > 0 && (
-          <span className="notification-bell-badge" aria-label={`${unreadCount} unread notifications`}>
+          <span className="notification-bell-badge" data-testid="notification-badge" aria-label={`${unreadCount} unread notifications`}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

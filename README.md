@@ -328,6 +328,8 @@ docker exec -it beach-kings-postgres psql -U beachkings -d beachkings
 
 ## 🤝 Contributing
 
+Track progress and upcoming work on the [project board](https://github.com/users/pschwagler/projects/2).
+
 Feel free to:
 - Report bugs
 - Suggest features

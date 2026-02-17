@@ -1,0 +1,16 @@
+name,slug,category,sort_order
+Great Sand,great-sand,quality,1
+Well-Maintained,well-maintained,quality,2
+Needs Improvement,needs-improvement,quality,3
+Beginner Friendly,beginner-friendly,vibe,4
+Competitive,competitive,vibe,5
+Good for Pickup,good-for-pickup,vibe,6
+Crowded Weekends,crowded-weekends,vibe,7
+Family Friendly,family-friendly,vibe,8
+Has Lights,has-lights,facility,9
+Free,free,facility,10
+Paid,paid,facility,11
+Nets Provided,nets-provided,facility,12
+Good Parking,good-parking,facility,13
+Near Transit,near-transit,facility,14
+Great Views,great-views,facility,15

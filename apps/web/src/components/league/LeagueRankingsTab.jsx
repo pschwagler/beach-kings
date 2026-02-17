@@ -7,6 +7,7 @@ import RankingsTable from '../rankings/RankingsTable';
 import { formatDateRange } from './utils/leagueUtils';
 import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
+import { buildPlaceholderIdSet } from './utils/matchUtils';
 
 export default function LeagueRankingsTab() {
   const { 
@@ -31,6 +32,9 @@ export default function LeagueRankingsTab() {
   } = useLeague();
   const { currentUserPlayer } = useAuth();
   
+  // Build set of placeholder player IDs from league members
+  const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
+
   // State for player search filter
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
@@ -220,12 +224,13 @@ export default function LeagueRankingsTab() {
       <RankingsTable
         rankings={rankings}
         onPlayerClick={handlePlayerClick}
-        loading={selectedSeasonId 
+        loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)
           : (seasonDataLoadingMap['all-seasons'] || false)
         }
         isAllSeasons={!selectedSeasonId}
         season={selectedSeason}
+        placeholderPlayerIds={placeholderPlayerIds}
       />
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}

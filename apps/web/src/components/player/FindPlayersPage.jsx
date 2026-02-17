@@ -9,7 +9,7 @@ import HomeMenuBar from '../home/HomeMenuBar';
 import LevelBadge from '../ui/LevelBadge';
 import { Button } from '../ui/UI';
 import SearchableMultiSelect from '../ui/SearchableMultiSelect';
-import { getPublicPlayers, getLocations, getUserLeagues, createLeague } from '../../services/api';
+import { getPublicPlayers, getLocations, getUserLeagues, createLeague, batchFriendStatus } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
@@ -21,6 +21,20 @@ import './FindPlayersPage.css';
 
 /** Max players per page. */
 const PAGE_SIZE = 25;
+
+/**
+ * Renders a friend connection badge for a player card in search results.
+ */
+function FriendBadge({ friendStatuses, playerId }) {
+  if (!friendStatuses) return null;
+  const status = friendStatuses.statuses?.[String(playerId)];
+  const mutualCount = friendStatuses.mutual_counts?.[String(playerId)] || 0;
+  if (status === 'friend') return <span className="find-players__card-badge find-players__card-badge--friend">Friend</span>;
+  if (status === 'pending_outgoing') return <span className="find-players__card-badge find-players__card-badge--pending">Request Sent</span>;
+  if (status === 'pending_incoming') return <span className="find-players__card-badge find-players__card-badge--incoming">Wants to connect</span>;
+  if (mutualCount > 0) return <span className="find-players__card-badge find-players__card-badge--mutual">{mutualCount} mutual friend{mutualCount !== 1 ? 's' : ''}</span>;
+  return null;
+}
 
 /**
  * Reads recognized filter keys from URL search params.
@@ -58,6 +72,7 @@ export default function FindPlayersPage() {
   });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [friendStatuses, setFriendStatuses] = useState(null);
 
   // Debounce search input
   useEffect(() => {
@@ -110,6 +125,18 @@ export default function FindPlayersPage() {
     fetchPlayers();
     return () => controller.abort();
   }, [filters, locationIds, debouncedSearch, page]);
+
+  // Fetch friend statuses when players load (authenticated only)
+  useEffect(() => {
+    if (!isAuthenticated || players.length === 0) {
+      setFriendStatuses(null);
+      return;
+    }
+    const playerIds = players.map((p) => p.id);
+    batchFriendStatus(playerIds)
+      .then(setFriendStatuses)
+      .catch((err) => console.error('Error fetching friend statuses:', err));
+  }, [isAuthenticated, players]);
 
   const handleSignOut = async () => {
     try {
@@ -319,6 +346,7 @@ export default function FindPlayersPage() {
                               <span className="find-players__card-rating">
                                 {Math.round(player.current_rating || 1200)}
                               </span>
+                              <FriendBadge friendStatuses={friendStatuses} playerId={player.id} />
                             </div>
                           </div>
                         </Link>

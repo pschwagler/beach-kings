@@ -18,7 +18,9 @@ from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
 from backend.database import db
 from backend.database.init_defaults import init_defaults
+from backend.database.seed_courts import seed_courts
 from backend.services.stats_queue import get_stats_queue
+from backend.services.session_cleanup_service import get_session_cleanup_service
 from backend.services import settings_service
 
 # Set up logging
@@ -75,6 +77,13 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
 
+    # Seed court tags and default courts
+    try:
+        await seed_courts()
+        logger.info("✓ Court seed data initialized")
+    except Exception as e:
+        logger.error(f"Failed to seed court data: {e}", exc_info=True)
+
     # Register stats calculation callbacks (must be done before starting worker)
     try:
         from backend.services.data_service import register_stats_queue_callbacks
@@ -94,6 +103,14 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start stats calculation queue worker: {e}", exc_info=True)
         # Don't raise - allow app to start even if queue worker fails
 
+    # Start session cleanup worker (auto-submit/delete stale sessions)
+    try:
+        cleanup_service = get_session_cleanup_service()
+        cleanup_service.start()
+        logger.info("✓ Session cleanup worker started")
+    except Exception as e:
+        logger.error(f"Failed to start session cleanup worker: {e}", exc_info=True)
+
     yield  # App is running
 
     # Shutdown (if needed)
@@ -106,6 +123,14 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Stats calculation queue worker stopped")
     except Exception as e:
         logger.error(f"Error stopping stats calculation queue worker: {e}", exc_info=True)
+
+    # Stop session cleanup worker
+    try:
+        cleanup_service = get_session_cleanup_service()
+        cleanup_service.stop()
+        logger.info("✓ Session cleanup worker stopped")
+    except Exception as e:
+        logger.error(f"Error stopping session cleanup worker: {e}", exc_info=True)
 
     # Close Redis connection
     try:
@@ -126,12 +151,13 @@ app = FastAPI(
 app.state.limiter = routes_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Add CORS middleware to allow frontend access
+# Add CORS middleware — origins configured via ALLOWED_ORIGINS env var
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

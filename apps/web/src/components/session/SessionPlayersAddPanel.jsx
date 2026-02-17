@@ -1,9 +1,11 @@
 'use client';
 
-import { Plus, Filter, MapPin, X } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, Filter, MapPin, X, UserPlus } from 'lucide-react';
 import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
 import { formatDivisionLabel } from '../../utils/divisionUtils';
 import PlayerFilterPopover from './PlayerFilterPopover';
+import PlaceholderCreateModal from '../player/PlaceholderCreateModal';
 
 /**
  * Add-players panel: search, filters (Location/League/Gender/Level), filter pills,
@@ -34,7 +36,72 @@ export default function SessionPlayersAddPanel({
   filterPopoverRef,
   activeFilterCount,
   userLocationId,
+  onCreatePlaceholder,
+  isCreatingPlaceholder,
+  onSearchPlayers = null,
 }) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [createModalState, setCreateModalState] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const createInputRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  useEffect(() => {
+    if (showCreateForm) {
+      setTimeout(() => createInputRef.current?.focus(), 50);
+    }
+  }, [showCreateForm]);
+
+  // Debounced search when newPlayerName changes in create form
+  useEffect(() => {
+    if (!showCreateForm || !onSearchPlayers) {
+      setSearchResults([]);
+      return;
+    }
+    const trimmed = newPlayerName.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setIsSearching(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await onSearchPlayers(trimmed);
+        setSearchResults(result?.items || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [newPlayerName, showCreateForm, onSearchPlayers]);
+
+  /**
+   * Open the create modal instead of creating directly.
+   */
+  const handleCreateSubmit = () => {
+    if (!newPlayerName.trim() || !onCreatePlaceholder) return;
+    setCreateModalState({ name: newPlayerName.trim() });
+  };
+
+  /**
+   * Handle modal close — reset create form on success.
+   * @param {Object|null} result - Created player data or null if cancelled
+   */
+  const handleModalClose = (result) => {
+    setCreateModalState(null);
+    if (result) {
+      setNewPlayerName('');
+      setShowCreateForm(false);
+    }
+  };
+
   const availableToAdd = items.filter((p) => !participantIds.has(p.id));
   const hasActiveFilters =
     locationIds.length > 0 ||
@@ -94,7 +161,83 @@ export default function SessionPlayersAddPanel({
             />
           )}
         </div>
+        {onCreatePlaceholder && (
+          <button
+            type="button"
+            className="session-players-new-btn"
+            onClick={() => setShowCreateForm((prev) => !prev)}
+            aria-label="Add unregistered player"
+            title="Add unregistered player"
+          >
+            <UserPlus size={16} aria-hidden />
+            <span>+ Unregistered</span>
+          </button>
+        )}
       </div>
+
+      {showCreateForm && onCreatePlaceholder && (
+        <div className="session-players-create-form-wrap">
+          <div className="session-players-create-form">
+            <input
+              ref={createInputRef}
+              type="text"
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleCreateSubmit(); }
+                if (e.key === 'Escape') { setShowCreateForm(false); setNewPlayerName(''); }
+              }}
+              placeholder="Player name"
+              className="session-players-create-input"
+              autoComplete="off"
+            />
+          </div>
+
+          {isSearching && (
+            <div className="session-players-create-search-results">
+              <span className="session-players-create-search-label">Searching...</span>
+            </div>
+          )}
+
+          {!isSearching && searchResults.length > 0 && (
+            <div className="session-players-create-search-results">
+              <span className="session-players-create-search-label">Did you mean one of these?</span>
+              {searchResults.map((result) => (
+                <div key={result.id} className="session-players-create-search-result">
+                  <div className="session-players-create-search-result__info">
+                    <span className="session-players-create-search-result__name">{result.full_name}</span>
+                    <span className="session-players-create-search-result__meta">
+                      {[result.location_name, result.gender, result.level].filter(Boolean).join(' · ')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="session-players-add-btn"
+                    onClick={() => onAdd(result)}
+                    aria-label={`Add ${result.full_name} to session`}
+                  >
+                    <Plus size={16} /> Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="session-players-create-submit"
+            onClick={handleCreateSubmit}
+            disabled={isCreatingPlaceholder || newPlayerName.trim().length < 2}
+          >
+            {isCreatingPlaceholder
+              ? 'Creating...'
+              : searchResults.length > 0
+                ? 'None of these — Create & Add'
+                : 'Create & Add'
+            }
+          </button>
+        </div>
+      )}
 
       {hasActiveFilters && (
         <div className="session-players-filter-pills" role="group" aria-label="Active filters">
@@ -226,6 +369,12 @@ export default function SessionPlayersAddPanel({
           </>
         )}
       </div>
+      <PlaceholderCreateModal
+        isOpen={!!createModalState}
+        playerName={createModalState?.name || ''}
+        onCreate={onCreatePlaceholder}
+        onClose={handleModalClose}
+      />
     </section>
   );
 }

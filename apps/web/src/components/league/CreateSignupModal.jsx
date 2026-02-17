@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { getCourts } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 
 // Helper to convert local datetime to UTC ISO string
 function localToUTCISOString(dateStr, timeStr) {
@@ -36,6 +37,7 @@ function getNextHour() {
 }
 
 export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
+  const { showToast } = useToast();
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -61,14 +63,14 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
   
   const handleSubmit = async () => {
     if (!formData.scheduled_date || !formData.scheduled_time) {
-      alert('Scheduled date and time are required');
+      showToast('Scheduled date and time are required', 'error');
       return;
     }
     
     const scheduled_datetime = localToUTCISOString(formData.scheduled_date, formData.scheduled_time);
     
     if (!scheduled_datetime) {
-      alert('Invalid date/time format');
+      showToast('Invalid date/time format', 'error');
       return;
     }
     

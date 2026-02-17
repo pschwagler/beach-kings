@@ -19,6 +19,7 @@ from sqlalchemy import (
     CheckConstraint,
     Index,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database.db import Base
@@ -54,14 +55,34 @@ class ScoringSystem(str, enum.Enum):
     SEASON_RATING = "season_rating"
 
 
+class FriendRequestStatus(str, enum.Enum):
+    """Friend request status enum."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+
+
 class NotificationType(str, enum.Enum):
     """Notification type enum."""
 
     LEAGUE_MESSAGE = "league_message"
     LEAGUE_INVITE = "league_invite"
     LEAGUE_JOIN_REQUEST = "league_join_request"
+    LEAGUE_JOIN_REJECTED = "league_join_rejected"
     SEASON_START = "season_start"
     SEASON_ACTIVATED = "season_activated"
+    PLACEHOLDER_CLAIMED = "placeholder_claimed"
+    FRIEND_REQUEST = "friend_request"
+    FRIEND_ACCEPTED = "friend_accepted"
+    SESSION_AUTO_SUBMITTED = "session_auto_submitted"
+    SESSION_AUTO_DELETED = "session_auto_deleted"
+
+
+class InviteStatus(str, enum.Enum):
+    """Player invite status enum."""
+
+    PENDING = "pending"
+    CLAIMED = "claimed"
 
 
 class Region(Base):
@@ -184,6 +205,10 @@ class Player(Base):
     avatar = Column(String, nullable=True)  # Can store initials (e.g., "JD") or image URL
     avp_playerProfileId = Column(Integer, nullable=True)
     status = Column(String, nullable=True)
+    is_placeholder = Column(Boolean, default=False, nullable=False, server_default="false")
+    created_by_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -201,12 +226,64 @@ class Player(Base):
     session_participations = relationship(
         "SessionParticipant", foreign_keys="SessionParticipant.player_id", back_populates="player"
     )
+    created_by = relationship(
+        "Player", remote_side="Player.id", foreign_keys=[created_by_player_id]
+    )
+    created_placeholders = relationship(
+        "Player", foreign_keys=[created_by_player_id], back_populates="created_by"
+    )
+    invite = relationship(
+        "PlayerInvite", foreign_keys="PlayerInvite.player_id",
+        back_populates="player", uselist=False,
+    )
 
     __table_args__ = (
         Index("idx_players_name", "full_name"),
         Index("idx_players_user", "user_id"),
         Index("idx_players_location", "location_id"),
         Index("idx_players_avp_id", "avp_playerProfileId"),
+        Index("idx_players_created_by", "created_by_player_id"),
+    )
+
+
+class PlayerInvite(Base):
+    """Invite links for placeholder players.
+
+    One invite per placeholder player (1:1 relationship).
+    Invite links never expire. Status transitions: pending → claimed.
+    """
+
+    __tablename__ = "player_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    invite_token = Column(String(64), nullable=False, unique=True)
+    created_by_player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    phone_number = Column(String, nullable=True)
+    status = Column(String, nullable=False, server_default=InviteStatus.PENDING.value)
+    claimed_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    player = relationship("Player", foreign_keys=[player_id], back_populates="invite")
+    creator = relationship("Player", foreign_keys=[created_by_player_id])
+    claimed_by_user = relationship("User", foreign_keys=[claimed_by_user_id])
+
+    __table_args__ = (
+        UniqueConstraint("player_id", name="uq_player_invites_player"),
+        CheckConstraint(
+            "status IN ('pending', 'claimed')", name="ck_player_invites_status"
+        ),
+        Index("idx_player_invites_token", "invite_token", unique=True),
+        Index("idx_player_invites_player", "player_id", unique=True),
+        Index("idx_player_invites_created_by", "created_by_player_id"),
     )
 
 
@@ -345,7 +422,7 @@ class Season(Base):
 
 
 class Court(Base):
-    """Court locations."""
+    """Court locations with discovery & review support."""
 
     __tablename__ = "courts"
 
@@ -354,6 +431,27 @@ class Court(Base):
     address = Column(String, nullable=True)
     location_id = Column(String, ForeignKey("locations.id"), nullable=False)
     geoJson = Column(Text, nullable=True)
+    # Discovery fields
+    description = Column(Text, nullable=True)
+    court_count = Column(Integer, nullable=True)
+    surface_type = Column(String(50), nullable=True)  # 'sand', 'grass', 'indoor_sand'
+    is_free = Column(Boolean, nullable=True)
+    cost_info = Column(Text, nullable=True)
+    has_lights = Column(Boolean, nullable=True)
+    has_restrooms = Column(Boolean, nullable=True)
+    has_parking = Column(Boolean, nullable=True)
+    parking_info = Column(Text, nullable=True)
+    nets_provided = Column(Boolean, nullable=True)
+    hours = Column(Text, nullable=True)
+    phone = Column(String(30), nullable=True)
+    website = Column(String(500), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    average_rating = Column(Float, nullable=True)
+    review_count = Column(Integer, nullable=True, server_default="0")
+    status = Column(String(20), nullable=True, server_default="approved")  # pending/approved/rejected
+    is_active = Column(Boolean, nullable=True, server_default="true")
+    slug = Column(String(200), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(
@@ -368,10 +466,20 @@ class Court(Base):
     sessions = relationship("Session", back_populates="court")
     weekly_schedules = relationship("WeeklySchedule", back_populates="court")
     signups = relationship("Signup", back_populates="court")
+    reviews = relationship("CourtReview", back_populates="court", cascade="all, delete-orphan")
+    edit_suggestions = relationship(
+        "CourtEditSuggestion", back_populates="court", cascade="all, delete-orphan"
+    )
     creator = relationship("Player", foreign_keys=[created_by], backref="created_courts")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_courts")
 
-    __table_args__ = (Index("idx_courts_location", "location_id"),)
+    __table_args__ = (
+        Index("idx_courts_location", "location_id"),
+        Index("idx_courts_slug", "slug", unique=True),
+        Index("idx_courts_status", "status"),
+        Index("idx_courts_lat_lng", "latitude", "longitude"),
+        Index("idx_courts_is_active", "is_active"),
+    )
 
 
 class Friend(Base):
@@ -395,6 +503,31 @@ class Friend(Base):
         CheckConstraint("player1_id < player2_id"),
         Index("idx_friends_player1", "player1_id"),
         Index("idx_friends_player2", "player2_id"),
+    )
+
+
+class FriendRequest(Base):
+    """Friend request between two players."""
+
+    __tablename__ = "friend_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    receiver_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    sender = relationship("Player", foreign_keys=[sender_player_id], backref="sent_friend_requests")
+    receiver = relationship(
+        "Player", foreign_keys=[receiver_player_id], backref="received_friend_requests"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("sender_player_id", "receiver_player_id", name="uq_friend_request_sender_receiver"),
+        Index("idx_friend_requests_receiver_status", "receiver_player_id", "status"),
+        Index("idx_friend_requests_sender", "sender_player_id"),
     )
 
 
@@ -511,7 +644,10 @@ class Match(Base):
     is_public = Column(Boolean, default=True, nullable=False)
     is_ranked = Column(
         Boolean, default=True, nullable=False
-    )  # Whether match counts toward rankings
+    )  # Effective ranked status (computed from ranked_intent + placeholder presence)
+    ranked_intent = Column(
+        Boolean, default=True, nullable=False
+    )  # User's original ranked/unranked choice (preserved across placeholder claims)
     created_by = Column(
         Integer, ForeignKey("players.id"), nullable=True
     )  # Player who created the match
@@ -1189,4 +1325,134 @@ class Notification(Base):
     __table_args__ = (
         Index("idx_notifications_user_unread", "user_id", "is_read", "created_at"),
         Index("idx_notifications_user_created", "user_id", "created_at"),
+    )
+
+
+class CourtTag(Base):
+    """Curated tags for court reviews (quality, vibe, facility)."""
+
+    __tablename__ = "court_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False)
+    slug = Column(String(50), nullable=False, unique=True)
+    category = Column(String(30), nullable=False)  # 'quality', 'vibe', 'facility'
+    sort_order = Column(Integer, nullable=False, server_default="0")
+
+    # Relationships
+    review_tags = relationship("CourtReviewTag", back_populates="tag")
+
+    __table_args__ = (
+        Index("idx_court_tags_category", "category"),
+    )
+
+
+class CourtReview(Base):
+    """User reviews for courts (one per user per court)."""
+
+    __tablename__ = "court_reviews"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    review_text = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    court = relationship("Court", back_populates="reviews")
+    player = relationship("Player", foreign_keys=[player_id], backref="court_reviews")
+    review_tags = relationship(
+        "CourtReviewTag", back_populates="review", cascade="all, delete-orphan"
+    )
+    photos = relationship(
+        "CourtReviewPhoto", back_populates="review", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("court_id", "player_id", name="uq_court_reviews_court_player"),
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_court_reviews_rating_range"),
+        Index("idx_court_reviews_court", "court_id"),
+        Index("idx_court_reviews_player", "player_id"),
+        Index("idx_court_reviews_created", "created_at"),
+    )
+
+
+class CourtReviewTag(Base):
+    """Join table linking reviews to curated tags."""
+
+    __tablename__ = "court_review_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(
+        Integer, ForeignKey("court_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    tag_id = Column(
+        Integer, ForeignKey("court_tags.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Relationships
+    review = relationship("CourtReview", back_populates="review_tags")
+    tag = relationship("CourtTag", back_populates="review_tags")
+
+    __table_args__ = (
+        UniqueConstraint("review_id", "tag_id", name="uq_court_review_tags_review_tag"),
+        Index("idx_court_review_tags_review", "review_id"),
+        Index("idx_court_review_tags_tag", "tag_id"),
+    )
+
+
+class CourtReviewPhoto(Base):
+    """Photos attached to court reviews (max 3 per review)."""
+
+    __tablename__ = "court_review_photos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(
+        Integer, ForeignKey("court_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    s3_key = Column(String(500), nullable=False)
+    url = Column(String(500), nullable=False)
+    sort_order = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    review = relationship("CourtReview", back_populates="photos")
+
+    __table_args__ = (
+        Index("idx_court_review_photos_review", "review_id"),
+    )
+
+
+class CourtEditSuggestion(Base):
+    """User-submitted edit suggestions for court info."""
+
+    __tablename__ = "court_edit_suggestions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    suggested_by = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    changes = Column(JSONB, nullable=False)  # JSON object of field -> new_value
+    status = Column(String(20), nullable=False, server_default="pending")
+    reviewed_by = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    court = relationship("Court", back_populates="edit_suggestions")
+    suggester = relationship("Player", foreign_keys=[suggested_by], backref="court_edit_suggestions")
+    reviewer = relationship("Player", foreign_keys=[reviewed_by], backref="reviewed_court_suggestions")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')",
+            name="ck_court_edit_suggestions_status",
+        ),
+        Index("idx_court_edit_suggestions_court", "court_id"),
+        Index("idx_court_edit_suggestions_status", "status"),
     )

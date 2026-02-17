@@ -685,14 +685,28 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         for r in players_result.all()
     ]
 
-    # 4. Courts at this location
+    # 4. Courts at this location (approved + active only)
     courts_result = await session.execute(
-        select(Court.id, Court.name, Court.address)
-        .where(Court.location_id == location.id)
+        select(
+            Court.id, Court.name, Court.address, Court.slug,
+            Court.average_rating, Court.review_count,
+        )
+        .where(
+            Court.location_id == location.id,
+            Court.status == "approved",
+            Court.is_active == True,  # noqa: E712
+        )
         .order_by(Court.name.asc())
     )
     courts = [
-        {"id": r.id, "name": r.name, "address": r.address}
+        {
+            "id": r.id,
+            "name": r.name,
+            "address": r.address,
+            "slug": r.slug,
+            "average_rating": float(r.average_rating) if r.average_rating else None,
+            "review_count": r.review_count or 0,
+        }
         for r in courts_result.all()
     ]
 

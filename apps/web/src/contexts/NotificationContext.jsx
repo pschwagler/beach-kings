@@ -22,7 +22,14 @@ export const NotificationProvider = ({ children }) => {
   const reconnectTimeoutRef = useRef(null);
   const pingIntervalRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
+  const intentionalCloseRef = useRef(false);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const userRef = useRef(user);
   const maxReconnectDelay = 30000; // 30 seconds max delay
+
+  // Keep refs in sync so onclose handler reads current values
+  isAuthenticatedRef.current = isAuthenticated;
+  userRef.current = user;
 
   /**
    * Fetch notifications with pagination
@@ -142,14 +149,18 @@ export const NotificationProvider = ({ children }) => {
    * Connect to WebSocket for real-time notifications
    */
   const connectWebSocket = useCallback(() => {
-    if (!isAuthenticated || !user) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) return; // Already connected
+    if (!isAuthenticatedRef.current || !userRef.current) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    // Also skip if a connection is currently being established
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
     const token = window.localStorage.getItem('beach_access_token');
     if (!token) {
       console.warn('No access token available for WebSocket connection');
       return;
     }
+
+    intentionalCloseRef.current = false;
 
     (async () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -161,108 +172,88 @@ export const NotificationProvider = ({ children }) => {
         wsRef.current = ws;
 
         ws.onopen = () => {
-        setWsConnected(true);
-        
-        // Reset reconnect attempts on successful connection
-        reconnectAttemptsRef.current = 0;
-        
-        // Clear any reconnect timeout
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = null;
-        }
-        
-        // Start ping interval (send ping every 30 seconds)
-        pingIntervalRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send('ping');
+          setWsConnected(true);
+          reconnectAttemptsRef.current = 0;
+
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
           }
-        }, 30000);
+
+          pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send('ping');
+            }
+          }, 30000);
         };
 
         ws.onmessage = (event) => {
-        try {
-          // Handle plain string messages (ping/pong)
-          if (typeof event.data === 'string') {
-            if (event.data === 'ping') {
-              // Server sent ping, respond with pong
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send('pong');
+          try {
+            if (typeof event.data === 'string') {
+              if (event.data === 'ping') {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send('pong');
+                }
+                return;
               }
-              return;
+              if (event.data === 'pong') return;
             }
-            if (event.data === 'pong') {
-              // Server responded to our ping
-              return;
+
+            const data = JSON.parse(event.data);
+
+            if (data && data.type === 'notification' && data.notification) {
+              const notification = data.notification;
+              setNotifications(prev => [notification, ...prev]);
+              if (!notification.is_read) {
+                setUnreadCount(prev => prev + 1);
+              }
             }
-          }
-          
-          // Try to parse as JSON for notification messages
-          const data = JSON.parse(event.data);
-          
-          // Handle notification message
-          if (data && data.type === 'notification' && data.notification) {
-            const notification = data.notification;
-            
-            // Add notification to beginning of list
-            setNotifications(prev => [notification, ...prev]);
-            
-            // Increment unread count if not read
-            if (!notification.is_read) {
-              setUnreadCount(prev => prev + 1);
+          } catch (error) {
+            if (event.data !== 'ping' && event.data !== 'pong') {
+              console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
             }
           }
-        } catch (error) {
-          // If JSON parsing fails, it might be a plain string message we already handled
-          // Only log if it's not a ping/pong message
-          if (event.data !== 'ping' && event.data !== 'pong') {
-            console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
-          }
-        }
         };
 
         ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        console.error('WebSocket URL was:', wsUrl);
-        setWsConnected(false);
+          console.error('WebSocket error:', error);
+          setWsConnected(false);
         };
 
         ws.onclose = () => {
-        setWsConnected(false);
-        
-        // Clear ping interval
-        if (pingIntervalRef.current) {
-          clearInterval(pingIntervalRef.current);
-          pingIntervalRef.current = null;
-        }
-        
-        // Attempt to reconnect with exponential backoff (unless user logged out)
-        if (isAuthenticated && user) {
-          // Calculate delay: 3s, 6s, 12s, 24s, 30s (max)
-          const baseDelay = 3000; // 3 seconds
-          const delay = Math.min(
-            baseDelay * Math.pow(2, reconnectAttemptsRef.current),
-            maxReconnectDelay
-          );
-          
-          reconnectAttemptsRef.current += 1;
+          setWsConnected(false);
 
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectWebSocket();
-          }, delay);
-        }
+          if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
+          }
+
+          // Only reconnect on unexpected disconnects while still authenticated
+          if (!intentionalCloseRef.current && isAuthenticatedRef.current && userRef.current) {
+            const baseDelay = 3000;
+            const delay = Math.min(
+              baseDelay * Math.pow(2, reconnectAttemptsRef.current),
+              maxReconnectDelay
+            );
+            reconnectAttemptsRef.current += 1;
+
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connectWebSocket();
+            }, delay);
+          }
         };
       } catch (error) {
         console.error('Error creating WebSocket connection:', error);
         setWsConnected(false);
       }
     })();
-  }, [isAuthenticated, user, getBackendHostForWebSocket]);
+  }, [getBackendHostForWebSocket]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Disconnect WebSocket
    */
   const disconnectWebSocket = useCallback(() => {
+    intentionalCloseRef.current = true;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -289,24 +280,19 @@ export const NotificationProvider = ({ children }) => {
   // Connect WebSocket when authenticated, disconnect when not
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Initial fetch of notifications and count
       fetchNotifications();
       fetchUnreadCount();
-      
-      // Connect WebSocket
       connectWebSocket();
     } else {
-      // Disconnect when logged out
       disconnectWebSocket();
       setNotifications([]);
       setUnreadCount(0);
     }
-    
-    // Cleanup on unmount
+
     return () => {
       disconnectWebSocket();
     };
-  }, [isAuthenticated, user, connectWebSocket, disconnectWebSocket, fetchNotifications, fetchUnreadCount]);
+  }, [isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
     notifications,

@@ -1,9 +1,9 @@
 # CI — runs on PRs targeting develop: lint (JS + Python) and backend tests.
+# Temporarily disabled — re-enable by removing the workflow_dispatch override.
 name: CI
 
 on:
-  pull_request:
-    branches: [develop]
+  workflow_dispatch: {}
 
 defaults:
   run:

@@ -1020,6 +1020,7 @@ async def list_league_members(session: AsyncSession, league_id: int) -> List[Dic
             "player_level": player_level,
             "player_avatar": player_avatar or generate_player_initials(player_name or ""),
             "joined_at": member.created_at.isoformat() if member.created_at else None,
+            "is_placeholder": member.role == "placeholder",
         }
         for member, player_name, player_nickname, player_level, player_avatar in rows
     ]
@@ -1041,73 +1042,101 @@ async def list_players_search(
     levels: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
+    include_placeholders_for_player_id: Optional[int] = None,
+    session_id: Optional[int] = None,
 ) -> Tuple[List[Dict], int]:
     """
     Search players with optional filters. Returns (items, total).
+
     Filter lists are OR within each dimension (e.g. multiple locations = player in any of them).
-    Each item has id, full_name, nickname, name (full_name only), gender, level, location_id, location_name.
+    Each item has id, full_name, nickname, name (full_name only), gender, level,
+    location_id, location_name, is_placeholder.
+
+    System records (status='system') are always excluded. Placeholder players are
+    excluded by default unless ``include_placeholders_for_player_id`` is set, in
+    which case the caller's own placeholders (and those scoped to the given
+    league_ids / session_id) are included.
     """
-    stmt = select(Player).where(True)
-    count_stmt = select(func.count(Player.id)).select_from(Player).where(True)
 
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        name_cond = or_(Player.full_name.ilike(term), Player.nickname.ilike(term))
-        stmt = stmt.where(name_cond)
-        count_stmt = count_stmt.where(name_cond)
+    def _apply_common_filters(stmt, *, for_count: bool = False):
+        """Apply shared WHERE clauses to both count and page queries."""
+        # Exclude system records (e.g. "Unknown Player")
+        stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
 
-    loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
-    if loc_ids:
-        stmt = stmt.where(Player.location_id.in_(loc_ids))
-        count_stmt = count_stmt.where(Player.location_id.in_(loc_ids))
+        # Placeholder scoping
+        if include_placeholders_for_player_id is not None:
+            # Include real players + scoped placeholders
+            placeholder_conditions = [
+                Player.created_by_player_id == include_placeholders_for_player_id,
+            ]
+            # Also include placeholders that are league members of the specified leagues
+            league_ids_clean = [x for x in (league_ids or []) if x is not None]
+            if league_ids_clean:
+                league_placeholder_subq = (
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(league_ids_clean))
+                    .distinct()
+                )
+                placeholder_conditions.append(Player.id.in_(league_placeholder_subq))
+            # Also include placeholders that are session participants
+            if session_id is not None:
+                session_placeholder_subq = (
+                    select(SessionParticipant.player_id)
+                    .where(SessionParticipant.session_id == session_id)
+                    .distinct()
+                )
+                placeholder_conditions.append(Player.id.in_(session_placeholder_subq))
 
-    if league_ids:
-        league_ids_clean = [x for x in league_ids if x is not None]
-        if league_ids_clean:
-            subq = (
-                select(LeagueMember.player_id)
-                .where(LeagueMember.league_id.in_(league_ids_clean))
-                .distinct()
+            stmt = stmt.where(
+                or_(
+                    Player.is_placeholder.is_(False),
+                    and_(Player.is_placeholder.is_(True), or_(*placeholder_conditions)),
+                )
             )
-            stmt = stmt.where(Player.id.in_(subq))
-            count_stmt = count_stmt.where(Player.id.in_(subq))
+        else:
+            # Default: exclude all placeholders
+            stmt = stmt.where(Player.is_placeholder.is_(False))
 
-    gender_vals = _normalize_list_str(genders)
-    if gender_vals:
-        stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
-        count_stmt = count_stmt.where(func.lower(Player.gender).in_(gender_vals))
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
 
-    level_vals = _normalize_list_str(levels)
-    if level_vals:
-        stmt = stmt.where(func.lower(Player.level).in_(level_vals))
-        count_stmt = count_stmt.where(func.lower(Player.level).in_(level_vals))
+        loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
+        if loc_ids:
+            stmt = stmt.where(Player.location_id.in_(loc_ids))
 
+        if league_ids:
+            league_ids_clean = [x for x in league_ids if x is not None]
+            if league_ids_clean:
+                subq = (
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(league_ids_clean))
+                    .distinct()
+                )
+                stmt = stmt.where(Player.id.in_(subq))
+
+        gender_vals = _normalize_list_str(genders)
+        if gender_vals:
+            stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
+
+        level_vals = _normalize_list_str(levels)
+        if level_vals:
+            stmt = stmt.where(func.lower(Player.level).in_(level_vals))
+
+        return stmt
+
+    # Count query
+    count_stmt = select(func.count(Player.id)).select_from(Player)
+    count_stmt = _apply_common_filters(count_stmt, for_count=True)
     total_result = await session.execute(count_stmt)
     total = total_result.scalar() or 0
 
+    # Page query (with location join)
     page_stmt = (
         select(Player, Location.name.label("location_name"))
         .outerjoin(Location, Location.id == Player.location_id)
-        .where(True)
     )
-    if q and q.strip():
-        term = f"%{q.strip()}%"
-        page_stmt = page_stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
-    if loc_ids:
-        page_stmt = page_stmt.where(Player.location_id.in_(loc_ids))
-    if league_ids:
-        league_ids_clean = [x for x in league_ids if x is not None]
-        if league_ids_clean:
-            subq = (
-                select(LeagueMember.player_id)
-                .where(LeagueMember.league_id.in_(league_ids_clean))
-                .distinct()
-            )
-            page_stmt = page_stmt.where(Player.id.in_(subq))
-    if gender_vals:
-        page_stmt = page_stmt.where(func.lower(Player.gender).in_(gender_vals))
-    if level_vals:
-        page_stmt = page_stmt.where(func.lower(Player.level).in_(level_vals))
+    page_stmt = _apply_common_filters(page_stmt)
     page_stmt = (
         page_stmt.order_by(
             func.coalesce(Player.nickname, Player.full_name).asc().nullslast(), Player.id.asc()
@@ -1133,6 +1162,7 @@ async def list_players_search(
                 "user_id": player.user_id,
                 "location_id": player.location_id,
                 "location_name": location_name,
+                "is_placeholder": player.is_placeholder,
             }
         )
     return items, total
@@ -1555,6 +1585,58 @@ async def create_league_request(session: AsyncSession, league_id: int, player_id
         "created_at": request.created_at.isoformat() if request.created_at else None,
         "updated_at": request.updated_at.isoformat() if request.updated_at else None,
     }
+
+
+def _join_request_row_to_dict(req, full_name):
+    """Build a dict for a join request row (shared by pending and rejected lists)."""
+    return {
+        "id": req.id,
+        "league_id": req.league_id,
+        "player_id": req.player_id,
+        "player_name": full_name,
+        "status": req.status,
+        "created_at": req.created_at.isoformat() if req.created_at else None,
+    }
+
+
+async def list_league_join_requests(session: AsyncSession, league_id: int) -> List[Dict]:
+    """
+    List pending join requests for a league (for admin UI).
+    Returns each request with player full_name and created_at.
+    """
+    result = await session.execute(
+        select(LeagueRequest, Player.full_name)
+        .join(Player, LeagueRequest.player_id == Player.id)
+        .where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.status == "pending",
+            )
+        )
+        .order_by(LeagueRequest.created_at.asc())
+    )
+    rows = result.all()
+    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+
+
+async def list_league_join_requests_rejected(session: AsyncSession, league_id: int) -> List[Dict]:
+    """
+    List rejected join requests for a league (for admin UI).
+    Allows admins to find declined requests and approve them later.
+    """
+    result = await session.execute(
+        select(LeagueRequest, Player.full_name)
+        .join(Player, LeagueRequest.player_id == Player.id)
+        .where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.status == "rejected",
+            )
+        )
+        .order_by(LeagueRequest.updated_at.desc())
+    )
+    rows = result.all()
+    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
 
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:
@@ -2002,6 +2084,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
             cast(0, Integer).label("team1_elo_change"),
             cast(0, Integer).label("team2_elo_change"),
         )
@@ -2034,6 +2117,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
             "team1_elo_change": row.team1_elo_change,
             "team2_elo_change": row.team2_elo_change,
         }
@@ -2440,6 +2524,8 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2505,6 +2591,8 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
+            "ranked_intent": row.ranked_intent,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -2549,6 +2637,8 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -2614,6 +2704,8 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
             "team1_score": row.team1_score,
             "team2_score": row.team2_score,
             "winner": row.winner,
+            "is_ranked": row.is_ranked,
+            "ranked_intent": row.ranked_intent,
             "elo_changes": elo_by_match.get(row.id, {}),
         }
         matches.append(match_data)
@@ -3641,6 +3733,8 @@ async def get_player_match_history_by_id(
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
             eh.elo_after,
+            Match.is_ranked,
+            Match.ranked_intent,
             Session.status.label("session_status"),
             Session.name.label("session_name"),
             Session.code.label("session_code"),
@@ -3735,6 +3829,8 @@ async def get_player_match_history_by_id(
                 "Session Code": row.session_code,
                 "Season ID": row.season_id,
                 "League ID": row.league_id,
+                "Is Ranked": row.is_ranked,
+                "Ranked Intent": row.ranked_intent,
             }
         )
 
@@ -4005,6 +4101,8 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             Match.team1_score,
             Match.team2_score,
             Match.winner,
+            Match.is_ranked,
+            Match.ranked_intent,
         )
         .select_from(Match)
         .outerjoin(Session, Match.session_id == Session.id)
@@ -4035,6 +4133,8 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
             "team1_score": r.team1_score,
             "team2_score": r.team2_score,
             "winner": r.winner,
+            "is_ranked": r.is_ranked,
+            "ranked_intent": r.ranked_intent,
         }
         for r in rows
     ]
@@ -4074,7 +4174,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     if not part_player_ids:
         return []
 
-    # Fetch player info and location for all player IDs
+    # Fetch player info, location, and placeholder flag in a single query
     players_q = (
         select(
             Player.id,
@@ -4082,6 +4182,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             Player.nickname,
             Player.level,
             Player.gender,
+            Player.is_placeholder,
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Location.id == Player.location_id)
@@ -4089,6 +4190,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
     )
     players_result = await db_session.execute(players_q)
     rows = players_result.all()
+
     return [
         {
             "player_id": r.id,
@@ -4096,6 +4198,7 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
             "level": r.level,
             "gender": r.gender,
             "location_name": r.location_name,
+            "is_placeholder": bool(r.is_placeholder),
         }
         for r in rows
     ]
@@ -4248,6 +4351,21 @@ async def create_match_async(
     else:
         winner = -1  # Tie
 
+    # Store the user's ranked intent; compute effective is_ranked
+    from backend.services import placeholder_service
+
+    ranked_intent = match_request.is_ranked if match_request.is_ranked is not None else True
+    has_placeholders = await placeholder_service.check_match_has_placeholders(
+        session,
+        [
+            match_request.team1_player1_id,
+            match_request.team1_player2_id,
+            match_request.team2_player1_id,
+            match_request.team2_player2_id,
+        ],
+    )
+    is_ranked = ranked_intent and not has_placeholders
+
     # Create match using player IDs directly from the request
     new_match = Match(
         session_id=session_id,
@@ -4260,9 +4378,18 @@ async def create_match_async(
         team2_score=match_request.team2_score,
         winner=winner,
         is_public=match_request.is_public if match_request.is_public is not None else True,
+        ranked_intent=ranked_intent,
+        is_ranked=is_ranked,
     )
     session.add(new_match)
     await session.flush()
+
+    # Bump session.updated_at so auto-cleanup tracks last activity
+    if session_id:
+        await session.execute(
+            update(Session).where(Session.id == session_id).values(updated_at=func.now())
+        )
+
     await session.commit()
     await session.refresh(new_match)
 
@@ -4311,6 +4438,23 @@ async def update_match_async(
     match.winner = winner
     if match_request.is_public is not None:
         match.is_public = match_request.is_public
+
+    # Update ranked intent and recompute effective ranked status
+    if match_request.is_ranked is not None:
+        from backend.services import placeholder_service
+
+        match.ranked_intent = match_request.is_ranked
+        has_placeholders = await placeholder_service.check_match_has_placeholders(
+            session,
+            [
+                match.team1_player1_id,
+                match.team1_player2_id,
+                match.team2_player1_id,
+                match.team2_player2_id,
+            ],
+        )
+        match.is_ranked = match.ranked_intent and not has_placeholders
+
     if updated_by is not None:
         match.updated_by = updated_by
 
@@ -4338,11 +4482,22 @@ async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
     Returns:
         True if successful, False if match not found
     """
-    # First, delete associated elo_history records
+    # Get match's session_id before deleting so we can bump session.updated_at
+    match_result = await session.execute(select(Match.session_id).where(Match.id == match_id))
+    match_session_id = match_result.scalar_one_or_none()
+
+    # Delete associated elo_history records
     await session.execute(delete(EloHistory).where(EloHistory.match_id == match_id))
 
-    # Then delete the match
+    # Delete the match
     result = await session.execute(delete(Match).where(Match.id == match_id))
+
+    # Bump session.updated_at so auto-cleanup tracks last activity
+    if match_session_id:
+        await session.execute(
+            update(Session).where(Session.id == match_session_id).values(updated_at=func.now())
+        )
+
     await session.commit()
     return result.rowcount > 0
 

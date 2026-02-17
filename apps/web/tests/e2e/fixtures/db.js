@@ -49,6 +49,26 @@ export async function executeQuery(query, params = []) {
 }
 
 /**
+ * Seed a minimal PlayerGlobalStats row for a player so they appear in the public API.
+ * The public player endpoint requires PlayerGlobalStats with total_games >= 1.
+ *
+ * @param {number} playerId - The player's ID
+ */
+export async function seedPlayerGlobalStats(playerId) {
+  const client = getDbClient();
+  try {
+    await client.connect();
+    await client.query(`
+      INSERT INTO player_global_stats (player_id, current_rating, total_games, total_wins)
+      VALUES ($1, 1200.0, 1, 0)
+      ON CONFLICT (player_id) DO NOTHING
+    `, [playerId]);
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * Clean up all test data created by a user identified by phone number.
  *
  * Collects user/player/league/session/match IDs upfront, then deletes in
@@ -195,6 +215,7 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
 
     // 11. Social / notifications
     if (playerIds.length > 0) {
+      await client.query(`DELETE FROM friend_requests WHERE sender_player_id = ANY($1) OR receiver_player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM friends WHERE player1_id = ANY($1) OR player2_id = ANY($1)`, [playerIds]);
     }
     if (userIds.length > 0) {
@@ -203,14 +224,79 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
       await client.query(`DELETE FROM league_messages WHERE user_id = ANY($1)`, [userIds]);
     }
 
+    // 11b. Court reviews and court submissions by test players
+    if (playerIds.length > 0) {
+      await client.query(`
+        DELETE FROM court_review_photos WHERE review_id IN (
+          SELECT id FROM court_reviews WHERE player_id = ANY($1)
+        )`, [playerIds]);
+      await client.query(`DELETE FROM court_reviews WHERE player_id = ANY($1)`, [playerIds]);
+      // Remove courts submitted by test players (pending submissions)
+      await client.query(`DELETE FROM courts WHERE created_by = ANY($1)`, [playerIds]);
+    }
+
     // 12. Auth tokens
     if (userIds.length > 0) {
       await client.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [userIds]);
       await client.query(`DELETE FROM password_reset_tokens WHERE user_id = ANY($1)`, [userIds]);
     }
 
-    // 13. Players (created by test users AND "orphan" players created via /api/players)
+    // 12b. Placeholder players + invites created by test users
     if (playerIds.length > 0) {
+      // Find placeholder players created by test users
+      const phRows = await client.query(
+        'SELECT id FROM players WHERE created_by_player_id = ANY($1) AND is_placeholder = true',
+        [playerIds]
+      );
+      const phIds = phRows.rows.map(r => r.id);
+      if (phIds.length > 0) {
+        await client.query('DELETE FROM player_invites WHERE player_id = ANY($1)', [phIds]);
+        // Null out match FKs referencing placeholder players
+        for (const col of ['team1_player1_id', 'team1_player2_id', 'team2_player1_id', 'team2_player2_id']) {
+          await client.query(`UPDATE matches SET ${col} = NULL WHERE ${col} = ANY($1)`, [phIds]);
+        }
+        await client.query('DELETE FROM league_members WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM session_participants WHERE player_id = ANY($1)', [phIds]);
+        await client.query('DELETE FROM players WHERE id = ANY($1)', [phIds]);
+      }
+      // Also clean invites referencing the test user's own player_ids
+      await client.query(
+        'DELETE FROM player_invites WHERE player_id = ANY($1) OR created_by_player_id = ANY($1)',
+        [playerIds]
+      );
+    }
+
+    // 13. Players (created by test users AND "orphan" players created via /api/players)
+    //     Before deleting, remove any matches that reference these players but
+    //     weren't already cleaned up (e.g. after a claim transferred matches
+    //     from testUser's session to secondTestUser's player).
+    if (playerIds.length > 0) {
+      // Find stale match IDs referencing these players that we haven't deleted yet
+      const staleMatchRows = await client.query(
+        `SELECT id FROM matches
+         WHERE team1_player1_id = ANY($1)
+            OR team1_player2_id = ANY($1)
+            OR team2_player1_id = ANY($1)
+            OR team2_player2_id = ANY($1)`,
+        [playerIds]
+      );
+      const staleMatchIds = staleMatchRows.rows.map(r => r.id);
+      if (staleMatchIds.length > 0) {
+        await client.query('DELETE FROM elo_history WHERE match_id = ANY($1)', [staleMatchIds]);
+        await client.query('DELETE FROM season_rating_history WHERE match_id = ANY($1)', [staleMatchIds]);
+        await client.query('DELETE FROM matches WHERE id = ANY($1)', [staleMatchIds]);
+      }
+      // Re-clean stats tables that may have been (re-)created by stats recalc
+      // after a claim-merge transferred matches to a test player.
+      await client.query(`DELETE FROM partnership_stats WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM partnership_stats_season WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM partnership_stats_league WHERE player_id = ANY($1) OR partner_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats_season WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM opponent_stats_league WHERE player_id = ANY($1) OR opponent_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_global_stats WHERE player_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_season_stats WHERE player_id = ANY($1)`, [playerIds]);
+      await client.query(`DELETE FROM player_league_stats WHERE player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM players WHERE id = ANY($1)`, [playerIds]);
     }
 

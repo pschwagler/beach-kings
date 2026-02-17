@@ -17,6 +17,7 @@ const STATIC_PAGES = [
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/find-leagues', changeFrequency: 'daily', priority: 0.9 },
   { path: '/find-players', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/courts', changeFrequency: 'daily', priority: 0.9 },
   { path: '/beach-volleyball', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.2 },
   { path: '/terms-of-service', changeFrequency: 'yearly', priority: 0.2 },
@@ -27,7 +28,7 @@ const STATIC_PAGES = [
  * @returns {Promise<import('next').MetadataRoute.Sitemap>}
  */
 export default async function sitemap() {
-  const [leagues, players, locations] = await Promise.all([
+  const [leagues, players, locations, courts] = await Promise.all([
     fetchBackend('/api/public/sitemap/leagues').catch((error) => {
       console.error('[sitemap] Failed to fetch leagues:', error.message);
       return [];
@@ -38,6 +39,10 @@ export default async function sitemap() {
     }),
     fetchBackend('/api/public/sitemap/locations').catch((error) => {
       console.error('[sitemap] Failed to fetch locations:', error.message);
+      return [];
+    }),
+    fetchBackend('/api/public/sitemap/courts').catch((error) => {
+      console.error('[sitemap] Failed to fetch courts:', error.message);
       return [];
     }),
   ]);
@@ -69,5 +74,12 @@ export default async function sitemap() {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...leagueEntries, ...playerEntries, ...locationEntries];
+  const courtEntries = courts.map((court) => ({
+    url: `${BASE_URL}/courts/${court.slug}`,
+    lastModified: court.updated_at || undefined,
+    changeFrequency: 'weekly',
+    priority: 0.7,
+  }));
+
+  return [...staticEntries, ...leagueEntries, ...playerEntries, ...locationEntries, ...courtEntries];
 }

@@ -95,7 +95,6 @@ echo ""
 # if [ "${ENABLE_WHATSAPP:-true}" = "true" ] || [ "${ENABLE_WHATSAPP:-true}" = "True" ] || [ "${ENABLE_WHATSAPP:-true}" = "TRUE" ]; then
 #     echo "📱 Starting WhatsApp service on port 3001..."
 #     cd /app/services/whatsapp
-#     # Set WHATSAPP_PORT to avoid conflicts with Railway's PORT env var
 #     WHATSAPP_PORT=3001 node server.js &
 #     WHATSAPP_PID=$!
 #     echo "✅ WhatsApp service started (PID: $WHATSAPP_PID)"

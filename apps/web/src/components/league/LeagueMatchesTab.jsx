@@ -4,10 +4,11 @@ import { useRouter } from 'next/navigation';
 import MatchesTable from '../match/MatchesTable';
 
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
-import { transformMatchData } from './utils/matchUtils';
+import { transformMatchData, buildPlaceholderIdSet } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
@@ -48,10 +49,10 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     playerSeasonStats,
     playerMatchHistory,
     setSelectedPlayer,
-    showMessage,
     refreshSeasons,
     refreshMembers,
   } = useLeague();
+  const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   
   const MATCHES_VIEW_STORAGE_KEY = 'beach-kings:league-matches-view';
@@ -76,6 +77,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     refreshMatchData
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
+
+  // Build set of placeholder player IDs for match display badges
+  const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
 
   // Build player name mappings from members only (members have player_id and player_name from API)
   const { allPlayerNames, playerNameToId, playerIdToName, getPlayerIdFromMap } = useMemo(() => {
@@ -170,16 +174,15 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       // This allows the add matches card to show for seasons with no matches
       return [];
     }
-    return transformMatchData(matchesData);
-  }, [selectedSeasonData]);
+    return transformMatchData(matchesData, placeholderPlayerIds);
+  }, [selectedSeasonData, placeholderPlayerIds]);
 
   const sessionEditing = useSessionEditing({
     matches,
     leagueId,
     refreshData,
     refreshSeasonData,
-    getSeasonIdForRefresh,
-    showMessage
+    getSeasonIdForRefresh
   });
   const {
     editingSessions,
@@ -205,8 +208,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     loadSeasonData,
     seasons,
     selectedSeasonId,
-    getSeasonIdForRefresh,
-    showMessage
+    getSeasonIdForRefresh
   });
   const { handleUpdateSessionSeason } = sessionSeasonUpdate;
 
@@ -237,7 +239,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       
       await refreshData({ sessions: true, season: true, matches: true });
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to submit scores');
+      showToast(err.response?.data?.detail || 'Failed to submit scores', 'error');
       throw err;
     }
   };
@@ -247,7 +249,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       await deleteSession(sessionId);
       await refreshData({ sessions: true, season: true, matches: true });
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to delete session');
+      showToast(err.response?.data?.detail || 'Failed to delete session', 'error');
       throw err;
     }
   };
@@ -257,7 +259,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     try {
       await sessionEditingCreateMatch(matchData, sessionId, matchOperations);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create game');
+      showToast(err.response?.data?.detail || 'Failed to create game', 'error');
       throw err;
     }
   };
@@ -266,7 +268,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     try {
       await sessionEditingUpdateMatch(matchId, matchData, sessionId, matchOperations, matches);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update game');
+      showToast(err.response?.data?.detail || 'Failed to update game', 'error');
       throw err;
     }
   };
@@ -275,7 +277,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     try {
       await sessionEditingDeleteMatch(matchId, matchOperations, matches);
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to delete game');
+      showToast(err.response?.data?.detail || 'Failed to delete game', 'error');
       throw err;
     }
   };
@@ -368,8 +370,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       return null; // Data loaded but no matches property yet
     }
     
-    return transformMatchData(matchesData);
-  }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap]);
+    return transformMatchData(matchesData, placeholderPlayerIds);
+  }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap, placeholderPlayerIds]);
 
   const handleCreateSeasonSuccess = async () => {
     await refreshSeasons();

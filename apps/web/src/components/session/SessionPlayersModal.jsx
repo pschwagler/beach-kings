@@ -19,7 +19,6 @@ export default function SessionPlayersModal({
   currentUserPlayerId = null,
   onClose,
   onSuccess,
-  showMessage,
   message,
 }) {
   const drawerRef = useRef(null);
@@ -54,12 +53,14 @@ export default function SessionPlayersModal({
     handleAdd,
     handleRemoveFilter,
     handleToggleFilter,
+    handleCreatePlaceholder,
+    isCreatingPlaceholder,
+    handleSearchPlayers,
     userLocationId,
   } = useSessionPlayersModal({
     isOpen,
     sessionId,
     participants,
-    showMessage,
     onSuccess,
     onClose,
   });
@@ -186,6 +187,9 @@ export default function SessionPlayersModal({
               filterPopoverRef={filterPopoverRef}
               activeFilterCount={activeFilterCount}
               userLocationId={userLocationId}
+              onCreatePlaceholder={handleCreatePlaceholder}
+              isCreatingPlaceholder={isCreatingPlaceholder}
+              onSearchPlayers={handleSearchPlayers}
             />
           )}
         </div>
