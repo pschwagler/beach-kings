@@ -35,7 +35,7 @@ export default function LeagueMessagesTab({ leagueId }) {
       setMessages(data);
     } catch (error) {
       console.error('Error loading messages:', error);
-      showMessage('Failed to load messages', 'error');
+      showMessage('error', 'Failed to load messages');
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function LeagueMessagesTab({ leagueId }) {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      showMessage('Failed to send message', 'error');
+      showMessage('error', 'Failed to send message');
     } finally {
       setSending(false);
     }

@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
-import { removeLeagueMember, updateLeagueMember, leaveLeague } from '../../services/api';
+import {
+  removeLeagueMember,
+  updateLeagueMember,
+  leaveLeague,
+  getLeagueJoinRequests
+} from '../../services/api';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { useSortedMembers } from './hooks/useSortedMembers';
 import DescriptionSection from './DescriptionSection';
+import JoinRequestsSection from './JoinRequestsSection';
 import PlayersSection from './PlayersSection';
 import SeasonsSection from './SeasonsSection';
 import LeagueInfoSection from './LeagueInfoSection';
@@ -36,9 +42,32 @@ export default function LeagueDetailsTab() {
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showOnlyAdminModal, setShowOnlyAdminModal] = useState(false);
   const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [joinRequests, setJoinRequests] = useState({ pending: [], rejected: [] });
 
   // Use custom hook for sorted members
   const sortedMembers = useSortedMembers(members, currentUserPlayer);
+
+  const fetchJoinRequests = useCallback(async () => {
+    if (!leagueId || !isLeagueAdmin) return;
+    try {
+      const data = await getLeagueJoinRequests(leagueId);
+      setJoinRequests({ pending: data.pending ?? [], rejected: data.rejected ?? [] });
+    } catch (err) {
+      setJoinRequests({ pending: [], rejected: [] });
+      const message = err.response?.data?.detail ?? err.message ?? 'Failed to load join requests';
+      showMessage?.('error', message);
+    }
+  }, [leagueId, isLeagueAdmin, showMessage]);
+
+  useEffect(() => {
+    fetchJoinRequests();
+  }, [fetchJoinRequests]);
+
+  const handleJoinRequestProcessed = useCallback(async () => {
+    await fetchJoinRequests();
+    await refreshMembers();
+  }, [fetchJoinRequests, refreshMembers]);
 
   const handleRoleChange = async (memberId, newRole) => {
     try {
@@ -50,16 +79,19 @@ export default function LeagueDetailsTab() {
     }
   };
 
-  const handleRemoveMember = async (memberId, playerName) => {
-    if (typeof window === 'undefined' || !window.confirm(`Are you sure you want to remove ${playerName} from this league?`)) {
-      return;
-    }
+  const handleRemoveMemberClick = (memberId, playerName) => {
+    setMemberToRemove({ memberId, playerName });
+  };
 
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove || !leagueId) return;
     try {
-      await removeLeagueMember(leagueId, memberId);
+      await removeLeagueMember(leagueId, memberToRemove.memberId);
       await refreshMembers();
+      setMemberToRemove(null);
     } catch (err) {
       showMessage?.('error', err.response?.data?.detail || 'Failed to remove player');
+      setMemberToRemove(null);
     }
   };
 
@@ -125,12 +157,20 @@ export default function LeagueDetailsTab() {
           onUpdate={updateLeagueInContext}
         />
 
+        {isLeagueAdmin && (
+          <JoinRequestsSection
+            pendingRequests={joinRequests.pending}
+            rejectedRequests={joinRequests.rejected}
+            onRequestProcessed={handleJoinRequestProcessed}
+          />
+        )}
+
         <PlayersSection
           sortedMembers={sortedMembers}
           currentUserPlayer={currentUserPlayer}
           onAddPlayers={() => setShowAddPlayerModal(true)}
           onRoleChange={handleRoleChange}
-          onRemoveMember={handleRemoveMember}
+          onRemoveMember={handleRemoveMemberClick}
         />
 
         <SeasonsSection
@@ -175,6 +215,17 @@ export default function LeagueDetailsTab() {
         message={`Are you sure you want to leave ${league?.name}?`}
         confirmText="Leave League"
         cancelText="Cancel"
+      />
+
+      <ConfirmationModal
+        isOpen={Boolean(memberToRemove)}
+        onClose={() => setMemberToRemove(null)}
+        onConfirm={handleConfirmRemoveMember}
+        title="Remove player"
+        message={memberToRemove ? `Are you sure you want to remove ${memberToRemove.playerName} from this league?` : ''}
+        confirmText="Remove"
+        cancelText="Cancel"
+        confirmButtonClass="danger"
       />
     </>
   );
