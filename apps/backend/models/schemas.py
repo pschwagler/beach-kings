@@ -570,6 +570,12 @@ class DeletePlaceholderResponse(BaseModel):
 # --- Invite Schemas ---
 
 
+class InviteUrlResponse(BaseModel):
+    """Response containing a placeholder player's invite URL."""
+
+    invite_url: str
+
+
 class InviteDetailsResponse(BaseModel):
     """Public-facing invite details for the landing page."""
 

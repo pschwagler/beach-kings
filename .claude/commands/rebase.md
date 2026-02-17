@@ -200,6 +200,33 @@ Quick sanity checks:
 - Grep all migration files for `Revision ID` and `Revises` — verify the chain is linear with no duplicates
 - Confirm no leftover conflict markers in any files: `git grep -l '<<<<<<'`
 
+### 7a. Alembic Revision Chain Validation
+
+**This is critical.** Git-level conflict detection can miss semantic Alembic issues (e.g. two files with different names but the same revision number, or multiple files sharing the same `down_revision`).
+
+Scan all migration files and build the revision chain:
+
+```bash
+# Extract revision and down_revision from every migration file
+grep -h 'revision\|down_revision' apps/backend/alembic/versions/*.py | grep -v '#'
+```
+
+Validate:
+1. **No duplicate `Revision ID` values** — two files must not share the same revision
+2. **No duplicate `down_revision` values** (except `None`) — two files must not both descend from the same parent (this means multiple heads)
+3. **Single head** — exactly one migration should NOT be referenced as anyone's `down_revision` (that's the head)
+
+If any of these fail, report clearly:
+
+```
+ALEMBIC CHAIN ERROR — Multiple heads detected after rebase!
+
+  022_add_friend_requests.py      Revision: 022, Revises: 021
+  017_add_friend_requests.py      Revision: 017, Revises: 016  ← FORK (016 already has a child: 017_add_placeholder_players)
+```
+
+Then auto-fix: renumber the current branch's migration(s) using the same logic as Step 6 — set `down_revision` to the current highest revision, renumber the file, amend the commit.
+
 Report:
 - Number of commits rebased
 - Any conflicts resolved (and how)

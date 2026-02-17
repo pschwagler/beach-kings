@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Search, MapPin, UserPlus, UserCheck, UserX, X } from 'lucide-react';
+import { Users, Search, MapPin, UserPlus, UserCheck, MoreVertical, X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { ToastContainer, useToasts } from '../ui/Toast';
 import LevelBadge from '../ui/LevelBadge';
@@ -19,6 +19,7 @@ import {
 } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
 import { slugify } from '../../utils/slugify';
+import { useNotifications } from '../../contexts/NotificationContext';
 import './FriendsTab.css';
 
 /**
@@ -71,8 +72,39 @@ export default function FriendsTab() {
   const [suggestions, setSuggestions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState({});
+  const [openMenu, setOpenMenu] = useState(null);
   const [confirmUnfriend, setConfirmUnfriend] = useState(null);
   const [toasts, addToast, dismissToast] = useToasts();
+  const { notifications, markAsRead, fetchUnreadCount } = useNotifications();
+  const menuRef = useRef(null);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!openMenu) return;
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openMenu]);
+
+  /**
+   * Dismiss the notification matching a friend request ID.
+   */
+  const dismissFriendNotification = useCallback(async (requestId) => {
+    const match = notifications.find(
+      (n) => n.data?.friend_request_id === requestId && !n.is_read
+    );
+    if (match) {
+      try {
+        await markAsRead(match.id);
+      } catch (_) {
+        // Non-critical — notification stays unread
+      }
+    }
+  }, [notifications, markAsRead]);
 
   // Load all data on mount
   useEffect(() => {
@@ -107,6 +139,7 @@ export default function FriendsTab() {
     setActionLoadingFor(`accept-${requestId}`, true);
     try {
       await acceptFriendRequest(requestId);
+      await dismissFriendNotification(requestId);
       // Refresh data
       const [friendsData, inData] = await Promise.all([
         getFriends(1, 100),
@@ -123,19 +156,20 @@ export default function FriendsTab() {
     } finally {
       setActionLoadingFor(`accept-${requestId}`, false);
     }
-  }, []);
+  }, [dismissFriendNotification]);
 
   const handleDecline = useCallback(async (requestId) => {
     setActionLoadingFor(`decline-${requestId}`, true);
     try {
       await declineFriendRequest(requestId);
+      await dismissFriendNotification(requestId);
       setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
     } catch (err) {
       addToast(err.response?.data?.detail || 'Failed to decline friend request');
     } finally {
       setActionLoadingFor(`decline-${requestId}`, false);
     }
-  }, []);
+  }, [dismissFriendNotification]);
 
   const handleCancelOutgoing = useCallback(async (requestId) => {
     setActionLoadingFor(`cancel-${requestId}`, true);
@@ -341,7 +375,7 @@ export default function FriendsTab() {
                     </div>
                   </div>
                 </Link>
-                <div className="friends-tab__friend-actions">
+                <div className="friends-tab__friend-actions" ref={openMenu === friend.player_id ? menuRef : undefined}>
                   {confirmUnfriend === friend.player_id ? (
                     <div className="friends-tab__confirm">
                       <Button
@@ -350,25 +384,37 @@ export default function FriendsTab() {
                         onClick={() => handleUnfriend(friend.player_id)}
                         disabled={actionLoading[`unfriend-${friend.player_id}`]}
                       >
-                        {actionLoading[`unfriend-${friend.player_id}`] ? '...' : 'Confirm'}
+                        {actionLoading[`unfriend-${friend.player_id}`] ? '...' : 'Remove'}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setConfirmUnfriend(null)}
+                        onClick={() => { setConfirmUnfriend(null); setOpenMenu(null); }}
                       >
                         <X size={14} />
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmUnfriend(friend.player_id)}
-                      title="Remove friend"
-                    >
-                      <UserX size={16} />
-                    </Button>
+                    <div className="friends-tab__menu-wrapper">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setOpenMenu(openMenu === friend.player_id ? null : friend.player_id)}
+                        title="Options"
+                      >
+                        <MoreVertical size={16} />
+                      </Button>
+                      {openMenu === friend.player_id && (
+                        <div className="friends-tab__dropdown">
+                          <button
+                            className="friends-tab__dropdown-item friends-tab__dropdown-item--danger"
+                            onClick={() => { setConfirmUnfriend(friend.player_id); setOpenMenu(null); }}
+                          >
+                            Remove Friend
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

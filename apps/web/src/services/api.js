@@ -1548,6 +1548,16 @@ export const deletePlaceholderPlayer = async (playerId) => {
 };
 
 /**
+ * Get the invite URL for a placeholder player.
+ * @param {number} playerId - Placeholder player ID
+ * @returns {Promise<{ invite_url: string }>}
+ */
+export const getPlayerInviteUrl = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/invite-url`);
+  return response.data;
+};
+
+/**
  * Get invite details for landing page (public endpoint).
  * @param {string} token - Invite token
  * @returns {Promise<{ inviter_name, placeholder_name, match_count, league_names, status }>}

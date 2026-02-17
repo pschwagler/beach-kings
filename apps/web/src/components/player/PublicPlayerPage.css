@@ -67,9 +67,65 @@
   color: var(--gray-700);
 }
 
-/* Friend action button */
+/* Friend action icon */
 .public-player__friend-action {
-  margin-top: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.public-player__friend-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-300);
+  background: #fff;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.public-player__friend-icon:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.public-player__friend-icon--active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.public-player__friend-icon--active:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fff;
+}
+
+.public-player__friend-icon--pending {
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+  background: var(--gray-50);
+  cursor: default;
+}
+
+.public-player__friend-icon--incoming {
+  border-color: var(--primary);
+  color: #fff;
+  background: var(--primary);
+}
+
+.public-player__friend-icon--incoming:hover {
+  background: var(--primary-dark);
+}
+
+.public-player__friend-icon:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Mutual friends */

@@ -6,6 +6,8 @@ mutual friend calculations, and league-based suggestions.
 """
 
 from typing import List, Dict, Set, Optional
+
+from backend.utils.slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func, and_, or_, case, literal_column
 from sqlalchemy.orm import aliased
@@ -273,7 +275,7 @@ async def accept_friend_request(
                 title="Friend Request Accepted",
                 message=f"{receiver_name} accepted your friend request",
                 data={"player_id": receiver_player_id},
-                link_url=f"/player/{receiver_player_id}",
+                link_url=f"/player/{receiver_player_id}/{slugify(receiver_name)}",
             )
         except Exception as e:
             logger.warning(f"Failed to send friend accepted notification: {e}")

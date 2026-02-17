@@ -130,29 +130,48 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
 
     if (friendStatus === 'friend') {
       return (
-        <Button variant="outline" onClick={handleUnfriend} disabled={actionLoading}>
-          <UserCheck size={16} /> Friends
-        </Button>
+        <button
+          className="public-player__friend-icon public-player__friend-icon--active"
+          onClick={handleUnfriend}
+          disabled={actionLoading}
+          title="Friends — click to unfriend"
+        >
+          <UserCheck size={20} />
+        </button>
       );
     }
     if (friendStatus === 'pending_outgoing') {
       return (
-        <Button variant="outline" disabled>
-          <Clock size={16} /> Request Sent
-        </Button>
+        <button
+          className="public-player__friend-icon public-player__friend-icon--pending"
+          disabled
+          title="Request sent"
+        >
+          <Clock size={20} />
+        </button>
       );
     }
     if (friendStatus === 'pending_incoming') {
       return (
-        <Button onClick={handleAcceptRequest} disabled={actionLoading}>
-          <UserPlus size={16} /> Accept Request
-        </Button>
+        <button
+          className="public-player__friend-icon public-player__friend-icon--incoming"
+          onClick={handleAcceptRequest}
+          disabled={actionLoading}
+          title="Accept friend request"
+        >
+          <UserPlus size={20} />
+        </button>
       );
     }
     return (
-      <Button onClick={handleSendRequest} disabled={actionLoading}>
-        <UserPlus size={16} /> Add Friend
-      </Button>
+      <button
+        className="public-player__friend-icon"
+        onClick={handleSendRequest}
+        disabled={actionLoading}
+        title="Add friend"
+      >
+        <UserPlus size={20} />
+      </button>
     );
   };
 
@@ -187,10 +206,10 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
             )}
             {player.level && <LevelBadge level={player.level} />}
           </div>
-          {/* Friend action button */}
-          <div className="public-player__friend-action">
-            {renderFriendButton()}
-          </div>
+        </div>
+        {/* Friend action icon */}
+        <div className="public-player__friend-action">
+          {renderFriendButton()}
         </div>
       </div>
 

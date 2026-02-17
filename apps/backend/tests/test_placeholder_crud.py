@@ -704,3 +704,51 @@ class TestCheckMatchHasPlaceholders:
         """Returns False for empty player_ids list."""
         result = await placeholder_service.check_match_has_placeholders(db_session, [])
         assert result is False
+
+
+# ============================================================================
+# 7. Get invite URL by player_id tests
+# ============================================================================
+
+
+class TestGetInviteUrlByPlayerId:
+    """Tests for placeholder_service.get_invite_url_by_player_id."""
+
+    @pytest.mark.asyncio
+    async def test_returns_invite_url(self, db_session, creator_player):
+        """Returns the correct invite URL for a pending placeholder."""
+        ph = await placeholder_service.create_placeholder(
+            db_session, name="URL Test", created_by_player_id=creator_player.id
+        )
+
+        result = await placeholder_service.get_invite_url_by_player_id(
+            db_session, ph.player_id
+        )
+        assert result.invite_url == ph.invite_url
+
+    @pytest.mark.asyncio
+    async def test_raises_for_nonexistent_player(self, db_session):
+        """Raises InviteNotFoundError when player_id has no pending invite."""
+        with pytest.raises(placeholder_service.InviteNotFoundError):
+            await placeholder_service.get_invite_url_by_player_id(db_session, 999999)
+
+    @pytest.mark.asyncio
+    async def test_raises_for_claimed_invite(self, db_session, creator_player):
+        """Raises InviteNotFoundError when invite is already claimed."""
+        from sqlalchemy import update
+
+        ph = await placeholder_service.create_placeholder(
+            db_session, name="Claimed", created_by_player_id=creator_player.id
+        )
+        # Mark the invite as claimed
+        await db_session.execute(
+            update(PlayerInvite)
+            .where(PlayerInvite.player_id == ph.player_id)
+            .values(status=InviteStatus.CLAIMED.value)
+        )
+        await db_session.commit()
+
+        with pytest.raises(placeholder_service.InviteNotFoundError):
+            await placeholder_service.get_invite_url_by_player_id(
+                db_session, ph.player_id
+            )

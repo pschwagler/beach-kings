@@ -283,6 +283,44 @@
   font-size: 14px;
 }
 
+/* Three-dot menu */
+.friends-tab__menu-wrapper {
+  position: relative;
+}
+
+.friends-tab__dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  min-width: 150px;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+}
+
+.friends-tab__dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-900);
+}
+
+.friends-tab__dropdown-item:hover {
+  background: var(--gray-50);
+}
+
+.friends-tab__dropdown-item--danger {
+  color: var(--danger);
+}
+
 /* Confirm unfriend */
 .friends-tab__confirm {
   display: flex;

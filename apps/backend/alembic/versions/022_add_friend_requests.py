@@ -1,7 +1,7 @@
 """add_friend_requests
 
-Revision ID: 017
-Revises: 016
+Revision ID: 022
+Revises: 021
 Create Date: 2026-02-15 00:00:00.000000
 
 Add friend_requests table for friend request workflow.
@@ -16,8 +16,8 @@ from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
-revision: str = "017"
-down_revision: Union[str, None] = "016"
+revision: str = "022"
+down_revision: Union[str, None] = "021"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
