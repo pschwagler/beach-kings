@@ -132,6 +132,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       return (
         <button
           className="public-player__friend-icon public-player__friend-icon--active"
+          data-testid="friend-active-btn"
           onClick={handleUnfriend}
           disabled={actionLoading}
           title="Friends — click to unfriend"
@@ -144,6 +145,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       return (
         <button
           className="public-player__friend-icon public-player__friend-icon--pending"
+          data-testid="friend-pending-btn"
           disabled
           title="Request sent"
         >
@@ -155,6 +157,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       return (
         <button
           className="public-player__friend-icon public-player__friend-icon--incoming"
+          data-testid="friend-incoming-btn"
           onClick={handleAcceptRequest}
           disabled={actionLoading}
           title="Accept friend request"
@@ -166,6 +169,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
     return (
       <button
         className="public-player__friend-icon"
+        data-testid="friend-add-btn"
         onClick={handleSendRequest}
         disabled={actionLoading}
         title="Add friend"
@@ -191,7 +195,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           )}
         </div>
         <div className="public-player__info">
-          <h1 className="public-player__name">{player.full_name}</h1>
+          <h1 className="public-player__name" data-testid="player-name">{player.full_name}</h1>
           <div className="public-player__meta">
             {player.location && (
               <Link
@@ -245,7 +249,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
                     mf.avatar || mf.full_name?.charAt(0)
                   )}
                 </div>
-                <span className="public-player__mutual-friend-name">{mf.full_name}</span>
+                <span className="public-player__mutual-friend-name" data-testid="mutual-friend-name">{mf.full_name}</span>
               </Link>
             ))}
           </div>
@@ -256,7 +260,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
       {stats && (
         <section className="public-player__section">
           <h2 className="public-player__section-title">Stats</h2>
-          <div className="public-player__stats">
+          <div className="public-player__stats" data-testid="player-stats">
             <div className="public-player__stat">
               <span className="public-player__stat-value">
                 {Math.round(stats.current_rating || 0)}
@@ -303,7 +307,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
 
       {/* Footer CTA */}
       {!isAuthenticated && (
-        <div className="public-player__footer">
+        <div className="public-player__footer" data-testid="player-footer">
           <p>Sign up to join leagues and play against {player.full_name}</p>
           <div className="public-player__cta-buttons">
             <Button onClick={handleSignIn}>Log In</Button>

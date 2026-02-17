@@ -49,6 +49,26 @@ export async function executeQuery(query, params = []) {
 }
 
 /**
+ * Seed a minimal PlayerGlobalStats row for a player so they appear in the public API.
+ * The public player endpoint requires PlayerGlobalStats with total_games >= 1.
+ *
+ * @param {number} playerId - The player's ID
+ */
+export async function seedPlayerGlobalStats(playerId) {
+  const client = getDbClient();
+  try {
+    await client.connect();
+    await client.query(`
+      INSERT INTO player_global_stats (player_id, current_rating, total_games, total_wins)
+      VALUES ($1, 1200.0, 1, 0)
+      ON CONFLICT (player_id) DO NOTHING
+    `, [playerId]);
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * Clean up all test data created by a user identified by phone number.
  *
  * Collects user/player/league/session/match IDs upfront, then deletes in
@@ -195,12 +215,24 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
 
     // 11. Social / notifications
     if (playerIds.length > 0) {
+      await client.query(`DELETE FROM friend_requests WHERE sender_player_id = ANY($1) OR receiver_player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM friends WHERE player1_id = ANY($1) OR player2_id = ANY($1)`, [playerIds]);
     }
     if (userIds.length > 0) {
       await client.query(`DELETE FROM notifications WHERE user_id = ANY($1)`, [userIds]);
       await client.query(`DELETE FROM feedback WHERE user_id = ANY($1)`, [userIds]);
       await client.query(`DELETE FROM league_messages WHERE user_id = ANY($1)`, [userIds]);
+    }
+
+    // 11b. Court reviews and court submissions by test players
+    if (playerIds.length > 0) {
+      await client.query(`
+        DELETE FROM court_review_photos WHERE review_id IN (
+          SELECT id FROM court_reviews WHERE player_id = ANY($1)
+        )`, [playerIds]);
+      await client.query(`DELETE FROM court_reviews WHERE player_id = ANY($1)`, [playerIds]);
+      // Remove courts submitted by test players (pending submissions)
+      await client.query(`DELETE FROM courts WHERE created_by = ANY($1)`, [playerIds]);
     }
 
     // 12. Auth tokens

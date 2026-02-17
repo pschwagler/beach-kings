@@ -138,7 +138,7 @@ export default function CourtDetailClient({ court, slug }) {
         <CourtReviewSection
           court={court}
           isAuthenticated={isAuthenticated}
-          currentPlayerName={currentUserPlayer?.full_name}
+          currentPlayerId={currentUserPlayer?.id}
           onAuthRequired={() => openAuthModal('sign-in')}
         />
 

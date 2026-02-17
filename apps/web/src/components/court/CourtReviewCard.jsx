@@ -33,7 +33,7 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
     : '';
 
   return (
-    <div className="court-review-card">
+    <div className="court-review-card" data-testid="court-review-card">
       <div className="court-review-card__header">
         <div className="court-review-card__author">
           <span className="court-review-card__author-name">{review.author?.full_name}</span>
@@ -62,7 +62,7 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
       <StarRating value={review.rating} size={16} />
 
       {review.review_text && (
-        <p className="court-review-card__text">{review.review_text}</p>
+        <p className="court-review-card__text" data-testid="court-review-text">{review.review_text}</p>
       )}
 
       {review.tags?.length > 0 && (

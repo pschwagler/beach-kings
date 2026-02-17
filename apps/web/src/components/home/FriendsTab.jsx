@@ -246,14 +246,14 @@ export default function FriendsTab() {
           </div>
           <div className="friends-tab__requests">
             {incomingRequests.map((req) => (
-              <div key={req.id} className="friends-tab__request-card">
+              <div key={req.id} className="friends-tab__request-card" data-testid="friend-request-card">
                 <Avatar
                   avatar={req.sender_avatar}
                   name={req.sender_name}
                   className="friends-tab__request-avatar"
                 />
                 <div className="friends-tab__request-info">
-                  <div className="friends-tab__request-name">{req.sender_name}</div>
+                  <div className="friends-tab__request-name" data-testid="friend-request-name">{req.sender_name}</div>
                   <div className="friends-tab__request-time">
                     {formatRelativeTime(req.created_at)}
                   </div>
@@ -290,14 +290,14 @@ export default function FriendsTab() {
           </div>
           <div className="friends-tab__requests">
             {outgoingRequests.map((req) => (
-              <div key={req.id} className="friends-tab__request-card">
+              <div key={req.id} className="friends-tab__request-card" data-testid="sent-request-card">
                 <Avatar
                   avatar={req.receiver_avatar}
                   name={req.receiver_name}
                   className="friends-tab__request-avatar"
                 />
                 <div className="friends-tab__request-info">
-                  <div className="friends-tab__request-name">{req.receiver_name}</div>
+                  <div className="friends-tab__request-name" data-testid="sent-request-name">{req.receiver_name}</div>
                   <div className="friends-tab__request-time">
                     Sent {formatRelativeTime(req.created_at)}
                   </div>
@@ -319,7 +319,7 @@ export default function FriendsTab() {
       )}
 
       {/* My Friends */}
-      <div className="friends-tab__section">
+      <div className="friends-tab__section" data-testid="friends-section">
         <div className="friends-tab__section-header">
           <h3 className="friends-tab__section-title">
             My Friends ({friendsTotalCount})
@@ -353,7 +353,7 @@ export default function FriendsTab() {
         ) : (
           <div className="friends-tab__list">
             {filteredFriends.map((friend) => (
-              <div key={friend.player_id} className="friends-tab__friend-card">
+              <div key={friend.player_id} className="friends-tab__friend-card" data-testid="friend-card">
                 <Link
                   href={`/player/${friend.player_id}/${slugify(friend.full_name)}`}
                   style={{ display: 'contents' }}
@@ -364,7 +364,7 @@ export default function FriendsTab() {
                     className="friends-tab__friend-avatar"
                   />
                   <div className="friends-tab__friend-info">
-                    <div className="friends-tab__friend-name">{friend.full_name}</div>
+                    <div className="friends-tab__friend-name" data-testid="friend-name">{friend.full_name}</div>
                     <div className="friends-tab__friend-meta">
                       {friend.location_name && (
                         <span>
@@ -395,7 +395,7 @@ export default function FriendsTab() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="friends-tab__menu-wrapper">
+                    <div className="friends-tab__menu-wrapper" data-testid="friend-menu">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -408,6 +408,7 @@ export default function FriendsTab() {
                         <div className="friends-tab__dropdown">
                           <button
                             className="friends-tab__dropdown-item friends-tab__dropdown-item--danger"
+                            data-testid="friend-remove-option"
                             onClick={() => { setConfirmUnfriend(friend.player_id); setOpenMenu(null); }}
                           >
                             Remove Friend
@@ -431,7 +432,7 @@ export default function FriendsTab() {
           </div>
           <div className="friends-tab__suggestions">
             {suggestions.map((suggestion) => (
-              <div key={suggestion.player_id} className="friends-tab__suggestion-card">
+              <div key={suggestion.player_id} className="friends-tab__suggestion-card" data-testid="friend-suggestion-card">
                 <Avatar
                   avatar={suggestion.avatar}
                   name={suggestion.full_name}
@@ -441,6 +442,7 @@ export default function FriendsTab() {
                   <Link
                     href={`/player/${suggestion.player_id}/${slugify(suggestion.full_name)}`}
                     className="friends-tab__suggestion-name"
+                    data-testid="friend-suggestion-name"
                   >
                     {suggestion.full_name}
                   </Link>

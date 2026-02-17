@@ -156,6 +156,7 @@ export default function NotificationsTab() {
           {hasUnread && (
             <button
               className="notifications-tab-mark-all"
+              data-testid="notifications-mark-all"
               onClick={handleMarkAllAsRead}
               type="button"
             >
@@ -186,11 +187,12 @@ export default function NotificationsTab() {
             </p>
           </div>
         ) : (
-          <div className="notifications-tab-list">
+          <div className="notifications-tab-list" data-testid="notifications-list">
             {filteredNotifications.map((notification) => (
               <div
                 key={notification.id}
                 className={`notifications-tab-item ${!notification.is_read ? 'unread' : ''}`}
+                data-testid="notification-item"
                 onClick={() => handleNotificationClick(notification)}
                 role="button"
                 tabIndex={0}
@@ -203,10 +205,11 @@ export default function NotificationsTab() {
               >
                 <div className="notifications-tab-item-content">
                   <div className="notifications-tab-item-header">
-                    <div className="notifications-tab-item-title">{notification.title}</div>
+                    <div className="notifications-tab-item-title" data-testid="notification-title">{notification.title}</div>
                     {!notification.is_read && (
                       <button
                         className="notifications-tab-item-mark-read"
+                        data-testid="notification-mark-read"
                         onClick={(e) => handleMarkAsRead(e, notification.id)}
                         title="Mark as read"
                         type="button"
@@ -215,7 +218,7 @@ export default function NotificationsTab() {
                       </button>
                     )}
                   </div>
-                  <div className="notifications-tab-item-message">{notification.message}</div>
+                  <div className="notifications-tab-item-message" data-testid="notification-message">{notification.message}</div>
                   {notification.data?.actions && notification.data.actions.length > 0 && (
                     <div className="notifications-tab-item-actions">
                       {notification.data.actions.map((action, index) => (
@@ -235,7 +238,7 @@ export default function NotificationsTab() {
                   </div>
                 </div>
                 {!notification.is_read && (
-                  <div className="notifications-tab-item-dot" aria-label="Unread" />
+                  <div className="notifications-tab-item-dot" data-testid="notification-unread-dot" aria-label="Unread" />
                 )}
               </div>
             ))}

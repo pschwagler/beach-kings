@@ -105,7 +105,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
   }, {});
 
   return (
-    <form className="court-review-form" onSubmit={handleSubmit}>
+    <form className="court-review-form" data-testid="court-review-form" onSubmit={handleSubmit}>
       <h3 className="court-review-form__title">
         {existingReview ? 'Edit Your Review' : 'Write a Review'}
       </h3>
