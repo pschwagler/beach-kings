@@ -167,9 +167,9 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }) {
       {/* Avatar preview with edit badge */}
       <div className="avatar-upload__preview" onClick={handleClickUpload}>
         {hasImage ? (
-          <img src={avatarUrl} alt="Profile" className="avatar-upload__image" />
+          <img src={avatarUrl} alt="Profile" className="avatar-upload__image" data-testid="avatar-image" />
         ) : (
-          <div className="avatar-upload__initials">{getInitials()}</div>
+          <div className="avatar-upload__initials" data-testid="avatar-initials">{getInitials()}</div>
         )}
         <div className="avatar-upload__edit-badge">
           <Camera size={16} />
@@ -178,11 +178,11 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }) {
 
       {/* Action buttons */}
       <div className="avatar-upload__actions">
-        <button className="avatar-upload__change-btn" onClick={handleClickUpload} disabled={uploading}>
+        <button className="avatar-upload__change-btn" data-testid="avatar-change-btn" onClick={handleClickUpload} disabled={uploading}>
           {hasImage ? 'Change Photo' : 'Add Photo'}
         </button>
         {hasImage && (
-          <button className="avatar-upload__remove-btn" onClick={handleRemove} disabled={uploading}>
+          <button className="avatar-upload__remove-btn" data-testid="avatar-remove-btn" onClick={handleRemove} disabled={uploading}>
             Remove Photo
           </button>
         )}
@@ -194,7 +194,7 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }) {
       {/* Crop modal */}
       {showCropModal && imageSrc && (
         <div className="modal-overlay" onClick={handleCloseCropModal}>
-          <div className="modal-content avatar-crop-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content avatar-crop-modal" data-testid="avatar-crop-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Crop Photo</h2>
               <button className="modal-close" onClick={handleCloseCropModal}>

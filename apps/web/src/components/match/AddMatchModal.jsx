@@ -9,7 +9,7 @@ import { useMatchFormReducer } from './useMatchFormReducer';
 import { nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
 import { formatScore } from '../../utils/matchValidation';
 import { createPlaceholderPlayer, getPublicPlayers } from '../../services/api';
-import { ToastContainer, useToasts } from '../ui/Toast';
+import useShare from '../../hooks/useShare';
 
 // Import custom hooks
 import { useLeagueSeasonSelection } from './hooks/useLeagueSeasonSelection';
@@ -51,8 +51,8 @@ export default function AddMatchModal({
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
   const [localPlaceholders, setLocalPlaceholders] = useState([]);
-  const [toasts, addToast, dismissToast] = useToasts();
-  
+  const { shareInvite } = useShare();
+
   // Use custom hooks - sessionOnly forces non-league with session_id only
   const leagueSeasonSelection = useLeagueSeasonSelection({
     isOpen,
@@ -267,32 +267,12 @@ export default function AddMatchModal({
 
       onClose();
 
-      // Show invite link toasts for placeholder players after modal closes
-      for (const ph of placeholdersInMatch) {
-        const shareLink = async () => {
-          try {
-            if (typeof navigator !== 'undefined' && navigator.share) {
-              await navigator.share({
-                title: 'Beach League Invite',
-                url: ph.inviteUrl,
-                text: `${ph.label} — claim your matches on Beach League`,
-              });
-              return;
-            }
-            navigator.clipboard.writeText(ph.inviteUrl).catch(() => {});
-          } catch (err) {
-            if (err.name !== 'AbortError') {
-              navigator.clipboard?.writeText(ph.inviteUrl).catch(() => {});
-            }
-          }
-        };
-        addToast(
-          `Send invite link to ${ph.label}`,
-          {
-            action: <button onClick={shareLink}>Share</button>,
-            duration: 10000,
-          }
-        );
+      // Trigger share for first placeholder (runs async after modal unmounts —
+      // native share may fire if activation persists, otherwise falls back to
+      // ShareFallbackModal via the still-mounted ModalContext)
+      if (placeholdersInMatch.length > 0) {
+        const ph = placeholdersInMatch[0];
+        shareInvite({ name: ph.label, url: ph.inviteUrl });
       }
     } catch (error) {
       console.error('Error submitting match:', error);
@@ -586,7 +566,6 @@ export default function AddMatchModal({
         confirmText="Delete"
         cancelText="Cancel"
       />
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

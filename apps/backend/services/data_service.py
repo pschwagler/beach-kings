@@ -1587,6 +1587,58 @@ async def create_league_request(session: AsyncSession, league_id: int, player_id
     }
 
 
+def _join_request_row_to_dict(req, full_name):
+    """Build a dict for a join request row (shared by pending and rejected lists)."""
+    return {
+        "id": req.id,
+        "league_id": req.league_id,
+        "player_id": req.player_id,
+        "player_name": full_name,
+        "status": req.status,
+        "created_at": req.created_at.isoformat() if req.created_at else None,
+    }
+
+
+async def list_league_join_requests(session: AsyncSession, league_id: int) -> List[Dict]:
+    """
+    List pending join requests for a league (for admin UI).
+    Returns each request with player full_name and created_at.
+    """
+    result = await session.execute(
+        select(LeagueRequest, Player.full_name)
+        .join(Player, LeagueRequest.player_id == Player.id)
+        .where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.status == "pending",
+            )
+        )
+        .order_by(LeagueRequest.created_at.asc())
+    )
+    rows = result.all()
+    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+
+
+async def list_league_join_requests_rejected(session: AsyncSession, league_id: int) -> List[Dict]:
+    """
+    List rejected join requests for a league (for admin UI).
+    Allows admins to find declined requests and approve them later.
+    """
+    result = await session.execute(
+        select(LeagueRequest, Player.full_name)
+        .join(Player, LeagueRequest.player_id == Player.id)
+        .where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.status == "rejected",
+            )
+        )
+        .order_by(LeagueRequest.updated_at.desc())
+    )
+    rows = result.all()
+    return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+
+
 async def get_all_player_names(session: AsyncSession) -> List[str]:
     """Get all unique player names."""
     result = await session.execute(select(Player.full_name).order_by(Player.full_name.asc()))
@@ -4331,6 +4383,13 @@ async def create_match_async(
     )
     session.add(new_match)
     await session.flush()
+
+    # Bump session.updated_at so auto-cleanup tracks last activity
+    if session_id:
+        await session.execute(
+            update(Session).where(Session.id == session_id).values(updated_at=func.now())
+        )
+
     await session.commit()
     await session.refresh(new_match)
 
@@ -4423,11 +4482,22 @@ async def delete_match_async(session: AsyncSession, match_id: int) -> bool:
     Returns:
         True if successful, False if match not found
     """
-    # First, delete associated elo_history records
+    # Get match's session_id before deleting so we can bump session.updated_at
+    match_result = await session.execute(select(Match.session_id).where(Match.id == match_id))
+    match_session_id = match_result.scalar_one_or_none()
+
+    # Delete associated elo_history records
     await session.execute(delete(EloHistory).where(EloHistory.match_id == match_id))
 
-    # Then delete the match
+    # Delete the match
     result = await session.execute(delete(Match).where(Match.id == match_id))
+
+    # Bump session.updated_at so auto-cleanup tracks last activity
+    if match_session_id:
+        await session.execute(
+            update(Session).where(Session.id == match_session_id).values(updated_at=func.now())
+        )
+
     await session.commit()
     return result.rowcount > 0
 

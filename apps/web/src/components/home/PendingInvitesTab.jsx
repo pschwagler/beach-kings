@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Trash2, Check, Share2 } from 'lucide-react';
+import { UserPlus, Trash2, Share2 } from 'lucide-react';
 import { listPlaceholderPlayers, deletePlaceholderPlayer } from '../../services/api';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
-import Toast, { ToastContainer, useToasts } from '../ui/Toast';
+import { useToast } from '../../contexts/ToastContext';
+import useShare from '../../hooks/useShare';
 
 /**
  * PendingInvitesTab — manages placeholder players created by the current user.
@@ -23,10 +24,8 @@ export default function PendingInvitesTab() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Copy feedback — track which card just copied
-  const [copiedId, setCopiedId] = useState(null);
-
-  const [toasts, addToast, dismissToast] = useToasts();
+  const { showToast } = useToast();
+  const { shareInvite } = useShare();
 
   const fetchPlaceholders = useCallback(async (signal) => {
     try {
@@ -54,32 +53,10 @@ export default function PendingInvitesTab() {
   }, [fetchPlaceholders]);
 
   /**
-   * Share invite URL via navigator.share with clipboard copy fallback.
+   * Share invite URL via centralized share hook.
    */
-  const handleShare = async (placeholder) => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({
-          title: 'Beach League Invite',
-          url: placeholder.invite_url,
-          text: `${placeholder.name} — claim your matches on Beach League`,
-        });
-        return;
-      }
-      await navigator.clipboard.writeText(placeholder.invite_url);
-      setCopiedId(placeholder.player_id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        try {
-          await navigator.clipboard.writeText(placeholder.invite_url);
-          setCopiedId(placeholder.player_id);
-          setTimeout(() => setCopiedId(null), 2000);
-        } catch {
-          addToast('Failed to share link');
-        }
-      }
-    }
+  const handleShare = (placeholder) => {
+    shareInvite({ name: placeholder.name, url: placeholder.invite_url });
   };
 
   /**
@@ -97,14 +74,15 @@ export default function PendingInvitesTab() {
     if (!deleteTarget) return;
     try {
       const result = await deletePlaceholderPlayer(deleteTarget.player_id);
-      addToast(
-        `Removed ${deleteTarget.name}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`
+      showToast(
+        `Removed ${deleteTarget.name}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`,
+        'success'
       );
       setPlaceholders((prev) =>
         prev.filter((p) => p.player_id !== deleteTarget.player_id)
       );
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to delete placeholder');
+      showToast(err.response?.data?.detail || 'Failed to delete placeholder', 'error');
     } finally {
       setShowDeleteModal(false);
       setDeleteTarget(null);
@@ -193,17 +171,8 @@ export default function PendingInvitesTab() {
                   onClick={() => handleShare(p)}
                   title="Share invite link"
                 >
-                  {copiedId === p.player_id ? (
-                    <>
-                      <Check size={14} />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 size={14} />
-                      <span>Share</span>
-                    </>
-                  )}
+                  <Share2 size={14} />
+                  <span>Share</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -236,7 +205,6 @@ export default function PendingInvitesTab() {
         confirmButtonClass="danger"
       />
 
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

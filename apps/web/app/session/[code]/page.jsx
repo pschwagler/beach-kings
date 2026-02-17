@@ -650,7 +650,6 @@ export default function SessionByCodePage() {
         currentUserPlayerId={currentUserPlayer?.id ?? null}
         onClose={() => { setShowPlayersModal(false); setMessage(null); }}
         onSuccess={refresh}
-        showMessage={(_, msg) => setMessage(msg)}
         message={message}
       />
     </>

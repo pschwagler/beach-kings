@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { User, LogIn, UserPlus, UserCircle, LogOut } from 'lucide-react';
+import { User, LogIn, UserPlus, Home, UserCircle, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
@@ -76,8 +76,10 @@ export default function UserMenu({
       case 'sign-out':
         onSignOut?.();
         break;
+      case 'home':
+        router.push('/home');
+        break;
       case 'profile':
-        // Navigate to /home?tab=profile
         router.push('/home?tab=profile');
         break;
       default:
@@ -130,6 +132,9 @@ export default function UserMenu({
               <div className="navbar-dropdown-header">
                 {currentUserPlayer?.full_name || user?.phone_number || 'Member'}
               </div>
+              <NavDropdownItem icon={Home} onClick={() => handleItemClick('home')}>
+                Home
+              </NavDropdownItem>
               <NavDropdownItem icon={UserCircle} onClick={() => handleItemClick('profile')}>
                 My Profile
               </NavDropdownItem>

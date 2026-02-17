@@ -12,6 +12,8 @@ import secrets
 import logging
 from typing import Optional
 
+from backend.utils.slugify import slugify
+
 from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +32,7 @@ from backend.models.schemas import (
     PlaceholderListItem,
     PlaceholderListResponse,
     DeletePlaceholderResponse,
+    InviteUrlResponse,
     InviteDetailsResponse,
     ClaimInviteResponse,
 )
@@ -426,6 +429,45 @@ async def _batch_count_matches(
 # ============================================================================
 
 
+async def get_invite_url_by_player_id(
+    session: AsyncSession,
+    player_id: int,
+) -> InviteUrlResponse:
+    """
+    Get the invite URL for a placeholder player by their player ID.
+
+    Looks up the most recent pending invite for the given player.
+
+    Args:
+        session: Database session
+        player_id: The placeholder player's ID
+
+    Returns:
+        InviteUrlResponse with the invite URL
+
+    Raises:
+        InviteNotFoundError: If no pending invite exists for this player
+    """
+    stmt = (
+        select(PlayerInvite)
+        .where(
+            and_(
+                PlayerInvite.player_id == player_id,
+                PlayerInvite.status == InviteStatus.PENDING.value,
+            )
+        )
+        .order_by(PlayerInvite.id.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise InviteNotFoundError("No pending invite found for this player")
+
+    invite_url = f"{FRONTEND_BASE_URL}/invite/{invite.invite_token}"
+    return InviteUrlResponse(invite_url=invite_url)
+
+
 async def get_invite_details(
     session: AsyncSession,
     token: str,
@@ -801,7 +843,7 @@ async def claim_invite(
                     title="Invite Claimed",
                     message=f"{placeholder.full_name} has claimed their invite and joined Beach Kings.",
                     data={"placeholder_id": placeholder_id, "claimed_by_user_id": claiming_user_id},
-                    link_url=f"/players/{target_player_id}",
+                    link_url=f"/player/{target_player_id}/{slugify(placeholder.full_name)}",
                 )
                 await session.commit()
             except Exception:

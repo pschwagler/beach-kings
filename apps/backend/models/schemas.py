@@ -570,6 +570,12 @@ class DeletePlaceholderResponse(BaseModel):
 # --- Invite Schemas ---
 
 
+class InviteUrlResponse(BaseModel):
+    """Response containing a placeholder player's invite URL."""
+
+    invite_url: str
+
+
 class InviteDetailsResponse(BaseModel):
     """Public-facing invite details for the landing page."""
 
@@ -618,6 +624,57 @@ class FriendResponse(BaseModel):
     player1_id: int
     player2_id: int
     created_at: str
+
+
+class FriendRequestCreate(BaseModel):
+    """Request to send a friend request."""
+
+    receiver_player_id: int
+
+
+class FriendRequestResponse(BaseModel):
+    """Friend request response."""
+
+    id: int
+    sender_player_id: int
+    sender_name: str
+    sender_avatar: Optional[str] = None
+    receiver_player_id: int
+    receiver_name: str
+    receiver_avatar: Optional[str] = None
+    status: str
+    created_at: Optional[str] = None
+
+
+class FriendListItem(BaseModel):
+    """Single friend in the friends list."""
+
+    id: int
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    location_name: Optional[str] = None
+    level: Optional[str] = None
+
+
+class FriendListResponse(BaseModel):
+    """Paginated friends list response."""
+
+    items: List[FriendListItem]
+    total_count: int
+
+
+class FriendBatchStatusRequest(BaseModel):
+    """Request to check friend status for multiple players."""
+
+    player_ids: List[int] = Field(..., max_length=100)
+
+
+class FriendBatchStatusResponse(BaseModel):
+    """Batch friend status response."""
+
+    statuses: dict  # { player_id: "friend"|"pending_outgoing"|"pending_incoming"|"none" }
+    mutual_counts: dict  # { player_id: int }
 
 
 # Update SessionResponse to include new fields

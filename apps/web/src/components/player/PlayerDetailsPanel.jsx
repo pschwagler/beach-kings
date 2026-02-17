@@ -11,7 +11,8 @@ export default function PlayerDetailsPanel({
   onPlayerChange,
   onClose,
   leagueName,
-  seasonName
+  seasonName,
+  isPlaceholder = false,
 }) {
   // Prevent body scrolling when drawer is open
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function PlayerDetailsPanel({
         onPlayerChange={onPlayerChange}
         leagueName={leagueName}
         seasonName={seasonName}
+        isPlaceholder={isPlaceholder}
       />
     </>
   );

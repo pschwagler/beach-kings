@@ -19,7 +19,6 @@ export default function SessionPlayersModal({
   currentUserPlayerId = null,
   onClose,
   onSuccess,
-  showMessage,
   message,
 }) {
   const drawerRef = useRef(null);
@@ -62,7 +61,6 @@ export default function SessionPlayersModal({
     isOpen,
     sessionId,
     participants,
-    showMessage,
     onSuccess,
     onClose,
   });

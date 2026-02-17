@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Send, RefreshCw } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeagueMessages, createLeagueMessage } from '../../services/api';
 
@@ -20,7 +21,8 @@ function formatRelativeTime(dateString) {
 }
 
 export default function LeagueMessagesTab({ leagueId }) {
-  const { showMessage, isLeagueMember } = useLeague();
+  const { isLeagueMember } = useLeague();
+  const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   
   const [messages, setMessages] = useState([]);
@@ -35,7 +37,7 @@ export default function LeagueMessagesTab({ leagueId }) {
       setMessages(data);
     } catch (error) {
       console.error('Error loading messages:', error);
-      showMessage('Failed to load messages', 'error');
+      showToast('Failed to load messages', 'error');
     } finally {
       setLoading(false);
     }
@@ -56,7 +58,7 @@ export default function LeagueMessagesTab({ leagueId }) {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      showMessage('Failed to send message', 'error');
+      showToast('Failed to send message', 'error');
     } finally {
       setSending(false);
     }

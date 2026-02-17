@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
-export default function PlayerSelector({ playerName, allPlayers, onPlayerChange }) {
+export default function PlayerSelector({ playerName, allPlayers, onPlayerChange, isPlaceholder = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -118,7 +118,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange 
           aria-expanded={isDropdownOpen}
           aria-haspopup="listbox"
         >
-          <span className="player-selector-name">{playerName}</span>
+          <span className={`player-selector-name${isPlaceholder ? ' player-selector-name--placeholder' : ''}`}>{playerName}</span>
           <ChevronDown size={20} className={isDropdownOpen ? 'rotate-180' : ''} />
         </div>
         

@@ -48,27 +48,24 @@ function distanceMiles(lat1, lng1, lat2, lng2) {
 export default function CourtMap({ courts, userLocation }) {
   const [popupCourt, setPopupCourt] = useState(null);
   const [userPos, setUserPos] = useState(userLocation || null);
-  const [geoReady, setGeoReady] = useState(!!userLocation);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
   const mapRef = useRef(null);
   const geoAttempted = useRef(false);
+  const hasFittedWithGeo = useRef(false);
 
-  // Request browser geolocation once — delay map render until resolved
+  // Request browser geolocation once — map renders immediately, adjusts when resolved
   useEffect(() => {
     if (geoAttempted.current) return;
     geoAttempted.current = true;
 
-    if (!navigator.geolocation) {
-      setGeoReady(true);
-      return;
-    }
+    if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserPos({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-        setGeoReady(true);
       },
-      () => setGeoReady(true), // failed — proceed with fallback
-      { timeout: 5000, maximumAge: 300000 }
+      () => {}, // failed — use profile location or default
+      { timeout: 10000, maximumAge: 300000 }
     );
   }, []);
 
@@ -78,9 +75,9 @@ export default function CourtMap({ courts, userLocation }) {
     [courts]
   );
 
-  // Fit map bounds to nearest courts once we have position + courts
+  // Fit map bounds to nearest courts once map is loaded + we have position/courts
   useEffect(() => {
-    if (!mapRef.current || mappable.length === 0) return;
+    if (!mapLoaded || !mapRef.current || mappable.length === 0) return;
 
     if (userPos) {
       // Sort by distance, take nearest N, fit bounds around them + user
@@ -95,7 +92,10 @@ export default function CourtMap({ courts, userLocation }) {
       const lats = [userPos.latitude, ...nearest.map((c) => c.latitude)];
       const sw = [Math.min(...lngs), Math.min(...lats)];
       const ne = [Math.max(...lngs), Math.max(...lats)];
-      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
+      // Animate when geolocation resolved after initial render, instant otherwise
+      const animate = hasFittedWithGeo.current === false && userLocation == null;
+      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: animate ? 800 : 0 });
+      hasFittedWithGeo.current = true;
     } else if (mappable.length > 1) {
       const lngs = mappable.map((c) => c.longitude);
       const lats = mappable.map((c) => c.latitude);
@@ -103,7 +103,7 @@ export default function CourtMap({ courts, userLocation }) {
       const ne = [Math.max(...lngs), Math.max(...lats)];
       mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
     }
-  }, [mappable, userPos]);
+  }, [mappable, userPos, mapLoaded, userLocation]);
 
   const handleLocateClick = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -136,14 +136,6 @@ export default function CourtMap({ courts, userLocation }) {
     );
   }
 
-  if (!geoReady) {
-    return (
-      <div className="court-map court-map--loading">
-        <p>Locating you...</p>
-      </div>
-    );
-  }
-
   const initialView = userPos
     ? { latitude: userPos.latitude, longitude: userPos.longitude, zoom: 10 }
     : mappable.length === 1
@@ -158,6 +150,7 @@ export default function CourtMap({ courts, userLocation }) {
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
+        onLoad={() => setMapLoaded(true)}
         reuseMaps
       >
         <NavigationControl position="top-right" />

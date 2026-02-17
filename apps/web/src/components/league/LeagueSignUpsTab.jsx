@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Plus } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import {
   getSignups,
   createSignup,
@@ -21,9 +22,10 @@ import ScheduleList from './components/ScheduleList';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 export default function LeagueSignUpsTab() {
-  const { seasons, members, leagueId, isLeagueAdmin, showMessage, isLeagueMember, selectedSeasonId } = useLeague();
+  const { seasons, members, leagueId, isLeagueAdmin, isLeagueMember, selectedSeasonId } = useLeague();
   const { currentUserPlayer } = useAuth();
   const { openModal, closeModal } = useModal();
+  const { showToast } = useToast();
   
   const [signups, setSignups] = useState([]);
   const [weeklySchedules, setWeeklySchedules] = useState([]);
@@ -93,7 +95,7 @@ export default function LeagueSignUpsTab() {
       setSignups(allSignups);
     } catch (err) {
       console.error('Error loading signups:', err);
-      showMessage?.('error', 'Failed to load signups');
+      showToast('Failed to load signups', 'error');
     } finally {
       setLoading(false);
     }
@@ -123,7 +125,7 @@ export default function LeagueSignUpsTab() {
       setWeeklySchedules(allSchedules);
     } catch (err) {
       console.error('Error loading weekly schedules:', err);
-      showMessage?.('error', 'Failed to load weekly schedules');
+      showToast('Failed to load weekly schedules', 'error');
     }
   };
   
@@ -131,7 +133,7 @@ export default function LeagueSignUpsTab() {
     // Use selectedSeasonId or first season if none selected
     const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
     if (!seasonId) {
-      showMessage?.('error', 'Please select a season to create a signup');
+      showToast('Please select a season to create a signup', 'error');
       return;
     }
     try {
@@ -139,7 +141,7 @@ export default function LeagueSignUpsTab() {
       closeModal();
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create signup');
+      showToast(err.response?.data?.detail || 'Failed to create signup', 'error');
       throw err;
     }
   };
@@ -150,7 +152,7 @@ export default function LeagueSignUpsTab() {
       closeModal();
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update signup');
+      showToast(err.response?.data?.detail || 'Failed to update signup', 'error');
       throw err;
     }
   };
@@ -161,7 +163,7 @@ export default function LeagueSignUpsTab() {
       await deleteSignup(signupId);
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to delete signup');
+      showToast(err.response?.data?.detail || 'Failed to delete signup', 'error');
     }
   };
   
@@ -170,7 +172,7 @@ export default function LeagueSignUpsTab() {
       await signupForSignup(signupId);
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to sign up');
+      showToast(err.response?.data?.detail || 'Failed to sign up', 'error');
     }
   };
   
@@ -179,7 +181,7 @@ export default function LeagueSignUpsTab() {
       await dropoutFromSignup(signupId);
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to drop out');
+      showToast(err.response?.data?.detail || 'Failed to drop out', 'error');
     }
   };
   
@@ -187,7 +189,7 @@ export default function LeagueSignUpsTab() {
     // Use selectedSeasonId or first season if none selected
     const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
     if (!seasonId) {
-      showMessage?.('error', 'Please select a season to create a schedule');
+      showToast('Please select a season to create a schedule', 'error');
       return;
     }
     const season = seasons.find(s => s.id === seasonId);
@@ -196,7 +198,7 @@ export default function LeagueSignUpsTab() {
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as new ones may have been generated
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to create weekly schedule');
+      showToast(err.response?.data?.detail || 'Failed to create weekly schedule', 'error');
       throw err;
     }
   };
@@ -207,7 +209,7 @@ export default function LeagueSignUpsTab() {
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as they may have been regenerated
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to update weekly schedule');
+      showToast(err.response?.data?.detail || 'Failed to update weekly schedule', 'error');
       throw err;
     }
   };
@@ -229,7 +231,7 @@ export default function LeagueSignUpsTab() {
       await loadWeeklySchedules();
       await loadSignups();
     } catch (err) {
-      showMessage?.('error', err.response?.data?.detail || 'Failed to delete weekly schedule');
+      showToast(err.response?.data?.detail || 'Failed to delete weekly schedule', 'error');
     }
   };
   
@@ -273,7 +275,7 @@ export default function LeagueSignUpsTab() {
             // Use signup's season_id if available, otherwise use seasonForCreation
             const seasonId = signup.season_id || (seasonForCreation?.id);
             if (!seasonId) {
-              showMessage?.('error', 'Unable to determine season for this signup');
+              showToast('Unable to determine season for this signup', 'error');
               return;
             }
             openModal(MODAL_TYPES.SIGNUP, {
@@ -307,7 +309,7 @@ export default function LeagueSignUpsTab() {
               // Use signup's season_id if available, otherwise use seasonForCreation
               const seasonId = signup.season_id || (seasonForCreation?.id);
               if (!seasonId) {
-                showMessage?.('error', 'Unable to determine season for this signup');
+                showToast('Unable to determine season for this signup', 'error');
                 return;
               }
               openModal(MODAL_TYPES.SIGNUP, {
@@ -333,7 +335,7 @@ export default function LeagueSignUpsTab() {
               className="league-text-button" 
               onClick={() => {
                 if (!seasonForCreation) {
-                  showMessage?.('error', 'Please select a season to create a schedule');
+                  showToast('Please select a season to create a schedule', 'error');
                   return;
                 }
                 openModal(MODAL_TYPES.EDIT_SCHEDULE, {
@@ -356,7 +358,7 @@ export default function LeagueSignUpsTab() {
               const scheduleSeasonId = schedule.season_id || (seasonForCreation?.id);
               const scheduleSeason = scheduleSeasonId ? seasons.find(s => s.id === scheduleSeasonId) : seasonForCreation;
               if (!scheduleSeason) {
-                showMessage?.('error', 'Unable to determine season for this schedule');
+                showToast('Unable to determine season for this schedule', 'error');
                 return;
               }
               openModal(MODAL_TYPES.EDIT_SCHEDULE, {

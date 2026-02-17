@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
+import useShare from '../../hooks/useShare';
 
 /**
  * Two-step modal for creating a placeholder (unregistered) player.
@@ -32,7 +33,7 @@ export default function PlaceholderCreateModal({
   const [isCreating, setIsCreating] = useState(false);
   const [createdPlayer, setCreatedPlayer] = useState(null);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
+  const { shareInvite } = useShare();
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -43,7 +44,6 @@ export default function PlaceholderCreateModal({
       setIsCreating(false);
       setCreatedPlayer(null);
       setError('');
-      setCopied(false);
     }
   }, [isOpen, playerName, leagueGender, leagueLevel]);
 
@@ -77,34 +77,12 @@ export default function PlaceholderCreateModal({
   }, [isCreating, onCreate, editableName, gender, level]);
 
   /**
-   * Share invite URL via navigator.share with clipboard copy fallback.
+   * Share invite URL via centralized share hook.
    */
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(() => {
     if (!createdPlayer?.inviteUrl) return;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({
-          title: 'Beach League Invite',
-          url: createdPlayer.inviteUrl,
-          text: `${createdPlayer.name} — claim your matches on Beach League`,
-        });
-      } else {
-        await navigator.clipboard.writeText(createdPlayer.inviteUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        try {
-          await navigator.clipboard?.writeText(createdPlayer.inviteUrl);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch {
-          // Clipboard unavailable
-        }
-      }
-    }
-  }, [createdPlayer]);
+    shareInvite({ name: createdPlayer.name, url: createdPlayer.inviteUrl });
+  }, [createdPlayer, shareInvite]);
 
   /**
    * Close the modal, passing created player data (or null) to parent.
@@ -165,7 +143,7 @@ export default function PlaceholderCreateModal({
                   className="placeholder-create-modal__share-btn"
                   onClick={handleShare}
                 >
-                  {copied ? 'Copied!' : 'Share Invite'}
+                  Share Invite
                 </button>
               )}
               <button

@@ -12,7 +12,7 @@ import { Button } from '../ui/UI';
  * Shows review list, "Write a Review" / "Edit Your Review" CTA,
  * and the inline review form.
  */
-export default function CourtReviewSection({ court, isAuthenticated, currentPlayerName, onAuthRequired }) {
+export default function CourtReviewSection({ court, isAuthenticated, currentPlayerId, onAuthRequired }) {
   const [reviews, setReviews] = useState(court.reviews || []);
   const [avgRating, setAvgRating] = useState(court.average_rating);
   const [reviewCount, setReviewCount] = useState(court.review_count || 0);
@@ -21,7 +21,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
 
   // Find the current user's review
   const myReview = reviews.find(
-    (r) => r.author?.full_name === currentPlayerName
+    (r) => r.author?.player_id && r.author.player_id === currentPlayerId
   );
 
   const refreshCourt = useCallback(async () => {
@@ -92,7 +92,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
           <CourtReviewCard
             key={review.id}
             review={review}
-            isOwn={review.author?.full_name === currentPlayerName}
+            isOwn={review.author?.player_id != null && review.author.player_id === currentPlayerId}
             onEdit={() => handleEditReview(review)}
             onDeleted={handleReviewAction}
             courtId={court.id}

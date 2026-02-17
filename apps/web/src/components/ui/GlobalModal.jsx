@@ -12,6 +12,7 @@ import ErrorBoundary from './ErrorBoundary';
 const UploadPhotoModal = lazy(() => import('../match/UploadPhotoModal'));
 const PhotoMatchReviewModal = lazy(() => import('../match/PhotoMatchReviewModal'));
 const CreateGameModal = lazy(() => import('../game/CreateGameModal'));
+const ShareFallbackModal = lazy(() => import('./ShareFallbackModal'));
 
 const MODAL_COMPONENTS = {
   [MODAL_TYPES.CREATE_LEAGUE]: CreateLeagueModal,
@@ -24,6 +25,7 @@ const MODAL_COMPONENTS = {
   [MODAL_TYPES.UPLOAD_PHOTO]: UploadPhotoModal,
   [MODAL_TYPES.REVIEW_PHOTO_MATCHES]: PhotoMatchReviewModal,
   [MODAL_TYPES.CREATE_GAME]: CreateGameModal,
+  [MODAL_TYPES.SHARE_FALLBACK]: ShareFallbackModal,
 };
 
 export default function GlobalModal() {

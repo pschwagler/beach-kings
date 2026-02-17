@@ -59,7 +59,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: `rm -f .next/dev/lock 2>/dev/null || true && PORT=3002 BACKEND_PROXY_TARGET=${process.env.TEST_API_URL || 'http://localhost:8001'} npm run dev`,
+    command: `rm -f .next/dev/lock 2>/dev/null || true && PORT=3002 BACKEND_PROXY_TARGET=${process.env.TEST_API_URL || 'http://localhost:8001'} BACKEND_INTERNAL_URL=${process.env.TEST_API_URL || 'http://localhost:8001'} npm run dev`,
     url: 'http://localhost:3002',
     // In CI, always start a fresh server. In local dev, reuse if available (faster)
     // Note: Server on 3002 must be started with BACKEND_PROXY_TARGET=http://localhost:8001 for test backend

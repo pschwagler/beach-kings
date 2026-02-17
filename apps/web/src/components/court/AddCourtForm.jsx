@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { submitCourt, getPublicLocations } from '../../services/api';
 import { Button } from '../ui/UI';
-import Toast from '../ui/Toast';
+import { useToast } from '../../contexts/ToastContext';
 import { SURFACE_OPTIONS } from '../../constants/court';
 import './AddCourtForm.css';
 
@@ -35,7 +35,7 @@ export default function AddCourtForm({ onClose, onSuccess }) {
     phone: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState(null);
+  const { showToast } = useToast();
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function AddCourtForm({ onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.address.trim() || !form.location_id) {
-      setToast({ type: 'error', message: 'Name, address, and location are required.' });
+      showToast('Name, address, and location are required.', 'error');
       return;
     }
 
@@ -76,10 +76,10 @@ export default function AddCourtForm({ onClose, onSuccess }) {
         description: form.description || null,
       };
       await submitCourt(payload);
-      setToast({ type: 'success', message: 'Court submitted for review!' });
+      showToast('Court submitted for review!', 'success');
       setTimeout(() => onSuccess?.(), 1500);
     } catch (err) {
-      setToast({ type: 'error', message: err.response?.data?.detail || 'Failed to submit court.' });
+      showToast(err.response?.data?.detail || 'Failed to submit court.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -231,7 +231,6 @@ export default function AddCourtForm({ onClose, onSuccess }) {
         </div>
       </form>
 
-      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
     </div>
   );
 }

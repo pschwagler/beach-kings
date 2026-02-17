@@ -2492,6 +2492,10 @@ body.drawer-open .navbar {
   letter-spacing: -0.01em;
 }
 
+.player-selector-name--placeholder {
+  color: var(--warning-dark);
+}
+
 .player-selector-current svg {
   flex-shrink: 0;
   transition: transform 0.2s ease;
@@ -2583,19 +2587,106 @@ body.drawer-open .navbar {
   color: var(--gray-600);
 }
 
-/* View full profile link */
+/* View full profile row */
+.player-details__profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}
+
 .player-details__profile-link {
-  display: inline-block;
   font-size: 13px;
   color: var(--primary);
   text-decoration: none;
-  margin-top: -8px;
-  margin-bottom: 12px;
 }
 
 .player-details__profile-link:hover {
   text-decoration: underline;
   color: var(--primary-dark);
+}
+
+/* Friend icon in player drawer */
+.player-details__friend-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-300);
+  background: #fff;
+  color: var(--gray-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.player-details__friend-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.player-details__friend-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.player-details__friend-btn--pending {
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+  cursor: default;
+}
+
+.player-details__friend-btn--active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-lighter);
+  cursor: default;
+}
+
+/* Invite to claim profile (placeholder players) */
+.player-details__invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--warning-dark);
+  background: var(--warning-light);
+  border: 1px solid var(--warning);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.player-details__invite-btn:hover {
+  background: var(--warning);
+  color: #fff;
+}
+
+/* Friend request sent bubble */
+.player-details__sent-bubble {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--success);
+  background: var(--success-lighter, #ecfdf5);
+  border: 1px solid var(--success);
+  border-radius: 16px;
+  margin-bottom: 8px;
+  animation: fadeInOut 2.5s ease forwards;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-4px); }
+  15% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Season Name Display */
@@ -5886,6 +5977,42 @@ select.form-select {
   padding: 20px 24px;
 }
 
+/* Join Requests: empty state and declined section */
+.league-join-requests-empty {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 0.95em;
+  color: var(--gray-600);
+}
+
+.league-join-requests-declined {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.league-join-requests-declined-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 6px 0;
+  font-size: 0.9em;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.league-join-requests-declined-toggle:hover {
+  text-decoration: underline;
+}
+
+.league-join-requests-declined-list {
+  margin-top: 12px;
+}
+
 .league-table-wrapper {
   overflow-x: auto;
 }
@@ -7175,6 +7302,7 @@ select.form-select {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 16px;
   width: 100%;
 }
 

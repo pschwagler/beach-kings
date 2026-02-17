@@ -1,4 +1,4 @@
-import { cleanupTestUsers, getVerificationCode } from '../fixtures/db.js';
+import { cleanupTestUsers, getVerificationCode, seedPlayerGlobalStats } from '../fixtures/db.js';
 import { sendVerificationCode } from '../fixtures/api.js';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 
@@ -485,6 +485,84 @@ export async function getMatchPlayerIds(matchId) {
 }
 
 /**
+ * Get the player_id for an authenticated user via API.
+ *
+ * @param {string} token - Auth token
+ * @returns {number} The player's ID
+ */
+export async function getPlayerIdForToken(token) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.get('/api/users/me/player');
+  return response.data.id;
+}
+
+/**
+ * Send a friend request via API.
+ *
+ * @param {string} token - Auth token of the sender
+ * @param {number} receiverPlayerId - Player ID of the receiver
+ * @returns {object} Friend request response
+ */
+export async function sendFriendRequestApi(token, receiverPlayerId) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.post('/api/friends/request', {
+    receiver_player_id: receiverPlayerId,
+  });
+  return response.data;
+}
+
+/**
+ * Accept a friend request via API.
+ *
+ * @param {string} token - Auth token of the receiver
+ * @param {number} requestId - ID of the friend request to accept
+ * @returns {object} Accept response
+ */
+export async function acceptFriendRequestApi(token, requestId) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.post(`/api/friends/requests/${requestId}/accept`);
+  return response.data;
+}
+
+/**
+ * Get friend requests via API.
+ *
+ * @param {string} token - Auth token
+ * @param {string} direction - 'incoming', 'outgoing', or 'both'
+ * @returns {Array} List of friend requests
+ */
+export async function getFriendRequestsApi(token, direction = 'incoming') {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.get(`/api/friends/requests?direction=${direction}`);
+  return response.data;
+}
+
+/**
+ * Make two users friends via API (A sends request → B accepts).
+ *
+ * @param {string} tokenA - Auth token of user A (sender)
+ * @param {string} tokenB - Auth token of user B (acceptor)
+ * @returns {object} The accepted friend request
+ */
+export async function makeFriendsViaApi(tokenA, tokenB) {
+  const playerIdA = await getPlayerIdForToken(tokenA);
+  const playerIdB = await getPlayerIdForToken(tokenB);
+  await sendFriendRequestApi(tokenA, playerIdB);
+
+  // Get the incoming request for user B sent by user A
+  const requests = await getFriendRequestsApi(tokenB, 'incoming');
+  const request = requests.find(r => r.sender_player_id === playerIdA);
+  if (!request) {
+    throw new Error(`No incoming friend request from player ${playerIdA} found for acceptor`);
+  }
+  return await acceptFriendRequestApi(tokenB, request.id);
+}
+
+/**
  * Delete a placeholder player via API.
  *
  * @param {string} token - Auth token
@@ -500,6 +578,72 @@ export async function deletePlaceholderPlayer(token, playerId) {
 /**
  * Create a test session for a league via API (requires authentication token)
  */
+/**
+ * Grant system admin access to a test user by adding their phone number
+ * to the system_admin_phone_numbers setting in the DB.
+ *
+ * @param {string} phoneNumber - E.164 phone number to grant admin access
+ */
+export async function grantSystemAdmin(phoneNumber) {
+  const { getDbClient } = await import('../fixtures/db.js');
+  const client = getDbClient();
+
+  try {
+    await client.connect();
+
+    // Get current admin phones
+    const result = await client.query(
+      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers'`,
+    );
+
+    let phones = result.rows.length > 0 ? result.rows[0].value : '';
+    const phoneSet = new Set(phones.split(',').map(p => p.trim()).filter(Boolean));
+    phoneSet.add(phoneNumber);
+    const newPhones = Array.from(phoneSet).join(',');
+
+    // Upsert the setting
+    await client.query(
+      `INSERT INTO settings (key, value) VALUES ('system_admin_phone_numbers', $1)
+       ON CONFLICT (key) DO UPDATE SET value = $1`,
+      [newPhones],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Revoke system admin access for a test user.
+ *
+ * @param {string} phoneNumber - E.164 phone number to revoke
+ */
+export async function revokeSystemAdmin(phoneNumber) {
+  const { getDbClient } = await import('../fixtures/db.js');
+  const client = getDbClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(
+      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers'`,
+    );
+
+    if (result.rows.length > 0) {
+      const phones = result.rows[0].value
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p && p !== phoneNumber)
+        .join(',');
+      await client.query(
+        `UPDATE settings SET value = $1 WHERE key = 'system_admin_phone_numbers'`,
+        [phones],
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 export async function createTestSession(token, leagueId, sessionData = {}) {
   const { createApiClient } = await import('../fixtures/api.js');
   const api = createApiClient(token);

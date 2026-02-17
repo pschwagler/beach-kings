@@ -10,8 +10,12 @@ import {
   createTestSession,
   createPlaceholderPlayer,
   cleanupTestData,
+  grantSystemAdmin,
+  revokeSystemAdmin,
+  getPlayerIdForToken,
 } from '../utils/test-helpers.js';
 import { createTestUser, verifyPhone, loginWithPassword, createApiClient } from './api.js';
+import { seedPlayerGlobalStats } from './db.js';
 
 /**
  * Shared Playwright fixtures for e2e tests.
@@ -23,6 +27,7 @@ import { createTestUser, verifyPhone, loginWithPassword, createApiClient } from 
  * Fixtures:
  *   testUser            – creates, verifies, and authenticates a fresh test user
  *   secondTestUser      – independent second test user (for claim flows)
+ *   incompleteUser      – user with no profile completion (triggers onboarding modal)
  *   authedPage          – a Playwright page with auth tokens injected (no UI login)
  *   leagueWithPlayers   – a league with an active season and 4 test players
  *   leagueWithPlaceholder – league + season + 3 real players + 1 placeholder + submitted match
@@ -30,6 +35,44 @@ import { createTestUser, verifyPhone, loginWithPassword, createApiClient } from 
  */
 
 export { expect };
+
+/**
+ * Navigate to a URL and wait for /api/auth/me to resolve.
+ * Prevents auth race conditions where tests interact with auth-gated
+ * elements before the AuthProvider has finished loading.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} url - URL to navigate to
+ */
+export async function navigateWithAuth(page, url) {
+  await Promise.all([
+    page.waitForResponse(
+      resp => resp.url().includes('/api/auth/me'),
+      { timeout: 15000 },
+    ),
+    page.goto(url),
+  ]);
+}
+
+/**
+ * Inject auth tokens into a fresh page context, navigate to /home,
+ * and wait for /api/auth/me to resolve.
+ *
+ * Use for tests that need a second (or third) authenticated browser
+ * context beyond the `authedPage` fixture.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {{ token: string, refreshToken: string }} user
+ */
+export async function authenticateAndGotoHome(page, user) {
+  await page.goto('/');
+  await page.evaluate(({ at, rt }) => {
+    window.localStorage.setItem('beach_access_token', at);
+    window.localStorage.setItem('beach_refresh_token', rt);
+  }, { at: user.token, rt: user.refreshToken });
+
+  await navigateWithAuth(page, '/home');
+}
 
 export const test = base.extend({
   /**
@@ -54,9 +97,13 @@ export const test = base.extend({
     const refreshToken = loginResponse.refresh_token;
 
     // Complete profile to prevent modal from blocking tests
-    await completeTestUserProfile(token);
+    const profileResp = await completeTestUserProfile(token);
 
-    await use({ phone, password, fullName, token, refreshToken });
+    // Seed PlayerGlobalStats so user appears in public player API
+    const playerId = await getPlayerIdForToken(token);
+    await seedPlayerGlobalStats(playerId);
+
+    await use({ phone, password, fullName, token, refreshToken, playerId });
 
     // Teardown: clean up test data
     await cleanupTestData(phone);
@@ -181,6 +228,12 @@ export const test = base.extend({
     // Submit session
     await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { submit: true });
 
+    // Seed PlayerGlobalStats for all players so they appear in public player API
+    // (stats calculation is async and may not complete before tests run)
+    for (const name of playerNames) {
+      await seedPlayerGlobalStats(playerIds[name]);
+    }
+
     await use({ sessionId, leagueId, seasonId, playerNames, playerIds });
   }, { scope: 'test' }],
 
@@ -205,8 +258,103 @@ export const test = base.extend({
 
     await completeTestUserProfile(token);
 
+    // Seed PlayerGlobalStats so user appears in public player API
+    const playerId = await getPlayerIdForToken(token);
+    await seedPlayerGlobalStats(playerId);
+
+    await use({ phone, password, fullName, token, refreshToken, playerId });
+
+    await cleanupTestData(phone);
+  }, { scope: 'test' }],
+
+  /**
+   * Creates a user with an INCOMPLETE profile (no gender/level/city).
+   * Used to test the profile completion modal/onboarding flow.
+   * Provides { phone, password, token, refreshToken, fullName }.
+   * Automatically cleans up on teardown.
+   */
+  incompleteUser: [async ({}, use) => {
+    const phone = generateTestPhoneNumber();
+    const password = 'Test1234';
+    const fullName = 'Incomplete User';
+
+    await createTestUser({ phoneNumber: phone, password, fullName });
+    const code = await getVerificationCodeForPhone(phone);
+    if (!code) throw new Error('No verification code found for incompleteUser');
+    await verifyPhone(phone, code);
+
+    const loginResponse = await loginWithPassword(phone, password);
+    const token = loginResponse.access_token;
+    const refreshToken = loginResponse.refresh_token;
+
+    // Intentionally skip completeTestUserProfile() so the modal triggers
+
     await use({ phone, password, fullName, token, refreshToken });
 
+    await cleanupTestData(phone);
+  }, { scope: 'test' }],
+
+  /**
+   * Creates an independent third test user (signup → verify → login → profile).
+   * Provides { phone, password, token, refreshToken, fullName }.
+   * Automatically cleans up on teardown.
+   */
+  thirdTestUser: [async ({}, use) => {
+    const phone = generateTestPhoneNumber();
+    const password = 'Test1234';
+    const fullName = 'Third User';
+
+    await createTestUser({ phoneNumber: phone, password, fullName });
+    const code = await getVerificationCodeForPhone(phone);
+    if (!code) throw new Error('No verification code found for thirdTestUser');
+    await verifyPhone(phone, code);
+
+    const loginResponse = await loginWithPassword(phone, password);
+    const token = loginResponse.access_token;
+    const refreshToken = loginResponse.refresh_token;
+
+    await completeTestUserProfile(token);
+
+    // Seed PlayerGlobalStats so user appears in public player API
+    const playerId = await getPlayerIdForToken(token);
+    await seedPlayerGlobalStats(playerId);
+
+    await use({ phone, password, fullName, token, refreshToken, playerId });
+
+    await cleanupTestData(phone);
+  }, { scope: 'test' }],
+
+  /**
+   * Creates a test user with system admin privileges.
+   * Grants admin access by adding the user's phone to the
+   * system_admin_phone_numbers DB setting. Revokes on teardown.
+   * Provides { phone, password, token, refreshToken, fullName }.
+   */
+  adminUser: [async ({}, use) => {
+    // Use the hardcoded admin phone from require_admin_phone (+17167831211)
+    // This grants both system_admin (DB setting) and admin_phone (hardcoded) access
+    const phone = '+17167831211';
+    const password = 'Test1234';
+    const fullName = 'Admin User';
+
+    await createTestUser({ phoneNumber: phone, password, fullName });
+    const code = await getVerificationCodeForPhone(phone);
+    if (!code) throw new Error('No verification code found for adminUser');
+    await verifyPhone(phone, code);
+
+    const loginResponse = await loginWithPassword(phone, password);
+    const token = loginResponse.access_token;
+    const refreshToken = loginResponse.refresh_token;
+
+    await completeTestUserProfile(token);
+
+    // Grant system admin access
+    await grantSystemAdmin(phone);
+
+    await use({ phone, password, fullName, token, refreshToken });
+
+    // Teardown: revoke admin, clean up user
+    await revokeSystemAdmin(phone);
     await cleanupTestData(phone);
   }, { scope: 'test' }],
 
