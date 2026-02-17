@@ -770,7 +770,7 @@ class TestStatsEndpoints:
 
     def test_recalculate_stats(self, monkeypatch):
         """Test recalculating statistics."""
-        from backend.api import routes
+        from backend.api.routes import calc as routes_calc
 
         client, headers = make_client_with_auth(monkeypatch)
 
@@ -780,8 +780,8 @@ class TestStatsEndpoints:
                 return 123
 
         fake_queue = FakeQueue()
-        # Patch in the routes module namespace since get_stats_queue is imported at the top
-        monkeypatch.setattr(routes, "get_stats_queue", lambda: fake_queue, raising=True)
+        # Patch in the calc sub-router module namespace since get_stats_queue is imported at the top
+        monkeypatch.setattr(routes_calc, "get_stats_queue", lambda: fake_queue, raising=True)
 
         response = client.post("/api/calculate", headers=headers)
         assert response.status_code == 200
