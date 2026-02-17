@@ -1,6 +1,6 @@
 # API Routes Reference
 
-Source: `apps/backend/api/routes.py` (~160 endpoints) + `apps/backend/api/public_routes.py` (~14 endpoints)
+Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
 
 ## Auth Levels
 
