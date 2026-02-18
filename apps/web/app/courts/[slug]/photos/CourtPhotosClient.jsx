@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
@@ -30,6 +30,13 @@ export default function CourtPhotosClient({ court, slug }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getUserLeagues()
+      .then(setUserLeagues)
+      .catch((err) => console.error('Error loading user leagues:', err));
+  }, [isAuthenticated]);
+
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
     router.push('/');
@@ -58,6 +65,7 @@ export default function CourtPhotosClient({ court, slug }) {
   };
 
   const handleCancelPreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl(null);
     setUploadError('');

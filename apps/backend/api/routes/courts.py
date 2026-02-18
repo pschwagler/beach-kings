@@ -380,6 +380,12 @@ async def upload_court_photo(
     Requires a verified player account.
     """
     try:
+        # Verify court exists before processing/uploading to avoid orphaned S3 objects
+        from backend.database.models import Court
+        court = await session.get(Court, court_id)
+        if not court:
+            raise HTTPException(status_code=404, detail="Court not found")
+
         processed = await court_photo_service.process_court_photo(file)
         s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"
         url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")

@@ -55,7 +55,7 @@ export default function CourtDetailHeader({ court, onSuggestEdit }) {
       )}
 
       <div className="court-detail__badges">
-        {court.court_count && (
+        {court.court_count > 0 && (
           <span className="court-detail__badge">
             {court.court_count} Court{court.court_count !== 1 ? 's' : ''}
           </span>

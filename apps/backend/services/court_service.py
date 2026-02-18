@@ -27,6 +27,7 @@ from backend.database.models import (
     Match,
     Player,
     Session,
+    SessionStatus,
 )
 from backend.utils.geo_utils import calculate_distance_miles
 
@@ -296,24 +297,46 @@ async def _batch_get_top_tags(
 async def _batch_get_thumbnails(
     session: AsyncSession, court_ids: List[int]
 ) -> Dict[int, Optional[str]]:
-    """Return the most recent photo URL for each court in a single query."""
+    """Return the most recent photo URL for each court in a single query.
+
+    Considers both review photos and standalone court photos, picking
+    whichever is most recent.
+    """
     if not court_ids:
         return {}
 
-    # Rank photos per court by recency, then pick the first
-    ranked = (
+    # Review photos
+    review_photos = (
         select(
-            CourtReview.court_id,
-            CourtReviewPhoto.url,
-            func.row_number()
-            .over(
-                partition_by=CourtReview.court_id,
-                order_by=CourtReviewPhoto.created_at.desc(),
-            )
-            .label("rn"),
+            CourtReview.court_id.label("court_id"),
+            CourtReviewPhoto.url.label("url"),
+            CourtReviewPhoto.created_at.label("created_at"),
         )
         .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
         .where(CourtReview.court_id.in_(court_ids))
+    )
+
+    # Standalone court photos
+    standalone_photos = select(
+        CourtPhoto.court_id.label("court_id"),
+        CourtPhoto.url.label("url"),
+        CourtPhoto.created_at.label("created_at"),
+    ).where(CourtPhoto.court_id.in_(court_ids))
+
+    # Union both sources, rank by recency per court
+    all_photos = review_photos.union_all(standalone_photos).subquery()
+
+    ranked = (
+        select(
+            all_photos.c.court_id,
+            all_photos.c.url,
+            func.row_number()
+            .over(
+                partition_by=all_photos.c.court_id,
+                order_by=all_photos.c.created_at.desc(),
+            )
+            .label("rn"),
+        )
         .subquery()
     )
 
@@ -481,13 +504,21 @@ async def add_court_photo(
     Returns:
         Dict with id, url, sort_order
     """
+    # Verify court exists
+    court = await session.get(Court, court_id)
+    if not court:
+        raise ValueError(f"Court {court_id} not found")
+
+    # Lock the court row to prevent race conditions on sort_order
+    await session.execute(select(Court).where(Court.id == court_id).with_for_update())
+
     # Determine next sort_order
     max_order_result = await session.execute(
         select(func.coalesce(func.max(CourtPhoto.sort_order), -1)).where(
             CourtPhoto.court_id == court_id
         )
     )
-    next_order = (max_order_result.scalar() or 0) + 1
+    next_order = max_order_result.scalar() + 1
 
     photo = CourtPhoto(
         court_id=court_id,
@@ -497,7 +528,7 @@ async def add_court_photo(
         sort_order=next_order,
     )
     session.add(photo)
-    await session.flush()
+    await session.commit()
 
     return {"id": photo.id, "url": photo.url, "sort_order": photo.sort_order}
 
@@ -523,7 +554,11 @@ async def get_court_leaderboard(
             case((Match.winner == 1, 1), else_=0).label("is_win"),
         )
         .join(Session, Session.id == Match.session_id)
-        .where(Session.court_id == court_id, Match.team1_player1_id.isnot(None))
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team1_player1_id.isnot(None),
+        )
     ).union_all(
         select(
             Match.id,
@@ -531,21 +566,33 @@ async def get_court_leaderboard(
             case((Match.winner == 1, 1), else_=0),
         )
         .join(Session, Session.id == Match.session_id)
-        .where(Session.court_id == court_id, Match.team1_player2_id.isnot(None)),
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team1_player2_id.isnot(None),
+        ),
         select(
             Match.id,
             Match.team2_player1_id,
             case((Match.winner == 2, 1), else_=0),
         )
         .join(Session, Session.id == Match.session_id)
-        .where(Session.court_id == court_id, Match.team2_player1_id.isnot(None)),
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team2_player1_id.isnot(None),
+        ),
         select(
             Match.id,
             Match.team2_player2_id,
             case((Match.winner == 2, 1), else_=0),
         )
         .join(Session, Session.id == Match.session_id)
-        .where(Session.court_id == court_id, Match.team2_player2_id.isnot(None)),
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team2_player2_id.isnot(None),
+        ),
     )
 
     sub = player_match.subquery()

@@ -124,9 +124,9 @@ export default function SessionByCodePage() {
   const handleCopyLink = () => {
     if (typeof window === 'undefined' || !code) return;
     const url = `${window.location.origin}/session/${code}`;
-    window.navigator.clipboard.writeText(url).then(() => {
-      showToast('Link copied!', 'success');
-    });
+    window.navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied!', 'success'))
+      .catch(() => showToast('Failed to copy link', 'error'));
     setShareMenuOpen(false);
   };
 
