@@ -1,0 +1,109 @@
+/* Court Photos Page */
+
+.court-photos__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.court-photos__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 4px;
+}
+
+.court-photos__subtitle {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.court-photos__guidance {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.court-photos__upload-preview {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.court-photos__preview-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.court-photos__preview-img {
+  width: 200px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.court-photos__preview-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+}
+
+.court-photos__upload-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.court-photos__error {
+  font-size: 13px;
+  color: var(--danger);
+  margin: 8px 0 0;
+}
+
+.court-photos__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.court-photos__grid-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.court-photos__empty {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--gray-600);
+  font-size: 15px;
+}
+
+@media (max-width: 640px) {
+  .court-photos__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .court-photos__header {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

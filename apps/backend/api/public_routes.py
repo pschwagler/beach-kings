@@ -18,6 +18,7 @@ from backend.database.db import get_db_session
 logger = logging.getLogger(__name__)
 from backend.models.schemas import (
     CourtDetailResponse,
+    CourtLeaderboardEntry,
     CourtListItem,
     CourtNearbyItem,
     CourtTagResponse,
@@ -252,6 +253,23 @@ async def get_nearby_courts(
     return await court_service.get_nearby_courts(
         session, lat, lng, exclude_court_id=exclude, radius_miles=radius
     )
+
+
+@public_router.get("/courts/{slug}/leaderboard", response_model=List[CourtLeaderboardEntry])
+@limiter.limit("60/minute")
+async def get_court_leaderboard(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get top 10 players by match count at this court.
+
+    Returns ranked list with player info, match count, and win rate.
+    Returns empty list if no matches found.
+    """
+    court_row = await court_service.get_court_id_by_slug(session, slug)
+    if not court_row:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_court_leaderboard(session, court_row)
 
 
 @public_router.get("/courts/{slug}", response_model=CourtDetailResponse)

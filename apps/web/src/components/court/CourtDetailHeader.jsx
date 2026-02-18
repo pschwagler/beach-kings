@@ -1,18 +1,39 @@
 'use client';
 
-import { MapPin } from 'lucide-react';
+import { MapPin, Pencil, Bookmark } from 'lucide-react';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
 
 /**
- * Court detail page header: name, rating, address, badges.
+ * Court detail page header: name, rating, address, badges, action icons.
  */
-export default function CourtDetailHeader({ court }) {
+export default function CourtDetailHeader({ court, onSuggestEdit }) {
   const surfaceLabel = getSurfaceLabel(court.surface_type);
 
   return (
     <div className="court-detail__header">
-      <h1 className="court-detail__name">{court.name}</h1>
+      <div className="court-detail__header-top">
+        <h1 className="court-detail__name">{court.name}</h1>
+        <div className="court-detail__header-actions">
+          {onSuggestEdit && (
+            <button
+              className="court-detail__header-action"
+              onClick={onSuggestEdit}
+              aria-label="Suggest an edit"
+              title="Suggest an edit"
+            >
+              <Pencil size={18} />
+            </button>
+          )}
+          <button
+            className="court-detail__header-action"
+            aria-label="Bookmark court"
+            title="Bookmark"
+          >
+            <Bookmark size={18} />
+          </button>
+        </div>
+      </div>
 
       <div className="court-detail__rating-row">
         {court.review_count > 0 ? (

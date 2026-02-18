@@ -807,6 +807,7 @@ table:not([class]) tr:last-child td {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  font-size: 0.9rem;
 }
 
 .navbar-dropdown {

@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-PostgreSQL database with 45 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
+PostgreSQL database with 46 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
 
 ## Enums
 
@@ -232,6 +232,21 @@ Photos attached to court reviews (max 3 per review).
 | `url` | String(500) | Not null |
 | `sort_order` | Integer | Default `0` |
 | `created_at` | DateTime(tz) | |
+
+### `court_photos`
+Standalone photos for a court (not tied to a review).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | Auto-increment |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `s3_key` | String(500) | Not null |
+| `url` | String(500) | Not null |
+| `uploaded_by` | Integer FK → players.id | ON DELETE SET NULL |
+| `sort_order` | Integer | Default `0` |
+| `created_at` | DateTime(tz) | |
+
+Indexes: `idx_court_photos_court` on `court_id`
 
 ### `court_edit_suggestions`
 User-submitted edit suggestions for court info.

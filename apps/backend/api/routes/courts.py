@@ -33,6 +33,7 @@ from backend.models.schemas import (
     ReviewActionResponse,
     CourtEditSuggestionRequest,
     CourtEditSuggestionResponse,
+    CourtPhotoUploadResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -357,6 +358,46 @@ async def upload_review_photo(
         raise
     except Exception as e:
         logger.error("Error uploading review photo: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error uploading photo")
+
+
+# --- Standalone court photos ---
+
+
+@router.post("/api/courts/{court_id}/photos", response_model=CourtPhotoUploadResponse)
+@limiter.limit("20/minute")
+async def upload_court_photo(
+    request: Request,
+    court_id: int,
+    file: UploadFile = File(...),
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Upload a standalone photo to a court.
+
+    Photos are resized to max 1200px and converted to JPEG 85%.
+    Requires a verified player account.
+    """
+    try:
+        processed = await court_photo_service.process_court_photo(file)
+        s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"
+        url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
+
+        result = await court_service.add_court_photo(
+            session,
+            court_id=court_id,
+            player_id=user["player_id"],
+            s3_key=s3_key,
+            url=url,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error uploading court photo: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Error uploading photo")
 
 
