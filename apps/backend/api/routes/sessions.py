@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember
+from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, League
 from backend.services import data_service
+from backend.services.notification_service import notify_players_about_session_submitted
 from backend.api.auth_dependencies import (
     get_current_user,
     make_require_league_admin,
@@ -196,6 +197,29 @@ async def end_league_session(
 
         if not result:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+        # Notify match players (best-effort — must not cause a 500 since lock_in already committed)
+        try:
+            sess_result = await session.execute(
+                select(Session.name).where(Session.id == session_id)
+            )
+            session_name = sess_result.scalar_one_or_none() or "a session"
+
+            league_result = await session.execute(
+                select(League.name).where(League.id == league_id)
+            )
+            league_name = league_result.scalar_one_or_none()
+
+            await notify_players_about_session_submitted(
+                session=session,
+                session_id=session_id,
+                submitter_user_id=user["id"],
+                session_name=session_name,
+                league_id=league_id,
+                league_name=league_name,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send session submitted notifications: {e}")
 
         return {
             "status": "success",
@@ -507,6 +531,38 @@ async def update_session(
 
             if not result:
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+            # Notify match players (best-effort — must not cause a 500 since lock_in already committed)
+            try:
+                sess_result = await session.execute(
+                    select(Session.name).where(Session.id == session_id)
+                )
+                session_name = sess_result.scalar_one_or_none() or "a session"
+
+                # Determine league context if session belongs to a season
+                league_id = None
+                league_name = None
+                if result.get("season_id"):
+                    season_result = await session.execute(
+                        select(Season.league_id).where(Season.id == result["season_id"])
+                    )
+                    league_id = season_result.scalar_one_or_none()
+                    if league_id:
+                        league_name_result = await session.execute(
+                            select(League.name).where(League.id == league_id)
+                        )
+                        league_name = league_name_result.scalar_one_or_none()
+
+                await notify_players_about_session_submitted(
+                    session=session,
+                    session_id=session_id,
+                    submitter_user_id=current_user["id"],
+                    session_name=session_name,
+                    league_id=league_id,
+                    league_name=league_name,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send session submitted notifications: {e}")
 
             return {
                 "status": "success",

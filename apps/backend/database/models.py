@@ -74,6 +74,7 @@ class NotificationType(str, enum.Enum):
     PLACEHOLDER_CLAIMED = "placeholder_claimed"
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
+    SESSION_SUBMITTED = "session_submitted"
     SESSION_AUTO_SUBMITTED = "session_auto_submitted"
     SESSION_AUTO_DELETED = "session_auto_deleted"
 
@@ -467,6 +468,7 @@ class Court(Base):
     weekly_schedules = relationship("WeeklySchedule", back_populates="court")
     signups = relationship("Signup", back_populates="court")
     reviews = relationship("CourtReview", back_populates="court", cascade="all, delete-orphan")
+    photos = relationship("CourtPhoto", back_populates="court", cascade="all, delete-orphan")
     edit_suggestions = relationship(
         "CourtEditSuggestion", back_populates="court", cascade="all, delete-orphan"
     )
@@ -1422,6 +1424,32 @@ class CourtReviewPhoto(Base):
 
     __table_args__ = (
         Index("idx_court_review_photos_review", "review_id"),
+    )
+
+
+class CourtPhoto(Base):
+    """Standalone court photos (not tied to reviews)."""
+
+    __tablename__ = "court_photos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(
+        Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False
+    )
+    s3_key = Column(String(500), nullable=False)
+    url = Column(String(500), nullable=False)
+    uploaded_by = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    sort_order = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    court = relationship("Court", back_populates="photos")
+    uploader = relationship("Player", foreign_keys=[uploaded_by])
+
+    __table_args__ = (
+        Index("idx_court_photos_court", "court_id"),
     )
 
 

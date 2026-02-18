@@ -999,6 +999,24 @@ export const adminRejectCourt = async (courtId) => {
   return response.data;
 };
 
+/** Upload a standalone photo to a court (multipart form data). */
+export const uploadCourtPhoto = async (courtId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(
+    `/api/courts/${courtId}/photos`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data;
+};
+
+/** Get court leaderboard (top players by match count). */
+export const getCourtLeaderboard = async (slug) => {
+  const response = await api.get(`/api/public/courts/${slug}/leaderboard`);
+  return response.data;
+};
+
 /**
  * Weekly Schedule API methods
  */

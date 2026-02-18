@@ -807,6 +807,7 @@ table:not([class]) tr:last-child td {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  font-size: 0.9rem;
 }
 
 .navbar-dropdown {
@@ -1387,6 +1388,15 @@ h1 {
   font-weight: 600;
   color: var(--gray-900);
   margin: 0;
+}
+
+.dashboard-widget-title--clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.dashboard-widget-title--clickable:hover {
+  color: var(--primary);
 }
 
 .dashboard-widget-create-btn {
@@ -7755,7 +7765,7 @@ select.form-select {
   width: 100%;
   padding: 16px 20px;
   background: white;
-  border: 2px solid var(--gray-200);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -7880,23 +7890,6 @@ select.form-select {
   margin-bottom: 16px;
 }
 
-/* Home Widget - View Open Sessions */
-.home-widget-view-all {
-  display: block;
-  width: 100%;
-  padding: 8px 0;
-  margin-top: 8px;
-  text-align: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: color 0.2s;
-}
-
-.home-widget-view-all:hover {
-  color: var(--primary-dark) !important;
-}
 
 .match-date-header-container {
   display: flex;

@@ -1,59 +1,62 @@
 'use client';
 
-import { useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 /**
- * Horizontal scrollable photo gallery for court detail page.
- * Supports swipe on mobile and arrow navigation on desktop.
+ * Photo mosaic gallery for court detail page.
+ * Shows 1 large photo left (spans 2 rows) + up to 4 small photos in a 2x2 grid right.
+ * "See all X photos" overlay on the last visible photo if there are more than 5.
+ * Clicking navigates to the full photos page.
  */
-export default function CourtPhotoGallery({ photos = [] }) {
-  const scrollRef = useRef(null);
+export default function CourtPhotoGallery({ photos = [], slug }) {
+  const router = useRouter();
 
   if (photos.length === 0) return null;
 
-  const scroll = (direction) => {
-    if (!scrollRef.current) return;
-    const amount = 300;
-    scrollRef.current.scrollBy({
-      left: direction === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
+  const handleClick = () => {
+    router.push(`/courts/${slug}/photos`);
   };
 
-  return (
-    <div className="court-detail__gallery">
-      {photos.length > 2 && (
-        <button
-          className="court-detail__gallery-nav court-detail__gallery-nav--left"
-          onClick={() => scroll('left')}
-          aria-label="Scroll left"
-        >
-          <ChevronLeft size={20} />
-        </button>
-      )}
+  const displayPhotos = photos.slice(0, 5);
+  const hasMore = photos.length > 5;
+  const remainingCount = photos.length - 4; // Show count on the 5th photo slot
 
-      <div className="court-detail__gallery-scroll" ref={scrollRef}>
-        {photos.map((photo) => (
-          <img
-            key={photo.id}
-            src={photo.url}
-            alt="Court photo"
-            className="court-detail__gallery-img"
-            loading="lazy"
-          />
-        ))}
+  return (
+    <div className="court-detail__mosaic" onClick={handleClick} role="button" tabIndex={0}>
+      {/* Large photo (left, spans 2 rows) */}
+      <div className="court-detail__mosaic-main">
+        <img
+          src={displayPhotos[0].url}
+          alt="Court photo"
+          className="court-detail__mosaic-img"
+          loading="eager"
+        />
       </div>
 
-      {photos.length > 2 && (
-        <button
-          className="court-detail__gallery-nav court-detail__gallery-nav--right"
-          onClick={() => scroll('right')}
-          aria-label="Scroll right"
-        >
-          <ChevronRight size={20} />
-        </button>
-      )}
+      {/* Up to 4 smaller photos in 2x2 grid */}
+      {displayPhotos.slice(1).map((photo, index) => {
+        const isLast = index === displayPhotos.length - 2;
+        const showOverlay = isLast && hasMore;
+
+        return (
+          <div
+            key={photo.id}
+            className={`court-detail__mosaic-cell${index === 1 ? ' court-detail__mosaic-cell--tr' : ''}${index === 3 ? ' court-detail__mosaic-cell--br' : ''}`}
+          >
+            <img
+              src={photo.url}
+              alt="Court photo"
+              className="court-detail__mosaic-img"
+              loading="lazy"
+            />
+            {showOverlay && (
+              <div className="court-detail__mosaic-overlay">
+                See all {photos.length} photos
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

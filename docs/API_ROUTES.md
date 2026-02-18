@@ -173,6 +173,7 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | PUT | `/api/courts/{court_id}/reviews/{review_id}` | Verified Player | Update own review |
 | DELETE | `/api/courts/{court_id}/reviews/{review_id}` | Verified Player | Delete own review |
 | POST | `/api/courts/{court_id}/reviews/{review_id}/photos` | Verified Player | Upload review photos |
+| POST | `/api/courts/{court_id}/photos` | Verified Player | Upload standalone court photo (multipart `file`, rate limit: 20/min). Returns `{id, url, sort_order}` |
 | POST | `/api/courts/{court_id}/suggest-edit` | Verified Player | Suggest court info edit |
 | GET | `/api/courts/{court_id}/suggestions` | Admin | List edit suggestions |
 | PUT | `/api/courts/suggestions/{suggestion_id}` | Admin | Approve/reject suggestion |
@@ -304,4 +305,5 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 | GET | `/api/public/courts` | Paginated courts with filters & geo-sort |
 | GET | `/api/public/courts/tags` | Curated court review tags |
 | GET | `/api/public/courts/nearby` | Courts near lat/lng |
-| GET | `/api/public/courts/{slug}` | Court detail by slug |
+| GET | `/api/public/courts/{slug}` | Court detail by slug (response includes `court_photos: [{id, url, sort_order}]`) |
+| GET | `/api/public/courts/{slug}/leaderboard` | Top 10 players by match count at court. Returns `[{rank, player_id, player_name, avatar, match_count, win_count, win_rate}]` |

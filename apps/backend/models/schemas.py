@@ -1256,8 +1256,29 @@ class CourtDetailResponse(BaseModel):
     created_by: Optional[int] = None
     reviews: List[CourtReviewResponse] = []
     all_photos: List[CourtReviewPhotoResponse] = []  # Aggregated across reviews
+    court_photos: List[CourtReviewPhotoResponse] = []  # Standalone court photos
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class CourtPhotoUploadResponse(BaseModel):
+    """Response for a successfully uploaded court photo."""
+
+    id: int
+    url: str
+    sort_order: int = 0
+
+
+class CourtLeaderboardEntry(BaseModel):
+    """A single entry in the court leaderboard."""
+
+    rank: int
+    player_id: int
+    player_name: str
+    avatar: Optional[str] = None
+    match_count: int
+    win_count: int
+    win_rate: float
 
 
 class CourtNearbyItem(BaseModel):

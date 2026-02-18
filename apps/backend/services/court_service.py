@@ -18,12 +18,16 @@ from sqlalchemy.orm import selectinload
 from backend.database.models import (
     Court,
     CourtEditSuggestion,
+    CourtPhoto,
     CourtReview,
     CourtReviewPhoto,
     CourtReviewTag,
     CourtTag,
     Location,
+    Match,
     Player,
+    Session,
+    SessionStatus,
 )
 from backend.utils.geo_utils import calculate_distance_miles
 
@@ -293,24 +297,46 @@ async def _batch_get_top_tags(
 async def _batch_get_thumbnails(
     session: AsyncSession, court_ids: List[int]
 ) -> Dict[int, Optional[str]]:
-    """Return the most recent photo URL for each court in a single query."""
+    """Return the most recent photo URL for each court in a single query.
+
+    Considers both review photos and standalone court photos, picking
+    whichever is most recent.
+    """
     if not court_ids:
         return {}
 
-    # Rank photos per court by recency, then pick the first
-    ranked = (
+    # Review photos
+    review_photos = (
         select(
-            CourtReview.court_id,
-            CourtReviewPhoto.url,
-            func.row_number()
-            .over(
-                partition_by=CourtReview.court_id,
-                order_by=CourtReviewPhoto.created_at.desc(),
-            )
-            .label("rn"),
+            CourtReview.court_id.label("court_id"),
+            CourtReviewPhoto.url.label("url"),
+            CourtReviewPhoto.created_at.label("created_at"),
         )
         .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
         .where(CourtReview.court_id.in_(court_ids))
+    )
+
+    # Standalone court photos
+    standalone_photos = select(
+        CourtPhoto.court_id.label("court_id"),
+        CourtPhoto.url.label("url"),
+        CourtPhoto.created_at.label("created_at"),
+    ).where(CourtPhoto.court_id.in_(court_ids))
+
+    # Union both sources, rank by recency per court
+    all_photos = review_photos.union_all(standalone_photos).subquery()
+
+    ranked = (
+        select(
+            all_photos.c.court_id,
+            all_photos.c.url,
+            func.row_number()
+            .over(
+                partition_by=all_photos.c.court_id,
+                order_by=all_photos.c.created_at.desc(),
+            )
+            .label("rn"),
+        )
         .subquery()
     )
 
@@ -328,6 +354,19 @@ async def _batch_get_thumbnails(
 # ---------------------------------------------------------------------------
 
 
+async def get_court_id_by_slug(session: AsyncSession, slug: str) -> Optional[int]:
+    """
+    Look up a court ID by slug.
+
+    Returns the court's integer ID, or None if not found.
+    """
+    result = await session.execute(
+        select(Court.id).where(Court.slug == slug)
+    )
+    row = result.first()
+    return row[0] if row else None
+
+
 async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     """
     Fetch full court detail by slug.
@@ -343,6 +382,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
                 selectinload(CourtReview.photos),
                 selectinload(CourtReview.player),
             ),
+            selectinload(Court.photos),
         )
         .where(Court.slug == slug)
     )
@@ -398,6 +438,12 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
             }
         )
 
+    # Standalone court photos
+    court_photos = [
+        {"id": p.id, "url": p.url, "sort_order": p.sort_order}
+        for p in sorted(court.photos, key=lambda x: x.sort_order)
+    ]
+
     return {
         "id": court.id,
         "name": court.name,
@@ -426,10 +472,176 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
         "is_active": court.is_active if court.is_active is not None else True,
         "created_by": court.created_by,
         "reviews": reviews,
-        "all_photos": all_photos,
+        "all_photos": court_photos + all_photos,
+        "court_photos": court_photos,
         "created_at": court.created_at.isoformat() if court.created_at else None,
         "updated_at": court.updated_at.isoformat() if court.updated_at else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Court photos (standalone)
+# ---------------------------------------------------------------------------
+
+
+async def add_court_photo(
+    session: AsyncSession,
+    court_id: int,
+    player_id: int,
+    s3_key: str,
+    url: str,
+) -> Dict:
+    """
+    Create a standalone court photo record.
+
+    Args:
+        session: Database session
+        court_id: ID of the court
+        player_id: ID of the player uploading
+        s3_key: S3 object key
+        url: Public URL of the photo
+
+    Returns:
+        Dict with id, url, sort_order
+    """
+    # Verify court exists
+    court = await session.get(Court, court_id)
+    if not court:
+        raise ValueError(f"Court {court_id} not found")
+
+    # Lock the court row to prevent race conditions on sort_order
+    await session.execute(select(Court).where(Court.id == court_id).with_for_update())
+
+    # Determine next sort_order
+    max_order_result = await session.execute(
+        select(func.coalesce(func.max(CourtPhoto.sort_order), -1)).where(
+            CourtPhoto.court_id == court_id
+        )
+    )
+    next_order = max_order_result.scalar() + 1
+
+    photo = CourtPhoto(
+        court_id=court_id,
+        s3_key=s3_key,
+        url=url,
+        uploaded_by=player_id,
+        sort_order=next_order,
+    )
+    session.add(photo)
+    await session.commit()
+
+    return {"id": photo.id, "url": photo.url, "sort_order": photo.sort_order}
+
+
+async def get_court_leaderboard(
+    session: AsyncSession,
+    court_id: int,
+    limit: int = 10,
+) -> List[Dict]:
+    """
+    Get top players by match count at a court.
+
+    Counts matches played at the court (via sessions) and calculates win rate.
+    Returns ranked list of players with match_count, win_count, win_rate.
+    """
+    # Build a union of all player appearances in matches at this court
+    # Each match has 4 player slots: team1_player1, team1_player2, team2_player1, team2_player2
+    # A player "wins" if they're on the winning team
+    player_match = (
+        select(
+            Match.id.label("match_id"),
+            Match.team1_player1_id.label("player_id"),
+            case((Match.winner == 1, 1), else_=0).label("is_win"),
+        )
+        .join(Session, Session.id == Match.session_id)
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team1_player1_id.isnot(None),
+        )
+    ).union_all(
+        select(
+            Match.id,
+            Match.team1_player2_id,
+            case((Match.winner == 1, 1), else_=0),
+        )
+        .join(Session, Session.id == Match.session_id)
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team1_player2_id.isnot(None),
+        ),
+        select(
+            Match.id,
+            Match.team2_player1_id,
+            case((Match.winner == 2, 1), else_=0),
+        )
+        .join(Session, Session.id == Match.session_id)
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team2_player1_id.isnot(None),
+        ),
+        select(
+            Match.id,
+            Match.team2_player2_id,
+            case((Match.winner == 2, 1), else_=0),
+        )
+        .join(Session, Session.id == Match.session_id)
+        .where(
+            Session.court_id == court_id,
+            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+            Match.team2_player2_id.isnot(None),
+        ),
+    )
+
+    sub = player_match.subquery()
+
+    q = (
+        select(
+            sub.c.player_id,
+            func.count(sub.c.match_id).label("match_count"),
+            func.sum(sub.c.is_win).label("win_count"),
+        )
+        .group_by(sub.c.player_id)
+        .order_by(func.count(sub.c.match_id).desc())
+        .limit(limit)
+    )
+
+    result = await session.execute(q)
+    rows = result.all()
+
+    if not rows:
+        return []
+
+    # Fetch player details
+    player_ids = [r.player_id for r in rows]
+    player_q = select(Player.id, Player.full_name, Player.avatar).where(
+        Player.id.in_(player_ids)
+    )
+    player_result = await session.execute(player_q)
+    player_map = {p.id: p for p in player_result.all()}
+
+    leaderboard = []
+    for rank, row in enumerate(rows, start=1):
+        player = player_map.get(row.player_id)
+        if not player:
+            continue
+        match_count = row.match_count
+        win_count = int(row.win_count or 0)
+        leaderboard.append(
+            {
+                "rank": rank,
+                "player_id": row.player_id,
+                "player_name": player.full_name,
+                "avatar": player.avatar,
+                "match_count": match_count,
+                "win_count": win_count,
+                "win_rate": round(win_count / match_count, 3) if match_count else 0.0,
+            }
+        )
+
+    return leaderboard
 
 
 # ---------------------------------------------------------------------------

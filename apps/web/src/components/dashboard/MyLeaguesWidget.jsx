@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { createLeague } from '../../services/api';
 
-export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdate }) {
+export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdate, onViewAll }) {
   const router = useRouter();
   const { openModal } = useModal();
 
@@ -48,7 +48,15 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
         <div className="dashboard-widget-header">
           <div className="dashboard-widget-header-title">
             <Trophy size={20} />
-            <h3 className="dashboard-widget-title">My Leagues</h3>
+            <h3
+              className={`dashboard-widget-title${onViewAll ? ' dashboard-widget-title--clickable' : ''}`}
+              onClick={onViewAll || undefined}
+              role={onViewAll ? 'link' : undefined}
+              tabIndex={onViewAll ? 0 : undefined}
+              onKeyDown={onViewAll ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } } : undefined}
+            >
+              My Leagues
+            </h3>
           </div>
           <div className="dashboard-widget-header-actions">
             <button
@@ -85,7 +93,15 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
       <div className="dashboard-widget-header">
         <div className="dashboard-widget-header-title">
           <Trophy size={20} />
-          <h3 className="dashboard-widget-title">My Leagues</h3>
+          <h3
+              className={`dashboard-widget-title${onViewAll ? ' dashboard-widget-title--clickable' : ''}`}
+              onClick={onViewAll || undefined}
+              role={onViewAll ? 'link' : undefined}
+              tabIndex={onViewAll ? 0 : undefined}
+              onKeyDown={onViewAll ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } } : undefined}
+            >
+              My Leagues
+            </h3>
         </div>
         <div className="dashboard-widget-header-actions">
           <button
