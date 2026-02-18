@@ -19,7 +19,6 @@ from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_user,
     require_system_admin,
-    require_admin_phone,
     make_require_league_admin,
     make_require_league_member,
     make_require_league_member_with_403_auth,
@@ -3335,7 +3334,7 @@ async def submit_feedback(
 
 @router.get("/api/admin-view/feedback", response_model=List[FeedbackResponse])
 async def get_all_feedback(
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
@@ -3388,7 +3387,7 @@ async def get_all_feedback(
 async def update_feedback_resolution(
     feedback_id: int,
     request: Request,
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
@@ -3452,7 +3451,7 @@ async def update_feedback_resolution(
 
 @router.get("/api/admin-view/config")
 async def get_admin_config(
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
@@ -3494,7 +3493,7 @@ async def get_admin_config(
 @router.put("/api/admin-view/config")
 async def update_admin_config(
     request: Request,
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session)
 ):
     """

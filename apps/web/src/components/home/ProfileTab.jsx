@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
-import { AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { AlertCircle, Save } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
+import { useToast } from '../../contexts/ToastContext';
 import PlayerProfileFields from '../player/PlayerProfileFields';
 import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
@@ -51,10 +52,10 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     distance_to_location: null,
   });
 
+  const { showToast } = useToast();
   const [allLocations, setAllLocations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [showCheckmark, setShowCheckmark] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showConfirmLeaveModal, setShowConfirmLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
@@ -140,7 +141,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       [name]: value,
     }));
     setErrorMessage('');
-    setShowCheckmark(false);
   };
 
   // Helper function to check if form data has changed
@@ -194,7 +194,6 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const handleSubmit = async (event) => {
     event.preventDefault();
     setErrorMessage('');
-    setShowCheckmark(false);
 
     // Validate full_name
     if (!formData.full_name || !formData.full_name.trim()) {
@@ -269,10 +268,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       // Update initial form data to reflect saved state
       setInitialFormData({ ...formData });
       hasUnsavedChangesRef.current = false;
-      
-      // Show checkmark animation
-      setShowCheckmark(true);
-      setTimeout(() => setShowCheckmark(false), 2000);
+
+      showToast('Profile saved', 'success');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -363,11 +360,9 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           onInputChange={handleInputChange}
           onCitySelect={(cityData) => {
             handleCitySelectWithLocation(cityData, allLocations);
-            setShowCheckmark(false);
           }}
           onLocationChange={(locationId) => {
             handleLocationChange(locationId);
-            setShowCheckmark(false);
           }}
           locations={locations}
           isLoadingLocations={isLoadingLocations}
@@ -402,22 +397,13 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         </label>
 
         <div className="form-actions">
-          <button 
-            type="submit" 
-            className={`auth-modal__submit save-button ${showCheckmark ? 'save-success' : ''}`}
+          <button
+            type="submit"
+            className="auth-modal__submit save-button"
             disabled={isSubmitting || !checkHasChanges(formData, initialFormData)}
           >
-            {showCheckmark ? (
-              <>
-                <CheckCircle size={18} className="checkmark-icon" />
-                <span>Saved!</span>
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </>
-            )}
+            <Save size={18} />
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>

@@ -202,26 +202,6 @@ async def require_system_admin(
     return user
 
 
-async def require_admin_phone(
-    user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
-) -> dict:
-    """
-    Require admin phone number access.
-    Only allows user with phone number +17167831211.
-    """
-    ADMIN_PHONE = "+17167831211"
-
-    # Normalize phone number for comparison
-    try:
-        user_phone = auth_service.normalize_phone_number(user.get("phone_number", ""))
-        if user_phone != ADMIN_PHONE:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
-            )
-        return user
-    except (ValueError, Exception):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-
 
 def make_require_league_admin():
     async def _dep(

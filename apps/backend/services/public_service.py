@@ -780,14 +780,23 @@ async def search_public_players(
     location_id: Optional[str] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_dir: Optional[str] = None,
+    min_games: Optional[int] = None,
     page: int = 1,
     page_size: int = 25,
 ) -> Dict:
     """
-    Search publicly visible players with optional filters.
+    Search publicly visible players with optional filters and sorting.
 
     Only players with total_games >= 1 are included (same visibility rule
     as individual public player profiles).
+
+    Args:
+        sort_by: Sort field — 'games' (default), 'name', or 'rating'.
+        sort_dir: Sort direction — 'asc' or 'desc'. Defaults per field:
+            name → asc, games → desc, rating → desc.
+        min_games: Minimum total games played (filters out players below).
 
     Returns:
         Dict with 'items' (list of player dicts) and 'total_count'.
@@ -822,16 +831,37 @@ async def search_public_players(
         base = base.where(Player.gender == gender)
     if level:
         base = base.where(Player.level == level)
+    if min_games is not None:
+        base = base.where(PlayerGlobalStats.total_games >= min_games)
 
     # Total count
     count_q = select(func.count()).select_from(base.subquery())
     total_count = (await session.execute(count_q)).scalar() or 0
 
+    # Determine sort order with optional direction override.
+    # Default direction: name → asc, games → desc, rating → desc.
+    if sort_by == "name":
+        default_dir = "asc"
+        primary_col = Player.full_name
+        secondary = [PlayerGlobalStats.total_games.desc()]
+    elif sort_by == "rating":
+        default_dir = "desc"
+        primary_col = PlayerGlobalStats.current_rating
+        secondary = [Player.full_name.asc()]
+    else:
+        default_dir = "desc"
+        primary_col = PlayerGlobalStats.total_games
+        secondary = [Player.full_name.asc()]
+
+    direction = sort_dir if sort_dir in ("asc", "desc") else default_dir
+    primary_order = primary_col.asc() if direction == "asc" else primary_col.desc()
+    order_clauses = [primary_order] + secondary
+
     # Paginated results
     offset = (page - 1) * page_size
     rows = (
         await session.execute(
-            base.order_by(PlayerGlobalStats.total_games.desc(), Player.full_name.asc())
+            base.order_by(*order_clauses)
             .offset(offset)
             .limit(page_size)
         )

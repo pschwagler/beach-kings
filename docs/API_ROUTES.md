@@ -10,7 +10,6 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | `require_user` | Any authenticated user |
 | `require_verified_player` | Verified user with player profile (returns `player_id`) |
 | `require_system_admin` | Platform-wide admin (phone in settings) |
-| `require_admin_phone` | Hardcoded admin phone |
 | `make_require_league_admin()` | League admin or system admin |
 | `make_require_league_member()` | League member or system admin |
 | `make_require_league_admin_from_season()` | League admin via season_id |
@@ -298,7 +297,7 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 |--------|------|-------------|
 | GET | `/api/public/leagues` | Paginated public leagues with filters |
 | GET | `/api/public/leagues/{league_id}` | Public league detail (limited for private leagues) |
-| GET | `/api/public/players` | Search public players with filters |
+| GET | `/api/public/players` | Search public players with filters. Params: `search`, `location_id`, `gender`, `level`, `sort_by` (games\|name\|rating), `sort_dir` (asc\|desc), `min_games` (int, ≥1), `page`, `page_size` |
 | GET | `/api/public/players/{player_id}` | Public player profile |
 | GET | `/api/public/locations` | Location directory grouped by region |
 | GET | `/api/public/locations/{slug}` | Location detail by slug |

@@ -26,7 +26,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
+  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague } = useLeague();
   const { showToast } = useToast();
   // Use server-provided initialTab, then sync with URL params for client-side navigation
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -178,8 +178,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
       if (league.is_open) {
         await joinLeague(leagueId);
         showToast(`Successfully joined ${league.name}!`, 'success');
-        // Reload the page to refresh league membership
-        window.location.reload();
+        await refreshLeague();
       } else {
         await requestToJoinLeague(leagueId);
         showToast(`Join request submitted for ${league.name}. League admins will be notified.`, 'success');
