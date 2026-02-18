@@ -285,11 +285,11 @@
 .notifications-tab-item {
   display: flex;
   align-items: flex-start;
-  padding: 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid #f3f4f6;
   cursor: pointer;
   transition: background-color 0.2s;
-  gap: 12px;
+  gap: 8px;
   background: white;
 }
 
@@ -314,8 +314,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 2px;
 }
 
 .notifications-tab-item-title {
@@ -350,8 +350,8 @@
 .notifications-tab-item-message {
   font-size: 14px;
   color: #6b7280;
-  margin-bottom: 8px;
-  line-height: 1.5;
+  margin-bottom: 2px;
+  line-height: 1.4;
 }
 
 .notifications-tab-item-time {
@@ -434,7 +434,7 @@
   }
 
   .notifications-tab-item {
-    padding: 12px;
+    padding: 8px 10px;
   }
 
   .notification-inbox-item-actions,

@@ -2,14 +2,31 @@ import { useState } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 
-export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchClick }) {
+export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchClick, onViewAll }) {
   const [showAll, setShowAll] = useState(false);
+
+  const titleElement = onViewAll ? (
+    <h3
+      className="dashboard-widget-title dashboard-widget-title--clickable"
+      onClick={onViewAll}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } }}
+    >
+      My Games
+    </h3>
+  ) : (
+    <h3 className="dashboard-widget-title">My Games</h3>
+  );
+
   if (!matches || matches.length === 0) {
     return (
       <div className="dashboard-widget">
         <div className="dashboard-widget-header">
-          <Calendar size={20} />
-          <h3 className="dashboard-widget-title">My Games</h3>
+          <div className="dashboard-widget-header-title">
+            <Calendar size={20} />
+            {titleElement}
+          </div>
         </div>
         <div className="dashboard-widget-content">
           <div className="dashboard-empty-state">
@@ -46,8 +63,10 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
   return (
     <div className="dashboard-widget">
       <div className="dashboard-widget-header">
-        <Calendar size={20} />
-        <h3 className="dashboard-widget-title">My Games</h3>
+        <div className="dashboard-widget-header-title">
+          <Calendar size={20} />
+          {titleElement}
+        </div>
       </div>
       <div className="dashboard-widget-content">
         <div className={`dashboard-matches-list ${showAll ? 'dashboard-matches-list-expanded' : ''}`}>

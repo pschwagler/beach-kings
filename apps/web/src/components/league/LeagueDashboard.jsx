@@ -20,7 +20,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 import './LeagueDashboard.css';
 
-function LeagueDashboardContent({ leagueId, publicLeagueData }) {
+function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rankings' }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
@@ -28,14 +28,8 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
   const { openModal } = useModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext } = useLeague();
   const { showToast } = useToast();
-  // Initialize activeTab from URL params immediately
-  const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams?.get('tab');
-    if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
-      return tab;
-    }
-    return 'rankings';
-  });
+  // Use server-provided initialTab, then sync with URL params for client-side navigation
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [userLeagues, setUserLeagues] = useState([]);
   
   // League name editing
@@ -421,9 +415,9 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }) {
   );
 }
 
-export default function LeagueDashboard({ leagueId, publicLeagueData }) {
+export default function LeagueDashboard({ leagueId, publicLeagueData, initialTab }) {
   // leagueId is passed from the Next.js page component
   return (
-    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} />
+    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} />
   );
 }

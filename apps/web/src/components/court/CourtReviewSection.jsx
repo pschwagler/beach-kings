@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getPublicCourtBySlug } from '../../services/api';
 import CourtReviewCard from './CourtReviewCard';
 import CourtReviewForm from './CourtReviewForm';
@@ -10,7 +10,7 @@ import { Button } from '../ui/UI';
  * Reviews section on the court detail page.
  *
  * Shows review list, "Write a Review" / "Edit Your Review" CTA,
- * and the inline review form.
+ * and the inline review form. Refetches on mount to override stale ISR cache.
  */
 export default function CourtReviewSection({ court, isAuthenticated, currentPlayerId, onAuthRequired }) {
   const [reviews, setReviews] = useState(court.reviews || []);
@@ -34,6 +34,11 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
       console.error('Error refreshing court:', err);
     }
   }, [court.slug]);
+
+  // Refetch reviews on mount to override stale SSR/ISR cache
+  useEffect(() => {
+    refreshCourt();
+  }, [refreshCourt]);
 
   const handleReviewAction = (result) => {
     if (result) {

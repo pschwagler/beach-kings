@@ -9,7 +9,11 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_
 from backend.database.models import Notification, NotificationType, League, Player
-from backend.services.data_service import get_league_member_user_ids, get_league_admin_user_ids
+from backend.services.data_service import (
+    get_league_member_user_ids,
+    get_league_admin_user_ids,
+    get_session_match_player_user_ids,
+)
 from backend.utils.datetime_utils import utcnow
 import json
 import logging
@@ -682,8 +686,62 @@ async def notify_members_about_season_activated(
         logger.warning(f"Failed to create notifications for season activation: {e}")
 
 
-async def notify_members_about_new_member(
+async def _notify_members_about_new_member_impl(
     session: AsyncSession,
+    league_id: int,
+    new_member_user_id: int,
+    league_name: Optional[str] = None,
+    member_user_ids: Optional[List[int]] = None,
+) -> None:
+    """
+    Implementation of notify_members_about_new_member. Requires a valid session.
+    """
+    # Early return if no members to notify (optimization #11)
+    if member_user_ids is not None and not member_user_ids:
+        return
+
+    # Fetch league name if not provided
+    if league_name is None:
+        result = await session.execute(select(League.name).where(League.id == league_id))
+        league_name = result.scalar_one_or_none() or "the league"
+
+    # Fetch member user IDs if not provided (excluding the new member)
+    if member_user_ids is None:
+        member_user_ids = await get_league_member_user_ids(
+            session, league_id, exclude_user_id=new_member_user_id
+        )
+    else:
+        # Filter out the new member if they're in the list
+        member_user_ids = [uid for uid in member_user_ids if uid != new_member_user_id]
+
+    # Early return if no members after filtering (optimization #11)
+    if not member_user_ids:
+        return
+
+    # Get new member name
+    player_result = await session.execute(
+        select(Player.full_name).where(Player.user_id == new_member_user_id)
+    )
+    player_name = player_result.scalar_one_or_none() or "A new player"
+
+    # Create notifications
+    notifications_list = [
+        {
+            "user_id": member_id,
+            "type": NotificationType.LEAGUE_INVITE.value,  # Using LEAGUE_INVITE as closest match
+            "title": f"New member joined {league_name}",
+            "message": f"{player_name} joined the league",
+            "data": {"league_id": league_id, "new_member_user_id": new_member_user_id},
+            "link_url": f"/league/{league_id}",
+        }
+        for member_id in member_user_ids
+    ]
+
+    await create_notifications_bulk(session, notifications_list)
+
+
+async def notify_members_about_new_member(
+    session: Optional[AsyncSession],
     league_id: int,
     new_member_user_id: int,
     league_name: Optional[str] = None,
@@ -692,87 +750,152 @@ async def notify_members_about_new_member(
     """
     Notify all league members (except the new member) when a new player joins the league.
 
+    When session is None (e.g. when called from a background task), creates its own
+    database session. Callers using fire-and-forget should pass only IDs and omit session.
+
     Args:
-        session: Database session
+        session: Database session, or None to create a new session (for background tasks)
         league_id: ID of the league
         new_member_user_id: User ID of the newly joined player
         league_name: Optional league name (will be fetched if not provided)
         member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     try:
-        # Early return if no members to notify (optimization #11)
-        if member_user_ids is not None and not member_user_ids:
-            return
-
-        # Fetch league name if not provided
-        if league_name is None:
-            result = await session.execute(select(League.name).where(League.id == league_id))
-            league_name = result.scalar_one_or_none() or "the league"
-
-        # Fetch member user IDs if not provided (excluding the new member)
-        if member_user_ids is None:
-            member_user_ids = await get_league_member_user_ids(
-                session, league_id, exclude_user_id=new_member_user_id
+        if session is not None:
+            await _notify_members_about_new_member_impl(
+                session, league_id, new_member_user_id, league_name, member_user_ids
             )
         else:
-            # Filter out the new member if they're in the list
-            member_user_ids = [uid for uid in member_user_ids if uid != new_member_user_id]
+            from backend.database.db import AsyncSessionLocal
 
-        # Early return if no members after filtering (optimization #11)
-        if not member_user_ids:
-            return
-
-        # Get new member name
-        player_result = await session.execute(
-            select(Player.full_name).where(Player.user_id == new_member_user_id)
-        )
-        player_name = player_result.scalar_one_or_none() or "A new player"
-
-        # Create notifications
-        notifications_list = [
-            {
-                "user_id": member_id,
-                "type": NotificationType.LEAGUE_INVITE.value,  # Using LEAGUE_INVITE as closest match, or could use a new type
-                "title": f"New member joined {league_name}",
-                "message": f"{player_name} joined the league",
-                "data": {"league_id": league_id, "new_member_user_id": new_member_user_id},
-                "link_url": f"/league/{league_id}",
-            }
-            for member_id in member_user_ids
-        ]
-
-        await create_notifications_bulk(session, notifications_list)
+            async with AsyncSessionLocal() as new_session:
+                await _notify_members_about_new_member_impl(
+                    new_session, league_id, new_member_user_id, league_name, member_user_ids
+                )
+                await new_session.commit()
     except Exception as e:
         logger.warning(f"Failed to create notifications for new league member: {e}")
 
 
-async def notify_player_about_removal_from_league(
+async def _notify_player_about_removal_from_league_impl(
     session: AsyncSession, league_id: int, removed_user_id: int, league_name: Optional[str] = None
+) -> None:
+    """
+    Implementation of notify_player_about_removal_from_league. Requires a valid session.
+    """
+    # Fetch league name if not provided
+    if league_name is None:
+        result = await session.execute(select(League.name).where(League.id == league_id))
+        league_name = result.scalar_one_or_none() or "a league"
+
+    # Create notification
+    await create_notification(
+        session=session,
+        user_id=removed_user_id,
+        type=NotificationType.LEAGUE_INVITE.value,  # Reusing LEAGUE_INVITE type
+        title="Removed from league",
+        message=f"You have been removed from {league_name}",
+        data={"league_id": league_id},
+        link_url="/home",
+    )
+
+
+async def notify_player_about_removal_from_league(
+    session: Optional[AsyncSession],
+    league_id: int,
+    removed_user_id: int,
+    league_name: Optional[str] = None,
 ) -> None:
     """
     Notify a player that they have been removed from a league.
 
+    When session is None (e.g. when called from a background task), creates its own
+    database session. Callers using fire-and-forget should pass only IDs and omit session.
+
     Args:
-        session: Database session
+        session: Database session, or None to create a new session (for background tasks)
         league_id: ID of the league
         removed_user_id: User ID of the removed player
         league_name: Optional league name (will be fetched if not provided)
     """
     try:
-        # Fetch league name if not provided
-        if league_name is None:
-            result = await session.execute(select(League.name).where(League.id == league_id))
-            league_name = result.scalar_one_or_none() or "a league"
+        if session is not None:
+            await _notify_player_about_removal_from_league_impl(
+                session, league_id, removed_user_id, league_name
+            )
+        else:
+            from backend.database.db import AsyncSessionLocal
 
-        # Create notification
-        await create_notification(
-            session=session,
-            user_id=removed_user_id,
-            type=NotificationType.LEAGUE_INVITE.value,  # Reusing LEAGUE_INVITE type
-            title="Removed from league",
-            message=f"You have been removed from {league_name}",
-            data={"league_id": league_id},
-            link_url="/home",
-        )
+            async with AsyncSessionLocal() as new_session:
+                await _notify_player_about_removal_from_league_impl(
+                    new_session, league_id, removed_user_id, league_name
+                )
+                await new_session.commit()
     except Exception as e:
         logger.warning(f"Failed to create notification for league removal: {e}")
+
+
+async def notify_players_about_session_submitted(
+    session: AsyncSession,
+    session_id: int,
+    submitter_user_id: int,
+    session_name: str,
+    league_id: Optional[int] = None,
+    league_name: Optional[str] = None,
+) -> None:
+    """
+    Notify all players in a session's matches that games have been submitted.
+
+    Excludes the submitter from notifications. Handles both league and non-league sessions.
+
+    Args:
+        session: Database session
+        session_id: ID of the submitted session
+        submitter_user_id: User ID of the player who submitted (excluded from notifications)
+        session_name: Display name of the session
+        league_id: Optional league ID (if league session)
+        league_name: Optional league name (will be fetched if league_id provided but name not)
+    """
+    try:
+        # Get user IDs of all match players except the submitter
+        user_ids = await get_session_match_player_user_ids(
+            session, session_id, exclude_user_id=submitter_user_id
+        )
+
+        if not user_ids:
+            return
+
+        # Get submitter name
+        player_result = await session.execute(
+            select(Player.full_name).where(Player.user_id == submitter_user_id)
+        )
+        submitter_name = player_result.scalar_one_or_none() or "Someone"
+
+        # Build title and link based on league vs non-league
+        if league_id:
+            if league_name is None:
+                result = await session.execute(
+                    select(League.name).where(League.id == league_id)
+                )
+                league_name = result.scalar_one_or_none() or "the league"
+            title = f"Games submitted in {league_name}"
+            link_url = f"/league/{league_id}?tab=rankings"
+        else:
+            title = "Games submitted"
+            link_url = "/home"
+
+        notifications_list = [
+            {
+                "user_id": uid,
+                "type": NotificationType.SESSION_SUBMITTED.value,
+                "title": title,
+                "message": f"{submitter_name} submitted games from {session_name}",
+                "data": {"session_id": session_id, "league_id": league_id},
+                "link_url": link_url,
+            }
+            for uid in user_ids
+        ]
+
+        await create_notifications_bulk(session, notifications_list)
+    except Exception as e:
+        logger.warning(f"Failed to create notifications for session submission: {e}")

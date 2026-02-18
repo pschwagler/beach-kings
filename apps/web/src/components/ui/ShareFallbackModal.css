@@ -78,14 +78,6 @@
   background: var(--primary);
 }
 
-.share-fallback__icon--whatsapp {
-  background: #25d366;
-}
-
-.share-fallback__icon--sms {
-  background: var(--primary-dark);
-}
-
 .share-fallback__icon--email {
   background: var(--gray-700);
 }

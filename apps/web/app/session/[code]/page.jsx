@@ -27,6 +27,7 @@ import { getUniquePlayersCount } from '../../../src/components/league/utils/matc
 import { usePersistedViewMode } from '../../../src/hooks/usePersistedViewMode';
 import { useClickOutside } from '../../../src/hooks/useClickOutside';
 import { usePickupSession } from '../../../src/hooks/usePickupSession';
+import { useToast } from '../../../src/contexts/ToastContext';
 
 const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 
@@ -41,6 +42,7 @@ export default function SessionByCodePage() {
   const code = params?.code;
   const { openModal, closeModal } = useModal();
   const { isAuthenticated, isInitializing, user, currentUserPlayer, logout } = useAuth();
+  const { showToast } = useToast();
 
   const {
     session,
@@ -55,7 +57,6 @@ export default function SessionByCodePage() {
     transformedMatches,
   } = usePickupSession(code);
 
-  const [copied, setCopied] = useState(false);
   const [showPlayersModal, setShowPlayersModal] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [editingSessionName, setEditingSessionName] = useState(false);
@@ -124,8 +125,7 @@ export default function SessionByCodePage() {
     if (typeof window === 'undefined' || !code) return;
     const url = `${window.location.origin}/session/${code}`;
     window.navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      showToast('Link copied!', 'success');
     });
     setShareMenuOpen(false);
   };
@@ -465,7 +465,7 @@ export default function SessionByCodePage() {
                             {shareMenuOpen && (
                               <div className="session-share-dropdown-menu">
                                 <button type="button" className="session-share-dropdown-item" onClick={handleCopyLink}>
-                                  <Copy size={16} /> {copied ? 'Copied!' : 'Copy link'}
+                                  <Copy size={16} /> Copy link
                                 </button>
                                 <button type="button" className="session-share-dropdown-item" onClick={handleShareVia}>
                                   <Share2 size={16} /> Share via…

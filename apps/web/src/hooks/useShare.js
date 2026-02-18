@@ -4,8 +4,12 @@
  * Single source of truth for all invite-link sharing in the app.
  *
  * Architecture:
- *   useShare() hook  →  navigator.share() (native OS sheet, 95%+ of users)
+ *   useShare() hook  →  navigator.share() (native OS sheet on mobile)
  *                    →  ShareFallbackModal (Copy Link / WhatsApp / SMS / Email)
+ *
+ * On mobile devices with navigator.share() support, the native OS share sheet
+ * is used. On desktop, the in-app fallback modal is always preferred since the
+ * native desktop share sheet is often invisible or confusing.
  *
  * Consumers (all call shareInvite({ name, url })):
  *   - PendingInvitesTab     — share button per placeholder card
@@ -28,10 +32,19 @@ export const SHARE_TITLE = 'Beach League Invite';
 export const getShareText = (name) => `${name} — claim your matches on Beach League`;
 
 /**
+ * Detect if the device is mobile/touch-based.
+ * Only use navigator.share() on mobile — desktop share sheets are poor UX.
+ */
+function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return navigator.maxTouchPoints > 0;
+}
+
+/**
  * Hook providing a single `shareInvite({ name, url })` function.
  *
- * Primary path: navigator.share() → native OS share sheet.
- * Fallback: opens ShareFallbackModal via ModalContext (SHARE_FALLBACK).
+ * Mobile: navigator.share() → native OS share sheet.
+ * Desktop: ShareFallbackModal via ModalContext (Copy Link / WhatsApp / SMS / Email).
  *
  * @returns {{ shareInvite: (opts: { name: string, url: string }) => Promise<void> }}
  */
@@ -41,8 +54,8 @@ export default function useShare() {
   const shareInvite = useCallback(async ({ name, url }) => {
     const text = getShareText(name);
 
-    // Try native share first
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    // Use native share on mobile only
+    if (isMobileDevice() && typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title: SHARE_TITLE, text, url });
         return;
@@ -53,7 +66,7 @@ export default function useShare() {
       }
     }
 
-    // Fallback: open the share modal
+    // Fallback: open the share modal (always on desktop, or on mobile error)
     openModal(MODAL_TYPES.SHARE_FALLBACK, { name, url, text });
   }, [openModal]);
 

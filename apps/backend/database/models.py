@@ -74,6 +74,7 @@ class NotificationType(str, enum.Enum):
     PLACEHOLDER_CLAIMED = "placeholder_claimed"
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
+    SESSION_SUBMITTED = "session_submitted"
     SESSION_AUTO_SUBMITTED = "session_auto_submitted"
     SESSION_AUTO_DELETED = "session_auto_deleted"
 
