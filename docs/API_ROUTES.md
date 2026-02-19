@@ -30,6 +30,7 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | POST | `/api/auth/reset-password-verify` | None | Verify reset code, returns reset token |
 | POST | `/api/auth/reset-password-confirm` | None | Set new password with reset token |
 | POST | `/api/auth/sms-login` | None | Passwordless SMS login |
+| POST | `/api/auth/google` | None | Authenticate with Google ID token (SSO) |
 | GET | `/api/auth/check-phone` | None | Check if phone number is registered |
 | POST | `/api/auth/refresh` | None | Refresh access token |
 | POST | `/api/auth/logout` | User | Revoke refresh token |
@@ -299,10 +300,10 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 | GET | `/api/public/leagues/{league_id}` | Public league detail (limited for private leagues) |
 | GET | `/api/public/players` | Search public players with filters. Params: `search`, `location_id`, `gender`, `level`, `sort_by` (games\|name\|rating), `sort_dir` (asc\|desc), `min_games` (int, ≥1), `page`, `page_size` |
 | GET | `/api/public/players/{player_id}` | Public player profile |
-| GET | `/api/public/locations` | Location directory grouped by region |
-| GET | `/api/public/locations/{slug}` | Location detail by slug |
-| GET | `/api/public/courts` | Paginated courts with filters & geo-sort |
+| GET | `/api/public/locations` | Location directory grouped by region. Each location includes `court_count` (approved+active courts) |
+| GET | `/api/public/locations/{slug}` | Location detail by slug. `stats` includes `total_courts` |
+| GET | `/api/public/courts` | Paginated courts with filters & geo-sort. Each item includes `location_slug` |
 | GET | `/api/public/courts/tags` | Curated court review tags |
 | GET | `/api/public/courts/nearby` | Courts near lat/lng |
-| GET | `/api/public/courts/{slug}` | Court detail by slug (response includes `court_photos: [{id, url, sort_order}]`) |
+| GET | `/api/public/courts/{slug}` | Court detail by slug. Response includes `location_slug`, `court_photos: [{id, url, sort_order}]` |
 | GET | `/api/public/courts/{slug}/leaderboard` | Top 10 players by match count at court. Returns `[{rank, player_id, player_name, avatar, match_count, win_count, win_rate}]` |

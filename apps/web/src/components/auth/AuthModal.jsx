@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../contexts/AuthContext';
 import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
@@ -29,6 +30,7 @@ const getErrorMessage = (error) => error.response?.data?.detail || error.message
 
 export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifySuccess }) {
   const {
+    loginWithGoogle,
     loginWithPassword,
     loginWithSms,
     signup,
@@ -300,6 +302,42 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         </div>
 
         <p className="auth-modal__description">{renderDescription()}</p>
+
+        {(activeMode === 'sign-in' || activeMode === 'sign-up') && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="auth-modal__google-wrapper">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  setIsSubmitting(true);
+                  setErrorMessage('');
+                  try {
+                    const result = await loginWithGoogle(credentialResponse);
+                    if (!result.profile_complete && onVerifySuccess) {
+                      handleClose();
+                      setTimeout(() => onVerifySuccess(false), 300);
+                    } else {
+                      handleClose();
+                    }
+                  } catch (error) {
+                    setErrorMessage(getErrorMessage(error));
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                onError={() => {
+                  setErrorMessage('Google sign-in failed. Please try again.');
+                }}
+                width="100%"
+                text={activeMode === 'sign-up' ? 'signup_with' : 'signin_with'}
+                shape="rectangular"
+                size="large"
+              />
+            </div>
+            <div className="auth-modal__divider">
+              <span>or</span>
+            </div>
+          </>
+        )}
 
         {(statusMessage || errorMessage) && (
           <div className={`auth-modal__alert ${errorMessage ? 'error' : 'success'}`}>

@@ -1,13 +1,16 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { Search } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import './LocationDirectory.css';
 
 /**
  * Location directory page for SEO and unauthenticated visitors.
- * Shows all locations grouped by region with league/player counts.
+ * Shows all locations grouped by region with league/player/court counts.
+ * Includes client-side search filter by city or location name.
  *
  * @param {Object} props
  * @param {Array} props.regions - Regions with nested locations from the API
@@ -15,11 +18,31 @@ import './LocationDirectory.css';
  */
 export default function LocationDirectory({ regions, isAuthenticated }) {
   const { openAuthModal } = useAuthModal();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSignIn = () => openAuthModal('sign-in');
   const handleSignUp = () => openAuthModal('sign-up');
 
   const totalLocations = regions.reduce((sum, r) => sum + r.locations.length, 0);
+
+  /** Filter regions/locations by search term (city or name, case-insensitive). */
+  const filteredRegions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return regions;
+    return regions
+      .map((region) => ({
+        ...region,
+        locations: region.locations.filter(
+          (loc) =>
+            loc.city?.toLowerCase().includes(q) ||
+            loc.name?.toLowerCase().includes(q) ||
+            loc.state?.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((region) => region.locations.length > 0);
+  }, [regions, searchQuery]);
+
+  const filteredTotal = filteredRegions.reduce((sum, r) => sum + r.locations.length, 0);
 
   return (
     <div className="location-directory">
@@ -43,14 +66,37 @@ export default function LocationDirectory({ regions, isAuthenticated }) {
         </div>
       )}
 
+      {/* Search filter */}
+      {totalLocations > 0 && (
+        <div className="location-directory__search">
+          <Search size={16} className="location-directory__search-icon" />
+          <input
+            type="text"
+            placeholder="Search by city or state..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="location-directory__search-input"
+          />
+        </div>
+      )}
+
       {/* Region groups */}
-      {totalLocations === 0 ? (
+      {filteredTotal === 0 ? (
         <div className="location-directory__empty">
-          <h2>No locations yet</h2>
-          <p>Check back soon as we expand to new areas.</p>
+          {totalLocations === 0 ? (
+            <>
+              <h2>No locations yet</h2>
+              <p>Check back soon as we expand to new areas.</p>
+            </>
+          ) : (
+            <>
+              <h2>No matching locations</h2>
+              <p>Try a different search term.</p>
+            </>
+          )}
         </div>
       ) : (
-        regions.map((region) => (
+        filteredRegions.map((region) => (
           <section key={region.id ?? 'other'} className="location-directory__region">
             <h2 className="location-directory__region-title">{region.name}</h2>
             <div className="location-directory__locations">
@@ -68,6 +114,12 @@ export default function LocationDirectory({ regions, isAuthenticated }) {
                       {loc.league_count} league{loc.league_count !== 1 ? 's' : ''}
                       {' \u00B7 '}
                       {loc.player_count} player{loc.player_count !== 1 ? 's' : ''}
+                      {loc.court_count > 0 && (
+                        <>
+                          {' \u00B7 '}
+                          {loc.court_count} court{loc.court_count !== 1 ? 's' : ''}
+                        </>
+                      )}
                     </span>
                   </div>
                   <span className="location-directory__card-arrow">&rsaquo;</span>

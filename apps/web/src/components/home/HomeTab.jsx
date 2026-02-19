@@ -6,6 +6,7 @@ import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import OpenSessionsList from './OpenSessionsList';
+import NearYouSection from './NearYouSection';
 import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
 
@@ -252,6 +253,9 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           />
         </div>
       </div>
+
+      {/* Near You discovery section */}
+      <NearYouSection currentUserPlayer={currentUserPlayer} onTabChange={onTabChange} />
     </div>
   );
 }

@@ -118,7 +118,8 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/api/auth/reset-password-verify',
   '/api/auth/reset-password-confirm',
   '/api/auth/sms-login',
-  '/api/auth/check-phone'
+  '/api/auth/check-phone',
+  '/api/auth/google'
 ];
 
 const isPublicAuthEndpoint = (url) => {

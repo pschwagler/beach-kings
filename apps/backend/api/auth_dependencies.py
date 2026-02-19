@@ -127,14 +127,27 @@ async def require_verified_player(
 async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
     """
     Determine if the user is a system admin.
-    Uses settings key 'system_admin_phone_numbers' with comma-separated E.164 numbers.
+
+    Checks two settings:
+    - 'system_admin_phone_numbers': comma-separated E.164 phone numbers
+    - 'system_admin_emails': comma-separated email addresses (for Google SSO admins)
     """
     try:
-        setting = await data_service.get_setting(session, "system_admin_phone_numbers")
-        if not setting:
-            return False
-        phones = {p.strip() for p in setting.split(",") if p.strip()}
-        return user.get("phone_number") in phones
+        # Check by phone number
+        phone_setting = await data_service.get_setting(session, "system_admin_phone_numbers")
+        if phone_setting and user.get("phone_number"):
+            phones = {p.strip() for p in phone_setting.split(",") if p.strip()}
+            if user["phone_number"] in phones:
+                return True
+
+        # Check by email (for Google SSO users who may not have a phone number)
+        email_setting = await data_service.get_setting(session, "system_admin_emails")
+        if email_setting and user.get("email"):
+            emails = {e.strip().lower() for e in email_setting.split(",") if e.strip()}
+            if user["email"].strip().lower() in emails:
+                return True
+
+        return False
     except Exception:
         return False
 

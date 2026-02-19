@@ -108,9 +108,22 @@ export default function CourtDetailClient({ court, slug }) {
       />
 
       <div className="court-detail">
-        <a href="/courts" className="court-detail__back-link">
-          <ArrowLeft size={18} /> Browse All Courts
-        </a>
+        <nav className="court-detail__breadcrumb">
+          <a href="/courts" className="court-detail__breadcrumb-link">Courts</a>
+          {court.location_name && court.location_slug && (
+            <>
+              <span className="court-detail__breadcrumb-sep">/</span>
+              <a
+                href={`/beach-volleyball/${court.location_slug}`}
+                className="court-detail__breadcrumb-link"
+              >
+                {court.location_name}
+              </a>
+            </>
+          )}
+          <span className="court-detail__breadcrumb-sep">/</span>
+          <span className="court-detail__breadcrumb-current">{court.name}</span>
+        </nav>
 
         <CourtDetailHeader court={court} onSuggestEdit={handleSuggestEdit} />
 

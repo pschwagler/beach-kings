@@ -561,7 +561,22 @@ async def get_public_locations(session: AsyncSession) -> List[Dict]:
     )
     player_counts = {r.location_id: r.player_count for r in player_counts_result.all()}
 
-    # 5. Group by region
+    # 5. Court counts per location (approved + active only)
+    court_counts_result = await session.execute(
+        select(
+            Court.location_id,
+            func.count(Court.id).label("court_count"),
+        )
+        .where(
+            Court.location_id.in_(location_ids),
+            Court.status == "approved",
+            Court.is_active == True,  # noqa: E712
+        )
+        .group_by(Court.location_id)
+    )
+    court_counts = {r.location_id: r.court_count for r in court_counts_result.all()}
+
+    # 6. Group by region
     regions_map: Dict[str, Dict] = {}
     no_region_locations: List[Dict] = []
 
@@ -577,6 +592,7 @@ async def get_public_locations(session: AsyncSession) -> List[Dict]:
             "slug": loc.slug,
             "league_count": league_counts.get(loc.id, 0),
             "player_count": player_counts.get(loc.id, 0),
+            "court_count": court_counts.get(loc.id, 0),
         }
 
         if region:
@@ -739,14 +755,25 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
         .correlate()
         .scalar_subquery()
     )
+    court_count_subq = (
+        select(func.count(Court.id))
+        .where(
+            Court.location_id == location.id,
+            Court.status == "approved",
+            Court.is_active == True,  # noqa: E712
+        )
+        .correlate()
+        .scalar_subquery()
+    )
     stats_row = (
         await session.execute(
-            select(player_count_subq, league_count_subq, match_count_subq)
+            select(player_count_subq, league_count_subq, match_count_subq, court_count_subq)
         )
     ).one()
     total_players = stats_row[0] or 0
     total_leagues = stats_row[1] or 0
     total_matches = stats_row[2] or 0
+    total_courts = stats_row[3] or 0
 
     return {
         "id": location.id,
@@ -769,6 +796,7 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
             "total_players": total_players,
             "total_leagues": total_leagues,
             "total_matches": total_matches,
+            "total_courts": total_courts,
         },
     }
 

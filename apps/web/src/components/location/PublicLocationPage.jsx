@@ -62,6 +62,12 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
             <span className="public-location__stat-value">{stats.total_matches || 0}</span>
             <span className="public-location__stat-label">Matches</span>
           </div>
+          {stats.total_courts > 0 && (
+            <div className="public-location__stat">
+              <span className="public-location__stat-value">{stats.total_courts}</span>
+              <span className="public-location__stat-label">Courts</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -139,7 +145,7 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
         <section className="public-location__section">
           <div className="public-location__section-header">
             <h2 className="public-location__section-title">Courts</h2>
-            <Link href="/courts" className="public-location__view-all">
+            <Link href={`/courts?location=${location.id}`} className="public-location__view-all">
               View All Courts &rarr;
             </Link>
           </div>
@@ -173,6 +179,13 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
           </div>
         </section>
       )}
+
+      {/* Explore other locations */}
+      <div className="public-location__explore">
+        <Link href="/beach-volleyball" className="public-location__explore-link">
+          Explore more locations &rarr;
+        </Link>
+      </div>
 
       {/* Footer CTA */}
       {!isAuthenticated && (

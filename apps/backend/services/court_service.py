@@ -197,7 +197,8 @@ async def list_courts_public(
 
     offset = (page - 1) * page_size
     courts_q = base.outerjoin(Location, Court.location_id == Location.id).add_columns(
-        Location.name.label("location_name")
+        Location.name.label("location_name"),
+        Location.slug.label("location_slug"),
     )
 
     if dist_col is not None:
@@ -226,6 +227,7 @@ async def list_courts_public(
     for row in rows:
         court = row[0]
         loc_name = row[1]
+        loc_slug = row[2]
         item = {
             "id": court.id,
             "name": court.name,
@@ -233,6 +235,7 @@ async def list_courts_public(
             "address": court.address,
             "location_id": court.location_id,
             "location_name": loc_name,
+            "location_slug": loc_slug,
             "court_count": court.court_count,
             "surface_type": court.surface_type,
             "is_free": court.is_free,
@@ -246,7 +249,7 @@ async def list_courts_public(
             "photo_url": photos_map.get(court.id),
         }
         if dist_col is not None:
-            d = row[2]
+            d = row[3]
             item["distance_miles"] = round(d, 1) if d < 999999.0 else None
         items.append(item)
 
@@ -391,14 +394,17 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     if not court:
         return None
 
-    # Location name
+    # Location name + slug
     loc_name = None
+    loc_slug = None
     if court.location_id:
         loc_result = await session.execute(
-            select(Location.name).where(Location.id == court.location_id)
+            select(Location.name, Location.slug).where(Location.id == court.location_id)
         )
         loc_row = loc_result.first()
-        loc_name = loc_row[0] if loc_row else None
+        if loc_row:
+            loc_name = loc_row[0]
+            loc_slug = loc_row[1]
 
     # Build reviews
     reviews = []
@@ -452,6 +458,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
         "description": court.description,
         "location_id": court.location_id,
         "location_name": loc_name,
+        "location_slug": loc_slug,
         "court_count": court.court_count,
         "surface_type": court.surface_type,
         "is_free": court.is_free,

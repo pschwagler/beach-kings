@@ -1,5 +1,6 @@
 """Authentication route handlers."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
@@ -25,6 +26,7 @@ from backend.models.schemas import (
     ResetPasswordRequest,
     ResetPasswordVerifyRequest,
     ResetPasswordConfirmRequest,
+    GoogleAuthRequest,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -100,12 +102,17 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
             raise INVALID_CREDENTIALS_RESPONSE
 
         if not user.get("password_hash"):
+            if user.get("auth_provider") == "google":
+                raise HTTPException(
+                    status_code=401,
+                    detail="This account uses Google Sign-In. Please use the Google button to log in.",
+                )
             raise HTTPException(status_code=401, detail="Please contact support for help - NO_PASSWORD")
 
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise INVALID_CREDENTIALS_RESPONSE
 
-        token_data = {"user_id": user["id"], "phone_number": user["phone_number"]}
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
         refresh_token = auth_service.generate_refresh_token()
@@ -117,8 +124,9 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
-            phone_number=user["phone_number"],
+            phone_number=user.get("phone_number"),
             is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "phone"),
         )
     except HTTPException:
         raise
@@ -126,6 +134,126 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+
+@router.post("/api/auth/google", response_model=AuthResponse)
+async def google_auth(request: GoogleAuthRequest, session: AsyncSession = Depends(get_db_session)):
+    """
+    Authenticate with Google ID token.
+
+    Verifies the Google ID token, then:
+    1. If user exists by google_id → log in
+    2. If user exists by email (auto-link) → attach google_id, log in
+    3. Otherwise → create new user + player profile, log in
+    """
+    try:
+        # Verify Google token
+        google_info = auth_service.verify_google_id_token(request.id_token)
+        google_id = google_info["sub"]
+        email = google_info["email"].strip().lower()
+        name = google_info.get("name")
+        picture_url = google_info.get("picture")
+
+        # 1. Check by google_id first
+        user = await user_service.get_user_by_google_id(session, google_id)
+
+        if not user:
+            # 2. Check by email (auto-link)
+            user = await user_service.get_user_by_email(session, email)
+            if user:
+                await user_service.link_google_id(session, user["id"], google_id)
+                # Refresh user dict after linking
+                user = await user_service.get_user_by_id(session, user["id"])
+
+        is_new_user = False
+        if not user:
+            # 3. Create new user
+            user_id = await user_service.create_google_user(
+                session, email=email, google_id=google_id, full_name=name or "User"
+            )
+            user = await user_service.get_user_by_id(session, user_id)
+            is_new_user = True
+
+            # Create player profile for new users
+            if name:
+                player = await data_service.upsert_user_player(
+                    session=session, user_id=user_id, full_name=name
+                )
+                if not player:
+                    logger.error(f"Failed to create player profile for Google user {user_id}")
+                elif picture_url:
+                    # Import Google profile picture as avatar (best-effort, non-blocking)
+                    try:
+                        await _import_google_avatar(session, player["id"], picture_url)
+                    except Exception as e:
+                        logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
+
+        # Issue tokens
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
+        access_token = auth_service.create_access_token(data=token_data)
+
+        refresh_token = auth_service.generate_refresh_token()
+        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+
+        # Check profile completeness
+        profile_complete = True
+        player = await data_service.get_player_by_user_id(session, user["id"])
+        if not player or not player.get("gender") or not player.get("level"):
+            profile_complete = False
+
+        return AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user.get("phone_number"),
+            is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "google"),
+            profile_complete=profile_complete,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during Google auth: {e}")
+        raise HTTPException(status_code=500, detail=f"Error during Google authentication: {str(e)}")
+
+
+async def _import_google_avatar(session: AsyncSession, player_id: int, picture_url: str):
+    """
+    Download a Google profile picture and upload it as the player's avatar.
+
+    Args:
+        session: Database session
+        player_id: Player ID to set avatar for
+        picture_url: Google profile picture URL
+    """
+    import httpx
+    from backend.services import avatar_service, s3_service
+    from backend.database.models import Player
+    from sqlalchemy import select
+
+    # Download the image
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(picture_url, timeout=10.0)
+        if resp.status_code != 200:
+            return
+        image_bytes = resp.content
+
+    # Process and upload
+    loop = asyncio.get_event_loop()
+    processed = await loop.run_in_executor(None, avatar_service.process_avatar, image_bytes)
+    avatar_url = await loop.run_in_executor(None, s3_service.upload_avatar, player_id, processed)
+
+    # Update player record
+    result = await session.execute(select(Player).where(Player.id == player_id))
+    player_obj = result.scalar_one_or_none()
+    if player_obj:
+        player_obj.profile_picture_url = avatar_url
+        player_obj.avatar = avatar_url
+        await session.commit()
 
 
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
@@ -212,7 +340,7 @@ async def verify_phone(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        token_data = {"user_id": user["id"], "phone_number": user["phone_number"]}
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
         refresh_token = auth_service.generate_refresh_token()
@@ -229,8 +357,9 @@ async def verify_phone(
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
-            phone_number=user["phone_number"],
+            phone_number=user.get("phone_number"),
             is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "phone"),
             profile_complete=profile_complete,
         )
     except ValueError as e:
@@ -359,7 +488,7 @@ async def reset_password_confirm(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update password")
 
-        token_data = {"user_id": user["id"], "phone_number": user["phone_number"]}
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
         refresh_token = auth_service.generate_refresh_token()
@@ -371,8 +500,9 @@ async def reset_password_confirm(
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
-            phone_number=user["phone_number"],
+            phone_number=user.get("phone_number"),
             is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "phone"),
         )
     except HTTPException:
         raise
@@ -404,7 +534,7 @@ async def sms_login(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        token_data = {"user_id": user["id"], "phone_number": user["phone_number"]}
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
         refresh_token = auth_service.generate_refresh_token()
@@ -416,8 +546,9 @@ async def sms_login(
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
-            phone_number=user["phone_number"],
+            phone_number=user.get("phone_number"),
             is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "phone"),
         )
     except HTTPException:
         raise
@@ -457,7 +588,7 @@ async def refresh_token(
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        token_data = {"user_id": user["id"], "phone_number": user["phone_number"]}
+        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
         return RefreshTokenResponse(access_token=access_token, token_type="bearer")
@@ -484,8 +615,9 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """Get current authenticated user information."""
     return UserResponse(
         id=current_user["id"],
-        phone_number=current_user["phone_number"],
-        email=current_user["email"],
+        phone_number=current_user.get("phone_number"),
+        email=current_user.get("email"),
         is_verified=current_user["is_verified"],
+        auth_provider=current_user.get("auth_provider", "phone"),
         created_at=current_user["created_at"],
     )

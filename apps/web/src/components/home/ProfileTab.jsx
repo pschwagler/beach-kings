@@ -314,17 +314,30 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         <h3 className="profile-page__section-title section-title-first">Account Information</h3>
         
         <div className="profile-page__form-row">
-          <label className="auth-modal__label">
-            <span>Phone Number</span>
-            <input
-              type="text"
-              className="auth-modal__input disabled-input"
-              value={user?.phone_number || ''}
-              disabled
-              readOnly
-            />
-            <small className="profile-page__help-text">Please contact us to change your phone number</small>
-          </label>
+          {user?.phone_number ? (
+            <label className="auth-modal__label">
+              <span>Phone Number</span>
+              <input
+                type="text"
+                className="auth-modal__input disabled-input"
+                value={user.phone_number}
+                disabled
+                readOnly
+              />
+              <small className="profile-page__help-text">Please contact us to change your phone number</small>
+            </label>
+          ) : (
+            <label className="auth-modal__label">
+              <span>Phone Number</span>
+              <input
+                type="text"
+                className="auth-modal__input disabled-input"
+                value="Not set"
+                disabled
+                readOnly
+              />
+            </label>
+          )}
 
           <label className="auth-modal__label">
             <span>Email</span>

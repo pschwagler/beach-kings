@@ -8381,6 +8381,33 @@ button.match-config-toggle.inline svg {
   color: var(--danger);
 }
 
+.auth-modal__google-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.auth-modal__google-wrapper > div {
+  width: 100%;
+}
+
+.auth-modal__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+  color: var(--gray-600);
+  font-size: 0.85rem;
+}
+
+.auth-modal__divider::before,
+.auth-modal__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gray-300);
+}
+
 .auth-modal__form {
   display: flex;
   flex-direction: column;

@@ -153,14 +153,16 @@ class Location(Base):
 
 
 class User(Base):
-    """User accounts with phone-based authentication."""
+    """User accounts with phone or Google SSO authentication."""
 
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    phone_number = Column(String, nullable=False, unique=True)
-    password_hash = Column(String, nullable=False)
+    phone_number = Column(String, nullable=True, unique=True)
+    password_hash = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    auth_provider = Column(String, nullable=False, server_default="phone")  # 'phone' or 'google'
+    google_id = Column(String, nullable=True, unique=True)  # Google's `sub` claim
     is_verified = Column(Boolean, default=True, nullable=False)
     failed_verification_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(String, nullable=True)  # ISO timestamp
@@ -179,6 +181,8 @@ class User(Base):
     __table_args__ = (
         Index("idx_users_phone", "phone_number"),
         Index("idx_users_phone_verified", "phone_number", "is_verified"),
+        Index("idx_users_email", "email", unique=True),
+        Index("idx_users_google_id", "google_id", unique=True),
     )
 
 
