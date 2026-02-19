@@ -1,5 +1,5 @@
 /*
- * Design Tokens — Beach Kings
+ * Design Tokens — Beach League
  * ============================
  * Single source of truth for all colors, shadows, spacing, and layout values.
  * Every component CSS file should reference these tokens via var(--token-name).

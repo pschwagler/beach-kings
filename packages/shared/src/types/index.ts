@@ -1,4 +1,4 @@
-// Shared TypeScript types for the Beach Kings application
+// Shared TypeScript types for the Beach League application
 
 export interface Player {
   id: number;
