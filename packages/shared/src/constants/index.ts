@@ -1,4 +1,4 @@
-// Shared constants for the Beach Kings application
+// Shared constants for the Beach League application
 
 export const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },

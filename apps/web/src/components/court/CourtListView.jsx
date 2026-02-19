@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { getPublicCourts } from '../../services/api';
+import { getPublicCourts, getPublicLocations } from '../../services/api';
+import { useUserPosition } from '../../hooks/useUserPosition';
 import CourtCard from './CourtCard';
 import { Button } from '../ui/UI';
 import './CourtListView.css';
@@ -28,13 +29,17 @@ const SURFACE_OPTIONS = [
  * @param {Object} [props.userLocation] - { latitude, longitude } fallback from player profile
  */
 export default function CourtListView({ initialCourts, initialTotal, locationId, userLocation }) {
+  const { position: userPos } = useUserPosition(userLocation);
+
   const [courts, setCourts] = useState(initialCourts?.items || []);
   const [totalCount, setTotalCount] = useState(initialTotal || initialCourts?.total_count || 0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [userPos, setUserPos] = useState(userLocation || null);
-  const geoAttempted = useRef(false);
+
+  // Location options for dropdown
+  const [locations, setLocations] = useState([]);
+  const [selectedLocationId, setSelectedLocationId] = useState(locationId || '');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -44,23 +49,26 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
 
   const PAGE_SIZE = 20;
 
-  // Request browser geolocation once
+  // Load location options for filter dropdown
   useEffect(() => {
-    if (geoAttempted.current) return;
-    geoAttempted.current = true;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserPos({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => {}, // silently fall back to userLocation prop
-      { timeout: 5000, maximumAge: 300000 }
-    );
+    getPublicLocations()
+      .then((data) => {
+        const flat = (data.regions || [])
+          .flatMap((r) => (r.locations || []).map((loc) => ({
+            id: loc.id,
+            label: [loc.city, loc.state].filter(Boolean).join(', ') || loc.name,
+          })))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        setLocations(flat);
+      })
+      .catch(() => {}); // silently fail — dropdown just won't show options
   }, []);
 
   const fetchCourts = useCallback(async (pageNum = 1, resetList = true) => {
     setLoading(true);
     try {
       const filters = { page: pageNum, page_size: PAGE_SIZE };
-      if (locationId) filters.location_id = locationId;
+      if (selectedLocationId) filters.location_id = selectedLocationId;
       if (search.trim()) filters.search = search.trim();
       if (surfaceType) filters.surface_type = surfaceType;
       if (isFree !== null) filters.is_free = isFree;
@@ -83,7 +91,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
     } finally {
       setLoading(false);
     }
-  }, [locationId, search, surfaceType, isFree, minRating, userPos]);
+  }, [selectedLocationId, search, surfaceType, isFree, minRating, userPos]);
 
   // Refetch when filters or user position change
   useEffect(() => {
@@ -95,6 +103,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
 
   const handleClearFilters = () => {
     setSearch('');
+    setSelectedLocationId('');
     setSurfaceType('');
     setIsFree(null);
     setMinRating(null);
@@ -102,6 +111,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
 
   const activeFilterCount = [
     search.trim(),
+    selectedLocationId,
     surfaceType,
     isFree !== null,
     minRating,
@@ -138,6 +148,22 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
       {/* Collapsible filter panel */}
       {showFilters && (
         <div className="court-list__filters">
+          {locations.length > 0 && (
+            <div className="court-list__filter-group">
+              <label className="court-list__filter-label">Location</label>
+              <select
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                className="court-list__filter-select"
+              >
+                <option value="">All Locations</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="court-list__filter-group">
             <label className="court-list__filter-label">Surface</label>
             <select

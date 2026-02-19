@@ -17,24 +17,24 @@ import NotificationsTab from "./home/NotificationsTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
-export default function HomePage() {
+export default function HomePage({ initialTab = 'home' }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, currentUserPlayer, isAuthenticated, fetchCurrentUser, logout } =
+  const { user, currentUserPlayer, isAuthenticated, isInitializing, fetchCurrentUser, logout } =
     useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
 
-  // Get active tab from URL query params
-  const activeTab = searchParams?.get("tab") || "home";
+  // Use searchParams for client-side navigation, fall back to server-provided initialTab
+  const activeTab = searchParams?.get("tab") || initialTab;
   const [userLeagues, setUserLeagues] = useState([]);
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated (wait for auth to finish initializing)
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isInitializing && !isAuthenticated) {
       router.push("/");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isInitializing, router]);
 
   // Check if profile is incomplete and open modal if needed
   // This runs every time the user visits the home page or when currentUserPlayer changes
@@ -124,7 +124,7 @@ export default function HomePage() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (isInitializing || !isAuthenticated) {
     return null;
   }
 

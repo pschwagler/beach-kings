@@ -19,6 +19,8 @@ export default function CourtCard({ court }) {
     slug,
     name,
     address,
+    location_name,
+    location_slug,
     court_count,
     surface_type,
     average_rating,
@@ -62,6 +64,19 @@ export default function CourtCard({ court }) {
         </div>
 
         {address && <p className="court-card__address">{address}</p>}
+        {location_name && (
+          location_slug ? (
+            <a
+              href={`/beach-volleyball/${location_slug}`}
+              className="court-card__location court-card__location--link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {location_name}
+            </a>
+          ) : (
+            <p className="court-card__location">{location_name}</p>
+          )
+        )}
 
         {distance_miles != null && (
           <p className="court-card__distance">{distance_miles} mi away</p>

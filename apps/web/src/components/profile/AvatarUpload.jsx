@@ -126,6 +126,7 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }) {
 
   /** Remove avatar and revert to initials. */
   const handleRemove = async () => {
+    if (!window.confirm('Remove your profile photo?')) return;
     setError(null);
     setUploading(true);
     try {

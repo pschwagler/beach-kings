@@ -229,6 +229,12 @@ class CheckPhoneRequest(BaseModel):
     phone_number: str
 
 
+class GoogleAuthRequest(BaseModel):
+    """Request to authenticate with Google ID token."""
+
+    id_token: str
+
+
 class AuthResponse(BaseModel):
     """Authentication response with JWT token."""
 
@@ -236,8 +242,10 @@ class AuthResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user_id: int
-    phone_number: str
+    phone_number: Optional[str] = None
     is_verified: bool
+    auth_provider: str = "phone"
+    profile_complete: Optional[bool] = None
 
 
 class RefreshTokenRequest(BaseModel):
@@ -284,9 +292,10 @@ class UserResponse(BaseModel):
     """User information response."""
 
     id: int
-    phone_number: str
+    phone_number: Optional[str] = None
     email: Optional[str] = None
     is_verified: bool
+    auth_provider: str = "phone"
     created_at: str
 
 
@@ -1061,6 +1070,7 @@ class PublicLocationDirectoryItem(BaseModel):
     slug: str
     league_count: int = 0
     player_count: int = 0
+    court_count: int = 0
 
 
 class PublicLocationDirectoryRegion(BaseModel):
@@ -1107,6 +1117,7 @@ class PublicLocationStats(BaseModel):
     total_players: int = 0
     total_leagues: int = 0
     total_matches: int = 0
+    total_courts: int = 0
 
 
 class PublicLocationDetailResponse(BaseModel):
@@ -1256,8 +1267,29 @@ class CourtDetailResponse(BaseModel):
     created_by: Optional[int] = None
     reviews: List[CourtReviewResponse] = []
     all_photos: List[CourtReviewPhotoResponse] = []  # Aggregated across reviews
+    court_photos: List[CourtReviewPhotoResponse] = []  # Standalone court photos
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class CourtPhotoUploadResponse(BaseModel):
+    """Response for a successfully uploaded court photo."""
+
+    id: int
+    url: str
+    sort_order: int = 0
+
+
+class CourtLeaderboardEntry(BaseModel):
+    """A single entry in the court leaderboard."""
+
+    rank: int
+    player_id: int
+    player_name: str
+    avatar: Optional[str] = None
+    match_count: int
+    win_count: int
+    win_rate: float
 
 
 class CourtNearbyItem(BaseModel):

@@ -22,6 +22,10 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useToast } from '../../contexts/ToastContext';
 import './FriendsTab.css';
 
+const SUGGESTIONS_DISPLAY_COUNT = 6;
+const SUGGESTIONS_FETCH_COUNT = 20;
+const SUGGESTIONS_REFETCH_THRESHOLD = 3;
+
 /**
  * Format a timestamp into a relative time string.
  */
@@ -69,7 +73,8 @@ export default function FriendsTab() {
   const [friendsTotalCount, setFriendsTotalCount] = useState(0);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [outgoingRequests, setOutgoingRequests] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionBuffer, setSuggestionBuffer] = useState([]);
+  const [dismissedIds, setDismissedIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState({});
   const [openMenu, setOpenMenu] = useState(null);
@@ -77,6 +82,19 @@ export default function FriendsTab() {
   const { showToast } = useToast();
   const { notifications, markAsRead, fetchUnreadCount } = useNotifications();
   const menuRef = useRef(null);
+  const isFetchingSuggestions = useRef(false);
+
+  /** Visible suggestions: first N from buffer, excluding dismissed. */
+  const visibleSuggestions = useMemo(() => {
+    return suggestionBuffer
+      .filter((s) => !dismissedIds.has(s.player_id))
+      .slice(0, SUGGESTIONS_DISPLAY_COUNT);
+  }, [suggestionBuffer, dismissedIds]);
+
+  /** Remaining buffered count (not displayed, not dismissed). */
+  const bufferedCount = useMemo(() => {
+    return suggestionBuffer.filter((s) => !dismissedIds.has(s.player_id)).length - visibleSuggestions.length;
+  }, [suggestionBuffer, dismissedIds, visibleSuggestions]);
 
   // Close menu on click outside
   useEffect(() => {
@@ -115,13 +133,13 @@ export default function FriendsTab() {
           getFriends(1, 100),
           getFriendRequests('incoming'),
           getFriendRequests('outgoing'),
-          getFriendSuggestions(10),
+          getFriendSuggestions(SUGGESTIONS_FETCH_COUNT),
         ]);
         setFriends(friendsData.items || []);
         setFriendsTotalCount(friendsData.total_count || 0);
         setIncomingRequests(inData || []);
         setOutgoingRequests(outData || []);
-        setSuggestions(suggestionsData || []);
+        setSuggestionBuffer(suggestionsData || []);
       } catch (err) {
         console.error('Error loading friends data:', err);
       } finally {
@@ -135,28 +153,59 @@ export default function FriendsTab() {
     setActionLoading((prev) => ({ ...prev, [key]: value }));
   };
 
+  /**
+   * Background-refetch suggestions when buffer runs low.
+   * Merges new results into the buffer, deduplicating by player_id.
+   */
+  const refetchSuggestionsIfNeeded = useCallback(async () => {
+    if (isFetchingSuggestions.current) return;
+    isFetchingSuggestions.current = true;
+    try {
+      const fresh = await getFriendSuggestions(SUGGESTIONS_FETCH_COUNT);
+      setSuggestionBuffer((prev) => {
+        const existingIds = new Set(prev.map((s) => s.player_id));
+        const newItems = (fresh || []).filter(
+          (s) => !existingIds.has(s.player_id) && !dismissedIds.has(s.player_id)
+        );
+        return [...prev, ...newItems];
+      });
+    } catch (_) {
+      // Non-critical — suggestions will refresh on next visit
+    } finally {
+      isFetchingSuggestions.current = false;
+    }
+  }, [dismissedIds]);
+
+  /**
+   * Remove a suggestion from the buffer (after send request or dismiss).
+   * Triggers background refetch if buffer is getting low.
+   */
+  const removeSuggestion = useCallback((playerId) => {
+    setSuggestionBuffer((prev) => prev.filter((s) => s.player_id !== playerId));
+  }, []);
+
   const handleAccept = useCallback(async (requestId) => {
     setActionLoadingFor(`accept-${requestId}`, true);
     try {
       await acceptFriendRequest(requestId);
       await dismissFriendNotification(requestId);
-      // Refresh data
-      const [friendsData, inData] = await Promise.all([
-        getFriends(1, 100),
-        getFriendRequests('incoming'),
-      ]);
-      setFriends(friendsData.items || []);
-      setFriendsTotalCount(friendsData.total_count || 0);
-      setIncomingRequests(inData || []);
-      // Also refresh suggestions since accepted friend should disappear
-      const sugData = await getFriendSuggestions(10);
-      setSuggestions(sugData || []);
       showToast('Friend request accepted!', 'success');
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
+      return;
     } finally {
       setActionLoadingFor(`accept-${requestId}`, false);
     }
+    // Re-fetch friends and requests in background — failures are non-critical
+    const results = await Promise.allSettled([
+      getFriends(1, 100),
+      getFriendRequests('incoming'),
+    ]);
+    if (results[0].status === 'fulfilled') {
+      setFriends(results[0].value.items || []);
+      setFriendsTotalCount(results[0].value.total_count || 0);
+    }
+    if (results[1].status === 'fulfilled') setIncomingRequests(results[1].value || []);
   }, [dismissFriendNotification]);
 
   const handleDecline = useCallback(async (requestId) => {
@@ -191,30 +240,47 @@ export default function FriendsTab() {
       setFriends((prev) => prev.filter((f) => f.player_id !== playerId));
       setFriendsTotalCount((prev) => prev - 1);
       setConfirmUnfriend(null);
-      // Refresh suggestions
-      const sugData = await getFriendSuggestions(10);
-      setSuggestions(sugData || []);
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to remove friend', 'error');
+      return;
     } finally {
       setActionLoadingFor(`unfriend-${playerId}`, false);
     }
-  }, []);
+    // Refetch suggestions since unfriending may unlock new suggestions
+    refetchSuggestionsIfNeeded();
+  }, [refetchSuggestionsIfNeeded]);
 
   const handleSendRequest = useCallback(async (playerId) => {
     setActionLoadingFor(`send-${playerId}`, true);
     try {
       await sendFriendRequest(playerId);
-      // Remove from suggestions, add to outgoing
-      setSuggestions((prev) => prev.filter((s) => s.player_id !== playerId));
-      const outData = await getFriendRequests('outgoing');
-      setOutgoingRequests(outData || []);
+      removeSuggestion(playerId);
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to send friend request', 'error');
+      return;
     } finally {
       setActionLoadingFor(`send-${playerId}`, false);
     }
+    // Re-fetch outgoing requests in background
+    try {
+      const outData = await getFriendRequests('outgoing');
+      setOutgoingRequests(outData || []);
+    } catch (_) {
+      // Non-critical
+    }
+  }, [removeSuggestion]);
+
+  /** Dismiss a suggestion (client-side only, not persisted). */
+  const handleDismissSuggestion = useCallback((playerId) => {
+    setDismissedIds((prev) => new Set([...prev, playerId]));
   }, []);
+
+  // Background refetch when buffer runs low
+  useEffect(() => {
+    if (!loading && bufferedCount < SUGGESTIONS_REFETCH_THRESHOLD && visibleSuggestions.length > 0) {
+      refetchSuggestionsIfNeeded();
+    }
+  }, [bufferedCount, loading, visibleSuggestions.length, refetchSuggestionsIfNeeded]);
 
   // Filter friends by search query
   const filteredFriends = useMemo(() => {
@@ -426,13 +492,13 @@ export default function FriendsTab() {
       </div>
 
       {/* People You May Know */}
-      {suggestions.length > 0 && (
+      {visibleSuggestions.length > 0 && (
         <div className="friends-tab__section">
           <div className="friends-tab__section-header">
             <h3 className="friends-tab__section-title">People You May Know</h3>
           </div>
           <div className="friends-tab__suggestions">
-            {suggestions.map((suggestion) => (
+            {visibleSuggestions.map((suggestion) => (
               <div key={suggestion.player_id} className="friends-tab__suggestion-card" data-testid="friend-suggestion-card">
                 <Avatar
                   avatar={suggestion.avatar}
@@ -465,6 +531,15 @@ export default function FriendsTab() {
                       </>
                     )}
                   </Button>
+                  <button
+                    type="button"
+                    className="friends-tab__suggestion-dismiss"
+                    onClick={() => handleDismissSuggestion(suggestion.player_id)}
+                    title="Dismiss suggestion"
+                    aria-label={`Dismiss ${suggestion.full_name}`}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               </div>
             ))}

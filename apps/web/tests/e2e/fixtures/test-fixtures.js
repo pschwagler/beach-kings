@@ -331,8 +331,8 @@ export const test = base.extend({
    * Provides { phone, password, token, refreshToken, fullName }.
    */
   adminUser: [async ({}, use) => {
-    // Use the hardcoded admin phone from require_admin_phone (+17167831211)
-    // This grants both system_admin (DB setting) and admin_phone (hardcoded) access
+    // Use this phone for system admin access (configured in DB settings)
+    // This grants require_system_admin access
     const phone = '+17167831211';
     const password = 'Test1234';
     const fullName = 'Admin User';

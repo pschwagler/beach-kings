@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-PostgreSQL database with 45 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
+PostgreSQL database with 46 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
 
 ## Enums
 
@@ -27,21 +27,23 @@ PostgreSQL database with 45 tables. SQLAlchemy ORM models in `apps/backend/datab
 ## Auth & Users
 
 ### `users`
-User accounts with phone-based authentication.
+User accounts with phone or Google SSO authentication.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | Integer PK | Auto-increment |
-| `phone_number` | String | **Unique**, not null |
-| `password_hash` | String | Not null |
-| `email` | String | Nullable |
+| `phone_number` | String | **Unique**, nullable (null for Google-only users) |
+| `password_hash` | String | Nullable (null for Google-only users) |
+| `email` | String | **Unique** (idx_users_email), nullable |
+| `auth_provider` | String | Not null, default `'phone'`. Values: `phone`, `google` |
+| `google_id` | String | **Unique** (idx_users_google_id), nullable. Google's `sub` claim |
 | `is_verified` | Boolean | Default `true` |
 | `failed_verification_attempts` | Integer | Default `0` |
 | `locked_until` | String | ISO timestamp, nullable |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
 
-Indexes: `idx_users_phone`, `idx_users_phone_verified`
+Indexes: `idx_users_phone`, `idx_users_phone_verified`, `idx_users_email` (unique), `idx_users_google_id` (unique)
 
 ### `players`
 Player profiles. Can be real (linked to user) or placeholder (is_placeholder=true).
@@ -232,6 +234,21 @@ Photos attached to court reviews (max 3 per review).
 | `url` | String(500) | Not null |
 | `sort_order` | Integer | Default `0` |
 | `created_at` | DateTime(tz) | |
+
+### `court_photos`
+Standalone photos for a court (not tied to a review).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | Auto-increment |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `s3_key` | String(500) | Not null |
+| `url` | String(500) | Not null |
+| `uploaded_by` | Integer FK → players.id | ON DELETE SET NULL |
+| `sort_order` | Integer | Default `0` |
+| `created_at` | DateTime(tz) | |
+
+Indexes: `idx_court_photos_court` on `court_id`
 
 ### `court_edit_suggestions`
 User-submitted edit suggestions for court info.
@@ -650,7 +667,7 @@ Key-value application configuration.
 | `updated_at` | DateTime(tz) | |
 | `updated_by` | Integer FK → players.id | |
 
-Notable keys: `system_admin_phone_numbers` (comma-separated E.164 numbers)
+Notable keys: `system_admin_phone_numbers` (comma-separated E.164 numbers), `system_admin_emails` (comma-separated emails for Google SSO admins)
 
 ### `stats_calculation_jobs`
 Queue for stats calculation jobs.

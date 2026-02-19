@@ -278,6 +278,56 @@ def normalize_email(email: str) -> str:
     return email
 
 
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+
+def verify_google_id_token(token: str) -> dict:
+    """
+    Verify a Google ID token and extract user info.
+
+    Uses google.oauth2.id_token to verify the token against Google's
+    public keys and validate the audience claim.
+
+    Args:
+        token: The ID token string from the Google Sign-In flow
+
+    Returns:
+        Dictionary with 'email', 'sub' (Google user ID), 'name', 'picture', 'email_verified'
+
+    Raises:
+        ValueError: If token is invalid, expired, or audience doesn't match
+    """
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    if not GOOGLE_CLIENT_ID:
+        raise ValueError("GOOGLE_CLIENT_ID environment variable is not set")
+
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+
+        if not id_info.get("email_verified"):
+            raise ValueError("Google email is not verified")
+
+        return {
+            "email": id_info["email"],
+            "sub": id_info["sub"],
+            "name": id_info.get("name"),
+            "picture": id_info.get("picture"),
+            "email_verified": id_info.get("email_verified", False),
+        }
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Google ID token verification failed: {e}")
+        raise ValueError(f"Invalid Google ID token: {e}")
+
+
 async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
     """
     Send SMS verification code via Twilio.

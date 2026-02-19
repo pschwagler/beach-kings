@@ -118,7 +118,8 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/api/auth/reset-password-verify',
   '/api/auth/reset-password-confirm',
   '/api/auth/sms-login',
-  '/api/auth/check-phone'
+  '/api/auth/check-phone',
+  '/api/auth/google'
 ];
 
 const isPublicAuthEndpoint = (url) => {
@@ -996,6 +997,24 @@ export const adminApproveCourt = async (courtId) => {
 /** Admin: reject a court. */
 export const adminRejectCourt = async (courtId) => {
   const response = await api.put(`/api/admin/courts/${courtId}/reject`);
+  return response.data;
+};
+
+/** Upload a standalone photo to a court (multipart form data). */
+export const uploadCourtPhoto = async (courtId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(
+    `/api/courts/${courtId}/photos`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return response.data;
+};
+
+/** Get court leaderboard (top players by match count). */
+export const getCourtLeaderboard = async (slug) => {
+  const response = await api.get(`/api/public/courts/${slug}/leaderboard`);
   return response.data;
 };
 

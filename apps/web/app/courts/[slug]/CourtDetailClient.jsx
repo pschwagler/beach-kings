@@ -11,15 +11,15 @@ import CourtDetailHeader from '../../../src/components/court/CourtDetailHeader';
 import CourtAmenities from '../../../src/components/court/CourtAmenities';
 import CourtPhotoGallery from '../../../src/components/court/CourtPhotoGallery';
 import CourtReviewSection from '../../../src/components/court/CourtReviewSection';
+import CourtLeaderboard from '../../../src/components/court/CourtLeaderboard';
 import NearbyCourtsList from '../../../src/components/court/NearbyCourtsList';
 import SuggestEditForm from '../../../src/components/court/SuggestEditForm';
-import { Button } from '../../../src/components/ui/UI';
-import { Pencil, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import '../../../src/components/court/CourtDetail.css';
 
 /**
  * Client wrapper for the court detail page.
- * Renders NavBar + full court profile with reviews.
+ * Renders NavBar + full court profile with reviews, leaderboard, and photos.
  */
 export default function CourtDetailClient({ court, slug }) {
   const router = useRouter();
@@ -64,6 +64,14 @@ export default function CourtDetailClient({ court, slug }) {
     }
   };
 
+  const handleSuggestEdit = () => {
+    if (!isAuthenticated) {
+      openAuthModal('sign-in');
+      return;
+    }
+    setShowSuggestEdit(true);
+  };
+
   if (!court) {
     return (
       <>
@@ -100,14 +108,27 @@ export default function CourtDetailClient({ court, slug }) {
       />
 
       <div className="court-detail">
-        <a href="/courts" className="court-detail__back-link">
-          <ArrowLeft size={18} /> Browse All Courts
-        </a>
+        <nav className="court-detail__breadcrumb">
+          <a href="/courts" className="court-detail__breadcrumb-link">Courts</a>
+          {court.location_name && court.location_slug && (
+            <>
+              <span className="court-detail__breadcrumb-sep">/</span>
+              <a
+                href={`/beach-volleyball/${court.location_slug}`}
+                className="court-detail__breadcrumb-link"
+              >
+                {court.location_name}
+              </a>
+            </>
+          )}
+          <span className="court-detail__breadcrumb-sep">/</span>
+          <span className="court-detail__breadcrumb-current">{court.name}</span>
+        </nav>
 
-        <CourtDetailHeader court={court} />
+        <CourtDetailHeader court={court} onSuggestEdit={handleSuggestEdit} />
 
         {court.all_photos?.length > 0 && (
-          <CourtPhotoGallery photos={court.all_photos} />
+          <CourtPhotoGallery photos={court.all_photos} slug={slug} />
         )}
 
         <CourtAmenities court={court} />
@@ -135,6 +156,8 @@ export default function CourtDetailClient({ court, slug }) {
           </div>
         )}
 
+        <CourtLeaderboard slug={slug} />
+
         <CourtReviewSection
           court={court}
           isAuthenticated={isAuthenticated}
@@ -142,7 +165,7 @@ export default function CourtDetailClient({ court, slug }) {
           onAuthRequired={() => openAuthModal('sign-in')}
         />
 
-        {showSuggestEdit ? (
+        {showSuggestEdit && (
           <SuggestEditForm
             court={court}
             onClose={() => setShowSuggestEdit(false)}
@@ -151,22 +174,6 @@ export default function CourtDetailClient({ court, slug }) {
               router.refresh();
             }}
           />
-        ) : (
-          <div style={{ marginBottom: '24px' }}>
-            <Button
-              variant="ghost"
-              size="small"
-              onClick={() => {
-                if (!isAuthenticated) {
-                  openAuthModal('sign-in');
-                  return;
-                }
-                setShowSuggestEdit(true);
-              }}
-            >
-              <Pencil size={14} /> Suggest an Edit
-            </Button>
-          </div>
         )}
 
         {nearbyCourts.length > 0 && (

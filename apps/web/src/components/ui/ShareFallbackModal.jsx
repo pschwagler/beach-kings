@@ -2,14 +2,15 @@
 
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, Check, MessageCircle, Mail, MessageSquare } from 'lucide-react';
+import { Copy, Check, Mail } from 'lucide-react';
 import { getShareText } from '../../hooks/useShare';
 import './ShareFallbackModal.css';
 
 /**
- * Fallback share modal for browsers without navigator.share() support.
+ * Desktop share modal (fallback when native share sheet isn't used).
  *
- * Displays a 2x2 grid of share options: Copy Link, WhatsApp, SMS, Email.
+ * Displays Copy Link and Email options. On mobile, the native OS share sheet
+ * handles sharing instead of this modal (see useShare hook).
  * Opened via ModalContext (SHARE_FALLBACK type).
  *
  * @param {Object} props
@@ -33,16 +34,6 @@ export default function ShareFallbackModal({ isOpen, onClose, name, url, text })
       // Clipboard not available
     }
   }, [url]);
-
-  const handleWhatsApp = useCallback(() => {
-    const encoded = encodeURIComponent(`${shareText} ${url}`);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener');
-  }, [shareText, url]);
-
-  const handleSMS = useCallback(() => {
-    const encoded = encodeURIComponent(`${shareText} ${url}`);
-    window.location.href = `sms:?body=${encoded}`;
-  }, [shareText, url]);
 
   const handleEmail = useCallback(() => {
     const subject = encodeURIComponent('Beach League Invite');
@@ -89,28 +80,6 @@ export default function ShareFallbackModal({ isOpen, onClose, name, url, text })
             <span className="share-fallback__label">
               {copied ? 'Copied!' : 'Copy Link'}
             </span>
-          </button>
-
-          <button
-            type="button"
-            className="share-fallback__option"
-            onClick={handleWhatsApp}
-          >
-            <span className="share-fallback__icon share-fallback__icon--whatsapp">
-              <MessageCircle size={20} />
-            </span>
-            <span className="share-fallback__label">WhatsApp</span>
-          </button>
-
-          <button
-            type="button"
-            className="share-fallback__option"
-            onClick={handleSMS}
-          >
-            <span className="share-fallback__icon share-fallback__icon--sms">
-              <MessageSquare size={20} />
-            </span>
-            <span className="share-fallback__label">SMS</span>
           </button>
 
           <button

@@ -1,7 +1,7 @@
 # SEO Implementation Plan
 
 ## Context
-Beach Kings has zero SEO infrastructure — no robots.txt, sitemap, meta tags, OG images, or public-facing pages. All content is auth-walled. This plan adds public pages for leagues, players, and locations with proper metadata, structured data, and social sharing previews. Phased: infrastructure first, then public pages, then OG images.
+Beach League has zero SEO infrastructure — no robots.txt, sitemap, meta tags, OG images, or public-facing pages. All content is auth-walled. This plan adds public pages for leagues, players, and locations with proper metadata, structured data, and social sharing previews. Phased: infrastructure first, then public pages, then OG images.
 
 ---
 

@@ -28,7 +28,7 @@
 /* Aggregate stats strip */
 .public-location__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -297,6 +297,23 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--primary);
+}
+
+/* Explore other locations CTA */
+.public-location__explore {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.public-location__explore-link {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.public-location__explore-link:hover {
+  text-decoration: underline;
 }
 
 /* Footer CTA */

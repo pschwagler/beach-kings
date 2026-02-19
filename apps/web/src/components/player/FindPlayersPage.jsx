@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Search, MapPin, X } from 'lucide-react';
+import { Search, MapPin, X, LayoutGrid, List, Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import NavBar from '../layout/NavBar';
 import HomeMenuBar from '../home/HomeMenuBar';
 import LevelBadge from '../ui/LevelBadge';
@@ -21,6 +21,12 @@ import './FindPlayersPage.css';
 
 /** Max players per page. */
 const PAGE_SIZE = 25;
+
+/** Natural default sort direction per field. */
+const DEFAULT_SORT_DIR = { name: 'asc', games: 'desc', rating: 'desc' };
+
+/** Sortable column definitions (key → API sort_by value). */
+const SORTABLE_COLUMNS = { name: 'name', games: 'games', rating: 'rating' };
 
 /**
  * Renders a friend connection badge for a player card in search results.
@@ -50,6 +56,39 @@ function parseInitialFilters(searchParams) {
 }
 
 /**
+ * Returns a human-readable label for a filter value.
+ */
+function getFilterDisplayValue(key, value) {
+  if (key === 'gender') return formatGender(value);
+  if (key === 'level') {
+    const opt = PLAYER_LEVEL_FILTER_OPTIONS.find((o) => o.value === value);
+    return opt ? opt.label : value;
+  }
+  return value;
+}
+
+/**
+ * Sortable table header button.
+ */
+function SortableHeader({ label, columnKey, sortBy, sortDir, onSort }) {
+  const isActive = sortBy === columnKey;
+  return (
+    <button
+      className={`find-players__th-sort ${isActive ? 'find-players__th-sort--active' : ''}`}
+      onClick={() => onSort(columnKey)}
+      aria-label={`Sort by ${label}`}
+    >
+      {label}
+      {isActive && (
+        <span className="find-players__sort-icon">
+          {sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
  * Public-facing page for searching and discovering players.
  * Works for both authenticated and unauthenticated users.
  */
@@ -70,15 +109,45 @@ export default function FindPlayersPage() {
     const initial = searchParams.get('location_id');
     return initial ? initial.split(',') : [];
   });
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'games');
+  const [sortDir, setSortDir] = useState(() => DEFAULT_SORT_DIR[searchParams.get('sort') || 'games']);
+  const [minGames, setMinGames] = useState('');
+  const [debouncedMinGames, setDebouncedMinGames] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('find_players_view') || 'table';
+    }
+    return 'table';
+  });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [friendStatuses, setFriendStatuses] = useState(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterPanelRef = useRef(null);
+
+  // Close filter panel on outside click
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const handleClickOutside = (e) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
+        setIsFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFilterOpen]);
 
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Debounce min games input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMinGames(minGames), 400);
+    return () => clearTimeout(timer);
+  }, [minGames]);
 
   // Load user leagues for navbar
   useEffect(() => {
@@ -95,7 +164,7 @@ export default function FindPlayersPage() {
       .catch((err) => console.error('Error loading locations:', err));
   }, []);
 
-  // Fetch players when filters, search, or page change
+  // Fetch players when filters, search, sort, or page change
   useEffect(() => {
     const controller = new AbortController();
     const fetchPlayers = async () => {
@@ -105,12 +174,17 @@ export default function FindPlayersPage() {
           ...filters,
           page,
           page_size: PAGE_SIZE,
+          sort_by: sortBy,
+          sort_dir: sortDir,
         };
         if (locationIds.length > 0) {
           params.location_id = locationIds.join(',');
         }
         if (debouncedSearch.trim()) {
           params.search = debouncedSearch.trim();
+        }
+        if (debouncedMinGames && parseInt(debouncedMinGames, 10) >= 1) {
+          params.min_games = parseInt(debouncedMinGames, 10);
         }
         const data = await getPublicPlayers(params, { signal: controller.signal });
         setPlayers(data.items || []);
@@ -124,7 +198,7 @@ export default function FindPlayersPage() {
     };
     fetchPlayers();
     return () => controller.abort();
-  }, [filters, locationIds, debouncedSearch, page]);
+  }, [filters, locationIds, debouncedSearch, sortBy, sortDir, debouncedMinGames, page]);
 
   // Fetch friend statuses when players load (authenticated only)
   useEffect(() => {
@@ -179,7 +253,40 @@ export default function FindPlayersPage() {
     setPage(1);
     setFilters({});
     setLocationIds([]);
+    setMinGames('');
+    setDebouncedMinGames('');
     setSearchQuery('');
+    setSortBy('games');
+    setSortDir(DEFAULT_SORT_DIR['games']);
+  }, []);
+
+  /** Handle sortable column header click. */
+  const handleSort = useCallback((columnKey) => {
+    setPage(1);
+    if (columnKey === sortBy) {
+      // Same column — flip direction
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      // New column — use natural default direction
+      setSortBy(columnKey);
+      setSortDir(DEFAULT_SORT_DIR[columnKey]);
+    }
+  }, [sortBy]);
+
+  /** Remove a single filter pill. */
+  const removeFilter = useCallback((key) => {
+    setPage(1);
+    if (key === 'location') {
+      setLocationIds([]);
+    } else if (key === 'minGames') {
+      setMinGames('');
+    } else {
+      setFilters((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }, []);
 
   const userLocationId = currentUserPlayer?.location_id;
@@ -193,7 +300,30 @@ export default function FindPlayersPage() {
     });
   }, [locations, userLocationId]);
 
-  const hasActiveFilters = Object.keys(filters).length > 0 || locationIds.length > 0 || searchQuery.trim();
+  // Build active filter pills
+  const filterPills = useMemo(() => {
+    const pills = [];
+    if (locationIds.length > 0) {
+      const names = locationIds.map((id) => {
+        const loc = locationOptions.find((o) => o.id === id);
+        return loc ? loc.label : id;
+      });
+      pills.push({ key: 'location', label: 'Location', value: names.join(', ') });
+    }
+    if (filters.gender) {
+      pills.push({ key: 'gender', label: 'Gender', value: getFilterDisplayValue('gender', filters.gender) });
+    }
+    if (filters.level) {
+      pills.push({ key: 'level', label: 'Level', value: getFilterDisplayValue('level', filters.level) });
+    }
+    if (minGames && parseInt(minGames, 10) >= 1) {
+      pills.push({ key: 'minGames', label: 'Min Games', value: `${minGames}+` });
+    }
+    return pills;
+  }, [filters, locationIds, locationOptions, minGames]);
+
+  const activeFilterCount = filterPills.length;
+  const hasActiveFilters = activeFilterCount > 0 || searchQuery.trim();
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
@@ -230,7 +360,7 @@ export default function FindPlayersPage() {
                   </div>
                 )}
 
-                {/* Search + Filters */}
+                {/* Search bar */}
                 <div className="find-players__controls">
                   <div className="find-players__search">
                     <Search size={16} className="find-players__search-icon" />
@@ -255,46 +385,162 @@ export default function FindPlayersPage() {
                     )}
                   </div>
 
-                  <div className="find-players__filters">
-                    <SearchableMultiSelect
-                      label="Location"
-                      options={locationOptions}
-                      selectedIds={locationIds}
-                      onToggle={(id) => {
-                        setPage(1);
-                        setLocationIds((prev) =>
-                          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-                        );
-                      }}
-                      placeholder="Search locations..."
-                    />
+                  {/* Toolbar: filter button + view toggle + result count */}
+                  <div className="find-players__toolbar">
+                    <div className="find-players__toolbar-left">
+                      <div className="find-players__filter-btn-wrapper" ref={filterPanelRef}>
+                        <button
+                          className={`find-players__filter-btn ${isFilterOpen ? 'find-players__filter-btn--active' : ''}`}
+                          onClick={() => setIsFilterOpen((o) => !o)}
+                          aria-label="Toggle filters"
+                        >
+                          <Filter size={16} />
+                          <span>Filter &amp; Sort</span>
+                          {activeFilterCount > 0 && (
+                            <span className="find-players__filter-badge">{activeFilterCount}</span>
+                          )}
+                        </button>
 
-                    <select
-                      value={filters.gender || ''}
-                      onChange={(e) => handleFilterChange('gender', e.target.value)}
-                      className="find-players__select"
-                    >
-                      <option value="">All Genders</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
+                        {isFilterOpen && (
+                          <div className="find-players__filter-panel">
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Location</label>
+                              <SearchableMultiSelect
+                                label=""
+                                options={locationOptions}
+                                selectedIds={locationIds}
+                                onToggle={(id) => {
+                                  setPage(1);
+                                  setLocationIds((prev) =>
+                                    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                                  );
+                                }}
+                                placeholder="Search locations..."
+                              />
+                            </div>
 
-                    <select
-                      value={filters.level || ''}
-                      onChange={(e) => handleFilterChange('level', e.target.value)}
-                      className="find-players__select"
-                    >
-                      {PLAYER_LEVEL_FILTER_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Gender</label>
+                              <select
+                                value={filters.gender || ''}
+                                onChange={(e) => handleFilterChange('gender', e.target.value)}
+                                className="find-players__filter-select"
+                              >
+                                <option value="">All Genders</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                              </select>
+                            </div>
 
-                    {hasActiveFilters && (
-                      <Button variant="ghost" onClick={clearFilters}>
-                        Clear filters
-                      </Button>
-                    )}
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Level</label>
+                              <select
+                                value={filters.level || ''}
+                                onChange={(e) => handleFilterChange('level', e.target.value)}
+                                className="find-players__filter-select"
+                              >
+                                {PLAYER_LEVEL_FILTER_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Min Games</label>
+                              <input
+                                type="number"
+                                min="1"
+                                placeholder="e.g. 10"
+                                value={minGames}
+                                onChange={(e) => { setMinGames(e.target.value); setPage(1); }}
+                                className="find-players__filter-input"
+                              />
+                            </div>
+
+                            <div className="find-players__filter-divider" />
+
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Sort By</label>
+                              <select
+                                value={sortBy}
+                                onChange={(e) => {
+                                  const col = e.target.value;
+                                  setSortBy(col);
+                                  setSortDir(DEFAULT_SORT_DIR[col]);
+                                  setPage(1);
+                                }}
+                                className="find-players__filter-select"
+                              >
+                                <option value="games">Most Games</option>
+                                <option value="name">Name</option>
+                                <option value="rating">Rating</option>
+                              </select>
+                            </div>
+
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-label">Direction</label>
+                              <select
+                                value={sortDir}
+                                onChange={(e) => { setSortDir(e.target.value); setPage(1); }}
+                                className="find-players__filter-select"
+                              >
+                                <option value="desc">Descending</option>
+                                <option value="asc">Ascending</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {hasActiveFilters && (
+                        <Button variant="ghost" onClick={clearFilters} className="find-players__clear-btn">
+                          Clear all
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="find-players__toolbar-right">
+                      <p className="find-players__count">
+                        {totalCount} player{totalCount !== 1 ? 's' : ''}
+                      </p>
+                      <div className="find-players__view-toggle">
+                        <button
+                          className={`find-players__view-btn ${viewMode === 'table' ? 'find-players__view-btn--active' : ''}`}
+                          onClick={() => { setViewMode('table'); localStorage.setItem('find_players_view', 'table'); }}
+                          aria-label="Table view"
+                        >
+                          <List size={16} />
+                        </button>
+                        <button
+                          className={`find-players__view-btn ${viewMode === 'card' ? 'find-players__view-btn--active' : ''}`}
+                          onClick={() => { setViewMode('card'); localStorage.setItem('find_players_view', 'card'); }}
+                          aria-label="Card view"
+                        >
+                          <LayoutGrid size={16} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Filter pills */}
+                  {filterPills.length > 0 && (
+                    <div className="find-players__filter-pills">
+                      {filterPills.map((pill) => (
+                        <span key={pill.key} className="find-players__filter-pill">
+                          <span className="find-players__filter-pill-label">
+                            {pill.label}: {pill.value}
+                          </span>
+                          <button
+                            className="find-players__filter-pill-remove"
+                            onClick={() => removeFilter(pill.key)}
+                            aria-label={`Remove ${pill.label} filter`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Results */}
@@ -311,10 +557,54 @@ export default function FindPlayersPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="find-players__count">
-                      {totalCount} player{totalCount !== 1 ? 's' : ''} found
-                    </p>
-                    <div className="find-players__grid">
+                    {viewMode === 'table' && (
+                      <div className="find-players__table-wrapper">
+                        <table className="find-players__table">
+                          <thead>
+                            <tr>
+                              <th>
+                                <SortableHeader label="Player" columnKey="name" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                              </th>
+                              <th>Location</th>
+                              <th>Gender</th>
+                              <th>Level</th>
+                              <th>
+                                <SortableHeader label="Games" columnKey="games" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                              </th>
+                              <th>
+                                <SortableHeader label="Rating" columnKey="rating" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                              </th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {players.map((player) => (
+                              <tr key={player.id} onClick={() => router.push(`/player/${player.id}/${slugify(player.full_name)}`)} className="find-players__table-row">
+                                <td>
+                                  <div className="find-players__table-player">
+                                    <div className="find-players__card-avatar find-players__card-avatar--sm">
+                                      {isImageUrl(player.avatar)
+                                        ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
+                                        : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
+                                      }
+                                    </div>
+                                    <span className="find-players__card-name">{player.full_name}</span>
+                                  </div>
+                                </td>
+                                <td className="find-players__table-cell--secondary">{player.location_name || '—'}</td>
+                                <td className="find-players__table-cell--secondary">{player.gender ? formatGender(player.gender) : '—'}</td>
+                                <td>{player.level ? <LevelBadge level={player.level} /> : '—'}</td>
+                                <td className="find-players__table-cell--secondary">{player.total_games}</td>
+                                <td className="find-players__table-cell--secondary">{Math.round(player.current_rating || 1200)}</td>
+                                <td><FriendBadge friendStatuses={friendStatuses} playerId={player.id} /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className={`find-players__grid ${viewMode === 'table' ? 'find-players__grid--mobile-only' : ''}`}>
                       {players.map((player) => (
                         <Link
                           key={player.id}

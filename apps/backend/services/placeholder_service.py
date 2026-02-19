@@ -841,7 +841,7 @@ async def claim_invite(
                     user_id=creator.user_id,
                     type=NotificationType.PLACEHOLDER_CLAIMED.value,
                     title="Invite Claimed",
-                    message=f"{placeholder.full_name} has claimed their invite and joined Beach Kings.",
+                    message=f"{placeholder.full_name} has claimed their invite and joined Beach League.",
                     data={"placeholder_id": placeholder_id, "claimed_by_user_id": claiming_user_id},
                     link_url=f"/player/{target_player_id}/{slugify(placeholder.full_name)}",
                 )

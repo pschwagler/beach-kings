@@ -54,6 +54,42 @@
   color: var(--primary-dark);
 }
 
+/* Search filter */
+.location-directory__search {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.location-directory__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-600);
+  pointer-events: none;
+}
+
+.location-directory__search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--gray-900);
+  background: white;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.location-directory__search-input:focus {
+  border-color: var(--primary);
+}
+
+.location-directory__search-input::placeholder {
+  color: var(--gray-600);
+}
+
 /* Region sections */
 .location-directory__region {
   margin-bottom: 32px;

@@ -118,19 +118,7 @@ async def get_user_by_phone(session: AsyncSession, phone_number: str) -> Optiona
     """
     result = await session.execute(select(User).where(User.phone_number == phone_number).limit(1))
     user = result.scalar_one_or_none()
-    if user:
-        return {
-            "id": user.id,
-            "phone_number": user.phone_number,
-            "password_hash": user.password_hash,
-            "email": user.email,
-            "is_verified": user.is_verified,
-            "failed_verification_attempts": user.failed_verification_attempts or 0,
-            "locked_until": user.locked_until,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
-        }
-    return None
+    return _user_to_dict(user) if user else None
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> Optional[Dict]:
@@ -154,19 +142,7 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[Dict]
 
     result = await session.execute(query)
     user = result.scalar_one_or_none()
-    if user:
-        return {
-            "id": user.id,
-            "phone_number": user.phone_number,
-            "password_hash": user.password_hash,
-            "email": user.email,
-            "is_verified": user.is_verified,
-            "failed_verification_attempts": user.failed_verification_attempts or 0,
-            "locked_until": user.locked_until,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
-        }
-    return None
+    return _user_to_dict(user) if user else None
 
 
 async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[Dict]:
@@ -182,19 +158,107 @@ async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[Dict]:
     """
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user:
-        return {
-            "id": user.id,
-            "phone_number": user.phone_number,
-            "password_hash": user.password_hash,
-            "email": user.email,
-            "is_verified": user.is_verified,
-            "failed_verification_attempts": user.failed_verification_attempts or 0,
-            "locked_until": user.locked_until,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
-        }
-    return None
+    return _user_to_dict(user) if user else None
+
+
+async def get_user_by_google_id(session: AsyncSession, google_id: str) -> Optional[Dict]:
+    """
+    Get user by Google ID (sub claim from Google ID token).
+
+    Args:
+        session: Database session
+        google_id: Google's unique user identifier
+
+    Returns:
+        User dictionary or None if not found
+    """
+    result = await session.execute(select(User).where(User.google_id == google_id).limit(1))
+    user = result.scalar_one_or_none()
+    return _user_to_dict(user) if user else None
+
+
+async def create_google_user(
+    session: AsyncSession, email: str, google_id: str, full_name: str
+) -> int:
+    """
+    Create a new user account via Google SSO.
+
+    Args:
+        session: Database session
+        email: User email from Google
+        google_id: Google's unique user identifier (sub claim)
+        full_name: User's name from Google profile
+
+    Returns:
+        User ID of the created user
+
+    Raises:
+        ValueError: If a user with this email or google_id already exists
+    """
+    # Check email uniqueness
+    existing = await get_user_by_email(session, email)
+    if existing:
+        raise ValueError(f"Email {email} is already registered")
+
+    new_user = User(
+        phone_number=None,
+        password_hash=None,
+        email=email.strip().lower(),
+        auth_provider="google",
+        google_id=google_id,
+        is_verified=True,
+    )
+    session.add(new_user)
+    await session.flush()
+    user_id = new_user.id
+    await session.commit()
+    return user_id
+
+
+async def link_google_id(session: AsyncSession, user_id: int, google_id: str) -> bool:
+    """
+    Link a Google ID to an existing user account (auto-link on email match).
+
+    Args:
+        session: Database session
+        user_id: User ID to link
+        google_id: Google's unique user identifier
+
+    Returns:
+        True if successful, False otherwise
+    """
+    result = await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(google_id=google_id, updated_at=func.now())
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+def _user_to_dict(user: User) -> Dict:
+    """
+    Convert a User ORM instance to a dictionary.
+
+    Args:
+        user: User ORM instance
+
+    Returns:
+        User dictionary
+    """
+    return {
+        "id": user.id,
+        "phone_number": user.phone_number,
+        "password_hash": user.password_hash,
+        "email": user.email,
+        "auth_provider": getattr(user, "auth_provider", "phone") or "phone",
+        "google_id": getattr(user, "google_id", None),
+        "is_verified": user.is_verified,
+        "failed_verification_attempts": user.failed_verification_attempts or 0,
+        "locked_until": user.locked_until,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    }
 
 
 async def check_phone_exists(session: AsyncSession, phone_number: str) -> bool:

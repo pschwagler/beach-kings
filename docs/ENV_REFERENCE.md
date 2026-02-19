@@ -40,6 +40,13 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
 
+### Google SSO
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (backend token verification) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (frontend, exposed to browser) |
+
 ### Twilio SMS
 
 | Variable | Default | Description |

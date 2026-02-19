@@ -6,6 +6,7 @@ import { Users, TrendingUp, Target, Award } from 'lucide-react';
 import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import OpenSessionsList from './OpenSessionsList';
+import NearYouSection from './NearYouSection';
 import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
 
@@ -237,26 +238,24 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
 
       {/* Main Content Grid */}
       <div className="home-content-grid">
-        <MyLeaguesWidget 
+        <MyLeaguesWidget
           leagues={userLeagues}
           onLeagueClick={navigateToLeague}
           onLeaguesUpdate={onLeaguesUpdate}
+          onViewAll={() => onTabChange('leagues')}
         />
         <div className="home-my-games-widget-wrapper">
-          <MyMatchesWidget 
+          <MyMatchesWidget
             matches={userMatches}
             currentUserPlayer={currentUserPlayer}
             onMatchClick={handleMatchClick}
+            onViewAll={() => onTabChange('my-games')}
           />
-          <button
-            type="button"
-            className="home-widget-view-all secondary-text"
-            onClick={() => onTabChange('my-games')}
-          >
-            View open sessions
-          </button>
         </div>
       </div>
+
+      {/* Near You discovery section */}
+      <NearYouSection currentUserPlayer={currentUserPlayer} onTabChange={onTabChange} />
     </div>
   );
 }

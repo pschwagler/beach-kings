@@ -64,6 +64,17 @@ export const AuthProvider = ({ children }) => {
     [fetchCurrentUser]
   );
 
+  const loginWithGoogle = useCallback(
+    async (credentialResponse) => {
+      const response = await api.post('/api/auth/google', {
+        id_token: credentialResponse.credential,
+      });
+      const profileComplete = await handleAuthSuccess(response.data);
+      return { profile_complete: profileComplete };
+    },
+    [handleAuthSuccess]
+  );
+
   const loginWithPassword = useCallback(
     async (phoneNumber, password) => {
       const response = await api.post('/api/auth/login', {
@@ -161,6 +172,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(user),
     isInitializing,
     fetchCurrentUser,
+    loginWithGoogle,
     loginWithPassword,
     loginWithSms,
     signup,

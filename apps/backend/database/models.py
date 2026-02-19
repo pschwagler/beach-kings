@@ -74,6 +74,7 @@ class NotificationType(str, enum.Enum):
     PLACEHOLDER_CLAIMED = "placeholder_claimed"
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
+    SESSION_SUBMITTED = "session_submitted"
     SESSION_AUTO_SUBMITTED = "session_auto_submitted"
     SESSION_AUTO_DELETED = "session_auto_deleted"
 
@@ -152,14 +153,16 @@ class Location(Base):
 
 
 class User(Base):
-    """User accounts with phone-based authentication."""
+    """User accounts with phone or Google SSO authentication."""
 
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    phone_number = Column(String, nullable=False, unique=True)
-    password_hash = Column(String, nullable=False)
+    phone_number = Column(String, nullable=True, unique=True)
+    password_hash = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    auth_provider = Column(String, nullable=False, server_default="phone")  # 'phone' or 'google'
+    google_id = Column(String, nullable=True, unique=True)  # Google's `sub` claim
     is_verified = Column(Boolean, default=True, nullable=False)
     failed_verification_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(String, nullable=True)  # ISO timestamp
@@ -178,6 +181,8 @@ class User(Base):
     __table_args__ = (
         Index("idx_users_phone", "phone_number"),
         Index("idx_users_phone_verified", "phone_number", "is_verified"),
+        Index("idx_users_email", "email", unique=True),
+        Index("idx_users_google_id", "google_id", unique=True),
     )
 
 
@@ -467,6 +472,7 @@ class Court(Base):
     weekly_schedules = relationship("WeeklySchedule", back_populates="court")
     signups = relationship("Signup", back_populates="court")
     reviews = relationship("CourtReview", back_populates="court", cascade="all, delete-orphan")
+    photos = relationship("CourtPhoto", back_populates="court", cascade="all, delete-orphan")
     edit_suggestions = relationship(
         "CourtEditSuggestion", back_populates="court", cascade="all, delete-orphan"
     )
@@ -1422,6 +1428,32 @@ class CourtReviewPhoto(Base):
 
     __table_args__ = (
         Index("idx_court_review_photos_review", "review_id"),
+    )
+
+
+class CourtPhoto(Base):
+    """Standalone court photos (not tied to reviews)."""
+
+    __tablename__ = "court_photos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(
+        Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False
+    )
+    s3_key = Column(String(500), nullable=False)
+    url = Column(String(500), nullable=False)
+    uploaded_by = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    sort_order = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    court = relationship("Court", back_populates="photos")
+    uploader = relationship("Player", foreign_keys=[uploaded_by])
+
+    __table_args__ = (
+        Index("idx_court_photos_court", "court_id"),
     )
 
 

@@ -18,6 +18,7 @@ from backend.database.db import get_db_session
 logger = logging.getLogger(__name__)
 from backend.models.schemas import (
     CourtDetailResponse,
+    CourtLeaderboardEntry,
     CourtListItem,
     CourtNearbyItem,
     CourtTagResponse,
@@ -153,6 +154,15 @@ async def list_public_players(
     level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]] = Query(
         None, description="Filter by skill level"
     ),
+    sort_by: Optional[Literal["games", "name", "rating"]] = Query(
+        None, description="Sort order: games (default), name, rating"
+    ),
+    sort_dir: Optional[Literal["asc", "desc"]] = Query(
+        None, description="Sort direction (default depends on sort_by)"
+    ),
+    min_games: Optional[int] = Query(
+        None, ge=1, description="Minimum total games played"
+    ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
@@ -161,7 +171,9 @@ async def list_public_players(
     Search publicly visible players with optional filters.
 
     Returns paginated players with total_games >= 1. Supports filtering
-    by name, location, gender, and level. No authentication required.
+    by name, location, gender, level, and min_games. Supports sorting by
+    games (default), name, or rating with optional direction override.
+    No authentication required.
     """
     return await public_service.search_public_players(
         session,
@@ -169,6 +181,9 @@ async def list_public_players(
         location_id=location_id,
         gender=gender,
         level=level,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        min_games=min_games,
         page=page,
         page_size=page_size,
     )
@@ -252,6 +267,23 @@ async def get_nearby_courts(
     return await court_service.get_nearby_courts(
         session, lat, lng, exclude_court_id=exclude, radius_miles=radius
     )
+
+
+@public_router.get("/courts/{slug}/leaderboard", response_model=List[CourtLeaderboardEntry])
+@limiter.limit("60/minute")
+async def get_court_leaderboard(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get top 10 players by match count at this court.
+
+    Returns ranked list with player info, match count, and win rate.
+    Returns empty list if no matches found.
+    """
+    court_row = await court_service.get_court_id_by_slug(session, slug)
+    if not court_row:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_court_leaderboard(session, court_row)
 
 
 @public_router.get("/courts/{slug}", response_model=CourtDetailResponse)

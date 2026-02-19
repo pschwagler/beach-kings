@@ -2,6 +2,8 @@ import { fetchBackend } from '../../../src/utils/server-fetch';
 import JsonLd from '../../../src/components/seo/JsonLd';
 import LeaguePageClient from './LeaguePageClient';
 
+const VALID_LEAGUE_TABS = ['rankings', 'matches', 'details', 'signups', 'messages'];
+
 /**
  * Build a meta description from public league data.
  */
@@ -67,8 +69,11 @@ export async function generateMetadata({ params }) {
  * generateMetadata() provides SEO tags; the client component handles auth + UI.
  * Pre-fetches public league data to avoid a second request on the client.
  */
-export default async function LeaguePage({ params }) {
+export default async function LeaguePage({ params, searchParams }) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+  const tab = resolvedSearchParams?.tab;
+  const initialTab = VALID_LEAGUE_TABS.includes(tab) ? tab : 'rankings';
   const leagueId = parseInt(id);
 
   let publicLeagueData = null;
@@ -100,7 +105,7 @@ export default async function LeaguePage({ params }) {
   return (
     <>
       {jsonLd && <JsonLd data={jsonLd} />}
-      <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} />
+      <LeaguePageClient leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} />
     </>
   );
 }

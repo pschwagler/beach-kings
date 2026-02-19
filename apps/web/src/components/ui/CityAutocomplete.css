@@ -1,0 +1,56 @@
+.city-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.city-autocomplete__loading {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.city-autocomplete__suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: var(--shadow-md);
+}
+
+.city-autocomplete__item {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.city-autocomplete__item:last-child {
+  border-bottom: none;
+}
+
+.city-autocomplete__item:hover {
+  background: var(--gray-50);
+}
+
+.city-autocomplete__city {
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.city-autocomplete__state {
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-top: 2px;
+}

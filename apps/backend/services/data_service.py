@@ -1530,6 +1530,51 @@ async def get_league_member_user_ids(
     return user_ids
 
 
+async def get_session_match_player_user_ids(
+    session: AsyncSession, session_id: int, exclude_user_id: Optional[int] = None
+) -> List[int]:
+    """
+    Get distinct user IDs for all players in matches of a session.
+
+    Collects player IDs from all four match positions (team1_player1, team1_player2,
+    team2_player1, team2_player2), resolves to user IDs via Player, and filters out
+    placeholder players (NULL user_id).
+
+    Args:
+        session: Database session
+        session_id: ID of the session
+        exclude_user_id: Optional user ID to exclude (e.g. the submitter)
+
+    Returns:
+        List of distinct user IDs
+    """
+    # Union all four player columns from matches in this session
+    player_cols = [
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ]
+    subqueries = [
+        select(col.label("player_id")).where(Match.session_id == session_id)
+        for col in player_cols
+    ]
+    all_players = subqueries[0].union(*subqueries[1:]).subquery()
+
+    query = (
+        select(Player.user_id)
+        .join(all_players, Player.id == all_players.c.player_id)
+        .where(Player.user_id.isnot(None))
+    )
+
+    if exclude_user_id is not None:
+        query = query.where(Player.user_id != exclude_user_id)
+
+    query = query.distinct()
+    result = await session.execute(query)
+    return [row[0] for row in result.all()]
+
+
 async def get_league_admin_user_ids(session: AsyncSession, league_id: int) -> List[int]:
     """
     Get user IDs for all league admins.
@@ -1677,10 +1722,11 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
 
 
 async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) -> Optional[Dict]:
-    """Get player profile by user_id with global stats."""
+    """Get player profile by user_id with global stats and location slug."""
     result = await session.execute(
-        select(Player, PlayerGlobalStats)
+        select(Player, PlayerGlobalStats, Location.slug.label("location_slug"))
         .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
+        .outerjoin(Location, Player.location_id == Location.id)
         .where(Player.user_id == user_id)
     )
     row = result.first()
@@ -1688,7 +1734,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
     if not row:
         return None
 
-    player, global_stats = row
+    player, global_stats, location_slug = row
 
     return {
         "id": player.id,
@@ -1700,6 +1746,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "height": player.height,
         "preferred_side": player.preferred_side,
         "location_id": player.location_id,
+        "location_slug": location_slug,
         "city": player.city,
         "state": player.state,
         "city_latitude": player.city_latitude,
