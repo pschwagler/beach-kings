@@ -279,7 +279,7 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
         return
 
     # Download with size limit
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=False) as client:
         resp = await client.get(picture_url, timeout=10.0)
         if resp.status_code != 200:
             return
@@ -293,7 +293,7 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
     processed = await loop.run_in_executor(None, avatar_service.process_avatar, image_bytes)
     avatar_url = await loop.run_in_executor(None, s3_service.upload_avatar, player_id, processed)
 
-    # Update player record (flush only — caller manages commit)
+    # Update player record
     result = await session.execute(select(Player).where(Player.id == player_id))
     player_obj = result.scalar_one_or_none()
     if player_obj:

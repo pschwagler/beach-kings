@@ -11,6 +11,7 @@ import secrets
 from datetime import timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.utils.constants import APP_NAME
 from backend.utils.datetime_utils import utcnow
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
@@ -358,7 +359,7 @@ async def send_sms_verification(session: AsyncSession, phone_number: str, code: 
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         message = client.messages.create(
-            body=f"Beach League: Your verification code is: {code}",
+            body=f"{APP_NAME}: Your verification code is: {code}",
             from_=TWILIO_PHONE_NUMBER,
             to=phone_number,
         )

@@ -28,7 +28,7 @@ export default function CourtPhotoGallery({ photos = [], slug }) {
   const hasMore = photos.length > 5;
 
   return (
-    <div className="court-detail__mosaic" onClick={handleClick} onKeyDown={handleKeyDown} role="button" tabIndex={0}>
+    <div className="court-detail__mosaic" onClick={handleClick} onKeyDown={handleKeyDown} role="button" tabIndex={0} aria-label={`View all ${photos.length} court photos`}>
       {/* Large photo (left, spans 2 rows) */}
       <div className="court-detail__mosaic-main">
         <img

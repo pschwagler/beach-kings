@@ -11,6 +11,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 from dotenv import load_dotenv
 from backend.services import settings_service
+from backend.utils.constants import APP_NAME
 
 # Load environment variables
 load_dotenv()
@@ -100,7 +101,7 @@ async def send_feedback_email(
 
     try:
         # Format the email content
-        subject = "New Feedback Received - Beach League"
+        subject = f"New Feedback Received - {APP_NAME}"
 
         # Build the email body
         body_lines = [
@@ -136,7 +137,7 @@ async def send_feedback_email(
             [
                 "",
                 "---",
-                "This is an automated message from Beach League feedback system.",
+                f"This is an automated message from {APP_NAME} feedback system.",
             ]
         )
 

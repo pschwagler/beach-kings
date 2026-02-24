@@ -344,16 +344,24 @@ async def upload_review_photo(
         s3_key = f"court-photos/{court_id}/{review_id}/{uuid.uuid4()}.jpg"
         url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
 
-        result = await court_service.add_review_photo(
-            session,
-            review_id=review_id,
-            player_id=user["player_id"],
-            s3_key=s3_key,
-            url=url,
-        )
-        if not result:
-            raise HTTPException(status_code=404, detail="Review not found or not authorized")
-        return result
+        try:
+            result = await court_service.add_review_photo(
+                session,
+                review_id=review_id,
+                player_id=user["player_id"],
+                s3_key=s3_key,
+                url=url,
+            )
+            if not result:
+                raise HTTPException(status_code=404, detail="Review not found or not authorized")
+            return result
+        except Exception:
+            # Clean up orphaned S3 object if DB record creation fails
+            try:
+                await asyncio.to_thread(s3_service.delete_file, s3_key)
+            except Exception as cleanup_err:
+                logger.warning("Failed to clean up S3 object %s: %s", s3_key, cleanup_err)
+            raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -391,14 +399,22 @@ async def upload_court_photo(
         s3_key = f"court-photos/{court_id}/{uuid.uuid4()}.jpg"
         url = await asyncio.to_thread(s3_service.upload_file, processed, s3_key, "image/jpeg")
 
-        result = await court_service.add_court_photo(
-            session,
-            court_id=court_id,
-            player_id=user["player_id"],
-            s3_key=s3_key,
-            url=url,
-        )
-        return result
+        try:
+            result = await court_service.add_court_photo(
+                session,
+                court_id=court_id,
+                player_id=user["player_id"],
+                s3_key=s3_key,
+                url=url,
+            )
+            return result
+        except Exception:
+            # Clean up orphaned S3 object if DB record creation fails
+            try:
+                await asyncio.to_thread(s3_service.delete_file, s3_key)
+            except Exception as cleanup_err:
+                logger.warning("Failed to clean up S3 object %s: %s", s3_key, cleanup_err)
+            raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
