@@ -13,13 +13,14 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--gray-900);
+  color: var(--sand);
   border-radius: 50%;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .notification-bell-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(244, 228, 193, 0.1);
+  color: var(--sand-light);
 }
 
 .notification-bell-icon {

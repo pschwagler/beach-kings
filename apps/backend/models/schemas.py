@@ -1214,6 +1214,7 @@ class CourtListItem(BaseModel):
     address: Optional[str] = None
     location_id: str
     location_name: Optional[str] = None
+    location_slug: Optional[str] = None
     court_count: Optional[int] = None
     surface_type: Optional[str] = None
     is_free: Optional[bool] = None
@@ -1247,6 +1248,7 @@ class CourtDetailResponse(BaseModel):
     description: Optional[str] = None
     location_id: str
     location_name: Optional[str] = None
+    location_slug: Optional[str] = None
     court_count: Optional[int] = None
     surface_type: Optional[str] = None
     is_free: Optional[bool] = None
