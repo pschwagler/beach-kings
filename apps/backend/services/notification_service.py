@@ -686,7 +686,7 @@ async def notify_members_about_season_activated(
         logger.warning(f"Failed to create notifications for season activation: {e}")
 
 
-async def _notify_members_about_new_member_impl(
+async def notify_members_about_new_member(
     session: AsyncSession,
     league_id: int,
     new_member_user_id: int,
@@ -694,7 +694,16 @@ async def _notify_members_about_new_member_impl(
     member_user_ids: Optional[List[int]] = None,
 ) -> None:
     """
-    Implementation of notify_members_about_new_member. Requires a valid session.
+    Notify all league members (except the new member) when a new player joins.
+
+    Requires a valid database session from the caller.
+
+    Args:
+        session: Active database session
+        league_id: ID of the league
+        new_member_user_id: User ID of the newly joined player
+        league_name: Optional league name (will be fetched if not provided)
+        member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     # Early return if no members to notify (optimization #11)
     if member_user_ids is not None and not member_user_ids:
@@ -740,48 +749,49 @@ async def _notify_members_about_new_member_impl(
     await create_notifications_bulk(session, notifications_list)
 
 
-async def notify_members_about_new_member(
-    session: Optional[AsyncSession],
+async def notify_members_about_new_member_background(
     league_id: int,
     new_member_user_id: int,
     league_name: Optional[str] = None,
     member_user_ids: Optional[List[int]] = None,
 ) -> None:
     """
-    Notify all league members (except the new member) when a new player joins the league.
+    Fire-and-forget variant that creates its own database session.
 
-    When session is None (e.g. when called from a background task), creates its own
-    database session. Callers using fire-and-forget should pass only IDs and omit session.
+    Use with ``asyncio.create_task()`` when the caller's session may close
+    before this coroutine completes.
 
     Args:
-        session: Database session, or None to create a new session (for background tasks)
         league_id: ID of the league
         new_member_user_id: User ID of the newly joined player
         league_name: Optional league name (will be fetched if not provided)
         member_user_ids: Optional list of member user IDs (will be fetched if not provided)
     """
     try:
-        if session is not None:
-            await _notify_members_about_new_member_impl(
+        from backend.database.db import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            await notify_members_about_new_member(
                 session, league_id, new_member_user_id, league_name, member_user_ids
             )
-        else:
-            from backend.database.db import AsyncSessionLocal
-
-            async with AsyncSessionLocal() as new_session:
-                await _notify_members_about_new_member_impl(
-                    new_session, league_id, new_member_user_id, league_name, member_user_ids
-                )
-                await new_session.commit()
+            await session.commit()
     except Exception as e:
         logger.warning(f"Failed to create notifications for new league member: {e}")
 
 
-async def _notify_player_about_removal_from_league_impl(
+async def notify_player_about_removal_from_league(
     session: AsyncSession, league_id: int, removed_user_id: int, league_name: Optional[str] = None
 ) -> None:
     """
-    Implementation of notify_player_about_removal_from_league. Requires a valid session.
+    Notify a player that they have been removed from a league.
+
+    Requires a valid database session from the caller.
+
+    Args:
+        session: Active database session
+        league_id: ID of the league
+        removed_user_id: User ID of the removed player
+        league_name: Optional league name (will be fetched if not provided)
     """
     # Fetch league name if not provided
     if league_name is None:
@@ -800,37 +810,30 @@ async def _notify_player_about_removal_from_league_impl(
     )
 
 
-async def notify_player_about_removal_from_league(
-    session: Optional[AsyncSession],
+async def notify_player_about_removal_from_league_background(
     league_id: int,
     removed_user_id: int,
     league_name: Optional[str] = None,
 ) -> None:
     """
-    Notify a player that they have been removed from a league.
+    Fire-and-forget variant that creates its own database session.
 
-    When session is None (e.g. when called from a background task), creates its own
-    database session. Callers using fire-and-forget should pass only IDs and omit session.
+    Use with ``asyncio.create_task()`` when the caller's session may close
+    before this coroutine completes.
 
     Args:
-        session: Database session, or None to create a new session (for background tasks)
         league_id: ID of the league
         removed_user_id: User ID of the removed player
         league_name: Optional league name (will be fetched if not provided)
     """
     try:
-        if session is not None:
-            await _notify_player_about_removal_from_league_impl(
+        from backend.database.db import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            await notify_player_about_removal_from_league(
                 session, league_id, removed_user_id, league_name
             )
-        else:
-            from backend.database.db import AsyncSessionLocal
-
-            async with AsyncSessionLocal() as new_session:
-                await _notify_player_about_removal_from_league_impl(
-                    new_session, league_id, removed_user_id, league_name
-                )
-                await new_session.commit()
+            await session.commit()
     except Exception as e:
         logger.warning(f"Failed to create notification for league removal: {e}")
 

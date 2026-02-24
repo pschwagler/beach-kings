@@ -15,6 +15,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
@@ -25,7 +26,7 @@ from backend.api.auth_dependencies import (
     require_verified_player,
     require_court_owner_or_admin,
 )
-from backend.database.models import Court
+from backend.database.models import Court, CourtEditSuggestion
 from backend.models.schemas import (
     CreateCourtRequest,
     UpdateCourtRequest,
@@ -462,11 +463,8 @@ async def resolve_court_edit_suggestion(
     """Approve or reject an edit suggestion (court creator or admin)."""
     try:
         # Look up the suggestion to find its court, then verify ownership
-        from sqlalchemy import select as sa_select
-        from backend.database.models import CourtEditSuggestion
-
         suggestion_result = await session.execute(
-            sa_select(CourtEditSuggestion.court_id).where(
+            select(CourtEditSuggestion.court_id).where(
                 CourtEditSuggestion.id == suggestion_id
             )
         )

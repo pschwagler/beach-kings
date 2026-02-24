@@ -229,8 +229,8 @@ async def add_league_member(
 
             if player_user_id:
                 asyncio.create_task(
-                    notification_service.notify_members_about_new_member(
-                        session=None, league_id=league_id, new_member_user_id=player_user_id
+                    notification_service.notify_members_about_new_member_background(
+                        league_id=league_id, new_member_user_id=player_user_id
                     )
                 )
         except Exception as e:
@@ -276,8 +276,7 @@ async def add_league_members_batch(
                 player_user_id = player_result.scalar_one_or_none()
                 if player_user_id:
                     asyncio.create_task(
-                        notification_service.notify_members_about_new_member(
-                            session=None,
+                        notification_service.notify_members_about_new_member_background(
                             league_id=league_id,
                             new_member_user_id=player_user_id,
                         )
@@ -346,8 +345,8 @@ async def remove_league_member(
         # Notify the removed player (non-blocking)
         if player_user_id:
             asyncio.create_task(
-                notification_service.notify_player_about_removal_from_league(
-                    session=None, league_id=league_id, removed_user_id=player_user_id
+                notification_service.notify_player_about_removal_from_league_background(
+                    league_id=league_id, removed_user_id=player_user_id
                 )
             )
 
