@@ -1,7 +1,10 @@
 # Feature: Session & League Location Metadata
 
 **Date:** 2026-02-19
-**Status:** Draft
+**Updated:** 2026-02-24
+**Status:** Approved
+**Tracking:** [Issue #94](https://github.com/pschwagler/beach-kings/issues/94)
+**Post-completion:** Delete this doc or reduce to a short summary. The issue tracks the work; this doc shouldn't linger as stale reference.
 
 ## Problem
 
@@ -26,9 +29,9 @@ Every session stores **where it happened** — court, location hub, and coordina
 
 | Column | Type | Nullable | Source |
 |--------|------|----------|--------|
-| `location_id` | String FK → locations.id | Yes | Resolved from court → league → creator |
-| `latitude` | Float | Yes | Resolved from court → geolocation → player |
-| `longitude` | Float | Yes | Resolved from court → geolocation → player |
+| `location_id` | String FK → locations.id | Yes | Auto-linked from nearest location to session lat/long |
+| `latitude` | Float | Yes | From court → browser geolocation → player city |
+| `longitude` | Float | Yes | From court → browser geolocation → player city |
 
 `court_id` already exists on sessions. No new column needed.
 
@@ -42,40 +45,40 @@ Every session stores **where it happened** — court, location hub, and coordina
 
 `location_id` already exists on leagues. No new column needed.
 
-### Resolution Chain
+### Geo Resolution
 
-When a session is created, resolve its geo fields in priority order:
+When a session is created, resolve lat/long from the best available source:
 
 ```
-1. Session has court_id set?
-   → location_id = court.location_id
-   → lat/long = court.latitude/longitude
-
-2. Session is in a league (season_id → season → league)?
-   → court_id = league.default_court_id (if set, and session court_id is null)
-   → location_id = league.location_id
-   → lat/long = league.latitude/longitude
-
-3. Fallback to creator's player profile:
-   → location_id = player.location_id
-   → lat/long = player.city_latitude/city_longitude
+Priority for lat/long:
+1. court_id set → use court.latitude/longitude
+2. league session (season_id → season → league) with default_court_id → use court coords
+3. browser geolocation provided → use those coords
+4. creator's player profile → use player.city_latitude/city_longitude
+5. none of the above → lat/long stay null
 ```
 
-Each field resolves independently. A session could have court lat/long but league location_id if the court somehow has no location (unlikely but safe).
+Then auto-link `location_id`:
+- If lat/long resolved → `find_closest_location(lat, lng)` → set `location_id` to nearest hub
+- If no lat/long → `location_id` stays null
+- `location_id` is always derived from coordinates, never inherited directly
+
+`find_closest_location()` already exists in `location_service.py`. Consider adding a max-distance threshold (e.g. 100mi) to avoid matching a session in rural Montana to a hub 500 miles away.
 
 ### Session Creation Changes
 
 **Non-league sessions** (`POST /api/sessions`):
 - Already accepts `court_id`
 - Add optional `latitude`/`longitude` params (from browser geolocation)
-- Resolve `location_id` from court → creator's player
-- If browser lat/long provided and no court → store those coords
 - If court set → use court's coords (ignore browser lat/long)
+- If no court but browser lat/long → use those
+- Fallback → creator's player city coords
+- Auto-link `location_id` from resolved lat/long
 
 **League sessions** (via league admin routes):
 - Auto-populate `court_id` from `league.default_court_id` if not overridden
-- Auto-populate `location_id` from league
-- Auto-populate lat/long from league (or court if court set)
+- Resolve lat/long from court (or league coords if no court)
+- Auto-link `location_id` from resolved lat/long
 
 ### League Updates
 
@@ -83,52 +86,23 @@ Each field resolves independently. A session could have court lat/long but leagu
 - Add `default_court_id` field to league create/update schemas
 - When `default_court_id` changes → update league lat/long from court
 - When `default_court_id` is null → fall back to location hub coords
-
-### Frontend: Court Picker on Session Creation
-
-When creating a non-league session:
-1. Request browser geolocation (optional, user can deny)
-2. If granted → show nearby courts sorted by distance
-3. User picks a court or skips ("no specific court")
-4. Selected court flows into session creation payload
-5. If no court selected but geolocation available → send lat/long as fallback
-
-This is a UX enhancement, not a blocker. Sessions can be created without a court — location_id still resolves from the creator's profile.
+- UX: dropdown of courts filtered by the league's `location_id`
 
 ### Backfill Strategy
 
-Existing sessions need location metadata. Migration should:
-
-1. Add columns as nullable
-2. Run a data backfill:
-   - Sessions with `court_id` → resolve from court
-   - League sessions without court → resolve from `league.location_id` + location lat/long
-   - Remaining → resolve from `created_by` player's location
-3. **Do NOT make columns NOT NULL** — some old sessions may have creators with no location
+All existing sessions were played at **QBK Sports** (Queens, `court_id` TBD from DB). Backfill is simple:
 
 ```sql
--- Pseudocode for backfill
-UPDATE sessions s
-SET location_id = c.location_id,
-    latitude = c.latitude,
-    longitude = c.longitude
-FROM courts c WHERE s.court_id = c.id;
-
-UPDATE sessions s
-SET location_id = COALESCE(s.location_id, l.location_id),
-    latitude = COALESCE(s.latitude, loc.latitude),
-    longitude = COALESCE(s.longitude, loc.longitude)
-FROM seasons sea
-JOIN leagues l ON sea.league_id = l.id
-LEFT JOIN locations loc ON l.location_id = loc.id
-WHERE s.season_id = sea.id;
-
-UPDATE sessions s
-SET location_id = COALESCE(s.location_id, p.location_id),
-    latitude = COALESCE(s.latitude, p.city_latitude),
-    longitude = COALESCE(s.longitude, p.city_longitude)
-FROM players p WHERE s.created_by = p.id;
+-- Set all existing sessions to QBK court
+UPDATE sessions
+SET court_id = <qbk_court_id>,
+    location_id = 'ny_nyc',
+    latitude = 40.7471,
+    longitude = -73.9256
+WHERE court_id IS NULL OR location_id IS NULL;
 ```
+
+Columns stay nullable — future sessions without any geo data will have NULLs.
 
 ### Location Leaderboard Fix
 
@@ -144,7 +118,18 @@ query = select(Player, PlayerGlobalStats).where(Player.location_id == location.i
 # Join: Match → Session (where session.location_id = X) → aggregate by player
 ```
 
-This is a bigger change — needs a new query or a `player_location_stats` materialized view. Can be Phase 2 if needed; Phase 1 is getting the data onto sessions.
+Use query-time aggregation for now. Cache/materialize when scale demands it.
+
+### Frontend: Court Picker on Session Creation
+
+When creating a non-league session:
+1. Request browser geolocation (optional, user can deny)
+2. If granted → show nearby courts sorted by distance
+3. User picks a court or skips ("no specific court")
+4. Selected court flows into session creation payload
+5. If no court selected but geolocation available → send lat/long as fallback
+
+Sessions can be created without a court — location still resolves from geo fallbacks.
 
 ### Indexes
 
@@ -154,36 +139,47 @@ CREATE INDEX idx_sessions_lat_lng ON sessions (latitude, longitude);
 CREATE INDEX idx_leagues_default_court ON leagues (default_court_id);
 ```
 
-## Phases
+## Tasks
 
 ### Phase 1: Data Foundation
-- Migration: add columns to sessions + leagues
-- Backfill existing sessions
-- Update session creation to resolve geo fields
-- Add `default_court_id` to league create/update
-- Add indexes
+
+1. **Migration: add columns to sessions table** — `location_id` (FK), `latitude`, `longitude` (all nullable)
+2. **Migration: add columns to leagues table** — `default_court_id` (FK), `latitude`, `longitude` (all nullable)
+3. **Add indexes** — `idx_sessions_location`, `idx_sessions_lat_lng`, `idx_leagues_default_court`
+4. **Backfill existing sessions** — Set all to QBK court + `ny_nyc` location + QBK coords
+5. **Add `resolve_session_geo()` helper** — Implements the geo resolution chain (court → league → browser → player city → null), calls `find_closest_location()` to auto-link `location_id`
+6. **Wire geo resolution into session creation** — Non-league sessions: call `resolve_session_geo()` on create. Accept optional `latitude`/`longitude` params in session create schema.
+7. **Wire geo resolution into league session creation** — League sessions: inherit `court_id` from `league.default_court_id` if not overridden, then resolve geo.
+8. **Add `default_court_id` to league create/update** — Schema changes, route changes, update league lat/long when court changes.
+9. **Update docs** — `DATABASE_SCHEMA.md`, `API_ROUTES.md` for new fields/params.
+10. **Tests** — Unit tests for `resolve_session_geo()`, test session creation with various geo inputs, test league default court propagation.
 
 ### Phase 2: Location Leaderboard
-- New query: aggregate player stats from matches at sessions in a location
-- Consider `player_location_stats` table (calculated, like global stats) vs query-time aggregation
-- Update public location page to use match-based leaderboard
+
+11. **New location leaderboard query** — Join Match → Session (where `session.location_id = X`) → aggregate wins/losses/rating by player. Query-time for now.
+12. **Update `public_service.py`** — Replace `Player.location_id` filter with session-based match aggregation.
+13. **Update public location page frontend** — Ensure it renders correctly with new data shape (if response schema changes).
+14. **Tests** — Verify leaderboard shows players who *play* at a location, not just *live* there.
 
 ### Phase 3: Frontend Court Picker
-- Geolocation prompt on session creation
-- Nearby court suggestions
-- Court selection / deselection UX
-- League settings: default court picker
 
-### Phase 4: Discovery Features
-- "Recent matches nearby" feed
-- "Top courts your friends play at"
-- Court-level per-player stats
-- Activity indicators on court/location pages
+15. **Browser geolocation hook** — `useGeolocation()` React hook, request permission on session creation.
+16. **Nearby courts API** — Endpoint or query param to sort courts by distance from given lat/long.
+17. **Court picker component** — Show nearby courts on session creation, allow select/skip.
+18. **Send lat/long on session create** — If no court selected but geolocation available, include coords in payload.
+19. **League settings: default court picker** — Dropdown of courts filtered by league's `location_id`.
 
-## Open Questions
+### Phase 4: Discovery Features (future)
 
-1. **Should `location_id` on session be required going forward?** Every session should resolve to _somewhere_, but do we enforce at DB level or just best-effort?
-2. **Per-location stats table vs query-time?** A `player_location_stats` table is fast to read but needs recalculation. Query-time is simpler but slower for large datasets.
-3. **League home court UX** — where in the league settings UI does this go? Is it a dropdown of courts in the league's location?
-4. **Backfill accuracy** — for old league sessions, using league.location_id is reasonable. For old non-league sessions with no court, creator's location is the best guess. Is that acceptable?
-5. **Court picker priority** — is this a Phase 1 must-have or can sessions continue to be created without courts for now?
+20. "Recent matches nearby" feed
+21. "Top courts your friends play at"
+22. Court-level per-player stats
+23. Activity indicators on court/location pages
+
+## Resolved Questions
+
+1. **Should `location_id` on session be required?** No. Nullable at DB level, best-effort in app code. Always resolved from coordinates when available.
+2. **Per-location stats table vs query-time?** Query-time for now. Cache/materialize when performance requires it.
+3. **League home court UX?** Dropdown of courts filtered by league's `location_id` in league settings.
+4. **Backfill accuracy?** All existing sessions → QBK Sports. This is accurate since QBK is the only court in use.
+5. **Court picker priority?** Not a blocker. Sessions can be created without courts. Court picker is Phase 3.
