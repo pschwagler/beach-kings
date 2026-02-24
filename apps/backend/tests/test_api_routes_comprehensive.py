@@ -328,7 +328,7 @@ class TestAuthEndpoints:
         assert response.status_code == 401
 
     def test_refresh_token_success(self, monkeypatch):
-        """Test successful token refresh."""
+        """Test successful token refresh with rotation."""
         client = TestClient(app)
 
         async def fake_get_refresh_token(session, token):
@@ -338,15 +338,25 @@ class TestAuthEndpoints:
         async def fake_get_user_by_id(session, user_id):
             return {"id": user_id, "phone_number": "+15551234567", "is_verified": True}
 
+        async def fake_delete_refresh_token(session, token):
+            return True
+
+        async def fake_create_refresh_token(session, user_id, token, expires_at):
+            return True
+
         monkeypatch.setattr(
             user_service, "get_refresh_token", fake_get_refresh_token, raising=True
         )
         monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+        monkeypatch.setattr(user_service, "delete_refresh_token", fake_delete_refresh_token, raising=True)
+        monkeypatch.setattr(user_service, "create_refresh_token", fake_create_refresh_token, raising=True)
 
         payload = {"refresh_token": "valid_token"}
         response = client.post("/api/auth/refresh", json=payload)
         assert response.status_code == 200
-        assert "access_token" in response.json()
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
 
     def test_refresh_token_expired(self, monkeypatch):
         """Test refresh with expired token."""

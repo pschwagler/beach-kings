@@ -5,12 +5,15 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter, INVALID_CREDENTIALS_RESPONSE, INVALID_VERIFICATION_CODE_RESPONSE
 from backend.database.db import get_db_session
-from backend.services import auth_service, user_service, data_service, rate_limiting_service
+from backend.database.models import Player
+from backend.services import auth_service, user_service, data_service, rate_limiting_service, avatar_service, s3_service
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
     SignupRequest,
@@ -230,11 +233,6 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
         player_id: Player ID to set avatar for
         picture_url: Google profile picture URL
     """
-    import httpx
-    from backend.services import avatar_service, s3_service
-    from backend.database.models import Player
-    from sqlalchemy import select
-
     # Download the image
     async with httpx.AsyncClient() as client:
         resp = await client.get(picture_url, timeout=10.0)

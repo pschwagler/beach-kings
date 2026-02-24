@@ -551,56 +551,33 @@ async def get_court_leaderboard(
     Counts matches played at the court (via sessions) and calculates win rate.
     Returns ranked list of players with match_count, win_count, win_rate.
     """
-    # Build a union of all player appearances in matches at this court
-    # Each match has 4 player slots: team1_player1, team1_player2, team2_player1, team2_player2
-    # A player "wins" if they're on the winning team
-    player_match = (
-        select(
-            Match.id.label("match_id"),
-            Match.team1_player1_id.label("player_id"),
-            case((Match.winner == 1, 1), else_=0).label("is_win"),
+    # Build a union of all player appearances in matches at this court.
+    # Each match has 4 player slots across two teams; a player "wins" if
+    # they're on the winning team.
+    player_slots = [
+        (Match.team1_player1_id, 1),
+        (Match.team1_player2_id, 1),
+        (Match.team2_player1_id, 2),
+        (Match.team2_player2_id, 2),
+    ]
+
+    selects = []
+    for col, winning_team in player_slots:
+        selects.append(
+            select(
+                Match.id.label("match_id"),
+                col.label("player_id"),
+                case((Match.winner == winning_team, 1), else_=0).label("is_win"),
+            )
+            .join(Session, Session.id == Match.session_id)
+            .where(
+                Session.court_id == court_id,
+                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+                col.isnot(None),
+            )
         )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team1_player1_id.isnot(None),
-        )
-    ).union_all(
-        select(
-            Match.id,
-            Match.team1_player2_id,
-            case((Match.winner == 1, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team1_player2_id.isnot(None),
-        ),
-        select(
-            Match.id,
-            Match.team2_player1_id,
-            case((Match.winner == 2, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team2_player1_id.isnot(None),
-        ),
-        select(
-            Match.id,
-            Match.team2_player2_id,
-            case((Match.winner == 2, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team2_player2_id.isnot(None),
-        ),
-    )
+
+    player_match = selects[0].union_all(*selects[1:])
 
     sub = player_match.subquery()
 

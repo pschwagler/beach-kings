@@ -25,6 +25,7 @@ from backend.api.auth_dependencies import (
     require_verified_player,
     require_court_owner_or_admin,
 )
+from backend.database.models import Court
 from backend.models.schemas import (
     CreateCourtRequest,
     UpdateCourtRequest,
@@ -381,7 +382,6 @@ async def upload_court_photo(
     """
     try:
         # Verify court exists before processing/uploading to avoid orphaned S3 objects
-        from backend.database.models import Court
         court = await session.get(Court, court_id)
         if not court:
             raise HTTPException(status_code=404, detail="Court not found")
