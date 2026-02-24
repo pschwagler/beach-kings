@@ -15,6 +15,7 @@ import MyGamesTab from "./home/MyGamesTab";
 import FriendsTab from "./home/FriendsTab";
 import PendingInvitesTab from "./home/PendingInvitesTab";
 import NotificationsTab from "./home/NotificationsTab";
+import MyStatsTab from "./home/MyStatsTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
@@ -227,6 +228,13 @@ export default function HomePage({ initialTab = 'home' }) {
                       router.push(`/league/${leagueId}?${params.toString()}`);
                     }
                   }}
+                />
+              )}
+
+              {activeTab === "my-stats" && (
+                <MyStatsTab
+                  currentUserPlayer={currentUserPlayer}
+                  userLeagues={userLeagues}
                 />
               )}
 

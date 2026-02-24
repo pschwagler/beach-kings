@@ -202,26 +202,50 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         </div>
       </div>
 
-      {/* Stats Row */}
+      {/* Stats Row — clickable cards navigate to My Stats */}
       <div className="home-stats-row">
-        <div className="home-stat-card">
+        <div
+          className="home-stat-card home-stat-card--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => onTabChange('my-stats')}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabChange('my-stats'); } }}
+        >
           <Target size={24} className="home-stat-icon" />
           <div className="home-stat-label">Total Games Played</div>
           <div className="home-stat-value">{totalGames}</div>
         </div>
-        <div className="home-stat-card">
+        <div
+          className="home-stat-card home-stat-card--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => onTabChange('my-stats')}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabChange('my-stats'); } }}
+        >
           <TrendingUp size={24} className="home-stat-icon" />
           <div className="home-stat-label">Rating</div>
           <div className="home-stat-value">
             {totalGames === 0 && currentRating === 0 ? '—' : Math.round(currentRating)}
           </div>
         </div>
-        <div className="home-stat-card">
+        <div
+          className="home-stat-card home-stat-card--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => onTabChange('my-stats')}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabChange('my-stats'); } }}
+        >
           <Target size={24} className="home-stat-icon" />
           <div className="home-stat-label">Games Played (Last 30 days)</div>
           <div className="home-stat-value">{games30Days}</div>
         </div>
-        <div className="home-stat-card">
+        <div
+          className="home-stat-card home-stat-card--clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => onTabChange('my-stats')}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTabChange('my-stats'); } }}
+        >
           <Award size={24} className="home-stat-icon" />
           <div className="home-stat-label">Win Rate (Last 30 days)</div>
           <div className="home-stat-value">{games30Days > 0 ? `${winRate30Days}%` : '—'}</div>

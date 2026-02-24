@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus, BarChart3 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -76,6 +76,15 @@ export default function HomeMenuBar({ activeTab }) {
       active: activeTab === 'my-games',
       onClick: () => handleTabChange('my-games'),
       title: 'My Games',
+    },
+    {
+      id: 'my-stats',
+      label: 'My Stats',
+      icon: BarChart3,
+      active: activeTab === 'my-stats',
+      onClick: () => handleTabChange('my-stats'),
+      title: 'My Stats',
+      className: 'my-stats-menu-item-desktop',
     },
     {
       id: 'friends',
@@ -163,6 +172,20 @@ export default function HomeMenuBar({ activeTab }) {
                 }}
               >
                 <div className="league-sidebar-more-menu">
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTabChange('my-stats');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="My Stats"
+                    type="button"
+                  >
+                    <BarChart3 size={18} />
+                    <span>My Stats</span>
+                  </button>
                   <button
                     className="league-sidebar-more-menu-item"
                     onClick={(e) => {
