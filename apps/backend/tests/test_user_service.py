@@ -8,7 +8,7 @@ from datetime import timedelta
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
 from backend.services import user_service
-from backend.database.models import VerificationCode
+from backend.database.models import VerificationCode, User
 
 
 # db_session fixture is provided by conftest.py - using test_session as alias for compatibility
@@ -298,3 +298,113 @@ async def test_refresh_rotation_preserves_other_tokens(test_session):
     assert (await user_service.get_refresh_token(test_session, "tab1_token")) is None
     assert (await user_service.get_refresh_token(test_session, "tab1_rotated")) is not None
     assert (await user_service.get_refresh_token(test_session, "tab2_token")) is not None
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Google SSO tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_google_user(test_session):
+    """Test creating a new user via Google SSO."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="google@example.com",
+        google_id="google_sub_123",
+        full_name="Google User",
+    )
+    # create_google_user only flushes — commit to read it back
+    await test_session.commit()
+
+    assert user_id > 0
+
+    user = await user_service.get_user_by_id(test_session, user_id)
+    assert user is not None
+    assert user["email"] == "google@example.com"
+    assert user["google_id"] == "google_sub_123"
+    assert user["auth_provider"] == "google"
+    assert user["is_verified"] is True
+    assert user["phone_number"] is None
+    assert user["password_hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_google_user_duplicate_email(test_session):
+    """Test that creating a Google user with a duplicate email raises ValueError."""
+    await user_service.create_google_user(
+        session=test_session,
+        email="dup@example.com",
+        google_id="google_sub_a",
+        full_name="User A",
+    )
+    await test_session.commit()
+
+    with pytest.raises(ValueError, match="already registered"):
+        await user_service.create_google_user(
+            session=test_session,
+            email="dup@example.com",
+            google_id="google_sub_b",
+            full_name="User B",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_google_id(test_session):
+    """Test looking up a user by Google ID."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="lookup@example.com",
+        google_id="google_sub_456",
+        full_name="Lookup User",
+    )
+    await test_session.commit()
+
+    user = await user_service.get_user_by_google_id(test_session, "google_sub_456")
+    assert user is not None
+    assert user["id"] == user_id
+
+    # Non-existent google_id
+    user = await user_service.get_user_by_google_id(test_session, "nonexistent")
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_link_google_id(test_session):
+    """Test linking a Google ID to an existing phone-auth user updates both google_id and auth_provider."""
+    user_id = await user_service.create_user(
+        session=test_session,
+        phone_number="+15553334444",
+        password_hash="hash",
+        email="link@example.com",
+    )
+
+    user_before = await user_service.get_user_by_id(test_session, user_id)
+    assert user_before["auth_provider"] == "phone"
+    assert user_before["google_id"] is None
+
+    success = await user_service.link_google_id(test_session, user_id, "google_sub_link")
+    assert success is True
+
+    user_after = await user_service.get_user_by_id(test_session, user_id)
+    assert user_after["google_id"] == "google_sub_link"
+    assert user_after["auth_provider"] == "google"
+
+
+@pytest.mark.asyncio
+async def test_create_google_user_does_not_commit(test_session):
+    """Verify create_google_user flushes but does not commit, allowing atomic txn with caller."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="nocommit@example.com",
+        google_id="google_sub_nc",
+        full_name="No Commit",
+    )
+    # ID should be available via flush
+    assert user_id > 0
+
+    # Rolling back should remove the user
+    await test_session.rollback()
+
+    user = await user_service.get_user_by_id(test_session, user_id)
+    assert user is None

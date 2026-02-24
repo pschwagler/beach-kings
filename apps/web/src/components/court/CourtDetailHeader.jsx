@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, Pencil, Bookmark } from 'lucide-react';
+import { MapPin, Pencil } from 'lucide-react';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
 
@@ -25,13 +25,6 @@ export default function CourtDetailHeader({ court, onSuggestEdit }) {
               <Pencil size={18} />
             </button>
           )}
-          <button
-            className="court-detail__header-action"
-            aria-label="Bookmark court"
-            title="Bookmark"
-          >
-            <Bookmark size={18} />
-          </button>
         </div>
       </div>
 

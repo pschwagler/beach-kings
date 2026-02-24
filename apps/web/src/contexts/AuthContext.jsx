@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -56,6 +56,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchCurrentUser]);
 
+  // Track user via ref so the storage listener doesn't re-register on every user change
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   // Cross-tab auth state sync: detect login/logout from other tabs via localStorage changes.
   useEffect(() => {
     const handleStorage = (e) => {
@@ -67,7 +71,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setCurrentUserPlayer(null);
         setSessionExpired(true);
-      } else if (!user && e.newValue) {
+      } else if (!userRef.current && e.newValue) {
         // Another tab logged in — pick up the session
         setSessionExpired(false);
         setAuthTokens(e.newValue, window.localStorage.getItem('beach_refresh_token'));
@@ -77,7 +81,7 @@ export const AuthProvider = ({ children }) => {
 
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, [user, fetchCurrentUser]);
+  }, [fetchCurrentUser]);
 
   const handleAuthSuccess = useCallback(
     async (authResponse) => {

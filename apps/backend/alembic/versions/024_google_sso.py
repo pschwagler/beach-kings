@@ -100,6 +100,17 @@ def downgrade() -> None:
     """Remove Google SSO columns and restore phone/password constraints."""
     conn = op.get_bind()
 
+    # Pre-flight: refuse to downgrade if Google-only users exist (they have NULL phone/password)
+    if _column_exists(conn, "users", "auth_provider"):
+        google_count = conn.execute(
+            text("SELECT COUNT(*) FROM users WHERE auth_provider = 'google' AND phone_number IS NULL")
+        ).scalar()
+        if google_count:
+            raise RuntimeError(
+                f"Cannot downgrade: {google_count} Google-only user(s) have NULL phone_number. "
+                "Migrate or delete these users before downgrading."
+            )
+
     if _index_exists(conn, "idx_users_email"):
         op.drop_index("idx_users_email", table_name="users")
 

@@ -5,6 +5,7 @@ User service layer for user and verification code database operations.
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, delete, func
 from backend.database.models import User, VerificationCode, RefreshToken, PasswordResetToken
@@ -183,6 +184,13 @@ async def create_google_user(
     """
     Create a new user account via Google SSO.
 
+    Uses the DB unique index on email/google_id for race-safe uniqueness
+    enforcement instead of a SELECT-then-INSERT pattern.
+
+    Note: This function flushes but does NOT commit — the caller is
+    responsible for committing after all related mutations (e.g., player
+    profile creation) succeed.
+
     Args:
         session: Database session
         email: User email from Google
@@ -195,11 +203,6 @@ async def create_google_user(
     Raises:
         ValueError: If a user with this email or google_id already exists
     """
-    # Check email uniqueness
-    existing = await get_user_by_email(session, email)
-    if existing:
-        raise ValueError(f"Email {email} is already registered")
-
     new_user = User(
         phone_number=None,
         password_hash=None,
@@ -209,15 +212,20 @@ async def create_google_user(
         is_verified=True,
     )
     session.add(new_user)
-    await session.flush()
-    user_id = new_user.id
-    await session.commit()
-    return user_id
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        raise ValueError(f"Email {email} is already registered")
+    return new_user.id
 
 
 async def link_google_id(session: AsyncSession, user_id: int, google_id: str) -> bool:
     """
-    Link a Google ID to an existing user account (auto-link on email match).
+    Link a Google ID to an existing user account.
+
+    Updates both google_id and auth_provider so the user is consistently
+    recorded as a Google-linked account.
 
     Args:
         session: Database session
@@ -230,7 +238,7 @@ async def link_google_id(session: AsyncSession, user_id: int, google_id: str) ->
     result = await session.execute(
         update(User)
         .where(User.id == user_id)
-        .values(google_id=google_id, updated_at=func.now())
+        .values(google_id=google_id, auth_provider="google", updated_at=func.now())
     )
     await session.commit()
     return result.rowcount > 0
@@ -251,8 +259,8 @@ def _user_to_dict(user: User) -> Dict:
         "phone_number": user.phone_number,
         "password_hash": user.password_hash,
         "email": user.email,
-        "auth_provider": getattr(user, "auth_provider", "phone") or "phone",
-        "google_id": getattr(user, "google_id", None),
+        "auth_provider": user.auth_provider or "phone",
+        "google_id": user.google_id,
         "is_verified": user.is_verified,
         "failed_verification_attempts": user.failed_verification_attempts or 0,
         "locked_until": user.locked_until,
@@ -555,7 +563,7 @@ async def delete_refresh_token(session: AsyncSession, token: str) -> bool:
         True if token was deleted, False otherwise
     """
     result = await session.execute(delete(RefreshToken).where(RefreshToken.token == token))
-    await session.commit()
+    await session.flush()
     return result.rowcount > 0
 
 

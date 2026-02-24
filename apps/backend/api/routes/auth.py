@@ -175,18 +175,21 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
 
 
 @router.post("/api/auth/google", response_model=AuthResponse)
-async def google_auth(request: GoogleAuthRequest, session: AsyncSession = Depends(get_db_session)):
+@limiter.limit("10/minute")
+async def google_auth(
+    request: Request, payload: GoogleAuthRequest, session: AsyncSession = Depends(get_db_session)
+):
     """
     Authenticate with Google ID token.
 
     Verifies the Google ID token, then:
     1. If user exists by google_id → log in
-    2. If user exists by email (auto-link) → attach google_id, log in
+    2. If user exists by email → return 409 (must link from account settings)
     3. Otherwise → create new user + player profile, log in
     """
     try:
         # Verify Google token
-        google_info = auth_service.verify_google_id_token(request.id_token)
+        google_info = auth_service.verify_google_id_token(payload.id_token)
         google_id = google_info["sub"]
         email = google_info["email"].strip().lower()
         name = google_info.get("name")
@@ -196,35 +199,40 @@ async def google_auth(request: GoogleAuthRequest, session: AsyncSession = Depend
         user = await user_service.get_user_by_google_id(session, google_id)
 
         if not user:
-            # 2. Check by email (auto-link)
-            user = await user_service.get_user_by_email(session, email)
-            if user:
-                await user_service.link_google_id(session, user["id"], google_id)
-                # Refresh user dict after linking
-                user = await user_service.get_user_by_id(session, user["id"])
-
-        is_new_user = False
-        if not user:
-            # 3. Create new user
-            user_id = await user_service.create_google_user(
-                session, email=email, google_id=google_id, full_name=name or "User"
-            )
-            user = await user_service.get_user_by_id(session, user_id)
-            is_new_user = True
-
-            # Create player profile for new users
-            if name:
-                player = await data_service.upsert_user_player(
-                    session=session, user_id=user_id, full_name=name
+            # 2. Check if email already in use — do NOT auto-link
+            existing = await user_service.get_user_by_email(session, email)
+            if existing:
+                raise HTTPException(
+                    status_code=409,
+                    detail="An account with this email already exists. "
+                    "Please sign in with your original method and link Google from account settings.",
                 )
-                if not player:
-                    logger.error(f"Failed to create player profile for Google user {user_id}")
-                elif picture_url:
-                    # Import Google profile picture as avatar (best-effort, non-blocking)
-                    try:
-                        await _import_google_avatar(session, player["id"], picture_url)
-                    except Exception as e:
-                        logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
+
+        if not user:
+            # 3. Create new user + player profile in a single transaction
+            display_name = name or email.split("@")[0]
+            user_id = await user_service.create_google_user(
+                session, email=email, google_id=google_id, full_name=display_name
+            )
+
+            # Always create player profile for new users
+            player = await data_service.upsert_user_player(
+                session=session, user_id=user_id, full_name=display_name
+            )
+            if not player:
+                logger.error(f"Failed to create player profile for Google user {user_id}")
+
+            # Commit user + player together atomically
+            await session.commit()
+
+            user = await user_service.get_user_by_id(session, user_id)
+
+            # Import Google avatar (best-effort, after commit)
+            if player and picture_url:
+                try:
+                    await _import_google_avatar(session, player["id"], picture_url)
+                except Exception as e:
+                    logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
 
         # Issue tokens
         access_token, refresh_token = await _issue_tokens(session, user)
@@ -245,23 +253,38 @@ async def google_auth(request: GoogleAuthRequest, session: AsyncSession = Depend
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error during Google auth: {e}")
-        raise HTTPException(status_code=500, detail=f"Error during Google authentication: {str(e)}")
+        logger.exception("Error during Google auth")
+        raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")
 
 
-async def _import_google_avatar(session: AsyncSession, player_id: int, picture_url: str):
+# Google avatar URL allowlist prefix
+_GOOGLE_AVATAR_URL_PREFIX = "https://lh3.googleusercontent.com/"
+_GOOGLE_AVATAR_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+async def _import_google_avatar(session: AsyncSession, player_id: int, picture_url: str) -> None:
     """
     Download a Google profile picture and upload it as the player's avatar.
+
+    Only fetches from allowlisted Google CDN domains. Enforces a size limit
+    to prevent memory exhaustion.
 
     Args:
         session: Database session
         player_id: Player ID to set avatar for
         picture_url: Google profile picture URL
     """
-    # Download the image
+    if not picture_url.startswith(_GOOGLE_AVATAR_URL_PREFIX):
+        logger.warning(f"Skipping non-Google avatar URL for player {player_id}")
+        return
+
+    # Download with size limit
     async with httpx.AsyncClient() as client:
         resp = await client.get(picture_url, timeout=10.0)
         if resp.status_code != 200:
+            return
+        if len(resp.content) > _GOOGLE_AVATAR_MAX_BYTES:
+            logger.warning(f"Google avatar too large for player {player_id}: {len(resp.content)} bytes")
             return
         image_bytes = resp.content
 
@@ -270,7 +293,7 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
     processed = await loop.run_in_executor(None, avatar_service.process_avatar, image_bytes)
     avatar_url = await loop.run_in_executor(None, s3_service.upload_avatar, player_id, processed)
 
-    # Update player record
+    # Update player record (flush only — caller manages commit)
     result = await session.execute(select(Player).where(Player.id == player_id))
     player_obj = result.scalar_one_or_none()
     if player_obj:
@@ -592,10 +615,11 @@ async def refresh_token(
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        # Delete the old refresh token (rotation)
+        # Atomic rotation: delete old + create new in one transaction.
+        # delete_refresh_token uses flush (not commit) so both ops share the same txn.
         await user_service.delete_refresh_token(session, request.refresh_token)
 
-        # Issue new access + refresh tokens
+        # Issue new access + refresh tokens (create_refresh_token commits the txn)
         access_token, new_refresh_token = await _issue_tokens(session, user)
 
         return RefreshTokenResponse(

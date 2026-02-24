@@ -5,8 +5,9 @@ Tests notification creation, retrieval, marking as read, and bulk operations.
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, patch
 from backend.services import notification_service
-from backend.database.models import NotificationType
+from backend.database.models import NotificationType, Player, League, Season, Session as SessionModel, Match
 from backend.services import user_service
 
 
@@ -491,3 +492,138 @@ async def test_mark_all_as_read_partial(db_session, test_user):
     count = await notification_service.mark_all_as_read(session=db_session, user_id=test_user)
 
     assert count == 1
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_players_about_session_submitted tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_session_submitted_notification_league_session(db_session, test_user, test_user2):
+    """Test session-submitted notification for a league session with multiple players."""
+    # Create player rows for both users
+    player1 = Player(user_id=test_user, full_name="Player One")
+    player2 = Player(user_id=test_user2, full_name="Player Two")
+    db_session.add_all([player1, player2])
+    await db_session.flush()
+
+    # Create league
+    league = League(name="Test League")
+    db_session.add(league)
+    await db_session.flush()
+
+    await db_session.commit()
+
+    # Mock get_session_match_player_user_ids to return test_user2 (submitter excluded)
+    with patch.object(
+        notification_service,
+        "get_session_match_player_user_ids",
+        new_callable=AsyncMock,
+        return_value=[test_user2],
+    ):
+        await notification_service.notify_players_about_session_submitted(
+            session=db_session,
+            session_id=999,
+            submitter_user_id=test_user,
+            session_name="Week 1",
+            league_id=league.id,
+            league_name="Test League",
+        )
+        await db_session.commit()
+
+    result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user2
+    )
+    assert result["total_count"] == 1
+    notif = result["notifications"][0]
+    assert notif["type"] == NotificationType.SESSION_SUBMITTED.value
+    assert "Test League" in notif["title"]
+    assert "Player One" in notif["message"]
+    assert f"/league/{league.id}" in notif["link_url"]
+
+
+@pytest.mark.asyncio
+async def test_session_submitted_notification_no_players(db_session, test_user):
+    """Test session-submitted notification early-returns when no players are in the session."""
+    with patch.object(
+        notification_service,
+        "get_session_match_player_user_ids",
+        new_callable=AsyncMock,
+        return_value=[],
+    ):
+        await notification_service.notify_players_about_session_submitted(
+            session=db_session,
+            session_id=999,
+            submitter_user_id=test_user,
+            session_name="Empty Session",
+        )
+        await db_session.commit()
+
+    result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert result["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_session_submitted_notification_non_league(db_session, test_user, test_user2):
+    """Test session-submitted notification for a non-league session."""
+    player1 = Player(user_id=test_user, full_name="Submitter Name")
+    player2 = Player(user_id=test_user2, full_name="Other Player")
+    db_session.add_all([player1, player2])
+    await db_session.flush()
+    await db_session.commit()
+
+    with patch.object(
+        notification_service,
+        "get_session_match_player_user_ids",
+        new_callable=AsyncMock,
+        return_value=[test_user2],
+    ):
+        await notification_service.notify_players_about_session_submitted(
+            session=db_session,
+            session_id=888,
+            submitter_user_id=test_user,
+            session_name="Pickup Games",
+            league_id=None,
+        )
+        await db_session.commit()
+
+    result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user2
+    )
+    assert result["total_count"] == 1
+    notif = result["notifications"][0]
+    assert notif["type"] == NotificationType.SESSION_SUBMITTED.value
+    assert notif["title"] == "Games submitted"
+    assert notif["link_url"] == "/home"
+
+
+@pytest.mark.asyncio
+async def test_session_submitted_excludes_submitter(db_session, test_user):
+    """Test that the submitter is excluded from notifications."""
+    player1 = Player(user_id=test_user, full_name="Solo Player")
+    db_session.add(player1)
+    await db_session.flush()
+    await db_session.commit()
+
+    # get_session_match_player_user_ids with exclude_user_id returns empty
+    with patch.object(
+        notification_service,
+        "get_session_match_player_user_ids",
+        new_callable=AsyncMock,
+        return_value=[],
+    ):
+        await notification_service.notify_players_about_session_submitted(
+            session=db_session,
+            session_id=777,
+            submitter_user_id=test_user,
+            session_name="Solo Session",
+        )
+        await db_session.commit()
+
+    result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert result["total_count"] == 0

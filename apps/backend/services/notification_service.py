@@ -737,7 +737,7 @@ async def notify_members_about_new_member(
     notifications_list = [
         {
             "user_id": member_id,
-            "type": NotificationType.LEAGUE_INVITE.value,  # Using LEAGUE_INVITE as closest match
+            "type": NotificationType.MEMBER_JOINED.value,
             "title": f"New member joined {league_name}",
             "message": f"{player_name} joined the league",
             "data": {"league_id": league_id, "new_member_user_id": new_member_user_id},
@@ -775,8 +775,8 @@ async def notify_members_about_new_member_background(
                 session, league_id, new_member_user_id, league_name, member_user_ids
             )
             await session.commit()
-    except Exception as e:
-        logger.warning(f"Failed to create notifications for new league member: {e}")
+    except Exception:
+        logger.exception("Failed to create notifications for new league member")
 
 
 async def notify_player_about_removal_from_league(
@@ -802,7 +802,7 @@ async def notify_player_about_removal_from_league(
     await create_notification(
         session=session,
         user_id=removed_user_id,
-        type=NotificationType.LEAGUE_INVITE.value,  # Reusing LEAGUE_INVITE type
+        type=NotificationType.MEMBER_REMOVED.value,
         title="Removed from league",
         message=f"You have been removed from {league_name}",
         data={"league_id": league_id},
@@ -834,8 +834,8 @@ async def notify_player_about_removal_from_league_background(
                 session, league_id, removed_user_id, league_name
             )
             await session.commit()
-    except Exception as e:
-        logger.warning(f"Failed to create notification for league removal: {e}")
+    except Exception:
+        logger.exception("Failed to create notification for league removal")
 
 
 async def notify_players_about_session_submitted(

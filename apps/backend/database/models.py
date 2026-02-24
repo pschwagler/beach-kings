@@ -77,6 +77,8 @@ class NotificationType(str, enum.Enum):
     SESSION_SUBMITTED = "session_submitted"
     SESSION_AUTO_SUBMITTED = "session_auto_submitted"
     SESSION_AUTO_DELETED = "session_auto_deleted"
+    MEMBER_JOINED = "member_joined"
+    MEMBER_REMOVED = "member_removed"
 
 
 class InviteStatus(str, enum.Enum):
