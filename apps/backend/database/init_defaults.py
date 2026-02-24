@@ -5,42 +5,48 @@ This script is run on startup to populate default settings and other default val
 """
 
 import asyncio
+import os
+
 from backend.database.db import AsyncSessionLocal
 from backend.services import data_service
 
 
 async def init_defaults():
-    """Initialize default database values."""
+    """Initialize default database values.
+
+    Reads DEFAULT_ADMIN_PHONE from the environment. If unset, skips
+    admin seeding (useful in CI/test where no default admin is needed).
+    """
     print("Initializing default database values...")
 
     async with AsyncSessionLocal() as session:
-        # Default system admin phone number
-        default_admin_phone = "+17167831211"
+        default_admin_phone = os.getenv("DEFAULT_ADMIN_PHONE")
 
-        # Get existing system admin phone numbers
-        existing_admins = await data_service.get_setting(session, "system_admin_phone_numbers")
-
-        if existing_admins:
-            # Parse existing admins
-            admin_set = {p.strip() for p in existing_admins.split(",") if p.strip()}
-
-            # Add default admin if not already present
-            if default_admin_phone not in admin_set:
-                admin_set.add(default_admin_phone)
-                # Update with merged list
-                updated_value = ",".join(sorted(admin_set))
-                await data_service.set_setting(
-                    session, "system_admin_phone_numbers", updated_value
-                )
-                print(f"✓ Added default system admin: {default_admin_phone}")
-            else:
-                print(f"✓ Default system admin already exists: {default_admin_phone}")
+        if not default_admin_phone:
+            print("⚠ DEFAULT_ADMIN_PHONE not set — skipping admin seeding")
         else:
-            # No existing admins, set default
-            await data_service.set_setting(
-                session, "system_admin_phone_numbers", default_admin_phone
+            # Get existing system admin phone numbers
+            existing_admins = await data_service.get_setting(
+                session, "system_admin_phone_numbers"
             )
-            print(f"✓ Set default system admin: {default_admin_phone}")
+
+            if existing_admins:
+                admin_set = {p.strip() for p in existing_admins.split(",") if p.strip()}
+
+                if default_admin_phone not in admin_set:
+                    admin_set.add(default_admin_phone)
+                    updated_value = ",".join(sorted(admin_set))
+                    await data_service.set_setting(
+                        session, "system_admin_phone_numbers", updated_value
+                    )
+                    print(f"✓ Added default system admin: {default_admin_phone}")
+                else:
+                    print("✓ Default system admin already exists")
+            else:
+                await data_service.set_setting(
+                    session, "system_admin_phone_numbers", default_admin_phone
+                )
+                print(f"✓ Set default system admin: {default_admin_phone}")
 
         await session.commit()
 

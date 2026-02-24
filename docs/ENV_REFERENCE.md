@@ -75,6 +75,12 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `AWS_S3_BUCKET` | (empty) | S3 bucket name |
 | `AWS_S3_REGION` | `us-west-2` | AWS region |
 
+### System Admin
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEFAULT_ADMIN_PHONE` | (empty) | Phone number (E.164) seeded as default system admin on startup. Leave empty to skip |
+
 ### External APIs
 
 | Variable | Default | Description |

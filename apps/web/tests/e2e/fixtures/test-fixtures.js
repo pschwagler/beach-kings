@@ -331,9 +331,7 @@ export const test = base.extend({
    * Provides { phone, password, token, refreshToken, fullName }.
    */
   adminUser: [async ({}, use) => {
-    // Use this phone for system admin access (configured in DB settings)
-    // This grants require_system_admin access
-    const phone = '+17167831211';
+    const phone = generateTestPhoneNumber();
     const password = 'Test1234';
     const fullName = 'Admin User';
 
@@ -348,7 +346,7 @@ export const test = base.extend({
 
     await completeTestUserProfile(token);
 
-    // Grant system admin access
+    // Grant system admin access dynamically
     await grantSystemAdmin(phone);
 
     await use({ phone, password, fullName, token, refreshToken });

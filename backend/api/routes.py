@@ -3339,7 +3339,7 @@ async def get_all_feedback(
 ):
     """
     Get all feedback submissions.
-    Only accessible to user with phone number +17167831211.
+    Only accessible to system admins.
     
     Returns:
         List[FeedbackResponse]: List of all feedback records, ordered by created_at descending
@@ -3392,7 +3392,7 @@ async def update_feedback_resolution(
 ):
     """
     Update feedback resolution status.
-    Only accessible to user with phone number +17167831211.
+    Only accessible to system admins.
     
     Body: { "is_resolved": true } to mark feedback as resolved
     
@@ -3456,7 +3456,7 @@ async def get_admin_config(
 ):
     """
     Get admin configuration settings.
-    Only accessible to user with phone number +17167831211.
+    Only accessible to system admins.
     
     Returns:
         dict: Current configuration including enable_sms, enable_email, log_level
@@ -3498,7 +3498,7 @@ async def update_admin_config(
 ):
     """
     Update admin configuration settings.
-    Only accessible to user with phone number +17167831211.
+    Only accessible to system admins.
     
     Request body (all optional):
         {

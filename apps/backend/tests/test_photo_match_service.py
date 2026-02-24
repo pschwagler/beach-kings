@@ -476,10 +476,10 @@ class TestBuildScoreboardPrompt:
 
     def test_includes_nickname_when_present(self):
         """Test prompt includes nickname in Master List entry when present."""
-        members = [{"player_id": 1, "player_name": "Patrick Schwagler", "player_nickname": "Pat"}]
+        members = [{"player_id": 1, "player_name": "Jane Smith", "player_nickname": "Smithy"}]
         prompt = photo_match_service.build_scoreboard_prompt(members)
-        assert "Patrick Schwagler" in prompt
-        assert "Pat" in prompt
+        assert "Jane Smith" in prompt
+        assert "Smithy" in prompt
 
 
 # ============================================================================
