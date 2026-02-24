@@ -113,17 +113,18 @@ export default function FindPlayersPage() {
   const [sortDir, setSortDir] = useState(() => DEFAULT_SORT_DIR[searchParams.get('sort') || 'games']);
   const [minGames, setMinGames] = useState('');
   const [debouncedMinGames, setDebouncedMinGames] = useState('');
-  const [viewMode, setViewMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('find_players_view') || 'table';
-    }
-    return 'table';
-  });
+  const [viewMode, setViewMode] = useState('table');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [friendStatuses, setFriendStatuses] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef(null);
+
+  // Restore saved view mode from localStorage (avoids SSR hydration mismatch)
+  useEffect(() => {
+    const saved = localStorage.getItem('find_players_view');
+    if (saved) setViewMode(saved);
+  }, []);
 
   // Close filter panel on outside click
   useEffect(() => {

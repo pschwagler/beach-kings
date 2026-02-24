@@ -17,17 +17,23 @@ export default function CourtPhotoGallery({ photos = [], slug }) {
     router.push(`/courts/${slug}/photos`);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   const displayPhotos = photos.slice(0, 5);
   const hasMore = photos.length > 5;
-  const remainingCount = photos.length - 4; // Show count on the 5th photo slot
 
   return (
-    <div className="court-detail__mosaic" onClick={handleClick} role="button" tabIndex={0}>
+    <div className="court-detail__mosaic" onClick={handleClick} onKeyDown={handleKeyDown} role="button" tabIndex={0}>
       {/* Large photo (left, spans 2 rows) */}
       <div className="court-detail__mosaic-main">
         <img
           src={displayPhotos[0].url}
-          alt="Court photo"
+          alt={`Court photo 1 of ${photos.length}`}
           className="court-detail__mosaic-img"
           loading="eager"
         />
@@ -45,7 +51,7 @@ export default function CourtPhotoGallery({ photos = [], slug }) {
           >
             <img
               src={photo.url}
-              alt="Court photo"
+              alt={`Court photo ${index + 2} of ${photos.length}`}
               className="court-detail__mosaic-img"
               loading="lazy"
             />

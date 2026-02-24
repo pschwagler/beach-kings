@@ -37,6 +37,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _issue_tokens(
+    session: AsyncSession, user: dict
+) -> tuple:
+    """
+    Create an access token and a rotated refresh token for a user.
+
+    Args:
+        session: Database session
+        user: User dict with at least 'id' and optionally 'phone_number'
+
+    Returns:
+        Tuple of (access_token, refresh_token)
+    """
+    token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
+    access_token = auth_service.create_access_token(data=token_data)
+
+    refresh_token = auth_service.generate_refresh_token()
+    expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+    await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+
+    return access_token, refresh_token
+
+
+async def _check_profile_complete(session: AsyncSession, user_id: int) -> bool:
+    """
+    Check whether a user's player profile has the required fields filled in.
+
+    Args:
+        session: Database session
+        user_id: User ID to check
+
+    Returns:
+        True if the player has gender and level set, False otherwise
+    """
+    player = await data_service.get_player_by_user_id(session, user_id)
+    if not player or not player.get("gender") or not player.get("level"):
+        return False
+    return True
+
+
 @router.post("/api/auth/signup", response_model=Dict[str, Any])
 async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_session)):
     """
@@ -115,12 +155,7 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise INVALID_CREDENTIALS_RESPONSE
 
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        refresh_token = auth_service.generate_refresh_token()
-        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+        access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
             access_token=access_token,
@@ -192,18 +227,8 @@ async def google_auth(request: GoogleAuthRequest, session: AsyncSession = Depend
                         logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
 
         # Issue tokens
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        refresh_token = auth_service.generate_refresh_token()
-        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
-
-        # Check profile completeness
-        profile_complete = True
-        player = await data_service.get_player_by_user_id(session, user["id"])
-        if not player or not player.get("gender") or not player.get("level"):
-            profile_complete = False
+        access_token, refresh_token = await _issue_tokens(session, user)
+        profile_complete = await _check_profile_complete(session, user["id"])
 
         return AuthResponse(
             access_token=access_token,
@@ -241,7 +266,7 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
         image_bytes = resp.content
 
     # Process and upload
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     processed = await loop.run_in_executor(None, avatar_service.process_avatar, image_bytes)
     avatar_url = await loop.run_in_executor(None, s3_service.upload_avatar, player_id, processed)
 
@@ -338,17 +363,8 @@ async def verify_phone(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        refresh_token = auth_service.generate_refresh_token()
-        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
-
-        profile_complete = True
-        player = await data_service.get_player_by_user_id(session, user["id"])
-        if not player or not player.get("gender") or not player.get("level"):
-            profile_complete = False
+        access_token, refresh_token = await _issue_tokens(session, user)
+        profile_complete = await _check_profile_complete(session, user["id"])
 
         return AuthResponse(
             access_token=access_token,
@@ -486,12 +502,7 @@ async def reset_password_confirm(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update password")
 
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        refresh_token = auth_service.generate_refresh_token()
-        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+        access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
             access_token=access_token,
@@ -532,12 +543,7 @@ async def sms_login(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        refresh_token = auth_service.generate_refresh_token()
-        expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], refresh_token, expires_at)
+        access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
             access_token=access_token,
@@ -590,12 +596,7 @@ async def refresh_token(
         await user_service.delete_refresh_token(session, request.refresh_token)
 
         # Issue new access + refresh tokens
-        token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
-        access_token = auth_service.create_access_token(data=token_data)
-
-        new_refresh_token = auth_service.generate_refresh_token()
-        new_expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
-        await user_service.create_refresh_token(session, user["id"], new_refresh_token, new_expires_at)
+        access_token, new_refresh_token = await _issue_tokens(session, user)
 
         return RefreshTokenResponse(
             access_token=access_token,

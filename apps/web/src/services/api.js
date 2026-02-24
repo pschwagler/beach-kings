@@ -301,15 +301,16 @@ api.interceptors.response.use(
         isRefreshing = false;
 
         // Before logging out, check if another tab already refreshed successfully.
-        // If localStorage has a different access token than what we sent, use it.
+        // If localStorage has a different refresh token than what we tried, another tab rotated it.
         if (isBrowser) {
-          const freshToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-          if (freshToken && freshToken !== latestRefreshToken) {
-            authTokens.accessToken = freshToken;
-            authTokens.refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
-            processQueue(null, freshToken);
+          const freshRefreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+          if (freshRefreshToken && freshRefreshToken !== latestRefreshToken) {
+            const freshAccessToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+            authTokens.accessToken = freshAccessToken;
+            authTokens.refreshToken = freshRefreshToken;
+            processQueue(null, freshAccessToken);
             originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${freshToken}`;
+            originalRequest.headers.Authorization = `Bearer ${freshAccessToken}`;
             return api(originalRequest);
           }
         }
