@@ -3,4 +3,4 @@
 services:
   backend:
     ports:
-      - "${DEBUGPY_PORT:-5678}:5678"
+      - "${DEBUGPY_PORT:-5678}:${DEBUGPY_PORT:-5678}"

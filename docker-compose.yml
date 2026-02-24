@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: beach-kings-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-beachkings}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beachkings}
@@ -30,7 +29,6 @@ services:
         # Note: Frontend API calls already include /api prefix, so don't add it here
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
         - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN:-}
-    container_name: beach-kings-frontend
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     env_file:
@@ -38,7 +36,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       # Internal URL for SSR calls to backend (container-to-container)
-      - BACKEND_INTERNAL_URL=http://backend:8000
+      - BACKEND_INTERNAL_URL=http://backend:${BACKEND_INTERNAL_PORT:-8000}
     depends_on:
       backend:
         condition: service_started
@@ -50,9 +48,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: beach-kings-backend
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:${BACKEND_INTERNAL_PORT:-8000}"
       # - "${WHATSAPP_PORT:-3001}:3001"  # WhatsApp service is inactive
     env_file:
       - .env
@@ -80,6 +77,9 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
       - DEBUG_BACKEND=${DEBUG_BACKEND:-0}
+      - DEBUGPY_PORT=${DEBUGPY_PORT:-5678}
+      - BACKEND_INTERNAL_PORT=${BACKEND_INTERNAL_PORT:-8000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
@@ -99,7 +99,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: beach-kings-redis
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:

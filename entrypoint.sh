@@ -108,18 +108,18 @@ echo "⚠️  WhatsApp service is inactive (whatsapp-web.js uninstalled)"
 echo ""
 
 # Start main backend API
-echo "📡 Starting Backend API on port 8000..."
+echo "📡 Starting Backend API on port ${BACKEND_INTERNAL_PORT:-8000}..."
 
 # Check if DEBUG_BACKEND is enabled
 if [ "${DEBUG_BACKEND:-0}" = "1" ]; then
     echo "🪲 DEBUG_BACKEND=1 → Starting with debugpy on port 5678..."
     echo "   Attach VS Code debugger to localhost:5678"
     exec python -m debugpy \
-        --listen 0.0.0.0:5678 \
+        --listen 0.0.0.0:${DEBUGPY_PORT:-5678} \
         --wait-for-client \
         -m uvicorn backend.api.main:app \
         --host 0.0.0.0 \
-        --port 8000 \
+        --port ${BACKEND_INTERNAL_PORT:-8000} \
         --reload \
         --reload-dir /app/backend
 elif [ "${ENV:-development}" != "production" ] && [ "${ENV:-development}" != "staging" ]; then
@@ -127,10 +127,10 @@ elif [ "${ENV:-development}" != "production" ] && [ "${ENV:-development}" != "st
     echo "   Watching: /app/backend for changes..."
     exec uvicorn backend.api.main:app \
         --host 0.0.0.0 \
-        --port 8000 \
+        --port ${BACKEND_INTERNAL_PORT:-8000} \
         --reload \
         --reload-dir /app/backend
 else
     echo "⚡ Production mode (no reload)"
-    exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
+    exec uvicorn backend.api.main:app --host 0.0.0.0 --port ${BACKEND_INTERNAL_PORT:-8000}
 fi
