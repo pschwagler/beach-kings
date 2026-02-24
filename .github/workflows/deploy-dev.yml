@@ -73,19 +73,23 @@ jobs:
     steps:
       - name: Deploy to dev EC2
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_BRANCH: ${{ inputs.branch }}
+          REFRESH_DB: ${{ inputs.refresh_db }}
         with:
           host: ${{ secrets.DEV_EC2_HOST }}
           username: ${{ secrets.DEV_EC2_USER }}
           key: ${{ secrets.DEV_EC2_SSH_KEY }}
           command_timeout: 20m
+          envs: DEPLOY_BRANCH,REFRESH_DB
           script: |
             set -e
             cd ~/beach-kings
 
-            echo "=== Fetching branch: ${{ inputs.branch }} ==="
+            echo "=== Fetching branch: $DEPLOY_BRANCH ==="
             git fetch --all
-            git checkout ${{ inputs.branch }}
-            git pull origin ${{ inputs.branch }}
+            git checkout "$DEPLOY_BRANCH"
+            git pull origin "$DEPLOY_BRANCH"
 
             echo "=== Writing .env ==="
             cat > .env <<'ENVEOF'
@@ -119,7 +123,7 @@ ENVEOF
             docker system prune -f --filter "until=48h" || true
 
             # Restore DB snapshot if refresh_db was requested
-            if [ "${{ inputs.refresh_db }}" = "true" ]; then
+            if [ "$REFRESH_DB" = "true" ]; then
               echo "=== Restoring DB snapshot ==="
               bash deployment/dev/restore-db.sh ~/snapshots/latest.sql.gz
             fi
@@ -166,5 +170,5 @@ ENVEOF
             echo ""
             echo "=== Deploy complete ==="
             echo "🌐 https://dev.beachleaguevb.com"
-            echo "📦 Branch: ${{ inputs.branch }}"
-            echo "🗄️  DB refresh: ${{ inputs.refresh_db }}"
+            echo "📦 Branch: $DEPLOY_BRANCH"
+            echo "🗄️  DB refresh: $REFRESH_DB"
