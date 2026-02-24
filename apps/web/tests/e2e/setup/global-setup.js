@@ -27,8 +27,6 @@ async function globalSetup(config) {
     // This prevents AxiosError 400 on signup when phone numbers are already taken.
     try {
       await cleanupTestUsers('%+1555%');
-      // Also clean up the admin test user (hardcoded phone)
-      await cleanupTestUsers('+17167831211');
       console.log('✓ Orphaned test users cleaned up');
     } catch (cleanupErr) {
       console.warn('⚠ Test user cleanup failed:', cleanupErr.message);

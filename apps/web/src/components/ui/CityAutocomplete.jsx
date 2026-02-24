@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getCityAutocomplete } from '../../services/api';
 import { useDebounce } from '../../utils/debounce';
+import './CityAutocomplete.css';
 
 /**
  * CityAutocomplete component for city selection with autocomplete suggestions.
@@ -156,7 +157,7 @@ export default function CityAutocomplete({
   };
 
   return (
-    <div ref={wrapperRef} className={`city-autocomplete-wrapper ${className}`} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} className={`city-autocomplete ${className}`}>
       <input
         type="text"
         name="city"
@@ -172,56 +173,20 @@ export default function CityAutocomplete({
         required={required}
         disabled={disabled}
         autoComplete="off"
-        style={{ width: '100%' }}
       />
       {isLoading && (
-        <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}>
-          <span style={{ fontSize: '12px', color: '#666' }}>Loading...</span>
-        </div>
+        <div className="city-autocomplete__loading">Loading...</div>
       )}
       {showSuggestions && suggestions.length > 0 && (
-        <ul 
-          className="city-autocomplete-suggestions"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            backgroundColor: 'white',
-            border: '1px solid #ddd',
-            borderTop: 'none',
-            borderRadius: '0 0 4px 4px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            zIndex: 1000,
-            listStyle: 'none',
-            margin: 0,
-            padding: 0,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}
-        >
+        <ul className="city-autocomplete__suggestions">
           {suggestions.map((suggestion, index) => (
             <li
               key={index}
+              className="city-autocomplete__item"
               onClick={() => handleSuggestionClick(suggestion)}
-              style={{
-                padding: '10px 15px',
-                cursor: 'pointer',
-                borderBottom: index < suggestions.length - 1 ? '1px solid #eee' : 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#f5f5f5';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'white';
-              }}
             >
-              <div style={{ fontWeight: '500', color: '#333' }}>
-                {suggestion.city}
-              </div>
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                {suggestion.state}
-              </div>
+              <div className="city-autocomplete__city">{suggestion.city}</div>
+              <div className="city-autocomplete__state">{suggestion.state}</div>
             </li>
           ))}
         </ul>

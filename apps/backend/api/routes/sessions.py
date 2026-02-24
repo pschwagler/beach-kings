@@ -22,6 +22,83 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _resolve_session_context(
+    db_session: AsyncSession,
+    session_id: int,
+    league_id: int | None = None,
+) -> tuple[str, int | None, str | None]:
+    """
+    Look up session name and league context before commit.
+
+    Must be called while the transaction is still open so the data is
+    consistent with what gets committed.
+
+    Args:
+        db_session: Database session (pre-commit)
+        session_id: ID of the session
+        league_id: League ID if already known (league submit route)
+
+    Returns:
+        Tuple of (session_name, league_id, league_name)
+    """
+    sess_result = await db_session.execute(
+        select(Session.name, Session.season_id).where(Session.id == session_id)
+    )
+    row = sess_result.first()
+    session_name = (row[0] if row else None) or "a session"
+    season_id = row[1] if row else None
+
+    league_name = None
+
+    # If league_id not provided, resolve from session's season
+    if league_id is None and season_id:
+        season_result = await db_session.execute(
+            select(Season.league_id).where(Season.id == season_id)
+        )
+        league_id = season_result.scalar_one_or_none()
+
+    # Look up league name
+    if league_id:
+        league_name_result = await db_session.execute(
+            select(League.name).where(League.id == league_id)
+        )
+        league_name = league_name_result.scalar_one_or_none()
+
+    return session_name, league_id, league_name
+
+
+async def _send_session_submit_notifications(
+    db_session: AsyncSession,
+    session_id: int,
+    submitter_user_id: int,
+    session_name: str,
+    league_id: int | None = None,
+    league_name: str | None = None,
+) -> None:
+    """
+    Send best-effort notifications to players in a submitted session.
+
+    Args:
+        db_session: Database session
+        session_id: ID of the submitted session
+        submitter_user_id: User ID of the person who submitted
+        session_name: Pre-resolved session name
+        league_id: League ID (pre-resolved)
+        league_name: League name (pre-resolved)
+    """
+    try:
+        await notify_players_about_session_submitted(
+            session=db_session,
+            session_id=session_id,
+            submitter_user_id=submitter_user_id,
+            session_name=session_name,
+            league_id=league_id,
+            league_name=league_name,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send session submitted notifications: {e}")
+
+
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
@@ -193,33 +270,20 @@ async def end_league_session(
             if player:
                 player_id = player["id"]
 
+        # Resolve context before lock_in_session commits the transaction
+        session_name, resolved_league_id, league_name = await _resolve_session_context(
+            session, session_id, league_id=league_id,
+        )
+
         result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
 
         if not result:
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-        # Notify match players (best-effort — must not cause a 500 since lock_in already committed)
-        try:
-            sess_result = await session.execute(
-                select(Session.name).where(Session.id == session_id)
-            )
-            session_name = sess_result.scalar_one_or_none() or "a session"
-
-            league_result = await session.execute(
-                select(League.name).where(League.id == league_id)
-            )
-            league_name = league_result.scalar_one_or_none()
-
-            await notify_players_about_session_submitted(
-                session=session,
-                session_id=session_id,
-                submitter_user_id=user["id"],
-                session_name=session_name,
-                league_id=league_id,
-                league_name=league_name,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to send session submitted notifications: {e}")
+        await _send_session_submit_notifications(
+            session, session_id, user["id"], session_name,
+            league_id=resolved_league_id, league_name=league_name,
+        )
 
         return {
             "status": "success",
@@ -527,42 +591,20 @@ async def update_session(
                 if player:
                     player_id = player["id"]
 
+            # Resolve context before lock_in_session commits the transaction
+            session_name, resolved_league_id, league_name = await _resolve_session_context(
+                session, session_id,
+            )
+
             result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
 
             if not result:
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-            # Notify match players (best-effort — must not cause a 500 since lock_in already committed)
-            try:
-                sess_result = await session.execute(
-                    select(Session.name).where(Session.id == session_id)
-                )
-                session_name = sess_result.scalar_one_or_none() or "a session"
-
-                # Determine league context if session belongs to a season
-                league_id = None
-                league_name = None
-                if result.get("season_id"):
-                    season_result = await session.execute(
-                        select(Season.league_id).where(Season.id == result["season_id"])
-                    )
-                    league_id = season_result.scalar_one_or_none()
-                    if league_id:
-                        league_name_result = await session.execute(
-                            select(League.name).where(League.id == league_id)
-                        )
-                        league_name = league_name_result.scalar_one_or_none()
-
-                await notify_players_about_session_submitted(
-                    session=session,
-                    session_id=session_id,
-                    submitter_user_id=current_user["id"],
-                    session_name=session_name,
-                    league_id=league_id,
-                    league_name=league_name,
-                )
-            except Exception as e:
-                logger.warning(f"Failed to send session submitted notifications: {e}")
+            await _send_session_submit_notifications(
+                session, session_id, current_user["id"], session_name,
+                league_id=resolved_league_id, league_name=league_name,
+            )
 
             return {
                 "status": "success",

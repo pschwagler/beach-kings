@@ -1,0 +1,5 @@
+[
+  {"full_name": "Player One", "phone": "+15550000001", "nickname": "P1", "gender": "male", "preferred_side": "left"},
+  {"full_name": "Player Two", "phone": "+15550000002", "nickname": "P2", "gender": "male", "preferred_side": "right"},
+  {"full_name": "Player Three", "phone": "+15550000003", "nickname": "P3", "gender": "male"}
+]

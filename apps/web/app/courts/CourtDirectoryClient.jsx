@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useAuthModal } from '../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../src/contexts/ModalContext';
@@ -20,9 +20,11 @@ const VIEW_STORAGE_KEY = 'court_directory_view';
 /**
  * Client wrapper for the court directory page.
  * Renders NavBar + map/list toggle + court list or map view + optional "Add Court" form.
+ * Supports ?location=<id> query param to pre-filter courts by location hub.
  */
 export default function CourtDirectoryClient({ initialCourts }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
@@ -30,6 +32,8 @@ export default function CourtDirectoryClient({ initialCourts }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [mapCourts, setMapCourts] = useState(null);
+
+  const locationParam = searchParams.get('location') || null;
 
   // Restore saved view preference
   useEffect(() => {
@@ -150,7 +154,8 @@ export default function CourtDirectoryClient({ initialCourts }) {
           />
         ) : (
           <CourtListView
-            initialCourts={initialCourts}
+            initialCourts={locationParam ? null : initialCourts}
+            locationId={locationParam}
             userLocation={
               currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }

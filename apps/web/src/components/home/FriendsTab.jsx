@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Search, MapPin, UserPlus, UserCheck, MoreVertical, X } from 'lucide-react';
@@ -83,6 +83,7 @@ export default function FriendsTab() {
   const { notifications, markAsRead, fetchUnreadCount } = useNotifications();
   const menuRef = useRef(null);
   const isFetchingSuggestions = useRef(false);
+  const dismissedIdsRef = useRef(dismissedIds);
 
   /** Visible suggestions: first N from buffer, excluding dismissed. */
   const visibleSuggestions = useMemo(() => {
@@ -153,9 +154,13 @@ export default function FriendsTab() {
     setActionLoading((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Keep ref in sync with state so callbacks can read the latest value
+  useEffect(() => { dismissedIdsRef.current = dismissedIds; }, [dismissedIds]);
+
   /**
    * Background-refetch suggestions when buffer runs low.
    * Merges new results into the buffer, deduplicating by player_id.
+   * Uses dismissedIdsRef to avoid re-creating the callback on every dismiss.
    */
   const refetchSuggestionsIfNeeded = useCallback(async () => {
     if (isFetchingSuggestions.current) return;
@@ -164,8 +169,9 @@ export default function FriendsTab() {
       const fresh = await getFriendSuggestions(SUGGESTIONS_FETCH_COUNT);
       setSuggestionBuffer((prev) => {
         const existingIds = new Set(prev.map((s) => s.player_id));
+        const currentDismissed = dismissedIdsRef.current;
         const newItems = (fresh || []).filter(
-          (s) => !existingIds.has(s.player_id) && !dismissedIds.has(s.player_id)
+          (s) => !existingIds.has(s.player_id) && !currentDismissed.has(s.player_id)
         );
         return [...prev, ...newItems];
       });
@@ -174,7 +180,7 @@ export default function FriendsTab() {
     } finally {
       isFetchingSuggestions.current = false;
     }
-  }, [dismissedIds]);
+  }, []);
 
   /**
    * Remove a suggestion from the buffer (after send request or dismiss).

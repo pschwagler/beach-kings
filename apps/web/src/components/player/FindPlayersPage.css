@@ -62,21 +62,132 @@
   background: var(--gray-300);
 }
 
-.find-players__filters {
+/* Toolbar row (filter btn + view toggle + count) */
+.find-players__toolbar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.find-players__toolbar-left {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  align-items: flex-start;
 }
 
-.find-players__filters .searchable-multiselect {
-  min-width: 200px;
-  flex: 1;
-  max-width: 300px;
+.find-players__toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.find-players__select {
+.find-players__count {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.find-players__clear-btn {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Filter button */
+.find-players__filter-btn-wrapper {
+  position: relative;
+}
+
+.find-players__filter-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: white;
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.find-players__filter-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.find-players__filter-btn--active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.find-players__filter-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.find-players__filter-btn--active .find-players__filter-badge {
+  background: white;
+  color: var(--primary);
+}
+
+/* Filter panel popover */
+.find-players__filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  min-width: 280px;
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.find-players__filter-group {
+  margin-bottom: 16px;
+}
+
+.find-players__filter-group:last-child {
+  margin-bottom: 0;
+}
+
+.find-players__filter-divider {
+  height: 1px;
+  background: var(--gray-200);
+  margin: 4px 0 16px;
+}
+
+.find-players__filter-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.find-players__filter-select {
+  width: 100%;
+  padding: 8px 12px;
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   font-size: 13px;
@@ -85,16 +196,114 @@
   cursor: pointer;
 }
 
-.find-players__select:focus {
-  outline: none;
+.find-players__filter-select:hover {
   border-color: var(--primary);
 }
 
-/* Results count */
-.find-players__count {
+.find-players__filter-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-lighter);
+}
+
+.find-players__filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
   font-size: 13px;
+  color: var(--gray-900);
+  background: white;
+}
+
+.find-players__filter-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-lighter);
+}
+
+.find-players__filter-input::placeholder {
+  color: var(--gray-500);
+}
+
+/* Suppress the label inside SearchableMultiSelect when used in the panel */
+.find-players__filter-group .searchable-multiselect {
+  min-width: 0;
+  max-width: none;
+}
+
+/* Filter pills row */
+.find-players__filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.find-players__filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.find-players__filter-pill-label {
+  white-space: nowrap;
+}
+
+.find-players__filter-pill-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary-dark);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.find-players__filter-pill-remove:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* View toggle */
+.find-players__view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.find-players__view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
   color: var(--gray-600);
-  margin-bottom: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.find-players__view-btn:hover {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.find-players__view-btn--active {
+  background: var(--primary-lighter);
+  color: var(--primary);
+  border-color: var(--primary-light);
 }
 
 /* Player card grid */
@@ -102,6 +311,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
+}
+
+/* Hidden on desktop when table mode is active; revealed on mobile */
+.find-players__grid--mobile-only {
+  display: none;
 }
 
 .find-players__card {
@@ -223,6 +437,99 @@
   color: var(--warm-brown);
 }
 
+/* Small avatar variant for table view */
+.find-players__card-avatar--sm {
+  width: 32px;
+  height: 32px;
+}
+
+.find-players__card-avatar--sm .find-players__card-avatar-initials {
+  font-size: 13px;
+}
+
+/* Table view */
+.find-players__table-wrapper {
+  overflow-x: auto;
+}
+
+.find-players__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.find-players__table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+.find-players__table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-900);
+  vertical-align: middle;
+}
+
+.find-players__table-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.find-players__table-row:hover {
+  background: var(--gray-50);
+}
+
+.find-players__table-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.find-players__table-cell--secondary {
+  color: var(--gray-700);
+  font-size: 13px;
+}
+
+/* Sortable column header button */
+.find-players__th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.find-players__th-sort:hover {
+  color: var(--primary);
+}
+
+.find-players__th-sort--active {
+  color: var(--gray-900);
+}
+
+.find-players__sort-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--gray-400);
+  transition: color 0.15s;
+}
+
+.find-players__th-sort--active .find-players__sort-icon {
+  color: var(--primary);
+}
+
 /* Pagination */
 .find-players__pagination {
   display: flex;
@@ -249,16 +556,21 @@
     grid-template-columns: 1fr;
   }
 
-  .find-players__filters {
-    flex-direction: column;
-    align-items: stretch;
+  .find-players__view-toggle {
+    display: none;
   }
 
-  .find-players__select {
-    width: 100%;
+  .find-players__table-wrapper {
+    display: none;
   }
 
-  .find-players__filters .searchable-multiselect {
-    max-width: none;
+  /* On mobile, always show card grid (even when table mode is selected) */
+  .find-players__grid--mobile-only {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .find-players__toolbar {
+    flex-wrap: wrap;
   }
 }

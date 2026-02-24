@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -209,6 +209,7 @@ async def list_league_members(
 async def add_league_member(
     league_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(make_require_league_admin()),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -221,17 +222,16 @@ async def add_league_member(
 
         # Notify all league members about the new member (non-blocking)
         try:
-            # Get player user_id for notification
             player_result = await session.execute(
                 select(Player.user_id).where(Player.id == player_id)
             )
             player_user_id = player_result.scalar_one_or_none()
 
             if player_user_id:
-                asyncio.create_task(
-                    notification_service.notify_members_about_new_member(
-                        session=None, league_id=league_id, new_member_user_id=player_user_id
-                    )
+                background_tasks.add_task(
+                    notification_service.notify_members_about_new_member_background,
+                    league_id=league_id,
+                    new_member_user_id=player_user_id,
                 )
         except Exception as e:
             # Don't fail the member addition if notification fails
@@ -250,10 +250,12 @@ async def add_league_member(
 async def add_league_members_batch(
     league_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(make_require_league_admin()),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Add multiple players to a league in one request (league_admin).
+
     Body: { "members": [{ "player_id": number, "role": "member"|"admin" }] }.
     Returns: { "added": [...], "failed": [{"player_id": number, "error": string}] }.
     """
@@ -275,12 +277,10 @@ async def add_league_members_batch(
                 )
                 player_user_id = player_result.scalar_one_or_none()
                 if player_user_id:
-                    asyncio.create_task(
-                        notification_service.notify_members_about_new_member(
-                            session=None,
-                            league_id=league_id,
-                            new_member_user_id=player_user_id,
-                        )
+                    background_tasks.add_task(
+                        notification_service.notify_members_about_new_member_background,
+                        league_id=league_id,
+                        new_member_user_id=player_user_id,
                     )
             except Exception as e:
                 logger.warning(f"Failed to create notification for new league member: {e}")
@@ -320,6 +320,7 @@ async def update_league_member(
 async def remove_league_member(
     league_id: int,
     member_id: int,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(make_require_league_admin()),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -345,10 +346,10 @@ async def remove_league_member(
 
         # Notify the removed player (non-blocking)
         if player_user_id:
-            asyncio.create_task(
-                notification_service.notify_player_about_removal_from_league(
-                    session=None, league_id=league_id, removed_user_id=player_user_id
-                )
+            background_tasks.add_task(
+                notification_service.notify_player_about_removal_from_league_background,
+                league_id=league_id,
+                removed_user_id=player_user_id,
             )
 
         return {"success": True}

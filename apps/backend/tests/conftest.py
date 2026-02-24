@@ -74,6 +74,9 @@ async def _patch_missing_columns(conn):
     patches = [
         # Migration 019
         ("matches", "ranked_intent", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        # Migration 024 — Google SSO
+        ("users", "auth_provider", "VARCHAR NOT NULL DEFAULT 'phone'"),
+        ("users", "google_id", "VARCHAR"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),
@@ -98,6 +101,44 @@ async def _patch_missing_columns(conn):
         ("courts", "created_by", "INTEGER"),
         ("courts", "updated_by", "INTEGER"),
     ]
+    # Migration 024 — make phone_number and password_hash nullable for Google SSO
+    nullable_patches = [
+        ("users", "phone_number"),
+        ("users", "password_hash"),
+    ]
+    for table, column in nullable_patches:
+        tbl_exists = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_exists.scalar() is not None:
+            is_nullable = await conn.execute(text(
+                "SELECT is_nullable FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ), {"t": table, "c": column})
+            row = is_nullable.scalar()
+            if row and row == "NO":
+                await conn.execute(text(
+                    f'ALTER TABLE {table} ALTER COLUMN "{column}" DROP NOT NULL'
+                ))
+
+    # Migration 024 — add unique indexes on email and google_id
+    unique_index_patches = [
+        ("users", "idx_users_email", "email"),
+        ("users", "idx_users_google_id", "google_id"),
+    ]
+    for table, idx_name, column in unique_index_patches:
+        idx_exists = await conn.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname = :idx"
+        ), {"idx": idx_name})
+        if idx_exists.scalar() is None:
+            tbl_exists = await conn.execute(text(
+                "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+            ), {"t": table})
+            if tbl_exists.scalar() is not None:
+                await conn.execute(text(
+                    f'CREATE UNIQUE INDEX "{idx_name}" ON {table} ("{column}")'
+                ))
+
     # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
     type_patches = [
         ("court_edit_suggestions", "changes", "JSONB", "text"),

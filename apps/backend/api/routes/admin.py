@@ -16,7 +16,6 @@ from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
     require_system_admin,
-    require_admin_phone,
 )
 from backend.models.schemas import FeedbackCreate, FeedbackResponse
 
@@ -199,11 +198,11 @@ async def submit_feedback(
 
 @router.get("/api/admin-view/feedback", response_model=List[FeedbackResponse])
 async def get_all_feedback(
-    user: dict = Depends(require_admin_phone), session: AsyncSession = Depends(get_db_session)
+    user: dict = Depends(require_system_admin), session: AsyncSession = Depends(get_db_session)
 ):
     """
     Get all feedback submissions.
-    Only accessible to user with phone number +17167831211.
+    Only accessible to system admins.
     """
     try:
         result = await session.execute(select(Feedback).order_by(Feedback.created_at.desc()))
@@ -245,10 +244,10 @@ async def get_all_feedback(
 async def update_feedback_resolution(
     feedback_id: int,
     request: Request,
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Update feedback resolution status. Only accessible to user with phone number +17167831211."""
+    """Update feedback resolution status. Only accessible to system admins."""
     try:
         body = await request.json()
         is_resolved = body.get("is_resolved", False)
@@ -298,9 +297,9 @@ async def update_feedback_resolution(
 
 @router.get("/api/admin-view/config")
 async def get_admin_config(
-    user: dict = Depends(require_admin_phone), session: AsyncSession = Depends(get_db_session)
+    user: dict = Depends(require_system_admin), session: AsyncSession = Depends(get_db_session)
 ):
-    """Get admin configuration settings. Only accessible to user with phone number +17167831211."""
+    """Get admin configuration settings. Only accessible to system admins."""
     try:
         enable_sms = await settings_service.get_bool_setting(
             session, "enable_sms", env_var="ENABLE_SMS", default=True
@@ -331,10 +330,10 @@ async def get_admin_config(
 @router.put("/api/admin-view/config")
 async def update_admin_config(
     request: Request,
-    user: dict = Depends(require_admin_phone),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Update admin configuration settings. Only accessible to user with phone number +17167831211."""
+    """Update admin configuration settings. Only accessible to system admins."""
     try:
         body = await request.json()
 

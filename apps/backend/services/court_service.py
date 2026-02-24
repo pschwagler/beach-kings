@@ -197,7 +197,8 @@ async def list_courts_public(
 
     offset = (page - 1) * page_size
     courts_q = base.outerjoin(Location, Court.location_id == Location.id).add_columns(
-        Location.name.label("location_name")
+        Location.name.label("location_name"),
+        Location.slug.label("location_slug"),
     )
 
     if dist_col is not None:
@@ -226,6 +227,7 @@ async def list_courts_public(
     for row in rows:
         court = row[0]
         loc_name = row[1]
+        loc_slug = row[2]
         item = {
             "id": court.id,
             "name": court.name,
@@ -233,6 +235,7 @@ async def list_courts_public(
             "address": court.address,
             "location_id": court.location_id,
             "location_name": loc_name,
+            "location_slug": loc_slug,
             "court_count": court.court_count,
             "surface_type": court.surface_type,
             "is_free": court.is_free,
@@ -246,7 +249,7 @@ async def list_courts_public(
             "photo_url": photos_map.get(court.id),
         }
         if dist_col is not None:
-            d = row[2]
+            d = row[3]
             item["distance_miles"] = round(d, 1) if d < 999999.0 else None
         items.append(item)
 
@@ -391,14 +394,17 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     if not court:
         return None
 
-    # Location name
+    # Location name + slug
     loc_name = None
+    loc_slug = None
     if court.location_id:
         loc_result = await session.execute(
-            select(Location.name).where(Location.id == court.location_id)
+            select(Location.name, Location.slug).where(Location.id == court.location_id)
         )
         loc_row = loc_result.first()
-        loc_name = loc_row[0] if loc_row else None
+        if loc_row:
+            loc_name = loc_row[0]
+            loc_slug = loc_row[1]
 
     # Build reviews
     reviews = []
@@ -452,6 +458,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
         "description": court.description,
         "location_id": court.location_id,
         "location_name": loc_name,
+        "location_slug": loc_slug,
         "court_count": court.court_count,
         "surface_type": court.surface_type,
         "is_free": court.is_free,
@@ -544,56 +551,33 @@ async def get_court_leaderboard(
     Counts matches played at the court (via sessions) and calculates win rate.
     Returns ranked list of players with match_count, win_count, win_rate.
     """
-    # Build a union of all player appearances in matches at this court
-    # Each match has 4 player slots: team1_player1, team1_player2, team2_player1, team2_player2
-    # A player "wins" if they're on the winning team
-    player_match = (
-        select(
-            Match.id.label("match_id"),
-            Match.team1_player1_id.label("player_id"),
-            case((Match.winner == 1, 1), else_=0).label("is_win"),
+    # Build a union of all player appearances in matches at this court.
+    # Each match has 4 player slots across two teams; a player "wins" if
+    # they're on the winning team.
+    player_slots = [
+        (Match.team1_player1_id, 1),
+        (Match.team1_player2_id, 1),
+        (Match.team2_player1_id, 2),
+        (Match.team2_player2_id, 2),
+    ]
+
+    selects = []
+    for col, winning_team in player_slots:
+        selects.append(
+            select(
+                Match.id.label("match_id"),
+                col.label("player_id"),
+                case((Match.winner == winning_team, 1), else_=0).label("is_win"),
+            )
+            .join(Session, Session.id == Match.session_id)
+            .where(
+                Session.court_id == court_id,
+                Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
+                col.isnot(None),
+            )
         )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team1_player1_id.isnot(None),
-        )
-    ).union_all(
-        select(
-            Match.id,
-            Match.team1_player2_id,
-            case((Match.winner == 1, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team1_player2_id.isnot(None),
-        ),
-        select(
-            Match.id,
-            Match.team2_player1_id,
-            case((Match.winner == 2, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team2_player1_id.isnot(None),
-        ),
-        select(
-            Match.id,
-            Match.team2_player2_id,
-            case((Match.winner == 2, 1), else_=0),
-        )
-        .join(Session, Session.id == Match.session_id)
-        .where(
-            Session.court_id == court_id,
-            Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
-            Match.team2_player2_id.isnot(None),
-        ),
-    )
+
+    player_match = selects[0].union_all(*selects[1:])
 
     sub = player_match.subquery()
 

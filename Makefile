@@ -5,6 +5,7 @@ BACKEND_HOST ?= 0.0.0.0
 BACKEND_APP ?= backend.api.main:app
 DEBUG_BACKEND ?= 0
 DEBUGPY_PORT ?= 5678
+FRONTEND_PORT ?= 3000
 
 ensure-docker:
 	@echo "Checking Docker services..."
@@ -116,11 +117,11 @@ frontend-install:
 
 dev: ensure-docker
 	@echo "🚀 Starting ALL services (backend + postgres + frontend)..."
-	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
-	@echo "🎨 Frontend: http://localhost:3000 (Next.js dev server)"
+	@echo "📡 Backend: http://localhost:$(BACKEND_PORT) (auto-reload)"
+	@echo "🎨 Frontend: http://localhost:$(FRONTEND_PORT) (Next.js dev server)"
 	@echo ""
-	@echo "🌐 Visit: http://localhost:3000 (frontend dev server)"
-	@echo "📱 Or from your phone: http://<your-ip>:3000"
+	@echo "🌐 Visit: http://localhost:$(FRONTEND_PORT) (frontend dev server)"
+	@echo "📱 Or from your phone: http://<your-ip>:$(FRONTEND_PORT)"
 	@echo ""
 	@echo "Press Ctrl+C to stop all services"
 	@echo ""
@@ -131,7 +132,7 @@ dev: ensure-docker
 	@trap 'pkill -f "next dev" 2>/dev/null || true; docker compose down' EXIT INT TERM; \
 	cd apps/web && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
 		"docker compose up postgres redis backend" \
-		"BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) BACKEND_INTERNAL_URL=http://localhost:$(BACKEND_PORT) npm run dev" || true; \
+		"PORT=$(FRONTEND_PORT) BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) BACKEND_INTERNAL_URL=http://localhost:$(BACKEND_PORT) npm run dev" || true; \
 	pkill -f "next dev" 2>/dev/null || true; \
 	docker compose down
 
@@ -219,26 +220,14 @@ clean-venv:
 
 migrate:
 	@echo "Running database migrations..."
-	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
-		echo "❌ Backend container is not running. Start it with 'make dev' or 'docker compose up -d backend'"; \
-		exit 1; \
-	fi
-	@docker exec beach-kings-backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
+	@docker compose exec backend bash -c "cd /app/backend && PYTHONPATH=/app python -m alembic upgrade head"
 	@echo "✅ Migrations complete!"
 
 seed-users:
-	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
-		echo "❌ Backend container is not running. Start it with 'make dev'"; \
-		exit 1; \
-	fi
-	@docker exec beach-kings-backend bash -c "cd /app && PYTHONPATH=/app python scripts/seed_test_users.py"
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/seed_test_users.py"
 
 dev-login:
-	@if ! docker ps --format '{{.Names}}' | grep -q '^beach-kings-backend$$'; then \
-		echo "❌ Backend container is not running. Start it with 'make dev'"; \
-		exit 1; \
-	fi
-	@docker exec beach-kings-backend bash -c "cd /app && PYTHONPATH=/app python scripts/dev_login.py '$(ID)'"
+	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/dev_login.py '$(ID)'"
 
 test: ensure-docker
 	@echo "🧪 Running tests in Docker containers..."

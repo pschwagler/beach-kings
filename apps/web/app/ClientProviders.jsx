@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { AppProvider } from '../src/contexts/AppContext';
 import { AuthModalProvider, useAuthModal } from '../src/contexts/AuthModalContext';
@@ -55,7 +56,9 @@ function LayoutContent({ children }) {
 }
 
 export default function ClientProviders({ children }) {
-  return (
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  const content = (
     <AuthProvider>
       <NotificationProvider>
         <AppProvider>
@@ -74,6 +77,17 @@ export default function ClientProviders({ children }) {
       </NotificationProvider>
     </AuthProvider>
   );
+
+  // Wrap with GoogleOAuthProvider only if client ID is configured
+  if (googleClientId) {
+    return (
+      <GoogleOAuthProvider clientId={googleClientId}>
+        {content}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return content;
 }
 
 

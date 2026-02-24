@@ -1,5 +1,5 @@
 /**
- * Shared UI components for Beach Kings app
+ * Shared UI components for Beach League app
  * Components should be compatible with both React Native and React Native Web
  */
 

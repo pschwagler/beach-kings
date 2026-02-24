@@ -17,10 +17,10 @@ export default function NotificationInbox({ onClose }) {
     markAllAsRead,
     fetchNotifications 
   } = useNotifications();
-  // Fetch unread notifications when inbox opens (only once per mount)
+  // Fetch recent notifications (read + unread) when inbox opens
   useEffect(() => {
     if (!isLoading) {
-      fetchNotifications(50, 0, true); // unreadOnly = true
+      fetchNotifications(10, 0, false); // fetch all recent, not just unread
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount - fetchNotifications is stable from context
@@ -82,7 +82,7 @@ export default function NotificationInbox({ onClose }) {
 
       // Mark notification as read and refresh
       await markAsRead(notification.id);
-      await fetchNotifications(50, 0, true); // Refresh unread notifications
+      await fetchNotifications(10, 0, false); // Refresh recent notifications
     } catch (error) {
       console.error(`Error performing ${action.action} action:`, error);
       showToast(error.response?.data?.detail || `Failed to ${action.action} request`, 'error');
@@ -121,26 +121,28 @@ export default function NotificationInbox({ onClose }) {
     <div className="notification-inbox">
       <div className="notification-inbox-header">
         <h3 className="notification-inbox-title">Notifications</h3>
-        <a
-          href="/home?tab=notifications"
-          onClick={handleViewAllClick}
-          className="notification-inbox-view-all"
-        >
-          View all notifications
-        </a>
+        {hasUnread && (
+          <button
+            type="button"
+            className="notification-inbox-mark-all"
+            onClick={handleMarkAllAsRead}
+          >
+            Mark all as read
+          </button>
+        )}
       </div>
 
       <div className="notification-inbox-content">
         {isLoading ? (
           <div className="notification-inbox-empty">Loading notifications...</div>
-        ) : unreadNotifications.length === 0 ? (
-          <div className="notification-inbox-empty">No unread notifications</div>
+        ) : notifications.length === 0 ? (
+          <div className="notification-inbox-empty">No notifications</div>
         ) : (
           <div className="notification-inbox-list">
-            {unreadNotifications.map((notification) => (
+            {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className="notification-inbox-item unread"
+                className={`notification-inbox-item${notification.is_read ? '' : ' unread'}`}
                 onClick={() => handleNotificationClick(notification)}
                 role="button"
                 tabIndex={0}
@@ -172,11 +174,23 @@ export default function NotificationInbox({ onClose }) {
                     {formatTimestamp(notification.created_at)}
                   </div>
                 </div>
-                <div className="notification-inbox-item-dot" aria-label="Unread" />
+                {!notification.is_read && (
+                  <div className="notification-inbox-item-dot" aria-label="Unread" />
+                )}
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      <div className="notification-inbox-footer">
+        <a
+          href="/home?tab=notifications"
+          onClick={handleViewAllClick}
+          className="notification-inbox-view-all"
+        >
+          View all notifications
+        </a>
       </div>
     </div>
   );

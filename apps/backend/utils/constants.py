@@ -1,6 +1,9 @@
 """
-Constants used across the ELO calculation system.
+Application-wide and ELO calculation constants.
 """
+
+# Application
+APP_NAME = "Beach League"
 
 # ELO calculation constants
 K = 40  # K-factor for global ELO ratings

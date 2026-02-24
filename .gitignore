@@ -115,6 +115,12 @@ apps/web/playwright-report/
 # Benchmark results
 scripts/benchmark_results/
 
+# Player data (contains real phone numbers / PII)
+scripts/players.json
+
+# git filter-repo replacements (contains real phone numbers for history rewrite)
+replacements.txt
+
 # Gemini CLI (keep commands folder)
 .gemini/*
 !.gemini/commands/

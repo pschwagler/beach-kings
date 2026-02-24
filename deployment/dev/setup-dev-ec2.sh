@@ -17,7 +17,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-echo "🏐 Beach Kings — Dev EC2 Bootstrap"
+echo "🏐 Beach League — Dev EC2 Bootstrap"
 echo "==================================="
 echo ""
 

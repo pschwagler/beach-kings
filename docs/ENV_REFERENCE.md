@@ -20,7 +20,8 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENV` | `development` | `development`, `production`, or `test` |
-| `JWT_EXPIRATION_HOURS` | `72` | JWT access token TTL |
+| `JWT_EXPIRATION_HOURS` | `1` | JWT access token TTL (hours) |
+| `REFRESH_TOKEN_EXPIRATION_DAYS` | `30` | Refresh token TTL (days). Tokens rotate on each use — old token is deleted and a new one issued |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins |
 | `DEBUG_BACKEND` | `0` | Enable debug mode |
 
@@ -39,6 +40,13 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `REDIS_HOST` | `redis` | Redis hostname |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
+
+### Google SSO
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (backend token verification) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | (empty) | Google OAuth 2.0 Client ID (frontend, exposed to browser) |
 
 ### Twilio SMS
 
@@ -66,6 +74,12 @@ Source: `.env.example`, `docker-compose.yml`, `docker-compose.test.yml`
 | `AWS_SECRET_ACCESS_KEY` | (empty) | AWS secret key |
 | `AWS_S3_BUCKET` | (empty) | S3 bucket name |
 | `AWS_S3_REGION` | `us-west-2` | AWS region |
+
+### System Admin
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEFAULT_ADMIN_PHONE` | (empty) | Phone number (E.164) seeded as default system admin on startup. Leave empty to skip |
 
 ### External APIs
 

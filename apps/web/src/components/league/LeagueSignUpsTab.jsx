@@ -340,7 +340,6 @@ export default function LeagueSignUpsTab() {
                 }
                 openModal(MODAL_TYPES.EDIT_SCHEDULE, {
                   seasonId: seasonForCreation.id,
-                  seasonEndDate: seasonForCreation.end_date,
                   onSubmit: handleCreateSchedule
                 });
               }}
@@ -354,16 +353,8 @@ export default function LeagueSignUpsTab() {
             schedules={weeklySchedules}
             isLeagueAdmin={isLeagueAdmin}
             onEdit={(schedule) => {
-              // Use schedule's season_id if available, otherwise use seasonForCreation
-              const scheduleSeasonId = schedule.season_id || (seasonForCreation?.id);
-              const scheduleSeason = scheduleSeasonId ? seasons.find(s => s.id === scheduleSeasonId) : seasonForCreation;
-              if (!scheduleSeason) {
-                showToast('Unable to determine season for this schedule', 'error');
-                return;
-              }
               openModal(MODAL_TYPES.EDIT_SCHEDULE, {
                 schedule,
-                seasonEndDate: scheduleSeason.end_date,
                 onSubmit: (data) => handleUpdateSchedule(schedule.id, data)
               });
             }}

@@ -77,21 +77,38 @@ export const getStoredTokens = () => {
   };
 };
 
-api.interceptors.request.use(
-  (config) => {
-    // Always use the latest token from the authTokens object
-    // This ensures we use the token even if it was just refreshed
-    const token = authTokens.accessToken;
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+// Cross-tab token sync: when another tab writes new tokens to localStorage,
+// update our in-memory copy so requests use the fresh values.
+if (isBrowser) {
+  window.addEventListener('storage', (e) => {
+    if (e.key === ACCESS_TOKEN_KEY) {
+      authTokens.accessToken = e.newValue;
+    } else if (e.key === REFRESH_TOKEN_KEY) {
+      authTokens.refreshToken = e.newValue;
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  });
+}
 
-// Queue to handle concurrent refresh attempts - only one refresh at a time
+/**
+ * Decode JWT expiration timestamp without verification (client-side only).
+ * Returns epoch seconds or null if token is malformed.
+ */
+const getTokenExp = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp || null;
+  } catch {
+    return null;
+  }
+};
+
+/** Threshold in seconds — refresh proactively when token expires within this window. */
+const PROACTIVE_REFRESH_THRESHOLD_SECS = 120;
+
+// --- Token refresh shared state ---
+// Both the proactive (request interceptor) and reactive (401 response interceptor)
+// refresh paths use this single refreshAccessToken() function, ensuring mutual
+// exclusion via the isRefreshing flag and failedQueue.
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -103,8 +120,61 @@ const processQueue = (error, token = null) => {
       prom.resolve(token);
     }
   });
-  
   failedQueue = [];
+};
+
+/**
+ * Single entry point for token refresh — used by both the proactive (request
+ * interceptor) and reactive (401 response interceptor) paths.
+ *
+ * Guarantees only one refresh request is in-flight at a time. Concurrent
+ * callers are queued and resolved when the single refresh completes.
+ */
+const refreshAccessToken = () => {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+
+  const latestRefreshToken = isBrowser
+    ? window.localStorage.getItem(REFRESH_TOKEN_KEY)
+    : authTokens.refreshToken;
+
+  if (!latestRefreshToken) {
+    isRefreshing = false;
+    return Promise.reject(new Error('No refresh token available'));
+  }
+
+  return refreshClient
+    .post('/api/auth/refresh', { refresh_token: latestRefreshToken })
+    .then(({ data }) => {
+      setAuthTokens(data.access_token, data.refresh_token || authTokens.refreshToken);
+      const newToken = data.access_token;
+      isRefreshing = false;
+      processQueue(null, newToken);
+      return newToken;
+    })
+    .catch((err) => {
+      isRefreshing = false;
+
+      // Check if another tab already refreshed successfully
+      if (isBrowser) {
+        const freshToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+        if (freshToken && freshToken !== authTokens.accessToken) {
+          authTokens.accessToken = freshToken;
+          authTokens.refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+          processQueue(null, freshToken);
+          return freshToken;
+        }
+      }
+
+      clearAuthTokens();
+      processQueue(err, null);
+      return Promise.reject(err);
+    });
 };
 
 // Public endpoints that should never trigger token refresh
@@ -118,13 +188,52 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/api/auth/reset-password-verify',
   '/api/auth/reset-password-confirm',
   '/api/auth/sms-login',
-  '/api/auth/check-phone'
+  '/api/auth/check-phone',
+  '/api/auth/google'
 ];
 
 const isPublicAuthEndpoint = (url) => {
   if (!url) return false;
   return PUBLIC_AUTH_ENDPOINTS.some(endpoint => url.includes(endpoint));
 };
+
+// Cache decoded exp per token to avoid re-parsing on every request
+let cachedTokenExp = { token: null, exp: null };
+
+api.interceptors.request.use(
+  async (config) => {
+    let token = authTokens.accessToken;
+
+    // Proactive refresh: if access token expires within the threshold, refresh
+    // before the request goes out (avoids a 401 round-trip).
+    if (token && !isPublicAuthEndpoint(config.url)) {
+      // Use cached exp value when token hasn't changed
+      let exp;
+      if (cachedTokenExp.token === token) {
+        exp = cachedTokenExp.exp;
+      } else {
+        exp = getTokenExp(token);
+        cachedTokenExp = { token, exp };
+      }
+      if (exp && exp - Date.now() / 1000 < PROACTIVE_REFRESH_THRESHOLD_SECS) {
+        try {
+          token = await refreshAccessToken();
+          cachedTokenExp = { token, exp: getTokenExp(token) };
+        } catch {
+          // If proactive refresh fails, send the request with the current token
+          // and let the 401 response interceptor handle it.
+        }
+      }
+    }
+
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 api.interceptors.response.use(
   (response) => response,
@@ -136,9 +245,8 @@ api.interceptors.response.use(
 
     // Handle 403 Forbidden - show login modal
     if (isForbidden && isBrowser) {
-      // Dispatch a custom event to trigger login modal
-      window.dispatchEvent(new CustomEvent('show-login-modal', { 
-        detail: { reason: 'forbidden' } 
+      window.dispatchEvent(new CustomEvent('show-login-modal', {
+        detail: { reason: 'forbidden' }
       }));
     }
 
@@ -147,67 +255,20 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // If we're already refreshing, queue this request to retry after refresh
-    if (isUnauthorized && isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then(token => {
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        })
-        .catch(err => {
-          return Promise.reject(err);
-        });
-    }
-
     // Attempt to refresh token if unauthorized and we have a refresh token
     if (
       isUnauthorized &&
-      authTokens.refreshToken &&
-      !originalRequest._retry &&
-      !isPublicAuthEndpoint(url)
+      (authTokens.refreshToken || (isBrowser && window.localStorage.getItem(REFRESH_TOKEN_KEY))) &&
+      !originalRequest._retry
     ) {
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        // Get the latest refresh token from storage
-        const latestRefreshToken = isBrowser 
-          ? window.localStorage.getItem(REFRESH_TOKEN_KEY) 
-          : authTokens.refreshToken;
-        
-        if (!latestRefreshToken) {
-          clearAuthTokens();
-          isRefreshing = false;
-          processQueue(error, null);
-          return Promise.reject(error);
-        }
-        
-        const { data } = await refreshClient.post('/api/auth/refresh', {
-          refresh_token: latestRefreshToken,
-        });
-        
-        // Update tokens with the new access token
-        setAuthTokens(data.access_token);
-        
-        // Use the new token directly from the response
-        const newAccessToken = data.access_token;
-        
-        // Process queued requests with the new token
-        isRefreshing = false;
-        processQueue(null, newAccessToken);
-        
-        // Retry the original request with the new token
+        const newAccessToken = await refreshAccessToken();
         originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear tokens and reject all queued requests
-        clearAuthTokens();
-        isRefreshing = false;
-        processQueue(refreshError, null);
         return Promise.reject(error);
       }
     }

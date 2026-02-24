@@ -34,21 +34,36 @@
   border-bottom: 1px solid var(--gray-300);
 }
 
-/* Back Link — matches session-page-back style */
-
-.court-detail__back-link {
-  display: inline-flex;
+/* Breadcrumb navigation */
+.court-detail__breadcrumb {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.court-detail__breadcrumb-link {
   color: var(--primary);
   text-decoration: none;
   font-weight: 500;
-  font-size: 0.95rem;
-  margin-bottom: 20px;
 }
 
-.court-detail__back-link:hover {
+.court-detail__breadcrumb-link:hover {
   color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.court-detail__breadcrumb-sep {
+  color: var(--gray-300);
+}
+
+.court-detail__breadcrumb-current {
+  color: var(--gray-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Header */

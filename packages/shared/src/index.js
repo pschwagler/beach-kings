@@ -1,5 +1,5 @@
 /**
- * Shared utilities and types for Beach Kings app
+ * Shared utilities and types for Beach League app
  */
 
 // Utilities

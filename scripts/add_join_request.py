@@ -3,10 +3,10 @@
 One-off script to add a pending league join request for testing the join-request UI.
 
 Usage (Docker; entrypoint must be overridden so the script runs instead of the server):
-  docker compose run --rm --entrypoint "" -e PYTHONPATH=/app backend python /app/scripts/add_join_request.py "Roger Subervi" 1
+  docker compose run --rm --entrypoint "" -e PYTHONPATH=/app backend python /app/scripts/add_join_request.py "John Doe" 1
 
 Usage (local, from repo root with venv and PYTHONPATH):
-  PYTHONPATH=apps/backend python scripts/add_join_request.py "Roger Subervi" 1
+  PYTHONPATH=apps/backend python scripts/add_join_request.py "John Doe" 1
 """
 
 import asyncio
@@ -60,7 +60,7 @@ async def add_join_request(player_full_name: str, league_id: int) -> None:
 
 
 def main():
-    player_name = sys.argv[1] if len(sys.argv) > 1 else "Roger Subervi"
+    player_name = sys.argv[1] if len(sys.argv) > 1 else "John Doe"
     league_id = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     asyncio.run(add_join_request(player_name, league_id))
 

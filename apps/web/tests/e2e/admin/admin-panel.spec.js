@@ -6,11 +6,8 @@ import { test, expect } from '../fixtures/test-fixtures.js';
  * Uses `adminUser` (system admin) and `testUser` (non-admin).
  * Admin panel is at /admin-view.
  *
- * NOTE: The admin panel has two auth checks:
- * - require_system_admin: for court moderation (configurable via DB settings)
- * - require_admin_phone: for config/feedback (hardcoded to +17167831211)
+ * NOTE: All admin endpoints use require_system_admin (configurable via DB settings).
  * The adminUser fixture grants require_system_admin access.
- * The config/feedback sections may show access errors unless the phone matches.
  */
 
 /**

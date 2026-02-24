@@ -1722,10 +1722,11 @@ async def get_player_by_user_id(session: AsyncSession, user_id: int) -> Optional
 
 
 async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) -> Optional[Dict]:
-    """Get player profile by user_id with global stats."""
+    """Get player profile by user_id with global stats and location slug."""
     result = await session.execute(
-        select(Player, PlayerGlobalStats)
+        select(Player, PlayerGlobalStats, Location.slug.label("location_slug"))
         .outerjoin(PlayerGlobalStats, Player.id == PlayerGlobalStats.player_id)
+        .outerjoin(Location, Player.location_id == Location.id)
         .where(Player.user_id == user_id)
     )
     row = result.first()
@@ -1733,7 +1734,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
     if not row:
         return None
 
-    player, global_stats = row
+    player, global_stats, location_slug = row
 
     return {
         "id": player.id,
@@ -1745,6 +1746,7 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
         "height": player.height,
         "preferred_side": player.preferred_side,
         "location_id": player.location_id,
+        "location_slug": location_slug,
         "city": player.city,
         "state": player.state,
         "city_latitude": player.city_latitude,

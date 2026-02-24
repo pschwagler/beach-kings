@@ -9,7 +9,7 @@ export const metadata = {
   description:
     'Find and review beach volleyball courts near you. Browse courts, read reviews, see ratings, and discover new places to play.',
   openGraph: {
-    title: 'Beach Volleyball Courts | Beach Kings',
+    title: 'Beach Volleyball Courts | Beach League',
     description:
       'Find and review beach volleyball courts near you. Browse courts, read reviews, see ratings, and discover new places to play.',
     type: 'website',

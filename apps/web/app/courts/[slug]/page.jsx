@@ -14,7 +14,7 @@ export async function generateMetadata({ params }) {
         court.description ||
         `${court.name} beach volleyball court. ${court.review_count} reviews, ${court.court_count || ''} courts. ${court.address || ''}`.trim(),
       openGraph: {
-        title: `${court.name} | Beach Kings`,
+        title: `${court.name} | Beach League`,
         description: court.description || `Beach volleyball at ${court.name}`,
         type: 'website',
       },

@@ -1,5 +1,5 @@
 /**
- * API Client for Beach Kings
+ * API Client for Beach League
  * Platform-agnostic API client with storage adapter support
  */
 

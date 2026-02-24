@@ -8,7 +8,7 @@ from datetime import timedelta
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
 from backend.services import user_service
-from backend.database.models import VerificationCode
+from backend.database.models import VerificationCode, User
 
 
 # db_session fixture is provided by conftest.py - using test_session as alias for compatibility
@@ -222,3 +222,189 @@ async def test_delete_refresh_token(test_session):
     # Verify token is gone
     token = await user_service.get_refresh_token(test_session, "refresh_token_123")
     assert token is None
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_preserves_active_tokens(test_session):
+    """Creating a new refresh token should NOT delete active tokens from other tabs/devices."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000001", password_hash="hash"
+    )
+
+    expires = utcnow() + timedelta(days=7)
+
+    # Create token A (e.g. from Tab 1)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="token_a", expires_at=expires
+    )
+    # Create token B (e.g. from Tab 2) — should NOT nuke token A
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="token_b", expires_at=expires
+    )
+
+    # Both tokens should still exist
+    assert (await user_service.get_refresh_token(test_session, "token_a")) is not None
+    assert (await user_service.get_refresh_token(test_session, "token_b")) is not None
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_cleans_expired_tokens(test_session):
+    """Creating a new refresh token should clean up expired tokens for that user."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000002", password_hash="hash"
+    )
+
+    # Create an already-expired token
+    expired = utcnow() - timedelta(hours=1)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="expired_token", expires_at=expired
+    )
+
+    # Create a new active token — should clean expired_token
+    active_expires = utcnow() + timedelta(days=7)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="active_token", expires_at=active_expires
+    )
+
+    # Expired token should be gone, active token should exist
+    assert (await user_service.get_refresh_token(test_session, "expired_token")) is None
+    assert (await user_service.get_refresh_token(test_session, "active_token")) is not None
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotation_preserves_other_tokens(test_session):
+    """Token rotation (delete old + create new) should not affect tokens from other tabs."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000003", password_hash="hash"
+    )
+
+    expires = utcnow() + timedelta(days=7)
+
+    # Create tokens for two tabs
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab1_token", expires_at=expires
+    )
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab2_token", expires_at=expires
+    )
+
+    # Simulate rotation on tab1: delete old token, create new one
+    await user_service.delete_refresh_token(test_session, "tab1_token")
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab1_rotated", expires_at=expires
+    )
+
+    # tab2_token should still be valid
+    assert (await user_service.get_refresh_token(test_session, "tab1_token")) is None
+    assert (await user_service.get_refresh_token(test_session, "tab1_rotated")) is not None
+    assert (await user_service.get_refresh_token(test_session, "tab2_token")) is not None
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Google SSO tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_google_user(test_session):
+    """Test creating a new user via Google SSO."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="google@example.com",
+        google_id="google_sub_123",
+        full_name="Google User",
+    )
+    # create_google_user only flushes — commit to read it back
+    await test_session.commit()
+
+    assert user_id > 0
+
+    user = await user_service.get_user_by_id(test_session, user_id)
+    assert user is not None
+    assert user["email"] == "google@example.com"
+    assert user["google_id"] == "google_sub_123"
+    assert user["auth_provider"] == "google"
+    assert user["is_verified"] is True
+    assert user["phone_number"] is None
+    assert user["password_hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_google_user_duplicate_email(test_session):
+    """Test that creating a Google user with a duplicate email raises ValueError."""
+    await user_service.create_google_user(
+        session=test_session,
+        email="dup@example.com",
+        google_id="google_sub_a",
+        full_name="User A",
+    )
+    await test_session.commit()
+
+    with pytest.raises(ValueError, match="already registered"):
+        await user_service.create_google_user(
+            session=test_session,
+            email="dup@example.com",
+            google_id="google_sub_b",
+            full_name="User B",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_google_id(test_session):
+    """Test looking up a user by Google ID."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="lookup@example.com",
+        google_id="google_sub_456",
+        full_name="Lookup User",
+    )
+    await test_session.commit()
+
+    user = await user_service.get_user_by_google_id(test_session, "google_sub_456")
+    assert user is not None
+    assert user["id"] == user_id
+
+    # Non-existent google_id
+    user = await user_service.get_user_by_google_id(test_session, "nonexistent")
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_link_google_id(test_session):
+    """Test linking a Google ID to an existing phone-auth user updates both google_id and auth_provider."""
+    user_id = await user_service.create_user(
+        session=test_session,
+        phone_number="+15553334444",
+        password_hash="hash",
+        email="link@example.com",
+    )
+
+    user_before = await user_service.get_user_by_id(test_session, user_id)
+    assert user_before["auth_provider"] == "phone"
+    assert user_before["google_id"] is None
+
+    success = await user_service.link_google_id(test_session, user_id, "google_sub_link")
+    assert success is True
+
+    user_after = await user_service.get_user_by_id(test_session, user_id)
+    assert user_after["google_id"] == "google_sub_link"
+    assert user_after["auth_provider"] == "google"
+
+
+@pytest.mark.asyncio
+async def test_create_google_user_does_not_commit(test_session):
+    """Verify create_google_user flushes but does not commit, allowing atomic txn with caller."""
+    user_id = await user_service.create_google_user(
+        session=test_session,
+        email="nocommit@example.com",
+        google_id="google_sub_nc",
+        full_name="No Commit",
+    )
+    # ID should be available via flush
+    assert user_id > 0
+
+    # Rolling back should remove the user
+    await test_session.rollback()
+
+    user = await user_service.get_user_by_id(test_session, user_id)
+    assert user is None

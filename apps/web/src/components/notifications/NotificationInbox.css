@@ -111,6 +111,13 @@
   max-height: 400px;
 }
 
+.notification-inbox-footer {
+  display: flex;
+  justify-content: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--gray-300);
+}
+
 .notification-inbox-empty {
   padding: 32px 16px;
   text-align: center;

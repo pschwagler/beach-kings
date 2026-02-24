@@ -1,6 +1,6 @@
 # Next.js Frontend
 
-This is the Next.js frontend for the Beach Kings application.
+This is the Next.js frontend for the Beach League application.
 
 ## Development
 

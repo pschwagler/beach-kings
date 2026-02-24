@@ -86,6 +86,23 @@
   white-space: nowrap;
 }
 
+.court-card__location {
+  font-size: 12px;
+  color: var(--ocean-gray);
+  margin: 0;
+}
+
+.court-card__location--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.court-card__location--link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 .court-card__distance {
   font-size: 12px;
   font-weight: 600;

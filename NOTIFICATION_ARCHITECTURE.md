@@ -1,6 +1,6 @@
-# Beach Kings Application Architecture
+# Beach League Application Architecture
 
-This document provides architecture diagrams and technical overviews for major systems in the Beach Kings application.
+This document provides architecture diagrams and technical overviews for major systems in the Beach League application.
 
 ## Notification System Architecture
 

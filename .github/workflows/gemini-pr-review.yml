@@ -14,7 +14,7 @@ defaults:
 
 jobs:
   review:
-    if: false  # temporarily disabled
+    # Currently disabled via `gh workflow disable`. Re-enable with `gh workflow enable "Gemini PR Review"`.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

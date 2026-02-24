@@ -5,7 +5,7 @@
 
 ## Problem Statement
 
-Users frequently want to log matches immediately after playing, but their opponents/partners haven't signed up for Beach Kings yet. Currently, the only option is to send them the app URL, wait for them to create an account, and then go back and create the match — by which point motivation is lost. This friction is a major adoption blocker for both league and casual/pickup play. This feature allows users to create "placeholder" players inline during match logging, invite them to join via a shareable link, and automatically link their matches when they sign up.
+Users frequently want to log matches immediately after playing, but their opponents/partners haven't signed up for Beach League yet. Currently, the only option is to send them the app URL, wait for them to create an account, and then go back and create the match — by which point motivation is lost. This friction is a major adoption blocker for both league and casual/pickup play. This feature allows users to create "placeholder" players inline during match logging, invite them to join via a shareable link, and automatically link their matches when they sign up.
 
 ## Success Criteria
 
@@ -97,7 +97,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 6. Placeholder player record Y is deleted
 7. Any matches where all 4 players are now linked users (no `is_placeholder=true`) have `is_ranked` set to `true`
 8. Global + league stats recalculation is enqueued for each affected league
-9. Creator of the placeholder receives a notification: "[Name] has joined Beach Kings and claimed their matches!"
+9. Creator of the placeholder receives a notification: "[Name] has joined Beach League and claimed their matches!"
 
 ### Managing Invites (Profile Section)
 
@@ -262,7 +262,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 - **Phone number prompt**: Appears inline below the dropdown after creating a placeholder. Small, dismissible, with a text input and "Save" / "Skip" buttons. Not a modal — stays in flow.
 - **Invite link toast after match creation**: Standard toast notification with a "Copy Link" button. Appears for each placeholder in the match. Auto-dismisses after 10s but stays if user interacts.
 - **Pending Invites section**: Card-based list. Each card shows: avatar placeholder (initials), name, phone (from `player_invites.phone_number` if provided), "X matches" count, "Copy Link" button, "Delete" button with confirmation.
-- **Invite landing page**: Clean, branded page. Shows Beach Kings logo, inviter name, match count, league names. Large CTA buttons for "Sign Up" and "Log In". Mobile-optimized (most people will receive the link via text).
+- **Invite landing page**: Clean, branded page. Shows Beach League logo, inviter name, match count, league names. Large CTA buttons for "Sign Up" and "Log In". Mobile-optimized (most people will receive the link via text).
 
 ## Testing Plan
 
@@ -381,7 +381,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 ### Epic 5: Frontend — Invite Landing & Claim Flow ✅
 > The invited person's experience — from clicking the link to claiming their matches.
 
-- [x] **5.1** `InviteLandingPage` at `app/invite/[token]/page.jsx` — public page. Calls `GET /api/invites/{token}`. Shows: Beach Kings logo, inviter name, match count, league names. States: not logged in (Sign Up / Log In CTAs), logged in (Claim My Matches), already claimed (info message), loading (skeleton), error (invalid token), claiming (spinner), success (checkmark + warnings), claim error (retry).
+- [x] **5.1** `InviteLandingPage` at `app/invite/[token]/page.jsx` — public page. Calls `GET /api/invites/{token}`. Shows: Beach League logo, inviter name, match count, league names. States: not logged in (Sign Up / Log In CTAs), logged in (Claim My Matches), already claimed (info message), loading (skeleton), error (invalid token), claiming (spinner), success (checkmark + warnings), claim error (retry).
 - [x] **5.2** Auth flow integration — uses global `AuthModal` via `useAuthModal()` context. No sessionStorage, URL params, or redirects needed. User stays on `/invite/[token]` throughout — after auth completes, `isAuthenticated` flips true reactively, page re-renders to show claim UI. Profile-completion modal suppressed via no-op `onVerifySuccess` callback.
 - [x] **5.3** Claim confirmation UI — authenticated users see invite context + "Claim My Matches" button + Cancel. On confirm, calls `POST /api/invites/{token}/claim`. Success state shows checkmark + message + "Go to Home" button.
 - [x] **5.4** Handle claim response warnings — if `claimResult.warnings` is non-empty, a `var(--sun-gold-light)` warning box displays the list of issues (e.g., conflicting matches).

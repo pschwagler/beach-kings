@@ -1,9 +1,11 @@
 # CI — runs on PRs targeting develop: lint (JS + Python) and backend tests.
-# Temporarily disabled — re-enable by removing the workflow_dispatch override.
+# Currently disabled via `gh workflow disable`. Re-enable with `gh workflow enable ci.yml`.
 name: CI
 
 on:
-  workflow_dispatch: {}
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
 
 defaults:
   run:

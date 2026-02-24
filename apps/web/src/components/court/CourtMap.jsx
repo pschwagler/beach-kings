@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import { MapPin, LocateFixed } from 'lucide-react';
+import { useUserPosition } from '../../hooks/useUserPosition';
 import StarRating from '../ui/StarRating';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './CourtMap.css';
@@ -46,28 +47,13 @@ function distanceMiles(lat1, lng1, lat2, lng2) {
  * @param {Object} [props.userLocation] - { latitude, longitude } from player profile
  */
 export default function CourtMap({ courts, userLocation }) {
+  const { position: userPos, source: posSource } = useUserPosition(userLocation);
+
   const [popupCourt, setPopupCourt] = useState(null);
-  const [userPos, setUserPos] = useState(userLocation || null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
   const mapRef = useRef(null);
-  const geoAttempted = useRef(false);
   const hasFittedWithGeo = useRef(false);
-
-  // Request browser geolocation once — map renders immediately, adjusts when resolved
-  useEffect(() => {
-    if (geoAttempted.current) return;
-    geoAttempted.current = true;
-
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPos({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      },
-      () => {}, // failed — use profile location or default
-      { timeout: 10000, maximumAge: 300000 }
-    );
-  }, []);
 
   // Filter to only courts with coordinates
   const mappable = useMemo(
@@ -93,7 +79,7 @@ export default function CourtMap({ courts, userLocation }) {
       const sw = [Math.min(...lngs), Math.min(...lats)];
       const ne = [Math.max(...lngs), Math.max(...lats)];
       // Animate when geolocation resolved after initial render, instant otherwise
-      const animate = hasFittedWithGeo.current === false && userLocation == null;
+      const animate = hasFittedWithGeo.current === false && posSource === 'geolocation';
       mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: animate ? 800 : 0 });
       hasFittedWithGeo.current = true;
     } else if (mappable.length > 1) {
@@ -103,17 +89,15 @@ export default function CourtMap({ courts, userLocation }) {
       const ne = [Math.max(...lngs), Math.max(...lats)];
       mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
     }
-  }, [mappable, userPos, mapLoaded, userLocation]);
+  }, [mappable, userPos, mapLoaded, posSource]);
 
   const handleLocateClick = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const newPos = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        setUserPos(newPos);
         if (mapRef.current) {
           mapRef.current.flyTo({
-            center: [newPos.longitude, newPos.latitude],
+            center: [pos.coords.longitude, pos.coords.latitude],
             zoom: 11,
             duration: 800,
           });

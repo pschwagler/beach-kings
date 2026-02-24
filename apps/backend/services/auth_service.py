@@ -11,6 +11,7 @@ import secrets
 from datetime import timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.utils.constants import APP_NAME
 from backend.utils.datetime_utils import utcnow
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
@@ -55,10 +56,12 @@ if not JWT_SECRET_KEY:
         "Generate a secure random key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
     )
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))  # Access token: 15 minutes
+JWT_EXPIRATION_MINUTES = int(
+    float(os.getenv("JWT_EXPIRATION_HOURS", "1")) * 60
+)  # Access token: read hours from env, convert to minutes (default 1 hour)
 REFRESH_TOKEN_EXPIRATION_DAYS = int(
-    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "7")
-)  # Refresh token: 7 days
+    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "30")
+)  # Refresh token: 30 days
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -278,6 +281,56 @@ def normalize_email(email: str) -> str:
     return email
 
 
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+
+def verify_google_id_token(token: str) -> dict:
+    """
+    Verify a Google ID token and extract user info.
+
+    Uses google.oauth2.id_token to verify the token against Google's
+    public keys and validate the audience claim.
+
+    Args:
+        token: The ID token string from the Google Sign-In flow
+
+    Returns:
+        Dictionary with 'email', 'sub' (Google user ID), 'name', 'picture', 'email_verified'
+
+    Raises:
+        ValueError: If token is invalid, expired, or audience doesn't match
+    """
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    if not GOOGLE_CLIENT_ID:
+        raise ValueError("GOOGLE_CLIENT_ID environment variable is not set")
+
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+
+        if not id_info.get("email_verified"):
+            raise ValueError("Google email is not verified")
+
+        return {
+            "email": id_info["email"],
+            "sub": id_info["sub"],
+            "name": id_info.get("name"),
+            "picture": id_info.get("picture"),
+            "email_verified": id_info.get("email_verified", False),
+        }
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Google ID token verification failed: {e}")
+        raise ValueError(f"Invalid Google ID token: {e}")
+
+
 async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
     """
     Send SMS verification code via Twilio.
@@ -306,7 +359,7 @@ async def send_sms_verification(session: AsyncSession, phone_number: str, code: 
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         message = client.messages.create(
-            body=f"Beach League: Your verification code is: {code}",
+            body=f"{APP_NAME}: Your verification code is: {code}",
             from_=TWILIO_PHONE_NUMBER,
             to=phone_number,
         )
