@@ -159,7 +159,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }) {
         {locationId && <div className="near-you-section__widget">
           <div className="near-you-section__widget-header">
             <Users size={16} />
-            <h3 className="near-you-section__widget-title">Top Players in {cityName}</h3>
+            <h3 className="near-you-section__widget-title">Top Players in {locationData?.name || cityName}</h3>
           </div>
           <div className="near-you-section__level-tabs">
             {PLAYER_LEVEL_FILTER_OPTIONS.map((opt) => (

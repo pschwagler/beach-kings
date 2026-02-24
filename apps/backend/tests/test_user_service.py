@@ -222,3 +222,79 @@ async def test_delete_refresh_token(test_session):
     # Verify token is gone
     token = await user_service.get_refresh_token(test_session, "refresh_token_123")
     assert token is None
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_preserves_active_tokens(test_session):
+    """Creating a new refresh token should NOT delete active tokens from other tabs/devices."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000001", password_hash="hash"
+    )
+
+    expires = utcnow() + timedelta(days=7)
+
+    # Create token A (e.g. from Tab 1)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="token_a", expires_at=expires
+    )
+    # Create token B (e.g. from Tab 2) — should NOT nuke token A
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="token_b", expires_at=expires
+    )
+
+    # Both tokens should still exist
+    assert (await user_service.get_refresh_token(test_session, "token_a")) is not None
+    assert (await user_service.get_refresh_token(test_session, "token_b")) is not None
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_cleans_expired_tokens(test_session):
+    """Creating a new refresh token should clean up expired tokens for that user."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000002", password_hash="hash"
+    )
+
+    # Create an already-expired token
+    expired = utcnow() - timedelta(hours=1)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="expired_token", expires_at=expired
+    )
+
+    # Create a new active token — should clean expired_token
+    active_expires = utcnow() + timedelta(days=7)
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="active_token", expires_at=active_expires
+    )
+
+    # Expired token should be gone, active token should exist
+    assert (await user_service.get_refresh_token(test_session, "expired_token")) is None
+    assert (await user_service.get_refresh_token(test_session, "active_token")) is not None
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotation_preserves_other_tokens(test_session):
+    """Token rotation (delete old + create new) should not affect tokens from other tabs."""
+    user_id = await user_service.create_user(
+        session=test_session, phone_number="+15552000003", password_hash="hash"
+    )
+
+    expires = utcnow() + timedelta(days=7)
+
+    # Create tokens for two tabs
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab1_token", expires_at=expires
+    )
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab2_token", expires_at=expires
+    )
+
+    # Simulate rotation on tab1: delete old token, create new one
+    await user_service.delete_refresh_token(test_session, "tab1_token")
+    await user_service.create_refresh_token(
+        session=test_session, user_id=user_id, token="tab1_rotated", expires_at=expires
+    )
+
+    # tab2_token should still be valid
+    assert (await user_service.get_refresh_token(test_session, "tab1_token")) is None
+    assert (await user_service.get_refresh_token(test_session, "tab1_rotated")) is not None
+    assert (await user_service.get_refresh_token(test_session, "tab2_token")) is not None

@@ -573,7 +573,7 @@ async def check_phone(phone_number: str, session: AsyncSession = Depends(get_db_
 async def refresh_token(
     request: RefreshTokenRequest, session: AsyncSession = Depends(get_db_session)
 ):
-    """Refresh access token using refresh token."""
+    """Refresh access token and rotate refresh token."""
     try:
         refresh_token_record = await user_service.get_refresh_token(session, request.refresh_token)
         if not refresh_token_record:
@@ -588,10 +588,22 @@ async def refresh_token(
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
+        # Delete the old refresh token (rotation)
+        await user_service.delete_refresh_token(session, request.refresh_token)
+
+        # Issue new access + refresh tokens
         token_data = {"user_id": user["id"], "phone_number": user.get("phone_number") or ""}
         access_token = auth_service.create_access_token(data=token_data)
 
-        return RefreshTokenResponse(access_token=access_token, token_type="bearer")
+        new_refresh_token = auth_service.generate_refresh_token()
+        new_expires_at = utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        await user_service.create_refresh_token(session, user["id"], new_refresh_token, new_expires_at)
+
+        return RefreshTokenResponse(
+            access_token=access_token,
+            refresh_token=new_refresh_token,
+            token_type="bearer",
+        )
     except HTTPException:
         raise
     except Exception as e:

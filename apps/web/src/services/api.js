@@ -77,11 +77,104 @@ export const getStoredTokens = () => {
   };
 };
 
+// Cross-tab token sync: when another tab writes new tokens to localStorage,
+// update our in-memory copy so requests use the fresh values.
+if (isBrowser) {
+  window.addEventListener('storage', (e) => {
+    if (e.key === ACCESS_TOKEN_KEY) {
+      authTokens.accessToken = e.newValue;
+    } else if (e.key === REFRESH_TOKEN_KEY) {
+      authTokens.refreshToken = e.newValue;
+    }
+  });
+}
+
+/**
+ * Decode JWT expiration timestamp without verification (client-side only).
+ * Returns epoch seconds or null if token is malformed.
+ */
+const getTokenExp = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp || null;
+  } catch {
+    return null;
+  }
+};
+
+/** Threshold in seconds — refresh proactively when token expires within this window. */
+const PROACTIVE_REFRESH_THRESHOLD_SECS = 120;
+
+/**
+ * Trigger a background token refresh. Returns a promise that resolves with the
+ * new access token, or rejects if refresh fails. Reuses the shared
+ * isRefreshing / failedQueue to avoid concurrent refreshes.
+ */
+const proactiveRefresh = () => {
+  if (isRefreshing) {
+    // Another refresh is already in-flight — piggyback on it
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+
+  const latestRefreshToken = isBrowser
+    ? window.localStorage.getItem(REFRESH_TOKEN_KEY)
+    : authTokens.refreshToken;
+
+  if (!latestRefreshToken) {
+    isRefreshing = false;
+    return Promise.resolve(authTokens.accessToken);
+  }
+
+  return refreshClient
+    .post('/api/auth/refresh', { refresh_token: latestRefreshToken })
+    .then(({ data }) => {
+      setAuthTokens(data.access_token, data.refresh_token || authTokens.refreshToken);
+      const newToken = data.access_token;
+      isRefreshing = false;
+      processQueue(null, newToken);
+      return newToken;
+    })
+    .catch((err) => {
+      isRefreshing = false;
+
+      // Check if another tab already refreshed successfully
+      if (isBrowser) {
+        const freshToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+        if (freshToken && freshToken !== authTokens.accessToken) {
+          authTokens.accessToken = freshToken;
+          authTokens.refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+          processQueue(null, freshToken);
+          return freshToken;
+        }
+      }
+
+      processQueue(err, null);
+      return Promise.reject(err);
+    });
+};
+
 api.interceptors.request.use(
-  (config) => {
-    // Always use the latest token from the authTokens object
-    // This ensures we use the token even if it was just refreshed
-    const token = authTokens.accessToken;
+  async (config) => {
+    let token = authTokens.accessToken;
+
+    // Proactive refresh: if access token expires within the threshold, refresh
+    // before the request goes out (avoids a 401 round-trip).
+    if (token && !isPublicAuthEndpoint(config.url)) {
+      const exp = getTokenExp(token);
+      if (exp && exp - Date.now() / 1000 < PROACTIVE_REFRESH_THRESHOLD_SECS) {
+        try {
+          token = await proactiveRefresh();
+        } catch {
+          // If proactive refresh fails, send the request with the current token
+          // and let the 401 response interceptor handle it.
+        }
+      }
+    }
+
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
@@ -190,8 +283,8 @@ api.interceptors.response.use(
           refresh_token: latestRefreshToken,
         });
         
-        // Update tokens with the new access token
-        setAuthTokens(data.access_token);
+        // Update tokens — includes rotated refresh token
+        setAuthTokens(data.access_token, data.refresh_token || authTokens.refreshToken);
         
         // Use the new token directly from the response
         const newAccessToken = data.access_token;
@@ -205,9 +298,24 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear tokens and reject all queued requests
-        clearAuthTokens();
         isRefreshing = false;
+
+        // Before logging out, check if another tab already refreshed successfully.
+        // If localStorage has a different access token than what we sent, use it.
+        if (isBrowser) {
+          const freshToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+          if (freshToken && freshToken !== latestRefreshToken) {
+            authTokens.accessToken = freshToken;
+            authTokens.refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+            processQueue(null, freshToken);
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${freshToken}`;
+            return api(originalRequest);
+          }
+        }
+
+        // No fresh token from another tab — clear everything
+        clearAuthTokens();
         processQueue(refreshError, null);
         return Promise.reject(error);
       }

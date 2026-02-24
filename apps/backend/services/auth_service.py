@@ -55,10 +55,12 @@ if not JWT_SECRET_KEY:
         "Generate a secure random key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
     )
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))  # Access token: 15 minutes
+JWT_EXPIRATION_MINUTES = int(
+    float(os.getenv("JWT_EXPIRATION_HOURS", "1")) * 60
+)  # Access token: read hours from env, convert to minutes (default 1 hour)
 REFRESH_TOKEN_EXPIRATION_DAYS = int(
-    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "7")
-)  # Refresh token: 7 days
+    os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "30")
+)  # Refresh token: 30 days
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")

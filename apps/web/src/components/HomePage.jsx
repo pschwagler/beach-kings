@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
 import { getUserLeagues, createLeague } from "../services/api";
+import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
 import ProfileTab from "./home/ProfileTab";
@@ -20,7 +21,7 @@ import { isProfileIncomplete } from "../utils/playerUtils";
 export default function HomePage({ initialTab = 'home' }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, currentUserPlayer, isAuthenticated, isInitializing, fetchCurrentUser, logout } =
+  const { user, currentUserPlayer, isAuthenticated, isInitializing, sessionExpired, fetchCurrentUser, logout } =
     useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
@@ -29,12 +30,13 @@ export default function HomePage({ initialTab = 'home' }) {
   const activeTab = searchParams?.get("tab") || initialTab;
   const [userLeagues, setUserLeagues] = useState([]);
 
-  // Redirect if not authenticated (wait for auth to finish initializing)
+  // Redirect if not authenticated (wait for auth to finish initializing).
+  // Skip redirect when session expired — show the expired message instead.
   useEffect(() => {
-    if (!isInitializing && !isAuthenticated) {
+    if (!isInitializing && !isAuthenticated && !sessionExpired) {
       router.push("/");
     }
-  }, [isAuthenticated, isInitializing, router]);
+  }, [isAuthenticated, isInitializing, sessionExpired, router]);
 
   // Check if profile is incomplete and open modal if needed
   // This runs every time the user visits the home page or when currentUserPlayer changes
@@ -124,7 +126,36 @@ export default function HomePage({ initialTab = 'home' }) {
     }
   };
 
-  if (isInitializing || !isAuthenticated) {
+  if (isInitializing) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Loader2 size={32} className="spin" style={{ color: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    if (sessionExpired) {
+      return (
+        <>
+          <NavBar
+            isLoggedIn={false}
+            onSignIn={() => openAuthModal("sign-in")}
+            onSignUp={() => openAuthModal("sign-up")}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px', padding: '24px', textAlign: 'center' }}>
+            <p style={{ fontSize: '16px', color: 'var(--gray-700)' }}>Your session has expired. Please sign in again.</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => openAuthModal("sign-in")}
+              style={{ padding: '10px 24px', fontSize: '15px' }}
+            >
+              Sign In
+            </button>
+          </div>
+        </>
+      );
+    }
     return null;
   }
 

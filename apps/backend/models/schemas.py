@@ -255,9 +255,10 @@ class RefreshTokenRequest(BaseModel):
 
 
 class RefreshTokenResponse(BaseModel):
-    """Response with new access token."""
+    """Response with new access and rotated refresh token."""
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 

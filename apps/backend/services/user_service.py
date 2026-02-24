@@ -497,8 +497,14 @@ async def create_refresh_token(
     try:
         expires_at_str = expires_at.isoformat()
 
-        # Delete old refresh tokens for this user
-        await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+        # Clean up only expired tokens for this user (keep active tokens from other tabs/devices)
+        now_str = utcnow().isoformat()
+        await session.execute(
+            delete(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.expires_at < now_str,
+            )
+        )
 
         # Create new refresh token
         new_token = RefreshToken(user_id=user_id, token=token, expires_at=expires_at_str)

@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [currentUserPlayer, setCurrentUserPlayer] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }) => {
         clearAuthTokens();
         setUser(null);
         setCurrentUserPlayer(null);
+        setSessionExpired(true);
       } else {
         // For other errors (network, 500, etc.), keep user logged in but log the error
         console.error('Error fetching current user (non-401):', error);
@@ -54,8 +56,32 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchCurrentUser]);
 
+  // Cross-tab auth state sync: detect login/logout from other tabs via localStorage changes.
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key !== 'beach_access_token') return;
+
+      if (!e.newValue) {
+        // Another tab logged out — clear local state
+        clearAuthTokens();
+        setUser(null);
+        setCurrentUserPlayer(null);
+        setSessionExpired(true);
+      } else if (!user && e.newValue) {
+        // Another tab logged in — pick up the session
+        setSessionExpired(false);
+        setAuthTokens(e.newValue, window.localStorage.getItem('beach_refresh_token'));
+        fetchCurrentUser();
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [user, fetchCurrentUser]);
+
   const handleAuthSuccess = useCallback(
     async (authResponse) => {
+      setSessionExpired(false);
       setAuthTokens(authResponse.access_token, authResponse.refresh_token);
       await fetchCurrentUser();
       // Return profile_complete flag for use in components
@@ -171,6 +197,7 @@ export const AuthProvider = ({ children }) => {
     currentUserPlayer,
     isAuthenticated: Boolean(user),
     isInitializing,
+    sessionExpired,
     fetchCurrentUser,
     loginWithGoogle,
     loginWithPassword,

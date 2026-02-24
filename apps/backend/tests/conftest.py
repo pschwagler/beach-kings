@@ -74,6 +74,9 @@ async def _patch_missing_columns(conn):
     patches = [
         # Migration 019
         ("matches", "ranked_intent", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        # Migration 024 — Google SSO
+        ("users", "auth_provider", "VARCHAR NOT NULL DEFAULT 'phone'"),
+        ("users", "google_id", "VARCHAR"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),
