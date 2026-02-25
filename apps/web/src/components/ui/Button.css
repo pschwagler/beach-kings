@@ -1,0 +1,192 @@
+/* Button primitive styles — extracted from App.css */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  font-family: "Urbanist", sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  /* Better mobile touch */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.button:hover {
+  background: var(--deep-ocean);
+  transform: none;
+  box-shadow: none;
+}
+
+.button:active {
+  transform: scale(0.98);
+  box-shadow: none;
+  background: var(--deep-ocean);
+}
+
+.button:disabled {
+  background: var(--gray-300);
+  color: var(--gray-600);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.btn-success {
+  background: var(--primary);
+  color: white;
+  box-shadow: none;
+  border: none;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-success:active:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: none;
+  transform: scale(0.98);
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-danger:active {
+  background: #991b1b;
+  box-shadow: none;
+  transform: scale(0.98);
+}
+
+.btn-whatsapp {
+  background: var(--success);
+  color: white;
+  border: none;
+  box-shadow: none;
+}
+
+.btn-whatsapp:hover {
+  background: #059669;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-whatsapp:active {
+  background: #047857;
+  box-shadow: none;
+  transform: scale(0.98);
+}
+
+/* Ghost: transparent bg, gray text - for secondary actions (Cancel) */
+.button.btn-ghost {
+  background: transparent;
+  color: var(--gray-700);
+  border: none;
+}
+
+.button.btn-ghost:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.button.btn-ghost:active:not(:disabled) {
+  background: var(--gray-200);
+}
+
+/* Outline: bordered primary - for secondary CTAs (Add New Match) */
+.button.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.button.btn-outline:hover:not(:disabled) {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.button.btn-outline:active:not(:disabled) {
+  background: rgba(44, 122, 143, 0.15);
+}
+
+/* Legacy button variants — used by HomePage + AdminView */
+.btn-primary {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  background: white;
+  color: var(--gray-700);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
