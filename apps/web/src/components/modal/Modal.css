@@ -91,10 +91,6 @@
 }
 
 .modal-header h2:not(.league-members-modal-title) {
-  font-size: 1.1rem;
-}
-
-.modal-header h2:not(.league-members-modal-title) {
   color: var(--gray-900);
   font-size: 1.25rem;
   font-weight: 600;

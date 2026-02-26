@@ -445,6 +445,15 @@
   background: var(--primary-dark);
 }
 
+.messages-tab__send-error {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--danger);
+  background-color: var(--danger-lighter);
+  margin: 0;
+}
+
 .messages-tab__readonly-notice {
   padding: 12px;
   text-align: center;

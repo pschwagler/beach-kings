@@ -149,7 +149,7 @@
 .admin-view-container .error-message {
   padding: 1rem;
   background-color: var(--danger-light);
-  border: 1px solid #fcc;
+  border: 1px solid var(--danger);
   border-radius: 6px;
   color: var(--danger);
   margin-bottom: 1rem;
@@ -158,7 +158,7 @@
 .admin-view-container .success-message {
   padding: 1rem;
   background-color: var(--success-light);
-  border: 1px solid #cfc;
+  border: 1px solid var(--success);
   border-radius: 6px;
   color: var(--success-dark);
   margin-bottom: 1rem;

@@ -2,6 +2,7 @@
 Pydantic models for API request/response validation.
 """
 
+from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
@@ -636,8 +637,8 @@ class DirectMessageResponse(BaseModel):
     receiver_player_id: int
     message_text: str
     is_read: bool
-    read_at: Optional[str] = None
-    created_at: str
+    read_at: Optional[datetime] = None
+    created_at: datetime
 
 
 class ConversationResponse(BaseModel):
@@ -650,7 +651,7 @@ class ConversationResponse(BaseModel):
     last_message_at: str
     last_message_sender_id: int
     unread_count: int = 0
-    is_friend: bool = True
+    is_friend: bool = False
 
 
 class ConversationListResponse(BaseModel):

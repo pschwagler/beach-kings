@@ -21,6 +21,27 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def notification_to_dict(notif: Notification) -> Dict:
+    """Serialize a Notification ORM object to a response dict.
+
+    Single source of truth for notification serialization. Used by
+    create_notification, bulk helpers, get_notifications, and the
+    DM service for WebSocket broadcast payloads.
+    """
+    return {
+        "id": notif.id,
+        "user_id": notif.user_id,
+        "type": notif.type,
+        "title": notif.title,
+        "message": notif.message,
+        "data": json.loads(notif.data) if notif.data else None,
+        "is_read": notif.is_read,
+        "read_at": notif.read_at.isoformat() if notif.read_at else None,
+        "link_url": notif.link_url,
+        "created_at": notif.created_at.isoformat() if notif.created_at else None,
+    }
+
+
 async def create_notification(
     session: AsyncSession,
     user_id: int,
@@ -76,18 +97,7 @@ async def create_notification(
     await session.flush()
     await session.refresh(notification)
 
-    notification_dict = {
-        "id": notification.id,
-        "user_id": notification.user_id,
-        "type": notification.type,
-        "title": notification.title,
-        "message": notification.message,
-        "data": json.loads(notification.data) if notification.data else None,
-        "is_read": notification.is_read,
-        "read_at": notification.read_at.isoformat() if notification.read_at else None,
-        "link_url": notification.link_url,
-        "created_at": notification.created_at.isoformat() if notification.created_at else None,
-    }
+    notification_dict = notification_to_dict(notification)
 
     # Broadcast via WebSocket (non-blocking - errors won't fail the notification creation)
     try:
@@ -172,21 +182,7 @@ async def create_notifications_bulk(
             await session.refresh(notif)
 
     # Convert to dicts
-    notification_dicts = [
-        {
-            "id": notif.id,
-            "user_id": notif.user_id,
-            "type": notif.type,
-            "title": notif.title,
-            "message": notif.message,
-            "data": json.loads(notif.data) if notif.data else None,
-            "is_read": notif.is_read,
-            "read_at": notif.read_at.isoformat() if notif.read_at else None,
-            "link_url": notif.link_url,
-            "created_at": notif.created_at.isoformat() if notif.created_at else None,
-        }
-        for notif in notification_objects
-    ]
+    notification_dicts = [notification_to_dict(notif) for notif in notification_objects]
 
     # Broadcast notifications via WebSocket (non-blocking - errors won't fail notification creation)
     try:
@@ -259,21 +255,7 @@ async def get_user_notifications(
     notifications = result.scalars().all()
 
     # Convert to dicts
-    notification_dicts = [
-        {
-            "id": notif.id,
-            "user_id": notif.user_id,
-            "type": notif.type,
-            "title": notif.title,
-            "message": notif.message,
-            "data": json.loads(notif.data) if notif.data else None,
-            "is_read": notif.is_read,
-            "read_at": notif.read_at.isoformat() if notif.read_at else None,
-            "link_url": notif.link_url,
-            "created_at": notif.created_at.isoformat() if notif.created_at else None,
-        }
-        for notif in notifications
-    ]
+    notification_dicts = [notification_to_dict(notif) for notif in notifications]
 
     has_more = (offset + len(notification_dicts)) < total_count
 
@@ -337,18 +319,7 @@ async def mark_as_read(session: AsyncSession, notification_id: int, user_id: int
         await session.flush()
         await session.refresh(notification)
 
-    return {
-        "id": notification.id,
-        "user_id": notification.user_id,
-        "type": notification.type,
-        "title": notification.title,
-        "message": notification.message,
-        "data": json.loads(notification.data) if notification.data else None,
-        "is_read": notification.is_read,
-        "read_at": notification.read_at.isoformat() if notification.read_at else None,
-        "link_url": notification.link_url,
-        "created_at": notification.created_at.isoformat() if notification.created_at else None,
-    }
+    return notification_to_dict(notification)
 
 
 async def mark_all_as_read(session: AsyncSession, user_id: int) -> int:

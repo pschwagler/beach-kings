@@ -6,6 +6,19 @@ import StatCard from '../ui/StatCard';
 import RatingChart from './RatingChart';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
 
+/** API field names from match history response. */
+const F = {
+  SESSION_STATUS: 'Session Status',
+  ELO_AFTER: 'ELO After',
+  ELO_BEFORE: 'ELO Before',
+  PARTNER: 'Partner',
+  OPPONENT_1: 'Opponent 1',
+  OPPONENT_2: 'Opponent 2',
+  RESULT: 'Result',
+  SCORE: 'Score',
+  DATE: 'Date',
+};
+
 const TIME_RANGES = [
   { key: '30d', label: '30d', days: 30 },
   { key: '90d', label: '90d', days: 90 },
@@ -17,7 +30,7 @@ const TIME_RANGES = [
  * Filter matches to only completed (non-ACTIVE session) matches within a time range.
  */
 function filterMatches(matches, timeRangeKey) {
-  const completed = matches.filter(m => m['Session Status'] !== 'ACTIVE');
+  const completed = matches.filter(m => m[F.SESSION_STATUS] !== 'ACTIVE');
   if (timeRangeKey === 'all') return completed;
 
   const range = TIME_RANGES.find(r => r.key === timeRangeKey);
@@ -27,8 +40,8 @@ function filterMatches(matches, timeRangeKey) {
   cutoff.setDate(cutoff.getDate() - range.days);
 
   return completed.filter(m => {
-    if (!m.Date) return false;
-    return new Date(m.Date) >= cutoff;
+    if (!m[F.DATE]) return false;
+    return new Date(m[F.DATE]) >= cutoff;
   });
 }
 
@@ -49,8 +62,8 @@ function getPreviousPeriodMatches(allCompleted, timeRangeKey) {
   prevStart.setDate(prevStart.getDate() - range.days);
 
   return allCompleted.filter(m => {
-    if (!m.Date) return false;
-    const d = new Date(m.Date);
+    if (!m[F.DATE]) return false;
+    const d = new Date(m[F.DATE]);
     return d >= prevStart && d < periodStart;
   });
 }
@@ -73,7 +86,7 @@ function computeAvgDiff(matches) {
   let total = 0;
   let count = 0;
   for (const m of matches) {
-    const [ps, os] = parseScore(m.Score);
+    const [ps, os] = parseScore(m[F.SCORE]);
     if (ps || os) {
       total += ps - os;
       count++;
@@ -87,15 +100,15 @@ function computeAvgDiff(matches) {
  */
 function computeOverview(filtered, currentElo) {
   const games = filtered.length;
-  const wins = filtered.filter(m => m.Result === 'W').length;
+  const wins = filtered.filter(m => m[F.RESULT] === 'W').length;
   const losses = games - wins;
   const winRate = games > 0 ? ((wins / games) * 100).toFixed(1) : null;
 
   // Peak ELO in range
   let peak = null;
   for (const m of filtered) {
-    if (m['ELO After'] != null) {
-      if (peak === null || m['ELO After'] > peak) peak = m['ELO After'];
+    if (m[F.ELO_AFTER] != null) {
+      if (peak === null || m[F.ELO_AFTER] > peak) peak = m[F.ELO_AFTER];
     }
   }
 
@@ -105,14 +118,14 @@ function computeOverview(filtered, currentElo) {
   let streak = '';
   if (filtered.length > 0) {
     const sorted = [...filtered].sort((a, b) => {
-      const da = a.Date ? new Date(a.Date).getTime() : 0;
-      const db = b.Date ? new Date(b.Date).getTime() : 0;
+      const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
+      const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
       return db - da;
     });
-    const firstResult = sorted[0].Result;
+    const firstResult = sorted[0][F.RESULT];
     let count = 0;
     for (const m of sorted) {
-      if (m.Result === firstResult) count++;
+      if (m[F.RESULT] === firstResult) count++;
       else break;
     }
     if (firstResult === 'W') streak = `W${count}`;
@@ -137,8 +150,8 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
   // Sort once, oldest-first, for reuse below
   const sortedAsc = [...allCompleted]
-    .filter(m => m['ELO After'] != null && m.Date)
-    .sort((a, b) => new Date(a.Date) - new Date(b.Date));
+    .filter(m => m[F.ELO_AFTER] != null && m[F.DATE])
+    .sort((a, b) => new Date(a[F.DATE]) - new Date(b[F.DATE]));
 
   if (sortedAsc.length === 0) return {};
 
@@ -147,7 +160,7 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
   if (timeRangeKey === 'all') {
     // Compare current to very first recorded ELO
-    ratingDelta = currentElo - sortedAsc[0]['ELO After'];
+    ratingDelta = currentElo - sortedAsc[0][F.ELO_AFTER];
   } else {
     const range = TIME_RANGES.find(r => r.key === timeRangeKey);
     if (!range?.days) return {};
@@ -157,13 +170,13 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
     // Prefer: last ELO before the period start
     const beforePeriod = sortedAsc
-      .filter(m => new Date(m.Date) < periodStart);
+      .filter(m => new Date(m[F.DATE]) < periodStart);
 
     if (beforePeriod.length > 0) {
-      ratingDelta = currentElo - beforePeriod[beforePeriod.length - 1]['ELO After'];
+      ratingDelta = currentElo - beforePeriod[beforePeriod.length - 1][F.ELO_AFTER];
     } else {
       // No matches before period — fall back to earliest ELO ever
-      ratingDelta = currentElo - sortedAsc[0]['ELO After'];
+      ratingDelta = currentElo - sortedAsc[0][F.ELO_AFTER];
     }
   }
 
@@ -176,8 +189,8 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
     if (prevMatches && prevMatches.length > 0 && filtered.length > 0) {
       // Win rate delta (percentage points)
-      const curWR = (filtered.filter(m => m.Result === 'W').length / filtered.length) * 100;
-      const prevWR = (prevMatches.filter(m => m.Result === 'W').length / prevMatches.length) * 100;
+      const curWR = (filtered.filter(m => m[F.RESULT] === 'W').length / filtered.length) * 100;
+      const prevWR = (prevMatches.filter(m => m[F.RESULT] === 'W').length / prevMatches.length) * 100;
       winRateDelta = curWR - prevWR;
 
       // Avg +/- delta
@@ -215,6 +228,9 @@ function formatDelta(value, suffix = '', decimals = 0) {
 
 /**
  * Group matches by a player name field to build partnership/opponent tables.
+ *
+ * NOTE: Keys are player display names. Players with identical names are merged.
+ * Use player IDs as keys once the match history API includes them.
  */
 function groupByPlayer(matches, nameExtractor) {
   const map = {};
@@ -223,7 +239,7 @@ function groupByPlayer(matches, nameExtractor) {
     for (const name of names) {
       if (!map[name]) map[name] = { games: 0, wins: 0 };
       map[name].games++;
-      if (m.Result === 'W') map[name].wins++;
+      if (m[F.RESULT] === 'W') map[name].wins++;
     }
   }
   return Object.entries(map)
@@ -280,8 +296,8 @@ export default function MyStatsTab({ currentUserPlayer }) {
         if (statsRes.status === 'fulfilled') setGlobalStats(statsRes.value);
         if (matchRes.status === 'fulfilled') {
           const sorted = (matchRes.value || []).sort((a, b) => {
-            const da = a.Date ? new Date(a.Date).getTime() : 0;
-            const db = b.Date ? new Date(b.Date).getTime() : 0;
+            const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
+            const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
             return db - da;
           });
           setMatchHistory(sorted);
@@ -302,7 +318,7 @@ export default function MyStatsTab({ currentUserPlayer }) {
 
   // All completed matches (used for filtering + deltas)
   const allCompleted = useMemo(
-    () => matchHistory.filter(m => m['Session Status'] !== 'ACTIVE'),
+    () => matchHistory.filter(m => m[F.SESSION_STATUS] !== 'ACTIVE'),
     [matchHistory]
   );
 
@@ -313,7 +329,7 @@ export default function MyStatsTab({ currentUserPlayer }) {
   );
 
   // Overview stats
-  const currentElo = globalStats?.current_elo ?? (matchHistory.length > 0 ? matchHistory[0]?.['ELO After'] : null);
+  const currentElo = globalStats?.current_elo ?? (matchHistory.length > 0 ? matchHistory[0]?.[F.ELO_AFTER] : null);
   const overview = useMemo(
     () => computeOverview(filtered, currentElo),
     [filtered, currentElo]
@@ -328,29 +344,29 @@ export default function MyStatsTab({ currentUserPlayer }) {
   // Chart data: one point per day (end-of-day rating), sorted oldest→newest
   const chartData = useMemo(() => {
     const completed = matchHistory.filter(
-      m => m['Session Status'] !== 'ACTIVE' && m['ELO After'] != null
+      m => m[F.SESSION_STATUS] !== 'ACTIVE' && m[F.ELO_AFTER] != null
     );
     // Sort oldest-first, then by match order (id implied by array position)
     const sorted = [...completed].sort((a, b) => {
-      const da = a.Date ? new Date(a.Date).getTime() : 0;
-      const db = b.Date ? new Date(b.Date).getTime() : 0;
+      const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
+      const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
       return da - db;
     });
 
     // Aggregate per day: end-of-day rating, max rating, game count, first ELO of day
     const byDate = new Map();
     for (const m of sorted) {
-      const existing = byDate.get(m.Date);
+      const existing = byDate.get(m[F.DATE]);
       if (existing) {
-        existing.rating = m['ELO After']; // last match wins (end-of-day)
-        existing.maxRating = Math.max(existing.maxRating, m['ELO After']);
+        existing.rating = m[F.ELO_AFTER]; // last match wins (end-of-day)
+        existing.maxRating = Math.max(existing.maxRating, m[F.ELO_AFTER]);
         existing.games += 1;
       } else {
-        byDate.set(m.Date, {
-          date: m.Date,
-          rating: m['ELO After'],
-          firstRating: m['ELO After'], // first match of the day
-          maxRating: m['ELO After'],
+        byDate.set(m[F.DATE], {
+          date: m[F.DATE],
+          rating: m[F.ELO_AFTER],
+          firstRating: m[F.ELO_AFTER], // first match of the day
+          maxRating: m[F.ELO_AFTER],
           games: 1,
         });
       }
@@ -383,13 +399,13 @@ export default function MyStatsTab({ currentUserPlayer }) {
 
   // Partnership table
   const partnerships = useMemo(
-    () => groupByPlayer(filtered, m => [m.Partner]),
+    () => groupByPlayer(filtered, m => [m[F.PARTNER]]),
     [filtered]
   );
 
   // Opponents table
   const opponents = useMemo(
-    () => groupByPlayer(filtered, m => [m['Opponent 1'], m['Opponent 2']]),
+    () => groupByPlayer(filtered, m => [m[F.OPPONENT_1], m[F.OPPONENT_2]]),
     [filtered]
   );
 

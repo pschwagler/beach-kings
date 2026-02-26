@@ -5,18 +5,19 @@ Handles sending messages, fetching conversations and threads,
 marking messages as read, and unread count queries.
 """
 
-from typing import Dict, List, Optional
+import json
+import logging
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_, or_, case, literal_column, desc
+from sqlalchemy import select, update, func, and_, or_, case, desc
 from sqlalchemy.orm import aliased
 
 from backend.database.models import DirectMessage, Notification, NotificationType, Player, Friend
 from backend.services import friend_service, notification_service
+from backend.services.notification_service import notification_to_dict
 from backend.services.websocket_manager import get_websocket_manager
 from backend.utils.datetime_utils import utcnow
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ async def send_message(
     sender_player_id: int,
     receiver_player_id: int,
     message_text: str,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Send a direct message to another player.
 
@@ -72,28 +73,33 @@ async def send_message(
 
     message_dict = _dm_to_dict(dm)
 
-    # WebSocket: deliver to receiver in real-time
+    # Resolve receiver's user_id once for WebSocket + notification
+    receiver_user_id = None
     try:
         receiver_user_id = await _get_user_id_for_player(session, receiver_player_id)
-        if receiver_user_id:
+    except Exception as e:
+        logger.warning(f"Could not resolve receiver user_id for player {receiver_player_id}: {e}")
+
+    # WebSocket: deliver to receiver in real-time
+    if receiver_user_id:
+        try:
             manager = get_websocket_manager()
             await manager.send_to_user(
                 receiver_user_id,
                 {"type": "direct_message", "message": message_dict},
             )
-    except Exception as e:
-        logger.warning(f"Failed to send DM via WebSocket to player {receiver_player_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to send DM via WebSocket to player {receiver_player_id}: {e}")
 
     # Summary bell notification (upsert: one notification per user for all unread DMs)
-    try:
-        receiver_user_id = await _get_user_id_for_player(session, receiver_player_id)
-        if receiver_user_id:
+    if receiver_user_id:
+        try:
             sender_name = await _get_player_name(session, sender_player_id)
             await _upsert_dm_summary_notification(
                 session, receiver_user_id, receiver_player_id, sender_name, message_text
             )
-    except Exception as e:
-        logger.warning(f"Failed to create DM notification: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to create DM notification: {e}")
 
     return message_dict
 
@@ -103,7 +109,7 @@ async def get_conversations(
     player_id: int,
     limit: int = 50,
     offset: int = 0,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get the conversation list for a player, sorted by most recent message.
 
@@ -220,7 +226,7 @@ async def get_thread(
     other_player_id: int,
     limit: int = 50,
     offset: int = 0,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get messages in a thread between two players, newest first.
 
@@ -387,7 +393,7 @@ async def _upsert_dm_summary_notification(
         await session.flush()
         await session.refresh(notif)
 
-        notif_dict = _notification_to_dict(notif)
+        notif_dict = notification_to_dict(notif)
 
         # Broadcast updated notification via WebSocket
         try:
@@ -453,7 +459,7 @@ async def _update_or_dismiss_dm_notification(
     await session.flush()
     await session.refresh(notif)
 
-    notif_dict = _notification_to_dict(notif)
+    notif_dict = notification_to_dict(notif)
 
     try:
         manager = get_websocket_manager()
@@ -464,37 +470,25 @@ async def _update_or_dismiss_dm_notification(
         logger.warning(f"Failed to broadcast DM notification update: {e}")
 
 
-def _notification_to_dict(notif: Notification) -> Dict:
-    """Convert a Notification ORM object to a response dict."""
-    return {
-        "id": notif.id,
-        "user_id": notif.user_id,
-        "type": notif.type,
-        "title": notif.title,
-        "message": notif.message,
-        "data": json.loads(notif.data) if notif.data else None,
-        "is_read": notif.is_read,
-        "read_at": notif.read_at.isoformat() if notif.read_at else None,
-        "link_url": notif.link_url,
-        "created_at": notif.created_at.isoformat() if notif.created_at else None,
-    }
-
-
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
 
-def _dm_to_dict(dm: DirectMessage) -> Dict:
-    """Convert a DirectMessage ORM object to a response dict."""
+def _dm_to_dict(dm: DirectMessage) -> Dict[str, Any]:
+    """Convert a DirectMessage ORM object to a response dict.
+
+    Returns raw datetime objects for read_at/created_at — Pydantic
+    serializes them automatically via DirectMessageResponse.
+    """
     return {
         "id": dm.id,
         "sender_player_id": dm.sender_player_id,
         "receiver_player_id": dm.receiver_player_id,
         "message_text": dm.message_text,
         "is_read": dm.is_read,
-        "read_at": dm.read_at.isoformat() if dm.read_at else None,
-        "created_at": dm.created_at.isoformat() if dm.created_at else None,
+        "read_at": dm.read_at,
+        "created_at": dm.created_at,
     }
 
 

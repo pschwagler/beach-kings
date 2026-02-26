@@ -279,7 +279,7 @@ function FriendPicker({ onSelect, onBack, existingConversationIds }) {
 
 function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFriend: initialIsFriend, onBack }) {
   const { currentUserPlayer } = useAuth();
-  const { onDirectMessageRef, setDmUnreadCount, fetchDmUnreadCount } = useNotifications();
+  const { onDirectMessageRef, fetchDmUnreadCount } = useNotifications();
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -287,6 +287,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
   const [page, setPage] = useState(1);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
   const [isFriend, setIsFriend] = useState(initialIsFriend !== false);
 
   const containerRef = useRef(null);
@@ -337,17 +338,16 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
       if (msg.sender_player_id === otherPlayerId) {
         setMessages((prev) => [...prev, msg]);
         // Auto-mark as read since user is viewing this thread
-        markThreadRead(otherPlayerId).then(() => {
-          // Decrement the badge we just incremented
-          setDmUnreadCount((prev) => Math.max(0, prev - 1));
-        }).catch(() => {});
+        markThreadRead(otherPlayerId)
+          .then(() => fetchDmUnreadCount())
+          .catch(() => {});
       }
     };
     onDirectMessageRef.current = handler;
     return () => {
       onDirectMessageRef.current = null;
     };
-  }, [otherPlayerId, onDirectMessageRef, setDmUnreadCount]);
+  }, [otherPlayerId, onDirectMessageRef, fetchDmUnreadCount]);
 
   // Auto-scroll to bottom on new messages (within the messages container only)
   useEffect(() => {
@@ -376,12 +376,14 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     if (!trimmed || sending) return;
 
     setSending(true);
+    setSendError(null);
     try {
       const newMsg = await sendMessage(otherPlayerId, trimmed);
       setMessages((prev) => [...prev, newMsg]);
       setText('');
     } catch (err) {
       console.error('Error sending message:', err);
+      setSendError('Message failed to send. Please try again.');
     } finally {
       setSending(false);
     }
@@ -437,7 +439,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
           }
 
           return (
-            <div key={msg.id || idx}>
+            <div key={msg.id ?? `msg-${idx}`}>
               {showDateSeparator && (
                 <div className="messages-tab__date-separator">{dateLabel}</div>
               )}
@@ -454,6 +456,9 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         })}
       </div>
 
+      {sendError && (
+        <p className="messages-tab__send-error">{sendError}</p>
+      )}
       {isFriend ? (
         <div className="messages-tab__input-area">
           <div className="messages-tab__input-wrapper">
@@ -536,14 +541,14 @@ export default function MessagesTab() {
                 playerId: p.id,
                 name: p.full_name,
                 avatar: p.avatar || null,
-                isFriend: true, // Assume friend since we navigated here from a friend action
+                isFriend: false, // Conservative: thread view shows "must be friends" until verified
               });
             } catch {
               setThreadInfo({
                 playerId: Number(threadPlayerId),
                 name: 'Unknown Player',
                 avatar: null,
-                isFriend: true,
+                isFriend: false,
               });
             }
           }

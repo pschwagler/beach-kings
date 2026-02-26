@@ -64,7 +64,7 @@ export default function PlayerPopover({
       }
     })();
     return () => { cancelled = true; };
-  }, [playerId, isAuthenticated, isSelf]);
+  }, [playerId, isAuthenticated, isSelf, friendStatusCache, onCacheUpdate]);
 
   // Escape key to dismiss
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function PlayerPopover({
     let left = anchorRect.left + anchorRect.width / 2;
 
     // Clamp: don't overflow right
-    const popoverWidth = 240;
+    const popoverWidth = 260;
     if (left + popoverWidth / 2 > window.innerWidth - 12) {
       left = window.innerWidth - 12 - popoverWidth / 2;
     }

@@ -261,8 +261,8 @@ export const NotificationProvider = ({ children }) => {
               if (onDirectMessageRef.current) {
                 onDirectMessageRef.current(data.message);
               }
-              // Increment DM unread badge (thread view can decrement after auto-read)
-              setDmUnreadCount(prev => prev + 1);
+              // Refresh authoritative DM unread count from server
+              fetchDmUnreadCount();
             }
           } catch (error) {
             if (event.data !== 'ping' && event.data !== 'pong') {
@@ -356,7 +356,6 @@ export const NotificationProvider = ({ children }) => {
     notifications,
     unreadCount,
     dmUnreadCount,
-    setDmUnreadCount,
     isLoading,
     wsConnected,
     fetchNotifications,
