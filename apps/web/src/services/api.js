@@ -1234,6 +1234,14 @@ export const submitFeedback = async ({ feedback, email }) => {
  */
 
 /**
+ * Get platform-wide summary stats (admin only, cached).
+ */
+export const getAdminStats = async () => {
+  const response = await api.get('/api/admin-view/stats');
+  return response.data;
+};
+
+/**
  * Get admin configuration settings
  */
 export const getAdminConfig = async () => {

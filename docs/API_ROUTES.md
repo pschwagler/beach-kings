@@ -260,6 +260,7 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | PATCH | `/api/admin-view/feedback/{feedback_id}/resolve` | Admin Phone | Resolve feedback |
 | GET | `/api/admin-view/config` | Admin Phone | Get admin config |
 | PUT | `/api/admin-view/config` | Admin Phone | Update admin config |
+| GET | `/api/admin-view/stats` | Admin Phone | Platform summary stats (Redis-cached 1hr) |
 
 ## Settings
 
