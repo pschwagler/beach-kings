@@ -3,11 +3,12 @@
 import React from 'react';
 import NavBar from '../../src/components/layout/NavBar';
 import { useAuth } from '../../src/contexts/AuthContext';
+import '../../src/styles/legal-pages.css';
 
 export default function ContributePage() {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
 
-  const repoUrl = 'https://github.com/patrick/beach-kings';
+  const repoUrl = 'https://github.com/pschwagler/beach-kings';
 
   return (
     <div className="legal-page-container">
