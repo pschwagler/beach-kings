@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
 import useShare from '../../hooks/useShare';
+import './PlaceholderCreateModal.css';
 
 /**
  * Two-step modal for creating a placeholder (unregistered) player.

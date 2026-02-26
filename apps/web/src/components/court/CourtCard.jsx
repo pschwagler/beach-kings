@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
 import './CourtCard.css';
@@ -15,6 +16,7 @@ import './CourtCard.css';
  * @param {Object} props.court - Court list item from API
  */
 export default function CourtCard({ court }) {
+  const router = useRouter();
   const {
     slug,
     name,
@@ -66,13 +68,25 @@ export default function CourtCard({ court }) {
         {address && <p className="court-card__address">{address}</p>}
         {location_name && (
           location_slug ? (
-            <a
-              href={`/beach-volleyball/${location_slug}`}
+            <span
+              role="link"
+              tabIndex={0}
               className="court-card__location court-card__location--link"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/beach-volleyball/${location_slug}`);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/beach-volleyball/${location_slug}`);
+                }
+              }}
             >
               {location_name}
-            </a>
+            </span>
           ) : (
             <p className="court-card__location">{location_name}</p>
           )

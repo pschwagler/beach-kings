@@ -164,6 +164,7 @@ export default function CourtDirectoryClient({ initialCourts }) {
           <CourtListView
             initialCourts={locationParam ? null : initialCourts}
             locationId={locationParam}
+            userLocationId={currentUserPlayer?.location_id || null}
             userLocation={
               currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }

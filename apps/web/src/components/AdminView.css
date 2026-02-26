@@ -1,0 +1,299 @@
+/* AdminView — admin panel container, header, settings, feedback table, court actions */
+
+.admin-view-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.admin-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.admin-view-container h1 {
+  color: var(--gray-900);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.admin-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--gray-700);
+  padding: 0;
+}
+
+.admin-refresh-btn:hover:not(:disabled) {
+  background: var(--gray-200);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.admin-refresh-btn:active:not(:disabled) {
+  background: var(--gray-300);
+  transform: scale(0.95);
+}
+
+.admin-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+.admin-view-container p {
+  color: var(--gray-600);
+}
+
+.admin-settings {
+  margin-bottom: 2rem;
+}
+
+.setting-group {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.setting-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.setting-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.setting-description {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Log Level Badge */
+.log-level-badge {
+  padding: 0.5rem 1rem;
+  background-color: var(--gray-100);
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  border: 1px solid var(--gray-300);
+}
+
+/* Log Level Select */
+.log-level-select {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-300);
+  background-color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.log-level-select:hover {
+  border-color: var(--primary);
+  background-color: var(--gray-50);
+}
+
+.log-level-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.1);
+}
+
+/* Admin Actions */
+.admin-actions {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* Error and Success Messages */
+.admin-view-container .error-message {
+  padding: 1rem;
+  background-color: var(--danger-light);
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: var(--danger);
+  margin-bottom: 1rem;
+}
+
+.admin-view-container .success-message {
+  padding: 1rem;
+  background-color: var(--success-light);
+  border: 1px solid #cfc;
+  border-radius: 6px;
+  color: var(--success-dark);
+  margin-bottom: 1rem;
+}
+
+.admin-feedback-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.admin-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.admin-section-header h2 {
+  color: var(--gray-900);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admin-feedback-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--gray-50);
+  border-radius: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-feedback-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background-color: white;
+}
+
+.admin-feedback-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-feedback-table thead {
+  background-color: var(--gray-50);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.admin-feedback-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.admin-feedback-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+
+.admin-feedback-table tbody tr:hover {
+  background-color: var(--gray-50);
+}
+
+.admin-feedback-table tbody tr.resolved {
+  opacity: 0.7;
+}
+
+.admin-feedback-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 768px) {
+  .admin-feedback-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-feedback-table {
+    font-size: 0.85rem;
+  }
+
+  .admin-feedback-table th,
+  .admin-feedback-table td {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* Admin Court Actions */
+.admin-court-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-court-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-court-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-court-action-btn--approve {
+  color: var(--success);
+}
+
+.admin-court-action-btn--approve:hover:not(:disabled) {
+  background: #e6f9f0;
+  border-color: var(--success);
+}
+
+.admin-court-action-btn--reject {
+  color: var(--danger);
+}
+
+.admin-court-action-btn--reject:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: var(--danger);
+}

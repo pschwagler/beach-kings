@@ -8,10 +8,19 @@ export const MATCH_POSITION_KEYS = {
   T1P2: 'Team 1 Player 2',
   T2P1: 'Team 2 Player 1',
   T2P2: 'Team 2 Player 2',
+  T1P1_ID: 'Team 1 Player 1 ID',
+  T1P2_ID: 'Team 1 Player 2 ID',
+  T2P1_ID: 'Team 2 Player 1 ID',
+  T2P2_ID: 'Team 2 Player 2 ID',
 };
 
-/** Array form for iteration convenience. */
-const ALL_POSITION_KEYS = Object.values(MATCH_POSITION_KEYS);
+/** Array of player name keys for iteration (excludes ID keys). */
+const ALL_POSITION_KEYS = [
+  MATCH_POSITION_KEYS.T1P1,
+  MATCH_POSITION_KEYS.T1P2,
+  MATCH_POSITION_KEYS.T2P1,
+  MATCH_POSITION_KEYS.T2P2,
+];
 
 /**
  * Count unique players across matches in display format (Team 1 Player 1, etc.).
@@ -81,6 +90,10 @@ export function sessionMatchToDisplayFormat(match, placeholderPlayerIds) {
     [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
     [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
     [MATCH_POSITION_KEYS.T2P2]: match.team2_player2_name || '',
+    [MATCH_POSITION_KEYS.T1P1_ID]: match.team1_player1_id ?? null,
+    [MATCH_POSITION_KEYS.T1P2_ID]: match.team1_player2_id ?? null,
+    [MATCH_POSITION_KEYS.T2P1_ID]: match.team2_player1_id ?? null,
+    [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
     'Team 1 Score': match.team1_score,
     'Team 2 Score': match.team2_score,
     Winner: winner,
@@ -144,6 +157,10 @@ export function transformMatchData(matches, placeholderPlayerIds) {
       [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
       [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
       [MATCH_POSITION_KEYS.T2P2]: match.team2_player2_name || '',
+      [MATCH_POSITION_KEYS.T1P1_ID]: match.team1_player1_id ?? null,
+      [MATCH_POSITION_KEYS.T1P2_ID]: match.team1_player2_id ?? null,
+      [MATCH_POSITION_KEYS.T2P1_ID]: match.team2_player1_id ?? null,
+      [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
       'Team 1 Score': match.team1_score,
       'Team 2 Score': match.team2_score,
       Winner: winner,

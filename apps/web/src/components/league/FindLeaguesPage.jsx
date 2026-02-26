@@ -276,7 +276,7 @@ export default function FindLeaguesPage() {
           {isMember ? (
             <span
               className="leagues-table-member-indicator"
-              title="Youre already a member of this league"
+              data-tooltip="You're already a member of this league"
             >
               You&apos;re a member
             </span>

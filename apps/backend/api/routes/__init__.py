@@ -51,6 +51,7 @@ from backend.api.routes.locations import router as locations_router
 from backend.api.routes.auth import router as auth_router
 from backend.api.routes.users import router as users_router
 from backend.api.routes.friends import router as friends_router
+from backend.api.routes.messages import router as messages_router
 from backend.api.routes.notifications import router as notifications_router
 from backend.api.routes.signups import router as signups_router
 from backend.api.routes.admin import router as admin_router
@@ -67,6 +68,7 @@ router.include_router(locations_router)
 router.include_router(auth_router)
 router.include_router(users_router)
 router.include_router(friends_router)
+router.include_router(messages_router)
 router.include_router(notifications_router)
 router.include_router(signups_router)
 router.include_router(admin_router)

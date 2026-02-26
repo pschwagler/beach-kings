@@ -3,6 +3,7 @@
 import React from 'react';
 import NavBar from '../../src/components/layout/NavBar';
 import { useAuth } from '../../src/contexts/AuthContext';
+import '../../src/styles/legal-pages.css';
 
 export default function PrivacyPolicyPageRoute() {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();

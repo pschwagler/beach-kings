@@ -100,6 +100,7 @@ async def get_all_tags(session: AsyncSession) -> List[Dict]:
 async def list_courts_public(
     session: AsyncSession,
     *,
+    region_id: Optional[str] = None,
     location_id: Optional[str] = None,
     surface_type: Optional[str] = None,
     min_rating: Optional[float] = None,
@@ -123,8 +124,9 @@ async def list_courts_public(
 
     Args:
         session: Database session.
+        region_id: Filter by region ID (e.g. ``california``).
         location_id: Filter by location hub ID (e.g. ``socal_sd``).
-        surface_type: Filter by surface (``sand``, ``grass``, ``indoor_sand``).
+        surface_type: Filter by surface (``sand``, ``indoor_sand``).
         min_rating: Minimum average rating (1–5).
         is_free: Filter free (True) or paid (False) courts.
         has_lights: Filter courts with lights.
@@ -147,8 +149,18 @@ async def list_courts_public(
     )
 
     # Apply filters
+    if region_id:
+        base = base.where(
+            Court.location_id.in_(
+                select(Location.id).where(Location.region_id == region_id)
+            )
+        )
     if location_id:
-        base = base.where(Court.location_id == location_id)
+        ids = [lid.strip() for lid in location_id.split(",") if lid.strip()]
+        if len(ids) == 1:
+            base = base.where(Court.location_id == ids[0])
+        else:
+            base = base.where(Court.location_id.in_(ids))
     if surface_type:
         base = base.where(Court.surface_type == surface_type)
     if min_rating is not None:

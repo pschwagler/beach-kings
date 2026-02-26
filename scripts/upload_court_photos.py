@@ -1,120 +1,144 @@
 #!/usr/bin/env python3
 """
-Upload local court photos to S3 and insert court_photos rows.
+Upload local court photos via the API.
 
-Reads photos from apps/web/public/courts/{slug}/ and for each:
-  1. Looks up the court_id by slug
-  2. Uploads .jpg/.jpeg/.png/.webp files to S3 at court-photos/{court_id}/{filename}
-  3. Inserts a court_photos row
+Reads photos from data/court-photos/{slug}/ and for each:
+  1. Resolves slug → court_id via GET /api/public/courts
+  2. Uploads .jpg/.jpeg/.png/.webp files via POST /api/courts/{court_id}/photos
+  3. Skips the "rejected/" subfolder in each court directory
 
-Idempotent: skips files already uploaded (checks s3_key existence).
+Requires a valid auth token (verified player). Get one with:
+    make dev-login ID=1
 
 Usage:
-    python scripts/upload_court_photos.py
+    python scripts/upload_court_photos.py --token <JWT_TOKEN>
+    python scripts/upload_court_photos.py --token <JWT_TOKEN> --base-url http://localhost:8000
 """
 
-import asyncio
-import os
+import argparse
 import sys
 from pathlib import Path
 
-# Add project root to path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
+import requests
 
-from sqlalchemy import select
-from backend.database.db import AsyncSessionLocal
-from backend.database.models import Court, CourtPhoto
-from backend.services import s3_service
-
-PHOTOS_DIR = Path(project_root) / "apps" / "web" / "public" / "courts"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PHOTOS_DIR = PROJECT_ROOT / "data" / "court-photos"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+DEFAULT_BASE_URL = "http://localhost:8000"
 
 
-async def upload_photos_for_court(session, slug: str, photo_dir: Path) -> int:
-    """Upload all photos in a directory for a court slug. Returns count of new uploads."""
-    # Look up court by slug
-    result = await session.execute(select(Court.id).where(Court.slug == slug))
-    row = result.first()
-    if not row:
-        print(f"  SKIP {slug}: no court found with this slug")
-        return 0
-
-    court_id = row[0]
-    uploaded = 0
-
-    # Get existing s3_keys for this court to avoid duplicates
-    existing_result = await session.execute(
-        select(CourtPhoto.s3_key).where(CourtPhoto.court_id == court_id)
-    )
-    existing_keys = {r[0] for r in existing_result.all()}
-
-    # Get current max sort_order
-    max_order_result = await session.execute(
-        select(CourtPhoto.sort_order)
-        .where(CourtPhoto.court_id == court_id)
-        .order_by(CourtPhoto.sort_order.desc())
-        .limit(1)
-    )
-    max_order_row = max_order_result.first()
-    next_order = (max_order_row[0] + 1) if max_order_row else 0
-
-    for photo_file in sorted(photo_dir.iterdir()):
-        if photo_file.suffix.lower() not in ALLOWED_EXTENSIONS:
-            continue
-
-        s3_key = f"court-photos/{court_id}/{photo_file.name}"
-        if s3_key in existing_keys:
-            print(f"  SKIP {slug}/{photo_file.name}: already uploaded")
-            continue
-
-        # Read and upload to S3
-        file_bytes = photo_file.read_bytes()
-        content_type = "image/jpeg" if photo_file.suffix.lower() in {".jpg", ".jpeg"} else f"image/{photo_file.suffix.lower().lstrip('.')}"
-
-        try:
-            url = s3_service.upload_file(file_bytes, s3_key, content_type)
-        except Exception as e:
-            print(f"  ERROR {slug}/{photo_file.name}: S3 upload failed — {e}")
-            continue
-
-        # Insert DB row
-        photo = CourtPhoto(
-            court_id=court_id,
-            s3_key=s3_key,
-            url=url,
-            uploaded_by=None,  # System upload, no player
-            sort_order=next_order,
+def get_slug_to_id_map(base_url: str) -> dict[str, int]:
+    """Fetch all courts from the public API and build a slug → id map."""
+    slug_map = {}
+    page = 1
+    while True:
+        resp = requests.get(
+            f"{base_url}/api/public/courts",
+            params={"page": page, "page_size": 100},
+            timeout=15,
         )
-        session.add(photo)
-        next_order += 1
-        uploaded += 1
-        print(f"  OK {slug}/{photo_file.name} -> {s3_key}")
+        resp.raise_for_status()
+        data = resp.json()
+        for court in data["items"]:
+            slug_map[court["slug"]] = court["id"]
+        if page * 100 >= data["total_count"]:
+            break
+        page += 1
+    return slug_map
 
-    return uploaded
+
+def upload_photo(base_url: str, token: str, court_id: int, photo_path: Path) -> bool:
+    """
+    Upload a single photo via POST /api/courts/{court_id}/photos.
+
+    Returns True on success, False on failure.
+    """
+    content_type_map = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+    ct = content_type_map.get(photo_path.suffix.lower(), "image/jpeg")
+
+    with open(photo_path, "rb") as f:
+        resp = requests.post(
+            f"{base_url}/api/courts/{court_id}/photos",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": (photo_path.name, f, ct)},
+            timeout=30,
+        )
+
+    if resp.status_code == 200:
+        return True
+    else:
+        print(f"    FAILED ({resp.status_code}): {resp.text[:200]}")
+        return False
 
 
-async def main():
-    """Upload all local court photos to S3."""
+def main():
+    """Upload court photos from data/court-photos/ via the API."""
+    parser = argparse.ArgumentParser(description="Upload court photos via API")
+    parser.add_argument(
+        "--token", required=True,
+        help="JWT access token (get one with: make dev-login ID=1)",
+    )
+    parser.add_argument(
+        "--base-url", default=DEFAULT_BASE_URL,
+        help=f"Backend base URL (default: {DEFAULT_BASE_URL})",
+    )
+    args = parser.parse_args()
+
     if not PHOTOS_DIR.exists():
         print(f"Photos directory not found: {PHOTOS_DIR}")
         sys.exit(1)
 
-    court_dirs = sorted(d for d in PHOTOS_DIR.iterdir() if d.is_dir())
+    # Build slug → court_id map
+    print("Fetching court list...")
+    slug_map = get_slug_to_id_map(args.base_url)
+    print(f"Found {len(slug_map)} courts in the database\n")
+
+    court_dirs = sorted(
+        d for d in PHOTOS_DIR.iterdir()
+        if d.is_dir() and d.name != ".DS_Store"
+    )
     print(f"Found {len(court_dirs)} court directories in {PHOTOS_DIR}\n")
 
     total_uploaded = 0
-    async with AsyncSessionLocal() as session:
-        for court_dir in court_dirs:
-            slug = court_dir.name
-            print(f"Processing: {slug}")
-            count = await upload_photos_for_court(session, slug, court_dir)
-            total_uploaded += count
+    total_skipped = 0
+    total_failed = 0
 
-        await session.commit()
+    for court_dir in court_dirs:
+        slug = court_dir.name
+        court_id = slug_map.get(slug)
 
-    print(f"\nDone! Uploaded {total_uploaded} new photos.")
+        if court_id is None:
+            print(f"SKIP {slug}: no court found with this slug")
+            total_skipped += 1
+            continue
+
+        photos = sorted(
+            f for f in court_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS
+        )
+        if not photos:
+            continue
+
+        print(f"Uploading {len(photos)} photos for {slug} (court_id={court_id})")
+
+        for photo in photos:
+            success = upload_photo(args.base_url, args.token, court_id, photo)
+            if success:
+                total_uploaded += 1
+                print(f"  OK {slug}/{photo.name}")
+            else:
+                total_failed += 1
+
+    print(f"\nDone!")
+    print(f"  Uploaded: {total_uploaded}")
+    print(f"  Failed: {total_failed}")
+    print(f"  Skipped (no matching court): {total_skipped}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

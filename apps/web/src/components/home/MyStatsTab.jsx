@@ -57,11 +57,13 @@ function getPreviousPeriodMatches(allCompleted, timeRangeKey) {
 
 /**
  * Parse a score string like "21-15" into [playerScore, opponentScore].
+ * Returns [0, 0] for malformed or missing scores.
  */
 function parseScore(score) {
   if (!score) return [0, 0];
-  const parts = score.split('-').map(Number);
-  return [parts[0] || 0, parts[1] || 0];
+  const match = String(score).match(/^(\d+)-(\d+)$/);
+  if (!match) return [0, 0];
+  return [Number(match[1]), Number(match[2])];
 }
 
 /**
@@ -130,7 +132,7 @@ function computeOverview(filtered, currentElo) {
  *
  * For "all" time, rating delta compares current ELO to the very first game.
  */
-function computeDeltas(allCompleted, timeRangeKey, currentElo) {
+function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
   if (allCompleted.length === 0 || currentElo == null) return {};
 
   // Sort once, oldest-first, for reuse below
@@ -170,21 +172,16 @@ function computeDeltas(allCompleted, timeRangeKey, currentElo) {
   let avgDiffDelta = null;
 
   if (timeRangeKey !== 'all') {
-    const range = TIME_RANGES.find(r => r.key === timeRangeKey);
-    const periodStart = new Date();
-    periodStart.setDate(periodStart.getDate() - range.days);
-
     const prevMatches = getPreviousPeriodMatches(allCompleted, timeRangeKey);
-    const currentMatches = allCompleted.filter(m => m.Date && new Date(m.Date) >= periodStart);
 
-    if (prevMatches && prevMatches.length > 0 && currentMatches.length > 0) {
+    if (prevMatches && prevMatches.length > 0 && filtered.length > 0) {
       // Win rate delta (percentage points)
-      const curWR = (currentMatches.filter(m => m.Result === 'W').length / currentMatches.length) * 100;
+      const curWR = (filtered.filter(m => m.Result === 'W').length / filtered.length) * 100;
       const prevWR = (prevMatches.filter(m => m.Result === 'W').length / prevMatches.length) * 100;
       winRateDelta = curWR - prevWR;
 
       // Avg +/- delta
-      const curAvg = computeAvgDiff(currentMatches);
+      const curAvg = computeAvgDiff(filtered);
       const prevAvg = computeAvgDiff(prevMatches);
       if (curAvg != null && prevAvg != null) {
         avgDiffDelta = curAvg - prevAvg;
@@ -256,8 +253,9 @@ export default function MyStatsTab({ currentUserPlayer }) {
   useEffect(() => {
     if (!currentUserPlayer?.id) return;
 
+    const controller = new AbortController();
+    const { signal } = controller;
     const playerId = currentUserPlayer.id;
-    let cancelled = false;
 
     const loadData = async () => {
       setLoading(true);
@@ -265,11 +263,19 @@ export default function MyStatsTab({ currentUserPlayer }) {
 
       try {
         const [statsRes, matchRes] = await Promise.allSettled([
-          getPlayerStats(playerId),
-          getPlayerMatchHistory(playerId),
+          getPlayerStats(playerId, { signal }),
+          getPlayerMatchHistory(playerId, { signal }),
         ]);
 
-        if (cancelled) return;
+        if (signal.aborted) return;
+
+        // Both calls rejected — show error
+        if (statsRes.status === 'rejected' && matchRes.status === 'rejected') {
+          setError('Failed to load stats. Please try again.');
+          console.error('MyStatsTab stats error:', statsRes.reason);
+          console.error('MyStatsTab match error:', matchRes.reason);
+          return;
+        }
 
         if (statsRes.status === 'fulfilled') setGlobalStats(statsRes.value);
         if (matchRes.status === 'fulfilled') {
@@ -281,15 +287,17 @@ export default function MyStatsTab({ currentUserPlayer }) {
           setMatchHistory(sorted);
         }
       } catch (err) {
-        if (!cancelled) setError('Failed to load stats. Please try again.');
-        console.error('MyStatsTab load error:', err);
+        if (!signal.aborted) {
+          setError('Failed to load stats. Please try again.');
+          console.error('MyStatsTab load error:', err);
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       }
     };
 
     loadData();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [currentUserPlayer?.id]);
 
   // All completed matches (used for filtering + deltas)
@@ -313,8 +321,8 @@ export default function MyStatsTab({ currentUserPlayer }) {
 
   // Period-over-period deltas
   const deltas = useMemo(
-    () => computeDeltas(allCompleted, timeRange, currentElo),
-    [allCompleted, timeRange, currentElo]
+    () => computeDeltas(allCompleted, filtered, timeRange, currentElo),
+    [allCompleted, filtered, timeRange, currentElo]
   );
 
   // Chart data: one point per day (end-of-day rating), sorted oldest→newest
@@ -385,9 +393,14 @@ export default function MyStatsTab({ currentUserPlayer }) {
     [filtered]
   );
 
-  // Show all toggles
+  // Show all toggles — reset when time range changes
   const [showAllPartners, setShowAllPartners] = useState(false);
   const [showAllOpponents, setShowAllOpponents] = useState(false);
+
+  useEffect(() => {
+    setShowAllPartners(false);
+    setShowAllOpponents(false);
+  }, [timeRange]);
 
   if (loading) {
     return (

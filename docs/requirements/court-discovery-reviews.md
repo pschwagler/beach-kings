@@ -314,6 +314,7 @@ Beach volleyball players lack a centralized resource to find, evaluate, and shar
 | Court Name | Address | Borough | Court Count | Surface | Free | Lights |
 |---|---|---|---|---|---|---|
 | Pier 25 | Hudson River Park, Pier 25, New York, NY 10013 | Manhattan | 3 | Sand | No | Yes |
+| Chelsea Piers Fitness | Pier 62, Chelsea Piers, New York, NY 10011 | Manhattan | 1 | Indoor Sand | No | Yes |
 | Riverside Park (104th St) | Riverside Park, W 104th St, New York, NY 10025 | Manhattan | 2 | Sand | Yes | No |
 | Central Park (Sheep's Meadow) | Central Park, Sheep's Meadow, New York, NY 10019 | Manhattan | 1 | Grass | Yes | No |
 | Pier 6 (Brooklyn Bridge Park) | Brooklyn Bridge Park, Pier 6, Brooklyn, NY 11201 | Brooklyn | 3 | Sand | Yes | No |

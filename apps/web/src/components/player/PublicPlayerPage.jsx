@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { UserPlus, UserCheck, Clock, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { UserPlus, UserCheck, Clock, Users, MessageCircle } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/UI';
@@ -32,6 +33,7 @@ import './PublicPlayerPage.css';
 export default function PublicPlayerPage({ player, isAuthenticated }) {
   const { openAuthModal } = useAuthModal();
   const { currentUserPlayer } = useAuth();
+  const router = useRouter();
   const [friendStatus, setFriendStatus] = useState(null); // 'friend'|'pending_outgoing'|'pending_incoming'|'none'|'self'
   const [incomingRequestId, setIncomingRequestId] = useState(null);
   const [mutualFriends, setMutualFriends] = useState([]);
@@ -136,7 +138,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           data-testid="friend-active-btn"
           onClick={handleUnfriend}
           disabled={actionLoading}
-          title="Friends — click to unfriend"
+          data-tooltip="Friends — click to unfriend"
         >
           <UserCheck size={20} />
         </button>
@@ -148,7 +150,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           className="public-player__friend-icon public-player__friend-icon--pending"
           data-testid="friend-pending-btn"
           disabled
-          title="Request sent"
+          data-tooltip="Request sent"
         >
           <Clock size={20} />
         </button>
@@ -161,7 +163,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           data-testid="friend-incoming-btn"
           onClick={handleAcceptRequest}
           disabled={actionLoading}
-          title="Accept friend request"
+          data-tooltip="Accept friend request"
         >
           <UserPlus size={20} />
         </button>
@@ -173,7 +175,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
         data-testid="friend-add-btn"
         onClick={handleSendRequest}
         disabled={actionLoading}
-        title="Add friend"
+        data-tooltip="Add friend"
       >
         <UserPlus size={20} />
       </button>
@@ -212,8 +214,27 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
             {player.level && <LevelBadge level={player.level} />}
           </div>
         </div>
-        {/* Friend action icon */}
+        {/* Friend action icons */}
         <div className="public-player__friend-action">
+          {isAuthenticated && !isSelf && (
+            friendStatus === 'friend' ? (
+              <button
+                className="public-player__friend-icon public-player__friend-icon--message"
+                data-testid="player-message-btn"
+                onClick={() => router.push(`/home?tab=messages&thread=${player.id}`)}
+                data-tooltip="Send message"
+              >
+                <MessageCircle size={20} />
+              </button>
+            ) : (
+              <span
+                className="public-player__friend-icon public-player__friend-icon--disabled"
+                data-tooltip="Must be friends to message"
+              >
+                <MessageCircle size={20} />
+              </span>
+            )
+          )}
           {renderFriendButton()}
         </div>
       </div>

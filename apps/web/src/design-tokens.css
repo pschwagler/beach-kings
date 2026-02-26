@@ -28,6 +28,9 @@
   --primary-dark: #205e6f;
   --primary-darker: #183f4a;
   --primary-rgb: 44, 122, 143;
+  --primary-darker-rgb: 24, 63, 74;
+  --navbar-bg-dark: #0d2b33;
+  --navbar-bg-dark-rgb: 13, 43, 51;
 
   /* Warm accents */
   --muted-red: #ff7849;
@@ -37,6 +40,7 @@
   --coral-light: #ffc7b3;
   --coral-dark: #e08361;
   --sand: #f4e4c1;
+  --sand-rgb: 244, 228, 193;
   --sand-light: #faf0d8;
   --sand-dark: #d6c19c;
   --deep-ocean: #2c7a8f;
@@ -46,6 +50,7 @@
 
   /* Cool accents */
   --seafoam: #8ed4c6;
+  --seafoam-rgb: 142, 212, 198;
   --seafoam-light: #c9eee6;
   --seafoam-dark: #5fa79b;
   --sun-gold: #ffd78a;

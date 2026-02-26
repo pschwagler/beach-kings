@@ -608,6 +608,21 @@ Constraints: UNIQUE(`player1_id`, `player2_id`), **CHECK(`player1_id < player2_i
 
 Constraint: `uq_friend_request_sender_receiver`
 
+### `direct_messages`
+1:1 direct messages between players (migration 025).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `sender_player_id` | Integer FK → players.id | |
+| `receiver_player_id` | Integer FK → players.id | |
+| `message_text` | Text | Max 500 chars (API-enforced) |
+| `is_read` | Boolean | Default `false` |
+| `read_at` | DateTime(tz) | Nullable |
+| `created_at` | DateTime(tz) | server_default=now |
+
+Indexes: `idx_dm_thread` (sender, receiver, created_at), `idx_dm_receiver_unread` (receiver, is_read, created_at), `idx_dm_sender_created` (sender, created_at)
+
 ### `player_invites`
 Invite links for placeholder players (1:1 with player).
 

@@ -1,0 +1,104 @@
+/* Legal Pages Styling — shared by privacy-policy, terms-of-service, contribute */
+
+.legal-page-container {
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+.legal-page-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 84px 48px;
+  background-color: white;
+  min-height: calc(100vh - var(--navbar-height));
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+.legal-page-header {
+  margin-bottom: 2rem;
+}
+
+.legal-page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.legal-page-date {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.legal-section {
+  line-height: 1.75;
+  color: #374151;
+}
+
+.legal-section > p {
+  margin-bottom: 1rem;
+}
+
+.legal-intro {
+  font-size: 1.05rem;
+  margin-bottom: 2rem;
+}
+
+.legal-section h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.legal-section h4 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.legal-section ul {
+  margin-left: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.legal-section ul li {
+  margin-bottom: 0.5rem;
+}
+
+.legal-info-box {
+  background-color: #f0f9ff;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  margin: 1rem 0;
+}
+
+.legal-warning-box {
+  background-color: var(--danger-lighter);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  margin: 1rem 0;
+}
+
+.legal-disclaimer-box {
+  text-transform: uppercase;
+  background-color: #f0f0f0;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.legal-footer-note {
+  margin-top: 2rem;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.legal-liability-text {
+  text-transform: uppercase;
+}

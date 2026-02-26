@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { getUserLeagues } from '../services/api';
 import NavBar from './layout/NavBar';
-import '../App.css';
+import './AdminView.css';
 
 function AdminView() {
   const router = useRouter();

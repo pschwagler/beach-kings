@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { fetchBackend } from '../../src/utils/server-fetch';
 import CourtDirectoryClient from './CourtDirectoryClient';
 
@@ -28,5 +29,9 @@ export default async function CourtsPage() {
     console.error('[CourtsPage] Failed to fetch courts:', error.message);
   }
 
-  return <CourtDirectoryClient initialCourts={initialCourts} />;
+  return (
+    <Suspense>
+      <CourtDirectoryClient initialCourts={initialCourts} />
+    </Suspense>
+  );
 }

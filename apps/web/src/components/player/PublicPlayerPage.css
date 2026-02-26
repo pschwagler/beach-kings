@@ -67,11 +67,13 @@
   color: var(--gray-700);
 }
 
-/* Friend action icon */
+/* Friend action icons */
 .public-player__friend-action {
   margin-left: auto;
   flex-shrink: 0;
   align-self: flex-start;
+  display: flex;
+  gap: 8px;
 }
 
 .public-player__friend-icon {
@@ -123,7 +125,18 @@
   background: var(--primary-dark);
 }
 
-.public-player__friend-icon:disabled {
+.public-player__friend-icon--message {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.public-player__friend-icon--message:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.public-player__friend-icon:disabled,
+.public-player__friend-icon--disabled {
   opacity: 0.5;
   cursor: default;
 }

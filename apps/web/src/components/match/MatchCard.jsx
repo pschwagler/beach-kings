@@ -36,11 +36,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
       {/* Team 1 */}
       <div className={`match-team ${team1Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1 ID'], match['Team 1 Player 1'], e); }}>
             {match['Team 1 Player 1']}
             {match['Team 1 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
           </span>
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2 ID'], match['Team 1 Player 2'], e); }}>
             {match['Team 1 Player 2']}
             {match['Team 1 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
           </span>
@@ -53,11 +53,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
       {/* Team 2 */}
       <div className={`match-team ${team2Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1 ID'], match['Team 2 Player 1'], e); }}>
             {match['Team 2 Player 1']}
             {match['Team 2 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
           </span>
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2']); }}>
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2 ID'], match['Team 2 Player 2'], e); }}>
             {match['Team 2 Player 2']}
             {match['Team 2 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
           </span>
@@ -74,7 +74,7 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         ) : match['Ranked Intent'] ? (
           <span
             className="match-card-badge match-card-badge--pending"
-            title="Will become ranked when all players register"
+            data-tooltip="Will become ranked when all players register"
           >
             Pending
           </span>

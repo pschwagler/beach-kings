@@ -1,5 +1,6 @@
 // Skeleton loading components for various league sections
 import { Plus } from 'lucide-react';
+import './Skeletons.css';
 
 // Rankings Table Skeleton
 export function RankingsTableSkeleton() {

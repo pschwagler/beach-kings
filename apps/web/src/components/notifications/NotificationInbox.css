@@ -19,7 +19,7 @@
 }
 
 .notification-bell-button:hover {
-  background-color: rgba(244, 228, 193, 0.1);
+  background-color: rgba(var(--sand-rgb), 0.1);
   color: var(--sand-light);
 }
 

@@ -33,8 +33,8 @@ test.describe('My Stats Tab', () => {
     await expect(overviewGrid).toBeVisible({ timeout: 15000 });
 
     // Record card should have a non-zero value (e.g. "2-0" or "1-1")
-    const recordCard = overviewGrid.locator('.my-stats-tab__overview-card').first();
-    const recordValue = recordCard.locator('.my-stats-tab__overview-value');
+    const recordCard = overviewGrid.locator('.overview-stat-card').first();
+    const recordValue = recordCard.locator('.overview-stat-card__value');
     await expect(recordValue).not.toHaveText('0-0', { timeout: 10000 });
   });
 

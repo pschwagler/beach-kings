@@ -1,0 +1,44 @@
+/* Skeleton Loading Styles */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 16px;
+  display: block;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 50%, #e0e0e0 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}

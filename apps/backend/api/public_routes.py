@@ -305,6 +305,7 @@ async def get_public_court(request: Request, slug: str, session: AsyncSession = 
 @limiter.limit("60/minute")
 async def list_public_courts(
     request: Request,
+    region_id: Optional[str] = Query(None, description="Filter by region ID"),
     location_id: Optional[str] = Query(None, description="Filter by location hub ID"),
     surface_type: Optional[str] = Query(None, description="Filter by surface type"),
     min_rating: Optional[float] = Query(None, ge=1, le=5, description="Minimum average rating"),
@@ -330,6 +331,7 @@ async def list_public_courts(
     """
     return await court_service.list_courts_public(
         session,
+        region_id=region_id,
         location_id=location_id,
         surface_type=surface_type,
         min_rating=min_rating,

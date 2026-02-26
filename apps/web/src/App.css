@@ -2720,6 +2720,27 @@ body:hover ::-webkit-scrollbar-thumb {
   }
 }
 
+/* Instant CSS tooltips via data-tooltip attribute */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(33, 33, 33, 0.95);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10000;
+  animation: tooltipFadeIn 0.12s ease-out;
+}
+
 /* Additional utility classes for inline style removal */
 .winner-row {
   background: white;
@@ -3551,7 +3572,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 6px 12px;
 }
 
-.league-sidebar.collapsed .league-sidebar-nav-item span {
+.league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
   display: none;
 }
 
@@ -3561,7 +3582,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 6px 12px;
 }
 
-.sidebar.collapsed .league-sidebar-nav-item span {
+.sidebar.collapsed .league-sidebar-nav-item > span:last-child {
   display: none;
 }
 
@@ -3628,8 +3649,25 @@ body:hover ::-webkit-scrollbar-thumb {
   height: 20px;
 }
 
-.league-sidebar-nav-item span {
+.league-sidebar-nav-item > span:last-child {
   flex: 1;
+}
+
+.league-sidebar-nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .league-sidebar-nav-group {
@@ -5165,21 +5203,7 @@ body:hover ::-webkit-scrollbar-thumb {
   transform: scale(0.95);
 }
 
-/* Add Players Modal */
-.add-players-modal {
-  max-width: 600px;
-  height: 600px;
-  display: flex;
-  flex-direction: column;
-}
-
-.add-players-modal .modal-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
+/* Add Players Drawer (reuses .session-players-drawer-* classes) */
 
 .add-players-selected-section {
   margin-bottom: 24px;
@@ -7733,6 +7757,13 @@ button.match-config-toggle.inline svg {
   background: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 12px;
+  overflow: hidden;
+}
+
+/* Let the clipboard table extend to the panel edges so the actions column isn't clipped */
+.active-session-panel .clipboard-table-wrapper {
+  margin-left: -28px;
+  margin-right: -28px;
 }
 
 .session-header {
@@ -9277,7 +9308,7 @@ button.match-config-toggle.inline svg {
     gap: 2px;
   }
 
-  .league-sidebar-nav-item span {
+  .league-sidebar-nav-item > span:last-child {
     display: block !important;
     font-size: 12px;
     font-weight: 500;
@@ -9285,8 +9316,8 @@ button.match-config-toggle.inline svg {
   }
 
   /* Override collapsed state on mobile - always show labels */
-  .sidebar.collapsed .league-sidebar-nav-item span,
-  .league-sidebar.collapsed .league-sidebar-nav-item span {
+  .sidebar.collapsed .league-sidebar-nav-item > span:last-child,
+  .league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
     display: block !important;
   }
 
@@ -9313,7 +9344,8 @@ button.match-config-toggle.inline svg {
     height: 22px;
   }
 
-  /* Hide Notifications menu item on mobile - it's in the More menu instead */
+  /* Hide Friends and Notifications menu items on mobile - they're in the More menu instead */
+  .friends-menu-item-desktop,
   .notifications-menu-item-desktop {
     display: none !important;
   }
@@ -9956,7 +9988,7 @@ button.match-config-toggle.inline svg {
     min-height: 52px;
   }
 
-  .league-sidebar-nav-item span {
+  .league-sidebar-nav-item > span:last-child {
     font-size: 0.65em;
   }
 
@@ -11004,6 +11036,11 @@ button.match-config-toggle.inline svg {
     padding: 20px;
   }
 
+  .active-session-panel .clipboard-table-wrapper {
+    margin-left: -20px;
+    margin-right: -20px;
+  }
+
   .session-name {
     font-size: 1.4em;
   }
@@ -11040,6 +11077,11 @@ button.match-config-toggle.inline svg {
 @media (max-width: 576px) {
   .active-session-panel {
     padding: 16px;
+  }
+
+  .active-session-panel .clipboard-table-wrapper {
+    margin-left: -16px;
+    margin-right: -16px;
   }
 
   .session-name {

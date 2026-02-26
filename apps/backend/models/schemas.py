@@ -621,6 +621,53 @@ class PlayerSeasonStatsResponse(BaseModel):
     updated_at: str
 
 
+class SendMessageRequest(BaseModel):
+    """Request to send a direct message."""
+
+    receiver_player_id: int
+    message_text: str = Field(min_length=1, max_length=500)
+
+
+class DirectMessageResponse(BaseModel):
+    """Single direct message."""
+
+    id: int
+    sender_player_id: int
+    receiver_player_id: int
+    message_text: str
+    is_read: bool
+    read_at: Optional[str] = None
+    created_at: str
+
+
+class ConversationResponse(BaseModel):
+    """Single conversation in the conversation list."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    last_message_text: str
+    last_message_at: str
+    last_message_sender_id: int
+    unread_count: int = 0
+    is_friend: bool = True
+
+
+class ConversationListResponse(BaseModel):
+    """Paginated conversation list."""
+
+    conversations: List[ConversationResponse]
+    total_count: int
+
+
+class ThreadResponse(BaseModel):
+    """Paginated thread of messages with a specific player."""
+
+    messages: List[DirectMessageResponse]
+    total_count: int
+    has_more: bool
+
+
 class FriendCreate(BaseModel):
     """Request to create a friendship."""
 
@@ -1318,7 +1365,7 @@ class CreateCourtRequest(BaseModel):
     location_id: str
     description: Optional[str] = None
     court_count: Optional[int] = None
-    surface_type: Optional[str] = None  # 'sand', 'grass', 'indoor_sand'
+    surface_type: Optional[str] = None  # 'sand', 'indoor_sand'
     is_free: Optional[bool] = None
     cost_info: Optional[str] = None
     has_lights: Optional[bool] = None

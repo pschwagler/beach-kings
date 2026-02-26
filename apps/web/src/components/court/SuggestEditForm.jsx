@@ -3,12 +3,7 @@
 import { useState } from 'react';
 import { suggestCourtEdit } from '../../services/api';
 import { Button } from '../ui/UI';
-
-const SURFACE_OPTIONS = [
-  { value: 'sand', label: 'Sand' },
-  { value: 'grass', label: 'Grass' },
-  { value: 'indoor_sand', label: 'Indoor Sand' },
-];
+import { SURFACE_OPTIONS } from '../../constants/court';
 
 /**
  * Form for suggesting edits to an existing court.

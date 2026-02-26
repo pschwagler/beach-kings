@@ -79,6 +79,7 @@ class NotificationType(str, enum.Enum):
     SESSION_AUTO_DELETED = "session_auto_deleted"
     MEMBER_JOINED = "member_joined"
     MEMBER_REMOVED = "member_removed"
+    DIRECT_MESSAGE = "direct_message"
 
 
 class InviteStatus(str, enum.Enum):
@@ -441,7 +442,7 @@ class Court(Base):
     # Discovery fields
     description = Column(Text, nullable=True)
     court_count = Column(Integer, nullable=True)
-    surface_type = Column(String(50), nullable=True)  # 'sand', 'grass', 'indoor_sand'
+    surface_type = Column(String(50), nullable=True)  # 'sand', 'indoor_sand'
     is_free = Column(Boolean, nullable=True)
     cost_info = Column(Text, nullable=True)
     has_lights = Column(Boolean, nullable=True)
@@ -536,6 +537,30 @@ class FriendRequest(Base):
         UniqueConstraint("sender_player_id", "receiver_player_id", name="uq_friend_request_sender_receiver"),
         Index("idx_friend_requests_receiver_status", "receiver_player_id", "status"),
         Index("idx_friend_requests_sender", "sender_player_id"),
+    )
+
+
+class DirectMessage(Base):
+    """1:1 direct message between two players."""
+
+    __tablename__ = "direct_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    receiver_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    message_text = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    sender = relationship("Player", foreign_keys=[sender_player_id])
+    receiver = relationship("Player", foreign_keys=[receiver_player_id])
+
+    __table_args__ = (
+        Index("idx_dm_thread", "sender_player_id", "receiver_player_id", "created_at"),
+        Index("idx_dm_receiver_unread", "receiver_player_id", "is_read", "created_at"),
+        Index("idx_dm_sender_created", "sender_player_id", "created_at"),
     )
 
 
