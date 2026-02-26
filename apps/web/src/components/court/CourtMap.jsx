@@ -45,8 +45,9 @@ function distanceMiles(lat1, lng1, lat2, lng2) {
  * @param {Object} props
  * @param {Array} props.courts - Court list items with latitude/longitude
  * @param {Object} [props.userLocation] - { latitude, longitude } from player profile
+ * @param {string} [props.locationFilter] - Location ID filter; when set, map fits to filtered courts instead of user position
  */
-export default function CourtMap({ courts, userLocation }) {
+export default function CourtMap({ courts, userLocation, locationFilter }) {
   const { position: userPos, source: posSource } = useUserPosition(userLocation);
 
   const [popupCourt, setPopupCourt] = useState(null);
@@ -65,7 +66,14 @@ export default function CourtMap({ courts, userLocation }) {
   useEffect(() => {
     if (!mapLoaded || !mapRef.current || mappable.length === 0) return;
 
-    if (userPos) {
+    if (locationFilter) {
+      // Location-filtered: fit bounds to all filtered courts, skip user centering
+      const lngs = mappable.map((c) => c.longitude);
+      const lats = mappable.map((c) => c.latitude);
+      const sw = [Math.min(...lngs), Math.min(...lats)];
+      const ne = [Math.max(...lngs), Math.max(...lats)];
+      mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
+    } else if (userPos) {
       // Sort by distance, take nearest N, fit bounds around them + user
       const withDist = mappable.map((c) => ({
         ...c,
@@ -89,7 +97,7 @@ export default function CourtMap({ courts, userLocation }) {
       const ne = [Math.max(...lngs), Math.max(...lats)];
       mapRef.current.fitBounds([sw, ne], { padding: 60, maxZoom: 14, duration: 0 });
     }
-  }, [mappable, userPos, mapLoaded, posSource]);
+  }, [mappable, userPos, mapLoaded, posSource, locationFilter]);
 
   const handleLocateClick = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -120,11 +128,13 @@ export default function CourtMap({ courts, userLocation }) {
     );
   }
 
-  const initialView = userPos
-    ? { latitude: userPos.latitude, longitude: userPos.longitude, zoom: 10 }
-    : mappable.length === 1
-      ? { latitude: mappable[0].latitude, longitude: mappable[0].longitude, zoom: 13 }
-      : DEFAULT_VIEW;
+  const initialView = locationFilter && mappable.length > 0
+    ? { latitude: mappable[0].latitude, longitude: mappable[0].longitude, zoom: 10 }
+    : userPos
+      ? { latitude: userPos.latitude, longitude: userPos.longitude, zoom: 10 }
+      : mappable.length === 1
+        ? { latitude: mappable[0].latitude, longitude: mappable[0].longitude, zoom: 13 }
+        : DEFAULT_VIEW;
 
   return (
     <div className="court-map">

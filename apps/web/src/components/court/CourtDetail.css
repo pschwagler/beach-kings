@@ -25,6 +25,22 @@
   color: var(--primary);
 }
 
+.court-detail__back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+  text-decoration: none;
+  margin-bottom: 20px;
+  transition: color 0.15s;
+}
+
+.court-detail__back-link:hover {
+  color: var(--primary);
+}
+
 .court-detail__section-title {
   font-size: 18px;
   font-weight: 600;

@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { getPublicCourts, getPublicLocations } from '../../services/api';
 import { useUserPosition } from '../../hooks/useUserPosition';
+import SearchableMultiSelect from '../ui/SearchableMultiSelect';
 import CourtCard from './CourtCard';
 import { Button } from '../ui/UI';
+import { SURFACE_OPTIONS } from '../../constants/court';
 import './CourtListView.css';
 
-const SURFACE_OPTIONS = [
+const SURFACE_FILTER_OPTIONS = [
   { value: '', label: 'All Surfaces' },
-  { value: 'sand', label: 'Sand' },
-  { value: 'grass', label: 'Grass' },
-  { value: 'indoor_sand', label: 'Indoor Sand' },
+  ...SURFACE_OPTIONS,
 ];
 
 /**
@@ -26,9 +26,10 @@ const SURFACE_OPTIONS = [
  * @param {Array} [props.initialCourts] - SSR-prefetched courts
  * @param {number} [props.initialTotal] - SSR total count
  * @param {string} [props.locationId] - Pre-filter by location hub
+ * @param {string} [props.userLocationId] - Authenticated user's location_id for sorting
  * @param {Object} [props.userLocation] - { latitude, longitude } fallback from player profile
  */
-export default function CourtListView({ initialCourts, initialTotal, locationId, userLocation }) {
+export default function CourtListView({ initialCourts, initialTotal, locationId, userLocationId, userLocation }) {
   const { position: userPos } = useUserPosition(userLocation);
 
   const [courts, setCourts] = useState(initialCourts?.items || []);
@@ -37,9 +38,13 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Location options for dropdown
+  // Region + location options for dropdowns
+  const [regions, setRegions] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [selectedLocationId, setSelectedLocationId] = useState(locationId || '');
+  const [selectedRegionId, setSelectedRegionId] = useState('');
+  const [locationIds, setLocationIds] = useState(() =>
+    locationId ? [locationId] : []
+  );
 
   // Filters
   const [search, setSearch] = useState('');
@@ -53,22 +58,43 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
   useEffect(() => {
     getPublicLocations()
       .then((data) => {
-        const flat = (data.regions || [])
+        const regionList = Array.isArray(data) ? data : (data.regions || []);
+        setRegions(
+          regionList
+            .map((r) => ({ id: r.id, name: r.name }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+        const flat = regionList
           .flatMap((r) => (r.locations || []).map((loc) => ({
             id: loc.id,
+            regionId: r.id,
             label: [loc.city, loc.state].filter(Boolean).join(', ') || loc.name,
           })))
           .sort((a, b) => a.label.localeCompare(b.label));
         setLocations(flat);
       })
-      .catch(() => {}); // silently fail — dropdown just won't show options
+      .catch(() => {});
   }, []);
+
+  // Location options: filtered by region, user's location sorted first
+  const locationOptions = useMemo(() => {
+    const filtered = selectedRegionId
+      ? locations.filter((loc) => loc.regionId === selectedRegionId)
+      : locations;
+    if (!userLocationId) return filtered;
+    return [...filtered].sort((a, b) => {
+      if (a.id === userLocationId) return -1;
+      if (b.id === userLocationId) return 1;
+      return 0;
+    });
+  }, [locations, selectedRegionId, userLocationId]);
 
   const fetchCourts = useCallback(async (pageNum = 1, resetList = true) => {
     setLoading(true);
     try {
       const filters = { page: pageNum, page_size: PAGE_SIZE };
-      if (selectedLocationId) filters.location_id = selectedLocationId;
+      if (selectedRegionId) filters.region_id = selectedRegionId;
+      if (locationIds.length > 0) filters.location_id = locationIds.join(',');
       if (search.trim()) filters.search = search.trim();
       if (surfaceType) filters.surface_type = surfaceType;
       if (isFree !== null) filters.is_free = isFree;
@@ -91,7 +117,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
     } finally {
       setLoading(false);
     }
-  }, [selectedLocationId, search, surfaceType, isFree, minRating, userPos]);
+  }, [selectedRegionId, locationIds, search, surfaceType, isFree, minRating, userPos]);
 
   // Refetch when filters or user position change
   useEffect(() => {
@@ -103,15 +129,32 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
 
   const handleClearFilters = () => {
     setSearch('');
-    setSelectedLocationId('');
+    setSelectedRegionId('');
+    setLocationIds([]);
     setSurfaceType('');
     setIsFree(null);
     setMinRating(null);
   };
 
+  const handleRegionChange = (regionId) => {
+    setSelectedRegionId(regionId);
+    // Clear location selections that don't belong to the new region
+    if (regionId) {
+      const regionLocIds = new Set(locations.filter((l) => l.regionId === regionId).map((l) => l.id));
+      setLocationIds((prev) => prev.filter((id) => regionLocIds.has(id)));
+    }
+  };
+
+  const handleToggleLocation = (id) => {
+    setLocationIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const activeFilterCount = [
     search.trim(),
-    selectedLocationId,
+    selectedRegionId,
+    locationIds.length > 0,
     surfaceType,
     isFree !== null,
     minRating,
@@ -148,19 +191,31 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
       {/* Collapsible filter panel */}
       {showFilters && (
         <div className="court-list__filters">
+          {regions.length > 0 && (
+            <div className="court-list__filter-group">
+              <label className="court-list__filter-label">Region</label>
+              <select
+                value={selectedRegionId}
+                onChange={(e) => handleRegionChange(e.target.value)}
+                className="court-list__filter-select"
+              >
+                <option value="">All Regions</option>
+                {regions.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {locations.length > 0 && (
             <div className="court-list__filter-group">
               <label className="court-list__filter-label">Location</label>
-              <select
-                value={selectedLocationId}
-                onChange={(e) => setSelectedLocationId(e.target.value)}
-                className="court-list__filter-select"
-              >
-                <option value="">All Locations</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.label}</option>
-                ))}
-              </select>
+              <SearchableMultiSelect
+                options={locationOptions}
+                selectedIds={locationIds}
+                onToggle={handleToggleLocation}
+                placeholder="Search locations..."
+              />
             </div>
           )}
 
@@ -171,7 +226,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
               onChange={(e) => setSurfaceType(e.target.value)}
               className="court-list__filter-select"
             >
-              {SURFACE_OPTIONS.map((opt) => (
+              {SURFACE_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>

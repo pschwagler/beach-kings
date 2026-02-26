@@ -1,3 +1,5 @@
+import './PlaceholderBadge.css';
+
 /**
  * Small inline badge indicating a player is a placeholder (invite pending).
  * Uses existing badge pattern from design tokens.

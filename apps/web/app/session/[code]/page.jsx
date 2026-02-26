@@ -24,6 +24,7 @@ import HomeMenuBar from '../../../src/components/home/HomeMenuBar';
 import ActiveSessionPanel from '../../../src/components/session/ActiveSessionPanel';
 import SessionPlayersModal from '../../../src/components/session/SessionPlayersModal';
 import { getUniquePlayersCount } from '../../../src/components/league/utils/matchUtils';
+import PlayerPopover from '../../../src/components/player/PlayerPopover';
 import { usePersistedViewMode } from '../../../src/hooks/usePersistedViewMode';
 import { useClickOutside } from '../../../src/hooks/useClickOutside';
 import { usePickupSession } from '../../../src/hooks/usePickupSession';
@@ -66,6 +67,8 @@ export default function SessionByCodePage() {
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
   const [isEditingCompleted, setIsEditingCompleted] = useState(false);
   const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
+  const [popover, setPopover] = useState(null); // { playerId, playerName, anchorRect }
+  const friendStatusCacheRef = useRef({});
 
   const visitActionsRef = useRef({
     sessionCode: null,
@@ -255,6 +258,12 @@ export default function SessionByCodePage() {
       setCreatingFromPlayers(false);
     }
   };
+
+  const handlePlayerClick = useCallback((playerId, playerName, event) => {
+    if (!playerId || !playerName) return;
+    const anchorRect = event?.target?.getBoundingClientRect?.();
+    setPopover({ playerId, playerName, anchorRect: anchorRect || null });
+  }, []);
 
   const handleLeaguesMenuClick = (action, leagueId) => {
     if (action === 'create-league') {
@@ -603,7 +612,7 @@ export default function SessionByCodePage() {
                       season_id: null,
                     }}
                     activeSessionMatches={transformedMatches}
-                    onPlayerClick={() => {}}
+                    onPlayerClick={handlePlayerClick}
                     contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
                     variant="non-league"
                     isAdmin={isCreator}
@@ -652,6 +661,17 @@ export default function SessionByCodePage() {
         onSuccess={refresh}
         message={message}
       />
+
+      {popover && (
+        <PlayerPopover
+          playerId={popover.playerId}
+          playerName={popover.playerName}
+          anchorRect={popover.anchorRect}
+          onClose={() => setPopover(null)}
+          friendStatusCache={friendStatusCacheRef.current}
+          onCacheUpdate={(id, status) => { friendStatusCacheRef.current[id] = status; }}
+        />
+      )}
     </>
   );
 }

@@ -130,18 +130,18 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
                   className="player-details__friend-btn"
                   onClick={handleAddFriend}
                   disabled={friendLoading}
-                  title="Add friend"
+                  data-tooltip="Add friend"
                 >
                   <UserPlus size={15} />
                 </button>
               )}
               {isAuthenticated && !isSelf && friendStatus === 'pending_outgoing' && (
-                <span className="player-details__friend-btn player-details__friend-btn--pending" title="Request sent">
+                <span className="player-details__friend-btn player-details__friend-btn--pending" data-tooltip="Request sent">
                   <Clock size={15} />
                 </span>
               )}
               {isAuthenticated && !isSelf && friendStatus === 'friend' && (
-                <span className="player-details__friend-btn player-details__friend-btn--active" title="Friends">
+                <span className="player-details__friend-btn player-details__friend-btn--active" data-tooltip="Friends">
                   <UserCheck size={15} />
                 </span>
               )}

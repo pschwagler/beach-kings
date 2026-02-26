@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
+import './Button.css';
 
 // Button Component - handles all button variants
 export function Button({ 

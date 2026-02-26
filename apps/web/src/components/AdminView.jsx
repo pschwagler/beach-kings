@@ -3,12 +3,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
-import { getAdminConfig, updateAdminConfig, getAdminFeedback, updateFeedbackResolution, getAdminPendingCourts, adminApproveCourt, adminRejectCourt } from '../services/api';
+import { getAdminStats, getAdminConfig, updateAdminConfig, getAdminFeedback, updateFeedbackResolution, getAdminPendingCourts, adminApproveCourt, adminRejectCourt } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthModal } from '../contexts/AuthModalContext';
 import { getUserLeagues } from '../services/api';
 import NavBar from './layout/NavBar';
-import '../App.css';
+import './AdminView.css';
 
 function AdminView() {
   const router = useRouter();
@@ -27,6 +27,8 @@ function AdminView() {
   const [pendingCourts, setPendingCourts] = useState([]);
   const [courtsLoading, setCourtsLoading] = useState(false);
   const [courtActionId, setCourtActionId] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   
   // Form state
   const [enableSms, setEnableSms] = useState(false);
@@ -53,6 +55,7 @@ function AdminView() {
   // Load configuration on mount
   useEffect(() => {
     loadConfig();
+    loadStats();
     loadFeedback();
     loadPendingCourts();
   }, []);
@@ -118,6 +121,18 @@ function AdminView() {
     }
   };
   
+  const loadStats = async () => {
+    try {
+      setStatsLoading(true);
+      const data = await getAdminStats();
+      setStats(data);
+    } catch (err) {
+      console.error('Error loading platform stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   const loadFeedback = async () => {
     try {
       setFeedbackLoading(true);
@@ -346,7 +361,41 @@ function AdminView() {
             {successMessage}
           </div>
         )}
-        
+
+        {/* Platform Stats */}
+        <div className="admin-stats-section">
+          <div className="admin-section-header">
+            <h2>Platform Stats</h2>
+            <button
+              onClick={loadStats}
+              disabled={statsLoading}
+              className="admin-refresh-btn"
+              aria-label="Refresh stats"
+              title="Refresh stats"
+            >
+              <RefreshCw size={18} className={statsLoading ? 'spinning' : ''} />
+            </button>
+          </div>
+          {statsLoading && !stats ? (
+            <p>Loading stats...</p>
+          ) : stats ? (
+            <>
+              <div className="admin-stats-grid">
+                {stats.stats.map((s) => (
+                  <div key={s.label} className="admin-stats-card">
+                    <div className="admin-stats-card__value">{s.total.toLocaleString()}</div>
+                    <div className="admin-stats-card__label">{s.label}</div>
+                    <div className="admin-stats-card__recent">+{s.last_30_days.toLocaleString()} last 30d</div>
+                  </div>
+                ))}
+              </div>
+              <p className="admin-stats-timestamp">
+                Cached {formatDate(stats.generated_at)}
+              </p>
+            </>
+          ) : null}
+        </div>
+
         <div className="admin-settings">
           <div className="setting-group">
             <div className="setting-header">

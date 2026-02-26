@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, Search, MapPin, UserPlus, UserCheck, MoreVertical, X } from 'lucide-react';
+import { Users, Search, MapPin, UserPlus, UserCheck, MoreVertical, X, MessageCircle } from 'lucide-react';
 import { Button } from '../ui/UI';
 import LevelBadge from '../ui/LevelBadge';
 import {
@@ -469,6 +469,15 @@ export default function FriendsTab() {
                     </div>
                   ) : (
                     <div className="friends-tab__menu-wrapper" data-testid="friend-menu">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/home?tab=messages&thread=${friend.player_id}`)}
+                        title="Message"
+                        data-testid="friend-message-btn"
+                      >
+                        <MessageCircle size={16} />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

@@ -1,11 +1,12 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { 
-  getNotifications, 
-  getUnreadCount, 
-  markNotificationAsRead, 
-  markAllNotificationsAsRead 
+import {
+  getNotifications,
+  getUnreadCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getUnreadMessageCount,
 } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -15,9 +16,13 @@ export const NotificationProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  
+
+  // Callback ref for real-time DM delivery into an open thread
+  const onDirectMessageRef = useRef(null);
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const pingIntervalRef = useRef(null);
@@ -47,6 +52,22 @@ export const NotificationProvider = ({ children }) => {
       return { notifications: [], total_count: 0, has_more: false };
     } finally {
       setIsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  /**
+   * Fetch unread DM count
+   */
+  const fetchDmUnreadCount = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const response = await getUnreadMessageCount();
+      setDmUnreadCount(response.count || 0);
+      return response.count || 0;
+    } catch (error) {
+      console.error('Error fetching DM unread count:', error);
+      return 0;
     }
   }, [isAuthenticated]);
 
@@ -208,6 +229,41 @@ export const NotificationProvider = ({ children }) => {
                 setUnreadCount(prev => prev + 1);
               }
             }
+
+            // Handle updated notification (e.g. DM summary upsert)
+            if (data && data.type === 'notification_updated' && data.notification) {
+              const updated = data.notification;
+              setNotifications(prev => {
+                const idx = prev.findIndex(n => n.id === updated.id);
+                if (idx !== -1) {
+                  // Replace in place, then move to top
+                  const next = prev.filter(n => n.id !== updated.id);
+                  if (!updated.is_read) {
+                    return [updated, ...next];
+                  }
+                  // If marked read, just replace in place (don't re-sort to top)
+                  return [...next, updated];
+                }
+                // Not found in current list — treat as new
+                if (!updated.is_read) {
+                  return [updated, ...prev];
+                }
+                return prev;
+              });
+
+              // Recalculate unread count from server truth
+              fetchUnreadCount();
+            }
+
+            // Handle real-time DM delivery
+            if (data && data.type === 'direct_message' && data.message) {
+              // If a thread view is listening, forward the message
+              if (onDirectMessageRef.current) {
+                onDirectMessageRef.current(data.message);
+              }
+              // Refresh authoritative DM unread count from server
+              fetchDmUnreadCount();
+            }
           } catch (error) {
             if (event.data !== 'ping' && event.data !== 'pong') {
               console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
@@ -282,11 +338,13 @@ export const NotificationProvider = ({ children }) => {
     if (isAuthenticated && user) {
       fetchNotifications();
       fetchUnreadCount();
+      fetchDmUnreadCount();
       connectWebSocket();
     } else {
       disconnectWebSocket();
       setNotifications([]);
       setUnreadCount(0);
+      setDmUnreadCount(0);
     }
 
     return () => {
@@ -297,14 +355,17 @@ export const NotificationProvider = ({ children }) => {
   const value = {
     notifications,
     unreadCount,
+    dmUnreadCount,
     isLoading,
     wsConnected,
     fetchNotifications,
     fetchUnreadCount,
+    fetchDmUnreadCount,
     markAsRead,
     markAllAsRead,
     connectWebSocket,
     disconnectWebSocket,
+    onDirectMessageRef,
   };
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;

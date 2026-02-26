@@ -92,7 +92,7 @@ export default function MenuBar({
 
       <nav className="league-sidebar-nav" aria-label="Primary navigation">
         {items?.map((item) => {
-          const { id, label, icon: Icon, active, onClick, title: itemTitle, className: itemClassName } = item;
+          const { id, label, icon: Icon, active, onClick, title: itemTitle, className: itemClassName, badge } = item;
           const itemClasses = [
             'league-sidebar-nav-item',
             active ? 'active' : '',
@@ -112,7 +112,12 @@ export default function MenuBar({
               ref={id === 'more' ? moreButtonRef : undefined}
               data-testid={`${id}-tab`}
             >
-              {Icon && <Icon size={20} />}
+              <span style={{ position: 'relative', display: 'inline-flex' }}>
+                {Icon && <Icon size={20} />}
+                {badge != null && badge > 0 && (
+                  <span className="league-sidebar-nav-badge">{badge > 99 ? '99+' : badge}</span>
+                )}
+              </span>
               <span>{label}</span>
             </button>
           );

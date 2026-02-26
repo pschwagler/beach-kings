@@ -1,5 +1,6 @@
 import { Edit2 } from 'lucide-react';
 import PlaceholderBadge from '../player/PlaceholderBadge';
+import './SessionMatchesClipboardTable.css';
 
 /**
  * Presentational clipboard table for session matches.
@@ -54,6 +55,10 @@ export default function SessionMatchesClipboardTable({
               const t1p2 = match['Team 1 Player 2'];
               const t2p1 = match['Team 2 Player 1'];
               const t2p2 = match['Team 2 Player 2'];
+              const t1p1Id = match['Team 1 Player 1 ID'];
+              const t1p2Id = match['Team 1 Player 2 ID'];
+              const t2p1Id = match['Team 2 Player 1 ID'];
+              const t2p2Id = match['Team 2 Player 2 ID'];
               const t1Score = match['Team 1 Score'];
               const t2Score = match['Team 2 Score'];
               const isTeam1Winner = match.Winner === 'Team 1';
@@ -67,14 +72,14 @@ export default function SessionMatchesClipboardTable({
                   <td className={team1Class}>
                     <div className="player-cell">
                       <span className="player-cell__entry">
-                        <span className="player-name clickable" onClick={() => t1p1 && onPlayerClick(t1p1)}>
+                        <span className="player-name clickable" onClick={(e) => t1p1 && onPlayerClick(t1p1Id, t1p1, e)}>
                           {t1p1}
                         </span>
                         {match['Team 1 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
                       </span>
                       {t1p2 && (
                         <span className="player-cell__entry">
-                          <span className="player-name clickable" onClick={() => onPlayerClick(t1p2)}>
+                          <span className="player-name clickable" onClick={(e) => onPlayerClick(t1p2Id, t1p2, e)}>
                             {t1p2}
                           </span>
                           {match['Team 1 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
@@ -87,14 +92,14 @@ export default function SessionMatchesClipboardTable({
                   <td className={`clipboard-col-team2 ${team2Class}`}>
                     <div className="player-cell">
                       <span className="player-cell__entry">
-                        <span className="player-name clickable" onClick={() => t2p1 && onPlayerClick(t2p1)}>
+                        <span className="player-name clickable" onClick={(e) => t2p1 && onPlayerClick(t2p1Id, t2p1, e)}>
                           {t2p1}
                         </span>
                         {match['Team 2 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
                       </span>
                       {t2p2 && (
                         <span className="player-cell__entry">
-                          <span className="player-name clickable" onClick={() => onPlayerClick(t2p2)}>
+                          <span className="player-name clickable" onClick={(e) => onPlayerClick(t2p2Id, t2p2, e)}>
                             {t2p2}
                           </span>
                           {match['Team 2 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
@@ -108,7 +113,7 @@ export default function SessionMatchesClipboardTable({
                     ) : match['Ranked Intent'] ? (
                       <span
                         className="clipboard-ranked-badge clipboard-ranked-badge--pending"
-                        title="Will become ranked when all players register"
+                        data-tooltip="Will become ranked when all players register"
                       >
                         Pending
                       </span>

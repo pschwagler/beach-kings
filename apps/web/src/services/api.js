@@ -341,9 +341,12 @@ export const createPlayer = async (name) => {
 
 /**
  * Get detailed stats for a specific player
+ * @param {number} playerId
+ * @param {Object} [options]
+ * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerStats = async (playerId) => {
-  const response = await api.get(`/api/players/${playerId}/stats`);
+export const getPlayerStats = async (playerId, { signal } = {}) => {
+  const response = await api.get(`/api/players/${playerId}/stats`, { signal });
   return response.data;
 };
 
@@ -467,9 +470,12 @@ export const queryMatches = async (queryParams) => {
 
 /**
  * Get match history for a specific player
+ * @param {number} playerId
+ * @param {Object} [options]
+ * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerMatchHistory = async (playerId) => {
-  const response = await api.get(`/api/players/${playerId}/matches`);
+export const getPlayerMatchHistory = async (playerId, { signal } = {}) => {
+  const response = await api.get(`/api/players/${playerId}/matches`, { signal });
   return response.data;
 };
 
@@ -1228,6 +1234,14 @@ export const submitFeedback = async ({ feedback, email }) => {
  */
 
 /**
+ * Get platform-wide summary stats (admin only, cached).
+ */
+export const getAdminStats = async () => {
+  const response = await api.get('/api/admin-view/stats');
+  return response.data;
+};
+
+/**
  * Get admin configuration settings
  */
 export const getAdminConfig = async () => {
@@ -1666,6 +1680,65 @@ export const getInviteDetails = async (token) => {
  */
 export const claimInvite = async (token) => {
   const response = await api.post(`/api/invites/${encodeURIComponent(token)}/claim`);
+  return response.data;
+};
+
+// ---------------------------------------------------------------------------
+// Direct Messaging
+// ---------------------------------------------------------------------------
+
+/**
+ * Get conversation list for the current user.
+ * @param {number} [page=1] - Page number
+ * @param {number} [pageSize=50] - Items per page
+ */
+export const getConversations = async (page = 1, pageSize = 50) => {
+  const response = await api.get('/api/messages/conversations', {
+    params: { page, page_size: pageSize },
+  });
+  return response.data;
+};
+
+/**
+ * Get messages in a thread with a specific player (newest first).
+ * @param {number} playerId - Other player's ID
+ * @param {number} [page=1] - Page number
+ * @param {number} [pageSize=50] - Items per page
+ */
+export const getThread = async (playerId, page = 1, pageSize = 50) => {
+  const response = await api.get(`/api/messages/conversations/${playerId}`, {
+    params: { page, page_size: pageSize },
+  });
+  return response.data;
+};
+
+/**
+ * Send a direct message to a friend.
+ * @param {number} receiverPlayerId - Recipient player ID
+ * @param {string} messageText - Message content (1-500 chars)
+ */
+export const sendMessage = async (receiverPlayerId, messageText) => {
+  const response = await api.post('/api/messages/send', {
+    receiver_player_id: receiverPlayerId,
+    message_text: messageText,
+  });
+  return response.data;
+};
+
+/**
+ * Mark all messages from a specific player as read.
+ * @param {number} playerId - Player whose messages to mark read
+ */
+export const markThreadRead = async (playerId) => {
+  const response = await api.put(`/api/messages/conversations/${playerId}/read`);
+  return response.data;
+};
+
+/**
+ * Get total unread message count across all conversations.
+ */
+export const getUnreadMessageCount = async () => {
+  const response = await api.get('/api/messages/unread-count');
   return response.data;
 };
 

@@ -8,7 +8,6 @@
 /** Surface type value → display label mapping. */
 export const SURFACE_LABELS = {
   sand: 'Sand',
-  grass: 'Grass',
   indoor_sand: 'Indoor Sand',
 };
 

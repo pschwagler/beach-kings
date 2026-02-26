@@ -11,7 +11,6 @@ Basic reusable UI components used throughout the application.
 ### `layout/`
 Layout and navigation components.
 - **NavBar.jsx** - Main navigation bar
-- **HeroHeader.jsx** - Hero header with rotating images
 - **navbar/** - NavBar sub-components
   - NavBrand.jsx
   - RecordGamesButton.jsx
@@ -73,8 +72,6 @@ import { Button, Alert, Tabs } from './components/ui/UI';
 
 // Layout components
 import NavBar from './components/layout/NavBar';
-import HeroHeader from './components/layout/HeroHeader';
-
 // Feature components
 import MatchesTable from './components/match/MatchesTable';
 import PlayerDetailsPanel from './components/player/PlayerDetailsPanel';

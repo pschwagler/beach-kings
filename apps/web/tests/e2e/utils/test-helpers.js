@@ -563,6 +563,56 @@ export async function makeFriendsViaApi(tokenA, tokenB) {
 }
 
 /**
+ * Send a direct message via API.
+ *
+ * @param {string} token - Auth token of the sender
+ * @param {number} receiverPlayerId - Player ID of the receiver
+ * @param {string} messageText - Message content
+ * @returns {object} DirectMessage response
+ */
+export async function sendDirectMessageApi(token, receiverPlayerId, messageText) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.post('/api/messages/send', {
+    receiver_player_id: receiverPlayerId,
+    message_text: messageText,
+  });
+  return response.data;
+}
+
+/**
+ * Get notifications for the authenticated user via API.
+ *
+ * @param {string} token - Auth token
+ * @param {object} [params] - Optional query params: limit, offset, unread_only
+ * @returns {object} { notifications, total_count, has_more }
+ */
+export async function getNotificationsApi(token, params = {}) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const query = new URLSearchParams();
+  if (params.limit) query.set('limit', params.limit);
+  if (params.offset) query.set('offset', params.offset);
+  if (params.unread_only) query.set('unread_only', 'true');
+  const response = await api.get(`/api/notifications?${query.toString()}`);
+  return response.data;
+}
+
+/**
+ * Mark a thread as read via API.
+ *
+ * @param {string} token - Auth token
+ * @param {number} otherPlayerId - Player ID of the other participant
+ * @returns {object} { status, marked_count }
+ */
+export async function markThreadReadApi(token, otherPlayerId) {
+  const { createApiClient } = await import('../fixtures/api.js');
+  const api = createApiClient(token);
+  const response = await api.put(`/api/messages/conversations/${otherPlayerId}/read`);
+  return response.data;
+}
+
+/**
  * Delete a placeholder player via API.
  *
  * @param {string} token - Auth token

@@ -231,6 +231,16 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | POST | `/api/friends/batch-status` | Verified Player | Get friendship status for multiple players |
 | GET | `/api/friends/mutual/{other_player_id}` | Verified Player | Get mutual friends with player |
 
+## Direct Messages
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/messages/conversations` | Verified Player | List conversations (paginated) |
+| GET | `/api/messages/conversations/{player_id}` | Verified Player | Get thread messages with a player (newest first) |
+| POST | `/api/messages/send` | Verified Player | Send a direct message to a friend |
+| PUT | `/api/messages/conversations/{player_id}/read` | Verified Player | Mark all messages from player as read |
+| GET | `/api/messages/unread-count` | Verified Player | Get total unread message count |
+
 ## Notifications
 
 | Method | Path | Auth | Description |
@@ -250,6 +260,7 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | PATCH | `/api/admin-view/feedback/{feedback_id}/resolve` | Admin Phone | Resolve feedback |
 | GET | `/api/admin-view/config` | Admin Phone | Get admin config |
 | PUT | `/api/admin-view/config` | Admin Phone | Update admin config |
+| GET | `/api/admin-view/stats` | Admin Phone | Platform summary stats (Redis-cached 1hr) |
 
 ## Settings
 

@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
@@ -66,13 +64,13 @@ export default function CourtCard({ court }) {
         {address && <p className="court-card__address">{address}</p>}
         {location_name && (
           location_slug ? (
-            <a
+            <Link
               href={`/beach-volleyball/${location_slug}`}
               className="court-card__location court-card__location--link"
               onClick={(e) => e.stopPropagation()}
             >
               {location_name}
-            </a>
+            </Link>
           ) : (
             <p className="court-card__location">{location_name}</p>
           )

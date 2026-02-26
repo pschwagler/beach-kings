@@ -1,17 +1,20 @@
 """Admin, feedback, settings, and WhatsApp route handlers."""
 
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
 from backend.database.models import Player, Feedback
 from backend.services import data_service, email_service, settings_service
+from backend.services.redis_service import redis_get, redis_set
 from backend.api.auth_dependencies import (
     get_current_user,
     get_current_user_optional,
@@ -403,6 +406,92 @@ async def update_admin_config(
     except Exception as e:
         logger.error(f"Error updating admin config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Platform stats endpoint
+# ---------------------------------------------------------------------------
+
+PLATFORM_STATS_CACHE_KEY = "admin:platform_stats"
+PLATFORM_STATS_TTL = 3600  # 1 hour
+
+
+@router.get("/api/admin-view/stats")
+async def get_platform_stats(
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get platform-wide summary stats for the admin dashboard.
+
+    Returns total and last-30-day counts for key entities.
+    Results are cached in Redis for 1 hour.
+    """
+    # Try cache first
+    try:
+        cached = await redis_get(PLATFORM_STATS_CACHE_KEY)
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Redis cache read failed for platform stats: {e}")
+
+    # Query fresh stats
+    try:
+        # (label, table, recent_where_clause)
+        thirty_days_ago = "NOW() - INTERVAL '30 days'"
+        tables = [
+            ("Players", "players", f"created_at >= {thirty_days_ago}"),
+            ("Users", "users", f"created_at >= {thirty_days_ago}"),
+            ("Leagues", "leagues", f"created_at >= {thirty_days_ago}"),
+            ("Seasons", "seasons", f"created_at >= {thirty_days_ago}"),
+            ("Matches", "matches", f"date::date >= (NOW() - INTERVAL '30 days')::date"),
+            ("Sessions", "sessions", f"created_at >= {thirty_days_ago}"),
+        ]
+
+        stats = []
+        for label, table, recent_where in tables:
+            total_q = await session.execute(text(f"SELECT COUNT(*) FROM {table}"))
+            total = total_q.scalar()
+
+            recent_q = await session.execute(
+                text(f"SELECT COUNT(*) FROM {table} WHERE {recent_where}")
+            )
+            recent = recent_q.scalar()
+
+            stats.append({"label": label, "total": total, "last_30_days": recent})
+
+        # Courts — approved only
+        court_total_q = await session.execute(
+            text("SELECT COUNT(*) FROM courts WHERE status = 'approved'")
+        )
+        court_total = court_total_q.scalar()
+
+        court_recent_q = await session.execute(
+            text(
+                "SELECT COUNT(*) FROM courts "
+                "WHERE status = 'approved' AND created_at >= NOW() - INTERVAL '30 days'"
+            )
+        )
+        court_recent = court_recent_q.scalar()
+
+        stats.append({"label": "Courts", "total": court_total, "last_30_days": court_recent})
+
+        result = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "stats": stats,
+        }
+
+        # Cache result (best-effort)
+        try:
+            await redis_set(PLATFORM_STATS_CACHE_KEY, json.dumps(result), PLATFORM_STATS_TTL)
+        except Exception as e:
+            logger.warning(f"Redis cache write failed for platform stats: {e}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error fetching platform stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching platform stats: {str(e)}")
 
 
 # ---------------------------------------------------------------------------

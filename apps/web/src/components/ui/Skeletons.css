@@ -1,0 +1,38 @@
+/* Skeleton Loading Styles */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton,
+.skeleton-box,
+.skeleton-text,
+.skeleton-avatar {
+  background: linear-gradient(90deg, var(--gray-300) 0%, var(--gray-100) 50%, var(--gray-300) 100%);
+  background-size: 1000px 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-box {
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  border-radius: 4px;
+  height: 16px;
+  display: block;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}

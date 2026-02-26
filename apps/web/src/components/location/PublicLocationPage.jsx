@@ -110,74 +110,79 @@ export default function PublicLocationPage({ location, isAuthenticated }) {
         </section>
       )}
 
-      {/* Top players section */}
-      {top_players?.length > 0 && (
-        <section className="public-location__section">
-          <h2 className="public-location__section-title">Top Players</h2>
-          <div className="public-location__players">
-            {top_players.map((player) => (
-              <Link
-                key={player.id}
-                href={`/player/${player.id}/${slugify(player.full_name)}`}
-                className="public-location__player-row"
-              >
-                {isImageUrl(player.avatar)
-                  ? <img src={player.avatar} alt={player.full_name} className="public-location__player-avatar" />
-                  : <div className="public-location__player-avatar">{player.avatar || player.full_name?.charAt(0)}</div>
-                }
-                <div className="public-location__player-info">
-                  <span className="public-location__player-name">{player.full_name}</span>
-                  <span className="public-location__player-stats">
-                    {Math.round(player.current_rating)} rating
-                    {' \u00B7 '}
-                    {player.total_wins}W{'\u2013'}{player.total_games - player.total_wins}L
-                  </span>
-                </div>
-                {player.level && <LevelBadge level={player.level} />}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Courts section */}
-      {courts?.length > 0 && (
-        <section className="public-location__section">
-          <div className="public-location__section-header">
-            <h2 className="public-location__section-title">Courts</h2>
-            <Link href={`/courts?location=${location.id}`} className="public-location__view-all">
-              View All Courts &rarr;
-            </Link>
-          </div>
-          <div className="public-location__courts">
-            {courts.map((court) => (
-              <Link
-                key={court.id}
-                href={`/courts/${court.slug || court.id}`}
-                className="public-location__court-card"
-              >
-                <div className="public-location__court-info">
-                  <span className="public-location__court-name">{court.name}</span>
-                  {court.address && (
-                    <span className="public-location__court-address">{court.address}</span>
-                  )}
-                </div>
-                <div className="public-location__court-rating">
-                  {court.review_count > 0 ? (
-                    <>
-                      <StarRating value={court.average_rating || 0} size={14} />
-                      <span className="public-location__court-review-count">
-                        ({court.review_count})
+      {/* Top players + Courts — two-column on desktop */}
+      {(top_players?.length > 0 || courts?.length > 0) && (
+        <div className="public-location__two-col">
+          {/* Top players section */}
+          {top_players?.length > 0 && (
+            <section className="public-location__section">
+              <h2 className="public-location__section-title">Top Players</h2>
+              <div className="public-location__players">
+                {top_players.map((player) => (
+                  <Link
+                    key={player.id}
+                    href={`/player/${player.id}/${slugify(player.full_name)}`}
+                    className="public-location__player-row"
+                  >
+                    {isImageUrl(player.avatar)
+                      ? <img src={player.avatar} alt={player.full_name} className="public-location__player-avatar" />
+                      : <div className="public-location__player-avatar">{player.avatar || player.full_name?.charAt(0)}</div>
+                    }
+                    <div className="public-location__player-info">
+                      <span className="public-location__player-name">{player.full_name}</span>
+                      <span className="public-location__player-stats">
+                        {Math.round(player.current_rating)} rating
+                        {' \u00B7 '}
+                        {player.total_wins}W{'\u2013'}{player.total_games - player.total_wins}L
                       </span>
-                    </>
-                  ) : (
-                    <span className="public-location__court-new-badge">New</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+                    </div>
+                    {player.level && <LevelBadge level={player.level} />}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Courts section */}
+          {courts?.length > 0 && (
+            <section className="public-location__section">
+              <div className="public-location__section-header">
+                <h2 className="public-location__section-title">Courts</h2>
+                <Link href={`/courts?location=${location.id}`} className="public-location__view-all">
+                  View {location.city} Courts &rarr;
+                </Link>
+              </div>
+              <div className="public-location__courts">
+                {courts.map((court) => (
+                  <Link
+                    key={court.id}
+                    href={`/courts/${court.slug || court.id}`}
+                    className="public-location__court-card"
+                  >
+                    <div className="public-location__court-info">
+                      <span className="public-location__court-name">{court.name}</span>
+                      {court.address && (
+                        <span className="public-location__court-address">{court.address}</span>
+                      )}
+                    </div>
+                    <div className="public-location__court-rating">
+                      {court.review_count > 0 ? (
+                        <>
+                          <StarRating value={court.average_rating || 0} size={14} />
+                          <span className="public-location__court-review-count">
+                            ({court.review_count})
+                          </span>
+                        </>
+                      ) : (
+                        <span className="public-location__court-new-badge">New</span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       )}
 
       {/* Explore other locations */}

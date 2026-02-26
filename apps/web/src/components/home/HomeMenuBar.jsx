@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus } from 'lucide-react';
+import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus, BarChart3, MessageCircle } from 'lucide-react';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
@@ -14,6 +15,7 @@ import MenuBar from '../navigation/MenuBar';
 
 export default function HomeMenuBar({ activeTab }) {
   const router = useRouter();
+  const { dmUnreadCount } = useNotifications();
   const [moreMenuExpanded, setMoreMenuExpanded] = useState(false);
   const moreMenuRef = useRef(null);
   const moreMenuPortalRef = useRef(null);
@@ -78,12 +80,31 @@ export default function HomeMenuBar({ activeTab }) {
       title: 'My Games',
     },
     {
+      id: 'my-stats',
+      label: 'My Stats',
+      icon: BarChart3,
+      active: activeTab === 'my-stats',
+      onClick: () => handleTabChange('my-stats'),
+      title: 'My Stats',
+      className: 'my-stats-menu-item-desktop',
+    },
+    {
       id: 'friends',
       label: 'Friends',
       icon: Users,
       active: activeTab === 'friends',
       onClick: () => handleTabChange('friends'),
       title: 'Friends',
+      className: 'friends-menu-item-desktop',
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      icon: MessageCircle,
+      active: activeTab === 'messages',
+      onClick: () => handleTabChange('messages'),
+      title: 'Messages',
+      badge: dmUnreadCount > 0 ? dmUnreadCount : undefined,
     },
     {
       id: 'notifications',
@@ -163,6 +184,34 @@ export default function HomeMenuBar({ activeTab }) {
                 }}
               >
                 <div className="league-sidebar-more-menu">
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTabChange('my-stats');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="My Stats"
+                    type="button"
+                  >
+                    <BarChart3 size={18} />
+                    <span>My Stats</span>
+                  </button>
+                  <button
+                    className="league-sidebar-more-menu-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTabChange('friends');
+                      setMoreMenuExpanded(false);
+                    }}
+                    title="Friends"
+                    type="button"
+                  >
+                    <Users size={18} />
+                    <span>Friends</span>
+                  </button>
                   <button
                     className="league-sidebar-more-menu-item"
                     onClick={(e) => {

@@ -1,0 +1,306 @@
+/* SessionMatchesClipboardTable — clipboard view layout, session cards, and table styles */
+
+.clipboard-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 40px;
+}
+
+.clipboard-session-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+}
+
+.clipboard-session-card.active-session {
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(44, 122, 143, 0.15);
+}
+
+.clipboard-session-card.editing-session {
+  border: 2px solid var(--warning, #f59e0b);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+.clipboard-header {
+  padding: 16px 20px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.active-session .clipboard-header {
+  background: var(--primary-lighter);
+  border-bottom-color: var(--primary-light);
+}
+
+.editing-session .clipboard-header {
+  background: #fffbeb; /* Amber 50 */
+  border-bottom-color: #fcd34d; /* Amber 300 */
+}
+
+.clipboard-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clipboard-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--gray-900);
+}
+
+.clipboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.clipboard-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.clipboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clipboard-table-wrapper {
+  overflow-x: auto;
+  background: white;
+}
+
+.clipboard-table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Column width hints for auto layout */
+.clipboard-col-id {
+  width: 2%;
+}
+.clipboard-col-team {
+  /* auto-sized by content */
+}
+.clipboard-col-score {
+  width: 8%;
+}
+.clipboard-col-badge {
+  width: 60px;
+}
+
+.clipboard-score-header {
+  text-align: center !important;
+}
+
+/* Clipboard table ranked/unranked badges */
+.clipboard-badge-cell {
+  text-align: center;
+}
+
+.clipboard-ranked-badge {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.clipboard-ranked-badge--ranked {
+  color: var(--primary-dark);
+  background: var(--primary-lighter);
+}
+
+.clipboard-ranked-badge--unranked {
+  color: var(--gray-600);
+  background: var(--gray-200);
+}
+
+.clipboard-ranked-badge--pending {
+  color: var(--warning-dark);
+  background: var(--warning-light);
+}
+
+.clipboard-table th,
+.clipboard-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.clipboard-table th {
+  background: white;
+  font-weight: 600;
+  color: var(--gray-700);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.clipboard-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* On bigger screens, add space between Team 2 score and Team 2 names */
+@media (min-width: 769px) {
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    padding-right: 1.5rem !important;
+  }
+  .clipboard-table-wrapper .clipboard-table th.clipboard-col-team2,
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-team2 {
+    padding-left: 1.5rem !important;
+  }
+}
+
+/* On large viewports, widen Team 2 score column to create gap before Team 2 names */
+@media (min-width: 900px) {
+  .clipboard-table colgroup col:nth-child(4) {
+    width: 6rem;
+  }
+  .clipboard-table-wrapper .clipboard-table td.clipboard-col-score-team2 {
+    text-align: left !important;
+    padding-left: 1rem !important;
+  }
+}
+
+/* Prevent wrapping of player names on desktop */
+.clipboard-table .player-cell {
+  white-space: nowrap;
+}
+
+/* Ensure winner background works with table hover/stripe if any */
+.clipboard-table tr:hover .winner-cell-bg {
+  background-color: #beece5; /* Slightly darker on hover */
+}
+
+/* Clipboard view: winner = primary-dark, loser = gray-800 */
+.clipboard-winner {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.clipboard-loser {
+  color: var(--gray-800);
+  font-weight: 400;
+}
+
+/* ── Responsive: tablet ── */
+@media (max-width: 768px) {
+  .clipboard-table-wrapper {
+    box-shadow: none;
+    border: none;
+  }
+
+  .clipboard-table {
+    font-size: 0.9rem;
+    box-shadow: none;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    padding-left: 8px;
+    padding-right: 6px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    padding-left: 6px;
+    padding-right: 6px;
+    min-width: 32px;
+  }
+
+  .clipboard-table .player-cell {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Responsive: small phones ── */
+@media (max-width: 576px) {
+  .clipboard-table {
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th,
+  .clipboard-table td {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+  }
+
+  .clipboard-table th {
+    font-size: 0.7rem;
+  }
+
+  .clipboard-table th:first-child,
+  .clipboard-table td:first-child {
+    width: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    padding-left: 6px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table th:nth-child(3),
+  .clipboard-table th:nth-child(4),
+  .clipboard-table td:nth-child(3),
+  .clipboard-table td:nth-child(4) {
+    min-width: 28px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .clipboard-table .player-name {
+    font-size: 0.8rem;
+  }
+
+  .clipboard-table .player-cell {
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .clipboard-table .score-cell {
+    font-size: 0.9rem;
+  }
+}

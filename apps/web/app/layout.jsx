@@ -1,6 +1,7 @@
 import ClientProviders from './ClientProviders';
 import '../src/index.css';
 import '../src/App.css';
+import '../src/components/ui/Forms.css';
 
 export const metadata = {
   metadataBase: new URL('https://beachleaguevb.com'),

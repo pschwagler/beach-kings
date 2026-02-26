@@ -43,13 +43,20 @@ export default function CourtDirectoryClient({ initialCourts }) {
     } catch {}
   }, []);
 
-  // Fetch all courts when map view is activated
+  // Reset map courts when location filter changes so they refetch
+  useEffect(() => {
+    setMapCourts(null);
+  }, [locationParam]);
+
+  // Fetch courts for map view (filtered by location when param is set)
   useEffect(() => {
     if (viewMode !== 'map' || mapCourts) return;
-    getPublicCourts({ page: 1, page_size: 500 })
+    const params = { page: 1, page_size: 500 };
+    if (locationParam) params.location_id = locationParam;
+    getPublicCourts(params)
       .then((data) => setMapCourts(data.items || []))
       .catch((err) => console.error('Error loading map courts:', err));
-  }, [viewMode, mapCourts]);
+  }, [viewMode, mapCourts, locationParam]);
 
   const handleViewChange = (mode) => {
     setViewMode(mode);
@@ -151,11 +158,13 @@ export default function CourtDirectoryClient({ initialCourts }) {
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
                 : null
             }
+            locationFilter={locationParam}
           />
         ) : (
           <CourtListView
             initialCourts={locationParam ? null : initialCourts}
             locationId={locationParam}
+            userLocationId={currentUserPlayer?.location_id || null}
             userLocation={
               currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }

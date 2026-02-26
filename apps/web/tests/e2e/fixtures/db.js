@@ -215,6 +215,7 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
 
     // 11. Social / notifications
     if (playerIds.length > 0) {
+      await client.query(`DELETE FROM direct_messages WHERE sender_player_id = ANY($1) OR receiver_player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM friend_requests WHERE sender_player_id = ANY($1) OR receiver_player_id = ANY($1)`, [playerIds]);
       await client.query(`DELETE FROM friends WHERE player1_id = ANY($1) OR player2_id = ANY($1)`, [playerIds]);
     }

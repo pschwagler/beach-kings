@@ -62,10 +62,6 @@ export default function NavBar({
     router.push('/courts');
   };
 
-  const handleLocationsClick = () => {
-    router.push('/beach-volleyball');
-  };
-
   return (
     <nav className="navbar" data-nextjs-scroll-focus-boundary>
       <div className="navbar-container">
@@ -94,18 +90,10 @@ export default function NavBar({
           <button
             type="button"
             className="navbar-courts-button"
-            onClick={handleLocationsClick}
-            aria-label="Locations"
-          >
-            Locations
-          </button>
-          <button
-            type="button"
-            className="navbar-courts-button"
             onClick={handleCourtsClick}
-            aria-label="Courts"
+            aria-label="Find Courts"
           >
-            Courts
+            Find Courts
           </button>
         </div>
 

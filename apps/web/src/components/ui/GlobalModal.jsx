@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
+import '../modal/Modal.css';
 import CreateLeagueModal from '../league/CreateLeagueModal';
 import PlayerProfileModal from '../player/PlayerProfileModal';
 import AddMatchModal from '../match/AddMatchModal';

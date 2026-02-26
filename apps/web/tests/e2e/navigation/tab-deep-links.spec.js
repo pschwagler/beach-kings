@@ -30,6 +30,11 @@ test.describe('Home Tab Deep Links', () => {
     await expect(authedPage.locator('.notifications-tab-header')).toBeVisible({ timeout: 15000 });
   });
 
+  test('navigating to /home?tab=my-stats renders My Stats tab', async ({ authedPage }) => {
+    await navigateWithAuth(authedPage, '/home?tab=my-stats');
+    await expect(authedPage.locator('.my-stats-tab')).toBeVisible({ timeout: 15000 });
+  });
+
   test('invalid tab value falls back to Home tab', async ({ authedPage }) => {
     await navigateWithAuth(authedPage, '/home?tab=garbage');
     // Should render the Home tab content (stats row is unique to HomeTab)

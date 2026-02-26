@@ -15,6 +15,8 @@ import MyGamesTab from "./home/MyGamesTab";
 import FriendsTab from "./home/FriendsTab";
 import PendingInvitesTab from "./home/PendingInvitesTab";
 import NotificationsTab from "./home/NotificationsTab";
+import MyStatsTab from "./home/MyStatsTab";
+import MessagesTab from "./home/MessagesTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
@@ -229,6 +231,14 @@ export default function HomePage({ initialTab = 'home' }) {
                   }}
                 />
               )}
+
+              {activeTab === "my-stats" && (
+                <MyStatsTab
+                  currentUserPlayer={currentUserPlayer}
+                />
+              )}
+
+              {activeTab === "messages" && <MessagesTab />}
 
               {activeTab === "friends" && <FriendsTab />}
 
