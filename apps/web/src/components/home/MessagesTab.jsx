@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MessageCircle, ArrowLeft, Send, Loader2, PenSquare, Search } from 'lucide-react';
 import { Button } from '../ui/UI';
@@ -505,6 +505,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
 export default function MessagesTab() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [, startTransition] = useTransition();
 
   // thread param from URL (e.g. ?tab=messages&thread=123)
   const threadPlayerId = searchParams?.get('thread');
@@ -545,9 +546,10 @@ export default function MessagesTab() {
                 playerId: p.id,
                 name: p.full_name,
                 avatar: p.avatar || null,
-                isFriend: statusData.statuses?.[p.id] === 'friends',
+                isFriend: statusData.statuses?.[String(p.id)] === 'friend',
               });
-            } catch {
+            } catch (innerErr) {
+              console.error('Error fetching thread player info:', innerErr);
               setThreadInfo({
                 playerId: Number(threadPlayerId),
                 name: 'Unknown Player',
@@ -565,20 +567,19 @@ export default function MessagesTab() {
 
   const openThread = useCallback((playerId, name, avatar, isFriend) => {
     setThreadInfo({ playerId, name, avatar, isFriend });
-    // Update URL for back button without triggering Next.js navigation/Suspense re-mount
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.set('thread', String(playerId));
-    window.history.pushState(null, '', `/home?${params.toString()}`);
-  }, []);
+    startTransition(() => router.push(`/home?${params.toString()}`));
+  }, [router, startTransition]);
 
   const closeThread = useCallback(() => {
     setThreadInfo(null);
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.delete('thread');
-    window.history.pushState(null, '', `/home?${params.toString()}`);
-  }, []);
+    startTransition(() => router.push(`/home?${params.toString()}`));
+  }, [router, startTransition]);
 
   if (threadInfo) {
     return (
