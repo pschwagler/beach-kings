@@ -10,6 +10,7 @@ import api, {
   sendMessage,
   markThreadRead,
   getFriends,
+  batchFriendStatus,
 } from '../../services/api';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -535,17 +536,16 @@ export default function MessagesTab() {
           } else {
             // No existing conversation — fetch player info and check friendship
             try {
-              const [playerRes, friendsData] = await Promise.all([
+              const [playerRes, statusData] = await Promise.all([
                 api.get(`/api/public/players/${threadPlayerId}`),
-                getFriends(1, 100),
+                batchFriendStatus([Number(threadPlayerId)]),
               ]);
               const p = playerRes.data;
-              const friendIds = (friendsData.friends || []).map((f) => f.player_id);
               setThreadInfo({
                 playerId: p.id,
                 name: p.full_name,
                 avatar: p.avatar || null,
-                isFriend: friendIds.includes(p.id),
+                isFriend: statusData.statuses?.[p.id] === 'friends',
               });
             } catch {
               setThreadInfo({
