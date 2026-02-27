@@ -533,15 +533,19 @@ export default function MessagesTab() {
               isFriend: conv.is_friend,
             });
           } else {
-            // No existing conversation — fetch player info from public API
+            // No existing conversation — fetch player info and check friendship
             try {
-              const res = await api.get(`/api/public/players/${threadPlayerId}`);
-              const p = res.data;
+              const [playerRes, friendsData] = await Promise.all([
+                api.get(`/api/public/players/${threadPlayerId}`),
+                getFriends(1, 100),
+              ]);
+              const p = playerRes.data;
+              const friendIds = (friendsData.friends || []).map((f) => f.player_id);
               setThreadInfo({
                 playerId: p.id,
                 name: p.full_name,
                 avatar: p.avatar || null,
-                isFriend: false, // Conservative: thread view shows "must be friends" until verified
+                isFriend: friendIds.includes(p.id),
               });
             } catch {
               setThreadInfo({
@@ -561,20 +565,20 @@ export default function MessagesTab() {
 
   const openThread = useCallback((playerId, name, avatar, isFriend) => {
     setThreadInfo({ playerId, name, avatar, isFriend });
-    // Update URL so back button works
+    // Update URL for back button without triggering Next.js navigation/Suspense re-mount
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.set('thread', String(playerId));
-    router.push(`/home?${params.toString()}`);
-  }, [router]);
+    window.history.pushState(null, '', `/home?${params.toString()}`);
+  }, []);
 
   const closeThread = useCallback(() => {
     setThreadInfo(null);
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.delete('thread');
-    router.push(`/home?${params.toString()}`);
-  }, [router]);
+    window.history.pushState(null, '', `/home?${params.toString()}`);
+  }, []);
 
   if (threadInfo) {
     return (
