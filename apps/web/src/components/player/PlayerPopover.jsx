@@ -46,7 +46,7 @@ export default function PlayerPopover({
       try {
         const result = await batchFriendStatus([playerId]);
         if (cancelled) return;
-        const status = result.statuses?.[playerId] || 'none';
+        const status = result.statuses?.[String(playerId)] || 'none';
         setFriendStatus(status);
         onCacheUpdate?.(playerId, status);
 

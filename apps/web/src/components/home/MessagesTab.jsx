@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MessageCircle, ArrowLeft, Send, Loader2, PenSquare, Search } from 'lucide-react';
 import { Button } from '../ui/UI';
@@ -10,6 +10,7 @@ import api, {
   sendMessage,
   markThreadRead,
   getFriends,
+  batchFriendStatus,
 } from '../../services/api';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -504,6 +505,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
 export default function MessagesTab() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [, startTransition] = useTransition();
 
   // thread param from URL (e.g. ?tab=messages&thread=123)
   const threadPlayerId = searchParams?.get('thread');
@@ -533,17 +535,21 @@ export default function MessagesTab() {
               isFriend: conv.is_friend,
             });
           } else {
-            // No existing conversation — fetch player info from public API
+            // No existing conversation — fetch player info and check friendship
             try {
-              const res = await api.get(`/api/public/players/${threadPlayerId}`);
-              const p = res.data;
+              const [playerRes, statusData] = await Promise.all([
+                api.get(`/api/public/players/${threadPlayerId}`),
+                batchFriendStatus([Number(threadPlayerId)]),
+              ]);
+              const p = playerRes.data;
               setThreadInfo({
                 playerId: p.id,
                 name: p.full_name,
                 avatar: p.avatar || null,
-                isFriend: false, // Conservative: thread view shows "must be friends" until verified
+                isFriend: statusData.statuses?.[String(p.id)] === 'friend',
               });
-            } catch {
+            } catch (innerErr) {
+              console.error('Error fetching thread player info:', innerErr);
               setThreadInfo({
                 playerId: Number(threadPlayerId),
                 name: 'Unknown Player',
@@ -561,20 +567,19 @@ export default function MessagesTab() {
 
   const openThread = useCallback((playerId, name, avatar, isFriend) => {
     setThreadInfo({ playerId, name, avatar, isFriend });
-    // Update URL so back button works
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.set('thread', String(playerId));
-    router.push(`/home?${params.toString()}`);
-  }, [router]);
+    startTransition(() => router.push(`/home?${params.toString()}`));
+  }, [router, startTransition]);
 
   const closeThread = useCallback(() => {
     setThreadInfo(null);
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.delete('thread');
-    router.push(`/home?${params.toString()}`);
-  }, [router]);
+    startTransition(() => router.push(`/home?${params.toString()}`));
+  }, [router, startTransition]);
 
   if (threadInfo) {
     return (
