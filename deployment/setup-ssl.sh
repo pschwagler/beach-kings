@@ -20,7 +20,6 @@ fi
 
 NGINX_CONFIG_SOURCE="deployment/nginx/${DOMAIN}.conf"
 NGINX_CONFIG_DEST="/etc/nginx/sites-available/${DOMAIN}"
-HTTPS_TEMPLATE="deployment/nginx/${DOMAIN}-https.conf.template"
 
 # Helper functions
 log_info() {
@@ -37,7 +36,7 @@ log_error() {
 }
 
 check_root() {
-    if [ "$EUID" -ne 0 ]; then 
+    if [ "$EUID" -ne 0 ]; then
         log_error "This script must be run with sudo\n   Usage: sudo bash deployment/setup-ssl.sh"
     fi
 }
@@ -46,16 +45,12 @@ check_files() {
     if [ ! -f "$NGINX_CONFIG_SOURCE" ]; then
         log_error "nginx config file not found at ${NGINX_CONFIG_SOURCE}\n   Make sure you're running this script from the repository root"
     fi
-    # Subdomains use certbot --nginx (no manual HTTPS template needed)
-    if [ "$IS_SUBDOMAIN" = false ] && [ ! -f "$HTTPS_TEMPLATE" ]; then
-        log_error "HTTPS template not found at ${HTTPS_TEMPLATE}"
-    fi
 }
 
 install_packages() {
     echo "📦 Installing nginx and certbot..."
     apt-get update -qq
-    
+
     if ! command -v nginx &> /dev/null; then
         apt-get install -y nginx
         log_info "nginx installed"
@@ -85,7 +80,7 @@ setup_nginx_service() {
 
 configure_nginx() {
     echo "📝 Configuring nginx..."
-    
+
     if [ -f "$NGINX_CONFIG_DEST" ]; then
         log_warn "${NGINX_CONFIG_DEST} already exists"
         read -p "   Do you want to overwrite it? (y/N): " -n 1 -r
@@ -95,7 +90,7 @@ configure_nginx() {
             return
         fi
     fi
-    
+
     cp "$NGINX_CONFIG_SOURCE" "$NGINX_CONFIG_DEST"
     log_info "nginx config copied"
 
@@ -200,43 +195,6 @@ obtain_certificates() {
     log_info "SSL certificates obtained successfully"
 }
 
-configure_nginx_ssl() {
-    echo ""
-    echo "📝 Configuring nginx with SSL certificates..."
-    
-    # Add HTTPS server block from template
-    sed "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" "$HTTPS_TEMPLATE" >> "$NGINX_CONFIG_DEST"
-    log_info "HTTPS server block added"
-    
-    # Update HTTP block to redirect to HTTPS
-    # Create a backup and use awk to replace the location block
-    cp "$NGINX_CONFIG_DEST" "${NGINX_CONFIG_DEST}.bak"
-    awk '
-    /# Initially proxy to app/ {
-        print "    # Redirect all HTTP traffic to HTTPS (updated after certificate generation)"
-        print "    location / {"
-        print "        return 301 https://$server_name$request_uri;"
-        print "    }"
-        # Skip lines until we find the closing brace of location block
-        while (getline > 0) {
-            if (/^    \}$/) break
-        }
-        next
-    }
-    { print }
-    ' "${NGINX_CONFIG_DEST}.bak" > "${NGINX_CONFIG_DEST}.new"
-    mv "${NGINX_CONFIG_DEST}.new" "$NGINX_CONFIG_DEST"
-    rm -f "${NGINX_CONFIG_DEST}.bak"
-    
-    # Test and reload nginx
-    if nginx -t; then
-        systemctl reload nginx
-        log_info "nginx configured with SSL certificates"
-    else
-        log_error "nginx configuration test failed after adding SSL"
-    fi
-}
-
 setup_auto_renewal() {
     echo ""
     echo "🔄 Verifying auto-renewal setup..."
@@ -262,21 +220,15 @@ main() {
     echo "🔒 Setting up SSL for ${DOMAIN}"
     echo "=================================="
     echo ""
-    
+
     check_root
     check_files
     install_packages
     setup_nginx_service
     configure_nginx
     obtain_certificates
-    
-    # Only configure SSL manually for root domain (subdomains use certbot --nginx)
-    if [ "$IS_SUBDOMAIN" = false ] && [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
-        configure_nginx_ssl
-    fi
-    
     setup_auto_renewal
-    
+
     # Final status
     echo ""
     echo "=================================="
