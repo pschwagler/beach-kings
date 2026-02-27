@@ -389,6 +389,11 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
     Eagerly loads reviews (with tags, photos, author) and location name.
     Returns None if not found.
     """
+    # Try slug first; fall back to numeric ID lookup
+    filter_clause = Court.slug == slug
+    if slug.isdigit():
+        filter_clause = or_(Court.slug == slug, Court.id == int(slug))
+
     q = (
         select(Court)
         .options(
@@ -399,7 +404,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
             ),
             selectinload(Court.photos),
         )
-        .where(Court.slug == slug)
+        .where(filter_clause)
     )
     result = await session.execute(q)
     court = result.scalar_one_or_none()

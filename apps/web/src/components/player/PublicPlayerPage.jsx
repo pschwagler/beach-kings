@@ -216,7 +216,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
         </div>
         {/* Friend action icons */}
         <div className="public-player__friend-action">
-          {isAuthenticated && !isSelf && (
+          {isAuthenticated && friendStatus !== 'self' && (
             friendStatus === 'friend' ? (
               <button
                 className="public-player__friend-icon public-player__friend-icon--message"
