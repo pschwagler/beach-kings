@@ -226,36 +226,49 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
 function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, detailLoading }) {
   const [confirmId, setConfirmId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
   const timerRef = useRef(null);
+  const confirmIdRef = useRef(null);
+
+  // Keep ref in sync with state so click handler always reads the latest value
+  confirmIdRef.current = confirmId;
 
   // Clean up confirm timer on unmount
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const doDelete = useCallback(async (photoId) => {
+  /** Execute the delete API call and remove photo from local state. */
+  const doDelete = async (photoId) => {
     try {
+      setDeleteError(null);
       setDeletingId(photoId);
       await adminDeleteCourtPhoto(photoId);
       onPhotoDeleted(photoId);
     } catch (err) {
       console.error('Error deleting photo:', err);
+      setDeleteError('Failed to delete photo.');
     } finally {
       setDeletingId(null);
     }
-  }, [onPhotoDeleted]);
+  };
 
-  const handleDeleteClick = useCallback((photoId) => {
-    if (confirmId === photoId) {
+  /**
+   * Two-click delete: first click arms confirmation, second click fires delete.
+   * Uses a ref for confirmId to avoid stale closure issues with useCallback.
+   */
+  const handleDeleteClick = (photoId) => {
+    if (confirmIdRef.current === photoId) {
       clearTimeout(timerRef.current);
       setConfirmId(null);
       doDelete(photoId);
     } else {
+      setDeleteError(null);
       setConfirmId(photoId);
       timerRef.current = setTimeout(() => setConfirmId(null), CONFIRM_TIMEOUT_MS);
     }
-  }, [confirmId, doDelete]);
+  };
 
   /** Reorder on drop: optimistic update, revert on API failure. */
   const handleDrop = async (e, targetIdx) => {
@@ -320,6 +333,9 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
               <button
                 className={`admin-court-photos__delete ${confirmId === photo.id ? 'admin-court-photos__delete--confirm' : ''}`}
                 onClick={(e) => { e.stopPropagation(); handleDeleteClick(photo.id); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDragStart={(e) => e.preventDefault()}
+                draggable={false}
                 disabled={deletingId === photo.id}
                 title={confirmId === photo.id ? 'Click again to confirm' : 'Delete photo'}
               >
@@ -333,6 +349,10 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
             </div>
           ))}
         </div>
+      )}
+
+      {deleteError && (
+        <p className="admin-court-photos__error">{deleteError}</p>
       )}
 
       {lightboxIndex !== null && photos.length > 0 && (
