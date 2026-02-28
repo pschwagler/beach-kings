@@ -5,6 +5,7 @@ import { Trophy, Award, TrendingUp, Target, Flame, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getLeagueAwards } from '../../services/api';
 import { AWARD_CONFIG, formatAwardValue } from '../../utils/awardConstants';
+import { slugify } from '../../utils/slugify';
 import './LeagueAwardsTab.css';
 
 /** Map iconName strings from AWARD_CONFIG to actual Lucide components. */
@@ -56,8 +57,8 @@ export default function LeagueAwardsTab({ leagueId }) {
     return () => { cancelled = true; };
   }, [leagueId]);
 
-  const handlePlayerClick = (playerId) => {
-    router.push(`/player/${playerId}`);
+  const handlePlayerClick = (playerId, playerName) => {
+    router.push(`/player/${playerId}/${slugify(playerName)}`);
   };
 
   if (loading) {
@@ -134,7 +135,7 @@ export default function LeagueAwardsTab({ leagueId }) {
                     <button
                       key={award.id}
                       className={`awards-tab__podium-card awards-tab__podium-card--${config.colorClass || 'gold'}`}
-                      onClick={() => handlePlayerClick(award.player_id)}
+                      onClick={() => handlePlayerClick(award.player_id, award.player_name)}
                       type="button"
                     >
                       <div className="awards-tab__podium-icon">
@@ -158,7 +159,7 @@ export default function LeagueAwardsTab({ leagueId }) {
                     <button
                       key={award.id}
                       className="awards-tab__stat-card"
-                      onClick={() => handlePlayerClick(award.player_id)}
+                      onClick={() => handlePlayerClick(award.player_id, award.player_name)}
                       type="button"
                     >
                       <div className="awards-tab__stat-icon">
