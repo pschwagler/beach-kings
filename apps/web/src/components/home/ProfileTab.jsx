@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion } from '../../services/api';
-import { AlertCircle, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Save } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -73,7 +73,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showConfirmLeaveModal, setShowConfirmLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(null); // null → 'info' → 'confirm'
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeletionPending, setIsDeletionPending] = useState(false);
   // Store whether there are unsaved changes in a ref so navigation blocker callback can access it
@@ -468,77 +468,81 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         </div>
       </form>
 
-      {/* Danger Zone */}
-      <div className="profile-page__danger-zone">
-        <h3 className="profile-page__section-title section-title-spaced" style={{ color: 'var(--danger)' }}>
-          Danger Zone
-        </h3>
-
+      {/* Account management — intentionally subtle */}
+      <div className="profile-page__account-footer">
         {deletionScheduledAt ? (
-          <div className="profile-page__deletion-banner">
-            <AlertCircle size={18} />
-            <div>
-              <p className="profile-page__deletion-warning">
-                Your account is scheduled for deletion in <strong>{deletionDaysRemaining} day{deletionDaysRemaining !== 1 ? 's' : ''}</strong>.
-              </p>
-              <p className="profile-page__deletion-subtext">
-                Log in anytime before then to keep your account, or cancel now.
-              </p>
+          <div className="profile-page__deletion-notice">
+            <p className="profile-page__deletion-notice-text">
+              Your account is scheduled for deletion in {deletionDaysRemaining} day{deletionDaysRemaining !== 1 ? 's' : ''}.
+              Log in anytime before then to keep it, or{' '}
+              <button
+                className="profile-page__inline-link"
+                onClick={handleCancelDeletion}
+                disabled={isDeletionPending}
+              >
+                {isDeletionPending ? 'cancelling...' : 'cancel deletion'}
+              </button>.
+            </p>
+          </div>
+        ) : deleteStep === null ? (
+          <button
+            className="profile-page__inline-link"
+            onClick={() => setDeleteStep('info')}
+          >
+            Delete account
+          </button>
+        ) : deleteStep === 'info' ? (
+          <div className="profile-page__delete-info">
+            <p className="profile-page__delete-desc">
+              Deleting your account will permanently remove your profile, stats, messages, and all associated data. Match records will be preserved for other players but your name will be anonymized.
+            </p>
+            <p className="profile-page__delete-desc">
+              This cannot be undone after the 30-day grace period.
+            </p>
+            <div className="profile-page__delete-actions">
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteStep(null)}
+              >
+                Never mind
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => setDeleteStep('confirm')}
+              >
+                Continue
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleCancelDeletion}
-              disabled={isDeletionPending}
-            >
-              {isDeletionPending ? 'Cancelling...' : 'Cancel Deletion'}
-            </Button>
           </div>
         ) : (
-          <>
-            {!showDeleteConfirm ? (
-              <div className="profile-page__delete-section">
-                <p className="profile-page__delete-desc">
-                  Permanently delete your account and all associated data. This action has a 30-day grace period.
-                </p>
-                <Button
-                  variant="danger"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <Trash2 size={16} />
-                  Delete Account
-                </Button>
-              </div>
-            ) : (
-              <div className="profile-page__delete-confirm">
-                <p className="profile-page__delete-desc">
-                  Type <strong>DELETE</strong> to confirm. You&apos;ll have 30 days to change your mind by logging back in.
-                </p>
-                <input
-                  type="text"
-                  className="auth-modal__input"
-                  placeholder="Type DELETE to confirm"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  autoFocus
-                />
-                <div className="profile-page__delete-actions">
-                  <Button
-                    variant="ghost"
-                    onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={handleDeleteAccount}
-                    disabled={deleteConfirmText !== 'DELETE' || isDeletionPending}
-                  >
-                    {isDeletionPending ? 'Scheduling...' : 'Confirm Delete'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
+          <div className="profile-page__delete-confirm">
+            <p className="profile-page__delete-desc">
+              Type <strong>DELETE</strong> to confirm. You&apos;ll have 30 days to change your mind by logging back in.
+            </p>
+            <input
+              type="text"
+              className="auth-modal__input"
+              placeholder="Type DELETE to confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              autoFocus
+            />
+            <div className="profile-page__delete-actions">
+              <Button
+                variant="ghost"
+                onClick={() => { setDeleteStep(null); setDeleteConfirmText(''); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'DELETE' || isDeletionPending}
+              >
+                {isDeletionPending ? 'Scheduling...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
