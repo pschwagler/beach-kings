@@ -1066,49 +1066,49 @@ export const resolveCourtEditSuggestion = async (suggestionId, action) => {
 
 /** Admin: list pending court submissions. */
 export const getAdminPendingCourts = async () => {
-  const response = await api.get('/api/admin/courts/pending');
+  const response = await api.get('/api/admin-view/courts/pending');
   return response.data;
 };
 
 /** Admin: approve a court. */
 export const adminApproveCourt = async (courtId) => {
-  const response = await api.put(`/api/admin/courts/${courtId}/approve`);
+  const response = await api.put(`/api/admin-view/courts/${courtId}/approve`);
   return response.data;
 };
 
 /** Admin: reject a court. */
 export const adminRejectCourt = async (courtId) => {
-  const response = await api.put(`/api/admin/courts/${courtId}/reject`);
+  const response = await api.put(`/api/admin-view/courts/${courtId}/reject`);
   return response.data;
 };
 
 /** Admin: list all courts with search, status filter, pagination. */
 export const getAdminAllCourts = async (params = {}) => {
-  const response = await api.get('/api/admin/courts', { params });
+  const response = await api.get('/api/admin-view/courts', { params });
   return response.data;
 };
 
 /** Admin: list all court edit suggestions with status filter, pagination. */
 export const getAdminAllSuggestions = async (params = {}) => {
-  const response = await api.get('/api/admin/courts/suggestions', { params });
+  const response = await api.get('/api/admin-view/courts/suggestions', { params });
   return response.data;
 };
 
 /** Admin: delete a standalone court photo. */
 export const adminDeleteCourtPhoto = async (photoId) => {
-  const response = await api.delete(`/api/admin/courts/photos/${photoId}`);
+  const response = await api.delete(`/api/admin-view/courts/photos/${photoId}`);
   return response.data;
 };
 
 /** Admin: reorder standalone court photos. */
 export const adminReorderCourtPhotos = async (courtId, photoIds) => {
-  const response = await api.put(`/api/admin/courts/${courtId}/photos/reorder`, { photo_ids: photoIds });
+  const response = await api.put(`/api/admin-view/courts/${courtId}/photos/reorder`, { photo_ids: photoIds });
   return response.data;
 };
 
 /** Admin: delete any court review. */
 export const adminDeleteReview = async (reviewId) => {
-  const response = await api.delete(`/api/admin/courts/reviews/${reviewId}`);
+  const response = await api.delete(`/api/admin-view/courts/reviews/${reviewId}`);
   return response.data;
 };
 

@@ -96,7 +96,7 @@ async function expandTestCourtRow(page) {
 
   // Type search and wait for the debounced API response
   const searchResponsePromise = page.waitForResponse(
-    resp => resp.url().includes('/api/admin/courts') && resp.url().includes('search')
+    resp => resp.url().includes('/api/admin-view/courts') && resp.url().includes('search')
       && resp.status() === 200,
     { timeout: 15000 },
   );
@@ -218,7 +218,7 @@ test.describe('Admin Court Photos', () => {
 
       // Reorder via admin API: move last photo to first
       const api = createApiClient(adminUser.token);
-      await api.put(`/api/admin/courts/${courtId}/photos/reorder`, {
+      await api.put(`/api/admin-view/courts/${courtId}/photos/reorder`, {
         photo_ids: [idC, idA, idB],
       });
 
