@@ -21,6 +21,8 @@ from backend.database.init_defaults import init_defaults
 from backend.database.seed_courts import seed_courts
 from backend.services.stats_queue import get_stats_queue
 from backend.services.session_cleanup_service import get_session_cleanup_service
+from backend.services.account_deletion_service import get_account_deletion_service
+from backend.services.season_finalization_service import get_season_finalization_service
 from backend.services import settings_service
 
 # Set up logging
@@ -111,6 +113,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start session cleanup worker: {e}", exc_info=True)
 
+    # Start account deletion worker (anonymize expired accounts)
+    try:
+        deletion_service = get_account_deletion_service()
+        deletion_service.start()
+        logger.info("✓ Account deletion worker started")
+    except Exception as e:
+        logger.error(f"Failed to start account deletion worker: {e}", exc_info=True)
+
+    # Start season finalization worker (compute awards for ended seasons)
+    try:
+        finalization_service = get_season_finalization_service()
+        finalization_service.start()
+        logger.info("✓ Season finalization worker started")
+    except Exception as e:
+        logger.error(f"Failed to start season finalization worker: {e}", exc_info=True)
+
     yield  # App is running
 
     # Shutdown (if needed)
@@ -131,6 +149,22 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Session cleanup worker stopped")
     except Exception as e:
         logger.error(f"Error stopping session cleanup worker: {e}", exc_info=True)
+
+    # Stop account deletion worker
+    try:
+        deletion_service = get_account_deletion_service()
+        deletion_service.stop()
+        logger.info("✓ Account deletion worker stopped")
+    except Exception as e:
+        logger.error(f"Error stopping account deletion worker: {e}", exc_info=True)
+
+    # Stop season finalization worker
+    try:
+        finalization_service = get_season_finalization_service()
+        finalization_service.stop()
+        logger.info("✓ Season finalization worker stopped")
+    except Exception as e:
+        logger.error(f"Error stopping season finalization worker: {e}", exc_info=True)
 
     # Close Redis connection
     try:

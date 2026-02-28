@@ -1,0 +1,93 @@
+/* ImageLightbox — fullscreen photo overlay */
+
+.image-lightbox__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  animation: image-lightbox-fadein 0.15s ease-out;
+}
+
+@keyframes image-lightbox-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.image-lightbox__img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.image-lightbox__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.image-lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.image-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.image-lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.image-lightbox__nav--prev {
+  left: 12px;
+}
+
+.image-lightbox__nav--next {
+  right: 12px;
+}
+
+.image-lightbox__counter {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  user-select: none;
+}
+
+/* Hide arrows on small screens — swipe is primary */
+@media (max-width: 640px) {
+  .image-lightbox__nav {
+    display: none;
+  }
+}

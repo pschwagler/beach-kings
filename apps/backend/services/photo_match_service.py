@@ -272,6 +272,37 @@ def calculate_name_similarity(name1: str, name2: str) -> float:
     return SequenceMatcher(None, n1, n2).ratio()
 
 
+_MATCH_CONFIDENCE_THRESHOLD = 0.6
+
+
+def _score_player_match(extracted_name: str, player_name: str, player_nickname: str) -> float:
+    """
+    Score how well an extracted name matches a league member.
+
+    Applies multiple matching strategies and returns the best score.
+    """
+    score = calculate_name_similarity(extracted_name, player_name)
+
+    # Nickname match — high confidence if close
+    if player_nickname:
+        nickname_score = calculate_name_similarity(extracted_name, player_nickname)
+        if nickname_score > 0.9:
+            score = max(score, 0.95)
+        elif nickname_score > 0.7:
+            score = max(score, 0.85)
+
+    # Substring match (e.g. "Charlie" in "Charlie Davis")
+    if extracted_name.lower() in player_name.lower():
+        score = max(score, 0.8)
+
+    # First-name-only match
+    first_name = player_name.split()[0] if player_name else ""
+    if first_name and calculate_name_similarity(extracted_name, first_name) > 0.9:
+        score = max(score, 0.85)
+
+    return score
+
+
 def match_player_name(extracted_name: str, league_members: List[Dict]) -> Optional[Dict]:
     """
     Fuzzy match extracted player name against league members.
@@ -291,40 +322,45 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
 
     for member in league_members:
         player_name = member.get("player_name", "")
-        player_nickname = member.get("player_nickname", "")
-        player_id = member.get("player_id")
-
-        # Check full name match
-        score = calculate_name_similarity(extracted_name, player_name)
-
-        # Check nickname match (high confidence if exact or close match)
-        if player_nickname:
-            nickname_score = calculate_name_similarity(extracted_name, player_nickname)
-            if nickname_score > 0.9:  # Strong nickname match
-                score = max(score, 0.95)
-            elif nickname_score > 0.7:
-                score = max(score, 0.85)
-
-        # Check if extracted name is a partial match of full name
-        if extracted_name.lower() in player_name.lower():
-            score = max(score, 0.8)
-
-        # Check first name only
-        first_name = player_name.split()[0] if player_name else ""
-        if first_name:
-            first_name_score = calculate_name_similarity(extracted_name, first_name)
-            if first_name_score > 0.9:  # Strong first name match
-                score = max(score, 0.85)
-
+        score = _score_player_match(
+            extracted_name, player_name, member.get("player_nickname", ""),
+        )
         if score > best_score:
             best_score = score
-            best_match = {"player_id": player_id, "confidence": score, "matched_name": player_name}
+            best_match = {
+                "player_id": member.get("player_id"),
+                "confidence": score,
+                "matched_name": player_name,
+            }
 
-    # Only return if confidence is above threshold
-    if best_match and best_match["confidence"] >= 0.6:
+    if best_match and best_match["confidence"] >= _MATCH_CONFIDENCE_THRESHOLD:
         return best_match
-
     return None
+
+
+def _resolve_player_field(
+    player_data, league_members: List[Dict], valid_player_ids: set,
+    player_names_by_id: Dict,
+) -> Tuple[Optional[int], float, str, Optional[str]]:
+    """
+    Resolve a single player field (dict or string) to (player_id, confidence, matched_name, unmatched_name).
+
+    Returns:
+        (player_id, confidence, matched_name, unmatched_name_or_None)
+    """
+    # Extract name and optional pre-assigned ID
+    if isinstance(player_data, dict):
+        pre_id = player_data.get("id")
+        name = player_data.get("name", "")
+        if pre_id and pre_id in valid_player_ids:
+            return pre_id, 1.0, player_names_by_id.get(pre_id, name).strip(), None
+    else:
+        name = str(player_data) if player_data else ""
+
+    result = match_player_name(name, league_members)
+    if result:
+        return result["player_id"], result["confidence"], result["matched_name"], None
+    return None, 0, "", name if name else None
 
 
 def match_all_players_in_matches(
@@ -342,55 +378,21 @@ def match_all_players_in_matches(
     """
     unmatched_names = []
     result_matches = []
-
     player_fields = ["team1_player1", "team1_player2", "team2_player1", "team2_player2"]
-
     valid_player_ids = {m.get("player_id") for m in league_members}
-    # Build lookup dict for player names by ID (league members have "player_name" not "first_name"/"last_name")
     player_names_by_id = {m.get("player_id"): m.get("player_name", "") for m in league_members}
 
     for match in parsed_matches:
         result_match = match.copy()
-
         for field in player_fields:
-            player_data = match.get(field)
-            id_field = f"{field}_id"
-
-            if isinstance(player_data, dict):
-                player_id = player_data.get("id")
-                player_name = player_data.get("name", "")
-
-                if player_id and player_id in valid_player_ids:
-                    result_match[id_field] = player_id
-                    result_match[f"{field}_confidence"] = 1.0
-                    # Look up actual name from league members
-                    matched_name = player_names_by_id.get(player_id, player_name).strip()
-                    result_match[f"{field}_matched"] = matched_name
-                else:
-                    match_result = match_player_name(player_name, league_members)
-                    if match_result:
-                        result_match[id_field] = match_result["player_id"]
-                        result_match[f"{field}_confidence"] = match_result["confidence"]
-                        result_match[f"{field}_matched"] = match_result["matched_name"]
-                    else:
-                        result_match[id_field] = None
-                        result_match[f"{field}_confidence"] = 0
-                        if player_name and player_name not in unmatched_names:
-                            unmatched_names.append(player_name)
-            else:
-                extracted_name = str(player_data) if player_data else ""
-                match_result = match_player_name(extracted_name, league_members)
-
-                if match_result:
-                    result_match[id_field] = match_result["player_id"]
-                    result_match[f"{field}_confidence"] = match_result["confidence"]
-                    result_match[f"{field}_matched"] = match_result["matched_name"]
-                else:
-                    result_match[id_field] = None
-                    result_match[f"{field}_confidence"] = 0
-                    if extracted_name and extracted_name not in unmatched_names:
-                        unmatched_names.append(extracted_name)
-
+            pid, conf, matched, unmatched = _resolve_player_field(
+                match.get(field), league_members, valid_player_ids, player_names_by_id,
+            )
+            result_match[f"{field}_id"] = pid
+            result_match[f"{field}_confidence"] = conf
+            result_match[f"{field}_matched"] = matched
+            if unmatched and unmatched not in unmatched_names:
+                unmatched_names.append(unmatched)
         result_matches.append(result_match)
 
     return result_matches, unmatched_names
@@ -632,6 +634,34 @@ def _text_from_chunk(chunk: Any) -> Optional[str]:
     return getattr(part, "text", None) or None
 
 
+def _truncate_error_message(error: Exception, max_len: int = 500) -> str:
+    """Return a user-safe error message, truncated to max_len."""
+    msg = str(error) if error else ""
+    if not msg:
+        msg = "Unknown error"
+    if len(msg) > max_len:
+        msg = msg[:max_len - 3] + "..."
+    return msg
+
+
+def _process_stream_chunk(
+    chunk, buffer: str, all_partial: List[Dict],
+) -> Tuple[str, bool]:
+    """
+    Process a single Gemini stream chunk. Extracts complete match objects from the buffer.
+
+    Returns:
+        (updated_buffer, has_new_matches)
+    """
+    objs, consumed = _extract_complete_match_objects_from_buffer(buffer)
+    buffer = buffer[consumed:]
+    for o in objs:
+        m = _normalize_single_match(o)
+        m["match_number"] = len(all_partial) + 1
+        all_partial.append(m)
+    return buffer, bool(objs)
+
+
 def _run_gemini_stream_consumer(
     out_queue: queue.Queue,
     image_bytes: bytes,
@@ -659,34 +689,21 @@ def _run_gemini_stream_consumer(
 
     try:
         stream = client.models.generate_content_stream(
-            model=GEMINI_MODEL,
-            contents=contents,
-            config=config,
+            model=GEMINI_MODEL, contents=contents, config=config,
         )
-        chunk_count = 0
         for chunk in stream:
-            chunk_count += 1
             text_piece = _text_from_chunk(chunk)
             if not text_piece:
                 continue
             full_raw += text_piece
             buffer += text_piece
-            objs, consumed = _extract_complete_match_objects_from_buffer(buffer)
-            buffer = buffer[consumed:]
-            for o in objs:
-                m = _normalize_single_match(o)
-                m["match_number"] = len(all_partial) + 1
-                all_partial.append(m)
-            if objs:
+            buffer, has_new = _process_stream_chunk(chunk, buffer, all_partial)
+            if has_new:
                 out_queue.put((STREAM_MSG_PARTIAL, list(all_partial)))
         out_queue.put((STREAM_MSG_DONE, full_raw))
     except Exception as e:
         logger.exception("Gemini stream consumer error: %s", e)
-        # Send a clear message only; avoid leaking stack traces to the queue
-        msg = str(e) if e else "Unknown error"
-        if len(msg) > 500:
-            msg = msg[:497] + "..."
-        out_queue.put((STREAM_MSG_ERROR, msg))
+        out_queue.put((STREAM_MSG_ERROR, _truncate_error_message(e)))
 
 
 def _parse_extraction_array(response_text: str) -> List[Dict]:
@@ -810,9 +827,78 @@ def repair_json(text: str) -> str:
     return repaired
 
 
+def _try_parse_direct(text: str) -> Optional[Dict]:
+    """Try direct JSON parse."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _try_parse_repaired(text: str) -> Optional[Dict]:
+    """Try parsing after repairing common LLM JSON errors."""
+    try:
+        repaired = repair_json(text)
+        if repaired != text:
+            return json.loads(repaired)
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
+def _try_parse_markdown_block(text: str) -> Optional[Dict]:
+    """Try extracting JSON from markdown code blocks."""
+    m = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", text)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _try_parse_brace_match(text: str) -> Optional[Dict]:
+    """Try extracting the outermost {...} via brace-depth counting."""
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    for i, char in enumerate(text[start:], start=start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i + 1])
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
+def _try_parse_regex(text: str) -> Optional[Dict]:
+    """Last-resort regex extraction of a JSON object."""
+    m = re.search(r"\{[\s\S]*\}", text)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+_JSON_PARSE_STRATEGIES = [
+    _try_parse_direct,
+    _try_parse_repaired,
+    _try_parse_markdown_block,
+    _try_parse_brace_match,
+    _try_parse_regex,
+]
+
+
 def parse_openai_response(response_text: str) -> Dict[str, Any]:
     """
-    Parse OpenAI response text to extract JSON.
+    Parse OpenAI response text to extract JSON using a chain of fallback strategies.
 
     Args:
         response_text: Raw response from OpenAI
@@ -823,56 +909,11 @@ def parse_openai_response(response_text: str) -> Dict[str, Any]:
     if not response_text:
         raise ValueError("Empty response from OpenAI")
 
-    # Strip whitespace
-    response_text = response_text.strip()
-
-    # Try direct JSON parse
-    try:
-        return json.loads(response_text)
-    except json.JSONDecodeError:
-        pass
-
-    # Try with JSON repair (fix common LLM errors)
-    try:
-        repaired = repair_json(response_text)
-        if repaired != response_text:
-            return json.loads(repaired)
-    except json.JSONDecodeError:
-        pass
-
-    # Try to find JSON in markdown code blocks (```json ... ``` or ``` ... ```)
-    json_match = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", response_text)
-    if json_match:
-        try:
-            return json.loads(json_match.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-
-    # Try to find a JSON object starting with { and ending with }
-    # Use a more greedy approach to find the outermost braces
-    brace_start = response_text.find("{")
-    if brace_start != -1:
-        # Find matching closing brace
-        depth = 0
-        for i, char in enumerate(response_text[brace_start:], start=brace_start):
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    json_str = response_text[brace_start : i + 1]
-                    try:
-                        return json.loads(json_str)
-                    except json.JSONDecodeError:
-                        break
-
-    # Last resort: try regex for JSON object
-    json_match = re.search(r"\{[\s\S]*\}", response_text)
-    if json_match:
-        try:
-            return json.loads(json_match.group(0))
-        except json.JSONDecodeError:
-            pass
+    text = response_text.strip()
+    for strategy in _JSON_PARSE_STRATEGIES:
+        result = strategy(text)
+        if result is not None:
+            return result
 
     raise ValueError("Could not parse JSON from response")
 

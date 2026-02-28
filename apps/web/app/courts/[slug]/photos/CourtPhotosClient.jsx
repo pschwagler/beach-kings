@@ -8,6 +8,7 @@ import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
 import { getUserLeagues, createLeague, uploadCourtPhoto } from '../../../../src/services/api';
 import NavBar from '../../../../src/components/layout/NavBar';
 import { Button } from '../../../../src/components/ui/UI';
+import ImageLightbox from '../../../../src/components/ui/ImageLightbox';
 import { ArrowLeft, Camera, X } from 'lucide-react';
 import '../../../../src/components/court/CourtDetail.css';
 import './CourtPhotos.css';
@@ -24,6 +25,7 @@ export default function CourtPhotosClient({ court, slug }) {
   const { openModal } = useModal();
   const [userLeagues, setUserLeagues] = useState([]);
   const [photos, setPhotos] = useState(court?.all_photos || []);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -187,13 +189,14 @@ export default function CourtPhotosClient({ court, slug }) {
         {/* Photo grid */}
         {photos.length > 0 ? (
           <div className="court-photos__grid">
-            {photos.map((photo) => (
+            {photos.map((photo, idx) => (
               <img
                 key={photo.id}
                 src={photo.url}
                 alt="Court photo"
                 className="court-photos__grid-img"
                 loading="lazy"
+                onClick={() => setLightboxIndex(idx)}
               />
             ))}
           </div>
@@ -201,6 +204,14 @@ export default function CourtPhotosClient({ court, slug }) {
           <div className="court-photos__empty">
             <p>No photos yet. Be the first to add one!</p>
           </div>
+        )}
+
+        {lightboxIndex !== null && (
+          <ImageLightbox
+            photos={photos}
+            startIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
         )}
       </div>
     </>

@@ -883,6 +883,144 @@ async def _set_court_status(
     }
 
 
+async def list_all_courts_admin(
+    session: AsyncSession,
+    *,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> Dict:
+    """
+    List all courts for admin with search, status filter, and pagination.
+
+    Returns dict with ``items`` list and ``total`` count.
+    """
+    base = (
+        select(Court, Player.full_name, Location.name.label("location_name"))
+        .outerjoin(Player, Court.created_by == Player.id)
+        .outerjoin(Location, Court.location_id == Location.id)
+    )
+
+    filters = []
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            or_(
+                Court.name.ilike(pattern),
+                Court.address.ilike(pattern),
+            )
+        )
+    if status and status != "all":
+        filters.append(Court.status == status)
+
+    if filters:
+        base = base.where(and_(*filters))
+
+    # Total count
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await session.execute(count_q)).scalar() or 0
+
+    # Paginated results
+    q = base.order_by(Court.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    rows = (await session.execute(q)).all()
+
+    items = [
+        {
+            "id": court.id,
+            "name": court.name,
+            "slug": court.slug,
+            "address": court.address,
+            "location_id": court.location_id,
+            "location_name": location_name,
+            "surface_type": court.surface_type,
+            "court_count": court.court_count,
+            "status": court.status,
+            "is_active": court.is_active,
+            "is_free": court.is_free,
+            "has_lights": court.has_lights,
+            "has_restrooms": court.has_restrooms,
+            "has_parking": court.has_parking,
+            "nets_provided": court.nets_provided,
+            "description": court.description,
+            "hours": court.hours,
+            "phone": court.phone,
+            "website": court.website,
+            "cost_info": court.cost_info,
+            "parking_info": court.parking_info,
+            "submitter_name": submitter_name,
+            "created_at": court.created_at.isoformat() if court.created_at else None,
+        }
+        for court, submitter_name, location_name in rows
+    ]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+_SUGGESTION_FIELDS = [
+    "name", "address", "description", "court_count", "surface_type",
+    "is_free", "cost_info", "has_lights", "has_restrooms", "has_parking",
+    "parking_info", "nets_provided", "hours", "phone", "website",
+]
+
+
+async def list_all_suggestions_admin(
+    session: AsyncSession,
+    *,
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> Dict:
+    """
+    List all court edit suggestions for admin with status filter and pagination.
+
+    Returns dict with ``items`` list and ``total`` count.
+    Each item includes a ``current`` dict with the court's current values
+    for all suggestion-eligible fields so the admin can view diffs.
+    """
+    base = (
+        select(CourtEditSuggestion, Court, Player.full_name)
+        .join(Court, CourtEditSuggestion.court_id == Court.id)
+        .outerjoin(Player, CourtEditSuggestion.suggested_by == Player.id)
+    )
+
+    if status and status != "all":
+        base = base.where(CourtEditSuggestion.status == status)
+
+    # Total count
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await session.execute(count_q)).scalar() or 0
+
+    # Paginated results
+    q = (
+        base.order_by(CourtEditSuggestion.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = (await session.execute(q)).all()
+
+    items = [
+        {
+            "id": suggestion.id,
+            "court_id": suggestion.court_id,
+            "court_name": court.name,
+            "suggested_by": suggestion.suggested_by,
+            "suggester_name": suggester_name,
+            "changes": suggestion.changes,
+            "status": suggestion.status,
+            "created_at": (
+                suggestion.created_at.isoformat() if suggestion.created_at else None
+            ),
+            "current": {
+                field: getattr(court, field) for field in _SUGGESTION_FIELDS
+            },
+        }
+        for suggestion, court, suggester_name in rows
+    ]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
 # ---------------------------------------------------------------------------
 # Reviews
 # ---------------------------------------------------------------------------
@@ -1018,6 +1156,97 @@ async def delete_review(
         "review_count": count,
         "photo_s3_keys": photo_s3_keys,
     }
+
+
+async def admin_delete_review(
+    session: AsyncSession,
+    *,
+    review_id: int,
+) -> Optional[Dict]:
+    """
+    Delete any review as admin (no author check).
+
+    Returns updated stats and S3 photo keys for cleanup, or None if not found.
+    """
+    result = await session.execute(
+        select(CourtReview)
+        .options(selectinload(CourtReview.photos))
+        .where(CourtReview.id == review_id)
+    )
+    review = result.scalar_one_or_none()
+    if not review:
+        return None
+
+    court_id = review.court_id
+    photo_s3_keys = [p.s3_key for p in review.photos]
+
+    await session.delete(review)
+    await session.commit()
+
+    avg, count = await _recalc_court_rating(session, court_id)
+    return {
+        "review_id": review_id,
+        "average_rating": avg,
+        "review_count": count,
+        "photo_s3_keys": photo_s3_keys,
+    }
+
+
+async def admin_delete_court_photo(
+    session: AsyncSession,
+    photo_id: int,
+) -> Optional[str]:
+    """
+    Delete a standalone court photo by ID (admin).
+
+    Returns the S3 key for cleanup, or None if not found.
+    """
+    photo = await session.get(CourtPhoto, photo_id)
+    if not photo:
+        return None
+
+    s3_key = photo.s3_key
+    await session.delete(photo)
+    await session.commit()
+    return s3_key
+
+
+async def reorder_court_photos(
+    session: AsyncSession,
+    court_id: int,
+    photo_ids: List[int],
+) -> List[Dict]:
+    """
+    Reorder standalone court photos by assigning sort_order from the given list.
+
+    Args:
+        session: Database session
+        court_id: ID of the court
+        photo_ids: Ordered list of photo IDs (first = sort_order 0)
+
+    Returns:
+        List of photo dicts with updated sort_order
+
+    Raises:
+        ValueError: If photo_ids don't match the court's actual photos
+    """
+    result = await session.execute(
+        select(CourtPhoto).where(CourtPhoto.court_id == court_id)
+    )
+    existing = {p.id: p for p in result.scalars().all()}
+
+    if set(photo_ids) != set(existing.keys()):
+        raise ValueError("photo_ids must match the court's current photos exactly")
+
+    for idx, pid in enumerate(photo_ids):
+        existing[pid].sort_order = idx
+
+    await session.commit()
+
+    return [
+        {"id": existing[pid].id, "url": existing[pid].url, "sort_order": idx}
+        for idx, pid in enumerate(photo_ids)
+    ]
 
 
 async def list_reviews(

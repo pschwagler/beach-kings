@@ -376,3 +376,102 @@ def test_process_matches_integration():
         assert eh.match_id in [1, 2]
         assert eh.elo_after >= INITIAL_ELO - 100  # Reasonable ELO range
         assert eh.elo_after <= INITIAL_ELO + 100
+
+
+# ============================================================================
+# Tests for extracted builder helpers
+# ============================================================================
+
+
+def _make_tracker_with_matches():
+    """Create a StatsTracker with 2 processed matches for builder tests."""
+    tracker = calculation_service.StatsTracker()
+    m1 = create_mock_match([1, 2], [3, 4], 21, 19, match_id=1)
+    m2 = create_mock_match([1, 3], [2, 4], 21, 17, match_id=2)
+    tracker.process_match(m1)
+    tracker.process_match(m2)
+    return tracker
+
+
+def test_build_partnership_stats():
+    """Test _build_partnership_stats produces correct ORM objects."""
+    tracker = _make_tracker_with_matches()
+    partnerships = calculation_service._build_partnership_stats(tracker, {})
+
+    assert len(partnerships) > 0
+    # Every entry should have valid stats
+    for p in partnerships:
+        assert p.games > 0
+        assert 0 <= p.win_rate <= 1
+        assert p.player_id != p.partner_id
+
+    # Alice (1) played with Bob (2) in match 1 and Charlie (3) in match 2
+    alice_partners = {p.partner_id for p in partnerships if p.player_id == 1}
+    assert 2 in alice_partners
+    assert 3 in alice_partners
+
+
+def test_build_opponent_stats():
+    """Test _build_opponent_stats produces correct ORM objects."""
+    tracker = _make_tracker_with_matches()
+    opponents = calculation_service._build_opponent_stats(tracker, {})
+
+    assert len(opponents) > 0
+    for o in opponents:
+        assert o.games > 0
+        assert o.player_id != o.opponent_id
+
+    # Alice (1) played against Charlie (3) and Dave (4) in match 1
+    alice_opponents = {o.opponent_id for o in opponents if o.player_id == 1}
+    assert 3 in alice_opponents or 4 in alice_opponents
+
+
+def test_build_elo_history():
+    """Test _build_elo_history produces correct ORM objects."""
+    tracker = _make_tracker_with_matches()
+    history = calculation_service._build_elo_history(tracker)
+
+    assert len(history) > 0
+    for eh in history:
+        assert eh.match_id in [1, 2]
+        assert eh.elo_after > 0
+        assert eh.date == "2024-01-01"
+
+
+def test_calculate_elo_deltas():
+    """Test _calculate_elo_deltas helper on StatsTracker."""
+    tracker = calculation_service.StatsTracker()
+    # Seed players
+    for pid in [1, 2, 3, 4]:
+        tracker.get_player(pid)
+
+    teams = [[1, 2], [3, 4]]
+    deltas = tracker._calculate_elo_deltas(
+        teams, K, 1.0, rating_getter=lambda p: p.elo,
+    )
+    assert len(deltas) == 2
+    assert deltas[0] > 0  # Winning team gains
+    assert deltas[1] < 0  # Losing team drops
+    # Should be symmetric
+    assert abs(deltas[0] + deltas[1]) < 0.01
+
+
+def test_season_elo_updates_independently():
+    """Test that season ELO and global ELO update independently."""
+    # season_rating mode requires scoring_config type = "season_rating"
+    tracker = calculation_service.StatsTracker(
+        initial_ratings={1: 1200, 2: 1200, 3: 1200, 4: 1200},
+        scoring_config={"type": "season_rating"},
+    )
+    match = create_mock_match([1, 2], [3, 4], 21, 15, match_id=1)
+    tracker.process_match(match)
+
+    p1 = tracker.get_player(1)
+    # Both should have changed from initial
+    assert p1.elo != INITIAL_ELO
+    assert p1.season_rating != 1200
+    # They use different K-factors so changes should differ
+    global_change = p1.elo - INITIAL_ELO
+    season_change = p1.season_rating - 1200
+    assert global_change != 0
+    assert season_change != 0

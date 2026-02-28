@@ -231,6 +231,7 @@ export default function LeagueRankingsTab() {
         isAllSeasons={!selectedSeasonId}
         season={selectedSeason}
         placeholderPlayerIds={placeholderPlayerIds}
+        awardsFinalized={!!selectedSeason?.awards_finalized_at}
       />
       <CreateSeasonModal
         isOpen={showCreateSeasonModal}

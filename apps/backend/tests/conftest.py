@@ -77,6 +77,8 @@ async def _patch_missing_columns(conn):
         # Migration 024 — Google SSO
         ("users", "auth_provider", "VARCHAR NOT NULL DEFAULT 'phone'"),
         ("users", "google_id", "VARCHAR"),
+        # Migration 026 — Account deletion
+        ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),

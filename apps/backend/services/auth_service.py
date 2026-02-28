@@ -184,12 +184,14 @@ def verify_token(token: str) -> Optional[dict]:
 
 def generate_verification_code() -> str:
     """
-    Generate a random 4-digit verification code.
+    Generate a cryptographically secure 6-digit verification code.
+
+    Uses ``secrets`` instead of ``random`` to prevent predictability.
 
     Returns:
-        4-digit code as string
+        6-digit code as string
     """
-    return str(random.randint(1000, 9999))
+    return f"{secrets.randbelow(900000) + 100000}"
 
 
 def normalize_phone_number(phone: str, default_region: str = "US") -> str:

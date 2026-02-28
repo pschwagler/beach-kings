@@ -45,9 +45,9 @@ async function globalSetup(config) {
       `);
       // Then insert the location
       await client.query(`
-        INSERT INTO locations (id, name, city, state, region_id, tier, latitude, longitude, seasonality, radius_miles)
-        VALUES ('socal_sd', 'CA - San Diego', 'Mission Beach', 'CA', 'california', 1, 32.7698, -117.2514, 'Year-Round', 30)
-        ON CONFLICT (id) DO NOTHING
+        INSERT INTO locations (id, name, city, state, region_id, tier, latitude, longitude, seasonality, radius_miles, slug)
+        VALUES ('socal_sd', 'CA - San Diego', 'Mission Beach', 'CA', 'california', 1, 32.7698, -117.2514, 'Year-Round', 30, 'mission-beach-ca')
+        ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug
       `);
       console.log('✓ Test location seeded');
     }

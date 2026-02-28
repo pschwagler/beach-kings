@@ -16,7 +16,6 @@ from backend.database.models import Player, Feedback
 from backend.services import data_service, email_service, settings_service
 from backend.services.redis_service import redis_get, redis_set
 from backend.api.auth_dependencies import (
-    get_current_user,
     get_current_user_optional,
     require_system_admin,
 )
@@ -84,8 +83,9 @@ async def proxy_whatsapp_request(
             status_code=e.response.status_code, detail=f"WhatsApp service error: {e.response.text}"
         )
     except Exception as e:
+        logger.exception("Error communicating with WhatsApp service")
         raise HTTPException(
-            status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}"
+            status_code=500, detail="Error communicating with WhatsApp service."
         )
 
 
@@ -105,7 +105,8 @@ async def get_setting_value(
         value = await data_service.get_setting(session, key)
         return {"key": key, "value": value}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting setting: {str(e)}")
+        logger.exception(f"Error getting setting: {key}")
+        raise HTTPException(status_code=500, detail="Error getting setting.")
 
 
 @router.put("/api/settings/{key}")
@@ -125,7 +126,8 @@ async def set_setting_value(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error setting value: {str(e)}")
+        logger.exception(f"Error setting value: {key}")
+        raise HTTPException(status_code=500, detail="Error setting value.")
 
 
 # ---------------------------------------------------------------------------
@@ -195,8 +197,8 @@ async def submit_feedback(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error submitting feedback: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error submitting feedback: {str(e)}")
+        logger.exception("Error submitting feedback")
+        raise HTTPException(status_code=500, detail="Error submitting feedback. Please try again.")
 
 
 @router.get("/api/admin-view/feedback", response_model=List[FeedbackResponse])
@@ -208,39 +210,34 @@ async def get_all_feedback(
     Only accessible to system admins.
     """
     try:
-        result = await session.execute(select(Feedback).order_by(Feedback.created_at.desc()))
-        feedback_list = result.scalars().all()
+        from sqlalchemy.orm import aliased
 
-        response_data = []
-        for feedback in feedback_list:
-            user_name = None
-            if feedback.user_id:
-                player_result = await session.execute(
-                    select(Player).where(Player.user_id == feedback.user_id)
-                )
-                player = player_result.scalar_one_or_none()
-                if player:
-                    user_name = player.full_name
+        player_alias = aliased(Player)
+        result = await session.execute(
+            select(Feedback, player_alias.full_name)
+            .outerjoin(player_alias, player_alias.user_id == Feedback.user_id)
+            .order_by(Feedback.created_at.desc())
+        )
+        rows = result.all()
 
-            response_data.append(
-                {
-                    "id": feedback.id,
-                    "user_id": feedback.user_id,
-                    "feedback_text": feedback.feedback_text,
-                    "email": feedback.email,
-                    "is_resolved": feedback.is_resolved,
-                    "created_at": feedback.created_at.isoformat(),
-                    "user_name": user_name,
-                }
-            )
-
-        return response_data
+        return [
+            {
+                "id": fb.id,
+                "user_id": fb.user_id,
+                "feedback_text": fb.feedback_text,
+                "email": fb.email,
+                "is_resolved": fb.is_resolved,
+                "created_at": fb.created_at.isoformat(),
+                "user_name": player_name,
+            }
+            for fb, player_name in rows
+        ]
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting feedback: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting feedback: {str(e)}")
+        logger.exception("Error getting feedback")
+        raise HTTPException(status_code=500, detail="Error getting feedback.")
 
 
 @router.patch("/api/admin-view/feedback/{feedback_id}/resolve")
@@ -287,9 +284,9 @@ async def update_feedback_resolution(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating feedback resolution: {str(e)}")
+        logger.exception("Error updating feedback resolution")
         raise HTTPException(
-            status_code=500, detail=f"Error updating feedback resolution: {str(e)}"
+            status_code=500, detail="Error updating feedback resolution."
         )
 
 
@@ -326,8 +323,8 @@ async def get_admin_config(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting admin config: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting admin config: {str(e)}")
+        logger.exception("Error getting admin config")
+        raise HTTPException(status_code=500, detail="Error getting admin config.")
 
 
 @router.put("/api/admin-view/config")
@@ -404,8 +401,8 @@ async def update_admin_config(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
     except Exception as e:
-        logger.error(f"Error updating admin config: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating admin config: {str(e)}")
+        logger.exception("Error updating admin config")
+        raise HTTPException(status_code=500, detail="Error updating admin config.")
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +488,7 @@ async def get_platform_stats(
 
     except Exception as e:
         logger.error(f"Error fetching platform stats: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching platform stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching platform stats.")
 
 
 # ---------------------------------------------------------------------------
@@ -500,47 +497,47 @@ async def get_platform_stats(
 
 
 @router.get("/api/whatsapp/qr")
-async def whatsapp_qr(current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for WhatsApp QR code."""
+async def whatsapp_qr(user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for WhatsApp QR code. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/qr")
 
 
 @router.get("/api/whatsapp/status")
-async def whatsapp_status(current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for WhatsApp authentication status."""
+async def whatsapp_status(user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for WhatsApp authentication status. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/status")
 
 
 @router.post("/api/whatsapp/initialize")
-async def whatsapp_initialize(current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for initializing WhatsApp client."""
+async def whatsapp_initialize(user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for initializing WhatsApp client. System admin only."""
     return await proxy_whatsapp_request("POST", "/api/whatsapp/initialize")
 
 
 @router.post("/api/whatsapp/logout")
-async def whatsapp_logout(current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for logging out of WhatsApp."""
+async def whatsapp_logout(user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for logging out of WhatsApp. System admin only."""
     return await proxy_whatsapp_request("POST", "/api/whatsapp/logout")
 
 
 @router.get("/api/whatsapp/groups")
-async def whatsapp_groups(current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for fetching WhatsApp group chats."""
+async def whatsapp_groups(user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for fetching WhatsApp group chats. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/groups")
 
 
 @router.post("/api/whatsapp/send")
-async def whatsapp_send(request: Request, current_user: dict = Depends(get_current_user)):
-    """Proxy endpoint for sending WhatsApp messages."""
+async def whatsapp_send(request: Request, user: dict = Depends(require_system_admin)):
+    """Proxy endpoint for sending WhatsApp messages. System admin only."""
     body = await request.json()
     return await proxy_whatsapp_request("POST", "/api/whatsapp/send", body=body)
 
 
 @router.get("/api/whatsapp/config")
 async def get_whatsapp_config(
-    current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
+    user: dict = Depends(require_system_admin), session: AsyncSession = Depends(get_db_session)
 ):
-    """Get WhatsApp configuration (selected group for automated messages)."""
+    """Get WhatsApp configuration (selected group for automated messages). System admin only."""
     try:
         group_id = await data_service.get_setting(session, "whatsapp_group_id")
         return {
@@ -548,16 +545,17 @@ async def get_whatsapp_config(
             "group_id": group_id,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading WhatsApp config: {str(e)}")
+        logger.exception("Error loading WhatsApp config")
+        raise HTTPException(status_code=500, detail="Error loading WhatsApp config.")
 
 
 @router.post("/api/whatsapp/config")
 async def set_whatsapp_config(
     request: Request,
-    current_user: dict = Depends(get_current_user),
+    user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Set WhatsApp configuration (selected group for automated messages)."""
+    """Set WhatsApp configuration (selected group for automated messages). System admin only."""
     try:
         body = await request.json()
         group_id = body.get("group_id")
@@ -574,4 +572,5 @@ async def set_whatsapp_config(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving WhatsApp config: {str(e)}")
+        logger.exception("Error saving WhatsApp config")
+        raise HTTPException(status_code=500, detail="Error saving WhatsApp config.")

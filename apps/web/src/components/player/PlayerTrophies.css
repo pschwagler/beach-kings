@@ -1,0 +1,166 @@
+/* ========================================
+   PlayerTrophies
+   ======================================== */
+
+.player-trophies__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Card style */
+.player-trophies__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  background: white;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.player-trophies__card:hover {
+  background: var(--gray-50);
+}
+
+.player-trophies__card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Gold card */
+.player-trophies__card--gold .player-trophies__card-icon {
+  background: var(--sun-gold-light);
+  color: var(--warm-brown-dark);
+}
+
+/* Silver card */
+.player-trophies__card--silver .player-trophies__card-icon {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
+/* Bronze card */
+.player-trophies__card--bronze .player-trophies__card-icon {
+  background: var(--warm-brown-lighter);
+  color: var(--warm-brown-dark);
+}
+
+/* Stat award card */
+.player-trophies__card--stat .player-trophies__card-icon {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.player-trophies__card-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player-trophies__card-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.player-trophies__card-meta {
+  font-size: 12px;
+  color: var(--gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact layout heading */
+.player-trophies__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0 0 8px 0;
+}
+
+/* Compact layout (badges row) */
+.player-trophies--compact .player-trophies__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.player-trophies__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: white;
+  color: var(--gray-700);
+}
+
+.player-trophies__badge:hover {
+  background: var(--gray-50);
+}
+
+.player-trophies__badge--gold {
+  background: var(--sun-gold-light);
+  border-color: var(--sun-gold-dark);
+  color: var(--warm-brown-dark);
+}
+
+.player-trophies__badge--silver {
+  background: var(--gray-100);
+  border-color: var(--gray-300);
+  color: var(--gray-700);
+}
+
+.player-trophies__badge--bronze {
+  background: var(--warm-brown-lighter);
+  border-color: var(--warm-brown-light);
+  color: var(--warm-brown-dark);
+}
+
+.player-trophies__badge--stat {
+  background: var(--primary-lighter);
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.player-trophies__badge-text {
+  line-height: 1;
+}
+
+/* Loading skeleton */
+.player-trophies--loading {
+  display: flex;
+  gap: 6px;
+}
+
+.player-trophies__skeleton-badge {
+  width: 80px;
+  height: 26px;
+  border-radius: 12px;
+  background: var(--gray-100);
+  animation: trophies-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes trophies-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer } from '../services/api';
+import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer, cancelAccountDeletion as cancelDeletionApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -180,6 +180,11 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   }, [handleAuthSuccess]);
 
+  const cancelAccountDeletion = useCallback(async () => {
+    await cancelDeletionApi();
+    await fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
   const logout = useCallback(async () => {
     try {
       // Try to call the backend logout endpoint to invalidate refresh tokens
@@ -202,6 +207,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(user),
     isInitializing,
     sessionExpired,
+    deletionScheduledAt: user?.deletion_scheduled_at || null,
     fetchCurrentUser,
     loginWithGoogle,
     loginWithPassword,
@@ -212,6 +218,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     verifyPasswordReset,
     confirmPasswordReset,
+    cancelAccountDeletion,
     logout,
   };
 

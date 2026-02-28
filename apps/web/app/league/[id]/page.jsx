@@ -2,7 +2,7 @@ import { fetchBackend } from '../../../src/utils/server-fetch';
 import JsonLd from '../../../src/components/seo/JsonLd';
 import LeaguePageClient from './LeaguePageClient';
 
-const VALID_LEAGUE_TABS = ['rankings', 'matches', 'details', 'signups', 'messages'];
+const VALID_LEAGUE_TABS = ['rankings', 'matches', 'awards', 'details', 'signups', 'messages'];
 
 /**
  * Build a meta description from public league data.

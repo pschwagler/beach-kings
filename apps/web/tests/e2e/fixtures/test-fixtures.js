@@ -151,6 +151,7 @@ export const test = base.extend({
     // Create league
     const league = await createTestLeague(token, {
       name: `Test League ${Date.now()}`,
+      location_id: 'socal_sd',
     });
     const leagueId = league.id;
 

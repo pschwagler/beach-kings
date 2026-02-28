@@ -76,8 +76,11 @@ class PlayerMatchHistoryResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     Date: str
     Partner: str
+    Partner_ID: Optional[int] = Field(None, alias="Partner ID")
     Opponent_1: str = Field(alias="Opponent 1")
+    Opponent_1_ID: Optional[int] = Field(None, alias="Opponent 1 ID")
     Opponent_2: str = Field(alias="Opponent 2")
+    Opponent_2_ID: Optional[int] = Field(None, alias="Opponent 2 ID")
     Result: str
     Score: str
     ELO_Change: float = Field(alias="ELO Change")
@@ -298,6 +301,7 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     is_verified: bool
     auth_provider: str = "phone"
+    deletion_scheduled_at: Optional[str] = None
     created_at: str
 
 
@@ -1331,6 +1335,12 @@ class CourtPhotoUploadResponse(BaseModel):
     sort_order: int = 0
 
 
+class ReorderCourtPhotosRequest(BaseModel):
+    """Request body for reordering court photos."""
+
+    photo_ids: List[int]
+
+
 class CourtLeaderboardEntry(BaseModel):
     """A single entry in the court leaderboard."""
 
@@ -1453,3 +1463,22 @@ class SitemapCourtItem(BaseModel):
 
     slug: str
     updated_at: Optional[str] = None
+
+
+class SeasonAwardResponse(BaseModel):
+    """Season award data for API responses."""
+
+    id: int
+    season_id: int
+    season_name: Optional[str] = None
+    league_id: int
+    league_name: Optional[str] = None
+    player_id: int
+    player_name: Optional[str] = None
+    player_avatar: Optional[str] = None
+    player_profile_picture_url: Optional[str] = None
+    award_type: str
+    award_key: str
+    rank: Optional[int] = None
+    value: Optional[float] = None
+    created_at: Optional[str] = None

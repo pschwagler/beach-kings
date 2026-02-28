@@ -424,76 +424,64 @@ class StatsTracker:
             for opponent_id in team1:
                 player.record_point_diff_against(opponent_id, point_diff_team2)
 
+    def _calculate_elo_deltas(
+        self, teams: list, k_constant: float, normalized_score: float,
+        rating_getter,
+    ) -> List[float]:
+        """
+        Calculate ELO deltas for both teams using a generic rating accessor.
+
+        Args:
+            teams: [[p1, p2], [p3, p4]] player ID pairs per team
+            k_constant: Base K-factor constant
+            normalized_score: Score from team-1 perspective (1.0=win, 0.0=loss, 0.5=tie)
+            rating_getter: Callable(PlayerStats) -> float returning the rating to use
+
+        Returns:
+            [team0_delta, team1_delta]
+        """
+        team_ratings = []
+        for team in teams:
+            avg = sum(rating_getter(self.get_player(pid)) for pid in team) / len(team)
+            team_ratings.append(avg)
+
+        exp = [
+            expected_score(team_ratings[0], team_ratings[1]),
+            expected_score(team_ratings[1], team_ratings[0]),
+        ]
+        avg_games = sum(self.get_player(pid).game_count for team in teams for pid in team) / 4
+        k = k_factor(avg_games, k_constant)
+        return [
+            elo_change(k, team_ratings[0], exp[0], normalized_score),
+            elo_change(k, team_ratings[1], exp[1], 1 - normalized_score),
+        ]
+
     def _update_elos(self, match: Match, winner: int) -> Tuple[float, float]:
         """
         Calculate and apply ELO changes for all players in the match.
         Updates both global ELO and season ELO (if Season Rating mode) completely separately.
         """
         teams = match.player_ids
+        normalized = normalize_score(match.team1_score, match.team2_score, winner)
 
-        # Calculate team average ELOs for global ELO
-        team_elos = []
-        for team in teams:
-            player1 = self.get_player(team[0])
-            player2 = self.get_player(team[1])
-            team_elo = (player1.elo + player2.elo) / 2
-            team_elos.append(team_elo)
-
-        # Calculate expected scores for global ELO
-        expected = [
-            expected_score(team_elos[0], team_elos[1]),  # P(team0 beats team1)
-            expected_score(team_elos[1], team_elos[0]),  # P(team1 beats team0)
-        ]
-
-        # Calculate K-factor based on average games played
-        avg_games = sum(self.get_player(p_id).game_count for team in teams for p_id in team) / 4
-        k = k_factor(avg_games, K)
-
-        # Calculate normalized score
-        normalized_score = normalize_score(match.team1_score, match.team2_score, winner)
-
-        # Calculate global ELO deltas
-        global_deltas = [
-            elo_change(k, team_elos[0], expected[0], normalized_score),
-            elo_change(k, team_elos[1], expected[1], 1 - normalized_score),
-        ]
-
-        # Apply global ELO changes
+        # Global ELO
+        global_deltas = self._calculate_elo_deltas(
+            teams, K, normalized, rating_getter=lambda p: p.elo,
+        )
         for team_idx, team in enumerate(teams):
             for player_id in team:
-                player = self.get_player(player_id)
-                player.update_elo(global_deltas[team_idx], match.date, match.id)
+                self.get_player(player_id).update_elo(global_deltas[team_idx], match.date, match.id)
 
-        # If Season Rating mode, also calculate and update season ELO separately
+        # Season ELO (separate rating pool, lower K-factor)
         if self.is_season_rating:
-            # Calculate team average season ratings
-            team_season_ratings = []
-            for team in teams:
-                player1 = self.get_player(team[0])
-                player2 = self.get_player(team[1])
-                team_season_rating = (player1.season_rating + player2.season_rating) / 2
-                team_season_ratings.append(team_season_rating)
-
-            # Calculate expected scores for season ELO
-            expected_season = [
-                expected_score(team_season_ratings[0], team_season_ratings[1]),
-                expected_score(team_season_ratings[1], team_season_ratings[0]),
-            ]
-
-            # Calculate season ELO deltas (using SEASON_K-factor, which is lower for more stability)
-            season_k = k_factor(avg_games, SEASON_K)
-            season_deltas = [
-                elo_change(season_k, team_season_ratings[0], expected_season[0], normalized_score),
-                elo_change(
-                    season_k, team_season_ratings[1], expected_season[1], 1 - normalized_score
-                ),
-            ]
-
-            # Apply season ELO changes
+            season_deltas = self._calculate_elo_deltas(
+                teams, SEASON_K, normalized, rating_getter=lambda p: p.season_rating,
+            )
             for team_idx, team in enumerate(teams):
                 for player_id in team:
-                    player = self.get_player(player_id)
-                    player.update_season_rating(season_deltas[team_idx], match.date, match.id)
+                    self.get_player(player_id).update_season_rating(
+                        season_deltas[team_idx], match.date, match.id,
+                    )
 
         return (global_deltas[0], global_deltas[1])
 
@@ -501,6 +489,65 @@ class StatsTracker:
 # ============================================================================
 # Main Processing Function
 # ============================================================================
+
+
+def _build_partnership_stats(
+    tracker: StatsTracker, scoring_config: Dict,
+) -> List[PartnershipStats]:
+    """Build PartnershipStats ORM instances from tracked player data."""
+    results = []
+    for player_id, stats in tracker.players.items():
+        for partner_id, games in stats.games_with.items():
+            wins = stats.wins_with.get(partner_id, 0)
+            losses = games - wins
+            total_pt_diff = stats.point_diff_with.get(partner_id, 0)
+            results.append(PartnershipStats(
+                player_id=player_id,
+                partner_id=partner_id,
+                games=games,
+                wins=wins,
+                points=calculate_points(wins, losses, scoring_config),
+                win_rate=round(wins / games, 3) if games else 0,
+                avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
+            ))
+    return results
+
+
+def _build_opponent_stats(
+    tracker: StatsTracker, scoring_config: Dict,
+) -> List[OpponentStats]:
+    """Build OpponentStats ORM instances from tracked player data."""
+    results = []
+    for player_id, stats in tracker.players.items():
+        for opponent_id, games in stats.games_against.items():
+            wins = stats.wins_against.get(opponent_id, 0)
+            losses = games - wins
+            total_pt_diff = stats.point_diff_against.get(opponent_id, 0)
+            results.append(OpponentStats(
+                player_id=player_id,
+                opponent_id=opponent_id,
+                games=games,
+                wins=wins,
+                points=calculate_points(wins, losses, scoring_config),
+                win_rate=round(wins / games, 3) if games else 0,
+                avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
+            ))
+    return results
+
+
+def _build_elo_history(tracker: StatsTracker) -> List[EloHistory]:
+    """Build EloHistory ORM instances from tracked player data (global ELO only)."""
+    results = []
+    for player_id, stats in tracker.players.items():
+        for match_id, elo_after, change, date in stats.match_elo_history:
+            results.append(EloHistory(
+                player_id=player_id,
+                match_id=match_id,
+                date=date or "",
+                elo_after=round(elo_after, 1),
+                elo_change=round(change, 1),
+            ))
+    return results
 
 
 def process_matches(
@@ -525,66 +572,12 @@ def process_matches(
         - list of EloHistory instances
     """
     tracker = StatsTracker(initial_ratings=initial_ratings, scoring_config=scoring_config)
-
-    # Process all matches to build stats
     for match in match_list:
         tracker.process_match(match)
 
-    # Build PartnershipStats instances
-    partnerships = []
-    for player_id, player_stats in tracker.players.items():
-        for partner_id, games in player_stats.games_with.items():
-            wins = player_stats.wins_with.get(partner_id, 0)
-            losses = games - wins
-            win_rate = wins / games if games > 0 else 0
-            points = calculate_points(wins, losses, scoring_config or {})
-            total_pt_diff = player_stats.point_diff_with.get(partner_id, 0)
-            avg_pt_diff = total_pt_diff / games if games > 0 else 0
-
-            partnership = PartnershipStats(
-                player_id=player_id,
-                partner_id=partner_id,
-                games=games,
-                wins=wins,
-                points=points,
-                win_rate=round(win_rate, 3),
-                avg_point_diff=round(avg_pt_diff, 1),
-            )
-            partnerships.append(partnership)
-
-    # Build OpponentStats instances
-    opponents = []
-    for player_id, player_stats in tracker.players.items():
-        for opponent_id, games in player_stats.games_against.items():
-            wins = player_stats.wins_against.get(opponent_id, 0)
-            losses = games - wins
-            win_rate = wins / games if games > 0 else 0
-            points = calculate_points(wins, losses, scoring_config or {})
-            total_pt_diff = player_stats.point_diff_against.get(opponent_id, 0)
-            avg_pt_diff = total_pt_diff / games if games > 0 else 0
-
-            opponent = OpponentStats(
-                player_id=player_id,
-                opponent_id=opponent_id,
-                games=games,
-                wins=wins,
-                points=points,
-                win_rate=round(win_rate, 3),
-                avg_point_diff=round(avg_pt_diff, 1),
-            )
-            opponents.append(opponent)
-
-    # Build EloHistory instances (only global ELO, not season ELO)
-    elo_history_list = []
-    for player_id, player_stats in tracker.players.items():
-        for match_id, elo_after, elo_change, date in player_stats.match_elo_history:
-            elo_history = EloHistory(
-                player_id=player_id,
-                match_id=match_id,
-                date=date or "",
-                elo_after=round(elo_after, 1),
-                elo_change=round(elo_change, 1),
-            )
-            elo_history_list.append(elo_history)
-
-    return partnerships, opponents, elo_history_list
+    config = scoring_config or {}
+    return (
+        _build_partnership_stats(tracker, config),
+        _build_opponent_stats(tracker, config),
+        _build_elo_history(tracker),
+    )

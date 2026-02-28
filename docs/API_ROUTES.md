@@ -1,6 +1,6 @@
 # API Routes Reference
 
-Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
+Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
 
 ## Auth Levels
 
@@ -46,6 +46,8 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | POST | `/api/users/me/avatar` | User | Upload avatar image (multipart) |
 | DELETE | `/api/users/me/avatar` | User | Remove avatar |
 | GET | `/api/users/me/leagues` | User | List leagues for current user |
+| POST | `/api/users/me/delete` | User | Schedule account deletion (30-day grace period) |
+| POST | `/api/users/me/cancel-deletion` | User | Cancel pending account deletion |
 
 ## Players
 
@@ -98,6 +100,15 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | GET | `/api/leagues/{league_id}/seasons` | User | List seasons for league |
 | GET | `/api/seasons/{season_id}` | None | Get season by ID |
 | PUT | `/api/seasons/{season_id}` | User* | Update season (*admin check in service) |
+
+## Season Awards
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/seasons/{season_id}/awards` | None | Get awards for a season (lazy-computes if season ended) |
+| GET | `/api/leagues/{league_id}/awards` | None | Get all awards across all seasons in a league |
+| GET | `/api/players/{player_id}/awards` | None | Get all player awards across leagues |
+| POST | `/api/seasons/{season_id}/finalize-awards` | League Admin | Manual trigger to finalize season awards |
 
 ## Sessions
 
@@ -183,8 +194,13 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/admin/courts/pending` | System Admin | List pending court submissions |
+| GET | `/api/admin/courts` | System Admin | List all courts (search, status filter, paginated) |
+| GET | `/api/admin/courts/suggestions` | System Admin | List all edit suggestions (status filter, paginated, includes `current` court values) |
 | PUT | `/api/admin/courts/{court_id}/approve` | System Admin | Approve court |
 | PUT | `/api/admin/courts/{court_id}/reject` | System Admin | Reject court |
+| PUT | `/api/admin/courts/{court_id}/photos/reorder` | System Admin | Reorder court photos (body: `{photo_ids: [int]}`) |
+| DELETE | `/api/admin/courts/photos/{photo_id}` | System Admin | Delete a standalone court photo (S3 cleanup) |
+| DELETE | `/api/admin/courts/reviews/{review_id}` | System Admin | Delete any court review (S3 cleanup, rating recalc) |
 
 ## Locations & Geography
 

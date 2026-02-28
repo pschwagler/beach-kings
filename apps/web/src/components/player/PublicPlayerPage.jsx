@@ -20,6 +20,7 @@ import {
 } from '../../services/api';
 import { slugify } from '../../utils/slugify';
 import { useToast } from '../../contexts/ToastContext';
+import PlayerTrophies from './PlayerTrophies';
 import './PublicPlayerPage.css';
 
 /**
@@ -150,7 +151,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           className="public-player__friend-icon public-player__friend-icon--pending"
           data-testid="friend-pending-btn"
           disabled
-          data-tooltip="Request sent"
+          data-tooltip="Friend request sent"
         >
           <Clock size={20} />
         </button>
@@ -277,6 +278,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           </div>
         </section>
       )}
+
+      {/* Trophies — renders nothing if player has no awards */}
+      {player?.id && <PlayerTrophies playerId={player.id} />}
 
       {/* Stats grid */}
       {stats && (

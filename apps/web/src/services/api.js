@@ -906,6 +906,22 @@ export const updateUserProfile = async (userData) => {
 };
 
 /**
+ * Schedule account for deletion (30-day grace period).
+ */
+export const scheduleAccountDeletion = async () => {
+  const response = await api.post('/api/users/me/delete');
+  return response.data;
+};
+
+/**
+ * Cancel a pending account deletion.
+ */
+export const cancelAccountDeletion = async () => {
+  const response = await api.post('/api/users/me/cancel-deletion');
+  return response.data;
+};
+
+/**
  * Get list of locations
  */
 export const getLocations = async () => {
@@ -1063,6 +1079,42 @@ export const adminApproveCourt = async (courtId) => {
 /** Admin: reject a court. */
 export const adminRejectCourt = async (courtId) => {
   const response = await api.put(`/api/admin/courts/${courtId}/reject`);
+  return response.data;
+};
+
+/** Admin: list all courts with search, status filter, pagination. */
+export const getAdminAllCourts = async (params = {}) => {
+  const response = await api.get('/api/admin/courts', { params });
+  return response.data;
+};
+
+/** Admin: list all court edit suggestions with status filter, pagination. */
+export const getAdminAllSuggestions = async (params = {}) => {
+  const response = await api.get('/api/admin/courts/suggestions', { params });
+  return response.data;
+};
+
+/** Admin: delete a standalone court photo. */
+export const adminDeleteCourtPhoto = async (photoId) => {
+  const response = await api.delete(`/api/admin/courts/photos/${photoId}`);
+  return response.data;
+};
+
+/** Admin: reorder standalone court photos. */
+export const adminReorderCourtPhotos = async (courtId, photoIds) => {
+  const response = await api.put(`/api/admin/courts/${courtId}/photos/reorder`, { photo_ids: photoIds });
+  return response.data;
+};
+
+/** Admin: delete any court review. */
+export const adminDeleteReview = async (reviewId) => {
+  const response = await api.delete(`/api/admin/courts/reviews/${reviewId}`);
+  return response.data;
+};
+
+/** Fetch full court detail by numeric ID (uses public slug endpoint via redirect). */
+export const getCourtDetailById = async (courtId) => {
+  const response = await api.get(`/api/public/courts/${courtId}`);
   return response.data;
 };
 
@@ -1739,6 +1791,37 @@ export const markThreadRead = async (playerId) => {
  */
 export const getUnreadMessageCount = async () => {
   const response = await api.get('/api/messages/unread-count');
+  return response.data;
+};
+
+// ---------------------------------------------------------------------------
+// Season Awards
+// ---------------------------------------------------------------------------
+
+/**
+ * Get awards for a season (lazy-computes if season has ended).
+ * @param {number} seasonId
+ */
+export const getSeasonAwards = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/awards`);
+  return response.data;
+};
+
+/**
+ * Get all awards across all seasons in a league.
+ * @param {number} leagueId
+ */
+export const getLeagueAwards = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/awards`);
+  return response.data;
+};
+
+/**
+ * Get all awards for a player across leagues.
+ * @param {number} playerId
+ */
+export const getPlayerAwards = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/awards`);
   return response.data;
 };
 

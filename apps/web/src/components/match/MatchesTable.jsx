@@ -9,12 +9,7 @@ import { MatchesTableSkeleton } from '../ui/Skeletons';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
-
-function calculateWinner(team1Score, team2Score) {
-  if (team1Score > team2Score) return 'Team 1';
-  if (team1Score < team2Score) return 'Team 2';
-  return 'Tie';
-}
+import { calculateWinner } from '../league/utils/matchUtils';
 
 function createSessionGroup(sessionId, sessionName, sessionStatus, sessionCreatedAt, sessionUpdatedAt, sessionCreatedBy, sessionUpdatedBy) {
   return {

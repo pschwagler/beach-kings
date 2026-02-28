@@ -9,6 +9,7 @@ import LeagueMatchesTab from './LeagueMatchesTab';
 import LeagueDetailsTab from './LeagueDetailsTab';
 import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
+import LeagueAwardsTab from './LeagueAwardsTab';
 import LeagueMenuBar from './LeagueMenuBar';
 import PublicLeaguePage from './PublicLeaguePage';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
@@ -61,7 +62,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   // Get tab from URL query parameter
   useEffect(() => {
     const tab = searchParams?.get('tab');
-    if (tab && ['rankings', 'matches', 'details', 'signups', 'messages'].includes(tab)) {
+    if (tab && ['rankings', 'matches', 'awards', 'details', 'signups', 'messages'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -393,6 +394,10 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
                 seasonIdFromUrl={seasonIdParam ? parseInt(seasonIdParam, 10) : null}
                 autoOpenAddMatch={autoAddMatch}
               />
+            )}
+
+            {activeTab === 'awards' && (
+              <LeagueAwardsTab leagueId={leagueId} />
             )}
 
             {activeTab === 'details' && (
