@@ -116,7 +116,9 @@ async def get_friends(
     """Get current user's friends list (paginated)."""
     try:
         offset = (page - 1) * page_size
-        result = await friend_service.get_friends(session, user["player_id"], limit=page_size, offset=offset)
+        result = await friend_service.get_friends(
+            session, user["player_id"], limit=page_size, offset=offset
+        )
         return result
     except Exception as e:
         logger.error(f"Error fetching friends: {e}")
@@ -131,7 +133,9 @@ async def get_friend_requests(
 ):
     """Get pending friend requests."""
     try:
-        requests = await friend_service.get_friend_requests(session, user["player_id"], direction=direction)
+        requests = await friend_service.get_friend_requests(
+            session, user["player_id"], direction=direction
+        )
         return requests
     except Exception as e:
         logger.error(f"Error fetching friend requests: {e}")
@@ -146,7 +150,9 @@ async def get_friend_suggestions(
 ):
     """Get friend suggestions based on shared leagues."""
     try:
-        suggestions = await friend_service.get_friend_suggestions(session, user["player_id"], limit=limit)
+        suggestions = await friend_service.get_friend_suggestions(
+            session, user["player_id"], limit=limit
+        )
         return suggestions
     except Exception as e:
         logger.error(f"Error fetching friend suggestions: {e}")
@@ -178,7 +184,9 @@ async def get_mutual_friends(
 ):
     """Get mutual friends between the current user and another player."""
     try:
-        mutual = await friend_service.get_mutual_friends(session, user["player_id"], other_player_id)
+        mutual = await friend_service.get_mutual_friends(
+            session, user["player_id"], other_player_id
+        )
         return mutual
     except Exception as e:
         logger.error(f"Error fetching mutual friends: {e}")

@@ -7,7 +7,7 @@ unread counts, and friendship gating.
 
 import pytest
 import pytest_asyncio
-from backend.services import direct_message_service, friend_service
+from backend.services import direct_message_service
 from backend.database.models import User, Player, Friend
 
 

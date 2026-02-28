@@ -272,7 +272,9 @@ async def end_league_session(
 
         # Resolve context before lock_in_session commits the transaction
         session_name, resolved_league_id, league_name = await _resolve_session_context(
-            session, session_id, league_id=league_id,
+            session,
+            session_id,
+            league_id=league_id,
         )
 
         result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
@@ -281,8 +283,12 @@ async def end_league_session(
             raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
         await _send_session_submit_notifications(
-            session, session_id, user["id"], session_name,
-            league_id=resolved_league_id, league_name=league_name,
+            session,
+            session_id,
+            user["id"],
+            session_name,
+            league_id=resolved_league_id,
+            league_name=league_name,
         )
 
         return {
@@ -593,7 +599,8 @@ async def update_session(
 
             # Resolve context before lock_in_session commits the transaction
             session_name, resolved_league_id, league_name = await _resolve_session_context(
-                session, session_id,
+                session,
+                session_id,
             )
 
             result = await data_service.lock_in_session(session, session_id, updated_by=player_id)
@@ -602,8 +609,12 @@ async def update_session(
                 raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
             await _send_session_submit_notifications(
-                session, session_id, current_user["id"], session_name,
-                league_id=resolved_league_id, league_name=league_name,
+                session,
+                session_id,
+                current_user["id"],
+                session_name,
+                league_id=resolved_league_id,
+                league_name=league_name,
             )
 
             return {

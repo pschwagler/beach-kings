@@ -425,7 +425,10 @@ class StatsTracker:
                 player.record_point_diff_against(opponent_id, point_diff_team2)
 
     def _calculate_elo_deltas(
-        self, teams: list, k_constant: float, normalized_score: float,
+        self,
+        teams: list,
+        k_constant: float,
+        normalized_score: float,
         rating_getter,
     ) -> List[float]:
         """
@@ -466,21 +469,31 @@ class StatsTracker:
 
         # Global ELO
         global_deltas = self._calculate_elo_deltas(
-            teams, K, normalized, rating_getter=lambda p: p.elo,
+            teams,
+            K,
+            normalized,
+            rating_getter=lambda p: p.elo,
         )
         for team_idx, team in enumerate(teams):
             for player_id in team:
-                self.get_player(player_id).update_elo(global_deltas[team_idx], match.date, match.id)
+                self.get_player(player_id).update_elo(
+                    global_deltas[team_idx], match.date, match.id
+                )
 
         # Season ELO (separate rating pool, lower K-factor)
         if self.is_season_rating:
             season_deltas = self._calculate_elo_deltas(
-                teams, SEASON_K, normalized, rating_getter=lambda p: p.season_rating,
+                teams,
+                SEASON_K,
+                normalized,
+                rating_getter=lambda p: p.season_rating,
             )
             for team_idx, team in enumerate(teams):
                 for player_id in team:
                     self.get_player(player_id).update_season_rating(
-                        season_deltas[team_idx], match.date, match.id,
+                        season_deltas[team_idx],
+                        match.date,
+                        match.id,
                     )
 
         return (global_deltas[0], global_deltas[1])
@@ -492,7 +505,8 @@ class StatsTracker:
 
 
 def _build_partnership_stats(
-    tracker: StatsTracker, scoring_config: Dict,
+    tracker: StatsTracker,
+    scoring_config: Dict,
 ) -> List[PartnershipStats]:
     """Build PartnershipStats ORM instances from tracked player data."""
     results = []
@@ -501,20 +515,23 @@ def _build_partnership_stats(
             wins = stats.wins_with.get(partner_id, 0)
             losses = games - wins
             total_pt_diff = stats.point_diff_with.get(partner_id, 0)
-            results.append(PartnershipStats(
-                player_id=player_id,
-                partner_id=partner_id,
-                games=games,
-                wins=wins,
-                points=calculate_points(wins, losses, scoring_config),
-                win_rate=round(wins / games, 3) if games else 0,
-                avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
-            ))
+            results.append(
+                PartnershipStats(
+                    player_id=player_id,
+                    partner_id=partner_id,
+                    games=games,
+                    wins=wins,
+                    points=calculate_points(wins, losses, scoring_config),
+                    win_rate=round(wins / games, 3) if games else 0,
+                    avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
+                )
+            )
     return results
 
 
 def _build_opponent_stats(
-    tracker: StatsTracker, scoring_config: Dict,
+    tracker: StatsTracker,
+    scoring_config: Dict,
 ) -> List[OpponentStats]:
     """Build OpponentStats ORM instances from tracked player data."""
     results = []
@@ -523,15 +540,17 @@ def _build_opponent_stats(
             wins = stats.wins_against.get(opponent_id, 0)
             losses = games - wins
             total_pt_diff = stats.point_diff_against.get(opponent_id, 0)
-            results.append(OpponentStats(
-                player_id=player_id,
-                opponent_id=opponent_id,
-                games=games,
-                wins=wins,
-                points=calculate_points(wins, losses, scoring_config),
-                win_rate=round(wins / games, 3) if games else 0,
-                avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
-            ))
+            results.append(
+                OpponentStats(
+                    player_id=player_id,
+                    opponent_id=opponent_id,
+                    games=games,
+                    wins=wins,
+                    points=calculate_points(wins, losses, scoring_config),
+                    win_rate=round(wins / games, 3) if games else 0,
+                    avg_point_diff=round(total_pt_diff / games, 1) if games else 0,
+                )
+            )
     return results
 
 
@@ -540,13 +559,15 @@ def _build_elo_history(tracker: StatsTracker) -> List[EloHistory]:
     results = []
     for player_id, stats in tracker.players.items():
         for match_id, elo_after, change, date in stats.match_elo_history:
-            results.append(EloHistory(
-                player_id=player_id,
-                match_id=match_id,
-                date=date or "",
-                elo_after=round(elo_after, 1),
-                elo_change=round(change, 1),
-            ))
+            results.append(
+                EloHistory(
+                    player_id=player_id,
+                    match_id=match_id,
+                    date=date or "",
+                    elo_after=round(elo_after, 1),
+                    elo_change=round(change, 1),
+                )
+            )
     return results
 
 

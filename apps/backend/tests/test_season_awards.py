@@ -27,7 +27,7 @@ from backend.database.models import (
     Notification,
     NotificationType,
 )
-from backend.services import season_awards_service, data_service
+from backend.services import data_service
 from backend.services.season_awards_service import (
     compute_season_awards,
     get_season_awards,
@@ -37,7 +37,6 @@ from backend.services.season_awards_service import (
     MIN_GAMES_STAT_AWARD,
 )
 from backend.services import user_service
-from backend.utils.datetime_utils import utcnow
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +116,8 @@ async def season_with_stats(db_session, users_and_players, league_and_past_seaso
         (25, 8, 6, 0.75, 2.5),
         (20, 7, 5, 0.714, 2.0),
         (15, 12, 4, 0.333, -1.0),  # Most games, low win rate
-        (10, 6, 5, 0.833, 4.5),    # Best win rate (83%), best avg pt diff
-        (5, 5, 3, 0.6, 1.0),       # Exactly at threshold
+        (10, 6, 5, 0.833, 4.5),  # Best win rate (83%), best avg pt diff
+        (5, 5, 3, 0.6, 1.0),  # Exactly at threshold
     ]
 
     for i, (points, games, wins, win_rate, avg_pt_diff) in enumerate(stats_data):
@@ -248,9 +247,7 @@ async def test_compute_awards_sends_notifications(db_session, season_with_stats)
 
     # Check notifications were created
     result = await db_session.execute(
-        select(Notification).where(
-            Notification.type == NotificationType.SEASON_AWARD.value
-        )
+        select(Notification).where(Notification.type == NotificationType.SEASON_AWARD.value)
     )
     notifications = result.scalars().all()
 
@@ -280,7 +277,7 @@ async def test_compute_awards_fewer_than_three_players(db_session):
     await db_session.flush()
 
     for i in range(2):
-        p = Player(full_name=f"Small P{i+1}", gender="M", level="beginner")
+        p = Player(full_name=f"Small P{i + 1}", gender="M", level="beginner")
         db_session.add(p)
         await db_session.flush()
 
@@ -327,7 +324,7 @@ async def test_stat_awards_respect_min_games(db_session):
 
     # 4 players: 3 for podium + 1 with too few games
     for i in range(4):
-        p = Player(full_name=f"Threshold P{i+1}", gender="M", level="beginner")
+        p = Player(full_name=f"Threshold P{i + 1}", gender="M", level="beginner")
         db_session.add(p)
         await db_session.flush()
 
@@ -549,20 +546,20 @@ async def test_rising_star_with_elo_history(db_session):
     # hasn't already won ironman/sharpshooter/point_machine.
     players = []
     for i in range(7):
-        p = Player(full_name=f"ELO P{i+1}", gender="M", level="intermediate")
+        p = Player(full_name=f"ELO P{i + 1}", gender="M", level="intermediate")
         db_session.add(p)
         await db_session.flush()
         players.append(p)
 
     stats_data = [
         # (points, games, wins, win_rate, avg_point_diff)
-        (30, 10, 7, 0.7, 3.0),    # P1: Podium 1st
-        (25, 8, 6, 0.75, 2.5),    # P2: Podium 2nd
-        (20, 7, 5, 0.714, 2.0),   # P3: Podium 3rd
+        (30, 10, 7, 0.7, 3.0),  # P1: Podium 1st
+        (25, 8, 6, 0.75, 2.5),  # P2: Podium 2nd
+        (20, 7, 5, 0.714, 2.0),  # P3: Podium 3rd
         (15, 12, 5, 0.417, 0.5),  # P4: Ironman (12 games), also Rising Star candidate
-        (10, 6, 5, 0.833, 1.5),   # P5: Sharpshooter (83.3%)
-        (8, 6, 4, 0.667, 4.0),    # P6: Point Machine (+4.0)
-        (5, 5, 2, 0.4, -1.0),     # P7: Rising Star (biggest ELO growth, no other award)
+        (10, 6, 5, 0.833, 1.5),  # P5: Sharpshooter (83.3%)
+        (8, 6, 4, 0.667, 4.0),  # P6: Point Machine (+4.0)
+        (5, 5, 2, 0.4, -1.0),  # P7: Rising Star (biggest ELO growth, no other award)
     ]
 
     for i, (points, games, wins, wr, apd) in enumerate(stats_data):
@@ -607,23 +604,27 @@ async def test_rising_star_with_elo_history(db_session):
 
     # Player 7 (index 6): ELO 1000 → 1200 (delta +200) — biggest growth
     for j, (match_id, elo) in enumerate(zip(match_ids[:3], [1000, 1100, 1200])):
-        db_session.add(EloHistory(
-            player_id=players[6].id,
-            match_id=match_id,
-            date=(start + timedelta(days=j * 7)).isoformat(),
-            elo_after=elo,
-            elo_change=100 if j > 0 else 0,
-        ))
+        db_session.add(
+            EloHistory(
+                player_id=players[6].id,
+                match_id=match_id,
+                date=(start + timedelta(days=j * 7)).isoformat(),
+                elo_after=elo,
+                elo_change=100 if j > 0 else 0,
+            )
+        )
 
     # Player 4 (index 3): ELO 1000 → 1050 (delta +50) — less growth
     for j, (match_id, elo) in enumerate(zip(match_ids[:3], [1000, 1030, 1050])):
-        db_session.add(EloHistory(
-            player_id=players[3].id,
-            match_id=match_id,
-            date=(start + timedelta(days=j * 7)).isoformat(),
-            elo_after=elo,
-            elo_change=25 if j > 0 else 0,
-        ))
+        db_session.add(
+            EloHistory(
+                player_id=players[3].id,
+                match_id=match_id,
+                date=(start + timedelta(days=j * 7)).isoformat(),
+                elo_after=elo,
+                elo_change=25 if j > 0 else 0,
+            )
+        )
 
     await db_session.flush()
 

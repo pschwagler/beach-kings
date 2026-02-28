@@ -83,9 +83,7 @@ async def process_court_photo(file: UploadFile) -> bytes:
 
     # Size check
     if len(content) > MAX_FILE_SIZE_BYTES:
-        raise ValueError(
-            f"File size exceeds maximum of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB"
-        )
+        raise ValueError(f"File size exceeds maximum of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB")
 
     # Type check
     ct = file.content_type or ""

@@ -176,9 +176,7 @@ async def upload_avatar(
             None, s3_service.upload_avatar, player["id"], processed_bytes
         )
 
-        result = await session.execute(
-            select(Player).where(Player.id == player["id"])
-        )
+        result = await session.execute(select(Player).where(Player.id == player["id"]))
         player_obj = result.scalar_one_or_none()
         if player_obj:
             player_obj.profile_picture_url = new_url
@@ -220,9 +218,7 @@ async def delete_avatar(
         if old_url:
             await loop.run_in_executor(None, s3_service.delete_avatar, old_url)
 
-        result = await session.execute(
-            select(Player).where(Player.id == player["id"])
-        )
+        result = await session.execute(select(Player).where(Player.id == player["id"]))
         player_obj = result.scalar_one_or_none()
         if player_obj:
             initials = data_service.generate_player_initials(player_obj.full_name or "")
@@ -268,7 +264,10 @@ async def schedule_account_deletion(
         success = await user_service.schedule_account_deletion(session, current_user["id"])
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
-        return {"status": "success", "message": "Account deletion scheduled. You have 30 days to cancel by logging back in."}
+        return {
+            "status": "success",
+            "message": "Account deletion scheduled. You have 30 days to cancel by logging back in.",
+        }
     except HTTPException:
         raise
     except Exception as e:

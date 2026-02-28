@@ -29,9 +29,7 @@ def upgrade():
         $$;
     """)
 
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_leagues_is_public ON leagues(is_public)"
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS idx_leagues_is_public ON leagues(is_public)")
 
     # --- Add slug to locations ---
     op.execute("""

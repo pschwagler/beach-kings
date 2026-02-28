@@ -96,5 +96,3 @@ async def flush_all_tables():
         "This function needs to be re-implemented to be season-specific with proper validations. "
         "It should only delete sessions and matches for a specific season, not all data."
     )
-
-

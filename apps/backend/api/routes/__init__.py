@@ -20,8 +20,10 @@ if IS_TEST_ENV:
 
     def no_op_limit(*args, **kwargs):
         """No-op decorator for test mode - doesn't apply any rate limiting."""
+
         def decorator(func):
             return func
+
         return decorator
 
     limiter.limit = lambda *args, **kwargs: no_op_limit()

@@ -102,9 +102,7 @@ def downgrade() -> None:
         op.drop_index("idx_friend_requests_sender", table_name="friend_requests")
 
     if _index_exists(conn, "idx_friend_requests_receiver_status"):
-        op.drop_index(
-            "idx_friend_requests_receiver_status", table_name="friend_requests"
-        )
+        op.drop_index("idx_friend_requests_receiver_status", table_name="friend_requests")
 
     if _table_exists(conn, "friend_requests"):
         op.drop_table("friend_requests")

@@ -503,9 +503,7 @@ async def get_league_join_requests(
         return {"pending": pending, "rejected": rejected}
     except Exception as e:
         logger.error(f"Error listing join requests: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error listing join requests"
-        )
+        raise HTTPException(status_code=500, detail="Error listing join requests")
 
 
 @router.post("/api/leagues/{league_id}/join-requests/{request_id}/approve")

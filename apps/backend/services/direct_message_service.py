@@ -7,13 +7,13 @@ marking messages as read, and unread count queries.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_, or_, case, desc
+from sqlalchemy import select, update, func, and_, or_, case
 from sqlalchemy.orm import aliased
 
-from backend.database.models import DirectMessage, Notification, NotificationType, Player, Friend
+from backend.database.models import DirectMessage, Notification, NotificationType, Player
 from backend.services import friend_service, notification_service
 from backend.services.notification_service import notification_to_dict
 from backend.services.websocket_manager import get_websocket_manager
@@ -206,16 +206,18 @@ async def get_conversations(
 
     conversations = []
     for row in rows:
-        conversations.append({
-            "player_id": row.other_player_id,
-            "full_name": row.full_name,
-            "avatar": row.profile_picture_url,
-            "last_message_text": row.message_text,
-            "last_message_at": row.created_at.isoformat() if row.created_at else None,
-            "last_message_sender_id": row.sender_player_id,
-            "unread_count": unread_map.get(row.other_player_id, 0),
-            "is_friend": row.other_player_id in friend_ids,
-        })
+        conversations.append(
+            {
+                "player_id": row.other_player_id,
+                "full_name": row.full_name,
+                "avatar": row.profile_picture_url,
+                "last_message_text": row.message_text,
+                "last_message_at": row.created_at.isoformat() if row.created_at else None,
+                "last_message_sender_id": row.sender_player_id,
+                "unread_count": unread_map.get(row.other_player_id, 0),
+                "is_friend": row.other_player_id in friend_ids,
+            }
+        )
 
     return {"conversations": conversations, "total_count": total_count}
 
@@ -494,15 +496,11 @@ def _dm_to_dict(dm: DirectMessage) -> Dict[str, Any]:
 
 async def _get_user_id_for_player(session: AsyncSession, player_id: int) -> Optional[int]:
     """Look up the user_id for a given player_id."""
-    result = await session.execute(
-        select(Player.user_id).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player.user_id).where(Player.id == player_id))
     return result.scalar_one_or_none()
 
 
 async def _get_player_name(session: AsyncSession, player_id: int) -> str:
     """Look up the full_name for a given player_id."""
-    result = await session.execute(
-        select(Player.full_name).where(Player.id == player_id)
-    )
+    result = await session.execute(select(Player.full_name).where(Player.id == player_id))
     return result.scalar_one_or_none() or "Someone"

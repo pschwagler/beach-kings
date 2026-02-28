@@ -66,7 +66,11 @@ async def get_thread(
     """Get messages in a thread with a specific player (newest first)."""
     try:
         result = await direct_message_service.get_thread(
-            session, user["player_id"], player_id, limit=page_size, offset=_page_offset(page, page_size)
+            session,
+            user["player_id"],
+            player_id,
+            limit=page_size,
+            offset=_page_offset(page, page_size),
         )
         return result
     except Exception as e:

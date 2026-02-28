@@ -499,8 +499,7 @@ async def get_public_player(session: AsyncSession, player_id: int) -> Optional[D
             "win_rate": win_rate,
         },
         "league_memberships": [
-            {"league_id": r.id, "league_name": r.name}
-            for r in memberships_result.all()
+            {"league_id": r.id, "league_name": r.name} for r in memberships_result.all()
         ],
         "created_at": player.created_at.isoformat() if player.created_at else None,
         "updated_at": player.updated_at.isoformat() if player.updated_at else None,
@@ -610,11 +609,13 @@ async def get_public_locations(session: AsyncSession) -> List[Dict]:
 
     # Append ungrouped locations under "Other" if any exist
     if no_region_locations:
-        result_list.append({
-            "id": None,
-            "name": "Other",
-            "locations": no_region_locations,
-        })
+        result_list.append(
+            {
+                "id": None,
+                "name": "Other",
+                "locations": no_region_locations,
+            }
+        )
 
     return result_list
 
@@ -704,8 +705,12 @@ async def get_public_location_by_slug(session: AsyncSession, slug: str) -> Optio
     # 4. Courts at this location (approved + active only)
     courts_result = await session.execute(
         select(
-            Court.id, Court.name, Court.address, Court.slug,
-            Court.average_rating, Court.review_count,
+            Court.id,
+            Court.name,
+            Court.address,
+            Court.slug,
+            Court.average_rating,
+            Court.review_count,
         )
         .where(
             Court.location_id == location.id,
@@ -847,7 +852,7 @@ async def search_public_players(
 
     if search:
         # Escape LIKE metacharacters to prevent wildcard injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         base = base.where(Player.full_name.ilike(f"%{safe_search}%"))
     if location_id:
         ids = [lid.strip() for lid in location_id.split(",") if lid.strip()]
@@ -888,11 +893,7 @@ async def search_public_players(
     # Paginated results
     offset = (page - 1) * page_size
     rows = (
-        await session.execute(
-            base.order_by(*order_clauses)
-            .offset(offset)
-            .limit(page_size)
-        )
+        await session.execute(base.order_by(*order_clauses).offset(offset).limit(page_size))
     ).all()
 
     items = [

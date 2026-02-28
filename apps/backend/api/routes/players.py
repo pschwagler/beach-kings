@@ -15,11 +15,6 @@ from backend.services import data_service, placeholder_service
 from backend.api.auth_dependencies import get_current_user, get_current_user_optional
 from backend.models.schemas import (
     CreatePlaceholderRequest,
-    PlaceholderPlayerResponse,
-    PlaceholderListResponse,
-    DeletePlaceholderResponse,
-    InviteDetailsResponse,
-    ClaimInviteResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -235,7 +230,10 @@ async def claim_invite(
             claiming_user_id=current_user["id"],
         )
         return result
-    except (placeholder_service.InviteNotFoundError, placeholder_service.PlaceholderNotFoundError) as e:
+    except (
+        placeholder_service.InviteNotFoundError,
+        placeholder_service.PlaceholderNotFoundError,
+    ) as e:
         raise HTTPException(status_code=404, detail=str(e))
     except placeholder_service.InviteAlreadyClaimedError as e:
         raise HTTPException(status_code=400, detail=str(e))

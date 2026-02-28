@@ -3,5 +3,11 @@
 target-version = "py311"
 line-length = 99
 
+[tool.ruff.lint.per-file-ignores]
+# Sub-router imports must come after shared limiter/constants setup
+"apps/backend/api/routes/__init__.py" = ["E402"]
+# Test files: unused variables are common in fixtures/setup
+"apps/backend/tests/*" = ["F841"]
+
 [tool.ruff.format]
 quote-style = "double"

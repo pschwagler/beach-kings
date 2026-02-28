@@ -13,8 +13,6 @@ Tests:
 - Edge cases: already-claimed, invalid token, double-claim
 """
 
-import secrets
-
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch
@@ -114,7 +112,7 @@ async def four_real_players(db_session):
             phone_number=f"+1555200000{i}",
             password_hash="hashed_password",
         )
-        player = Player(full_name=f"Real Player {i+1}", user_id=user_id)
+        player = Player(full_name=f"Real Player {i + 1}", user_id=user_id)
         db_session.add(player)
         await db_session.commit()
         await db_session.refresh(player)
@@ -239,8 +237,11 @@ class TestGetInviteDetails:
         """Match count reflects placeholder's matches."""
         ph = placeholder_with_invite
         match = _make_match(
-            test_session.id, creator_player.id, ph.player_id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            creator_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
         )
         db_session.add(match)
         await db_session.commit()
@@ -249,7 +250,9 @@ class TestGetInviteDetails:
         assert result.match_count == 1
 
     @pytest.mark.asyncio
-    async def test_league_names(self, db_session, creator_player, placeholder_in_league, test_league):
+    async def test_league_names(
+        self, db_session, creator_player, placeholder_in_league, test_league
+    ):
         """League names are included in response."""
         ph = placeholder_in_league
         result = await placeholder_service.get_invite_details(db_session, ph.invite_token)
@@ -264,6 +267,7 @@ class TestGetInviteDetails:
             select(PlayerInvite).where(PlayerInvite.invite_token == ph.invite_token)
         )
         from sqlalchemy import update
+
         await db_session.execute(
             update(PlayerInvite)
             .where(PlayerInvite.invite_token == ph.invite_token)
@@ -335,14 +339,23 @@ class TestClaimMerge:
 
     @pytest.mark.asyncio
     async def test_match_fks_transferred(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Match FKs transfer from placeholder to claiming player."""
         ph = placeholder_with_invite
         match = _make_match(
-            test_session.id, creator_player.id, ph.player_id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            creator_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
         )
         db_session.add(match)
         await db_session.commit()
@@ -363,14 +376,23 @@ class TestClaimMerge:
 
     @pytest.mark.asyncio
     async def test_placeholder_deleted_on_merge(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Placeholder is deleted after successful merge (no conflicts)."""
         ph = placeholder_with_invite
         match = _make_match(
-            test_session.id, creator_player.id, ph.player_id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            creator_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
         )
         db_session.add(match)
         await db_session.commit()
@@ -384,8 +406,13 @@ class TestClaimMerge:
 
     @pytest.mark.asyncio
     async def test_session_participants_transferred(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Session participants are transferred from placeholder to target."""
         ph = placeholder_with_invite
@@ -421,16 +448,25 @@ class TestClaimConflicts:
 
     @pytest.mark.asyncio
     async def test_conflicting_matches_reject_claim(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Claim is rejected when both placeholder and target appear in a match."""
         ph = placeholder_with_invite
 
         # Conflict: claiming_player and placeholder both in the match
         conflict_match = _make_match(
-            test_session.id, claiming_player.id, ph.player_id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            claiming_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
         )
         db_session.add(conflict_match)
         await db_session.commit()
@@ -438,20 +474,27 @@ class TestClaimConflicts:
         with pytest.raises(placeholder_service.MergeConflictError, match="1 match"):
             with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
-                await placeholder_service.claim_invite(
-                    db_session, ph.invite_token, claiming_user
-                )
+                await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
     @pytest.mark.asyncio
     async def test_placeholder_preserved_on_conflict(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Placeholder and match are untouched when merge is rejected."""
         ph = placeholder_with_invite
         conflict_match = _make_match(
-            test_session.id, claiming_player.id, ph.player_id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            claiming_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
         )
         db_session.add(conflict_match)
         await db_session.commit()
@@ -460,9 +503,7 @@ class TestClaimConflicts:
         with pytest.raises(placeholder_service.MergeConflictError):
             with patch("backend.services.stats_queue.get_stats_queue") as mock_queue:
                 mock_queue.return_value.enqueue_calculation = AsyncMock()
-                await placeholder_service.claim_invite(
-                    db_session, ph.invite_token, claiming_user
-                )
+                await placeholder_service.claim_invite(db_session, ph.invite_token, claiming_user)
 
         # Placeholder should still exist
         player = await db_session.get(Player, ph.player_id)
@@ -483,14 +524,23 @@ class TestFlipRankedStatus:
 
     @pytest.mark.asyncio
     async def test_flips_when_all_real(
-        self, db_session, creator_player, claiming_user,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Match flips to ranked when all 4 players are real after claim."""
         ph = placeholder_with_invite
         match = _make_match(
-            test_session.id, creator_player.id, ph.player_id,
-            other_player.id, creator_player.id, is_ranked=False,
+            test_session.id,
+            creator_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
+            is_ranked=False,
         )
         db_session.add(match)
         await db_session.commit()
@@ -506,8 +556,7 @@ class TestFlipRankedStatus:
 
     @pytest.mark.asyncio
     async def test_stays_unranked_with_remaining_placeholder(
-        self, db_session, creator_player, claiming_user,
-        test_session
+        self, db_session, creator_player, claiming_user, test_session
     ):
         """Match stays unranked if another placeholder remains in the match."""
         # Create two placeholders
@@ -520,8 +569,12 @@ class TestFlipRankedStatus:
 
         # Match has both placeholders
         match = _make_match(
-            test_session.id, creator_player.id, ph1.player_id,
-            ph2.player_id, creator_player.id, is_ranked=False,
+            test_session.id,
+            creator_player.id,
+            ph1.player_id,
+            ph2.player_id,
+            creator_player.id,
+            is_ranked=False,
         )
         db_session.add(match)
         await db_session.commit()
@@ -548,8 +601,12 @@ class TestFlipRankedStatus:
         )
 
         match = _make_match(
-            test_session.id, creator_player.id, ph1.player_id,
-            ph2.player_id, creator_player.id, is_ranked=False,
+            test_session.id,
+            creator_player.id,
+            ph1.player_id,
+            ph2.player_id,
+            creator_player.id,
+            is_ranked=False,
         )
         db_session.add(match)
         await db_session.commit()
@@ -570,15 +627,24 @@ class TestFlipRankedStatus:
 
     @pytest.mark.asyncio
     async def test_stays_unranked_when_intent_is_unranked(
-        self, db_session, creator_player, claiming_user,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Match stays unranked after claim when ranked_intent=False."""
         ph = placeholder_with_invite
         match = _make_match(
-            test_session.id, creator_player.id, ph.player_id,
-            other_player.id, creator_player.id,
-            is_ranked=False, ranked_intent=False,
+            test_session.id,
+            creator_player.id,
+            ph.player_id,
+            other_player.id,
+            creator_player.id,
+            is_ranked=False,
+            ranked_intent=False,
         )
         db_session.add(match)
         await db_session.commit()
@@ -604,8 +670,13 @@ class TestLeagueMembershipOnClaim:
 
     @pytest.mark.asyncio
     async def test_non_member_gets_membership(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        placeholder_in_league, test_league
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        placeholder_in_league,
+        test_league,
     ):
         """Claiming user NOT in the league → membership transferred with role 'member'."""
         ph = placeholder_in_league
@@ -626,8 +697,13 @@ class TestLeagueMembershipOnClaim:
 
     @pytest.mark.asyncio
     async def test_existing_member_placeholder_deleted(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        placeholder_in_league, test_league
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        placeholder_in_league,
+        test_league,
     ):
         """Claiming user already in the league → placeholder's membership deleted."""
         ph = placeholder_in_league
@@ -676,8 +752,7 @@ class TestNotificationOnClaim:
 
     @pytest.mark.asyncio
     async def test_notification_created_for_creator(
-        self, db_session, creator_player, test_user, claiming_user,
-        placeholder_with_invite
+        self, db_session, creator_player, test_user, claiming_user, placeholder_with_invite
     ):
         """Claiming creates a PLACEHOLDER_CLAIMED notification for the invite creator."""
         ph = placeholder_with_invite
@@ -707,8 +782,13 @@ class TestStatsRecalcOnClaim:
 
     @pytest.mark.asyncio
     async def test_global_and_league_stats_enqueued(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        placeholder_in_league, test_league
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        placeholder_in_league,
+        test_league,
     ):
         """Claim enqueues global recalc + one per affected league."""
         ph = placeholder_in_league
@@ -795,16 +875,25 @@ class TestClaimEdgeCases:
 
     @pytest.mark.asyncio
     async def test_merge_transfers_match_created_by(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        other_player, test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        other_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """Match.created_by is transferred from placeholder to target during merge."""
         ph = placeholder_with_invite
 
         # Create a match where placeholder is the creator
         match = _make_match(
-            test_session.id, creator_player.id, other_player.id,
-            other_player.id, creator_player.id,
+            test_session.id,
+            creator_player.id,
+            other_player.id,
+            other_player.id,
+            creator_player.id,
         )
         match.created_by = ph.player_id
         db_session.add(match)
@@ -820,8 +909,13 @@ class TestClaimEdgeCases:
 
     @pytest.mark.asyncio
     async def test_duplicate_session_participant_handled(
-        self, db_session, creator_player, claiming_user, claiming_player,
-        test_session, placeholder_with_invite
+        self,
+        db_session,
+        creator_player,
+        claiming_user,
+        claiming_player,
+        test_session,
+        placeholder_with_invite,
     ):
         """If target already in session, placeholder's session participation is deleted."""
         ph = placeholder_with_invite

@@ -185,9 +185,7 @@ async def _is_system_admin(session: AsyncSession, user: dict) -> bool:
         return False
 
 
-async def require_court_owner_or_admin(
-    session: AsyncSession, court_id: int, user: dict
-) -> Court:
+async def require_court_owner_or_admin(session: AsyncSession, court_id: int, user: dict) -> Court:
     """
     Verify the user is the court creator or a system admin.
 
@@ -246,7 +244,6 @@ async def require_system_admin(
     if not await _is_system_admin(session, user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
-
 
 
 def make_require_league_admin():

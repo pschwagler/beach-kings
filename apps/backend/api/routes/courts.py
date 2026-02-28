@@ -20,7 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
-from backend.services import data_service, court_service, court_photo_service, s3_service, geocoding_service
+from backend.services import (
+    data_service,
+    court_service,
+    court_photo_service,
+    s3_service,
+    geocoding_service,
+)
 from backend.api.auth_dependencies import (
     require_system_admin,
     require_verified_player,
@@ -481,9 +487,7 @@ async def resolve_court_edit_suggestion(
     try:
         # Look up the suggestion to find its court, then verify ownership
         suggestion_result = await session.execute(
-            select(CourtEditSuggestion.court_id).where(
-                CourtEditSuggestion.id == suggestion_id
-            )
+            select(CourtEditSuggestion.court_id).where(CourtEditSuggestion.id == suggestion_id)
         )
         court_id = suggestion_result.scalar_one_or_none()
         if court_id is None:

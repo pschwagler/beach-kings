@@ -7,9 +7,7 @@ Revision ID: 021
 Revises: 020
 """
 
-import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import JSONB
 
 
 revision = "021"

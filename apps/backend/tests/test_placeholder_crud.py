@@ -9,8 +9,6 @@ Tests Epic 2 deliverables:
 - is_ranked enforcement: match with placeholder → is_ranked=false
 """
 
-import secrets
-
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -25,8 +23,6 @@ from backend.database.models import (
     Session,
     SessionStatus,
     SessionParticipant,
-    Season,
-    Location,
 )
 from backend.models.schemas import CreateMatchRequest
 from backend.services import placeholder_service, data_service, user_service
@@ -117,7 +113,7 @@ async def four_real_players(db_session):
             phone_number=f"+1555100000{i}",
             password_hash="hashed_password",
         )
-        player = Player(full_name=f"Real Player {i+1}", user_id=user_id)
+        player = Player(full_name=f"Real Player {i + 1}", user_id=user_id)
         db_session.add(player)
         await db_session.commit()
         await db_session.refresh(player)
@@ -362,9 +358,7 @@ class TestDeletePlaceholder:
         await db_session.commit()
         match_id = match.id
 
-        await placeholder_service.delete_placeholder(
-            db_session, ph.player_id, creator_player.id
-        )
+        await placeholder_service.delete_placeholder(db_session, ph.player_id, creator_player.id)
 
         updated_match = await db_session.get(Match, match_id)
         assert updated_match.is_ranked is False
@@ -377,17 +371,13 @@ class TestDeletePlaceholder:
         )
 
         with pytest.raises(PermissionError):
-            await placeholder_service.delete_placeholder(
-                db_session, ph.player_id, other_player.id
-            )
+            await placeholder_service.delete_placeholder(db_session, ph.player_id, other_player.id)
 
     @pytest.mark.asyncio
     async def test_404_for_nonexistent(self, db_session, creator_player):
         """Deleting a non-existent placeholder raises ValueError."""
         with pytest.raises(ValueError):
-            await placeholder_service.delete_placeholder(
-                db_session, 999999, creator_player.id
-            )
+            await placeholder_service.delete_placeholder(db_session, 999999, creator_player.id)
 
     @pytest.mark.asyncio
     async def test_cascade_deletes_invite(self, db_session, creator_player):
@@ -397,9 +387,7 @@ class TestDeletePlaceholder:
         )
         player_id = ph.player_id
 
-        await placeholder_service.delete_placeholder(
-            db_session, player_id, creator_player.id
-        )
+        await placeholder_service.delete_placeholder(db_session, player_id, creator_player.id)
 
         invite_result = await db_session.execute(
             select(PlayerInvite).where(PlayerInvite.player_id == player_id)
@@ -407,9 +395,7 @@ class TestDeletePlaceholder:
         assert invite_result.scalar_one_or_none() is None
 
     @pytest.mark.asyncio
-    async def test_deletes_league_memberships(
-        self, db_session, creator_player, test_league
-    ):
+    async def test_deletes_league_memberships(self, db_session, creator_player, test_league):
         """Deleting placeholder removes its LeagueMember rows."""
         ph = await placeholder_service.create_placeholder(
             db_session,
@@ -418,9 +404,7 @@ class TestDeletePlaceholder:
             league_id=test_league.id,
         )
 
-        await placeholder_service.delete_placeholder(
-            db_session, ph.player_id, creator_player.id
-        )
+        await placeholder_service.delete_placeholder(db_session, ph.player_id, creator_player.id)
 
         lm_result = await db_session.execute(
             select(LeagueMember).where(LeagueMember.player_id == ph.player_id)
@@ -501,9 +485,7 @@ class TestPlayerSearchScoping:
         assert "Other's Placeholder" not in names
 
     @pytest.mark.asyncio
-    async def test_scoped_by_league(
-        self, db_session, creator_player, other_player, test_league
-    ):
+    async def test_scoped_by_league(self, db_session, creator_player, other_player, test_league):
         """Placeholders in the specified league appear when scoped."""
         # Other player creates a placeholder and adds it to the league
         ph = await placeholder_service.create_placeholder(
@@ -522,9 +504,7 @@ class TestPlayerSearchScoping:
         assert "League Scoped Placeholder" in names
 
     @pytest.mark.asyncio
-    async def test_scoped_by_session(
-        self, db_session, creator_player, other_player, test_session
-    ):
+    async def test_scoped_by_session(self, db_session, creator_player, other_player, test_session):
         """Placeholders in the specified session appear when scoped."""
         ph = await placeholder_service.create_placeholder(
             db_session,
@@ -676,9 +656,7 @@ class TestCheckMatchHasPlaceholders:
     """Tests for placeholder_service.check_match_has_placeholders."""
 
     @pytest.mark.asyncio
-    async def test_returns_true_when_placeholder_present(
-        self, db_session, creator_player
-    ):
+    async def test_returns_true_when_placeholder_present(self, db_session, creator_player):
         """Returns True if any ID in the list is a placeholder."""
         ph = await placeholder_service.create_placeholder(
             db_session, name="Check Me", created_by_player_id=creator_player.id
@@ -721,9 +699,7 @@ class TestGetInviteUrlByPlayerId:
             db_session, name="URL Test", created_by_player_id=creator_player.id
         )
 
-        result = await placeholder_service.get_invite_url_by_player_id(
-            db_session, ph.player_id
-        )
+        result = await placeholder_service.get_invite_url_by_player_id(db_session, ph.player_id)
         assert result.invite_url == ph.invite_url
 
     @pytest.mark.asyncio
@@ -749,6 +725,4 @@ class TestGetInviteUrlByPlayerId:
         await db_session.commit()
 
         with pytest.raises(placeholder_service.InviteNotFoundError):
-            await placeholder_service.get_invite_url_by_player_id(
-                db_session, ph.player_id
-            )
+            await placeholder_service.get_invite_url_by_player_id(db_session, ph.player_id)

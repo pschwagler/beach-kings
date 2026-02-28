@@ -26,9 +26,7 @@ async def init_defaults():
             print("⚠ DEFAULT_ADMIN_PHONE not set — skipping admin seeding")
         else:
             # Get existing system admin phone numbers
-            existing_admins = await data_service.get_setting(
-                session, "system_admin_phone_numbers"
-            )
+            existing_admins = await data_service.get_setting(session, "system_admin_phone_numbers")
 
             if existing_admins:
                 admin_set = {p.strip() for p in existing_admins.split(",") if p.strip()}

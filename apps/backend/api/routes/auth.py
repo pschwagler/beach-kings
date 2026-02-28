@@ -10,10 +10,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.routes import limiter, INVALID_CREDENTIALS_RESPONSE, INVALID_VERIFICATION_CODE_RESPONSE
+from backend.api.routes import (
+    limiter,
+    INVALID_CREDENTIALS_RESPONSE,
+    INVALID_VERIFICATION_CODE_RESPONSE,
+)
 from backend.database.db import get_db_session
 from backend.database.models import Player
-from backend.services import auth_service, user_service, data_service, rate_limiting_service, avatar_service, s3_service
+from backend.services import (
+    auth_service,
+    user_service,
+    data_service,
+    rate_limiting_service,
+    avatar_service,
+    s3_service,
+)
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
     SignupRequest,
@@ -43,9 +54,7 @@ async def _maybe_cancel_deletion(session: AsyncSession, user: dict) -> None:
         await user_service.cancel_account_deletion(session, user["id"])
 
 
-async def _issue_tokens(
-    session: AsyncSession, user: dict
-) -> tuple:
+async def _issue_tokens(session: AsyncSession, user: dict) -> tuple:
     """
     Create an access token and a rotated refresh token for a user.
 
@@ -94,9 +103,13 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
         if await user_service.check_phone_exists(session, phone_number):
             raise HTTPException(status_code=400, detail="Phone number is already registered")
         if len(request.password) < 8:
-            raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+            raise HTTPException(
+                status_code=400, detail="Password must be at least 8 characters long"
+            )
         if not any(char.isdigit() for char in request.password):
-            raise HTTPException(status_code=400, detail="Password must include at least one number")
+            raise HTTPException(
+                status_code=400, detail="Password must include at least one number"
+            )
         if not request.full_name or not request.full_name.strip():
             raise HTTPException(status_code=400, detail="Full name is required")
 
@@ -120,7 +133,9 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
 
         sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
-            raise HTTPException(status_code=500, detail="Failed to send SMS. Please check Twilio configuration.")
+            raise HTTPException(
+                status_code=500, detail="Failed to send SMS. Please check Twilio configuration."
+            )
 
         return {
             "status": "success",
@@ -131,7 +146,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Error during signup")
         raise HTTPException(status_code=500, detail="Error during signup. Please try again.")
 
@@ -157,7 +172,9 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
                     status_code=401,
                     detail="This account uses Google Sign-In. Please use the Google button to log in.",
                 )
-            raise HTTPException(status_code=401, detail="Please contact support for help - NO_PASSWORD")
+            raise HTTPException(
+                status_code=401, detail="Please contact support for help - NO_PASSWORD"
+            )
 
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise INVALID_CREDENTIALS_RESPONSE
@@ -179,7 +196,7 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Error during login")
         raise HTTPException(status_code=500, detail="Error during login. Please try again.")
 
@@ -242,7 +259,9 @@ async def google_auth(
                 try:
                     await _import_google_avatar(session, player["id"], picture_url)
                 except Exception as e:
-                    logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
+                    logger.warning(
+                        f"Failed to import Google avatar for player {player['id']}: {e}"
+                    )
 
         await _maybe_cancel_deletion(session, user)
 
@@ -264,7 +283,7 @@ async def google_auth(
         raise HTTPException(status_code=401, detail=str(e))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error during Google auth")
         raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")
 
@@ -296,7 +315,9 @@ async def _import_google_avatar(session: AsyncSession, player_id: int, picture_u
         if resp.status_code != 200:
             return
         if len(resp.content) > _GOOGLE_AVATAR_MAX_BYTES:
-            logger.warning(f"Google avatar too large for player {player_id}: {len(resp.content)} bytes")
+            logger.warning(
+                f"Google avatar too large for player {player_id}: {len(resp.content)} bytes"
+            )
             return
         image_bytes = resp.content
 
@@ -332,14 +353,18 @@ async def send_verification(
 
         sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
-            raise HTTPException(status_code=500, detail="Failed to send SMS. Please check Twilio configuration.")
+            raise HTTPException(
+                status_code=500, detail="Failed to send SMS. Please check Twilio configuration."
+            )
 
         return {"status": "success", "message": "Verification code sent successfully"}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error sending verification")
-        raise HTTPException(status_code=500, detail="Error sending verification. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Error sending verification. Please try again."
+        )
 
 
 @router.post("/api/auth/verify-phone", response_model=AuthResponse)
@@ -418,7 +443,7 @@ async def verify_phone(
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error verifying phone")
         raise HTTPException(status_code=500, detail="Error verifying phone. Please try again.")
 
@@ -450,7 +475,9 @@ async def reset_password(
 
         sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
         if not sms_sent:
-            raise HTTPException(status_code=500, detail="Failed to send SMS. Please check Twilio configuration.")
+            raise HTTPException(
+                status_code=500, detail="Failed to send SMS. Please check Twilio configuration."
+            )
 
         return {
             "status": "success",
@@ -458,9 +485,11 @@ async def reset_password(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error initiating password reset")
-        raise HTTPException(status_code=500, detail="Error initiating password reset. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Error initiating password reset. Please try again."
+        )
 
 
 @router.post("/api/auth/reset-password-verify", response_model=Dict[str, Any])
@@ -509,9 +538,11 @@ async def reset_password_verify(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error verifying reset code")
-        raise HTTPException(status_code=500, detail="Error verifying reset code. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Error verifying reset code. Please try again."
+        )
 
 
 @router.post("/api/auth/reset-password-confirm", response_model=AuthResponse)
@@ -524,9 +555,13 @@ async def reset_password_confirm(
     """Confirm password reset with token and set new password. Automatically logs the user in."""
     try:
         if len(payload.new_password) < 8:
-            raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+            raise HTTPException(
+                status_code=400, detail="Password must be at least 8 characters long"
+            )
         if not any(char.isdigit() for char in payload.new_password):
-            raise HTTPException(status_code=400, detail="Password must include at least one number")
+            raise HTTPException(
+                status_code=400, detail="Password must include at least one number"
+            )
 
         user_id = await user_service.verify_and_use_password_reset_token(
             session, payload.reset_token
@@ -556,7 +591,7 @@ async def reset_password_confirm(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error resetting password")
         raise HTTPException(status_code=500, detail="Error resetting password. Please try again.")
 
@@ -600,7 +635,7 @@ async def sms_login(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error during SMS login")
         raise HTTPException(status_code=500, detail="Error during SMS login. Please try again.")
 
@@ -614,7 +649,7 @@ async def check_phone(phone_number: str, session: AsyncSession = Depends(get_db_
         return CheckPhoneResponse(
             exists=user is not None, is_verified=user.get("is_verified", False)
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Error checking phone")
         raise HTTPException(status_code=500, detail="Error checking phone. Please try again.")
 
@@ -652,7 +687,7 @@ async def refresh_token(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error refreshing token")
         raise HTTPException(status_code=500, detail="Error refreshing token. Please try again.")
 
@@ -665,7 +700,7 @@ async def logout(
     try:
         await user_service.delete_user_refresh_tokens(session, current_user["id"])
         return {"status": "success", "message": "Logged out successfully"}
-    except Exception as e:
+    except Exception:
         logger.exception("Error during logout")
         raise HTTPException(status_code=500, detail="Error during logout. Please try again.")
 

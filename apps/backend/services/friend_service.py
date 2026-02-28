@@ -9,7 +9,7 @@ from typing import List, Dict, Set, Optional
 
 from backend.utils.slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func, and_, or_, case, literal_column
+from sqlalchemy import select, delete, func, and_, or_, case
 from sqlalchemy.orm import aliased
 from backend.database.models import (
     Friend,
@@ -38,9 +38,7 @@ async def get_player_id_for_user(session: AsyncSession, user_id: int) -> Optiona
     Returns:
         Player ID or None if not found
     """
-    result = await session.execute(
-        select(Player.id).where(Player.user_id == user_id)
-    )
+    result = await session.execute(select(Player.id).where(Player.user_id == user_id))
     return result.scalar_one_or_none()
 
 
@@ -66,9 +64,7 @@ async def get_friend_ids(session: AsyncSession, player_id: int) -> Set[int]:
     return set(result.scalars().all())
 
 
-async def are_friends(
-    session: AsyncSession, player_id: int, other_player_id: int
-) -> bool:
+async def are_friends(session: AsyncSession, player_id: int, other_player_id: int) -> bool:
     """
     Check if two players are friends.
 
@@ -82,9 +78,7 @@ async def are_friends(
     """
     p1, p2 = sorted([player_id, other_player_id])
     result = await session.execute(
-        select(Friend.id).where(
-            and_(Friend.player1_id == p1, Friend.player2_id == p2)
-        )
+        select(Friend.id).where(and_(Friend.player1_id == p1, Friend.player2_id == p2))
     )
     return result.scalar_one_or_none() is not None
 
@@ -156,9 +150,7 @@ async def send_friend_request(
         if existing.sender_player_id == sender_player_id:
             raise ValueError("Friend request already sent")
         else:
-            raise ValueError(
-                "This player already sent you a friend request. Accept it instead."
-            )
+            raise ValueError("This player already sent you a friend request. Accept it instead.")
 
     # Batch-fetch sender name and receiver user_id in one query
     player_result = await session.execute(
@@ -227,9 +219,7 @@ async def accept_friend_request(
     Raises:
         ValueError: If request not found, wrong receiver, or not pending
     """
-    result = await session.execute(
-        select(FriendRequest).where(FriendRequest.id == request_id)
-    )
+    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -300,9 +290,7 @@ async def decline_friend_request(
     Raises:
         ValueError: If request not found, wrong receiver, or not pending
     """
-    result = await session.execute(
-        select(FriendRequest).where(FriendRequest.id == request_id)
-    )
+    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -330,9 +318,7 @@ async def cancel_friend_request(
     Raises:
         ValueError: If request not found, wrong sender, or not pending
     """
-    result = await session.execute(
-        select(FriendRequest).where(FriendRequest.id == request_id)
-    )
+    result = await session.execute(select(FriendRequest).where(FriendRequest.id == request_id))
     friend_request = result.scalar_one_or_none()
 
     if not friend_request:
@@ -346,9 +332,7 @@ async def cancel_friend_request(
     await session.flush()
 
 
-async def remove_friend(
-    session: AsyncSession, player_id: int, friend_player_id: int
-) -> None:
+async def remove_friend(session: AsyncSession, player_id: int, friend_player_id: int) -> None:
     """
     Remove a friendship between two players.
 
@@ -365,9 +349,7 @@ async def remove_friend(
     p1, p2 = sorted([player_id, friend_player_id])
 
     result = await session.execute(
-        select(Friend).where(
-            and_(Friend.player1_id == p1, Friend.player2_id == p2)
-        )
+        select(Friend).where(and_(Friend.player1_id == p1, Friend.player2_id == p2))
     )
     friendship = result.scalar_one_or_none()
 
@@ -485,9 +467,7 @@ async def get_friend_requests(
     Returns:
         List of friend request dicts
     """
-    query = select(FriendRequest).where(
-        FriendRequest.status == FriendRequestStatus.PENDING.value
-    )
+    query = select(FriendRequest).where(FriendRequest.status == FriendRequestStatus.PENDING.value)
 
     if direction == "incoming":
         query = query.where(FriendRequest.receiver_player_id == player_id)
@@ -530,9 +510,7 @@ async def get_mutual_friends(
         return []
 
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.avatar).where(
-            Player.id.in_(list(mutual_ids))
-        )
+        select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(list(mutual_ids)))
     )
     return [
         {"player_id": row.id, "full_name": row.full_name, "avatar": row.avatar}
@@ -622,8 +600,7 @@ async def batch_friend_status(
     # Compute mutual friend counts in a single query instead of per-target
     mutual_counts = {str(tid): 0 for tid in target_player_ids}
     non_friend_ids = [
-        tid for tid in target_player_ids
-        if tid != player_id and tid not in my_friends
+        tid for tid in target_player_ids if tid != player_id and tid not in my_friends
     ]
     if non_friend_ids and my_friends:
         # Find friends of each target that overlap with my_friends
@@ -791,9 +768,7 @@ async def _format_friend_requests_batch(
 
     # Single query for all player info
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.avatar).where(
-            Player.id.in_(list(player_ids))
-        )
+        select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(list(player_ids)))
     )
     player_map = {row.id: row for row in result.all()}
 
@@ -801,23 +776,23 @@ async def _format_friend_requests_batch(
     for req in requests:
         sender = player_map.get(req.sender_player_id)
         receiver = player_map.get(req.receiver_player_id)
-        formatted.append({
-            "id": req.id,
-            "sender_player_id": req.sender_player_id,
-            "sender_name": sender.full_name if sender else "Unknown",
-            "sender_avatar": sender.avatar if sender else None,
-            "receiver_player_id": req.receiver_player_id,
-            "receiver_name": receiver.full_name if receiver else "Unknown",
-            "receiver_avatar": receiver.avatar if receiver else None,
-            "status": req.status,
-            "created_at": req.created_at.isoformat() if req.created_at else None,
-        })
+        formatted.append(
+            {
+                "id": req.id,
+                "sender_player_id": req.sender_player_id,
+                "sender_name": sender.full_name if sender else "Unknown",
+                "sender_avatar": sender.avatar if sender else None,
+                "receiver_player_id": req.receiver_player_id,
+                "receiver_name": receiver.full_name if receiver else "Unknown",
+                "receiver_avatar": receiver.avatar if receiver else None,
+                "status": req.status,
+                "created_at": req.created_at.isoformat() if req.created_at else None,
+            }
+        )
     return formatted
 
 
-async def _format_friend_request(
-    session: AsyncSession, friend_request: FriendRequest
-) -> Dict:
+async def _format_friend_request(session: AsyncSession, friend_request: FriendRequest) -> Dict:
     """
     Format a single FriendRequest ORM object into a response dict.
 

@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, func, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
@@ -82,11 +82,9 @@ async def proxy_whatsapp_request(
         raise HTTPException(
             status_code=e.response.status_code, detail=f"WhatsApp service error: {e.response.text}"
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Error communicating with WhatsApp service")
-        raise HTTPException(
-            status_code=500, detail="Error communicating with WhatsApp service."
-        )
+        raise HTTPException(status_code=500, detail="Error communicating with WhatsApp service.")
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +102,7 @@ async def get_setting_value(
     try:
         value = await data_service.get_setting(session, key)
         return {"key": key, "value": value}
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error getting setting: {key}")
         raise HTTPException(status_code=500, detail="Error getting setting.")
 
@@ -125,7 +123,7 @@ async def set_setting_value(
         return {"success": True}
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error setting value: {key}")
         raise HTTPException(status_code=500, detail="Error setting value.")
 
@@ -196,7 +194,7 @@ async def submit_feedback(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error submitting feedback")
         raise HTTPException(status_code=500, detail="Error submitting feedback. Please try again.")
 
@@ -235,7 +233,7 @@ async def get_all_feedback(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error getting feedback")
         raise HTTPException(status_code=500, detail="Error getting feedback.")
 
@@ -283,11 +281,9 @@ async def update_feedback_resolution(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error updating feedback resolution")
-        raise HTTPException(
-            status_code=500, detail="Error updating feedback resolution."
-        )
+        raise HTTPException(status_code=500, detail="Error updating feedback resolution.")
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +318,7 @@ async def get_admin_config(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error getting admin config")
         raise HTTPException(status_code=500, detail="Error getting admin config.")
 
@@ -400,7 +396,7 @@ async def update_admin_config(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
-    except Exception as e:
+    except Exception:
         logger.exception("Error updating admin config")
         raise HTTPException(status_code=500, detail="Error updating admin config.")
 
@@ -441,7 +437,7 @@ async def get_platform_stats(
             ("Users", "users", f"created_at >= {thirty_days_ago}"),
             ("Leagues", "leagues", f"created_at >= {thirty_days_ago}"),
             ("Seasons", "seasons", f"created_at >= {thirty_days_ago}"),
-            ("Matches", "matches", f"date::date >= (NOW() - INTERVAL '30 days')::date"),
+            ("Matches", "matches", "date::date >= (NOW() - INTERVAL '30 days')::date"),
             ("Sessions", "sessions", f"created_at >= {thirty_days_ago}"),
         ]
 
@@ -544,7 +540,7 @@ async def get_whatsapp_config(
             "success": True,
             "group_id": group_id,
         }
-    except Exception as e:
+    except Exception:
         logger.exception("Error loading WhatsApp config")
         raise HTTPException(status_code=500, detail="Error loading WhatsApp config.")
 
@@ -571,6 +567,6 @@ async def set_whatsapp_config(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("Error saving WhatsApp config")
         raise HTTPException(status_code=500, detail="Error saving WhatsApp config.")

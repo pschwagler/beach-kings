@@ -30,5 +30,7 @@ class TestIsDeletionExpired:
 
     def test_naive_timestamp_treated_as_utc(self):
         """Naive (no tz) timestamp should be treated as UTC."""
-        past_naive = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        past_naive = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         assert _is_deletion_expired({"id": 1, "deletion_scheduled_at": past_naive}) is True

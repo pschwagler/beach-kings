@@ -65,9 +65,7 @@ class SessionCleanupService:
 
             # Wait for poll interval or until stop is signalled
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS
-                )
+                await asyncio.wait_for(self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS)
                 # If wait_for returns normally, stop_event was set → exit
                 break
             except asyncio.TimeoutError:
@@ -98,14 +96,10 @@ class SessionCleanupService:
                 try:
                     await self._handle_stale_session(session, stale)
                 except Exception as e:
-                    logger.error(
-                        f"Error cleaning up session {stale.id}: {e}", exc_info=True
-                    )
+                    logger.error(f"Error cleaning up session {stale.id}: {e}", exc_info=True)
                     await session.rollback()
 
-    async def _handle_stale_session(
-        self, session: AsyncSession, stale_session: Session
-    ) -> None:
+    async def _handle_stale_session(self, session: AsyncSession, stale_session: Session) -> None:
         """
         Auto-submit or auto-delete a single stale session, then notify the creator.
 
@@ -183,9 +177,7 @@ class SessionCleanupService:
 
         deleted = await delete_session(session, session_id)
         if deleted:
-            logger.info(
-                f"Auto-deleted empty session {session_id} ({session_name!r})"
-            )
+            logger.info(f"Auto-deleted empty session {session_id} ({session_name!r})")
         else:
             logger.warning(f"Failed to auto-delete session {session_id}")
 
@@ -213,9 +205,7 @@ class SessionCleanupService:
             return
 
         # Look up the creator's user_id from their player record
-        user_result = await session.execute(
-            select(Player.user_id).where(Player.id == created_by)
-        )
+        user_result = await session.execute(select(Player.user_id).where(Player.id == created_by))
         user_id = user_result.scalar_one_or_none()
         if not user_id:
             return
@@ -229,9 +219,7 @@ class SessionCleanupService:
                 f'Your session "{session_name}" was automatically submitted '
                 f"after 12 hours of inactivity ({match_count} match{'es' if match_count != 1 else ''} recorded)."
             )
-            link_url = (
-                f"/league/{league_id}?tab=games" if league_id else "/home"
-            )
+            link_url = f"/league/{league_id}?tab=games" if league_id else "/home"
         else:
             notif_type = NotificationType.SESSION_AUTO_DELETED.value
             title = "Session auto-deleted"
@@ -253,8 +241,7 @@ class SessionCleanupService:
             )
         except Exception as e:
             logger.warning(
-                f"Failed to notify creator (player {created_by}) about "
-                f"session auto-{action}: {e}"
+                f"Failed to notify creator (player {created_by}) about session auto-{action}: {e}"
             )
 
 

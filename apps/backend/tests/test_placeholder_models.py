@@ -130,9 +130,7 @@ async def test_created_by_player_id_nullable(db_session, test_user):
 
 
 @pytest.mark.asyncio
-async def test_created_by_player_id_set_null_on_creator_delete(
-    db_session, creator_player
-):
+async def test_created_by_player_id_set_null_on_creator_delete(db_session, creator_player):
     """Deleting the creator should SET NULL on placeholder's created_by_player_id."""
     placeholder = Player(
         full_name="Orphan Placeholder",
@@ -148,18 +146,14 @@ async def test_created_by_player_id_set_null_on_creator_delete(
     assert placeholder.created_by_player_id == creator_player.id
 
     # Delete the creator
-    await db_session.execute(
-        delete(Player).where(Player.id == creator_player.id)
-    )
+    await db_session.execute(delete(Player).where(Player.id == creator_player.id))
     await db_session.commit()
 
     # Expire cached objects so re-query hits the DB
     db_session.expire_all()
 
     # Refresh and verify SET NULL
-    result = await db_session.execute(
-        select(Player).where(Player.id == placeholder_id)
-    )
+    result = await db_session.execute(select(Player).where(Player.id == placeholder_id))
     orphan = result.scalar_one()
     assert orphan.created_by_player_id is None
     assert orphan.is_placeholder is True
@@ -243,21 +237,15 @@ async def test_one_invite_per_player(db_session, placeholder_player, creator_pla
 
 
 @pytest.mark.asyncio
-async def test_invite_cascades_on_player_delete(
-    db_session, placeholder_player, creator_player
-):
+async def test_invite_cascades_on_player_delete(db_session, placeholder_player, creator_player):
     """Deleting a placeholder player should CASCADE delete its invite."""
     player, invite = placeholder_player
     invite_id = invite.id
 
-    await db_session.execute(
-        delete(Player).where(Player.id == player.id)
-    )
+    await db_session.execute(delete(Player).where(Player.id == player.id))
     await db_session.commit()
 
-    result = await db_session.execute(
-        select(PlayerInvite).where(PlayerInvite.id == invite_id)
-    )
+    result = await db_session.execute(select(PlayerInvite).where(PlayerInvite.id == invite_id))
     assert result.scalar_one_or_none() is None
 
 
@@ -319,13 +307,11 @@ async def test_invite_status_check_constraint_in_model():
     This test confirms the model definition matches.
     """
     table = PlayerInvite.__table__
-    check_constraints = [
-        c for c in table.constraints if hasattr(c, "sqltext")
-    ]
+    check_constraints = [c for c in table.constraints if hasattr(c, "sqltext")]
     constraint_texts = [str(c.sqltext) for c in check_constraints]
-    assert any(
-        "pending" in text and "claimed" in text for text in constraint_texts
-    ), f"Expected status check constraint, found: {constraint_texts}"
+    assert any("pending" in text and "claimed" in text for text in constraint_texts), (
+        f"Expected status check constraint, found: {constraint_texts}"
+    )
 
 
 # ============================================================================
@@ -338,9 +324,7 @@ async def test_player_invite_relationship(db_session, placeholder_player):
     """Player.invite relationship returns the associated invite."""
     player, invite = placeholder_player
 
-    result = await db_session.execute(
-        select(Player).where(Player.id == player.id)
-    )
+    result = await db_session.execute(select(Player).where(Player.id == player.id))
     loaded_player = result.scalar_one()
     # Eagerly load the relationship
     await db_session.refresh(loaded_player, ["invite"])
@@ -350,9 +334,7 @@ async def test_player_invite_relationship(db_session, placeholder_player):
 
 
 @pytest.mark.asyncio
-async def test_player_created_placeholders_relationship(
-    db_session, creator_player
-):
+async def test_player_created_placeholders_relationship(db_session, creator_player):
     """Creator's created_placeholders relationship lists their placeholders."""
     p1 = Player(
         full_name="Placeholder A",

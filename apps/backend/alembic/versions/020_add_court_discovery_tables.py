@@ -146,9 +146,7 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(["court_id"], ["courts.id"], ondelete="CASCADE"),
             sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "court_id", "player_id", name="uq_court_reviews_court_player"
-            ),
+            sa.UniqueConstraint("court_id", "player_id", name="uq_court_reviews_court_player"),
             sa.CheckConstraint(
                 "rating >= 1 AND rating <= 5", name="ck_court_reviews_rating_range"
             ),
@@ -158,9 +156,7 @@ def upgrade() -> None:
         if not _index_exists(conn, "idx_court_reviews_player"):
             op.create_index("idx_court_reviews_player", "court_reviews", ["player_id"])
         if not _index_exists(conn, "idx_court_reviews_created"):
-            op.create_index(
-                "idx_court_reviews_created", "court_reviews", ["created_at"]
-            )
+            op.create_index("idx_court_reviews_created", "court_reviews", ["created_at"])
 
     # --- 4. Create court_review_tags join table ---
 
@@ -170,25 +166,15 @@ def upgrade() -> None:
             sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
             sa.Column("review_id", sa.Integer(), nullable=False),
             sa.Column("tag_id", sa.Integer(), nullable=False),
-            sa.ForeignKeyConstraint(
-                ["review_id"], ["court_reviews.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(
-                ["tag_id"], ["court_tags.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["review_id"], ["court_reviews.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["tag_id"], ["court_tags.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "review_id", "tag_id", name="uq_court_review_tags_review_tag"
-            ),
+            sa.UniqueConstraint("review_id", "tag_id", name="uq_court_review_tags_review_tag"),
         )
         if not _index_exists(conn, "idx_court_review_tags_review"):
-            op.create_index(
-                "idx_court_review_tags_review", "court_review_tags", ["review_id"]
-            )
+            op.create_index("idx_court_review_tags_review", "court_review_tags", ["review_id"])
         if not _index_exists(conn, "idx_court_review_tags_tag"):
-            op.create_index(
-                "idx_court_review_tags_tag", "court_review_tags", ["tag_id"]
-            )
+            op.create_index("idx_court_review_tags_tag", "court_review_tags", ["tag_id"])
 
     # --- 5. Create court_review_photos table ---
 
@@ -206,9 +192,7 @@ def upgrade() -> None:
                 server_default=sa.func.now(),
                 nullable=False,
             ),
-            sa.ForeignKeyConstraint(
-                ["review_id"], ["court_reviews.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["review_id"], ["court_reviews.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
         )
         if not _index_exists(conn, "idx_court_review_photos_review"):
@@ -242,12 +226,8 @@ def upgrade() -> None:
             ),
             sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
             sa.ForeignKeyConstraint(["court_id"], ["courts.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(
-                ["suggested_by"], ["players.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(
-                ["reviewed_by"], ["players.id"], ondelete="SET NULL"
-            ),
+            sa.ForeignKeyConstraint(["suggested_by"], ["players.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["reviewed_by"], ["players.id"], ondelete="SET NULL"),
             sa.PrimaryKeyConstraint("id"),
             sa.CheckConstraint(
                 "status IN ('pending', 'approved', 'rejected')",

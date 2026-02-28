@@ -4,7 +4,6 @@ Authentication service for password hashing, JWT tokens, and SMS verification.
 
 import bcrypt
 import os
-import random
 import logging
 import re
 import secrets
