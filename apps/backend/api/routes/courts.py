@@ -510,7 +510,7 @@ async def resolve_court_edit_suggestion(
 # --- Admin court management ---
 
 
-@router.get("/api/admin/courts/pending", response_model=list)
+@router.get("/api/admin-view/courts/pending", response_model=list)
 async def list_pending_courts(
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
@@ -519,7 +519,7 @@ async def list_pending_courts(
     return await court_service.list_pending_courts(session)
 
 
-@router.put("/api/admin/courts/{court_id}/approve", response_model=dict)
+@router.put("/api/admin-view/courts/{court_id}/approve", response_model=dict)
 async def approve_court(
     court_id: int,
     user: dict = Depends(require_system_admin),
@@ -532,7 +532,7 @@ async def approve_court(
     return result
 
 
-@router.put("/api/admin/courts/{court_id}/reject", response_model=dict)
+@router.put("/api/admin-view/courts/{court_id}/reject", response_model=dict)
 async def reject_court(
     court_id: int,
     user: dict = Depends(require_system_admin),
@@ -545,7 +545,7 @@ async def reject_court(
     return result
 
 
-@router.get("/api/admin/courts/suggestions", response_model=dict)
+@router.get("/api/admin-view/courts/suggestions", response_model=dict)
 async def list_all_suggestions_admin(
     status: Optional[str] = Query("pending"),
     page: int = Query(1, ge=1),
@@ -559,7 +559,7 @@ async def list_all_suggestions_admin(
     )
 
 
-@router.delete("/api/admin/courts/photos/{photo_id}", response_model=dict)
+@router.delete("/api/admin-view/courts/photos/{photo_id}", response_model=dict)
 async def admin_delete_court_photo(
     photo_id: int,
     user: dict = Depends(require_system_admin),
@@ -585,7 +585,7 @@ async def admin_delete_court_photo(
         raise HTTPException(status_code=500, detail="Error deleting photo")
 
 
-@router.put("/api/admin/courts/{court_id}/photos/reorder", response_model=list)
+@router.put("/api/admin-view/courts/{court_id}/photos/reorder", response_model=list)
 async def reorder_court_photos(
     court_id: int,
     payload: ReorderCourtPhotosRequest,
@@ -604,7 +604,7 @@ async def reorder_court_photos(
         raise HTTPException(status_code=500, detail="Error reordering photos")
 
 
-@router.delete("/api/admin/courts/reviews/{review_id}", response_model=dict)
+@router.delete("/api/admin-view/courts/reviews/{review_id}", response_model=dict)
 async def admin_delete_court_review(
     review_id: int,
     user: dict = Depends(require_system_admin),
@@ -633,7 +633,7 @@ async def admin_delete_court_review(
         raise HTTPException(status_code=500, detail="Error deleting review")
 
 
-@router.get("/api/admin/courts", response_model=dict)
+@router.get("/api/admin-view/courts", response_model=dict)
 async def list_all_courts_admin(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),

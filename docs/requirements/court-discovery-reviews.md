@@ -200,9 +200,9 @@ Beach volleyball players lack a centralized resource to find, evaluate, and shar
 | GET | /api/public/courts/:slug | Court detail: info, reviews, photos, tags, nearby courts | Public |
 | POST | /api/courts | Submit a new court for admin approval (status: pending) | Verified player |
 | PUT | /api/courts/:id | Update court info (creator or admin) | Creator / Admin |
-| GET | /api/admin/courts/pending | List pending court submissions | System admin |
-| PUT | /api/admin/courts/:id/approve | Approve a pending court submission | System admin |
-| PUT | /api/admin/courts/:id/reject | Reject a pending court submission | System admin |
+| GET | /api/admin-view/courts/pending | List pending court submissions | System admin |
+| PUT | /api/admin-view/courts/:id/approve | Approve a pending court submission | System admin |
+| PUT | /api/admin-view/courts/:id/reject | Reject a pending court submission | System admin |
 | GET | /api/courts/:id/reviews | List reviews for a court (paginated, with tags + photos) | Public |
 | POST | /api/courts/:id/reviews | Create a review (star, text, tags, photos) | Verified player |
 | PUT | /api/courts/:id/reviews/:review_id | Edit own review | Review author |
@@ -419,7 +419,7 @@ Epic 1 (Schema + Seed)
 | # | Task | Size | Description | Key Files |
 |---|------|------|-------------|-----------|
 | 6.1 | AddCourtForm | M | Multi-field form (name, address, location hub dropdown, court count, surface, amenity checkboxes, hours, website, phone). Duplicate warning. Submit → pending. Success toast. | `apps/web/src/components/court/AddCourtForm.jsx`, CSS |
-| 6.2 | Admin backend | M | `GET /api/admin/courts/pending`, `PUT /api/admin/courts/:id/approve`, `PUT /api/admin/courts/:id/reject`. Require `system_admin`. | `apps/backend/api/routes.py`, `court_service.py` |
+| 6.2 | Admin backend | M | `GET /api/admin-view/courts/pending`, `PUT /api/admin-view/courts/:id/approve`, `PUT /api/admin-view/courts/:id/reject`. Require `system_admin`. | `apps/backend/api/routes.py`, `court_service.py` |
 | 6.3 | Admin UI | M | New "Court Submissions" section in `AdminView.jsx`. Table: name, submitter, date, status. Preview, Approve/Reject buttons. Follow feedback section pattern. | `apps/web/src/components/AdminView.jsx` |
 | 6.4 | Suggest-an-edit | M | Backend: `POST /api/courts/:id/suggest-edit` (JSONB changes), `GET /api/courts/:id/suggestions`, `PUT /api/courts/suggestions/:id` (approve/reject → apply). Frontend: `SuggestEditForm` (pre-filled). | `SuggestEditForm.jsx`, backend routes+service |
 
