@@ -223,9 +223,9 @@ class TestVerificationCode:
         assert isinstance(code1, str)
         assert isinstance(code2, str)
 
-        # Codes should be 4 digits
-        assert len(code1) == 4
-        assert len(code2) == 4
+        # Codes should be 6 digits
+        assert len(code1) == 6
+        assert len(code2) == 6
 
         # Codes should be numeric
         assert code1.isdigit()
@@ -240,4 +240,4 @@ class TestVerificationCode:
         for _ in range(100):  # Test multiple codes
             code = auth_service.generate_verification_code()
             code_int = int(code)
-            assert 1000 <= code_int <= 9999
+            assert 100000 <= code_int <= 999999
