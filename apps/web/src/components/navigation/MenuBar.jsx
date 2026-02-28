@@ -53,7 +53,7 @@ export default function MenuBar({
     const base =
       variant === 'home'
         ? 'sidebar sidebar--home'
-        : 'league-sidebar';
+        : 'sidebar league-sidebar';
     const collapsedClass = collapsed ? 'collapsed' : '';
     return [base, collapsedClass, className].filter(Boolean).join(' ');
   }, [variant, collapsed, className]);

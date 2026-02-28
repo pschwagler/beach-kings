@@ -230,27 +230,9 @@
   width: var(--sidebar-width-home);
 }
 
-.sidebar--league {
-  width: var(--sidebar-width-league);
-}
-
-/* Legacy class for backwards compatibility */
+/* League-specific overrides (base styles inherited from .sidebar) */
 .league-sidebar {
   width: var(--sidebar-width-league);
-  background: #ffffffbf;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: fixed;
-  top: var(--navbar-height);
-  left: 0;
-  height: calc(100vh - var(--navbar-height));
-  overflow-y: auto;
-  z-index: 100;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
 }
 
 .league-sidebar-header {
@@ -372,21 +354,11 @@
   transform: scale(0.95);
 }
 
-.league-sidebar.collapsed .league-sidebar-title-wrapper-container {
-  display: none;
-}
-
-/* Center the collapse button when sidebar is collapsed */
-.league-sidebar.collapsed .league-sidebar-header {
-  justify-content: center;
-}
-
-/* Hide dashboard sidebar title when collapsed */
+/* Hide title and center collapse button when sidebar is collapsed */
 .sidebar.collapsed .league-sidebar-title-wrapper-container {
   display: none;
 }
 
-/* Center the collapse button when dashboard sidebar is collapsed */
 .sidebar.collapsed .league-sidebar-header {
   justify-content: center;
 }
@@ -394,27 +366,15 @@
 /* Show title on mobile even when collapsed */
 
 /* Collapsed Sidebar */
-.sidebar.collapsed,
-.league-sidebar.collapsed {
+.sidebar.collapsed {
   width: var(--sidebar-width-collapsed);
 }
 
 .sidebar.collapsed ~ .league-content,
-.sidebar.collapsed ~ .home-content,
-.league-sidebar.collapsed ~ .league-content {
+.sidebar.collapsed ~ .home-content {
   margin-left: var(--sidebar-width-collapsed);
 }
 
-.league-sidebar.collapsed .league-sidebar-nav-item {
-  justify-content: center;
-  padding: 6px 12px;
-}
-
-.league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
-  display: none;
-}
-
-/* Hide dashboard sidebar nav item labels when collapsed */
 .sidebar.collapsed .league-sidebar-nav-item {
   justify-content: center;
   padding: 6px 12px;
@@ -631,8 +591,7 @@
   }
 
   /* Move sidebar to bottom on mobile - force all positioning */
-  .sidebar,
-  .league-sidebar {
+  .sidebar {
     width: 100% !important;
     max-width: 100% !important;
     position: fixed !important;
@@ -661,8 +620,7 @@
     transform: none;
   }
 
-  .sidebar.collapsed,
-  .league-sidebar.collapsed {
+  .sidebar.collapsed {
     width: 100% !important;
     position: fixed !important;
     bottom: 0 !important;
@@ -675,9 +633,7 @@
   /* iOS Safari Fallback: Hide bottom sidebar completely when modal/drawer is open
      This prevents GPU layer stacking context issues on iOS devices */
   body.modal-open .sidebar,
-  body.modal-open .league-sidebar,
-  body.drawer-open .sidebar,
-  body.drawer-open .league-sidebar {
+  body.drawer-open .sidebar {
     display: none !important;
   }
 
@@ -757,8 +713,7 @@
   }
 
   /* Override collapsed state on mobile - always show labels */
-  .sidebar.collapsed .league-sidebar-nav-item > span:last-child,
-  .league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
+  .sidebar.collapsed .league-sidebar-nav-item > span:last-child {
     display: block !important;
   }
 
@@ -821,8 +776,7 @@
 
   /* Override collapsed sidebar margin on mobile */
   .sidebar.collapsed ~ .home-content,
-  .sidebar.collapsed ~ .league-content,
-  .league-sidebar.collapsed ~ .league-content {
+  .sidebar.collapsed ~ .league-content {
     margin-left: 0 !important;
     margin-bottom: 90px;
   }
@@ -832,10 +786,6 @@
   }
 
   /* Collapsed title-wrapper fix */
-  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
-    display: flex !important;
-  }
-
   .sidebar.collapsed .league-sidebar-title-wrapper-container {
     display: flex !important;
   }
