@@ -72,7 +72,7 @@ export default function AllCourtsPanel() {
     setCourtDetail(null);
     try {
       setDetailLoading(true);
-      const detail = await getCourtDetailById(courtId);
+      const detail = await getCourtDetailById(courtId, { bustCache: true });
       setCourtDetail(detail);
     } catch (err) {
       console.error('Error fetching court detail:', err);
