@@ -202,3 +202,682 @@
   font-size: 1.1rem;
   font-weight: 500;
 }
+
+/* ==========================================================================
+   Sidebar Base Styles (shared by home and league sidebars)
+   Extracted from App.css
+   ========================================================================== */
+
+.sidebar {
+  background: #ffffffbf;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0;
+  height: calc(100dvh - var(--navbar-height));
+  overflow-y: auto;
+  z-index: 100;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+}
+
+/* Sidebar variants */
+.sidebar--home {
+  width: var(--sidebar-width-home);
+}
+
+.sidebar--league {
+  width: var(--sidebar-width-league);
+}
+
+/* Legacy class for backwards compatibility */
+.league-sidebar {
+  width: var(--sidebar-width-league);
+  background: #ffffffbf;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0;
+  height: calc(100vh - var(--navbar-height));
+  overflow-y: auto;
+  z-index: 100;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+}
+
+.league-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.league-sidebar-title-wrapper-container {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.league-sidebar-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+  min-width: 0; /* Allow shrinking */
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+}
+
+.league-sidebar-title-wrapper:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.league-sidebar-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--gray-900);
+  margin: 0;
+  font-family: "Urbanist", sans-serif;
+  line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-wrap: wrap;
+  min-width: 0; /* Allow text to shrink */
+}
+
+.league-sidebar-title-caret {
+  color: var(--gray-500);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.league-sidebar-title-caret.open {
+  transform: rotate(180deg);
+}
+
+.league-sidebar-title-wrapper:hover .league-sidebar-title-caret {
+  color: var(--gray-700);
+}
+
+/* League Dropdown */
+.league-sidebar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1002;
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.league-sidebar-dropdown-menu {
+  position: relative;
+  right: auto;
+  left: 0;
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Current league highlighting in sidebar dropdown */
+.league-sidebar-current {
+  color: var(--muted-red) !important;
+  font-weight: 600;
+}
+
+.league-sidebar-current svg {
+  color: var(--muted-red) !important;
+}
+
+.league-sidebar-current:hover {
+  color: var(--muted-red) !important;
+}
+
+.league-sidebar-collapse-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.league-sidebar-collapse-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--gray-900);
+}
+
+.league-sidebar-collapse-btn:active {
+  transform: scale(0.95);
+}
+
+.league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+  display: none;
+}
+
+/* Center the collapse button when sidebar is collapsed */
+.league-sidebar.collapsed .league-sidebar-header {
+  justify-content: center;
+}
+
+/* Hide dashboard sidebar title when collapsed */
+.sidebar.collapsed .league-sidebar-title-wrapper-container {
+  display: none;
+}
+
+/* Center the collapse button when dashboard sidebar is collapsed */
+.sidebar.collapsed .league-sidebar-header {
+  justify-content: center;
+}
+
+/* Show title on mobile even when collapsed */
+
+/* Collapsed Sidebar */
+.sidebar.collapsed,
+.league-sidebar.collapsed {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar.collapsed ~ .league-content,
+.sidebar.collapsed ~ .home-content,
+.league-sidebar.collapsed ~ .league-content {
+  margin-left: var(--sidebar-width-collapsed);
+}
+
+.league-sidebar.collapsed .league-sidebar-nav-item {
+  justify-content: center;
+  padding: 6px 12px;
+}
+
+.league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
+  display: none;
+}
+
+/* Hide dashboard sidebar nav item labels when collapsed */
+.sidebar.collapsed .league-sidebar-nav-item {
+  justify-content: center;
+  padding: 6px 12px;
+}
+
+.sidebar.collapsed .league-sidebar-nav-item > span:last-child {
+  display: none;
+}
+
+/* Sidebar Navigation */
+.league-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px;
+  gap: 4px;
+  flex: 1;
+}
+
+.league-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+}
+
+/* Hide More menu item on desktop - it's only for mobile */
+.more-menu-item-mobile {
+  display: none !important;
+}
+
+.league-sidebar-nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--gray-900);
+}
+
+.league-sidebar-nav-item.active {
+  background: #2f779426 !important;
+  color: var(--primary-darker);
+  font-weight: 600;
+}
+
+.league-sidebar-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
+}
+
+.league-sidebar-nav-item svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.league-sidebar-nav-item > span:last-child {
+  flex: 1;
+}
+
+.league-sidebar-nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.league-sidebar-nav-group {
+  position: relative;
+  width: 100%;
+}
+
+.league-sidebar-nav-group .league-sidebar-nav-item {
+  width: 100%;
+}
+
+.league-sidebar-more-menu-portal {
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+.league-sidebar-more-menu {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  min-width: 200px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.league-sidebar-more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--gray-700);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.league-sidebar-more-menu-item:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.league-sidebar-more-menu-item.active {
+  background: #2f779426 !important;
+  color: var(--primary-darker);
+  font-weight: 600;
+}
+
+.league-sidebar-more-menu-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
+}
+
+.league-sidebar-more-menu-item.active:hover {
+  background: #2f779426 !important;
+  color: var(--primary-darker);
+}
+
+.league-sidebar-more-menu-item svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar.collapsed .league-sidebar-more-menu {
+  display: none;
+}
+
+/* Mobile: Position more menu above the sidebar when it's at the bottom */
+@media (max-width: 768px) {
+  .league-sidebar-more-menu-portal {
+    left: auto !important;
+    right: 0 !important;
+    top: auto !important;
+  }
+}
+
+/* Main Content Area */
+.home-content {
+  flex: 1;
+  padding: 0;
+  margin-left: var(--sidebar-width-home);
+  overflow-y: auto;
+}
+
+.home-content--no-sidebar {
+  margin-left: 0;
+}
+
+/* ==========================================================================
+   Sidebar/Layout Mobile (max-width: 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* League Dashboard Mobile */
+  .league-dashboard-container {
+    margin-top: calc(
+      56px + env(safe-area-inset-top, 0)
+    ); /* Account for navbar + safe area */
+    padding-top: 0;
+    padding-bottom: calc(
+      72px + env(safe-area-inset-bottom, 0)
+    ); /* Space for bottom nav + safe area */
+  }
+
+  .league-dashboard {
+    flex-direction: column;
+  }
+
+  /* Move sidebar to bottom on mobile - force all positioning */
+  .sidebar,
+  .league-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    border-right: none !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    /* backdrop-filter removed to fix iOS stacking context issues */
+    order: 2; /* Place after content */
+    padding-bottom: env(
+      safe-area-inset-bottom,
+      0
+    ); /* Support for iPhone home indicator */
+    overflow-y: visible;
+    overflow-x: visible;
+    transform: none;
+  }
+
+  .sidebar.collapsed,
+  .league-sidebar.collapsed {
+    width: 100% !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: auto !important;
+  }
+
+  /* iOS Safari Fallback: Hide bottom sidebar completely when modal/drawer is open
+     This prevents GPU layer stacking context issues on iOS devices */
+  body.modal-open .sidebar,
+  body.modal-open .league-sidebar,
+  body.drawer-open .sidebar,
+  body.drawer-open .league-sidebar {
+    display: none !important;
+  }
+
+  /* Hide header on Home Dashboard mobile */
+  .sidebar .league-sidebar-header {
+    display: none !important;
+  }
+
+  /* Show header on League Dashboard mobile */
+  .league-sidebar .league-sidebar-header {
+    display: flex !important;
+    width: 100%;
+    padding: 8px 16px 4px 16px; /* Add padding */
+    align-items: center;
+    justify-content: center; /* Center the title */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04); /* Separator */
+  }
+
+  .league-sidebar-collapse-btn {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .league-sidebar-title-wrapper-container {
+    display: flex !important;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 100%;
+    justify-content: center;
+  }
+
+  .league-sidebar-title-wrapper {
+    display: flex !important;
+    width: auto;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0
+  }
+
+  .league-sidebar-title {
+    display: block !important;
+    font-size: 1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: nowrap;
+    max-width: 80vw; /* 80% of screen width as requested */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
+
+  /* Make nav horizontal on mobile */
+  .league-sidebar-nav {
+    flex-direction: row !important;
+    justify-content: space-around;
+    padding: 0 !important;
+    gap: 0;
+    width: 100%;
+    flex: none; /* Don't flex, take full width */
+  }
+
+  .league-sidebar-nav-item {
+    flex: 1;
+    flex-direction: column;
+    padding: 0;
+    justify-content: center;
+    min-height: 56px;
+    border-radius: 8px;
+    gap: 2px;
+  }
+
+  .league-sidebar-nav-item > span:last-child {
+    display: block !important;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* Override collapsed state on mobile - always show labels */
+  .sidebar.collapsed .league-sidebar-nav-item > span:last-child,
+  .league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
+    display: block !important;
+  }
+
+  /* Position dropdown above on mobile since sidebar is at bottom */
+  .league-sidebar-dropdown {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+  }
+
+  .league-sidebar-dropdown-menu {
+    animation: slideUp 0.2s ease-out !important;
+  }
+
+  .league-sidebar-nav-item.active::before {
+    display: none;
+  }
+
+  .league-sidebar-nav-item.active {
+    color: var(--primary-darker);
+  }
+
+  .league-sidebar-nav-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Hide Friends and Notifications menu items on mobile - they're in the More menu instead */
+  .friends-menu-item-desktop,
+  .notifications-menu-item-desktop {
+    display: none !important;
+  }
+
+  /* Hide Find Leagues/Players/Invites/My Stats menu items on mobile - they're in the More menu instead */
+  .find-leagues-menu-item-desktop,
+  .find-players-menu-item-desktop,
+  .pending-invites-menu-item-desktop,
+  .my-stats-menu-item-desktop {
+    display: none !important;
+  }
+
+  /* Show More menu item only on mobile */
+  .more-menu-item-mobile {
+    display: flex !important;
+  }
+
+  .league-content-header {
+    padding: 8px 4px;
+  }
+
+  .league-content-header-text {
+    font-size: 1.5rem;
+  }
+
+  .home-content,
+  .league-content {
+    margin-left: 0 !important;
+    order: 1; /* Place before sidebar */
+    padding-bottom: 90px; /* Space for fixed bottom sidebar */
+  }
+
+  /* Override collapsed sidebar margin on mobile */
+  .sidebar.collapsed ~ .home-content,
+  .sidebar.collapsed ~ .league-content,
+  .league-sidebar.collapsed ~ .league-content {
+    margin-left: 0 !important;
+    margin-bottom: 90px;
+  }
+
+  .league-content > *:not(.league-content-header) {
+    padding: 8px !important;
+  }
+
+  /* Collapsed title-wrapper fix */
+  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
+    display: flex !important;
+  }
+
+  .sidebar.collapsed .league-sidebar-title-wrapper-container {
+    display: flex !important;
+  }
+}
+
+/* ==========================================================================
+   Sidebar/Layout Extra Small (max-width: 576px)
+   ========================================================================== */
+@media (max-width: 576px) {
+  /* League Dashboard Extra Small */
+  .league-dashboard-container {
+    margin-top: 52px;
+    padding-bottom: 68px; /* Slightly less space for very small screens */
+  }
+
+  .league-sidebar-header {
+    display: none;
+  }
+
+  .league-sidebar-nav-item {
+    padding: 6px 2px;
+    min-height: 52px;
+  }
+
+  .league-sidebar-nav-item > span:last-child {
+    font-size: 0.65em;
+  }
+
+  .league-sidebar-nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .league-content-header {
+    padding: 6px 2px;
+  }
+
+  .league-content-header-text {
+    font-size: 1.25rem;
+  }
+
+  .league-content > *:not(.league-content-header) {
+    padding: 8px;
+  }
+}

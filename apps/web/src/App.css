@@ -396,322 +396,6 @@ table:not([class]) tr:last-child td {
   margin-top: var(--navbar-height); /* Account for fixed navbar */
 }
 
-/* Navbar - Modern Fixed Design */
-.navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000; /* Keep lower than modals (99999) */
-  background: linear-gradient(135deg, var(--navbar-bg-dark) 0%, var(--primary-darker) 100%);
-  border-bottom: 1px solid rgba(var(--seafoam-rgb), 0.15);
-  box-shadow: 0 4px 16px rgba(var(--navbar-bg-dark-rgb), 0.3);
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-.navbar-container {
-  max-width: 1400px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 24px;
-  height: var(--navbar-height);
-  position: relative;
-}
-
-.navbar-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-.navbar-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.navbar-brand {
-  text-decoration: none;
-  color: inherit;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  transition: all 0.2s ease;
-}
-
-.navbar-brand-logo {
-  height: 25px;
-  width: auto;
-  object-fit: contain;
-}
-
-.navbar-brand-crown {
-  color: var(--retro-yellow);
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-  filter: drop-shadow(0 2px 4px rgba(255, 214, 107, 0.4));
-}
-
-.navbar-brand:hover .navbar-brand-crown {
-  color: var(--retro-yellow);
-  transform: scale(1.1) rotate(5deg);
-  filter: drop-shadow(0 4px 8px rgba(255, 214, 107, 0.6));
-}
-
-.navbar-brand:hover {
-  transform: scale(1.02);
-}
-
-.navbar-brand-text {
-  font-family: "Urbanist", sans-serif;
-  font-size: 1.5em;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sand);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.navbar-brand:hover .navbar-brand-text {
-  transform: translateY(-1px);
-}
-
-.navbar-brand-text::after {
-  content: "";
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--sand-dark);
-  border-radius: 2px;
-  opacity: 0;
-  transform: scaleX(0);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-.navbar-brand:hover .navbar-brand-text::after {
-  transform: scaleX(1);
-  opacity: 1;
-}
-
-.navbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.navbar-home-button {
-  background: transparent;
-  border: none;
-  color: var(--sand);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.navbar-home-button:hover {
-  background: rgba(var(--sand-rgb), 0.1);
-  color: var(--sand-light);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.navbar-home-button:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.navbar-home-icon {
-  width: 22px;
-  height: 22px;
-}
-
-.navbar-courts-button {
-  background: transparent;
-  border: none;
-  color: var(--sand);
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9em;
-  font-weight: 500;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.navbar-courts-button:hover {
-  background: rgba(var(--sand-rgb), 0.1);
-  color: var(--sand-light);
-}
-
-.navbar-menu-group {
-  position: relative;
-}
-
-.navbar-menu-button {
-  background: transparent;
-  color: var(--sand);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0.95em;
-  font-weight: 500;
-  min-height: 40px;
-  box-shadow: none;
-  text-transform: none;
-  letter-spacing: normal;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-.navbar-menu-button:hover {
-  background: rgba(var(--sand-rgb), 0.1);
-  color: var(--sand-light);
-  transform: translateY(-1px);
-}
-
-.navbar-menu-button:active {
-  background: var(--primary-dark);
-  transform: none;
-  box-shadow: none;
-}
-
-.navbar-menu-button svg {
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.5px;
-}
-
-.navbar-menu-button svg {
-  flex-shrink: 0;
-}
-
-.navbar-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(var(--sand-rgb), 0.15);
-  color: var(--sand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-  border: 1.5px solid rgba(var(--sand-rgb), 0.25);
-}
-
-.navbar-avatar-image {
-  overflow: hidden;
-}
-
-.navbar-avatar-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.navbar-menu-button:hover .navbar-avatar {
-  transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(var(--sand-rgb), 0.3);
-}
-
-.navbar-icon-with-plus {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.navbar-volleyball-icon {
-  color: currentColor;
-  fill: currentColor;
-  stroke: none;
-  transition: color 0.2s ease;
-}
-
-.navbar-plus-overlay {
-  position: absolute;
-  bottom: -2px;
-  right: -4px;
-  color: white;
-  background: rgba(255, 120, 73, 0.85);
-  border-radius: 50%;
-  padding: 2px;
-  stroke-width: 2;
-  box-shadow: 0 2px 4px rgba(255, 120, 73, 0.3);
-  transition: all 0.2s ease;
-}
-
-.navbar-menu-button:hover .navbar-plus-overlay {
-  background: rgba(255, 140, 97, 0.9);
-  transform: scale(1.1);
-}
-
-.navbar-chevron {
-  flex-shrink: 0;
-  transition: transform 0.2s ease;
-  margin-left: 4px;
-}
-
-.navbar-chevron.open {
-  transform: rotate(180deg);
-}
-
-.navbar-menu-label {
-  display: inline-block;
-  color: var(--sand);
-  font-size: 0.9rem;
-}
-
-.navbar-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: white;
-  border: 1px solid rgba(var(--primary-rgb), 0.15);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(var(--primary-darker-rgb), 0.12);
-  z-index: 1001;
-  min-width: 220px;
-  overflow: hidden;
-  animation: slideDown 0.2s ease-out;
-}
-
-.navbar-dropdown-menu {
-  right: 0;
-}
-
-.navbar-dropdown-user {
-  right: 0;
-}
-
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -733,110 +417,6 @@ table:not([class]) tr:last-child td {
     transform: translateY(0);
   }
 }
-
-.navbar-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 16px;
-  background: white;
-  border: none;
-  border-bottom: 1px solid rgba(var(--primary-rgb), 0.08);
-  color: var(--gray-700);
-  font-size: 0.95em;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: left;
-  box-shadow: none;
-  text-transform: none;
-  letter-spacing: normal;
-  min-height: auto;
-  justify-content: flex-start;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-.navbar-dropdown-item:last-child {
-  border-bottom: none;
-}
-
-.navbar-dropdown-item:hover {
-  background: rgba(var(--primary-rgb), 0.06);
-  color: var(--primary-darker);
-  transform: none;
-  box-shadow: none;
-}
-
-.navbar-dropdown-item:active {
-  background: rgba(var(--primary-rgb), 0.12);
-  transform: none;
-  box-shadow: none;
-}
-
-.navbar-dropdown-item svg {
-  flex-shrink: 0;
-  color: var(--gray-600);
-  transition: color 0.15s ease;
-  width: 18px;
-  height: 18px;
-  text-align: center;
-  stroke-width: 1.5px;
-}
-
-.navbar-dropdown-item:hover svg {
-  color: var(--primary-darker);
-}
-
-.navbar-dropdown-item-danger {
-  color: var(--danger);
-}
-
-.navbar-dropdown-item-danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
-}
-
-.navbar-dropdown-item-danger svg {
-  color: var(--danger);
-}
-
-/* Dropdown Sections */
-.navbar-dropdown-section {
-  padding: 4px 0;
-}
-
-.navbar-dropdown-header {
-  padding: 8px 16px 4px 16px;
-  font-size: 0.75em;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--gray-600);
-  margin-bottom: 4px;
-  text-align: left;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-.navbar-dropdown-divider {
-  height: 1px;
-  background: rgba(var(--primary-rgb), 0.12);
-  margin: 8px 0;
-}
-
-.navbar-dropdown-item-league {
-  font-weight: 600;
-}
-
-.navbar-dropdown-item-league:hover {
-  background: rgba(var(--primary-rgb), 0.06);
-  color: var(--primary-darker);
-}
-
 
 h1 {
   color: white;
@@ -2102,32 +1682,6 @@ body.drawer-open {
   overscroll-behavior-y: none;
 }
 
-/* Lower navbar z-index when drawer is open to ensure drawer appears on top */
-body.drawer-open .navbar {
-  z-index: 999 !important;
-}
-
-/* iOS Safari: Make navbar non-interactive when modal/drawer is open on mobile
-   Uses opacity + pointer-events instead of display: none for better UX */
-@media (max-width: 768px) {
-  body.modal-open .navbar,
-  body.drawer-open .navbar {
-    pointer-events: none !important;
-    opacity: 0.3 !important;
-    transition: opacity 0.2s ease;
-  }
-}
-
-/* On desktop, just remove backdrop-filter */
-@media (min-width: 769px) {
-  body.modal-open .navbar,
-  body.drawer-open .navbar {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: linear-gradient(135deg, var(--navbar-bg-dark) 0%, var(--primary-darker) 100%) !important;
-  }
-}
-
 /* Player Selector (replaces h2 in player details) - Modern Design */
 .player-selector-container {
   display: flex;
@@ -3350,429 +2904,6 @@ body:hover ::-webkit-scrollbar-thumb {
   display: none;
 }
 
-/* League Dashboard - Modern iOS Style */
-.league-dashboard-container {
-  margin-top: var(--navbar-height);
-  min-height: calc(100dvh - var(--navbar-height));
-  background: transparent;
-  padding: 0;
-}
-
-.league-dashboard {
-  display: flex;
-  max-width: 1600px;
-  margin: 0 auto;
-  min-height: calc(100dvh - var(--navbar-height));
-  background: transparent;
-}
-
-/* ============================================================================
-   Sidebar Base Styles (shared by home and league sidebars)
-   ============================================================================ */
-
-.sidebar {
-  background: #ffffffbf;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: fixed;
-  top: var(--navbar-height);
-  left: 0;
-  height: calc(100dvh - var(--navbar-height));
-  overflow-y: auto;
-  z-index: 100;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-/* Sidebar variants */
-.sidebar--home {
-  width: var(--sidebar-width-home);
-}
-
-.sidebar--league {
-  width: var(--sidebar-width-league);
-}
-
-/* Legacy class for backwards compatibility */
-.league-sidebar {
-  width: var(--sidebar-width-league);
-  background: #ffffffbf;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: fixed;
-  top: var(--navbar-height);
-  left: 0;
-  height: calc(100vh - var(--navbar-height));
-  overflow-y: auto;
-  z-index: 100;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-.league-sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.league-sidebar-title-wrapper-container {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-
-.league-sidebar-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 auto;
-  min-width: 0; /* Allow shrinking */
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
-  background: transparent;
-  border: none;
-  text-align: left;
-  font-family: inherit;
-}
-
-.league-sidebar-title-wrapper:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.league-sidebar-title {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--gray-900);
-  margin: 0;
-  font-family: "Urbanist", sans-serif;
-  line-height: 1.3;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  text-wrap: wrap;
-  min-width: 0; /* Allow text to shrink */
-}
-
-.league-sidebar-title-caret {
-  color: var(--gray-500);
-  flex-shrink: 0;
-  transition: transform 0.2s ease;
-}
-
-.league-sidebar-title-caret.open {
-  transform: rotate(180deg);
-}
-
-.league-sidebar-title-wrapper:hover .league-sidebar-title-caret {
-  color: var(--gray-700);
-}
-
-/* League Dropdown */
-.league-sidebar-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 1002;
-  min-width: 220px;
-  max-width: 280px;
-}
-
-.league-sidebar-dropdown-menu {
-  position: relative;
-  right: auto;
-  left: 0;
-  animation: slideDown 0.2s ease-out;
-}
-
-/* Current league highlighting in sidebar dropdown */
-.league-sidebar-current {
-  color: var(--muted-red) !important;
-  font-weight: 600;
-}
-
-.league-sidebar-current svg {
-  color: var(--muted-red) !important;
-}
-
-.league-sidebar-current:hover {
-  color: var(--muted-red) !important;
-}
-
-.league-sidebar-collapse-btn {
-  background: transparent;
-  border: none;
-  padding: 4px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--gray-600);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.league-sidebar-collapse-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--gray-900);
-}
-
-.league-sidebar-collapse-btn:active {
-  transform: scale(0.95);
-}
-
-.league-sidebar.collapsed .league-sidebar-title-wrapper-container {
-  display: none;
-}
-
-/* Center the collapse button when sidebar is collapsed */
-.league-sidebar.collapsed .league-sidebar-header {
-  justify-content: center;
-}
-
-/* Hide dashboard sidebar title when collapsed */
-.sidebar.collapsed .league-sidebar-title-wrapper-container {
-  display: none;
-}
-
-/* Center the collapse button when dashboard sidebar is collapsed */
-.sidebar.collapsed .league-sidebar-header {
-  justify-content: center;
-}
-
-/* Show title on mobile even when collapsed */
-
-/* Collapsed Sidebar */
-.sidebar.collapsed,
-.league-sidebar.collapsed {
-  width: var(--sidebar-width-collapsed);
-}
-
-.sidebar.collapsed ~ .league-content,
-.sidebar.collapsed ~ .home-content,
-.league-sidebar.collapsed ~ .league-content {
-  margin-left: var(--sidebar-width-collapsed);
-}
-
-.league-sidebar.collapsed .league-sidebar-nav-item {
-  justify-content: center;
-  padding: 6px 12px;
-}
-
-.league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
-  display: none;
-}
-
-/* Hide dashboard sidebar nav item labels when collapsed */
-.sidebar.collapsed .league-sidebar-nav-item {
-  justify-content: center;
-  padding: 6px 12px;
-}
-
-.sidebar.collapsed .league-sidebar-nav-item > span:last-child {
-  display: none;
-}
-
-/* Sidebar Navigation */
-.league-sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 12px 8px;
-  gap: 4px;
-  flex: 1;
-}
-
-.league-sidebar-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 16px;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--primary);
-  font-size: 0.95rem;
-  font-weight: 500;
-  text-align: left;
-  transition: all 0.2s ease;
-  position: relative;
-  font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-}
-
-/* Hide More menu item on desktop - it's only for mobile */
-.more-menu-item-mobile {
-  display: none !important;
-}
-
-.league-sidebar-nav-item:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--gray-900);
-}
-
-.league-sidebar-nav-item.active {
-  background: #2f779426 !important;
-  color: var(--primary-darker);
-  font-weight: 600;
-}
-
-.league-sidebar-nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 24px;
-  background: var(--primary);
-  border-radius: 0 2px 2px 0;
-}
-
-.league-sidebar-nav-item svg {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-}
-
-.league-sidebar-nav-item > span:last-child {
-  flex: 1;
-}
-
-.league-sidebar-nav-badge {
-  position: absolute;
-  top: -6px;
-  right: -8px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.league-sidebar-nav-group {
-  position: relative;
-  width: 100%;
-}
-
-.league-sidebar-nav-group .league-sidebar-nav-item {
-  width: 100%;
-}
-
-.league-sidebar-more-menu-portal {
-  z-index: 10000;
-  pointer-events: auto;
-}
-
-.league-sidebar-more-menu {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
-  min-width: 200px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.league-sidebar-more-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  color: var(--gray-700);
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  font-family: inherit;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-  text-align: left;
-  width: 100%;
-  position: relative;
-}
-
-.league-sidebar-more-menu-item:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
-}
-
-.league-sidebar-more-menu-item.active {
-  background: #2f779426 !important;
-  color: var(--primary-darker);
-  font-weight: 600;
-}
-
-.league-sidebar-more-menu-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 24px;
-  background: var(--primary);
-  border-radius: 0 2px 2px 0;
-}
-
-.league-sidebar-more-menu-item.active:hover {
-  background: #2f779426 !important;
-  color: var(--primary-darker);
-}
-
-.league-sidebar-more-menu-item svg {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-}
-
-.sidebar.collapsed .league-sidebar-more-menu {
-  display: none;
-}
-
-/* Mobile: Position more menu above the sidebar when it's at the bottom */
-@media (max-width: 768px) {
-  .league-sidebar-more-menu-portal {
-    left: auto !important;
-    right: 0 !important;
-    top: auto !important;
-  }
-}
-
-/* Main Content Area */
-.home-content {
-  flex: 1;
-  padding: 0;
-  margin-left: var(--sidebar-width-home);
-  overflow-y: auto;
-}
-
-.home-content--no-sidebar {
-  margin-left: 0;
-}
-
 /* Auth prompt for unauthenticated users on find-leagues */
 .find-leagues-auth-prompt {
   padding: 12px 16px;
@@ -3800,46 +2931,6 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .find-leagues-auth-prompt__link:hover {
   color: var(--primary-dark);
-}
-
-.league-message {
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-bottom: 24px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.league-message.success {
-  background: var(--success-light);
-  color: var(--success-dark);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.league-message.error {
-  background: var(--danger-light);
-  color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.league-loading,
-.league-error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 64px);
-  padding: 40px;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.league-loading {
-  color: var(--gray-600);
-  font-size: 1.1rem;
-  font-weight: 500;
 }
 
 /* League Section Styling - Modern iOS Cards */
@@ -9139,255 +8230,10 @@ button.match-config-toggle.inline svg {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Navbar Mobile */
-  .navbar-container {
-    padding: 0 12px;
-    height: 52px;
-  }
-
-  .navbar-brand-text {
-    font-size: 1.2em;
-    letter-spacing: 0.06em;
-  }
-
-  .navbar-menu-button {
-    padding: 6px 10px;
-    font-size: 0.9em;
-  }
-
-  .navbar-menu-label {
-    display: none; /* Hide labels on mobile */
-  }
-
-  .navbar-dropdown {
-    min-width: 200px;
-  }
-
-  .navbar-dropdown-item {
-    padding: 12px 16px;
-    font-size: 0.9em;
-  }
-
   .container {
     margin-top: calc(
       56px + env(safe-area-inset-top, 0)
     ); /* Account for navbar + safe area */
-  }
-
-  /* League Dashboard Mobile */
-  .league-dashboard-container {
-    margin-top: calc(
-      56px + env(safe-area-inset-top, 0)
-    ); /* Account for navbar + safe area */
-    padding-top: 0;
-    padding-bottom: calc(
-      72px + env(safe-area-inset-bottom, 0)
-    ); /* Space for bottom nav + safe area */
-  }
-
-  .league-dashboard {
-    flex-direction: column;
-  }
-
-  /* Move sidebar to bottom on mobile - force all positioning */
-  .sidebar,
-  .league-sidebar {
-    width: 100% !important;
-    max-width: 100% !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    height: auto !important;
-    min-height: auto !important;
-    margin: 0 !important;
-    border-right: none !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    border-bottom: none !important;
-    border-left: none !important;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
-    z-index: 1000 !important;
-    background: #ffffff !important;
-    /* backdrop-filter removed to fix iOS stacking context issues */
-    order: 2; /* Place after content */
-    padding-bottom: env(
-      safe-area-inset-bottom,
-      0
-    ); /* Support for iPhone home indicator */
-    overflow-y: visible;
-    overflow-x: visible;
-    transform: none;
-  }
-
-  .sidebar.collapsed,
-  .league-sidebar.collapsed {
-    width: 100% !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    height: auto !important;
-  }
-
-  /* iOS Safari Fallback: Hide bottom sidebar completely when modal/drawer is open
-     This prevents GPU layer stacking context issues on iOS devices */
-  body.modal-open .sidebar,
-  body.modal-open .league-sidebar,
-  body.drawer-open .sidebar,
-  body.drawer-open .league-sidebar {
-    display: none !important;
-  }
-
-  /* Hide header on Home Dashboard mobile */
-  .sidebar .league-sidebar-header {
-    display: none !important;
-  }
-
-  /* Show header on League Dashboard mobile */
-  .league-sidebar .league-sidebar-header {
-    display: flex !important;
-    width: 100%;
-    padding: 8px 16px 4px 16px; /* Add padding */
-    align-items: center;
-    justify-content: center; /* Center the title */
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04); /* Separator */
-  }
-
-  .league-sidebar-collapse-btn {
-    display: none !important;
-    visibility: hidden !important;
-  }
-
-  .league-sidebar-title-wrapper-container {
-    display: flex !important;
-    flex: 0 0 auto;
-    width: auto;
-    max-width: 100%;
-    justify-content: center;
-  }
-
-  .league-sidebar-title-wrapper {
-    display: flex !important;
-    width: auto;
-    justify-content: center;
-    max-width: 100%;
-    padding: 0
-  }
-
-  .league-sidebar-title {
-    display: block !important;
-    font-size: 1rem;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: nowrap;
-    max-width: 80vw; /* 80% of screen width as requested */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: center;
-  }
-
-  /* Make nav horizontal on mobile */
-  .league-sidebar-nav {
-    flex-direction: row !important;
-    justify-content: space-around;
-    padding: 0 !important;
-    gap: 0;
-    width: 100%;
-    flex: none; /* Don't flex, take full width */
-  }
-
-  .league-sidebar-nav-item {
-    flex: 1;
-    flex-direction: column;
-    padding: 0;
-    justify-content: center;
-    min-height: 56px;
-    border-radius: 8px;
-    gap: 2px;
-  }
-
-  .league-sidebar-nav-item > span:last-child {
-    display: block !important;
-    font-size: 12px;
-    font-weight: 500;
-    text-align: center;
-  }
-
-  /* Override collapsed state on mobile - always show labels */
-  .sidebar.collapsed .league-sidebar-nav-item > span:last-child,
-  .league-sidebar.collapsed .league-sidebar-nav-item > span:last-child {
-    display: block !important;
-  }
-
-  /* Position dropdown above on mobile since sidebar is at bottom */
-  .league-sidebar-dropdown {
-    top: auto !important;
-    bottom: calc(100% + 8px) !important;
-  }
-
-  .league-sidebar-dropdown-menu {
-    animation: slideUp 0.2s ease-out !important;
-  }
-
-  .league-sidebar-nav-item.active::before {
-    display: none;
-  }
-
-  .league-sidebar-nav-item.active {
-    color: var(--primary-darker);
-  }
-
-  .league-sidebar-nav-item svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  /* Hide Friends and Notifications menu items on mobile - they're in the More menu instead */
-  .friends-menu-item-desktop,
-  .notifications-menu-item-desktop {
-    display: none !important;
-  }
-
-  /* Hide Find Leagues/Players/Invites/My Stats menu items on mobile - they're in the More menu instead */
-  .find-leagues-menu-item-desktop,
-  .find-players-menu-item-desktop,
-  .pending-invites-menu-item-desktop,
-  .my-stats-menu-item-desktop {
-    display: none !important;
-  }
-
-  /* Show More menu item only on mobile */
-  .more-menu-item-mobile {
-    display: flex !important;
-  }
-
-  .league-content-header {
-    padding: 8px 4px;
-  }
-
-  .league-content-header-text {
-    font-size: 1.5rem;
-  }
-
-  .home-content,
-  .league-content {
-    margin-left: 0 !important;
-    order: 1; /* Place before sidebar */
-    padding-bottom: 90px; /* Space for fixed bottom sidebar */
-  }
-
-  /* Override collapsed sidebar margin on mobile */
-  .sidebar.collapsed ~ .home-content,
-  .sidebar.collapsed ~ .league-content,
-  .league-sidebar.collapsed ~ .league-content {
-    margin-left: 0 !important;
-    margin-bottom: 90px;
-  }
-
-  .league-content > *:not(.league-content-header) {
-    padding: 8px !important;
   }
 
   .add-matches-card {
@@ -9943,70 +8789,9 @@ button.match-config-toggle.inline svg {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Navbar Extra Small */
-  .navbar-container {
-    padding: 0 12px;
-    height: 52px;
-  }
-
-  .navbar-brand-text {
-    font-size: 1.1em;
-    letter-spacing: 0.05em;
-  }
-
-  .navbar-menu-button {
-    padding: 6px 8px;
-    font-size: 0.85em;
-  }
-
-  .navbar-dropdown {
-    min-width: 180px;
-  }
-
-  .navbar-dropdown-item {
-    padding: 10px 14px;
-    font-size: 0.85em;
-  }
-
   .container {
     margin-top: 52px; /* Even smaller navbar on very small screens */
     border-width: 2px;
-  }
-
-  /* League Dashboard Extra Small */
-  .league-dashboard-container {
-    margin-top: 52px;
-    padding-bottom: 68px; /* Slightly less space for very small screens */
-  }
-
-  .league-sidebar-header {
-    display: none;
-  }
-
-  .league-sidebar-nav-item {
-    padding: 6px 2px;
-    min-height: 52px;
-  }
-
-  .league-sidebar-nav-item > span:last-child {
-    font-size: 0.65em;
-  }
-
-  .league-sidebar-nav-item svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .league-content-header {
-    padding: 6px 2px;
-  }
-
-  .league-content-header-text {
-    font-size: 1.25rem;
-  }
-
-  .league-content > *:not(.league-content-header) {
-    padding: 8px;
   }
 
   .add-matches-card {
@@ -10256,15 +9041,6 @@ button.match-config-toggle.inline svg {
   .radio-card-title {
     font-size: 1em;
     white-space: normal;
-  }
-}
-@media (max-width: 768px) {
-  .league-sidebar.collapsed .league-sidebar-title-wrapper-container {
-    display: flex !important;
-  }
-  
-  .sidebar.collapsed .league-sidebar-title-wrapper-container {
-    display: flex !important;
   }
 }
 @media (min-width: 769px) {
@@ -12238,6 +11014,124 @@ button.match-config-toggle.inline svg {
   margin: 0;
 }
 
+/* Filter Row */
+.my-stats-tab__filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.my-stats-tab__filter-toggle {
+  display: flex;
+  gap: 0;
+  background: var(--gray-100);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.my-stats-tab__filter-toggle-btn {
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.my-stats-tab__filter-toggle-btn:hover {
+  color: var(--gray-900);
+}
+
+.my-stats-tab__filter-toggle-btn--active {
+  background: white;
+  color: var(--gray-900);
+  box-shadow: var(--shadow-sm);
+}
+
+.my-stats-tab__filter-select {
+  padding: 5px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-900);
+  background: white;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 180px;
+}
+
+.my-stats-tab__filter-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.my-stats-tab__filter-clear {
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.my-stats-tab__filter-clear:hover {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+/* Table Header with Toggle */
+.my-stats-tab__table-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.my-stats-tab__table-toggle {
+  display: inline-flex;
+  gap: 0;
+  background: var(--gray-100);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.my-stats-tab__table-toggle-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.my-stats-tab__table-toggle-btn:hover {
+  color: var(--gray-900);
+}
+
+.my-stats-tab__table-toggle-btn--active {
+  background: white;
+  color: var(--gray-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Point Differential coloring */
+.my-stats-tab__diff--positive {
+  color: var(--success);
+}
+
+.my-stats-tab__diff--negative {
+  color: var(--danger);
+}
+
 /* Responsive: 2-col overview on small screens */
 @media (max-width: 640px) {
   .my-stats-tab__overview-grid {
@@ -12250,5 +11144,10 @@ button.match-config-toggle.inline svg {
 
   .overview-stat-card__value {
     font-size: 1.1rem;
+  }
+
+  .my-stats-tab__filter-select {
+    max-width: 100%;
+    flex: 1;
   }
 }

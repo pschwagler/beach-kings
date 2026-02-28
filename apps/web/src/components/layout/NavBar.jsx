@@ -1,5 +1,6 @@
 'use client';
 
+import './NavBar.css';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';

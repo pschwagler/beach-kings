@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import '../league/LeagueDashboard.css';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 
 /**
