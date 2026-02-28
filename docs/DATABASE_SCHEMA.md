@@ -40,10 +40,11 @@ User accounts with phone or Google SSO authentication.
 | `is_verified` | Boolean | Default `true` |
 | `failed_verification_attempts` | Integer | Default `0` |
 | `locked_until` | String | ISO timestamp, nullable |
+| `deletion_scheduled_at` | DateTime(tz) | Nullable. Set when user requests account deletion (30-day grace period) |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
 
-Indexes: `idx_users_phone`, `idx_users_phone_verified`, `idx_users_email` (unique), `idx_users_google_id` (unique)
+Indexes: `idx_users_phone`, `idx_users_phone_verified`, `idx_users_email` (unique), `idx_users_google_id` (unique), `idx_users_deletion_scheduled` (partial: where not null)
 
 ### `players`
 Player profiles. Can be real (linked to user) or placeholder (is_placeholder=true).

@@ -2,6 +2,8 @@
 Authentication dependencies for FastAPI routes.
 """
 
+from datetime import datetime
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -10,6 +12,7 @@ from sqlalchemy import select
 from backend.services import auth_service, user_service, data_service
 from backend.database.db import get_db_session
 from backend.database.models import Court, LeagueMember, Player, Season, WeeklySchedule, Signup
+from backend.utils.datetime_utils import utcnow
 
 security = HTTPBearer()
 
@@ -59,6 +62,17 @@ async def get_current_user(
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # If account deletion grace period has expired, treat as deleted
+    deletion_at = user.get("deletion_scheduled_at")
+    if deletion_at:
+        scheduled = datetime.fromisoformat(deletion_at)
+        if utcnow() >= scheduled:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account has been deleted",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     return user
 

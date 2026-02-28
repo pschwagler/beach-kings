@@ -7775,6 +7775,80 @@ button.match-config-toggle.inline svg {
 }
 
 
+/* ── Profile Danger Zone ── */
+
+.profile-page__danger-zone {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.profile-page__deletion-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--danger-lighter);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+}
+
+.profile-page__deletion-banner > svg {
+  flex-shrink: 0;
+}
+
+.profile-page__deletion-warning {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.profile-page__deletion-subtext {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.profile-page__delete-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.profile-page__delete-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.5;
+}
+
+.profile-page__delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-page__delete-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .profile-page__delete-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-page__deletion-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* ── Pending Invites Tab ── */
 
 .pending-invites__loading {

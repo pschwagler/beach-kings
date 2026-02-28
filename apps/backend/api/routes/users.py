@@ -251,3 +251,48 @@ async def get_user_leagues(
         return await data_service.get_user_leagues(session, user["id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
+
+
+@router.post("/api/users/me/delete")
+async def schedule_account_deletion(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Schedule account for deletion after a 30-day grace period.
+
+    The user can cancel by logging in during the grace period.
+    After 30 days a background worker permanently anonymizes all PII.
+    """
+    try:
+        success = await user_service.schedule_account_deletion(session, current_user["id"])
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"status": "success", "message": "Account deletion scheduled. You have 30 days to cancel by logging back in."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error scheduling account deletion: {e}")
+        raise HTTPException(status_code=500, detail="Error scheduling account deletion")
+
+
+@router.post("/api/users/me/cancel-deletion")
+async def cancel_account_deletion(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Cancel a pending account deletion.
+
+    Only valid while the 30-day grace period is still active.
+    """
+    try:
+        success = await user_service.cancel_account_deletion(session, current_user["id"])
+        if not success:
+            raise HTTPException(status_code=400, detail="No pending deletion to cancel")
+        return {"status": "success", "message": "Account deletion cancelled."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling account deletion: {e}")
+        raise HTTPException(status_code=500, detail="Error cancelling account deletion")

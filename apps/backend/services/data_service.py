@@ -3787,6 +3787,8 @@ async def get_player_match_history_by_id(
             Session.code.label("session_code"),
             Session.season_id.label("season_id"),
             Season.league_id.label("league_id"),
+            League.name.label("league_name"),
+            Season.name.label("season_name"),
         )
         .select_from(Match)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
@@ -3796,6 +3798,7 @@ async def get_player_match_history_by_id(
         .outerjoin(eh, and_(eh.match_id == Match.id, eh.player_id == player_id))
         .outerjoin(Session, Match.session_id == Session.id)
         .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(League, Season.league_id == League.id)
         .where(
             or_(
                 Match.team1_player1_id == player_id,
@@ -3815,13 +3818,16 @@ async def get_player_match_history_by_id(
         # Determine which team the player was on
         if row.team1_player1_id == player_id or row.team1_player2_id == player_id:
             # Player on team 1
-            partner = (
-                row.team1_player2_name
-                if row.team1_player1_id == player_id
-                else row.team1_player1_name
-            )
+            if row.team1_player1_id == player_id:
+                partner = row.team1_player2_name
+                partner_id = row.team1_player2_id
+            else:
+                partner = row.team1_player1_name
+                partner_id = row.team1_player1_id
             opponent1 = row.team2_player1_name
+            opponent1_id = row.team2_player1_id
             opponent2 = row.team2_player2_name
+            opponent2_id = row.team2_player2_id
             player_score = row.team1_score
             opponent_score = row.team2_score
             elo_change = row.team1_elo_change or 0
@@ -3834,13 +3840,16 @@ async def get_player_match_history_by_id(
                 match_result = "L"
         else:
             # Player on team 2
-            partner = (
-                row.team2_player2_name
-                if row.team2_player1_id == player_id
-                else row.team2_player1_name
-            )
+            if row.team2_player1_id == player_id:
+                partner = row.team2_player2_name
+                partner_id = row.team2_player2_id
+            else:
+                partner = row.team2_player1_name
+                partner_id = row.team2_player1_id
             opponent1 = row.team1_player1_name
+            opponent1_id = row.team1_player1_id
             opponent2 = row.team1_player2_name
+            opponent2_id = row.team1_player2_id
             player_score = row.team2_score
             opponent_score = row.team1_score
             elo_change = row.team2_elo_change or 0
@@ -3864,8 +3873,11 @@ async def get_player_match_history_by_id(
             {
                 "Date": row.date,
                 "Partner": partner,
+                "Partner ID": partner_id,
                 "Opponent 1": opponent1,
+                "Opponent 1 ID": opponent1_id,
                 "Opponent 2": opponent2,
+                "Opponent 2 ID": opponent2_id,
                 "Result": match_result,
                 "Score": f"{player_score}-{opponent_score}",
                 "ELO Change": elo_change,
@@ -3875,7 +3887,9 @@ async def get_player_match_history_by_id(
                 "Session Name": row.session_name,
                 "Session Code": row.session_code,
                 "Season ID": row.season_id,
+                "Season Name": row.season_name,
                 "League ID": row.league_id,
+                "League Name": row.league_name,
                 "Is Ranked": row.is_ranked,
                 "Ranked Intent": row.ranked_intent,
             }

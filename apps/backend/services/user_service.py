@@ -8,7 +8,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select, update, delete, func
-from backend.database.models import User, VerificationCode, RefreshToken, PasswordResetToken
+from backend.database.models import (
+    User,
+    VerificationCode,
+    RefreshToken,
+    PasswordResetToken,
+    Player,
+    Friend,
+    FriendRequest,
+    DirectMessage,
+    Notification,
+    LeagueMember,
+    LeagueMessage,
+    LeagueRequest,
+    PlayerSeasonStats,
+    PlayerLeagueStats,
+    PlayerGlobalStats,
+    PartnershipStats,
+    PartnershipStatsSeason,
+    PartnershipStatsLeague,
+    OpponentStats,
+    OpponentStatsSeason,
+    OpponentStatsLeague,
+    EloHistory,
+    SeasonRatingHistory,
+    SignupPlayer,
+    SignupEvent,
+    SessionParticipant,
+    Feedback,
+    CourtReview,
+    CourtPhoto,
+    CourtEditSuggestion,
+    PlayerInvite,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -264,6 +296,9 @@ def _user_to_dict(user: User) -> Dict:
         "is_verified": user.is_verified,
         "failed_verification_attempts": user.failed_verification_attempts or 0,
         "locked_until": user.locked_until,
+        "deletion_scheduled_at": (
+            user.deletion_scheduled_at.isoformat() if user.deletion_scheduled_at else None
+        ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     }
@@ -654,3 +689,192 @@ async def verify_and_use_password_reset_token(session: AsyncSession, token: str)
     await session.commit()
 
     return user_id
+
+
+# Account deletion constants
+DELETION_GRACE_PERIOD_DAYS = 30
+
+
+async def schedule_account_deletion(session: AsyncSession, user_id: int) -> bool:
+    """
+    Schedule an account for deletion after a 30-day grace period.
+
+    Args:
+        session: Database session
+        user_id: User ID to schedule for deletion
+
+    Returns:
+        True if scheduled successfully, False if user not found
+    """
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return False
+
+    user.deletion_scheduled_at = utcnow() + timedelta(days=DELETION_GRACE_PERIOD_DAYS)
+    await session.commit()
+    logger.info(f"Account deletion scheduled for user {user_id} at {user.deletion_scheduled_at}")
+    return True
+
+
+async def cancel_account_deletion(session: AsyncSession, user_id: int) -> bool:
+    """
+    Cancel a pending account deletion.
+
+    Args:
+        session: Database session
+        user_id: User ID to cancel deletion for
+
+    Returns:
+        True if cancelled, False if user not found or no deletion pending
+    """
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.deletion_scheduled_at:
+        return False
+
+    user.deletion_scheduled_at = None
+    await session.commit()
+    logger.info(f"Account deletion cancelled for user {user_id}")
+    return True
+
+
+async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
+    """
+    Execute permanent account deletion: anonymize PII, delete related data.
+
+    Preserves match records so other players' history isn't broken — the
+    player's name is replaced with "Deleted Player".
+
+    Args:
+        session: Database session
+        user_id: User ID to delete
+
+    Returns:
+        True if executed successfully, False if user not found
+    """
+    # Fetch user + player
+    user_result = await session.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        return False
+
+    player_result = await session.execute(
+        select(Player).where(Player.user_id == user_id, Player.is_placeholder == False)  # noqa: E712
+    )
+    player = player_result.scalar_one_or_none()
+
+    player_id = player.id if player else None
+
+    # --- Delete avatar from S3 ---
+    if player and player.profile_picture_url:
+        try:
+            from backend.services import s3_service
+            s3_service.delete_avatar(player.profile_picture_url)
+        except Exception as e:
+            logger.warning(f"Failed to delete avatar for player {player_id}: {e}")
+
+    # --- Delete player-related rows (order matters for FK constraints) ---
+    if player_id:
+        # Stats tables (no FK dependencies on them)
+        await session.execute(delete(PartnershipStats).where(
+            (PartnershipStats.player_id == player_id) | (PartnershipStats.partner_id == player_id)
+        ))
+        await session.execute(delete(PartnershipStatsSeason).where(
+            (PartnershipStatsSeason.player_id == player_id) | (PartnershipStatsSeason.partner_id == player_id)
+        ))
+        await session.execute(delete(PartnershipStatsLeague).where(
+            (PartnershipStatsLeague.player_id == player_id) | (PartnershipStatsLeague.partner_id == player_id)
+        ))
+        await session.execute(delete(OpponentStats).where(
+            (OpponentStats.player_id == player_id) | (OpponentStats.opponent_id == player_id)
+        ))
+        await session.execute(delete(OpponentStatsSeason).where(
+            (OpponentStatsSeason.player_id == player_id) | (OpponentStatsSeason.opponent_id == player_id)
+        ))
+        await session.execute(delete(OpponentStatsLeague).where(
+            (OpponentStatsLeague.player_id == player_id) | (OpponentStatsLeague.opponent_id == player_id)
+        ))
+        await session.execute(delete(PlayerSeasonStats).where(PlayerSeasonStats.player_id == player_id))
+        await session.execute(delete(PlayerLeagueStats).where(PlayerLeagueStats.player_id == player_id))
+        await session.execute(delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id))
+        await session.execute(delete(EloHistory).where(EloHistory.player_id == player_id))
+        await session.execute(delete(SeasonRatingHistory).where(SeasonRatingHistory.player_id == player_id))
+
+        # Social tables
+        await session.execute(delete(FriendRequest).where(
+            (FriendRequest.sender_player_id == player_id) | (FriendRequest.receiver_player_id == player_id)
+        ))
+        await session.execute(delete(Friend).where(
+            (Friend.player1_id == player_id) | (Friend.player2_id == player_id)
+        ))
+        await session.execute(delete(DirectMessage).where(
+            (DirectMessage.sender_player_id == player_id) | (DirectMessage.receiver_player_id == player_id)
+        ))
+
+        # League participation
+        await session.execute(delete(LeagueRequest).where(LeagueRequest.player_id == player_id))
+        await session.execute(delete(LeagueMember).where(LeagueMember.player_id == player_id))
+        await session.execute(delete(SignupEvent).where(SignupEvent.player_id == player_id))
+        await session.execute(delete(SignupPlayer).where(SignupPlayer.player_id == player_id))
+        await session.execute(delete(SessionParticipant).where(SessionParticipant.player_id == player_id))
+
+        # Court contributions — delete S3 objects for photos before removing rows
+        photo_result = await session.execute(
+            select(CourtPhoto.s3_key).where(CourtPhoto.uploaded_by == player_id)
+        )
+        photo_keys = [row[0] for row in photo_result.all()]
+        if photo_keys:
+            try:
+                from backend.services import s3_service
+                for key in photo_keys:
+                    s3_service.delete_file(key)
+            except Exception as e:
+                logger.warning(f"Failed to delete court photo S3 objects for player {player_id}: {e}")
+        await session.execute(delete(CourtPhoto).where(CourtPhoto.uploaded_by == player_id))
+        await session.execute(delete(CourtReview).where(CourtReview.player_id == player_id))
+        await session.execute(delete(CourtEditSuggestion).where(
+            (CourtEditSuggestion.suggested_by == player_id) | (CourtEditSuggestion.reviewed_by == player_id)
+        ))
+
+        # Feedback (FK is user_id, but delete here since we have the context)
+        await session.execute(delete(Feedback).where(Feedback.user_id == user_id))
+
+        # Player invite
+        await session.execute(delete(PlayerInvite).where(PlayerInvite.player_id == player_id))
+
+        # Anonymize player PII (keep the row so match FKs aren't broken)
+        player.full_name = "Deleted Player"
+        player.nickname = None
+        player.gender = None
+        player.level = None
+        player.city = None
+        player.state = None
+        player.location_id = None
+        player.date_of_birth = None
+        player.city_latitude = None
+        player.city_longitude = None
+        player.distance_to_location = None
+        player.profile_picture_url = None
+        player.avatar = None
+        player.height = None
+        player.preferred_side = None
+
+    # --- Delete user-level rows ---
+    await session.execute(delete(Notification).where(Notification.user_id == user_id))
+    await session.execute(delete(LeagueMessage).where(LeagueMessage.user_id == user_id))
+    # RefreshToken and PasswordResetToken have cascade delete, but be explicit
+    await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    await session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+
+    # --- Anonymize user PII ---
+    user.phone_number = None
+    user.email = None
+    user.google_id = None
+    user.password_hash = None
+    user.deletion_scheduled_at = None
+    user.is_verified = False
+
+    await session.commit()
+    logger.info(f"Account deletion executed for user {user_id} (player {player_id})")
+    return True

@@ -150,7 +150,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
           className="public-player__friend-icon public-player__friend-icon--pending"
           data-testid="friend-pending-btn"
           disabled
-          data-tooltip="Request sent"
+          data-tooltip="Friend request sent"
         >
           <Clock size={20} />
         </button>

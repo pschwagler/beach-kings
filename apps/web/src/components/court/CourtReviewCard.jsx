@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { deleteCourtReview } from '../../services/api';
 import StarRating from '../ui/StarRating';
+import ImageLightbox from '../ui/ImageLightbox';
 
 /**
  * Single review card in the reviews list.
@@ -12,6 +13,7 @@ import StarRating from '../ui/StarRating';
 export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, courtId }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -75,10 +77,25 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
 
       {review.photos?.length > 0 && (
         <div className="court-review-card__photos">
-          {review.photos.map((photo) => (
-            <img key={photo.id} src={photo.url} alt="Review photo" loading="lazy" />
+          {review.photos.map((photo, idx) => (
+            <img
+              key={photo.id}
+              src={photo.url}
+              alt="Review photo"
+              loading="lazy"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setLightboxIndex(idx)}
+            />
           ))}
         </div>
+      )}
+
+      {lightboxIndex !== null && review.photos?.length > 0 && (
+        <ImageLightbox
+          photos={review.photos}
+          startIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </div>
   );

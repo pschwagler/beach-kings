@@ -76,8 +76,11 @@ class PlayerMatchHistoryResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     Date: str
     Partner: str
+    Partner_ID: Optional[int] = Field(None, alias="Partner ID")
     Opponent_1: str = Field(alias="Opponent 1")
+    Opponent_1_ID: Optional[int] = Field(None, alias="Opponent 1 ID")
     Opponent_2: str = Field(alias="Opponent 2")
+    Opponent_2_ID: Optional[int] = Field(None, alias="Opponent 2 ID")
     Result: str
     Score: str
     ELO_Change: float = Field(alias="ELO Change")
@@ -298,6 +301,7 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     is_verified: bool
     auth_provider: str = "phone"
+    deletion_scheduled_at: Optional[str] = None
     created_at: str
 
 
@@ -1329,6 +1333,12 @@ class CourtPhotoUploadResponse(BaseModel):
     id: int
     url: str
     sort_order: int = 0
+
+
+class ReorderCourtPhotosRequest(BaseModel):
+    """Request body for reordering court photos."""
+
+    photo_ids: List[int]
 
 
 class CourtLeaderboardEntry(BaseModel):

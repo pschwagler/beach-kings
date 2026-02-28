@@ -36,6 +36,7 @@ from backend.models.schemas import (
     CourtEditSuggestionRequest,
     CourtEditSuggestionResponse,
     CourtPhotoUploadResponse,
+    ReorderCourtPhotosRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -542,3 +543,106 @@ async def reject_court(
     if not result:
         raise HTTPException(status_code=404, detail="Court not found")
     return result
+
+
+@router.get("/api/admin/courts/suggestions", response_model=dict)
+async def list_all_suggestions_admin(
+    status: Optional[str] = Query("pending"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List all court edit suggestions with status filter and pagination (system admin)."""
+    return await court_service.list_all_suggestions_admin(
+        session, status=status, page=page, page_size=page_size
+    )
+
+
+@router.delete("/api/admin/courts/photos/{photo_id}", response_model=dict)
+async def admin_delete_court_photo(
+    photo_id: int,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Delete a standalone court photo (system admin)."""
+    try:
+        s3_key = await court_service.admin_delete_court_photo(session, photo_id)
+        if s3_key is None:
+            raise HTTPException(status_code=404, detail="Photo not found")
+
+        # S3 cleanup
+        try:
+            await asyncio.to_thread(s3_service.delete_file, s3_key)
+        except Exception as e:
+            logger.error("Failed to delete S3 photo %s: %s", s3_key, e, exc_info=True)
+
+        return {"photo_id": photo_id, "deleted": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deleting court photo: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error deleting photo")
+
+
+@router.put("/api/admin/courts/{court_id}/photos/reorder", response_model=list)
+async def reorder_court_photos(
+    court_id: int,
+    payload: ReorderCourtPhotosRequest,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Reorder standalone court photos (system admin)."""
+    try:
+        return await court_service.reorder_court_photos(session, court_id, payload.photo_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error reordering court photos: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error reordering photos")
+
+
+@router.delete("/api/admin/courts/reviews/{review_id}", response_model=dict)
+async def admin_delete_court_review(
+    review_id: int,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Delete any court review (system admin). Cleans up S3 photos."""
+    try:
+        result = await court_service.admin_delete_review(session, review_id=review_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Review not found")
+
+        # Concurrent S3 photo cleanup
+        photo_keys = result.pop("photo_s3_keys", [])
+        if photo_keys:
+            delete_tasks = [asyncio.to_thread(s3_service.delete_file, key) for key in photo_keys]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            for key, res in zip(photo_keys, results):
+                if isinstance(res, Exception):
+                    logger.error("Failed to delete S3 photo: %s — %s", key, res, exc_info=True)
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deleting review: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error deleting review")
+
+
+@router.get("/api/admin/courts", response_model=dict)
+async def list_all_courts_admin(
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List all courts with search, status filter, and pagination (system admin)."""
+    return await court_service.list_all_courts_admin(
+        session, search=search, status=status, page=page, page_size=page_size
+    )

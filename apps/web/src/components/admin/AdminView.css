@@ -1,0 +1,1035 @@
+/* AdminView — admin panel container, header, tabs, settings, feedback table, court actions */
+
+.admin-view-container {
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.admin-view-title {
+  color: var(--gray-900);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+}
+
+/* ── Tab bar ── */
+.admin-tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--gray-200);
+  margin-bottom: 1.5rem;
+}
+
+.admin-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-600);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.admin-tab-btn:hover {
+  color: var(--gray-900);
+}
+
+.admin-tab-btn--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.admin-tab-content {
+  min-height: 200px;
+}
+
+/* ── Refresh button (shared) ── */
+.admin-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--gray-700);
+  padding: 0;
+}
+
+.admin-refresh-btn:hover:not(:disabled) {
+  background: var(--gray-200);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+}
+
+.admin-refresh-btn:active:not(:disabled) {
+  background: var(--gray-300);
+  transform: scale(0.95);
+}
+
+.admin-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-refresh-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Section headers ── */
+.admin-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.admin-section-header h2 {
+  color: var(--gray-900);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ── Platform Stats ── */
+.admin-stats-section {
+  margin-bottom: 2rem;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.admin-stats-card {
+  padding: 20px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.admin-stats-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  line-height: 1.2;
+}
+
+.admin-stats-card__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-top: 4px;
+}
+
+.admin-stats-card__recent {
+  font-size: 13px;
+  color: var(--ocean-gray);
+  margin-top: 8px;
+}
+
+.admin-stats-timestamp {
+  font-size: 12px;
+  color: var(--ocean-gray);
+  margin-top: 12px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Settings ── */
+.admin-view-container p {
+  color: var(--gray-600);
+}
+
+.admin-settings {
+  margin-bottom: 2rem;
+}
+
+.setting-group {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.setting-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.setting-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.setting-description {
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.log-level-select {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-300);
+  background-color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.log-level-select:hover {
+  border-color: var(--primary);
+  background-color: var(--gray-50);
+}
+
+.log-level-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.1);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* ── Error / success banners ── */
+.admin-view-container .error-message {
+  padding: 1rem;
+  background-color: var(--danger-light);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  margin-bottom: 1rem;
+}
+
+.admin-view-container .success-message {
+  padding: 1rem;
+  background-color: var(--success-light);
+  border: 1px solid var(--success);
+  border-radius: 6px;
+  color: var(--success-dark);
+  margin-bottom: 1rem;
+}
+
+/* ── Feedback section ── */
+.admin-feedback-section {
+  margin-top: 0;
+}
+
+.admin-feedback-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--gray-50);
+  border-radius: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-feedback-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background-color: white;
+}
+
+.admin-feedback-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-feedback-table thead {
+  background-color: var(--gray-50);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.admin-feedback-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.admin-feedback-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+
+.admin-feedback-table tbody tr:hover {
+  background-color: var(--gray-50);
+}
+
+.admin-feedback-table tbody tr.resolved {
+  opacity: 0.7;
+}
+
+.admin-feedback-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 768px) {
+  .admin-tab-bar {
+    overflow-x: auto;
+  }
+
+  .admin-feedback-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-feedback-table {
+    font-size: 0.85rem;
+  }
+
+  .admin-feedback-table th,
+  .admin-feedback-table td {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* ── Court actions ── */
+.admin-court-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-court-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-court-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-court-action-btn--approve {
+  color: var(--success);
+}
+
+.admin-court-action-btn--approve:hover:not(:disabled) {
+  background: #e6f9f0;
+  border-color: var(--success);
+}
+
+.admin-court-action-btn--reject {
+  color: var(--danger);
+}
+
+.admin-court-action-btn--reject:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: var(--danger);
+}
+
+/* ── Courts tab: sub-tab pills ── */
+.admin-courts-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.admin-courts-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-courts-pill:hover {
+  background: var(--gray-200);
+}
+
+.admin-courts-pill--active {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+  border-color: var(--primary);
+}
+
+.admin-courts-pill__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: var(--gray-300);
+  color: var(--gray-700);
+}
+
+.admin-courts-pill--active .admin-courts-pill__badge {
+  background: var(--primary);
+  color: white;
+}
+
+/* ── Courts: search / filter bar ── */
+.admin-courts-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-courts-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.admin-courts-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.1);
+}
+
+.admin-courts-status-select {
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+/* ── Courts: pagination ── */
+.admin-courts-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-100);
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.admin-courts-pagination button {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-courts-pagination button:hover:not(:disabled) {
+  background: var(--gray-200);
+}
+
+.admin-courts-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Court status badge ── */
+.admin-court-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-court-status-badge--approved {
+  background: #e6f9f0;
+  color: var(--success);
+}
+
+.admin-court-status-badge--pending {
+  background: #fff8e1;
+  color: #b8860b;
+}
+
+.admin-court-status-badge--rejected {
+  background: #fef2f2;
+  color: var(--danger);
+}
+
+/* ── Court edit row (expandable) ── */
+.admin-court-edit-row td {
+  padding: 0 !important;
+  border-bottom: 2px solid var(--primary-lighter) !important;
+}
+
+.admin-court-edit-form {
+  padding: 20px;
+  background: var(--gray-50);
+}
+
+.admin-court-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.admin-court-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-court-edit-field--full {
+  grid-column: 1 / -1;
+}
+
+.admin-court-edit-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.admin-court-edit-field input[type='text'],
+.admin-court-edit-field input[type='number'],
+.admin-court-edit-field input[type='url'],
+.admin-court-edit-field textarea,
+.admin-court-edit-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.admin-court-edit-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.admin-court-edit-field input:focus,
+.admin-court-edit-field textarea:focus,
+.admin-court-edit-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(44, 122, 143, 0.1);
+}
+
+.admin-court-edit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.admin-court-edit-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.admin-court-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.admin-court-edit-actions .btn-save {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-court-edit-actions .btn-save:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.admin-court-edit-actions .btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-court-edit-actions .btn-cancel {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-court-edit-actions .btn-cancel:hover {
+  background: var(--gray-100);
+}
+
+/* ── Suggestions: changed fields summary ── */
+.admin-suggestion-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.admin-suggestion-changes__chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--gray-200);
+  border-radius: 8px;
+  color: var(--gray-700);
+}
+
+/* ── Clickable row ── */
+.admin-courts-row--clickable {
+  cursor: pointer;
+}
+
+.admin-courts-row--expanded {
+  background: var(--primary-lighter) !important;
+}
+
+@media (max-width: 768px) {
+  .admin-court-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-courts-toolbar {
+    flex-direction: column;
+  }
+
+  .admin-courts-search {
+    min-width: unset;
+  }
+}
+
+/* ── Suggestion Diff Panel ── */
+.suggestion-diff {
+  padding: 20px;
+  background: var(--gray-50);
+}
+
+.suggestion-diff__meta {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+.suggestion-diff__meta strong {
+  color: var(--gray-900);
+}
+
+.suggestion-diff__meta-sep {
+  margin: 0 8px;
+  color: var(--gray-300);
+}
+
+.suggestion-diff__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.suggestion-diff__row {
+  display: grid;
+  grid-template-columns: 24px 120px 1fr 24px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid var(--gray-200);
+}
+
+.suggestion-diff__row--dimmed {
+  opacity: 0.45;
+}
+
+.suggestion-diff__toggle {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.suggestion-diff__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.suggestion-diff__current {
+  font-size: 13px;
+  color: var(--gray-600);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-diff__arrow {
+  color: var(--gray-400);
+  text-align: center;
+  font-size: 14px;
+}
+
+.suggestion-diff__proposed {
+  min-width: 0;
+}
+
+.suggestion-diff__input,
+.suggestion-diff__select {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+}
+
+.suggestion-diff__input:focus,
+.suggestion-diff__select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.suggestion-diff__input:disabled,
+.suggestion-diff__select:disabled,
+.suggestion-diff__checkbox-input:disabled {
+  background: var(--gray-100);
+  cursor: not-allowed;
+}
+
+.suggestion-diff__checkbox-input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.suggestion-diff__actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.suggestion-diff__actions .btn-save {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.suggestion-diff__actions .btn-save:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.suggestion-diff__actions .btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestion-diff__actions .btn-cancel {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.suggestion-diff__actions .btn-cancel:hover {
+  background: var(--gray-100);
+}
+
+@media (max-width: 768px) {
+  .suggestion-diff__row {
+    grid-template-columns: 24px 90px 1fr 20px 1fr;
+    gap: 4px;
+  }
+}
+
+/* ── Admin Court Photos ── */
+.admin-court-photos {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.admin-court-photos__header,
+.admin-court-reviews__header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+}
+
+.admin-court-photos__loading,
+.admin-court-reviews__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+.admin-court-photos__empty,
+.admin-court-reviews__empty {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.admin-court-photos__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-court-photos__item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  cursor: grab;
+}
+
+.admin-court-photos__item--dragging {
+  opacity: 0.4;
+}
+
+.admin-court-photos__item--over {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.admin-court-photos__cover-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  z-index: 1;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  pointer-events: none;
+}
+
+.admin-court-photos__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-court-photos__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.admin-court-photos__delete:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.admin-court-photos__delete--confirm {
+  width: auto;
+  padding: 2px 6px;
+  background: var(--danger);
+  font-weight: 600;
+}
+
+.admin-court-photos__delete--confirm:hover:not(:disabled) {
+  background: var(--danger);
+}
+
+.admin-court-photos__delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Admin Court Reviews ── */
+.admin-court-reviews {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.admin-court-reviews__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-court-reviews__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+}
+
+.admin-court-reviews__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-court-reviews__author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-900);
+  white-space: nowrap;
+}
+
+.admin-court-reviews__stars {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.admin-court-reviews__text {
+  font-size: 13px;
+  color: var(--gray-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.admin-court-reviews__delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--gray-300);
+  background: white;
+  color: var(--gray-600);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.admin-court-reviews__delete:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.admin-court-reviews__delete--confirm {
+  width: auto;
+  padding: 4px 8px;
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-court-reviews__delete--confirm:hover:not(:disabled) {
+  background: var(--danger);
+  color: white;
+}
+
+.admin-court-reviews__delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

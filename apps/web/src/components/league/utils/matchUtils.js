@@ -2,6 +2,18 @@
  * Match transformation utilities
  */
 
+/**
+ * Determine the winner based on team scores.
+ * @param {number} team1Score
+ * @param {number} team2Score
+ * @returns {'Team 1'|'Team 2'|'Tie'}
+ */
+export function calculateWinner(team1Score, team2Score) {
+  if (team1Score > team2Score) return 'Team 1';
+  if (team1Score < team2Score) return 'Team 2';
+  return 'Tie';
+}
+
 /** Display-format keys for the four player positions in a match. */
 export const MATCH_POSITION_KEYS = {
   T1P1: 'Team 1 Player 1',

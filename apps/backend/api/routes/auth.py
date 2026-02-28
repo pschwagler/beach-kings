@@ -155,6 +155,10 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise INVALID_CREDENTIALS_RESPONSE
 
+        # Auto-cancel pending account deletion on login
+        if user.get("deletion_scheduled_at"):
+            await user_service.cancel_account_deletion(session, user["id"])
+
         access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
@@ -233,6 +237,10 @@ async def google_auth(
                     await _import_google_avatar(session, player["id"], picture_url)
                 except Exception as e:
                     logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
+
+        # Auto-cancel pending account deletion on login
+        if user.get("deletion_scheduled_at"):
+            await user_service.cancel_account_deletion(session, user["id"])
 
         # Issue tokens
         access_token, refresh_token = await _issue_tokens(session, user)
@@ -385,6 +393,10 @@ async def verify_phone(
                 )
 
         await user_service.reset_failed_attempts(session, user["id"])
+
+        # Auto-cancel pending account deletion on login
+        if user.get("deletion_scheduled_at"):
+            await user_service.cancel_account_deletion(session, user["id"])
 
         access_token, refresh_token = await _issue_tokens(session, user)
         profile_complete = await _check_profile_complete(session, user["id"])
@@ -566,6 +578,10 @@ async def sms_login(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
+        # Auto-cancel pending account deletion on login
+        if user.get("deletion_scheduled_at"):
+            await user_service.cancel_account_deletion(session, user["id"])
+
         access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
@@ -654,5 +670,6 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
         email=current_user.get("email"),
         is_verified=current_user["is_verified"],
         auth_provider=current_user.get("auth_provider", "phone"),
+        deletion_scheduled_at=current_user.get("deletion_scheduled_at"),
         created_at=current_user["created_at"],
     )

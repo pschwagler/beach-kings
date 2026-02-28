@@ -169,6 +169,7 @@ class User(Base):
     is_verified = Column(Boolean, default=True, nullable=False)
     failed_verification_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(String, nullable=True)  # ISO timestamp
+    deletion_scheduled_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -28,6 +28,7 @@ import PlayerPopover from '../../../src/components/player/PlayerPopover';
 import { usePersistedViewMode } from '../../../src/hooks/usePersistedViewMode';
 import { useClickOutside } from '../../../src/hooks/useClickOutside';
 import { usePickupSession } from '../../../src/hooks/usePickupSession';
+import { useEditBuffer, mergeBufferWithMatches } from '../../../src/hooks/useEditBuffer';
 import { useToast } from '../../../src/contexts/ToastContext';
 
 const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
@@ -65,7 +66,8 @@ export default function SessionByCodePage() {
   const [message, setMessage] = useState(null);
   const shareMenuRef = useRef(null);
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
-  const [isEditingCompleted, setIsEditingCompleted] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const { buffer, isDirty, bufferEdit, bufferAdd, bufferDelete, clearBuffer, flush } = useEditBuffer();
   const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
   const [popover, setPopover] = useState(null); // { playerId, playerName, anchorRect }
   const friendStatusCacheRef = useRef({});
@@ -116,6 +118,29 @@ export default function SessionByCodePage() {
     return `Submitted ${ts} by ${by}`;
   }, [isActive, session?.updated_at, session?.updated_by_name, session?.created_by_name]);
 
+  // Build lookup: player_id → full_name (for merge display)
+  const participantLookup = useMemo(() => {
+    const map = new Map();
+    (participants || []).forEach((p) => {
+      map.set(p.player_id, p.full_name || `Player ${p.player_id}`);
+    });
+    return map;
+  }, [participants]);
+
+  // Merge buffered changes with server matches for display during edit mode
+  const displayMatches = useMemo(
+    () => isEditing ? mergeBufferWithMatches(transformedMatches, buffer, participantLookup) : transformedMatches,
+    [isEditing, transformedMatches, buffer, participantLookup],
+  );
+
+  // Navigation guard: warn before leaving page with unsaved edits
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   // Auto-open Manage Players when fewer than 4 players (once per visit, only after load completes)
   useEffect(() => {
     if (!loading && session && isActive && hasLessThanFourPlayers && !visitActionsRef.current.managePlayersAutoOpened) {
@@ -151,13 +176,37 @@ export default function SessionByCodePage() {
     }
   };
 
-  const handleAddMatch = async (matchPayload) => {
+  /**
+   * Unified match submit handler — routes to buffer or API based on edit mode.
+   * Fixes previous bug where editMatchId (2nd arg from AddMatchModal) was ignored.
+   */
+  const handleAddMatch = async (matchPayload, editMatchId) => {
     if (!session?.id) return;
-    if (matchPayload.match_id != null) {
-      await updateMatch(matchPayload.match_id, matchPayload);
+    if (isEditing) {
+      editMatchId != null ? bufferEdit(editMatchId, matchPayload) : bufferAdd(matchPayload);
+      closeModal();
+      return;
+    }
+    // Active mode — direct API call
+    if (editMatchId != null) {
+      await updateMatch(editMatchId, matchPayload);
     } else {
       await createMatch({ ...matchPayload, session_id: session.id });
     }
+    refresh();
+    closeModal();
+  };
+
+  /**
+   * Unified delete handler — routes to buffer or API based on edit mode.
+   */
+  const handleDeleteMatch = async (matchId) => {
+    if (isEditing) {
+      bufferDelete(matchId);
+      closeModal();
+      return;
+    }
+    await deleteMatch(matchId);
     refresh();
     closeModal();
   };
@@ -170,17 +219,8 @@ export default function SessionByCodePage() {
       members: membersForModal,
       allPlayerNames: [],
       onSubmit: handleAddMatch,
-      onDelete: async (matchId) => {
-        await deleteMatch(matchId);
-        refresh();
-        closeModal();
-      },
+      onDelete: handleDeleteMatch,
     });
-  };
-
-  const handleDeleteMatch = async (matchId) => {
-    await deleteMatch(matchId);
-    refresh();
   };
 
   const handleAddMatchClick = () => {
@@ -197,7 +237,7 @@ export default function SessionByCodePage() {
   const handleRequestDeleteSession = () => {
     openModal(MODAL_TYPES.CONFIRMATION, {
       title: 'Delete Session',
-      message: `This will delete the session and all ${transformedMatches.length} game${transformedMatches.length === 1 ? '' : 's'} forever. This cannot be undone.`,
+      message: `This will delete the session and all ${displayMatches.length} game${displayMatches.length === 1 ? '' : 's'} forever. This cannot be undone.`,
       confirmText: 'Delete Session',
       confirmButtonClass: 'danger',
       sessionName: session?.name,
@@ -227,10 +267,64 @@ export default function SessionByCodePage() {
     });
   };
 
+  /**
+   * Flush buffered changes to the API, then lock in and refresh.
+   */
   const handleSaveEditedSession = async () => {
-    await lockInSession(session.id);
-    refresh();
-    setIsEditingCompleted(false);
+    try {
+      await flush(session.id, {
+        deleteMatchAPI: deleteMatch,
+        updateMatchAPI: updateMatch,
+        createMatchAPI: createMatch,
+        lockInSessionAPI: lockInSession,
+      });
+      clearBuffer();
+      refresh();
+      setIsEditing(false);
+    } catch (err) {
+      showToast(err.response?.data?.detail || 'Failed to save session', 'error');
+    }
+  };
+
+  /**
+   * Cancel edit mode. Shows confirmation if buffer has unsaved changes.
+   */
+  const handleCancelEdit = () => {
+    if (isDirty) {
+      openModal(MODAL_TYPES.CONFIRMATION, {
+        title: 'Discard Changes',
+        message: 'You have unsaved changes. Are you sure you want to discard them?',
+        confirmText: 'Discard',
+        confirmButtonClass: 'danger',
+        cancelText: 'Keep Editing',
+        onConfirm: () => {
+          clearBuffer();
+          setIsEditing(false);
+        },
+      });
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  /**
+   * Handle "My Games" back-link click — guard against unsaved edits.
+   */
+  const handleBackClick = (e) => {
+    if (isDirty) {
+      e.preventDefault();
+      openModal(MODAL_TYPES.CONFIRMATION, {
+        title: 'Discard Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave?',
+        confirmText: 'Leave',
+        confirmButtonClass: 'danger',
+        cancelText: 'Stay',
+        onConfirm: () => {
+          clearBuffer();
+          router.push('/home?tab=my-games');
+        },
+      });
+    }
   };
 
   const handleCreateNewWithSamePlayers = async () => {
@@ -353,7 +447,7 @@ export default function SessionByCodePage() {
           <HomeMenuBar />
           <main className="home-content">
             <div className="session-page">
-              <Link href="/home?tab=my-games" className="session-page-back">
+              <Link href="/home?tab=my-games" className="session-page-back" onClick={handleBackClick}>
                 <ArrowLeft size={18} /> My Games
               </Link>
 
@@ -592,11 +686,11 @@ export default function SessionByCodePage() {
                         Manage players
                       </button>
                     )}
-                    {!isActive && isCreator && isEditingCompleted && (
+                    {!isActive && isCreator && isEditing && (
                       <button
                         type="button"
                         className="league-text-button"
-                        onClick={() => setIsEditingCompleted(false)}
+                        onClick={handleCancelEdit}
                         style={{ marginLeft: '16px' }}
                       >
                         Cancel edit
@@ -611,20 +705,20 @@ export default function SessionByCodePage() {
                       status: session.status,
                       season_id: null,
                     }}
-                    activeSessionMatches={transformedMatches}
+                    activeSessionMatches={displayMatches}
                     onPlayerClick={handlePlayerClick}
                     contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}
                     variant="non-league"
                     isAdmin={isCreator}
                     isSubmitted={!isActive}
                     submittedTimestampText={submittedTimestampText ?? undefined}
-                    onEditSessionClick={isCreator && !isEditingCompleted ? () => setIsEditingCompleted(true) : null}
-                    onAddMatchClick={isActive || isEditingCompleted ? handleAddMatchClick : undefined}
-                    onEditMatch={isActive || (isCreator && isEditingCompleted) ? handleEditMatch : undefined}
+                    onEditSessionClick={isCreator && !isEditing ? () => setIsEditing(true) : null}
+                    onAddMatchClick={isActive || isEditing ? handleAddMatchClick : undefined}
+                    onEditMatch={isActive || (isCreator && isEditing) ? handleEditMatch : undefined}
                     onSubmitClick={isActive ? handleSubmitClick : undefined}
-                    onSaveClick={!isActive && isEditingCompleted ? handleSaveEditedSession : null}
-                    onCancelClick={!isActive && isEditingCompleted ? () => setIsEditingCompleted(false) : null}
-                    isEditing={isEditingCompleted}
+                    onSaveClick={!isActive && isEditing ? handleSaveEditedSession : null}
+                    onCancelClick={!isActive && isEditing ? handleCancelEdit : null}
+                    isEditing={isEditing}
                     onDeleteSession={async () => {
                       await deleteSession(session.id);
                       router.push('/home?tab=my-games');
@@ -635,9 +729,9 @@ export default function SessionByCodePage() {
                     onStatsClick={() => {
                       openModal(MODAL_TYPES.SESSION_SUMMARY, {
                         title: session.name || 'Session Summary',
-                        gameCount: transformedMatches.length,
-                        playerCount: getUniquePlayersCount(transformedMatches),
-                        matches: transformedMatches,
+                        gameCount: displayMatches.length,
+                        playerCount: getUniquePlayersCount(displayMatches),
+                        matches: displayMatches,
                         season: null,
                       });
                     }}

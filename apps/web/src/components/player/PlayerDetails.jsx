@@ -136,7 +136,7 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
                 </button>
               )}
               {isAuthenticated && !isSelf && friendStatus === 'pending_outgoing' && (
-                <span className="player-details__friend-btn player-details__friend-btn--pending" data-tooltip="Request sent">
+                <span className="player-details__friend-btn player-details__friend-btn--pending" data-tooltip="Friend request sent">
                   <Clock size={15} />
                 </span>
               )}

@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { updateUserProfile, updatePlayerProfile, getLocations } from '../../services/api';
-import { AlertCircle, Save } from 'lucide-react';
+import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion } from '../../services/api';
+import { AlertCircle, Save, Trash2 } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import PlayerProfileFields from '../player/PlayerProfileFields';
 import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
+import { Button } from '../ui/UI';
 
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
@@ -16,6 +18,17 @@ const PREFERRED_SIDE_OPTIONS = [
 ];
 
 const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
+
+/**
+ * Compute days remaining until account deletion, or null if no deletion is scheduled.
+ */
+function getDeletionDaysRemaining(deletionScheduledAt) {
+  if (!deletionScheduledAt) return null;
+  const scheduledDate = new Date(deletionScheduledAt);
+  const now = new Date();
+  const diffMs = scheduledDate - now;
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
 
 export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }) {
   const [formData, setFormData] = useState({
@@ -53,12 +66,16 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   });
 
   const { showToast } = useToast();
+  const { deletionScheduledAt, cancelAccountDeletion, logout } = useAuth();
   const [allLocations, setAllLocations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showConfirmLeaveModal, setShowConfirmLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletionPending, setIsDeletionPending] = useState(false);
   // Store whether there are unsaved changes in a ref so navigation blocker callback can access it
   const hasUnsavedChangesRef = useRef(false);
 
@@ -277,6 +294,36 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     }
   };
 
+  const deletionDaysRemaining = getDeletionDaysRemaining(deletionScheduledAt);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+    setIsDeletionPending(true);
+    try {
+      await scheduleAccountDeletion();
+      showToast('Account deletion scheduled', 'success');
+      setShowDeleteConfirm(false);
+      setDeleteConfirmText('');
+      await fetchCurrentUser();
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    } finally {
+      setIsDeletionPending(false);
+    }
+  };
+
+  const handleCancelDeletion = async () => {
+    setIsDeletionPending(true);
+    try {
+      await cancelAccountDeletion();
+      showToast('Account deletion cancelled', 'success');
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    } finally {
+      setIsDeletionPending(false);
+    }
+  };
+
   // Handle navigation confirmation
   const handleConfirmLeave = () => {
     hasUnsavedChangesRef.current = false;
@@ -420,6 +467,80 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           </button>
         </div>
       </form>
+
+      {/* Danger Zone */}
+      <div className="profile-page__danger-zone">
+        <h3 className="profile-page__section-title section-title-spaced" style={{ color: 'var(--danger)' }}>
+          Danger Zone
+        </h3>
+
+        {deletionScheduledAt ? (
+          <div className="profile-page__deletion-banner">
+            <AlertCircle size={18} />
+            <div>
+              <p className="profile-page__deletion-warning">
+                Your account is scheduled for deletion in <strong>{deletionDaysRemaining} day{deletionDaysRemaining !== 1 ? 's' : ''}</strong>.
+              </p>
+              <p className="profile-page__deletion-subtext">
+                Log in anytime before then to keep your account, or cancel now.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleCancelDeletion}
+              disabled={isDeletionPending}
+            >
+              {isDeletionPending ? 'Cancelling...' : 'Cancel Deletion'}
+            </Button>
+          </div>
+        ) : (
+          <>
+            {!showDeleteConfirm ? (
+              <div className="profile-page__delete-section">
+                <p className="profile-page__delete-desc">
+                  Permanently delete your account and all associated data. This action has a 30-day grace period.
+                </p>
+                <Button
+                  variant="danger"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 size={16} />
+                  Delete Account
+                </Button>
+              </div>
+            ) : (
+              <div className="profile-page__delete-confirm">
+                <p className="profile-page__delete-desc">
+                  Type <strong>DELETE</strong> to confirm. You&apos;ll have 30 days to change your mind by logging back in.
+                </p>
+                <input
+                  type="text"
+                  className="auth-modal__input"
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  autoFocus
+                />
+                <div className="profile-page__delete-actions">
+                  <Button
+                    variant="ghost"
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirmText !== 'DELETE' || isDeletionPending}
+                  >
+                    {isDeletionPending ? 'Scheduling...' : 'Confirm Delete'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
