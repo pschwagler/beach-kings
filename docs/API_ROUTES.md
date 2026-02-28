@@ -1,6 +1,6 @@
 # API Routes Reference
 
-Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
+Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
 
 ## Auth Levels
 
@@ -100,6 +100,15 @@ Source: `apps/backend/api/routes/` (~160 endpoints across 14 domain modules) + `
 | GET | `/api/leagues/{league_id}/seasons` | User | List seasons for league |
 | GET | `/api/seasons/{season_id}` | None | Get season by ID |
 | PUT | `/api/seasons/{season_id}` | User* | Update season (*admin check in service) |
+
+## Season Awards
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/seasons/{season_id}/awards` | None | Get awards for a season (lazy-computes if season ended) |
+| GET | `/api/leagues/{league_id}/awards` | None | Get all awards across all seasons in a league |
+| GET | `/api/players/{player_id}/awards` | None | Get all player awards across leagues |
+| POST | `/api/seasons/{season_id}/finalize-awards` | League Admin | Manual trigger to finalize season awards |
 
 ## Sessions
 

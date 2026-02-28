@@ -80,6 +80,7 @@ class NotificationType(str, enum.Enum):
     MEMBER_JOINED = "member_joined"
     MEMBER_REMOVED = "member_removed"
     DIRECT_MESSAGE = "direct_message"
+    SEASON_AWARD = "season_award"
 
 
 class InviteStatus(str, enum.Enum):
@@ -409,6 +410,9 @@ class Season(Base):
     updated_by = Column(
         Integer, ForeignKey("players.id"), nullable=True
     )  # Player who last updated the season
+    awards_finalized_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # When season awards were computed
 
     # Relationships
     league = relationship("League", foreign_keys=[league_id], back_populates="seasons")
@@ -416,6 +420,7 @@ class Season(Base):
     player_stats = relationship("PlayerSeasonStats", back_populates="season")
     weekly_schedules = relationship("WeeklySchedule", back_populates="season")
     signups = relationship("Signup", back_populates="season")
+    awards = relationship("SeasonAward", back_populates="season", cascade="all, delete-orphan")
 
     creator = relationship("Player", foreign_keys=[created_by], backref="created_seasons")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_seasons")
@@ -1515,4 +1520,41 @@ class CourtEditSuggestion(Base):
         ),
         Index("idx_court_edit_suggestions_court", "court_id"),
         Index("idx_court_edit_suggestions_status", "status"),
+    )
+
+
+class SeasonAward(Base):
+    """Awards earned by players when a season ends (podium + stat awards)."""
+
+    __tablename__ = "season_awards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    season_id = Column(
+        Integer, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False
+    )
+    player_id = Column(
+        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
+    )
+    award_type = Column(String(50), nullable=False)  # "placement" or "stat_award"
+    award_key = Column(
+        String(50), nullable=False
+    )  # gold, silver, bronze, ironman, sharpshooter, rising_star, point_machine
+    rank = Column(Integer, nullable=True)  # 1/2/3 for placements
+    value = Column(Float, nullable=True)  # stat value that earned the award
+    season_name = Column(String, nullable=True)  # denormalized for display
+    league_id = Column(
+        Integer, ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False
+    )  # denormalized for player queries
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    season = relationship("Season", back_populates="awards")
+    player = relationship("Player", backref="season_awards")
+    league = relationship("League", backref="season_awards")
+
+    __table_args__ = (
+        UniqueConstraint("season_id", "award_key", name="uq_season_awards_season_key"),
+        Index("idx_season_awards_player", "player_id"),
+        Index("idx_season_awards_season", "season_id"),
+        Index("idx_season_awards_league", "league_id"),
     )

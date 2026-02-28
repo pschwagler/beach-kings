@@ -737,3 +737,144 @@ class TestStreamPhotoJobEvents:
         assert len(events) == 1
         assert events[0][0] == "error"
         assert "not found" in events[0][1].get("message", "").lower()
+
+
+# ============================================================================
+# Tests for extracted helper functions
+# ============================================================================
+
+
+class TestScorePlayerMatch:
+    """Tests for _score_player_match helper."""
+
+    def test_exact_full_name(self):
+        """Exact full name match should score ~1.0."""
+        score = photo_match_service._score_player_match("John Doe", "John Doe", "")
+        assert score >= 0.99
+
+    def test_nickname_strong_match(self):
+        """Strong nickname match should boost score to 0.95."""
+        score = photo_match_service._score_player_match("Johnny", "John Doe", "Johnny")
+        assert score >= 0.95
+
+    def test_nickname_moderate_match(self):
+        """Moderate nickname match should boost score to 0.85."""
+        score = photo_match_service._score_player_match("Johnn", "John Doe", "Johnny")
+        assert score >= 0.85
+
+    def test_substring_match(self):
+        """Substring of full name should score at least 0.8."""
+        score = photo_match_service._score_player_match("John", "John Doe", "")
+        assert score >= 0.8
+
+    def test_first_name_strong_match(self):
+        """Strong first-name-only match should score at least 0.85."""
+        score = photo_match_service._score_player_match("John", "John Doe-Smith", "")
+        assert score >= 0.8
+
+    def test_no_match(self):
+        """Completely different names should score low."""
+        score = photo_match_service._score_player_match("XYZ123", "John Doe", "")
+        assert score < 0.4
+
+
+class TestResolvePlayerField:
+    """Tests for _resolve_player_field helper."""
+
+    @pytest.fixture
+    def members(self, sample_league_members):
+        valid_ids = {m["player_id"] for m in sample_league_members}
+        names_by_id = {m["player_id"]: m["player_name"] for m in sample_league_members}
+        return sample_league_members, valid_ids, names_by_id
+
+    def test_dict_with_valid_id(self, members):
+        """Dict input with known player_id should return id with confidence 1.0."""
+        members_list, valid_ids, names_by_id = members
+        pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
+            {"id": 1, "name": "John Doe"}, members_list, valid_ids, names_by_id,
+        )
+        assert pid == 1
+        assert conf == 1.0
+        assert "John" in matched
+        assert unmatched is None
+
+    def test_dict_with_unknown_id_falls_back_to_fuzzy(self, members):
+        """Dict input with unknown id should fuzzy-match by name."""
+        members_list, valid_ids, names_by_id = members
+        pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
+            {"id": 9999, "name": "John Doe"}, members_list, valid_ids, names_by_id,
+        )
+        assert pid == 1
+        assert conf >= 0.6
+
+    def test_string_input_matched(self, members):
+        """String input with matchable name should return player id."""
+        members_list, valid_ids, names_by_id = members
+        pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
+            "John Doe", members_list, valid_ids, names_by_id,
+        )
+        assert pid == 1
+        assert conf >= 0.6
+        assert unmatched is None
+
+    def test_string_input_unmatched(self, members):
+        """String input with no match should return unmatched name."""
+        members_list, valid_ids, names_by_id = members
+        pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
+            "Unknown Person", members_list, valid_ids, names_by_id,
+        )
+        assert pid is None
+        assert conf == 0
+        assert unmatched == "Unknown Person"
+
+
+class TestTruncateErrorMessage:
+    """Tests for _truncate_error_message helper."""
+
+    def test_short_message_unchanged(self):
+        """Short error messages should pass through unchanged."""
+        msg = photo_match_service._truncate_error_message(RuntimeError("oops"))
+        assert msg == "oops"
+
+    def test_long_message_truncated(self):
+        """Messages over 500 chars should be truncated with ellipsis."""
+        long_err = RuntimeError("x" * 600)
+        msg = photo_match_service._truncate_error_message(long_err)
+        assert len(msg) == 500
+        assert msg.endswith("...")
+
+    def test_empty_exception(self):
+        """Exception with empty string should return 'Unknown error'."""
+        msg = photo_match_service._truncate_error_message(RuntimeError(""))
+        assert msg == "Unknown error"
+
+
+class TestJsonParseStrategies:
+    """Tests for individual JSON parse strategy functions."""
+
+    def test_try_parse_direct_valid(self):
+        result = photo_match_service._try_parse_direct('{"key": "val"}')
+        assert result == {"key": "val"}
+
+    def test_try_parse_direct_invalid(self):
+        result = photo_match_service._try_parse_direct("not json")
+        assert result is None
+
+    def test_try_parse_markdown_block(self):
+        text = 'Some text\n```json\n{"a": 1}\n```\nmore text'
+        result = photo_match_service._try_parse_markdown_block(text)
+        assert result == {"a": 1}
+
+    def test_try_parse_brace_match(self):
+        text = 'prefix {"nested": {"deep": true}} suffix'
+        result = photo_match_service._try_parse_brace_match(text)
+        assert result == {"nested": {"deep": True}}
+
+    def test_try_parse_brace_match_no_braces(self):
+        result = photo_match_service._try_parse_brace_match("no braces here")
+        assert result is None
+
+    def test_try_parse_regex_fallback(self):
+        text = 'garbage {"status": "ok"} more garbage'
+        result = photo_match_service._try_parse_regex(text)
+        assert result == {"status": "ok"}

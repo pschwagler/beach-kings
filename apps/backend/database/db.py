@@ -4,7 +4,6 @@ PostgreSQL database connection and management using SQLAlchemy async mode.
 
 import os
 from typing import AsyncGenerator
-from contextlib import contextmanager
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
     AsyncSession,
@@ -12,8 +11,6 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -101,67 +98,3 @@ async def flush_all_tables():
     )
 
 
-# Temporary compatibility layer for old sync functions
-# This allows old sync functions to work until they're fully converted
-def get_db():
-    # TODO: remove this
-    """
-    DEPRECATED: Compatibility layer for old sync functions.
-    This creates a sync connection from the async engine.
-    Use get_db_session() with async functions instead.
-    """
-    # Create a sync engine from the async URL (remove +asyncpg)
-    sync_url = DATABASE_URL.replace("+asyncpg", "")
-    sync_engine = create_engine(sync_url, pool_pre_ping=True)
-    SyncSessionLocal = sessionmaker(bind=sync_engine)
-
-    @contextmanager
-    def _get_db():
-        session = SyncSessionLocal()
-        try:
-            # Wrap the session to make it work like the old SQLite connection
-            class ConnectionWrapper:
-                def __init__(self, sess):
-                    self.session = sess
-                    self._closed = False
-
-                def execute(self, query, params=None):
-                    # Convert SQLite-style ? placeholders to PostgreSQL $1, $2, etc.
-                    if params:
-                        # Simple conversion for common cases
-                        query = query.replace("?", "%s")
-                        result = self.session.execute(text(query), params)
-                    else:
-                        result = self.session.execute(text(query))
-                    return result
-
-                def executemany(self, query, params_list):
-                    query = query.replace("?", "%s")
-                    self.session.execute(text(query), params_list)
-
-                def commit(self):
-                    self.session.commit()
-
-                def close(self):
-                    if not self._closed:
-                        self.session.close()
-                        self._closed = True
-
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, exc_type, exc_val, exc_tb):
-                    if exc_type:
-                        self.session.rollback()
-                    else:
-                        self.session.commit()
-                    self.close()
-
-            yield ConnectionWrapper(session)
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-    return _get_db()

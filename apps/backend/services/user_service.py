@@ -42,6 +42,7 @@ from backend.database.models import (
     CourtEditSuggestion,
     PlayerInvite,
 )
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -740,6 +741,142 @@ async def cancel_account_deletion(session: AsyncSession, user_id: int) -> bool:
     return True
 
 
+async def _delete_s3_objects(player: Player, player_id: int, session: AsyncSession) -> None:
+    """Delete all S3 objects (avatar, court photos) belonging to a player."""
+    from backend.services import s3_service
+
+    # Avatar
+    if player.profile_picture_url:
+        try:
+            await asyncio.to_thread(s3_service.delete_avatar, player.profile_picture_url)
+        except Exception as e:
+            logger.warning(f"Failed to delete avatar for player {player_id}: {e}")
+
+    # Court photos + court review photos
+    photo_result = await session.execute(
+        select(CourtPhoto.s3_key).where(CourtPhoto.uploaded_by == player_id)
+    )
+    review_photo_result = await session.execute(
+        select(CourtReviewPhoto.s3_key)
+        .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
+        .where(CourtReview.player_id == player_id)
+    )
+    all_s3_keys = (
+        [row[0] for row in photo_result.all()]
+        + [row[0] for row in review_photo_result.all()]
+    )
+    if all_s3_keys:
+        try:
+            for key in all_s3_keys:
+                await asyncio.to_thread(s3_service.delete_file, key)
+        except Exception as e:
+            logger.warning(f"Failed to delete S3 objects for player {player_id}: {e}")
+
+
+async def _delete_player_stats(session: AsyncSession, player_id: int) -> None:
+    """Delete all stats rows for a player."""
+    await session.execute(delete(PartnershipStats).where(
+        (PartnershipStats.player_id == player_id) | (PartnershipStats.partner_id == player_id)
+    ))
+    await session.execute(delete(PartnershipStatsSeason).where(
+        (PartnershipStatsSeason.player_id == player_id) | (PartnershipStatsSeason.partner_id == player_id)
+    ))
+    await session.execute(delete(PartnershipStatsLeague).where(
+        (PartnershipStatsLeague.player_id == player_id) | (PartnershipStatsLeague.partner_id == player_id)
+    ))
+    await session.execute(delete(OpponentStats).where(
+        (OpponentStats.player_id == player_id) | (OpponentStats.opponent_id == player_id)
+    ))
+    await session.execute(delete(OpponentStatsSeason).where(
+        (OpponentStatsSeason.player_id == player_id) | (OpponentStatsSeason.opponent_id == player_id)
+    ))
+    await session.execute(delete(OpponentStatsLeague).where(
+        (OpponentStatsLeague.player_id == player_id) | (OpponentStatsLeague.opponent_id == player_id)
+    ))
+    await session.execute(delete(PlayerSeasonStats).where(PlayerSeasonStats.player_id == player_id))
+    await session.execute(delete(PlayerLeagueStats).where(PlayerLeagueStats.player_id == player_id))
+    await session.execute(delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id))
+    await session.execute(delete(EloHistory).where(EloHistory.player_id == player_id))
+    await session.execute(delete(SeasonRatingHistory).where(SeasonRatingHistory.player_id == player_id))
+
+
+async def _delete_social_data(session: AsyncSession, player_id: int) -> None:
+    """Delete friend requests, friendships, and direct messages for a player."""
+    await session.execute(delete(FriendRequest).where(
+        (FriendRequest.sender_player_id == player_id) | (FriendRequest.receiver_player_id == player_id)
+    ))
+    await session.execute(delete(Friend).where(
+        (Friend.player1_id == player_id) | (Friend.player2_id == player_id)
+    ))
+    await session.execute(delete(DirectMessage).where(
+        (DirectMessage.sender_player_id == player_id) | (DirectMessage.receiver_player_id == player_id)
+    ))
+
+
+async def _delete_league_participation(session: AsyncSession, player_id: int) -> None:
+    """Delete league memberships, requests, signups, and session participation."""
+    await session.execute(delete(LeagueRequest).where(LeagueRequest.player_id == player_id))
+    await session.execute(delete(LeagueMember).where(LeagueMember.player_id == player_id))
+    await session.execute(delete(SignupEvent).where(SignupEvent.player_id == player_id))
+    await session.execute(delete(SignupPlayer).where(SignupPlayer.player_id == player_id))
+    await session.execute(delete(SessionParticipant).where(SessionParticipant.player_id == player_id))
+
+
+async def _delete_court_contributions(session: AsyncSession, player_id: int) -> None:
+    """Delete court photos, reviews, and suggestions by a player."""
+    await session.execute(delete(CourtPhoto).where(CourtPhoto.uploaded_by == player_id))
+    await session.execute(delete(CourtReview).where(CourtReview.player_id == player_id))
+    await session.execute(
+        update(CourtEditSuggestion)
+        .where(CourtEditSuggestion.reviewed_by == player_id)
+        .values(reviewed_by=None)
+    )
+    await session.execute(delete(CourtEditSuggestion).where(
+        CourtEditSuggestion.suggested_by == player_id
+    ))
+
+
+def _anonymize_player(player: Player) -> None:
+    """Replace player PII with anonymized values. Keeps the row for match FK integrity."""
+    player.full_name = "Deleted Player"
+    player.nickname = None
+    player.gender = None
+    player.level = None
+    player.city = None
+    player.state = None
+    player.location_id = None
+    player.date_of_birth = None
+    player.city_latitude = None
+    player.city_longitude = None
+    player.distance_to_location = None
+    player.profile_picture_url = None
+    player.avatar = None
+    player.height = None
+    player.preferred_side = None
+
+
+async def _delete_user_data(session: AsyncSession, user: User) -> None:
+    """Delete user-level rows and anonymize user PII."""
+    user_id = user.id
+    await session.execute(delete(Notification).where(Notification.user_id == user_id))
+    await session.execute(delete(LeagueMessage).where(LeagueMessage.user_id == user_id))
+    await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    await session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+    await session.execute(delete(Feedback).where(Feedback.user_id == user_id))
+
+    if user.phone_number:
+        await session.execute(
+            delete(VerificationCode).where(VerificationCode.phone_number == user.phone_number)
+        )
+
+    user.phone_number = None
+    user.email = None
+    user.google_id = None
+    user.password_hash = None
+    user.deletion_scheduled_at = None
+    user.is_verified = False
+
+
 async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
     """
     Execute permanent account deletion: anonymize PII, delete related data.
@@ -754,7 +891,6 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
     Returns:
         True if executed successfully, False if user not found
     """
-    # Fetch user + player
     user_result = await session.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()
     if not user:
@@ -764,141 +900,18 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
         select(Player).where(Player.user_id == user_id, Player.is_placeholder == False)  # noqa: E712
     )
     player = player_result.scalar_one_or_none()
-
     player_id = player.id if player else None
 
-    # --- Delete avatar from S3 ---
-    if player and player.profile_picture_url:
-        try:
-            from backend.services import s3_service
-            s3_service.delete_avatar(player.profile_picture_url)
-        except Exception as e:
-            logger.warning(f"Failed to delete avatar for player {player_id}: {e}")
-
-    # --- Delete player-related rows (order matters for FK constraints) ---
     if player_id:
-        # Stats tables (no FK dependencies on them)
-        await session.execute(delete(PartnershipStats).where(
-            (PartnershipStats.player_id == player_id) | (PartnershipStats.partner_id == player_id)
-        ))
-        await session.execute(delete(PartnershipStatsSeason).where(
-            (PartnershipStatsSeason.player_id == player_id) | (PartnershipStatsSeason.partner_id == player_id)
-        ))
-        await session.execute(delete(PartnershipStatsLeague).where(
-            (PartnershipStatsLeague.player_id == player_id) | (PartnershipStatsLeague.partner_id == player_id)
-        ))
-        await session.execute(delete(OpponentStats).where(
-            (OpponentStats.player_id == player_id) | (OpponentStats.opponent_id == player_id)
-        ))
-        await session.execute(delete(OpponentStatsSeason).where(
-            (OpponentStatsSeason.player_id == player_id) | (OpponentStatsSeason.opponent_id == player_id)
-        ))
-        await session.execute(delete(OpponentStatsLeague).where(
-            (OpponentStatsLeague.player_id == player_id) | (OpponentStatsLeague.opponent_id == player_id)
-        ))
-        await session.execute(delete(PlayerSeasonStats).where(PlayerSeasonStats.player_id == player_id))
-        await session.execute(delete(PlayerLeagueStats).where(PlayerLeagueStats.player_id == player_id))
-        await session.execute(delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id))
-        await session.execute(delete(EloHistory).where(EloHistory.player_id == player_id))
-        await session.execute(delete(SeasonRatingHistory).where(SeasonRatingHistory.player_id == player_id))
-
-        # Social tables
-        await session.execute(delete(FriendRequest).where(
-            (FriendRequest.sender_player_id == player_id) | (FriendRequest.receiver_player_id == player_id)
-        ))
-        await session.execute(delete(Friend).where(
-            (Friend.player1_id == player_id) | (Friend.player2_id == player_id)
-        ))
-        await session.execute(delete(DirectMessage).where(
-            (DirectMessage.sender_player_id == player_id) | (DirectMessage.receiver_player_id == player_id)
-        ))
-
-        # League participation
-        await session.execute(delete(LeagueRequest).where(LeagueRequest.player_id == player_id))
-        await session.execute(delete(LeagueMember).where(LeagueMember.player_id == player_id))
-        await session.execute(delete(SignupEvent).where(SignupEvent.player_id == player_id))
-        await session.execute(delete(SignupPlayer).where(SignupPlayer.player_id == player_id))
-        await session.execute(delete(SessionParticipant).where(SessionParticipant.player_id == player_id))
-
-        # Court contributions — delete S3 objects for photos before removing rows
-        photo_result = await session.execute(
-            select(CourtPhoto.s3_key).where(CourtPhoto.uploaded_by == player_id)
-        )
-        photo_keys = [row[0] for row in photo_result.all()]
-
-        # Also collect S3 keys from court review photos (cascaded via DB FK, but S3 needs explicit cleanup)
-        review_photo_result = await session.execute(
-            select(CourtReviewPhoto.s3_key)
-            .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
-            .where(CourtReview.player_id == player_id)
-        )
-        review_photo_keys = [row[0] for row in review_photo_result.all()]
-
-        all_s3_keys = photo_keys + review_photo_keys
-        if all_s3_keys:
-            try:
-                from backend.services import s3_service
-                for key in all_s3_keys:
-                    s3_service.delete_file(key)
-            except Exception as e:
-                logger.warning(f"Failed to delete S3 objects for player {player_id}: {e}")
-
-        await session.execute(delete(CourtPhoto).where(CourtPhoto.uploaded_by == player_id))
-        await session.execute(delete(CourtReview).where(CourtReview.player_id == player_id))
-
-        # Null out reviewed_by instead of deleting other users' suggestions
-        await session.execute(
-            update(CourtEditSuggestion)
-            .where(CourtEditSuggestion.reviewed_by == player_id)
-            .values(reviewed_by=None)
-        )
-        await session.execute(delete(CourtEditSuggestion).where(
-            CourtEditSuggestion.suggested_by == player_id
-        ))
-
-        # Feedback (FK is user_id, but delete here since we have the context)
-        await session.execute(delete(Feedback).where(Feedback.user_id == user_id))
-
-        # Player invite
+        await _delete_s3_objects(player, player_id, session)
+        await _delete_player_stats(session, player_id)
+        await _delete_social_data(session, player_id)
+        await _delete_league_participation(session, player_id)
+        await _delete_court_contributions(session, player_id)
         await session.execute(delete(PlayerInvite).where(PlayerInvite.player_id == player_id))
+        _anonymize_player(player)
 
-        # Anonymize player PII (keep the row so match FKs aren't broken)
-        player.full_name = "Deleted Player"
-        player.nickname = None
-        player.gender = None
-        player.level = None
-        player.city = None
-        player.state = None
-        player.location_id = None
-        player.date_of_birth = None
-        player.city_latitude = None
-        player.city_longitude = None
-        player.distance_to_location = None
-        player.profile_picture_url = None
-        player.avatar = None
-        player.height = None
-        player.preferred_side = None
-
-    # --- Delete user-level rows ---
-    await session.execute(delete(Notification).where(Notification.user_id == user_id))
-    await session.execute(delete(LeagueMessage).where(LeagueMessage.user_id == user_id))
-    # RefreshToken and PasswordResetToken have cascade delete, but be explicit
-    await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
-    await session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
-
-    # Clean up verification codes (keyed on phone_number, not user_id — PII concern)
-    if user.phone_number:
-        await session.execute(
-            delete(VerificationCode).where(VerificationCode.phone_number == user.phone_number)
-        )
-
-    # --- Anonymize user PII ---
-    user.phone_number = None
-    user.email = None
-    user.google_id = None
-    user.password_hash = None
-    user.deletion_scheduled_at = None
-    user.is_verified = False
+    await _delete_user_data(session, user)
 
     await session.commit()
     logger.info(f"Account deletion executed for user {user_id} (player {player_id})")

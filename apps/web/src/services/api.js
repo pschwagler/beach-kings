@@ -1794,4 +1794,35 @@ export const getUnreadMessageCount = async () => {
   return response.data;
 };
 
+// ---------------------------------------------------------------------------
+// Season Awards
+// ---------------------------------------------------------------------------
+
+/**
+ * Get awards for a season (lazy-computes if season has ended).
+ * @param {number} seasonId
+ */
+export const getSeasonAwards = async (seasonId) => {
+  const response = await api.get(`/api/seasons/${seasonId}/awards`);
+  return response.data;
+};
+
+/**
+ * Get all awards across all seasons in a league.
+ * @param {number} leagueId
+ */
+export const getLeagueAwards = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/awards`);
+  return response.data;
+};
+
+/**
+ * Get all awards for a player across leagues.
+ * @param {number} playerId
+ */
+export const getPlayerAwards = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/awards`);
+  return response.data;
+};
+
 export default api;

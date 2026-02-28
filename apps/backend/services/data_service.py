@@ -670,6 +670,7 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "end_date": s.end_date.isoformat() if s.end_date else None,
             "scoring_system": s.scoring_system,  # Now just a string, no enum conversion needed
             "point_system": s.point_system,
+            "awards_finalized_at": s.awards_finalized_at.isoformat() if s.awards_finalized_at else None,
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         }
@@ -691,6 +692,7 @@ async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
         "end_date": season.end_date.isoformat() if season.end_date else None,
         "scoring_system": season.scoring_system if season.scoring_system else None,
         "point_system": season.point_system,
+        "awards_finalized_at": season.awards_finalized_at.isoformat() if season.awards_finalized_at else None,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
     }
@@ -1033,6 +1035,64 @@ def _normalize_list_str(lst: Optional[List[str]]) -> List[str]:
     return [s.strip().lower() for s in lst if s is not None and str(s).strip()]
 
 
+def _filter_placeholders(stmt, include_for_player_id, league_ids, session_id):
+    """Scope placeholder visibility: show only caller's own + league/session scoped."""
+    if include_for_player_id is not None:
+        conditions = [Player.created_by_player_id == include_for_player_id]
+        clean_ids = [x for x in (league_ids or []) if x is not None]
+        if clean_ids:
+            conditions.append(Player.id.in_(
+                select(LeagueMember.player_id).where(LeagueMember.league_id.in_(clean_ids)).distinct()
+            ))
+        if session_id is not None:
+            conditions.append(Player.id.in_(
+                select(SessionParticipant.player_id).where(SessionParticipant.session_id == session_id).distinct()
+            ))
+        return stmt.where(or_(
+            Player.is_placeholder.is_(False),
+            and_(Player.is_placeholder.is_(True), or_(*conditions)),
+        ))
+    return stmt.where(Player.is_placeholder.is_(False))
+
+
+def _filter_search(stmt, q):
+    """Apply full-name / nickname ILIKE filter."""
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
+    return stmt
+
+
+def _filter_location(stmt, location_ids):
+    """Filter by location_id IN list."""
+    loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
+    if loc_ids:
+        stmt = stmt.where(Player.location_id.in_(loc_ids))
+    return stmt
+
+
+def _filter_league_membership(stmt, league_ids):
+    """Filter to players who are members of the given leagues."""
+    if league_ids:
+        clean = [x for x in league_ids if x is not None]
+        if clean:
+            stmt = stmt.where(Player.id.in_(
+                select(LeagueMember.player_id).where(LeagueMember.league_id.in_(clean)).distinct()
+            ))
+    return stmt
+
+
+def _filter_demographics(stmt, genders, levels):
+    """Filter by gender and/or level."""
+    gender_vals = _normalize_list_str(genders)
+    if gender_vals:
+        stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
+    level_vals = _normalize_list_str(levels)
+    if level_vals:
+        stmt = stmt.where(func.lower(Player.level).in_(level_vals))
+    return stmt
+
+
 async def list_players_search(
     session: AsyncSession,
     q: Optional[str] = None,
@@ -1060,69 +1120,12 @@ async def list_players_search(
 
     def _apply_common_filters(stmt, *, for_count: bool = False):
         """Apply shared WHERE clauses to both count and page queries."""
-        # Exclude system records (e.g. "Unknown Player")
         stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
-
-        # Placeholder scoping
-        if include_placeholders_for_player_id is not None:
-            # Include real players + scoped placeholders
-            placeholder_conditions = [
-                Player.created_by_player_id == include_placeholders_for_player_id,
-            ]
-            # Also include placeholders that are league members of the specified leagues
-            league_ids_clean = [x for x in (league_ids or []) if x is not None]
-            if league_ids_clean:
-                league_placeholder_subq = (
-                    select(LeagueMember.player_id)
-                    .where(LeagueMember.league_id.in_(league_ids_clean))
-                    .distinct()
-                )
-                placeholder_conditions.append(Player.id.in_(league_placeholder_subq))
-            # Also include placeholders that are session participants
-            if session_id is not None:
-                session_placeholder_subq = (
-                    select(SessionParticipant.player_id)
-                    .where(SessionParticipant.session_id == session_id)
-                    .distinct()
-                )
-                placeholder_conditions.append(Player.id.in_(session_placeholder_subq))
-
-            stmt = stmt.where(
-                or_(
-                    Player.is_placeholder.is_(False),
-                    and_(Player.is_placeholder.is_(True), or_(*placeholder_conditions)),
-                )
-            )
-        else:
-            # Default: exclude all placeholders
-            stmt = stmt.where(Player.is_placeholder.is_(False))
-
-        if q and q.strip():
-            term = f"%{q.strip()}%"
-            stmt = stmt.where(or_(Player.full_name.ilike(term), Player.nickname.ilike(term)))
-
-        loc_ids = [x for x in (location_ids or []) if x is not None and str(x).strip()]
-        if loc_ids:
-            stmt = stmt.where(Player.location_id.in_(loc_ids))
-
-        if league_ids:
-            league_ids_clean = [x for x in league_ids if x is not None]
-            if league_ids_clean:
-                subq = (
-                    select(LeagueMember.player_id)
-                    .where(LeagueMember.league_id.in_(league_ids_clean))
-                    .distinct()
-                )
-                stmt = stmt.where(Player.id.in_(subq))
-
-        gender_vals = _normalize_list_str(genders)
-        if gender_vals:
-            stmt = stmt.where(func.lower(Player.gender).in_(gender_vals))
-
-        level_vals = _normalize_list_str(levels)
-        if level_vals:
-            stmt = stmt.where(func.lower(Player.level).in_(level_vals))
-
+        stmt = _filter_placeholders(stmt, include_placeholders_for_player_id, league_ids, session_id)
+        stmt = _filter_search(stmt, q)
+        stmt = _filter_location(stmt, location_ids)
+        stmt = _filter_league_membership(stmt, league_ids)
+        stmt = _filter_demographics(stmt, genders, levels)
         return stmt
 
     # Count query
@@ -2455,6 +2458,22 @@ async def update_season(session: AsyncSession, season_id: int, **fields) -> Opti
         except Exception:
             # Don't fail the update if queueing fails - stats can be recalculated manually
             pass
+
+    # Clear awards if season re-opened (end_date moved to the future).
+    # This must succeed — stale awards for an active season would be wrong.
+    if "end_date" in fields:
+        refreshed = await session.execute(select(Season).where(Season.id == season_id))
+        updated_season = refreshed.scalar_one_or_none()
+        if (
+            updated_season
+            and updated_season.awards_finalized_at is not None
+            and updated_season.end_date
+            and updated_season.end_date >= date.today()
+        ):
+            from backend.services.season_awards_service import clear_season_awards
+
+            await clear_season_awards(session, season_id)
+            logger.info(f"Cleared awards for re-opened season {season_id}")
 
     return await get_season(session, season_id)
 

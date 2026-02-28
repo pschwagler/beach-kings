@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-PostgreSQL database with 46 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
+PostgreSQL database with 47 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
 
 ## Enums
 
@@ -350,12 +350,32 @@ Constraint: `uq_league_request_league_player`
 | `end_date` | Date | Not null |
 | `scoring_system` | String(50) | `points_system` or `season_rating` (CHECK) |
 | `point_system` | Text | JSON scoring configuration |
+| `awards_finalized_at` | DateTime(tz) | Nullable. Set when season awards are computed/finalized |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
 | `created_by` | Integer FK → players.id | |
 | `updated_by` | Integer FK → players.id | |
 
 Active seasons determined by: `current_date >= start_date AND current_date <= end_date`
+
+### `season_awards`
+Awards granted to players at the end of a season (placements and stat awards).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | Auto-increment |
+| `season_id` | Integer FK → seasons.id | ON DELETE CASCADE, not null |
+| `player_id` | Integer FK → players.id | ON DELETE CASCADE, not null |
+| `award_type` | String(50) | Not null. `placement` or `stat_award` |
+| `award_key` | String(50) | Not null. `gold`, `silver`, `bronze`, `ironman`, `sharpshooter`, `rising_star`, `point_machine` |
+| `rank` | Integer | Nullable. 1/2/3 for placements |
+| `value` | Float | Nullable. Stat value for stat awards |
+| `season_name` | String | Nullable. Denormalized season name |
+| `league_id` | Integer FK → leagues.id | ON DELETE CASCADE, not null. Denormalized |
+| `created_at` | DateTime(tz) | Default `now()` |
+
+Constraints: UNIQUE(`season_id`, `award_key`)
+Indexes: `idx_season_awards_player` on `player_id`, `idx_season_awards_season` on `season_id`, `idx_season_awards_league` on `league_id`
 
 ---
 

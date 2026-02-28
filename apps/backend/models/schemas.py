@@ -1463,3 +1463,22 @@ class SitemapCourtItem(BaseModel):
 
     slug: str
     updated_at: Optional[str] = None
+
+
+class SeasonAwardResponse(BaseModel):
+    """Season award data for API responses."""
+
+    id: int
+    season_id: int
+    season_name: Optional[str] = None
+    league_id: int
+    league_name: Optional[str] = None
+    player_id: int
+    player_name: Optional[str] = None
+    player_avatar: Optional[str] = None
+    player_profile_picture_url: Optional[str] = None
+    award_type: str
+    award_key: str
+    rank: Optional[int] = None
+    value: Optional[float] = None
+    created_at: Optional[str] = None

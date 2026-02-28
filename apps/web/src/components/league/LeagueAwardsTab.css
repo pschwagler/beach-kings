@@ -1,0 +1,251 @@
+/* ========================================
+   LeagueAwardsTab
+   ======================================== */
+
+.awards-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.awards-tab__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-900);
+  border-bottom: 1px solid var(--gray-300);
+  padding-bottom: 12px;
+}
+
+.awards-tab__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Season section */
+.awards-tab__season {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.awards-tab__season-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0;
+}
+
+/* Podium row */
+.awards-tab__podium {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.awards-tab__podium-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+  text-align: center;
+}
+
+.awards-tab__podium-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Gold */
+.awards-tab__podium-card--gold {
+  border-color: var(--sun-gold-dark);
+  background: linear-gradient(135deg, var(--sun-gold-light) 0%, var(--sun-gold) 100%);
+}
+
+.awards-tab__podium-card--gold .awards-tab__podium-icon {
+  color: var(--warm-brown-dark);
+}
+
+/* Silver */
+.awards-tab__podium-card--silver {
+  border-color: var(--gray-300);
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-200) 100%);
+}
+
+.awards-tab__podium-card--silver .awards-tab__podium-icon {
+  color: var(--gray-600);
+}
+
+/* Bronze */
+.awards-tab__podium-card--bronze {
+  border-color: var(--warm-brown-light);
+  background: linear-gradient(135deg, var(--warm-brown-lighter) 0%, var(--warm-brown-light) 100%);
+}
+
+.awards-tab__podium-card--bronze .awards-tab__podium-icon {
+  color: var(--warm-brown-dark);
+}
+
+.awards-tab__podium-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.awards-tab__podium-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-700);
+}
+
+.awards-tab__podium-player {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.awards-tab__podium-value {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+
+/* Stat awards row */
+.awards-tab__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.awards-tab__stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  background: white;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.awards-tab__stat-card:hover {
+  background: var(--gray-50);
+}
+
+.awards-tab__stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--primary-lighter);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.awards-tab__stat-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.awards-tab__stat-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.awards-tab__stat-subtitle {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.awards-tab__stat-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.awards-tab__stat-player {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.awards-tab__stat-value {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* Empty state */
+.awards-tab__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--gray-600);
+}
+
+.awards-tab__empty svg {
+  color: var(--gray-300);
+  margin-bottom: 16px;
+}
+
+.awards-tab__empty-heading {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 8px 0;
+}
+
+.awards-tab__empty-text {
+  font-size: 14px;
+  color: var(--gray-600);
+  max-width: 360px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Error */
+.awards-tab__error {
+  color: var(--danger);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Skeleton */
+.awards-tab__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.awards-tab__skeleton-block {
+  height: 120px;
+  border-radius: 8px;
+  background: var(--gray-100);
+  animation: awards-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes awards-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

@@ -6,12 +6,16 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select as sa_select
+
 from backend.database.db import get_db_session
-from backend.services import data_service, notification_service
+from backend.database.models import Season as SeasonModel
+from backend.services import data_service, notification_service, season_awards_service
 from backend.api.auth_dependencies import (
     get_current_user,
     require_user,
     make_require_league_admin,
+    make_require_league_admin_from_season,
 )
 
 logger = logging.getLogger(__name__)
@@ -359,3 +363,78 @@ async def query_rankings(request: Request, session: AsyncSession = Depends(get_d
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading rankings: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Season Awards
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/seasons/{season_id}/awards")
+async def get_season_awards(
+    season_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get awards for a season (public). Lazy-computes awards if season has ended."""
+    try:
+        awards = await season_awards_service.get_season_awards(session, season_id)
+        return awards
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading season awards: {str(e)}")
+
+
+@router.get("/api/leagues/{league_id}/awards")
+async def get_league_awards(
+    league_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get all awards across all seasons in a league (public)."""
+    try:
+        awards = await season_awards_service.get_league_awards(session, league_id)
+        return awards
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading league awards: {str(e)}")
+
+
+@router.get("/api/players/{player_id}/awards")
+async def get_player_awards(
+    player_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get all awards for a player across leagues (public)."""
+    try:
+        awards = await season_awards_service.get_player_awards(session, player_id)
+        return awards
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading player awards: {str(e)}")
+
+
+@router.post("/api/seasons/{season_id}/finalize-awards")
+async def finalize_season_awards(
+    season_id: int,
+    user: dict = Depends(make_require_league_admin_from_season()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Manually trigger award computation for a season (league admin only).
+
+    Returns existing awards if already finalized. Returns 400 if the season
+    has not ended yet.
+    """
+    try:
+        result = await session.execute(
+            sa_select(SeasonModel).where(SeasonModel.id == season_id)
+        )
+        season_obj = result.scalar_one_or_none()
+        if not season_obj:
+            raise HTTPException(status_code=404, detail="Season not found")
+        if not season_awards_service.season_has_ended(season_obj):
+            raise HTTPException(status_code=400, detail="Season has not ended yet")
+
+        awards = await season_awards_service.compute_season_awards(session, season_id)
+        return awards
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error finalizing season awards: {str(e)}")

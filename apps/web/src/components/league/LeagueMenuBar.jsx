@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar, Trophy, Settings, ChevronDown, Users, Swords, MessageSquare } from 'lucide-react';
+import { Award, Calendar, Trophy, Settings, ChevronDown, Users, Swords, MessageSquare } from 'lucide-react';
 import MenuBar from '../navigation/MenuBar';
 import NavDropdown from '../layout/navbar/NavDropdown';
 import NavDropdownSection from '../layout/navbar/NavDropdownSection';
@@ -104,6 +104,14 @@ export default function LeagueMenuBar({
       active: activeTab === 'matches',
       onClick: () => onTabChange && onTabChange('matches'),
       title: 'Games',
+    },
+    {
+      id: 'awards',
+      label: 'Awards',
+      icon: Award,
+      active: activeTab === 'awards',
+      onClick: () => onTabChange && onTabChange('awards'),
+      title: 'Season Awards',
     },
     {
       id: 'signups',

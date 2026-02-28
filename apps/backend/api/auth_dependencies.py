@@ -2,7 +2,8 @@
 Authentication dependencies for FastAPI routes.
 """
 
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,7 +15,29 @@ from backend.database.db import get_db_session
 from backend.database.models import Court, LeagueMember, Player, Season, WeeklySchedule, Signup
 from backend.utils.datetime_utils import utcnow
 
+logger = logging.getLogger(__name__)
 security = HTTPBearer()
+
+
+def _is_deletion_expired(user: dict) -> bool:
+    """
+    Check whether a user's deletion grace period has passed.
+
+    Returns True if the account should be treated as deleted, False otherwise.
+    """
+    deletion_at = user.get("deletion_scheduled_at")
+    if not deletion_at:
+        return False
+    try:
+        scheduled = datetime.fromisoformat(deletion_at)
+        if scheduled.tzinfo is None:
+            scheduled = scheduled.replace(tzinfo=timezone.utc)
+        return utcnow() >= scheduled
+    except (ValueError, TypeError):
+        logger.warning(
+            f"Could not parse deletion_scheduled_at for user {user.get('id')}: {deletion_at!r}"
+        )
+        return False
 
 
 async def get_current_user(
@@ -63,27 +86,12 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # If account deletion grace period has expired, treat as deleted
-    deletion_at = user.get("deletion_scheduled_at")
-    if deletion_at:
-        try:
-            scheduled = datetime.fromisoformat(deletion_at)
-            # Ensure timezone-aware for safe comparison with utcnow()
-            if scheduled.tzinfo is None:
-                from datetime import timezone
-                scheduled = scheduled.replace(tzinfo=timezone.utc)
-            if utcnow() >= scheduled:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Account has been deleted",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-        except (ValueError, TypeError):
-            # Malformed timestamp — log but don't block the user
-            import logging
-            logging.getLogger(__name__).warning(
-                f"Could not parse deletion_scheduled_at for user {user.get('id')}: {deletion_at!r}"
-            )
+    if _is_deletion_expired(user):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account has been deleted",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 
@@ -284,6 +292,7 @@ def make_require_league_member_with_403_auth():
     Require league membership, returning 403 for both unauthenticated and non-member users.
     This converts 401 (Unauthorized) to 403 (Forbidden) to avoid leaking information about authentication status.
     """
+    _forbidden = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     async def _dep(
         league_id: int,
@@ -292,47 +301,24 @@ def make_require_league_member_with_403_auth():
             HTTPBearer(auto_error=False)
         ),
     ) -> dict:
-        # Check authentication - return 403 if not authenticated
         if credentials is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            raise _forbidden
 
-        token = credentials.credentials
+        payload = auth_service.verify_token(credentials.credentials)
+        if payload is None or payload.get("user_id") is None:
+            raise _forbidden
 
-        # Verify token
-        payload = auth_service.verify_token(token)
-        if payload is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        user = await user_service.get_user_by_id(session, payload["user_id"])
+        if user is None or _is_deletion_expired(user):
+            raise _forbidden
 
-        # Get user_id from token
-        user_id = payload.get("user_id")
-        if user_id is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-        # Get user from database
-        user = await user_service.get_user_by_id(session, user_id)
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-        # Block users whose deletion grace period has expired
-        deletion_at = user.get("deletion_scheduled_at")
-        if deletion_at:
-            try:
-                scheduled = datetime.fromisoformat(deletion_at)
-                if scheduled.tzinfo is None:
-                    from datetime import timezone
-                    scheduled = scheduled.replace(tzinfo=timezone.utc)
-                if utcnow() >= scheduled:
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-            except (ValueError, TypeError):
-                pass
-
-        # Check league membership - return 403 if not a member
+        # Check league membership
         if await _is_system_admin(session, user):
             return user
         if not await _has_league_role(
             session, user_id=user["id"], league_id=league_id, required_role=None
         ):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            raise _forbidden
         return user
 
     return _dep

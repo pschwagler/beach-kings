@@ -29,7 +29,9 @@ const PlayerAvatar = ({ avatar, playerName }) => {
   );
 };
 
-export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null, placeholderPlayerIds = null }) {
+const MEDAL_ICONS = ['🥇', '🥈', '🥉'];
+
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null, placeholderPlayerIds = null, awardsFinalized = false }) {
   const router = useRouter();
   const pathname = usePathname();
   
@@ -276,7 +278,18 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 onClick={() => onPlayerClick(player.player_id, player.Name)}
                 data-testid="rankings-row"
               >
-                <td className="rank-number-cell">{isAllSeasons ? '-' : (player.season_rank || idx + 1)}</td>
+                <td className="rank-number-cell">
+                  {isAllSeasons ? '-' : (
+                    <>
+                      {awardsFinalized && player.season_rank <= 3 && (
+                        <span className="rank-medal" aria-label={`${['Gold', 'Silver', 'Bronze'][player.season_rank - 1]} medal`}>
+                          {MEDAL_ICONS[player.season_rank - 1]}
+                        </span>
+                      )}
+                      {(!awardsFinalized || player.season_rank > 3) && (player.season_rank || idx + 1)}
+                    </>
+                  )}
+                </td>
                 <td className="sticky-col rankings-name-cell">
                   <span className="player-name-modern">
                     <PlayerAvatar avatar={player.avatar} playerName={player.Name} />

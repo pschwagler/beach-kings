@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Loader2, TrendingUp, Trophy, Target, Percent, Flame, Diff } from 'lucide-react';
 import StatCard from '../ui/StatCard';
 import RatingChart from './RatingChart';
+import PlayerTrophies from '../player/PlayerTrophies';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
 
 /** API field names from match history response. */
@@ -585,6 +586,9 @@ export default function MyStatsTab({ currentUserPlayer }) {
   return (
     <div className="my-stats-tab">
       <h2 className="my-stats-tab__title">My Stats</h2>
+
+      {/* Trophies — compact badges, renders nothing if no awards */}
+      {currentUserPlayer?.id && <PlayerTrophies playerId={currentUserPlayer.id} compact />}
 
       {/* Time Range Filter */}
       <div className="my-stats-tab__time-filter">
