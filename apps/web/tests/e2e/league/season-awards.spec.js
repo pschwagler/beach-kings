@@ -37,7 +37,7 @@ test.describe('Season Awards', () => {
     // 4. Verify the Awards tab is visible
     const awardsHeader = page.locator('.awards-tab__title');
     await expect(awardsHeader).toBeVisible({ timeout: 10000 });
-    await expect(awardsHeader).toHaveText('Season Awards');
+    await expect(awardsHeader).toHaveText('Season Results');
 
     // 5. Check for either awards content or empty state
     const hasAwards = await page.locator('.awards-tab__season').count() > 0;

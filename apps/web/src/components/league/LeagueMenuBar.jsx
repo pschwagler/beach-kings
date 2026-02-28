@@ -111,7 +111,7 @@ export default function LeagueMenuBar({
       icon: Award,
       active: activeTab === 'awards',
       onClick: () => onTabChange && onTabChange('awards'),
-      title: 'Season Awards',
+      title: 'Season Results',
     },
     {
       id: 'signups',

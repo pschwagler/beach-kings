@@ -22,7 +22,7 @@ function AwardsHeader() {
   return (
     <div className="awards-tab__header">
       <Award size={22} />
-      <h2 className="awards-tab__title">Season Awards</h2>
+      <h2 className="awards-tab__title">Season Results</h2>
     </div>
   );
 }
