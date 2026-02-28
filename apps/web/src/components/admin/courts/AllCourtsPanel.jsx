@@ -42,6 +42,9 @@ export default function AllCourtsPanel() {
     load();
   }, [page, statusFilter]);
 
+  // Clean up debounce timer on unmount
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
   /** Debounced search — resets to page 1 on new search. */
   const handleSearchChange = (e) => {
     const val = e.target.value;

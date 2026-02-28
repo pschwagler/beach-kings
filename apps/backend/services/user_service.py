@@ -37,6 +37,7 @@ from backend.database.models import (
     SessionParticipant,
     Feedback,
     CourtReview,
+    CourtReviewPhoto,
     CourtPhoto,
     CourtEditSuggestion,
     PlayerInvite,
@@ -824,17 +825,35 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
             select(CourtPhoto.s3_key).where(CourtPhoto.uploaded_by == player_id)
         )
         photo_keys = [row[0] for row in photo_result.all()]
-        if photo_keys:
+
+        # Also collect S3 keys from court review photos (cascaded via DB FK, but S3 needs explicit cleanup)
+        review_photo_result = await session.execute(
+            select(CourtReviewPhoto.s3_key)
+            .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
+            .where(CourtReview.player_id == player_id)
+        )
+        review_photo_keys = [row[0] for row in review_photo_result.all()]
+
+        all_s3_keys = photo_keys + review_photo_keys
+        if all_s3_keys:
             try:
                 from backend.services import s3_service
-                for key in photo_keys:
+                for key in all_s3_keys:
                     s3_service.delete_file(key)
             except Exception as e:
-                logger.warning(f"Failed to delete court photo S3 objects for player {player_id}: {e}")
+                logger.warning(f"Failed to delete S3 objects for player {player_id}: {e}")
+
         await session.execute(delete(CourtPhoto).where(CourtPhoto.uploaded_by == player_id))
         await session.execute(delete(CourtReview).where(CourtReview.player_id == player_id))
+
+        # Null out reviewed_by instead of deleting other users' suggestions
+        await session.execute(
+            update(CourtEditSuggestion)
+            .where(CourtEditSuggestion.reviewed_by == player_id)
+            .values(reviewed_by=None)
+        )
         await session.execute(delete(CourtEditSuggestion).where(
-            (CourtEditSuggestion.suggested_by == player_id) | (CourtEditSuggestion.reviewed_by == player_id)
+            CourtEditSuggestion.suggested_by == player_id
         ))
 
         # Feedback (FK is user_id, but delete here since we have the context)
@@ -866,6 +885,12 @@ async def execute_account_deletion(session: AsyncSession, user_id: int) -> bool:
     # RefreshToken and PasswordResetToken have cascade delete, but be explicit
     await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
     await session.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+
+    # Clean up verification codes (keyed on phone_number, not user_id — PII concern)
+    if user.phone_number:
+        await session.execute(
+            delete(VerificationCode).where(VerificationCode.phone_number == user.phone_number)
+        )
 
     # --- Anonymize user PII ---
     user.phone_number = None

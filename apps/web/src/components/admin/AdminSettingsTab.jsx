@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { getAdminConfig, updateAdminConfig } from '../../services/api';
 
 /**
@@ -17,6 +17,11 @@ export default function AdminSettingsTab() {
   const [enableSms, setEnableSms] = useState(false);
   const [enableEmail, setEnableEmail] = useState(false);
   const [logLevel, setLogLevel] = useState(null);
+
+  const successTimerRef = useRef(null);
+
+  // Clean up success message timer on unmount
+  useEffect(() => () => clearTimeout(successTimerRef.current), []);
 
   const [originalValues, setOriginalValues] = useState({
     enable_sms: false,
@@ -87,7 +92,8 @@ export default function AdminSettingsTab() {
         log_level: updatedConfig.log_level || 'INFO',
       });
       setSuccessMessage('Configuration updated successfully!');
-      setTimeout(() => setSuccessMessage(null), 5000);
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error('Error updating admin config:', err);
       if (err.response?.status === 403) {

@@ -66,12 +66,23 @@ async def get_current_user(
     # If account deletion grace period has expired, treat as deleted
     deletion_at = user.get("deletion_scheduled_at")
     if deletion_at:
-        scheduled = datetime.fromisoformat(deletion_at)
-        if utcnow() >= scheduled:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Account has been deleted",
-                headers={"WWW-Authenticate": "Bearer"},
+        try:
+            scheduled = datetime.fromisoformat(deletion_at)
+            # Ensure timezone-aware for safe comparison with utcnow()
+            if scheduled.tzinfo is None:
+                from datetime import timezone
+                scheduled = scheduled.replace(tzinfo=timezone.utc)
+            if utcnow() >= scheduled:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account has been deleted",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+        except (ValueError, TypeError):
+            # Malformed timestamp — log but don't block the user
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Could not parse deletion_scheduled_at for user {user.get('id')}: {deletion_at!r}"
             )
 
     return user
@@ -301,6 +312,19 @@ def make_require_league_member_with_403_auth():
         user = await user_service.get_user_by_id(session, user_id)
         if user is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        # Block users whose deletion grace period has expired
+        deletion_at = user.get("deletion_scheduled_at")
+        if deletion_at:
+            try:
+                scheduled = datetime.fromisoformat(deletion_at)
+                if scheduled.tzinfo is None:
+                    from datetime import timezone
+                    scheduled = scheduled.replace(tzinfo=timezone.utc)
+                if utcnow() >= scheduled:
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            except (ValueError, TypeError):
+                pass
 
         # Check league membership - return 403 if not a member
         if await _is_system_admin(session, user):

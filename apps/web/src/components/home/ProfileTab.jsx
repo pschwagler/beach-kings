@@ -22,12 +22,14 @@ const getErrorMessage = (error) => error.response?.data?.detail || error.message
 /**
  * Compute days remaining until account deletion, or null if no deletion is scheduled.
  */
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 function getDeletionDaysRemaining(deletionScheduledAt) {
   if (!deletionScheduledAt) return null;
   const scheduledDate = new Date(deletionScheduledAt);
   const now = new Date();
   const diffMs = scheduledDate - now;
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.ceil(diffMs / MS_PER_DAY));
 }
 
 export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }) {
@@ -301,13 +303,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     setIsDeletionPending(true);
     try {
       await scheduleAccountDeletion();
-      showToast('Account deletion scheduled', 'success');
-      setShowDeleteConfirm(false);
-      setDeleteConfirmText('');
-      await fetchCurrentUser();
+      showToast('Account deletion scheduled. You have 30 days to log back in to cancel.', 'success');
+      // Logout will unmount this component, so skip further setState
+      await logout();
+      return;
     } catch (error) {
       showToast(getErrorMessage(error), 'error');
-    } finally {
       setIsDeletionPending(false);
     }
   };

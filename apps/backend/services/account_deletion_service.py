@@ -60,9 +60,14 @@ class AccountDeletionService:
                 pass  # interval elapsed, loop again
 
     async def _process_expired_deletions(self) -> None:
-        """Find and execute all expired account deletions."""
+        """Find and execute all expired account deletions.
+
+        Uses a separate session per user to ensure proper transaction isolation —
+        a failure deleting one account does not affect others.
+        """
         from backend.services import user_service
 
+        # Query phase: find all expired user IDs
         async with db.AsyncSessionLocal() as session:
             now = utcnow()
             result = await session.execute(
@@ -73,17 +78,18 @@ class AccountDeletionService:
             )
             user_ids = [row[0] for row in result.all()]
 
-            if not user_ids:
-                return
+        if not user_ids:
+            return
 
-            logger.info(f"Found {len(user_ids)} account(s) to delete")
+        logger.info(f"Found {len(user_ids)} account(s) to delete")
 
-            for uid in user_ids:
-                try:
+        # Deletion phase: one session per user for clean isolation
+        for uid in user_ids:
+            try:
+                async with db.AsyncSessionLocal() as session:
                     await user_service.execute_account_deletion(session, uid)
-                except Exception as e:
-                    logger.error(f"Error deleting account {uid}: {e}", exc_info=True)
-                    await session.rollback()
+            except Exception as e:
+                logger.error(f"Error deleting account {uid}: {e}", exc_info=True)
 
 
 # Global singleton

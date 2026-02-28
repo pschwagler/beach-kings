@@ -3,6 +3,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import { calculateWinner } from '../components/league/utils/matchUtils';
 
+const PENDING_ID_PREFIX = 'pending-';
+
+/** Check if a match ID is a pending (not-yet-persisted) entry. */
+const isPendingId = (id) => typeof id === 'string' && id.startsWith(PENDING_ID_PREFIX);
+
+/** Extract the array index from a pending ID string. */
+const parsePendingIndex = (id) => parseInt(id.slice(PENDING_ID_PREFIX.length), 10);
+
 /**
  * Buffer state machine for pickup session edit mode.
  *
@@ -23,7 +31,7 @@ export function useEditBuffer() {
   /** True when the buffer contains any pending changes. */
   const isDirty = useMemo(
     () => modified.size > 0 || added.length > 0 || deleted.size > 0,
-    [modified.size, added.length, deleted.size],
+    [modified, added, deleted],
   );
 
   /**
@@ -32,9 +40,9 @@ export function useEditBuffer() {
    * @param {Object} payload - Match payload from AddMatchModal
    */
   const bufferEdit = useCallback((matchId, payload) => {
-    if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
+    if (isPendingId(matchId)) {
       // Editing a just-added match — update in `added` array in-place
-      const index = parseInt(matchId.split('-')[1], 10);
+      const index = parsePendingIndex(matchId);
       setAdded((prev) => {
         if (isNaN(index) || index < 0 || index >= prev.length) return prev;
         const next = [...prev];
@@ -67,8 +75,8 @@ export function useEditBuffer() {
    * @param {number|string} matchId
    */
   const bufferDelete = useCallback((matchId) => {
-    if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
-      const index = parseInt(matchId.split('-')[1], 10);
+    if (isPendingId(matchId)) {
+      const index = parsePendingIndex(matchId);
       setAdded((prev) => {
         if (isNaN(index) || index < 0 || index >= prev.length) return prev;
         return prev.filter((_, i) => i !== index);
@@ -196,7 +204,7 @@ export function mergeBufferWithMatches(matches, buffer, participantLookup) {
   // 3. Append added entries with pending-* IDs
   added.forEach((payload, index) => {
     result.push({
-      id: `pending-${index}`,
+      id: `${PENDING_ID_PREFIX}${index}`,
       Date: new Date().toISOString().split('T')[0],
       'Session ID': payload.session_id ?? null,
       'Session Name': '',

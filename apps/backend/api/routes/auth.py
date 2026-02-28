@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _maybe_cancel_deletion(session: AsyncSession, user: dict) -> None:
+    """Cancel pending account deletion if the user logs in during the grace period."""
+    if user.get("deletion_scheduled_at"):
+        await user_service.cancel_account_deletion(session, user["id"])
+
+
 async def _issue_tokens(
     session: AsyncSession, user: dict
 ) -> tuple:
@@ -126,7 +132,8 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during signup: {str(e)}")
+        logger.exception("Error during signup")
+        raise HTTPException(status_code=500, detail="Error during signup. Please try again.")
 
 
 @router.post("/api/auth/login", response_model=AuthResponse)
@@ -155,9 +162,7 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise INVALID_CREDENTIALS_RESPONSE
 
-        # Auto-cancel pending account deletion on login
-        if user.get("deletion_scheduled_at"):
-            await user_service.cancel_account_deletion(session, user["id"])
+        await _maybe_cancel_deletion(session, user)
 
         access_token, refresh_token = await _issue_tokens(session, user)
 
@@ -175,7 +180,8 @@ async def login(request: LoginRequest, session: AsyncSession = Depends(get_db_se
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+        logger.exception("Error during login")
+        raise HTTPException(status_code=500, detail="Error during login. Please try again.")
 
 
 @router.post("/api/auth/google", response_model=AuthResponse)
@@ -238,9 +244,7 @@ async def google_auth(
                 except Exception as e:
                     logger.warning(f"Failed to import Google avatar for player {player['id']}: {e}")
 
-        # Auto-cancel pending account deletion on login
-        if user.get("deletion_scheduled_at"):
-            await user_service.cancel_account_deletion(session, user["id"])
+        await _maybe_cancel_deletion(session, user)
 
         # Issue tokens
         access_token, refresh_token = await _issue_tokens(session, user)
@@ -334,7 +338,8 @@ async def send_verification(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending verification: {str(e)}")
+        logger.exception("Error sending verification")
+        raise HTTPException(status_code=500, detail="Error sending verification. Please try again.")
 
 
 @router.post("/api/auth/verify-phone", response_model=AuthResponse)
@@ -394,9 +399,7 @@ async def verify_phone(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        # Auto-cancel pending account deletion on login
-        if user.get("deletion_scheduled_at"):
-            await user_service.cancel_account_deletion(session, user["id"])
+        await _maybe_cancel_deletion(session, user)
 
         access_token, refresh_token = await _issue_tokens(session, user)
         profile_complete = await _check_profile_complete(session, user["id"])
@@ -416,7 +419,8 @@ async def verify_phone(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error verifying phone: {str(e)}")
+        logger.exception("Error verifying phone")
+        raise HTTPException(status_code=500, detail="Error verifying phone. Please try again.")
 
 
 @router.post("/api/auth/reset-password", response_model=Dict[str, Any])
@@ -455,7 +459,8 @@ async def reset_password(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error initiating password reset: {str(e)}")
+        logger.exception("Error initiating password reset")
+        raise HTTPException(status_code=500, detail="Error initiating password reset. Please try again.")
 
 
 @router.post("/api/auth/reset-password-verify", response_model=Dict[str, Any])
@@ -505,7 +510,8 @@ async def reset_password_verify(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error verifying reset code: {str(e)}")
+        logger.exception("Error verifying reset code")
+        raise HTTPException(status_code=500, detail="Error verifying reset code. Please try again.")
 
 
 @router.post("/api/auth/reset-password-confirm", response_model=AuthResponse)
@@ -551,7 +557,8 @@ async def reset_password_confirm(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error resetting password: {str(e)}")
+        logger.exception("Error resetting password")
+        raise HTTPException(status_code=500, detail="Error resetting password. Please try again.")
 
 
 @router.post("/api/auth/sms-login", response_model=AuthResponse)
@@ -578,9 +585,7 @@ async def sms_login(
 
         await user_service.reset_failed_attempts(session, user["id"])
 
-        # Auto-cancel pending account deletion on login
-        if user.get("deletion_scheduled_at"):
-            await user_service.cancel_account_deletion(session, user["id"])
+        await _maybe_cancel_deletion(session, user)
 
         access_token, refresh_token = await _issue_tokens(session, user)
 
@@ -596,7 +601,8 @@ async def sms_login(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during SMS login: {str(e)}")
+        logger.exception("Error during SMS login")
+        raise HTTPException(status_code=500, detail="Error during SMS login. Please try again.")
 
 
 @router.get("/api/auth/check-phone", response_model=CheckPhoneResponse)
@@ -609,7 +615,8 @@ async def check_phone(phone_number: str, session: AsyncSession = Depends(get_db_
             exists=user is not None, is_verified=user.get("is_verified", False)
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error checking phone: {str(e)}")
+        logger.exception("Error checking phone")
+        raise HTTPException(status_code=500, detail="Error checking phone. Please try again.")
 
 
 @router.post("/api/auth/refresh", response_model=RefreshTokenResponse)
@@ -646,7 +653,8 @@ async def refresh_token(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error refreshing token: {str(e)}")
+        logger.exception("Error refreshing token")
+        raise HTTPException(status_code=500, detail="Error refreshing token. Please try again.")
 
 
 @router.post("/api/auth/logout")
@@ -658,7 +666,8 @@ async def logout(
         await user_service.delete_user_refresh_tokens(session, current_user["id"])
         return {"status": "success", "message": "Logged out successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+        logger.exception("Error during logout")
+        raise HTTPException(status_code=500, detail="Error during logout. Please try again.")
 
 
 @router.get("/api/auth/me", response_model=UserResponse)

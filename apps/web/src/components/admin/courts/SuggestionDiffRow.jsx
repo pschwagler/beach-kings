@@ -90,8 +90,9 @@ export default function SuggestionDiffRow({ suggestion, onResolved }) {
       // Apply selected fields to court
       await updateCourtDiscovery(court_id, selectedFields);
 
-      // Resolve suggestion — 'approved' only if all fields selected & unmodified
-      const action = allSelectedAndUnmodified ? 'approved' : 'rejected';
+      // Resolve suggestion — 'approved' if all fields selected & unmodified,
+      // 'partially_applied' if admin cherry-picked or modified values
+      const action = allSelectedAndUnmodified ? 'approved' : 'partially_applied';
       await resolveCourtEditSuggestion(suggestionId, action);
 
       onResolved?.(suggestionId);

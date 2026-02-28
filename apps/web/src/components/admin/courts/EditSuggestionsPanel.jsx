@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getAdminAllSuggestions } from '../../../services/api';
 import { formatDate } from '../adminUtils';
@@ -18,7 +18,7 @@ export default function EditSuggestionsPanel({ onCountChange }) {
   const [expandedId, setExpandedId] = useState(null);
   const pageSize = 25;
 
-  const load = async (p = page) => {
+  const load = useCallback(async (p = page) => {
     try {
       setLoading(true);
       const data = await getAdminAllSuggestions({ status: 'pending', page: p, page_size: pageSize });
@@ -30,11 +30,11 @@ export default function EditSuggestionsPanel({ onCountChange }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, onCountChange]);
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [load]);
 
   const handleResolved = (suggestionId) => {
     setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));

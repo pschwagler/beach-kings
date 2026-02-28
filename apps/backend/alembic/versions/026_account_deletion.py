@@ -57,5 +57,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove deletion_scheduled_at column and index from users table."""
-    op.drop_index("idx_users_deletion_scheduled", table_name="users")
-    op.drop_column("users", "deletion_scheduled_at")
+    conn = op.get_bind()
+    if _column_exists(conn, "users", "deletion_scheduled_at"):
+        op.drop_index("idx_users_deletion_scheduled", table_name="users")
+        op.drop_column("users", "deletion_scheduled_at")

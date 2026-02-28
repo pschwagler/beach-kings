@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Trash2, Star, Loader } from 'lucide-react';
 import { updateCourtDiscovery, adminDeleteCourtPhoto, adminReorderCourtPhotos, adminDeleteReview } from '../../../services/api';
 import ImageLightbox from '../../ui/ImageLightbox';
+
+const CONFIRM_TIMEOUT_MS = 3000;
 
 const TEXT_FIELDS = [
   { key: 'name', label: 'Name', type: 'text' },
@@ -85,16 +87,8 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
   const [localReviews, setLocalReviews] = useState(reviews);
 
   // Keep local state in sync when props update (detail loads)
-  const prevPhotosRef = useRef(photos);
-  const prevReviewsRef = useRef(reviews);
-  if (photos !== prevPhotosRef.current) {
-    prevPhotosRef.current = photos;
-    setLocalPhotos(photos);
-  }
-  if (reviews !== prevReviewsRef.current) {
-    prevReviewsRef.current = reviews;
-    setLocalReviews(reviews);
-  }
+  useEffect(() => { setLocalPhotos(photos); }, [photos]);
+  useEffect(() => { setLocalReviews(reviews); }, [reviews]);
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -237,18 +231,10 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
   const [overIdx, setOverIdx] = useState(null);
   const timerRef = useRef(null);
 
-  const handleDeleteClick = useCallback((photoId) => {
-    if (confirmId === photoId) {
-      clearTimeout(timerRef.current);
-      setConfirmId(null);
-      doDelete(photoId);
-    } else {
-      setConfirmId(photoId);
-      timerRef.current = setTimeout(() => setConfirmId(null), 3000);
-    }
-  }, [confirmId]);
+  // Clean up confirm timer on unmount
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const doDelete = async (photoId) => {
+  const doDelete = useCallback(async (photoId) => {
     try {
       setDeletingId(photoId);
       await adminDeleteCourtPhoto(photoId);
@@ -258,7 +244,18 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
     } finally {
       setDeletingId(null);
     }
-  };
+  }, [onPhotoDeleted]);
+
+  const handleDeleteClick = useCallback((photoId) => {
+    if (confirmId === photoId) {
+      clearTimeout(timerRef.current);
+      setConfirmId(null);
+      doDelete(photoId);
+    } else {
+      setConfirmId(photoId);
+      timerRef.current = setTimeout(() => setConfirmId(null), CONFIRM_TIMEOUT_MS);
+    }
+  }, [confirmId, doDelete]);
 
   /** Reorder on drop: optimistic update, revert on API failure. */
   const handleDrop = async (e, targetIdx) => {
@@ -358,18 +355,10 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }) {
   const [deletingId, setDeletingId] = useState(null);
   const timerRef = useRef(null);
 
-  const handleDeleteClick = useCallback((reviewId) => {
-    if (confirmId === reviewId) {
-      clearTimeout(timerRef.current);
-      setConfirmId(null);
-      doDelete(reviewId);
-    } else {
-      setConfirmId(reviewId);
-      timerRef.current = setTimeout(() => setConfirmId(null), 3000);
-    }
-  }, [confirmId]);
+  // Clean up confirm timer on unmount
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const doDelete = async (reviewId) => {
+  const doDelete = useCallback(async (reviewId) => {
     try {
       setDeletingId(reviewId);
       await adminDeleteReview(reviewId);
@@ -379,7 +368,18 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }) {
     } finally {
       setDeletingId(null);
     }
-  };
+  }, [onReviewDeleted]);
+
+  const handleDeleteClick = useCallback((reviewId) => {
+    if (confirmId === reviewId) {
+      clearTimeout(timerRef.current);
+      setConfirmId(null);
+      doDelete(reviewId);
+    } else {
+      setConfirmId(reviewId);
+      timerRef.current = setTimeout(() => setConfirmId(null), CONFIRM_TIMEOUT_MS);
+    }
+  }, [confirmId, doDelete]);
 
   /** Render star icons for a rating. */
   const renderStars = (rating) => {
