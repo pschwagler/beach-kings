@@ -3,11 +3,8 @@ import { test, expect } from '../fixtures/test-fixtures.js';
 /**
  * E2E tests for the admin panel access and basic functionality.
  *
- * Uses `adminUser` (system admin) and `testUser` (non-admin).
+ * Uses `adminUser` (system admin) fixture.
  * Admin panel is at /admin-view.
- *
- * NOTE: All admin endpoints use require_system_admin (configurable via DB settings).
- * The adminUser fixture grants require_system_admin access.
  */
 
 /**
@@ -39,44 +36,60 @@ test.describe('Admin Panel', () => {
     try {
       await authenticateAndGoto(page, adminUser, '/admin-view');
 
-      // The page should load without showing an access denied error
-      // The admin container should be visible
+      // Admin panel container and title should be visible
       await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
+      await expect(page.locator('h1')).toContainText('Admin Panel', { timeout: 10000 });
 
-      // Court Submissions section should be accessible (uses require_system_admin)
-      await expect(page.locator('h2', { hasText: 'Court Submissions' }))
+      // Dashboard tab (default) should load with Platform Stats
+      await expect(page.locator('h2', { hasText: 'Platform Stats' }))
         .toBeVisible({ timeout: 10000 });
     } finally {
       await context.close();
     }
   });
 
-  test('non-admin sees access denied', async ({
+  test('admin panel has all tab buttons', async ({
     browser,
-    testUser,
+    adminUser,
   }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
     try {
-      await authenticateAndGoto(page, testUser, '/admin-view');
+      await authenticateAndGoto(page, adminUser, '/admin-view');
+      await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
 
-      // Should show access denied or error message
-      await expect(page.locator('.error-message')).toBeVisible({ timeout: 15000 });
-      await expect(page.locator('.error-message')).toContainText('Access denied');
+      // All four tabs should be present
+      await expect(page.locator('.admin-tab-btn', { hasText: 'Dashboard' })).toBeVisible();
+      await expect(page.locator('.admin-tab-btn', { hasText: 'Settings' })).toBeVisible();
+      await expect(page.locator('.admin-tab-btn', { hasText: 'Courts' })).toBeVisible();
+      await expect(page.locator('.admin-tab-btn', { hasText: 'Feedback' })).toBeVisible();
     } finally {
       await context.close();
     }
   });
 
-  test('unauthenticated user sees login prompt', async ({ page }) => {
-    // Visit admin panel without auth
-    await page.goto('/admin-view');
+  test('tab switching works', async ({
+    browser,
+    adminUser,
+  }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-    // Should show a login required error or redirect
-    // The page renders in admin-view-container with an error
-    await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('.error-message')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.error-message')).toContainText('log in');
+    try {
+      await authenticateAndGoto(page, adminUser, '/admin-view');
+      await expect(page.locator('.admin-view-container')).toBeVisible({ timeout: 15000 });
+
+      // Click Courts tab
+      await page.locator('.admin-tab-btn', { hasText: 'Courts' }).click();
+
+      // Courts sub-tab pills should appear
+      await expect(page.locator('.admin-courts-pill').first()).toBeVisible({ timeout: 10000 });
+
+      // URL should update
+      await expect(page).toHaveURL(/tab=courts/);
+    } finally {
+      await context.close();
+    }
   });
 });

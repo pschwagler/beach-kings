@@ -641,12 +641,24 @@ async def admin_delete_court_review(
 async def list_all_courts_admin(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    surface_type: Optional[str] = Query(None),
+    has_photos: Optional[bool] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List all courts with search, status filter, and pagination (system admin)."""
+    """List all courts with search, filters, sorting, and pagination (system admin)."""
     return await court_service.list_all_courts_admin(
-        session, search=search, status=status, page=page, page_size=page_size
+        session,
+        search=search,
+        status=status,
+        surface_type=surface_type,
+        has_photos=has_photos,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
     )

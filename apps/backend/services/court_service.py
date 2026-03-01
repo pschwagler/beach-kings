@@ -867,23 +867,54 @@ async def _set_court_status(
     }
 
 
+_ADMIN_SORT_COLUMNS = {
+    "name": Court.name,
+    "created_at": Court.created_at,
+    "court_count": Court.court_count,
+    "surface_type": Court.surface_type,
+    "status": Court.status,
+}
+
+
 async def list_all_courts_admin(
     session: AsyncSession,
     *,
     search: Optional[str] = None,
     status: Optional[str] = None,
+    surface_type: Optional[str] = None,
+    has_photos: Optional[bool] = None,
+    sort_by: Optional[str] = None,
+    sort_dir: Optional[str] = "desc",
     page: int = 1,
     page_size: int = 25,
 ) -> Dict:
     """
-    List all courts for admin with search, status filter, and pagination.
+    List all courts for admin with search, filters, sorting, and pagination.
 
+    Supports sorting by name, created_at, court_count, surface_type, status.
+    Supports filtering by status, surface_type, and has_photos (boolean).
     Returns dict with ``items`` list and ``total`` count.
     """
+    # Photo count subquery for has_photos filter and response data
+    photo_count_sq = (
+        select(
+            CourtPhoto.court_id,
+            func.count(CourtPhoto.id).label("photo_count"),
+        )
+        .group_by(CourtPhoto.court_id)
+        .subquery()
+    )
+
     base = (
-        select(Court, Player.full_name, Location.name.label("location_name"))
+        select(
+            Court,
+            Player.full_name,
+            Location.name.label("location_name"),
+            func.coalesce(photo_count_sq.c.photo_count, 0).label("photo_count"),
+        )
         .outerjoin(Player, Court.created_by == Player.id)
         .outerjoin(Location, Court.location_id == Location.id)
+        .outerjoin(photo_count_sq, Court.id == photo_count_sq.c.court_id)
     )
 
     filters = []
@@ -897,6 +928,12 @@ async def list_all_courts_admin(
         )
     if status and status != "all":
         filters.append(Court.status == status)
+    if surface_type and surface_type != "all":
+        filters.append(Court.surface_type == surface_type)
+    if has_photos is True:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) > 0)
+    elif has_photos is False:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) == 0)
 
     if filters:
         base = base.where(and_(*filters))
@@ -905,8 +942,10 @@ async def list_all_courts_admin(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await session.execute(count_q)).scalar() or 0
 
-    # Paginated results
-    q = base.order_by(Court.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    # Sorting
+    sort_col = _ADMIN_SORT_COLUMNS.get(sort_by, Court.created_at)
+    order_clause = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+    q = base.order_by(order_clause).offset((page - 1) * page_size).limit(page_size)
     rows = (await session.execute(q)).all()
 
     items = [
@@ -933,9 +972,10 @@ async def list_all_courts_admin(
             "cost_info": court.cost_info,
             "parking_info": court.parking_info,
             "submitter_name": submitter_name,
+            "photo_count": photo_count,
             "created_at": court.created_at.isoformat() if court.created_at else None,
         }
-        for court, submitter_name, location_name in rows
+        for court, submitter_name, location_name, photo_count in rows
     ]
 
     return {"items": items, "total": total, "page": page, "page_size": page_size}

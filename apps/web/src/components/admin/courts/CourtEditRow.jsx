@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Trash2, Star, Loader } from 'lucide-react';
-import { updateCourtDiscovery, adminDeleteCourtPhoto, adminReorderCourtPhotos, adminDeleteReview } from '../../../services/api';
+import { Trash2, Star, Loader, Camera } from 'lucide-react';
+import { updateCourtDiscovery, adminDeleteCourtPhoto, adminReorderCourtPhotos, adminDeleteReview, uploadCourtPhoto } from '../../../services/api';
 import ImageLightbox from '../../ui/ImageLightbox';
 
 const CONFIRM_TIMEOUT_MS = 3000;
@@ -204,6 +204,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
         courtId={court.id}
         photos={localPhotos}
         onPhotoDeleted={(photoId) => setLocalPhotos((prev) => prev.filter((p) => p.id !== photoId))}
+        onPhotoAdded={(photo) => setLocalPhotos((prev) => [photo, ...prev])}
         onPhotosReordered={(reordered) => setLocalPhotos(reordered)}
         detailLoading={detailLoading}
       />
@@ -220,10 +221,11 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
 
 
 /**
- * Thumbnail strip of court photos with drag-and-drop reordering and inline-confirm delete.
+ * Thumbnail strip of court photos with drag-and-drop reordering, inline-confirm delete,
+ * and photo upload via the existing uploadCourtPhoto API.
  * First photo is the cover photo.
  */
-function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, detailLoading }) {
+function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotosReordered, detailLoading }) {
   const [confirmId, setConfirmId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -233,11 +235,55 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
   const timerRef = useRef(null);
   const confirmIdRef = useRef(null);
 
+  // Upload state
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+
   // Keep ref in sync with state so click handler always reads the latest value
   confirmIdRef.current = confirmId;
 
-  // Clean up confirm timer on unmount
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  // Clean up confirm timer and preview URL on unmount
+  useEffect(() => () => {
+    clearTimeout(timerRef.current);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  /** Handle file selection for upload preview. */
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setUploadError(null);
+  };
+
+  /** Cancel the upload preview and reset file input. */
+  const handleCancelPreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  /** Upload selected file and prepend new photo to local state. */
+  const handleUpload = async () => {
+    if (!selectedFile || !courtId) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const newPhoto = await uploadCourtPhoto(courtId, selectedFile);
+      onPhotoAdded(newPhoto);
+      handleCancelPreview();
+    } catch (err) {
+      setUploadError(err.response?.data?.detail || 'Failed to upload photo.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   /** Execute the delete API call and remove photo from local state. */
   const doDelete = async (photoId) => {
@@ -298,7 +344,51 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotosReordered, det
 
   return (
     <div className="admin-court-photos">
-      <div className="admin-court-photos__header">Photos</div>
+      <div className="admin-court-photos__header">
+        Photos
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+        {!previewUrl && (
+          <button
+            className="admin-court-photos__add-btn"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={detailLoading}
+            title="Add photo"
+          >
+            <Camera size={14} /> Add Photo
+          </button>
+        )}
+      </div>
+
+      {/* Upload preview */}
+      {previewUrl && (
+        <div className="admin-court-photos__upload-preview">
+          <img src={previewUrl} alt="Upload preview" className="admin-court-photos__preview-img" />
+          <div className="admin-court-photos__upload-actions">
+            <button
+              className="admin-court-photos__upload-btn"
+              onClick={handleUpload}
+              disabled={uploading}
+            >
+              {uploading ? <><Loader size={14} className="spinning" /> Uploading...</> : 'Upload'}
+            </button>
+            <button
+              className="admin-court-photos__cancel-btn"
+              onClick={handleCancelPreview}
+              disabled={uploading}
+            >
+              Cancel
+            </button>
+          </div>
+          {uploadError && <p className="admin-court-photos__error">{uploadError}</p>}
+        </div>
+      )}
+
       {detailLoading ? (
         <div className="admin-court-photos__loading">
           <Loader size={16} className="spinning" /> Loading...

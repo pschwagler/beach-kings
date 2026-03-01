@@ -5,7 +5,7 @@ import { createApiClient } from '../fixtures/api.js';
  * E2E tests for admin court moderation (approve/reject pending courts).
  *
  * Uses `adminUser` (system admin) + a test user who submits a court.
- * Admin panel is at /admin-view with court submissions section.
+ * Admin panel is at /admin-view?tab=courts with "Pending Submissions" sub-tab.
  */
 
 /**
@@ -42,6 +42,25 @@ async function submitPendingCourt(token, name) {
   return response.data;
 }
 
+/**
+ * Navigate to admin courts tab and switch to the Pending Submissions sub-tab.
+ */
+async function gotoPendingSubmissions(page, user) {
+  await authenticateAndGoto(page, user, '/admin-view?tab=courts');
+
+  // Admin panel should load
+  await expect(page.locator('h1')).toContainText('Admin Panel', { timeout: 15000 });
+
+  // Click "Pending Submissions" pill
+  const pendingPill = page.locator('.admin-courts-pill', { hasText: 'Pending Submissions' });
+  await expect(pendingPill).toBeVisible({ timeout: 10000 });
+  await pendingPill.click();
+
+  // Wait for pending submissions panel to load
+  await expect(page.locator('h2', { hasText: 'Pending Submissions' }))
+    .toBeVisible({ timeout: 10000 });
+}
+
 test.describe('Court Moderation', () => {
   test('view pending court submissions', async ({
     browser,
@@ -57,14 +76,7 @@ test.describe('Court Moderation', () => {
     const page = await context.newPage();
 
     try {
-      await authenticateAndGoto(page, adminUser, '/admin-view');
-
-      // Admin panel should load
-      await expect(page.locator('h1')).toContainText('Admin Configuration', { timeout: 15000 });
-
-      // Court Submissions section should be visible
-      await expect(page.locator('h2', { hasText: 'Court Submissions' }))
-        .toBeVisible({ timeout: 10000 });
+      await gotoPendingSubmissions(page, adminUser);
 
       // The submitted court should appear in the table
       await expect(page.locator('.admin-feedback-table', { hasText: courtName }))
@@ -87,8 +99,7 @@ test.describe('Court Moderation', () => {
     const page = await context.newPage();
 
     try {
-      await authenticateAndGoto(page, adminUser, '/admin-view');
-      await expect(page.locator('h1')).toContainText('Admin Configuration', { timeout: 15000 });
+      await gotoPendingSubmissions(page, adminUser);
 
       // Wait for the table with the court
       const courtRow = page.locator('tr', { hasText: courtName });
@@ -119,8 +130,7 @@ test.describe('Court Moderation', () => {
     const page = await context.newPage();
 
     try {
-      await authenticateAndGoto(page, adminUser, '/admin-view');
-      await expect(page.locator('h1')).toContainText('Admin Configuration', { timeout: 15000 });
+      await gotoPendingSubmissions(page, adminUser);
 
       // Wait for the table with the court
       const courtRow = page.locator('tr', { hasText: courtName });

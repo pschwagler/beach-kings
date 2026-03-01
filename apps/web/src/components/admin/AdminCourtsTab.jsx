@@ -7,16 +7,16 @@ import EditSuggestionsPanel from './courts/EditSuggestionsPanel';
 import AllCourtsPanel from './courts/AllCourtsPanel';
 
 const SUB_TABS = [
+  { key: 'all', label: 'All Courts' },
   { key: 'pending', label: 'Pending Submissions' },
   { key: 'suggestions', label: 'Edit Suggestions' },
-  { key: 'all', label: 'All Courts' },
 ];
 
 /**
  * Courts management tab with 3 pill sub-tabs and badge counts.
  */
 export default function AdminCourtsTab() {
-  const [activeSubTab, setActiveSubTab] = useState('pending');
+  const [activeSubTab, setActiveSubTab] = useState('all');
   const [pendingCount, setPendingCount] = useState(0);
   const [suggestionsCount, setSuggestionsCount] = useState(0);
 

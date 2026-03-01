@@ -517,6 +517,37 @@
   color: var(--danger);
 }
 
+/* ── Sortable column headers ── */
+.admin-th--sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.admin-th--sortable:hover {
+  color: var(--primary);
+}
+
+.admin-sort-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 2px;
+  color: var(--primary);
+}
+
+/* ── Photo count in table ── */
+.admin-court-photo-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--gray-700);
+}
+
+.admin-court-photo-count--none {
+  color: var(--gray-400);
+}
+
 /* ── Court edit row (expandable) ── */
 .admin-court-edit-row td {
   padding: 0 !important;
@@ -835,10 +866,104 @@
 
 .admin-court-photos__header,
 .admin-court-reviews__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 14px;
   font-weight: 600;
   color: var(--gray-700);
   margin-bottom: 12px;
+}
+
+.admin-court-photos__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: white;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-court-photos__add-btn:hover:not(:disabled) {
+  background: var(--primary-lighter);
+}
+
+.admin-court-photos__add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-court-photos__upload-preview {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.admin-court-photos__preview-img {
+  max-width: 200px;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.admin-court-photos__upload-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-court-photos__upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-court-photos__upload-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.admin-court-photos__upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-court-photos__cancel-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.admin-court-photos__cancel-btn:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.admin-court-photos__cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .admin-court-photos__loading,
