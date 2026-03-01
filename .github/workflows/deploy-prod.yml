@@ -84,10 +84,10 @@ jobs:
             git pull origin "$DEPLOY_BRANCH"
 
             echo "=== Pulling pre-built images ==="
-            docker compose pull frontend backend
+            docker-compose pull frontend backend
 
             echo "=== Starting containers ==="
-            docker compose up -d
+            docker-compose up -d
 
             echo "=== Waiting for services to start ==="
             sleep 15
