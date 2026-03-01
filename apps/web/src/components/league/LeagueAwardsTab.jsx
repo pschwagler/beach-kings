@@ -82,7 +82,8 @@ export default function LeagueAwardsTab({ leagueId }) {
     );
   }
 
-  // Group awards by season_id
+  // Group awards by season_id, preserving API order (newest first)
+  const seasonOrder = [];
   const seasonMap = {};
   awards.forEach((award) => {
     if (!seasonMap[award.season_id]) {
@@ -91,11 +92,12 @@ export default function LeagueAwardsTab({ leagueId }) {
         season_name: award.season_name,
         awards: [],
       };
+      seasonOrder.push(award.season_id);
     }
     seasonMap[award.season_id].awards.push(award);
   });
 
-  const seasons = Object.values(seasonMap);
+  const seasons = seasonOrder.map((id) => seasonMap[id]);
 
   if (seasons.length === 0) {
     return (
