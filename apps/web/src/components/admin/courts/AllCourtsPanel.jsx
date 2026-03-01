@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RefreshCw, ChevronUp, ChevronDown, Camera } from 'lucide-react';
 import { getAdminAllCourts, getCourtDetailById } from '../../../services/api';
+import { useApp } from '../../../contexts/AppContext';
 import { formatDate } from '../adminUtils';
 import CourtEditRow from './CourtEditRow';
 
@@ -22,14 +23,14 @@ const COLUMNS = [
  * Panel to browse all courts with search, filters, column sorting, and inline editing.
  */
 export default function AllCourtsPanel() {
+  const { locations } = useApp();
   const [courts, setCourts] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [surfaceFilter, setSurfaceFilter] = useState('all');
-  const [photosFilter, setPhotosFilter] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [expandedId, setExpandedId] = useState(null);
@@ -38,12 +39,30 @@ export default function AllCourtsPanel() {
   const debounceRef = useRef(null);
   const pageSize = 25;
 
+  /** Derive unique regions from locations. */
+  const regions = useMemo(() => {
+    const map = new Map();
+    locations.forEach((loc) => {
+      if (loc.region_id && !map.has(loc.region_id)) {
+        map.set(loc.region_id, loc.region_name);
+      }
+    });
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [locations]);
+
+  /** Filter locations by selected region. */
+  const filteredLocations = useMemo(() => {
+    if (regionFilter === 'all') return locations;
+    return locations.filter((loc) => loc.region_id === regionFilter);
+  }, [locations, regionFilter]);
+
   const load = useCallback(async (overrides = {}) => {
     const p = overrides.page ?? page;
     const s = overrides.search ?? search;
-    const st = overrides.statusFilter ?? statusFilter;
-    const sf = overrides.surfaceFilter ?? surfaceFilter;
-    const pf = overrides.photosFilter ?? photosFilter;
+    const rf = overrides.regionFilter ?? regionFilter;
+    const lf = overrides.locationFilter ?? locationFilter;
     const sb = overrides.sortBy ?? sortBy;
     const sd = overrides.sortDir ?? sortDir;
 
@@ -51,10 +70,8 @@ export default function AllCourtsPanel() {
       setLoading(true);
       const params = { page: p, page_size: pageSize, sort_by: sb, sort_dir: sd };
       if (s) params.search = s;
-      if (st && st !== 'all') params.status = st;
-      if (sf && sf !== 'all') params.surface_type = sf;
-      if (pf === 'yes') params.has_photos = true;
-      else if (pf === 'no') params.has_photos = false;
+      if (lf && lf !== 'all') params.location_id = lf;
+      else if (rf && rf !== 'all') params.region_id = rf;
       const data = await getAdminAllCourts(params);
       setCourts(data.items);
       setTotal(data.total);
@@ -63,11 +80,11 @@ export default function AllCourtsPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, surfaceFilter, photosFilter, sortBy, sortDir]);
+  }, [page, search, regionFilter, locationFilter, sortBy, sortDir]);
 
   useEffect(() => {
     load();
-  }, [page, statusFilter, surfaceFilter, photosFilter, sortBy, sortDir]);
+  }, [page, regionFilter, locationFilter, sortBy, sortDir]);
 
   // Clean up debounce timer on unmount
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -83,9 +100,16 @@ export default function AllCourtsPanel() {
     }, 400);
   };
 
-  /** Generic filter change handler — resets to page 1. */
-  const handleFilterChange = (setter) => (e) => {
-    setter(e.target.value);
+  /** Region change — resets location filter and page. */
+  const handleRegionChange = (e) => {
+    setRegionFilter(e.target.value);
+    setLocationFilter('all');
+    setPage(1);
+  };
+
+  /** Location change — resets page. */
+  const handleLocationChange = (e) => {
+    setLocationFilter(e.target.value);
     setPage(1);
   };
 
@@ -172,36 +196,25 @@ export default function AllCourtsPanel() {
         />
         <select
           className="admin-courts-status-select"
-          value={statusFilter}
-          onChange={handleFilterChange(setStatusFilter)}
-          aria-label="Filter by status"
+          value={regionFilter}
+          onChange={handleRegionChange}
+          aria-label="Filter by region"
         >
-          <option value="all">All statuses</option>
-          <option value="approved">Approved</option>
-          <option value="pending">Pending</option>
-          <option value="rejected">Rejected</option>
+          <option value="all">All regions</option>
+          {regions.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
         </select>
         <select
           className="admin-courts-status-select"
-          value={surfaceFilter}
-          onChange={handleFilterChange(setSurfaceFilter)}
-          aria-label="Filter by surface"
+          value={locationFilter}
+          onChange={handleLocationChange}
+          aria-label="Filter by location"
         >
-          <option value="all">All surfaces</option>
-          <option value="sand">Sand</option>
-          <option value="indoor_sand">Indoor Sand</option>
-          <option value="grass">Grass</option>
-          <option value="hard">Hard Court</option>
-        </select>
-        <select
-          className="admin-courts-status-select"
-          value={photosFilter}
-          onChange={handleFilterChange(setPhotosFilter)}
-          aria-label="Filter by photos"
-        >
-          <option value="all">All photos</option>
-          <option value="yes">Has photos</option>
-          <option value="no">No photos</option>
+          <option value="all">All locations</option>
+          {filteredLocations.map((loc) => (
+            <option key={loc.id} value={loc.id}>{loc.name}</option>
+          ))}
         </select>
       </div>
 

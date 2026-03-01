@@ -81,23 +81,25 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // Build set of placeholder player IDs for match display badges
   const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
 
-  // Build player name mappings from members only (members have player_id and player_name from API)
-  const { allPlayerNames, playerNameToId, playerIdToName, getPlayerIdFromMap } = useMemo(() => {
+  // Build player objects and name mappings from members
+  const { allPlayers, allPlayerNames, playerNameToId, playerIdToName } = useMemo(() => {
     const idToName = new Map();
     const nameToId = new Map();
+    const players = [];
     if (members && members.length > 0) {
       members.forEach((m) => {
         const name = m.player_name || `Player ${m.player_id}`;
         idToName.set(m.player_id, name);
         nameToId.set(name, m.player_id);
+        players.push({ id: m.player_id, name });
       });
     }
     const names = Array.from(nameToId.keys()).sort((a, b) => a.localeCompare(b));
     return {
+      allPlayers: players,
       allPlayerNames: names,
       playerNameToId: nameToId,
       playerIdToName: idToName,
-      getPlayerIdFromMap: (name) => nameToId.get(name) || null,
     };
   }, [members]);
 
@@ -300,10 +302,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   };
 
   // Use shared hook for player details drawer logic with auto-selection
-  const { handlePlayerClick, handlePlayerChange } = usePlayerDetailsDrawer({
+  const { handlePlayerClick } = usePlayerDetailsDrawer({
     seasonData: selectedSeasonData,
-    getPlayerId: getPlayerIdFromMap,
-    allPlayerNames,
+    allPlayers,
     leagueName: league?.name,
     seasonName: selectedSeasonId ? seasons.find(s => s.id === selectedSeasonId)?.name : null,
     selectedPlayerId,

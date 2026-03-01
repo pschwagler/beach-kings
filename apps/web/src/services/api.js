@@ -739,6 +739,14 @@ export const requestToJoinLeague = async (leagueId) => {
 };
 
 /**
+ * Cancel a pending join request for an invite-only league
+ */
+export const cancelJoinRequest = async (leagueId) => {
+  const response = await api.delete(`/api/leagues/${leagueId}/join-request`);
+  return response.data;
+};
+
+/**
  * Get pending and rejected join requests for a league (admin only).
  * @returns {Promise<{ pending: Array<{ id: number, player_name: string, created_at: string }>, rejected: Array<...> }>}
  */

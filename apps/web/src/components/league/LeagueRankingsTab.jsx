@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Trophy, Search, Plus } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,24 +78,16 @@ export default function LeagueRankingsTab() {
     );
   }, [allRankings, playerSearchTerm]);
 
-  // Get all player names from rankings
-  const allPlayerNames = useMemo(() => {
+  // Build player objects from rankings for dropdown and ID lookup
+  const allPlayers = useMemo(() => {
     if (!rankings || !Array.isArray(rankings)) return [];
-    return rankings.map(r => r.Name) || [];
-  }, [rankings]);
-
-  // Helper to get player ID from name using rankings
-  const getPlayerIdFromRankings = useCallback((playerName) => {
-    if (!rankings || !Array.isArray(rankings)) return null;
-    const player = rankings.find(r => r.Name === playerName);
-    return player?.player_id || null;
+    return rankings.map(r => ({ id: r.player_id, name: r.Name }));
   }, [rankings]);
 
   // Use shared hook for player details drawer logic with auto-selection
-  const { handlePlayerClick, handlePlayerChange } = usePlayerDetailsDrawer({
+  const { handlePlayerClick } = usePlayerDetailsDrawer({
     seasonData: selectedSeasonData,
-    getPlayerId: getPlayerIdFromRankings,
-    allPlayerNames,
+    allPlayers,
     leagueName: league?.name,
     seasonName: selectedSeason?.name,
     selectedPlayerId,

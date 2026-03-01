@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
 export default function PlayerSelector({ playerName, allPlayers, onPlayerChange, isPlaceholder = false }) {
@@ -33,15 +33,18 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
     }
   }, [isDropdownOpen]);
 
-  const filteredPlayers = allPlayers
-    ? allPlayers
-        .filter(player => player.toLowerCase().includes(searchTerm.toLowerCase()))
-        .sort((a, b) => a.localeCompare(b))
-    : [];
+  // Support both {id, name} objects and plain strings for backwards compatibility
+  const normalizedPlayers = useMemo(() => {
+    if (!allPlayers) return [];
+    return allPlayers
+      .map(p => typeof p === 'string' ? { id: p, name: p } : p)
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allPlayers, searchTerm]);
 
   const handlePlayerSelect = (player) => {
     if (onPlayerChange) {
-      onPlayerChange(player);
+      onPlayerChange(player.id);
     }
     setSearchTerm('');
     setIsDropdownOpen(false);
@@ -62,21 +65,21 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex(prev => {
-          const next = prev < filteredPlayers.length - 1 ? prev + 1 : 0;
+          const next = prev < normalizedPlayers.length - 1 ? prev + 1 : 0;
           return next;
         });
         break;
       case 'ArrowUp':
         e.preventDefault();
         setHighlightedIndex(prev => {
-          const next = prev > 0 ? prev - 1 : filteredPlayers.length - 1;
+          const next = prev > 0 ? prev - 1 : normalizedPlayers.length - 1;
           return next;
         });
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightedIndex >= 0 && highlightedIndex < filteredPlayers.length) {
-          handlePlayerSelect(filteredPlayers[highlightedIndex]);
+        if (highlightedIndex >= 0 && highlightedIndex < normalizedPlayers.length) {
+          handlePlayerSelect(normalizedPlayers[highlightedIndex]);
         }
         break;
       case 'Escape':
@@ -103,7 +106,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
   // Reset highlighted index when filtered players change
   useEffect(() => {
     setHighlightedIndex(-1);
-  }, [filteredPlayers.length, searchTerm]);
+  }, [normalizedPlayers.length, searchTerm]);
 
   return (
     <div className="player-selector-container" ref={dropdownRef}>
@@ -136,16 +139,16 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
             <div className="player-selector-options">
               {!allPlayers ? (
                 <div className="player-selector-option disabled">Loading players...</div>
-              ) : filteredPlayers.length > 0 ? (
-                filteredPlayers.map((player, index) => (
+              ) : normalizedPlayers.length > 0 ? (
+                normalizedPlayers.map((player, index) => (
                   <div
-                    key={player}
+                    key={player.id}
                     ref={el => optionsRefs.current[index] = el}
-                    className={`player-selector-option ${player === playerName ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
+                    className={`player-selector-option ${player.name === playerName ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
                     onClick={() => handlePlayerSelect(player)}
                     onMouseEnter={() => setHighlightedIndex(index)}
                   >
-                    {player}
+                    {player.name}
                   </div>
                 ))
               ) : (

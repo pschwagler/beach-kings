@@ -26,7 +26,9 @@ class PartnershipStats(BaseModel):
     """Partnership statistics."""
 
     model_config = ConfigDict(populate_by_name=True)
-    Partner: str
+    Player_ID: int = Field(alias="Player ID")
+    Partner_Opponent: str = Field(alias="Partner/Opponent")
+    Points: int
     Games: int
     Wins: int
     Losses: int
@@ -38,12 +40,21 @@ class OpponentStats(BaseModel):
     """Opponent statistics."""
 
     model_config = ConfigDict(populate_by_name=True)
-    Opponent: str
+    Player_ID: int = Field(alias="Player ID")
+    Partner_Opponent: str = Field(alias="Partner/Opponent")
+    Points: int
     Games: int
     Wins: int
     Losses: int
     Win_Rate: float = Field(alias="Win Rate")
     Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
+
+
+class PartnershipOpponentStatsResponse(BaseModel):
+    """Response model for partnership and opponent stats."""
+
+    partnerships: List[PartnershipStats]
+    opponents: List[OpponentStats]
 
 
 class PlayerStatsResponse(BaseModel):

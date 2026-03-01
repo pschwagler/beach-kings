@@ -640,9 +640,8 @@ async def admin_delete_court_review(
 @router.get("/api/admin-view/courts", response_model=dict)
 async def list_all_courts_admin(
     search: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    surface_type: Optional[str] = Query(None),
-    has_photos: Optional[bool] = Query(None),
+    region_id: Optional[str] = Query(None),
+    location_id: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
@@ -654,9 +653,8 @@ async def list_all_courts_admin(
     return await court_service.list_all_courts_admin(
         session,
         search=search,
-        status=status,
-        surface_type=surface_type,
-        has_photos=has_photos,
+        region_id=region_id,
+        location_id=location_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
         page=page,

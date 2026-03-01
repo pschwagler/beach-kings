@@ -79,23 +79,24 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
               acc.groupRowIndex++;
             }
 
+            const rowKey = row['Player ID'] ?? idx;
             if (isEmpty) {
-              acc.rows.push(<tr key={idx}><td colSpan="6" className="spacer-row"></td></tr>);
+              acc.rows.push(<tr key={`spacer-${idx}`}><td colSpan="6" className="spacer-row"></td></tr>);
             } else if (isSectionHeader) {
               acc.rows.push(
-                <tr key={idx} className="section-header">
+                <tr key={`header-${idx}`} className="section-header">
                   <td colSpan="6" style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
                 </tr>
               );
             } else {
               acc.rows.push(
-                <tr key={idx} className={className}>
+                <tr key={rowKey} className={className}>
                   <td className="player-stats-name-col">
                     {isOverall ? (
                       <strong>{row['Partner/Opponent']}</strong>
                     ) : (
                       <strong>
-                        <span className="player-name-modern" onClick={() => onPlayerChange(row['Partner/Opponent'])}>
+                        <span className="player-name-modern" onClick={() => onPlayerChange(row['Player ID'] ?? row['Partner/Opponent'])}>
                           {row['Partner/Opponent']}
                         </span>
                       </strong>
