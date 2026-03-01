@@ -848,9 +848,7 @@ async def notify_players_about_session_submitted(
         # Build title and link based on league vs non-league
         if league_id:
             if league_name is None:
-                result = await session.execute(
-                    select(League.name).where(League.id == league_id)
-                )
+                result = await session.execute(select(League.name).where(League.id == league_id))
                 league_name = result.scalar_one_or_none() or "the league"
             title = f"Games submitted in {league_name}"
             link_url = f"/league/{league_id}?tab=rankings"

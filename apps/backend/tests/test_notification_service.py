@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch
 from backend.services import notification_service
-from backend.database.models import NotificationType, Player, League, Season, Session as SessionModel, Match
+from backend.database.models import NotificationType, Player, League
 from backend.services import user_service
 
 

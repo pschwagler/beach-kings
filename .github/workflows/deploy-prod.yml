@@ -1,0 +1,88 @@
+# Deploy to production (beachleaguevb.com)
+# Manual trigger only — select branch to deploy.
+name: Deploy Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "main"
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to prod EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_BRANCH: ${{ inputs.branch }}
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          command_timeout: 20m
+          envs: DEPLOY_BRANCH
+          script: |
+            set -e
+            cd ~/beach-kings
+
+            echo "=== Fetching branch: $DEPLOY_BRANCH ==="
+            git fetch --all
+            git checkout "$DEPLOY_BRANCH"
+            git pull origin "$DEPLOY_BRANCH"
+
+            echo "=== Pruning old Docker resources ==="
+            docker system prune -f --filter "until=48h" || true
+
+            echo "=== Building and starting containers ==="
+            docker compose up -d --build
+
+            echo "=== Waiting for services to start ==="
+            sleep 15
+
+            echo "=== Health checks ==="
+            # Backend health check
+            backend_healthy=false
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
+                echo "✅ Backend is healthy"
+                backend_healthy=true
+                break
+              fi
+              echo "   Waiting for backend... (attempt $i/12)"
+              sleep 5
+            done
+            if [ "$backend_healthy" = false ]; then
+              echo "❌ Backend failed to become healthy"
+              exit 1
+            fi
+
+            # Frontend health check
+            frontend_healthy=false
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+                echo "✅ Frontend is healthy"
+                frontend_healthy=true
+                break
+              fi
+              echo "   Waiting for frontend... (attempt $i/12)"
+              sleep 5
+            done
+            if [ "$frontend_healthy" = false ]; then
+              echo "❌ Frontend failed to become healthy"
+              exit 1
+            fi
+
+            echo ""
+            echo "=== Deploy complete ==="
+            echo "🌐 https://beachleaguevb.com"
+            echo "📦 Branch: $DEPLOY_BRANCH"

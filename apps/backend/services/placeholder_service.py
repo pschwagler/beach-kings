@@ -156,7 +156,9 @@ async def create_placeholder(
     invite_url = f"{FRONTEND_BASE_URL}/invite/{token}"
     logger.info(
         "Created placeholder player %d '%s' by player %d",
-        player.id, name, created_by_player_id,
+        player.id,
+        name,
+        created_by_player_id,
     )
 
     return PlaceholderPlayerResponse(
@@ -291,12 +293,8 @@ async def delete_placeholder(
     unknown_id = unknown_player.id
 
     # Find all matches referencing this placeholder (any of the 4 FK columns)
-    match_condition = or_(*(
-        getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS
-    ))
-    count_result = await session.execute(
-        select(func.count(Match.id)).where(match_condition)
-    )
+    match_condition = or_(*(getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS))
+    count_result = await session.execute(select(func.count(Match.id)).where(match_condition))
     affected_count = count_result.scalar() or 0
 
     # Reassign each FK column and mark affected matches as unranked
@@ -308,9 +306,7 @@ async def delete_placeholder(
         )
 
     # Delete league memberships for the placeholder
-    await session.execute(
-        delete(LeagueMember).where(LeagueMember.player_id == player_id)
-    )
+    await session.execute(delete(LeagueMember).where(LeagueMember.player_id == player_id))
 
     # Delete session participations for the placeholder
     await session.execute(
@@ -318,14 +314,13 @@ async def delete_placeholder(
     )
 
     # Delete the placeholder player (cascades to PlayerInvite)
-    await session.execute(
-        delete(Player).where(Player.id == player_id)
-    )
+    await session.execute(delete(Player).where(Player.id == player_id))
 
     await session.commit()
     logger.info(
         "Deleted placeholder %d, reassigned %d matches to Unknown Player",
-        player_id, affected_count,
+        player_id,
+        affected_count,
     )
 
     return DeletePlaceholderResponse(affected_matches=affected_count)
@@ -374,12 +369,8 @@ async def _count_matches_for_player(
     Returns:
         Number of matches involving this player
     """
-    condition = or_(*(
-        getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS
-    ))
-    result = await session.execute(
-        select(func.count(Match.id)).where(condition)
-    )
+    condition = or_(*(getattr(Match, col) == player_id for col in MATCH_PLAYER_FK_COLS))
+    result = await session.execute(select(func.count(Match.id)).where(condition))
     return result.scalar() or 0
 
 
@@ -409,18 +400,14 @@ async def _batch_count_matches(
     for col_name in MATCH_PLAYER_FK_COLS:
         col = getattr(Match, col_name)
         subqueries.append(
-            select(col.label("player_id"), Match.id.label("match_id"))
-            .where(col.in_(player_ids))
+            select(col.label("player_id"), Match.id.label("match_id")).where(col.in_(player_ids))
         )
 
     combined = union_all(*subqueries).subquery()
     pid_col = combined.c.player_id
     mid_col = combined.c.match_id
 
-    stmt = (
-        select(pid_col, func.count(func.distinct(mid_col)))
-        .group_by(pid_col)
-    )
+    stmt = select(pid_col, func.count(func.distinct(mid_col))).group_by(pid_col)
     result = await session.execute(stmt)
     return {row[0]: row[1] for row in result.all()}
 
@@ -559,12 +546,12 @@ async def merge_placeholder_into_player(
         MergeConflictError: If any match contains both placeholder and target
     """
     # 1. Reject if placeholder and target both appear in any match
-    placeholder_condition = or_(*(
-        getattr(Match, col) == placeholder_id for col in MATCH_PLAYER_FK_COLS
-    ))
-    target_condition = or_(*(
-        getattr(Match, col) == target_player_id for col in MATCH_PLAYER_FK_COLS
-    ))
+    placeholder_condition = or_(
+        *(getattr(Match, col) == placeholder_id for col in MATCH_PLAYER_FK_COLS)
+    )
+    target_condition = or_(
+        *(getattr(Match, col) == target_player_id for col in MATCH_PLAYER_FK_COLS)
+    )
     conflict_stmt = select(Match.id).where(and_(placeholder_condition, target_condition))
     conflict_result = await session.execute(conflict_stmt)
     conflicting_match_ids = [row[0] for row in conflict_result.all()]
@@ -579,41 +566,33 @@ async def merge_placeholder_into_player(
     transferred = 0
     for col_name in MATCH_PLAYER_FK_COLS:
         col = getattr(Match, col_name)
-        stmt = (
-            update(Match)
-            .where(col == placeholder_id)
-            .values(**{col_name: target_player_id})
-        )
+        stmt = update(Match).where(col == placeholder_id).values(**{col_name: target_player_id})
         result = await session.execute(stmt)
         transferred += result.rowcount
 
     # 3. Transfer match created_by
     await session.execute(
-        update(Match)
-        .where(Match.created_by == placeholder_id)
-        .values(created_by=target_player_id)
+        update(Match).where(Match.created_by == placeholder_id).values(created_by=target_player_id)
     )
 
     # 4. Transfer session_participants (skip if target already in that session)
-    sp_stmt = select(SessionParticipant).where(
-        SessionParticipant.player_id == placeholder_id
-    )
+    sp_stmt = select(SessionParticipant).where(SessionParticipant.player_id == placeholder_id)
     sp_result = await session.execute(sp_stmt)
     placeholder_sps = sp_result.scalars().all()
 
     for sp in placeholder_sps:
         # Check if target already participates in this session
         existing = await session.execute(
-            select(SessionParticipant.id).where(and_(
-                SessionParticipant.session_id == sp.session_id,
-                SessionParticipant.player_id == target_player_id,
-            ))
+            select(SessionParticipant.id).where(
+                and_(
+                    SessionParticipant.session_id == sp.session_id,
+                    SessionParticipant.player_id == target_player_id,
+                )
+            )
         )
         if existing.scalar_one_or_none() is not None:
             # Duplicate — delete placeholder's row
-            await session.execute(
-                delete(SessionParticipant).where(SessionParticipant.id == sp.id)
-            )
+            await session.execute(delete(SessionParticipant).where(SessionParticipant.id == sp.id))
         else:
             # Transfer to target
             await session.execute(
@@ -623,24 +602,22 @@ async def merge_placeholder_into_player(
             )
 
     # 5. Transfer league memberships (skip if target already a member)
-    lm_stmt = select(LeagueMember).where(
-        LeagueMember.player_id == placeholder_id
-    )
+    lm_stmt = select(LeagueMember).where(LeagueMember.player_id == placeholder_id)
     lm_result = await session.execute(lm_stmt)
     placeholder_lms = lm_result.scalars().all()
 
     for lm in placeholder_lms:
         existing = await session.execute(
-            select(LeagueMember.id).where(and_(
-                LeagueMember.league_id == lm.league_id,
-                LeagueMember.player_id == target_player_id,
-            ))
+            select(LeagueMember.id).where(
+                and_(
+                    LeagueMember.league_id == lm.league_id,
+                    LeagueMember.player_id == target_player_id,
+                )
+            )
         )
         if existing.scalar_one_or_none() is not None:
             # Target already in this league — delete placeholder's membership
-            await session.execute(
-                delete(LeagueMember).where(LeagueMember.id == lm.id)
-            )
+            await session.execute(delete(LeagueMember).where(LeagueMember.id == lm.id))
         else:
             # Transfer membership to target with role "member"
             await session.execute(
@@ -656,13 +633,13 @@ async def merge_placeholder_into_player(
         .where(PlayerInvite.player_id == placeholder_id)
         .values(player_id=target_player_id)
     )
-    await session.execute(
-        delete(Player).where(Player.id == placeholder_id)
-    )
+    await session.execute(delete(Player).where(Player.id == placeholder_id))
 
     logger.info(
         "Merged placeholder %d → player %d: %d matches transferred",
-        placeholder_id, target_player_id, transferred,
+        placeholder_id,
+        target_player_id,
+        transferred,
     )
 
     return {"transferred_matches": transferred}
@@ -709,16 +686,14 @@ async def flip_ranked_status_for_resolved_matches(
         # Only flip to ranked when user originally intended ranked and no placeholders remain
         has_placeholder = await check_match_has_placeholders(session, all_player_ids)
         if not has_placeholder and match.ranked_intent:
-            await session.execute(
-                update(Match)
-                .where(Match.id == match.id)
-                .values(is_ranked=True)
-            )
+            await session.execute(update(Match).where(Match.id == match.id).values(is_ranked=True))
             flipped += 1
 
     if flipped:
         logger.info(
-            "Flipped %d match(es) to ranked for player %d", flipped, player_id,
+            "Flipped %d match(es) to ranked for player %d",
+            flipped,
+            player_id,
         )
 
     return flipped
@@ -794,9 +769,7 @@ async def claim_invite(
     else:
         # --- Merge path (raises MergeConflictError if both appear in a match) ---
         target_player_id = existing_player["id"]
-        await merge_placeholder_into_player(
-            session, placeholder_id, target_player_id
-        )
+        await merge_placeholder_into_player(session, placeholder_id, target_player_id)
 
     # 3. Flip ranked status on affected matches
     flipped = await flip_ranked_status_for_resolved_matches(session, target_player_id)
@@ -815,9 +788,7 @@ async def claim_invite(
     )
 
     # 5. Collect affected league IDs for stats recalc
-    league_stmt = select(LeagueMember.league_id).where(
-        LeagueMember.player_id == target_player_id
-    )
+    league_stmt = select(LeagueMember.league_id).where(LeagueMember.player_id == target_player_id)
     league_result = await session.execute(league_stmt)
     affected_league_ids = [row[0] for row in league_result.all()]
 
@@ -843,14 +814,17 @@ async def claim_invite(
                     type=NotificationType.PLACEHOLDER_CLAIMED.value,
                     title="Invite Claimed",
                     message=f"{placeholder.full_name} has claimed their invite and joined {APP_NAME}.",
-                    data={"placeholder_id": placeholder_id, "claimed_by_user_id": claiming_user_id},
+                    data={
+                        "placeholder_id": placeholder_id,
+                        "claimed_by_user_id": claiming_user_id,
+                    },
                     link_url=f"/player/{target_player_id}/{slugify(placeholder.full_name)}",
                 )
                 await session.commit()
             except Exception:
                 logger.warning("Failed to create claim notification", exc_info=True)
 
-    redirect_url = f"/leagues" if affected_league_ids else f"/dashboard"
+    redirect_url = "/leagues" if affected_league_ids else "/dashboard"
 
     return ClaimInviteResponse(
         success=True,

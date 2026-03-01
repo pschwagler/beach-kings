@@ -109,19 +109,22 @@ async def _patch_missing_columns(conn):
         ("users", "password_hash"),
     ]
     for table, column in nullable_patches:
-        tbl_exists = await conn.execute(text(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
-        ), {"t": table})
+        tbl_exists = await conn.execute(
+            text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+        )
         if tbl_exists.scalar() is not None:
-            is_nullable = await conn.execute(text(
-                "SELECT is_nullable FROM information_schema.columns "
-                "WHERE table_name = :t AND column_name = :c"
-            ), {"t": table, "c": column})
+            is_nullable = await conn.execute(
+                text(
+                    "SELECT is_nullable FROM information_schema.columns "
+                    "WHERE table_name = :t AND column_name = :c"
+                ),
+                {"t": table, "c": column},
+            )
             row = is_nullable.scalar()
             if row and row == "NO":
-                await conn.execute(text(
-                    f'ALTER TABLE {table} ALTER COLUMN "{column}" DROP NOT NULL'
-                ))
+                await conn.execute(
+                    text(f'ALTER TABLE {table} ALTER COLUMN "{column}" DROP NOT NULL')
+                )
 
     # Migration 024 — add unique indexes on email and google_id
     unique_index_patches = [
@@ -129,52 +132,58 @@ async def _patch_missing_columns(conn):
         ("users", "idx_users_google_id", "google_id"),
     ]
     for table, idx_name, column in unique_index_patches:
-        idx_exists = await conn.execute(text(
-            "SELECT 1 FROM pg_indexes WHERE indexname = :idx"
-        ), {"idx": idx_name})
+        idx_exists = await conn.execute(
+            text("SELECT 1 FROM pg_indexes WHERE indexname = :idx"), {"idx": idx_name}
+        )
         if idx_exists.scalar() is None:
-            tbl_exists = await conn.execute(text(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
-            ), {"t": table})
+            tbl_exists = await conn.execute(
+                text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+            )
             if tbl_exists.scalar() is not None:
-                await conn.execute(text(
-                    f'CREATE UNIQUE INDEX "{idx_name}" ON {table} ("{column}")'
-                ))
+                await conn.execute(
+                    text(f'CREATE UNIQUE INDEX "{idx_name}" ON {table} ("{column}")')
+                )
 
     # Migration 021 — change court_edit_suggestions.changes from Text to JSONB
     type_patches = [
         ("court_edit_suggestions", "changes", "JSONB", "text"),
     ]
     for table, column, target_type, old_type in type_patches:
-        tbl_exists = await conn.execute(text(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
-        ), {"t": table})
+        tbl_exists = await conn.execute(
+            text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+        )
         if tbl_exists.scalar() is not None:
-            col_type = await conn.execute(text(
-                "SELECT data_type FROM information_schema.columns "
-                "WHERE table_name = :t AND column_name = :c"
-            ), {"t": table, "c": column})
+            col_type = await conn.execute(
+                text(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_name = :t AND column_name = :c"
+                ),
+                {"t": table, "c": column},
+            )
             current_type = col_type.scalar()
             if current_type and current_type == old_type:
-                await conn.execute(text(
-                    f'ALTER TABLE {table} ALTER COLUMN "{column}" '
-                    f"TYPE {target_type} USING \"{column}\"::{target_type.lower()}"
-                ))
+                await conn.execute(
+                    text(
+                        f'ALTER TABLE {table} ALTER COLUMN "{column}" '
+                        f'TYPE {target_type} USING "{column}"::{target_type.lower()}'
+                    )
+                )
 
     for table, column, ddl in patches:
-        tbl_exists = await conn.execute(text(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
-        ), {"t": table})
+        tbl_exists = await conn.execute(
+            text("SELECT 1 FROM information_schema.tables WHERE table_name = :t"), {"t": table}
+        )
         if tbl_exists.scalar() is None:
             continue  # table doesn't exist yet; create_all will handle it
-        col_exists = await conn.execute(text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = :t AND column_name = :c"
-        ), {"t": table, "c": column})
+        col_exists = await conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ),
+            {"t": table, "c": column},
+        )
         if col_exists.scalar() is None:
-            await conn.execute(text(
-                f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'
-            ))
+            await conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {ddl}'))
 
 
 @pytest_asyncio.fixture(scope="function")

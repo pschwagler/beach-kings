@@ -791,7 +791,10 @@ class TestResolvePlayerField:
         """Dict input with known player_id should return id with confidence 1.0."""
         members_list, valid_ids, names_by_id = members
         pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
-            {"id": 1, "name": "John Doe"}, members_list, valid_ids, names_by_id,
+            {"id": 1, "name": "John Doe"},
+            members_list,
+            valid_ids,
+            names_by_id,
         )
         assert pid == 1
         assert conf == 1.0
@@ -802,7 +805,10 @@ class TestResolvePlayerField:
         """Dict input with unknown id should fuzzy-match by name."""
         members_list, valid_ids, names_by_id = members
         pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
-            {"id": 9999, "name": "John Doe"}, members_list, valid_ids, names_by_id,
+            {"id": 9999, "name": "John Doe"},
+            members_list,
+            valid_ids,
+            names_by_id,
         )
         assert pid == 1
         assert conf >= 0.6
@@ -811,7 +817,10 @@ class TestResolvePlayerField:
         """String input with matchable name should return player id."""
         members_list, valid_ids, names_by_id = members
         pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
-            "John Doe", members_list, valid_ids, names_by_id,
+            "John Doe",
+            members_list,
+            valid_ids,
+            names_by_id,
         )
         assert pid == 1
         assert conf >= 0.6
@@ -821,7 +830,10 @@ class TestResolvePlayerField:
         """String input with no match should return unmatched name."""
         members_list, valid_ids, names_by_id = members
         pid, conf, matched, unmatched = photo_match_service._resolve_player_field(
-            "Unknown Person", members_list, valid_ids, names_by_id,
+            "Unknown Person",
+            members_list,
+            valid_ids,
+            names_by_id,
         )
         assert pid is None
         assert conf == 0

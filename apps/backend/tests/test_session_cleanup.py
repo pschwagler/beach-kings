@@ -388,9 +388,7 @@ async def test_creator_notified_on_auto_delete(
 
 
 @pytest.mark.asyncio
-async def test_no_creator_skips_notification(
-    db_session, league_and_season, cleanup_service
-):
+async def test_no_creator_skips_notification(db_session, league_and_season, cleanup_service):
     """Session with created_by=None → no error, no notification."""
     league, season = league_and_season
 
@@ -475,9 +473,7 @@ async def test_standalone_session_submit_links_to_home(
 
 
 @pytest.mark.asyncio
-async def test_match_create_bumps_session_updated_at(
-    db_session, test_players, league_and_season
-):
+async def test_match_create_bumps_session_updated_at(db_session, test_players, league_and_season):
     """Creating a match bumps session.updated_at."""
     from backend.services.data_service import create_match_async
     from backend.models.schemas import CreateMatchRequest
@@ -532,9 +528,7 @@ async def test_match_create_bumps_session_updated_at(
 
 
 @pytest.mark.asyncio
-async def test_match_delete_bumps_session_updated_at(
-    db_session, test_players, league_and_season
-):
+async def test_match_delete_bumps_session_updated_at(db_session, test_players, league_and_season):
     """Deleting a match bumps session.updated_at."""
     from backend.services.data_service import delete_match_async
 

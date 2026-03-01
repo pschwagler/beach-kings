@@ -4,7 +4,6 @@ Authentication service for password hashing, JWT tokens, and SMS verification.
 
 import bcrypt
 import os
-import random
 import logging
 import re
 import secrets
@@ -70,7 +69,7 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 ENABLE_SMS = get_bool_env("ENABLE_SMS", default=True)
 
 # Verification code configuration
-VERIFICATION_CODE_LENGTH = 4
+VERIFICATION_CODE_LENGTH = 6
 VERIFICATION_CODE_EXPIRATION_MINUTES = 10
 
 

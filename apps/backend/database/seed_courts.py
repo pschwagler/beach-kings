@@ -32,9 +32,7 @@ async def _seed_court_tags(session) -> int:
     created = 0
     with open(csv_path, "r", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            result = await session.execute(
-                select(CourtTag).where(CourtTag.slug == row["slug"])
-            )
+            result = await session.execute(select(CourtTag).where(CourtTag.slug == row["slug"]))
             if result.scalar_one_or_none():
                 continue
             session.add(
@@ -74,9 +72,7 @@ async def _seed_courts_from_csv(session, csv_filename: str) -> tuple[int, int]:
             lng = float(row["longitude"]) if row.get("longitude") else None
             geo = _make_geojson(lat, lng) if lat and lng else None
 
-            result = await session.execute(
-                select(Court).where(Court.slug == row["slug"])
-            )
+            result = await session.execute(select(Court).where(Court.slug == row["slug"]))
             existing = result.scalar_one_or_none()
             if existing:
                 # Backfill missing coordinates on existing courts

@@ -126,12 +126,8 @@ def upgrade() -> None:
                 nullable=False,
             ),
             sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(
-                ["created_by_player_id"], ["players.id"], ondelete="SET NULL"
-            ),
-            sa.ForeignKeyConstraint(
-                ["claimed_by_user_id"], ["users.id"], ondelete="SET NULL"
-            ),
+            sa.ForeignKeyConstraint(["created_by_player_id"], ["players.id"], ondelete="SET NULL"),
+            sa.ForeignKeyConstraint(["claimed_by_user_id"], ["users.id"], ondelete="SET NULL"),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("invite_token", name="uq_player_invites_token"),
             sa.UniqueConstraint("player_id", name="uq_player_invites_player"),

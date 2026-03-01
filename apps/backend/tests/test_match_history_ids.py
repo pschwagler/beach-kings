@@ -10,7 +10,6 @@ import pytest_asyncio
 import uuid
 from datetime import date
 
-from sqlalchemy import select
 
 from backend.database.models import (
     Player,
@@ -61,30 +60,42 @@ async def match_scenario(db_session):
     await db_session.flush()
 
     season = Season(
-        league_id=league.id, name="Test Season",
-        start_date=date(2024, 1, 1), end_date=date(2025, 12, 31),
+        league_id=league.id,
+        name="Test Season",
+        start_date=date(2024, 1, 1),
+        end_date=date(2025, 12, 31),
     )
     db_session.add(season)
     await db_session.flush()
 
     sess = Session(
-        date="2024-06-01", name="Test Session",
-        status="SUBMITTED", season_id=season.id,
+        date="2024-06-01",
+        name="Test Session",
+        status="SUBMITTED",
+        season_id=season.id,
     )
     db_session.add(sess)
     await db_session.flush()
 
     match = Match(
-        session_id=sess.id, date="2024-06-01",
-        team1_player1_id=p1.id, team1_player2_id=p2.id,
-        team2_player1_id=p3.id, team2_player2_id=p4.id,
-        team1_score=21, team2_score=19, winner=1,
+        session_id=sess.id,
+        date="2024-06-01",
+        team1_player1_id=p1.id,
+        team1_player2_id=p2.id,
+        team2_player1_id=p3.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=19,
+        winner=1,
     )
     db_session.add(match)
     await db_session.commit()
 
     return {
-        "p1": p1, "p2": p2, "p3": p3, "p4": p4,
+        "p1": p1,
+        "p2": p2,
+        "p3": p3,
+        "p4": p4,
         "match_id": match.id,
     }
 
@@ -195,33 +206,47 @@ async def test_same_named_players_have_distinct_ids(db_session):
     db_session.add(league)
     await db_session.flush()
     season = Season(
-        league_id=league.id, name="S1",
-        start_date=date(2024, 1, 1), end_date=date(2025, 12, 31),
+        league_id=league.id,
+        name="S1",
+        start_date=date(2024, 1, 1),
+        end_date=date(2025, 12, 31),
     )
     db_session.add(season)
     await db_session.flush()
     sess = Session(
-        date="2024-06-01", name="Dup Name Session",
-        status="SUBMITTED", season_id=season.id,
+        date="2024-06-01",
+        name="Dup Name Session",
+        status="SUBMITTED",
+        season_id=season.id,
     )
     db_session.add(sess)
     await db_session.flush()
 
     # Game 1: p1 partners with p2 (both "John Smith")
     m1 = Match(
-        session_id=sess.id, date="2024-06-01",
-        team1_player1_id=p1.id, team1_player2_id=p2.id,
-        team2_player1_id=p3.id, team2_player2_id=p4.id,
-        team1_score=21, team2_score=15, winner=1,
+        session_id=sess.id,
+        date="2024-06-01",
+        team1_player1_id=p1.id,
+        team1_player2_id=p2.id,
+        team2_player1_id=p3.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
     )
     db_session.add(m1)
 
     # Game 2: p1 partners with p3, opponents include p2 (another "John Smith")
     m2 = Match(
-        session_id=sess.id, date="2024-06-01",
-        team1_player1_id=p1.id, team1_player2_id=p3.id,
-        team2_player1_id=p2.id, team2_player2_id=p4.id,
-        team1_score=21, team2_score=18, winner=1,
+        session_id=sess.id,
+        date="2024-06-01",
+        team1_player1_id=p1.id,
+        team1_player2_id=p3.id,
+        team2_player1_id=p2.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=18,
+        winner=1,
     )
     db_session.add(m2)
     await db_session.commit()

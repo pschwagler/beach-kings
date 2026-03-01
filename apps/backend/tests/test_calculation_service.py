@@ -447,7 +447,10 @@ def test_calculate_elo_deltas():
 
     teams = [[1, 2], [3, 4]]
     deltas = tracker._calculate_elo_deltas(
-        teams, K, 1.0, rating_getter=lambda p: p.elo,
+        teams,
+        K,
+        1.0,
+        rating_getter=lambda p: p.elo,
     )
     assert len(deltas) == 2
     assert deltas[0] > 0  # Winning team gains

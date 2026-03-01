@@ -60,12 +60,8 @@ def upgrade() -> None:
                 server_default=sa.func.now(),
                 nullable=False,
             ),
-            sa.ForeignKeyConstraint(
-                ["court_id"], ["courts.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(
-                ["uploaded_by"], ["players.id"], ondelete="SET NULL"
-            ),
+            sa.ForeignKeyConstraint(["court_id"], ["courts.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["uploaded_by"], ["players.id"], ondelete="SET NULL"),
             sa.PrimaryKeyConstraint("id"),
         )
 

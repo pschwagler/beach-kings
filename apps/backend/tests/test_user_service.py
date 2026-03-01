@@ -8,7 +8,7 @@ from datetime import timedelta
 from backend.utils.datetime_utils import utcnow
 from sqlalchemy import select
 from backend.services import user_service
-from backend.database.models import VerificationCode, User
+from backend.database.models import VerificationCode
 
 
 # db_session fixture is provided by conftest.py - using test_session as alias for compatibility

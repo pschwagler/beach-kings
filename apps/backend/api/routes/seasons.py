@@ -423,9 +423,7 @@ async def finalize_season_awards(
     has not ended yet.
     """
     try:
-        result = await session.execute(
-            sa_select(SeasonModel).where(SeasonModel.id == season_id)
-        )
+        result = await session.execute(sa_select(SeasonModel).where(SeasonModel.id == season_id))
         season_obj = result.scalar_one_or_none()
         if not season_obj:
             raise HTTPException(status_code=404, detail="Season not found")

@@ -52,9 +52,7 @@ class AccountDeletionService:
 
             # Wait for poll interval or until stop is signalled
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS
-                )
+                await asyncio.wait_for(self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS)
                 break  # stop_event was set
             except asyncio.TimeoutError:
                 pass  # interval elapsed, loop again

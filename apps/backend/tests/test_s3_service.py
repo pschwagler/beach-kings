@@ -4,7 +4,6 @@ Tests for s3_service — URL parsing, upload, and delete with mocked boto3.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from backend.services import s3_service
 
@@ -63,12 +62,15 @@ class TestExtractKeyFromUrl:
 class TestUploadAvatar:
     """Tests for upload_avatar() with mocked boto3."""
 
-    @patch.dict("os.environ", {
-        "AWS_ACCESS_KEY_ID": "test-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret",
-        "AWS_S3_BUCKET": "test-bucket",
-        "AWS_S3_REGION": "us-west-2",
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
     @patch("backend.services.s3_service._get_s3_client")
     def test_upload_returns_url(self, mock_get_client):
         """upload_avatar returns a valid S3 URL."""
@@ -82,12 +84,15 @@ class TestUploadAvatar:
         assert url.endswith(".jpg")
         mock_client.put_object.assert_called_once()
 
-    @patch.dict("os.environ", {
-        "AWS_ACCESS_KEY_ID": "test-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret",
-        "AWS_S3_BUCKET": "test-bucket",
-        "AWS_S3_REGION": "us-west-2",
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
     @patch("backend.services.s3_service._get_s3_client")
     def test_upload_puts_correct_content_type(self, mock_get_client):
         """Upload sends image/jpeg content type."""
@@ -97,8 +102,10 @@ class TestUploadAvatar:
         s3_service.upload_avatar(1, b"data")
 
         call_kwargs = mock_client.put_object.call_args
-        assert call_kwargs.kwargs.get("ContentType") == "image/jpeg" or \
-               call_kwargs[1].get("ContentType") == "image/jpeg"
+        assert (
+            call_kwargs.kwargs.get("ContentType") == "image/jpeg"
+            or call_kwargs[1].get("ContentType") == "image/jpeg"
+        )
 
 
 # ============================================================================
@@ -109,12 +116,15 @@ class TestUploadAvatar:
 class TestDeleteAvatar:
     """Tests for delete_avatar() with mocked boto3."""
 
-    @patch.dict("os.environ", {
-        "AWS_ACCESS_KEY_ID": "test-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret",
-        "AWS_S3_BUCKET": "test-bucket",
-        "AWS_S3_REGION": "us-west-2",
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
     @patch("backend.services.s3_service._get_s3_client")
     def test_delete_success(self, mock_get_client):
         """Successful delete returns True."""
@@ -128,12 +138,15 @@ class TestDeleteAvatar:
         assert result is True
         mock_client.delete_object.assert_called_once()
 
-    @patch.dict("os.environ", {
-        "AWS_ACCESS_KEY_ID": "test-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret",
-        "AWS_S3_BUCKET": "test-bucket",
-        "AWS_S3_REGION": "us-west-2",
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
     @patch("backend.services.s3_service._get_s3_client")
     def test_delete_wrong_bucket_returns_false(self, mock_get_client):
         """Delete with wrong bucket hostname returns False."""
@@ -147,12 +160,15 @@ class TestDeleteAvatar:
         assert result is False
         mock_client.delete_object.assert_not_called()
 
-    @patch.dict("os.environ", {
-        "AWS_ACCESS_KEY_ID": "test-key",
-        "AWS_SECRET_ACCESS_KEY": "test-secret",
-        "AWS_S3_BUCKET": "test-bucket",
-        "AWS_S3_REGION": "us-west-2",
-    })
+    @patch.dict(
+        "os.environ",
+        {
+            "AWS_ACCESS_KEY_ID": "test-key",
+            "AWS_SECRET_ACCESS_KEY": "test-secret",
+            "AWS_S3_BUCKET": "test-bucket",
+            "AWS_S3_REGION": "us-west-2",
+        },
+    )
     @patch("backend.services.s3_service._get_s3_client")
     def test_delete_s3_error_returns_false(self, mock_get_client):
         """S3 errors during delete return False (best-effort)."""

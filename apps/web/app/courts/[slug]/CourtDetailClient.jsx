@@ -127,9 +127,7 @@ export default function CourtDetailClient({ court, slug }) {
 
         <CourtDetailHeader court={court} onSuggestEdit={handleSuggestEdit} />
 
-        {court.all_photos?.length > 0 && (
-          <CourtPhotoGallery photos={court.all_photos} slug={slug} />
-        )}
+        <CourtPhotoGallery photos={court.all_photos || []} slug={slug} />
 
         <CourtAmenities court={court} />
 

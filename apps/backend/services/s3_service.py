@@ -108,7 +108,9 @@ def delete_avatar(url: str) -> bool:
         return False
 
 
-def upload_file(file_bytes: bytes, key: str, content_type: str = "application/octet-stream") -> str:
+def upload_file(
+    file_bytes: bytes, key: str, content_type: str = "application/octet-stream"
+) -> str:
     """
     Upload arbitrary file bytes to S3 under the given key.
 

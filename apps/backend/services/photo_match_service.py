@@ -323,7 +323,9 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
     for member in league_members:
         player_name = member.get("player_name", "")
         score = _score_player_match(
-            extracted_name, player_name, member.get("player_nickname", ""),
+            extracted_name,
+            player_name,
+            member.get("player_nickname", ""),
         )
         if score > best_score:
             best_score = score
@@ -339,7 +341,9 @@ def match_player_name(extracted_name: str, league_members: List[Dict]) -> Option
 
 
 def _resolve_player_field(
-    player_data, league_members: List[Dict], valid_player_ids: set,
+    player_data,
+    league_members: List[Dict],
+    valid_player_ids: set,
     player_names_by_id: Dict,
 ) -> Tuple[Optional[int], float, str, Optional[str]]:
     """
@@ -386,7 +390,10 @@ def match_all_players_in_matches(
         result_match = match.copy()
         for field in player_fields:
             pid, conf, matched, unmatched = _resolve_player_field(
-                match.get(field), league_members, valid_player_ids, player_names_by_id,
+                match.get(field),
+                league_members,
+                valid_player_ids,
+                player_names_by_id,
             )
             result_match[f"{field}_id"] = pid
             result_match[f"{field}_confidence"] = conf
@@ -640,12 +647,14 @@ def _truncate_error_message(error: Exception, max_len: int = 500) -> str:
     if not msg:
         msg = "Unknown error"
     if len(msg) > max_len:
-        msg = msg[:max_len - 3] + "..."
+        msg = msg[: max_len - 3] + "..."
     return msg
 
 
 def _process_stream_chunk(
-    chunk, buffer: str, all_partial: List[Dict],
+    chunk,
+    buffer: str,
+    all_partial: List[Dict],
 ) -> Tuple[str, bool]:
     """
     Process a single Gemini stream chunk. Extracts complete match objects from the buffer.
@@ -689,7 +698,9 @@ def _run_gemini_stream_consumer(
 
     try:
         stream = client.models.generate_content_stream(
-            model=GEMINI_MODEL, contents=contents, config=config,
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=config,
         )
         for chunk in stream:
             text_piece = _text_from_chunk(chunk)
@@ -870,7 +881,7 @@ def _try_parse_brace_match(text: str) -> Optional[Dict]:
             depth -= 1
             if depth == 0:
                 try:
-                    return json.loads(text[start:i + 1])
+                    return json.loads(text[start : i + 1])
                 except json.JSONDecodeError:
                     return None
     return None

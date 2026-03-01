@@ -761,10 +761,9 @@ async def _delete_s3_objects(player: Player, player_id: int, session: AsyncSessi
         .join(CourtReview, CourtReviewPhoto.review_id == CourtReview.id)
         .where(CourtReview.player_id == player_id)
     )
-    all_s3_keys = (
-        [row[0] for row in photo_result.all()]
-        + [row[0] for row in review_photo_result.all()]
-    )
+    all_s3_keys = [row[0] for row in photo_result.all()] + [
+        row[0] for row in review_photo_result.all()
+    ]
     if all_s3_keys:
         try:
             for key in all_s3_keys:
@@ -775,42 +774,72 @@ async def _delete_s3_objects(player: Player, player_id: int, session: AsyncSessi
 
 async def _delete_player_stats(session: AsyncSession, player_id: int) -> None:
     """Delete all stats rows for a player."""
-    await session.execute(delete(PartnershipStats).where(
-        (PartnershipStats.player_id == player_id) | (PartnershipStats.partner_id == player_id)
-    ))
-    await session.execute(delete(PartnershipStatsSeason).where(
-        (PartnershipStatsSeason.player_id == player_id) | (PartnershipStatsSeason.partner_id == player_id)
-    ))
-    await session.execute(delete(PartnershipStatsLeague).where(
-        (PartnershipStatsLeague.player_id == player_id) | (PartnershipStatsLeague.partner_id == player_id)
-    ))
-    await session.execute(delete(OpponentStats).where(
-        (OpponentStats.player_id == player_id) | (OpponentStats.opponent_id == player_id)
-    ))
-    await session.execute(delete(OpponentStatsSeason).where(
-        (OpponentStatsSeason.player_id == player_id) | (OpponentStatsSeason.opponent_id == player_id)
-    ))
-    await session.execute(delete(OpponentStatsLeague).where(
-        (OpponentStatsLeague.player_id == player_id) | (OpponentStatsLeague.opponent_id == player_id)
-    ))
-    await session.execute(delete(PlayerSeasonStats).where(PlayerSeasonStats.player_id == player_id))
-    await session.execute(delete(PlayerLeagueStats).where(PlayerLeagueStats.player_id == player_id))
-    await session.execute(delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id))
+    await session.execute(
+        delete(PartnershipStats).where(
+            (PartnershipStats.player_id == player_id) | (PartnershipStats.partner_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(PartnershipStatsSeason).where(
+            (PartnershipStatsSeason.player_id == player_id)
+            | (PartnershipStatsSeason.partner_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(PartnershipStatsLeague).where(
+            (PartnershipStatsLeague.player_id == player_id)
+            | (PartnershipStatsLeague.partner_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(OpponentStats).where(
+            (OpponentStats.player_id == player_id) | (OpponentStats.opponent_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(OpponentStatsSeason).where(
+            (OpponentStatsSeason.player_id == player_id)
+            | (OpponentStatsSeason.opponent_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(OpponentStatsLeague).where(
+            (OpponentStatsLeague.player_id == player_id)
+            | (OpponentStatsLeague.opponent_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(PlayerSeasonStats).where(PlayerSeasonStats.player_id == player_id)
+    )
+    await session.execute(
+        delete(PlayerLeagueStats).where(PlayerLeagueStats.player_id == player_id)
+    )
+    await session.execute(
+        delete(PlayerGlobalStats).where(PlayerGlobalStats.player_id == player_id)
+    )
     await session.execute(delete(EloHistory).where(EloHistory.player_id == player_id))
-    await session.execute(delete(SeasonRatingHistory).where(SeasonRatingHistory.player_id == player_id))
+    await session.execute(
+        delete(SeasonRatingHistory).where(SeasonRatingHistory.player_id == player_id)
+    )
 
 
 async def _delete_social_data(session: AsyncSession, player_id: int) -> None:
     """Delete friend requests, friendships, and direct messages for a player."""
-    await session.execute(delete(FriendRequest).where(
-        (FriendRequest.sender_player_id == player_id) | (FriendRequest.receiver_player_id == player_id)
-    ))
-    await session.execute(delete(Friend).where(
-        (Friend.player1_id == player_id) | (Friend.player2_id == player_id)
-    ))
-    await session.execute(delete(DirectMessage).where(
-        (DirectMessage.sender_player_id == player_id) | (DirectMessage.receiver_player_id == player_id)
-    ))
+    await session.execute(
+        delete(FriendRequest).where(
+            (FriendRequest.sender_player_id == player_id)
+            | (FriendRequest.receiver_player_id == player_id)
+        )
+    )
+    await session.execute(
+        delete(Friend).where((Friend.player1_id == player_id) | (Friend.player2_id == player_id))
+    )
+    await session.execute(
+        delete(DirectMessage).where(
+            (DirectMessage.sender_player_id == player_id)
+            | (DirectMessage.receiver_player_id == player_id)
+        )
+    )
 
 
 async def _delete_league_participation(session: AsyncSession, player_id: int) -> None:
@@ -819,7 +848,9 @@ async def _delete_league_participation(session: AsyncSession, player_id: int) ->
     await session.execute(delete(LeagueMember).where(LeagueMember.player_id == player_id))
     await session.execute(delete(SignupEvent).where(SignupEvent.player_id == player_id))
     await session.execute(delete(SignupPlayer).where(SignupPlayer.player_id == player_id))
-    await session.execute(delete(SessionParticipant).where(SessionParticipant.player_id == player_id))
+    await session.execute(
+        delete(SessionParticipant).where(SessionParticipant.player_id == player_id)
+    )
 
 
 async def _delete_court_contributions(session: AsyncSession, player_id: int) -> None:
@@ -831,9 +862,9 @@ async def _delete_court_contributions(session: AsyncSession, player_id: int) -> 
         .where(CourtEditSuggestion.reviewed_by == player_id)
         .values(reviewed_by=None)
     )
-    await session.execute(delete(CourtEditSuggestion).where(
-        CourtEditSuggestion.suggested_by == player_id
-    ))
+    await session.execute(
+        delete(CourtEditSuggestion).where(CourtEditSuggestion.suggested_by == player_id)
+    )
 
 
 def _anonymize_player(player: Player) -> None:

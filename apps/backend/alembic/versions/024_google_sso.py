@@ -85,15 +85,11 @@ def upgrade() -> None:
 
     # 5. Add unique index on google_id
     if not _index_exists(conn, "idx_users_google_id"):
-        op.create_index(
-            "idx_users_google_id", "users", ["google_id"], unique=True
-        )
+        op.create_index("idx_users_google_id", "users", ["google_id"], unique=True)
 
     # 6. Add unique index on email
     if not _index_exists(conn, "idx_users_email"):
-        op.create_index(
-            "idx_users_email", "users", ["email"], unique=True
-        )
+        op.create_index("idx_users_email", "users", ["email"], unique=True)
 
 
 def downgrade() -> None:
@@ -103,7 +99,9 @@ def downgrade() -> None:
     # Pre-flight: refuse to downgrade if Google-only users exist (they have NULL phone/password)
     if _column_exists(conn, "users", "auth_provider"):
         google_count = conn.execute(
-            text("SELECT COUNT(*) FROM users WHERE auth_provider = 'google' AND phone_number IS NULL")
+            text(
+                "SELECT COUNT(*) FROM users WHERE auth_provider = 'google' AND phone_number IS NULL"
+            )
         ).scalar()
         if google_count:
             raise RuntimeError(

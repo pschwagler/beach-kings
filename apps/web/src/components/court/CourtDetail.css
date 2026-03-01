@@ -233,6 +233,47 @@
   font-weight: 600;
 }
 
+/* Empty state CTA when court has no photos */
+.court-detail__mosaic-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 200px;
+  margin-bottom: 24px;
+  border: 2px dashed var(--gray-300);
+  border-radius: 12px;
+  background: var(--gray-50);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.court-detail__mosaic-empty:hover {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.court-detail__mosaic-empty-icon {
+  color: var(--gray-400);
+  transition: color 0.15s;
+}
+
+.court-detail__mosaic-empty:hover .court-detail__mosaic-empty-icon {
+  color: var(--primary);
+}
+
+.court-detail__mosaic-empty-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-600);
+  transition: color 0.15s;
+}
+
+.court-detail__mosaic-empty:hover .court-detail__mosaic-empty-text {
+  color: var(--primary-dark);
+}
+
 /* Amenities */
 
 .court-detail__amenities {

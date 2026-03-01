@@ -640,10 +640,11 @@ export async function grantSystemAdmin(phoneNumber) {
 
   try {
     await client.connect();
+    await client.query('BEGIN');
 
-    // Get current admin phones
+    // Lock the row to prevent parallel grant/revoke races
     const result = await client.query(
-      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers'`,
+      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers' FOR UPDATE`,
     );
 
     let phones = result.rows.length > 0 ? result.rows[0].value : '';
@@ -657,6 +658,11 @@ export async function grantSystemAdmin(phoneNumber) {
        ON CONFLICT (key) DO UPDATE SET value = $1`,
       [newPhones],
     );
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     await client.end();
   }
@@ -673,9 +679,11 @@ export async function revokeSystemAdmin(phoneNumber) {
 
   try {
     await client.connect();
+    await client.query('BEGIN');
 
+    // Lock the row to prevent parallel grant/revoke races
     const result = await client.query(
-      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers'`,
+      `SELECT value FROM settings WHERE key = 'system_admin_phone_numbers' FOR UPDATE`,
     );
 
     if (result.rows.length > 0) {
@@ -689,6 +697,11 @@ export async function revokeSystemAdmin(phoneNumber) {
         [phones],
       );
     }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     await client.end();
   }

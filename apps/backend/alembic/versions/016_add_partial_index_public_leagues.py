@@ -32,9 +32,7 @@ def upgrade():
 
 def downgrade():
     # Restore original boolean index
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_leagues_is_public ON leagues(is_public)"
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS idx_leagues_is_public ON leagues(is_public)")
 
     # Drop the partial composite index
     op.execute("DROP INDEX IF EXISTS idx_leagues_public_location")

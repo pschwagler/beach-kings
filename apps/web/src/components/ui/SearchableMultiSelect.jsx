@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Check, ChevronDown, Search } from 'lucide-react';
 
 /**
@@ -45,45 +45,36 @@ export default function SearchableMultiSelect({
 
   const selectedOptions = options.filter((o) => selectedIds.includes(o.id));
 
-  const handleToggle = useCallback(
-    (id) => {
-      onToggle(id);
-    },
-    [onToggle]
-  );
+  const handleToggle = (id) => {
+    onToggle(id);
+  };
 
-  const handleRemovePill = useCallback(
-    (e, id) => {
-      e.stopPropagation();
-      onToggle(id);
-    },
-    [onToggle]
-  );
+  const handleRemovePill = (e, id) => {
+    e.stopPropagation();
+    onToggle(id);
+  };
 
   /** Handle keyboard navigation within the dropdown. */
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        return;
-      }
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      return;
+    }
 
-      if (!isOpen) return;
+    if (!isOpen) return;
 
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
-      } else if (e.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-        e.preventDefault();
-        handleToggle(filtered[highlightedIndex].id);
-      }
-    },
-    [isOpen, filtered, highlightedIndex, handleToggle]
-  );
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
+    } else if (e.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+      e.preventDefault();
+      handleToggle(filtered[highlightedIndex].id);
+    }
+  };
 
   // Reset highlight when filtered list changes
   useEffect(() => {

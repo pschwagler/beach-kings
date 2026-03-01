@@ -114,9 +114,7 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
         List of created award dicts (with player/league info if already existed)
     """
     # Load season
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         logger.warning(f"Season {season_id} not found for award computation")
@@ -177,14 +175,11 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
     eligible = [
         r
         for r in active_players
-        if r["player_id"] not in podium_player_ids
-        and r.get("Games", 0) >= MIN_GAMES_STAT_AWARD
+        if r["player_id"] not in podium_player_ids and r.get("Games", 0) >= MIN_GAMES_STAT_AWARD
     ]
 
     # Compute ELO deltas for Rising Star
-    elo_deltas = await _compute_elo_deltas(
-        session, season, [r["player_id"] for r in eligible]
-    )
+    elo_deltas = await _compute_elo_deltas(session, season, [r["player_id"] for r in eligible])
 
     stat_awarded_player_ids: set = set()
 
@@ -320,9 +315,7 @@ async def get_season_awards(session: AsyncSession, season_id: int) -> List[Dict]
     Returns:
         List of award dicts with player and league info
     """
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if not season:
         return []
@@ -415,13 +408,9 @@ async def clear_season_awards(session: AsyncSession, season_id: int) -> None:
         session: Database session
         season_id: Season ID to clear awards for
     """
-    await session.execute(
-        delete(SeasonAward).where(SeasonAward.season_id == season_id)
-    )
+    await session.execute(delete(SeasonAward).where(SeasonAward.season_id == season_id))
 
-    season_result = await session.execute(
-        select(Season).where(Season.id == season_id)
-    )
+    season_result = await session.execute(select(Season).where(Season.id == season_id))
     season = season_result.scalar_one_or_none()
     if season:
         season.awards_finalized_at = None

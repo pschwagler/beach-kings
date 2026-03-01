@@ -670,7 +670,9 @@ async def list_seasons(session: AsyncSession, league_id: int) -> List[Dict]:
             "end_date": s.end_date.isoformat() if s.end_date else None,
             "scoring_system": s.scoring_system,  # Now just a string, no enum conversion needed
             "point_system": s.point_system,
-            "awards_finalized_at": s.awards_finalized_at.isoformat() if s.awards_finalized_at else None,
+            "awards_finalized_at": s.awards_finalized_at.isoformat()
+            if s.awards_finalized_at
+            else None,
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         }
@@ -692,7 +694,9 @@ async def get_season(session: AsyncSession, season_id: int) -> Optional[Dict]:
         "end_date": season.end_date.isoformat() if season.end_date else None,
         "scoring_system": season.scoring_system if season.scoring_system else None,
         "point_system": season.point_system,
-        "awards_finalized_at": season.awards_finalized_at.isoformat() if season.awards_finalized_at else None,
+        "awards_finalized_at": season.awards_finalized_at.isoformat()
+        if season.awards_finalized_at
+        else None,
         "created_at": season.created_at.isoformat() if season.created_at else None,
         "updated_at": season.updated_at.isoformat() if season.updated_at else None,
     }
@@ -1041,17 +1045,27 @@ def _filter_placeholders(stmt, include_for_player_id, league_ids, session_id):
         conditions = [Player.created_by_player_id == include_for_player_id]
         clean_ids = [x for x in (league_ids or []) if x is not None]
         if clean_ids:
-            conditions.append(Player.id.in_(
-                select(LeagueMember.player_id).where(LeagueMember.league_id.in_(clean_ids)).distinct()
-            ))
+            conditions.append(
+                Player.id.in_(
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(clean_ids))
+                    .distinct()
+                )
+            )
         if session_id is not None:
-            conditions.append(Player.id.in_(
-                select(SessionParticipant.player_id).where(SessionParticipant.session_id == session_id).distinct()
-            ))
-        return stmt.where(or_(
-            Player.is_placeholder.is_(False),
-            and_(Player.is_placeholder.is_(True), or_(*conditions)),
-        ))
+            conditions.append(
+                Player.id.in_(
+                    select(SessionParticipant.player_id)
+                    .where(SessionParticipant.session_id == session_id)
+                    .distinct()
+                )
+            )
+        return stmt.where(
+            or_(
+                Player.is_placeholder.is_(False),
+                and_(Player.is_placeholder.is_(True), or_(*conditions)),
+            )
+        )
     return stmt.where(Player.is_placeholder.is_(False))
 
 
@@ -1076,9 +1090,13 @@ def _filter_league_membership(stmt, league_ids):
     if league_ids:
         clean = [x for x in league_ids if x is not None]
         if clean:
-            stmt = stmt.where(Player.id.in_(
-                select(LeagueMember.player_id).where(LeagueMember.league_id.in_(clean)).distinct()
-            ))
+            stmt = stmt.where(
+                Player.id.in_(
+                    select(LeagueMember.player_id)
+                    .where(LeagueMember.league_id.in_(clean))
+                    .distinct()
+                )
+            )
     return stmt
 
 
@@ -1121,7 +1139,9 @@ async def list_players_search(
     def _apply_common_filters(stmt, *, for_count: bool = False):
         """Apply shared WHERE clauses to both count and page queries."""
         stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
-        stmt = _filter_placeholders(stmt, include_placeholders_for_player_id, league_ids, session_id)
+        stmt = _filter_placeholders(
+            stmt, include_placeholders_for_player_id, league_ids, session_id
+        )
         stmt = _filter_search(stmt, q)
         stmt = _filter_location(stmt, location_ids)
         stmt = _filter_league_membership(stmt, league_ids)
@@ -1135,9 +1155,8 @@ async def list_players_search(
     total = total_result.scalar() or 0
 
     # Page query (with location join)
-    page_stmt = (
-        select(Player, Location.name.label("location_name"))
-        .outerjoin(Location, Location.id == Player.location_id)
+    page_stmt = select(Player, Location.name.label("location_name")).outerjoin(
+        Location, Location.id == Player.location_id
     )
     page_stmt = _apply_common_filters(page_stmt)
     page_stmt = (
@@ -1559,8 +1578,7 @@ async def get_session_match_player_user_ids(
         Match.team2_player2_id,
     ]
     subqueries = [
-        select(col.label("player_id")).where(Match.session_id == session_id)
-        for col in player_cols
+        select(col.label("player_id")).where(Match.session_id == session_id) for col in player_cols
     ]
     all_players = subqueries[0].union(*subqueries[1:]).subquery()
 

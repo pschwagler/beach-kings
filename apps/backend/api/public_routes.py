@@ -14,12 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
-
-logger = logging.getLogger(__name__)
 from backend.models.schemas import (
     CourtDetailResponse,
     CourtLeaderboardEntry,
-    CourtListItem,
     CourtNearbyItem,
     CourtTagResponse,
     PaginatedCourtsResponse,
@@ -35,6 +32,8 @@ from backend.models.schemas import (
     SitemapPlayerItem,
 )
 from backend.services import court_service, public_service
+
+logger = logging.getLogger(__name__)
 
 
 async def _cache_public(response: Response):
@@ -101,9 +100,9 @@ async def list_public_leagues(
     gender: Optional[Literal["male", "female", "mixed"]] = Query(
         None, description="Filter by gender"
     ),
-    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]] = Query(
-        None, description="Filter by skill level"
-    ),
+    level: Optional[
+        Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]
+    ] = Query(None, description="Filter by skill level"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
@@ -128,7 +127,9 @@ async def list_public_leagues(
 
 @public_router.get("/leagues/{league_id}", response_model=PublicLeagueDetailResponse)
 @limiter.limit("60/minute")
-async def get_public_league(request: Request, league_id: int, session: AsyncSession = Depends(get_db_session)):
+async def get_public_league(
+    request: Request, league_id: int, session: AsyncSession = Depends(get_db_session)
+):
     """
     Get public-facing league data.
 
@@ -148,21 +149,17 @@ async def list_public_players(
     request: Request,
     search: Optional[str] = Query(None, description="Search by player name"),
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
-    gender: Optional[Literal["male", "female"]] = Query(
-        None, description="Filter by gender"
-    ),
-    level: Optional[Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]] = Query(
-        None, description="Filter by skill level"
-    ),
+    gender: Optional[Literal["male", "female"]] = Query(None, description="Filter by gender"),
+    level: Optional[
+        Literal["juniors", "beginner", "intermediate", "advanced", "AA", "Open"]
+    ] = Query(None, description="Filter by skill level"),
     sort_by: Optional[Literal["games", "name", "rating"]] = Query(
         None, description="Sort order: games (default), name, rating"
     ),
     sort_dir: Optional[Literal["asc", "desc"]] = Query(
         None, description="Sort direction (default depends on sort_by)"
     ),
-    min_games: Optional[int] = Query(
-        None, ge=1, description="Minimum total games played"
-    ),
+    min_games: Optional[int] = Query(None, ge=1, description="Minimum total games played"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
@@ -191,7 +188,9 @@ async def list_public_players(
 
 @public_router.get("/players/{player_id}", response_model=PublicPlayerResponse)
 @limiter.limit("60/minute")
-async def get_public_player(request: Request, player_id: int, session: AsyncSession = Depends(get_db_session)):
+async def get_public_player(
+    request: Request, player_id: int, session: AsyncSession = Depends(get_db_session)
+):
     """
     Get public-facing player profile.
 
@@ -219,7 +218,9 @@ async def list_public_locations(request: Request, session: AsyncSession = Depend
 
 @public_router.get("/locations/{slug}", response_model=PublicLocationDetailResponse)
 @limiter.limit("60/minute")
-async def get_public_location(request: Request, slug: str, session: AsyncSession = Depends(get_db_session)):
+async def get_public_location(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
     """
     Get public-facing location data by slug.
 
@@ -288,7 +289,9 @@ async def get_court_leaderboard(
 
 @public_router.get("/courts/{slug}", response_model=CourtDetailResponse)
 @limiter.limit("60/minute")
-async def get_public_court(request: Request, slug: str, session: AsyncSession = Depends(get_db_session)):
+async def get_public_court(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
     """
     Get full court detail by slug.
 

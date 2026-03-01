@@ -1113,8 +1113,9 @@ export const adminDeleteReview = async (reviewId) => {
 };
 
 /** Fetch full court detail by numeric ID (uses public slug endpoint via redirect). */
-export const getCourtDetailById = async (courtId) => {
-  const response = await api.get(`/api/public/courts/${courtId}`);
+export const getCourtDetailById = async (courtId, { bustCache = false } = {}) => {
+  const params = bustCache ? { _t: Date.now() } : {};
+  const response = await api.get(`/api/public/courts/${courtId}`, { params });
   return response.data;
 };
 

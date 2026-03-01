@@ -4,7 +4,6 @@ Tests for avatar_service — validation and image processing.
 
 from io import BytesIO
 
-import pytest
 from PIL import Image
 
 from backend.services import avatar_service

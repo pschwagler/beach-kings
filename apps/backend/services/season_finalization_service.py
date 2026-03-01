@@ -48,15 +48,11 @@ class SeasonFinalizationService:
             try:
                 await self._process_unfinalized_seasons()
             except Exception as e:
-                logger.error(
-                    f"Error in season finalization worker: {e}", exc_info=True
-                )
+                logger.error(f"Error in season finalization worker: {e}", exc_info=True)
 
             # Wait for poll interval or until stop is signalled
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS
-                )
+                await asyncio.wait_for(self._stop_event.wait(), timeout=POLL_INTERVAL_SECONDS)
                 break  # stop_event was set
             except asyncio.TimeoutError:
                 pass  # interval elapsed, loop again
@@ -78,9 +74,7 @@ class SeasonFinalizationService:
             if not unfinalized:
                 return
 
-            logger.info(
-                f"Found {len(unfinalized)} unfinalized season(s) to process"
-            )
+            logger.info(f"Found {len(unfinalized)} unfinalized season(s) to process")
 
             # Local import to avoid circular dependency at module level
             from backend.services.season_awards_service import compute_season_awards
@@ -88,9 +82,7 @@ class SeasonFinalizationService:
             for season in unfinalized:
                 try:
                     awards = await compute_season_awards(session, season.id)
-                    logger.info(
-                        f"Finalized season {season.id} with {len(awards)} award(s)"
-                    )
+                    logger.info(f"Finalized season {season.id} with {len(awards)} award(s)")
                 except Exception as e:
                     logger.error(
                         f"Error finalizing season {season.id}: {e}",

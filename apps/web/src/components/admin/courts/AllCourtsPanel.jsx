@@ -1,13 +1,25 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ChevronUp, ChevronDown, Camera } from 'lucide-react';
 import { getAdminAllCourts, getCourtDetailById } from '../../../services/api';
 import { formatDate } from '../adminUtils';
 import CourtEditRow from './CourtEditRow';
 
+/** Column definitions for the sortable table. */
+const COLUMNS = [
+  { key: 'name', label: 'Name', sortable: true },
+  { key: 'address', label: 'Address', sortable: false },
+  { key: 'location', label: 'Location', sortable: false },
+  { key: 'status', label: 'Status', sortable: true },
+  { key: 'surface_type', label: 'Surface', sortable: true },
+  { key: 'court_count', label: 'Courts', sortable: true },
+  { key: 'photos', label: 'Photos', sortable: false },
+  { key: 'created_at', label: 'Created', sortable: true },
+];
+
 /**
- * Panel to browse all courts with search, status filter, and inline editing.
+ * Panel to browse all courts with search, filters, column sorting, and inline editing.
  */
 export default function AllCourtsPanel() {
   const [courts, setCourts] = useState([]);
@@ -16,18 +28,33 @@ export default function AllCourtsPanel() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [surfaceFilter, setSurfaceFilter] = useState('all');
+  const [photosFilter, setPhotosFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
   const [expandedId, setExpandedId] = useState(null);
   const [courtDetail, setCourtDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const debounceRef = useRef(null);
   const pageSize = 25;
 
-  const load = useCallback(async (p = page, s = search, st = statusFilter) => {
+  const load = useCallback(async (overrides = {}) => {
+    const p = overrides.page ?? page;
+    const s = overrides.search ?? search;
+    const st = overrides.statusFilter ?? statusFilter;
+    const sf = overrides.surfaceFilter ?? surfaceFilter;
+    const pf = overrides.photosFilter ?? photosFilter;
+    const sb = overrides.sortBy ?? sortBy;
+    const sd = overrides.sortDir ?? sortDir;
+
     try {
       setLoading(true);
-      const params = { page: p, page_size: pageSize };
+      const params = { page: p, page_size: pageSize, sort_by: sb, sort_dir: sd };
       if (s) params.search = s;
       if (st && st !== 'all') params.status = st;
+      if (sf && sf !== 'all') params.surface_type = sf;
+      if (pf === 'yes') params.has_photos = true;
+      else if (pf === 'no') params.has_photos = false;
       const data = await getAdminAllCourts(params);
       setCourts(data.items);
       setTotal(data.total);
@@ -36,11 +63,11 @@ export default function AllCourtsPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, surfaceFilter, photosFilter, sortBy, sortDir]);
 
   useEffect(() => {
     load();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, surfaceFilter, photosFilter, sortBy, sortDir]);
 
   // Clean up debounce timer on unmount
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -52,12 +79,24 @@ export default function AllCourtsPanel() {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setPage(1);
-      load(1, val, statusFilter);
+      load({ page: 1, search: val });
     }, 400);
   };
 
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value);
+  /** Generic filter change handler — resets to page 1. */
+  const handleFilterChange = (setter) => (e) => {
+    setter(e.target.value);
+    setPage(1);
+  };
+
+  /** Toggle sort column or flip direction. */
+  const handleSort = (columnKey) => {
+    if (sortBy === columnKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(columnKey);
+      setSortDir('asc');
+    }
     setPage(1);
   };
 
@@ -72,7 +111,7 @@ export default function AllCourtsPanel() {
     setCourtDetail(null);
     try {
       setDetailLoading(true);
-      const detail = await getCourtDetailById(courtId);
+      const detail = await getCourtDetailById(courtId, { bustCache: true });
       setCourtDetail(detail);
     } catch (err) {
       console.error('Error fetching court detail:', err);
@@ -96,6 +135,14 @@ export default function AllCourtsPanel() {
   const statusBadge = (status) => {
     const cls = `admin-court-status-badge admin-court-status-badge--${status || 'pending'}`;
     return <span className={cls}>{status || 'pending'}</span>;
+  };
+
+  /** Render sort indicator arrow for a column header. */
+  const SortIcon = ({ columnKey }) => {
+    if (sortBy !== columnKey) return null;
+    return sortDir === 'asc'
+      ? <ChevronUp size={14} className="admin-sort-icon" />
+      : <ChevronDown size={14} className="admin-sort-icon" />;
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -126,12 +173,35 @@ export default function AllCourtsPanel() {
         <select
           className="admin-courts-status-select"
           value={statusFilter}
-          onChange={handleStatusChange}
+          onChange={handleFilterChange(setStatusFilter)}
+          aria-label="Filter by status"
         >
           <option value="all">All statuses</option>
           <option value="approved">Approved</option>
           <option value="pending">Pending</option>
           <option value="rejected">Rejected</option>
+        </select>
+        <select
+          className="admin-courts-status-select"
+          value={surfaceFilter}
+          onChange={handleFilterChange(setSurfaceFilter)}
+          aria-label="Filter by surface"
+        >
+          <option value="all">All surfaces</option>
+          <option value="sand">Sand</option>
+          <option value="indoor_sand">Indoor Sand</option>
+          <option value="grass">Grass</option>
+          <option value="hard">Hard Court</option>
+        </select>
+        <select
+          className="admin-courts-status-select"
+          value={photosFilter}
+          onChange={handleFilterChange(setPhotosFilter)}
+          aria-label="Filter by photos"
+        >
+          <option value="all">All photos</option>
+          <option value="yes">Has photos</option>
+          <option value="no">No photos</option>
         </select>
       </div>
 
@@ -145,13 +215,17 @@ export default function AllCourtsPanel() {
             <table className="admin-feedback-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Address</th>
-                  <th>Location</th>
-                  <th>Status</th>
-                  <th>Surface</th>
-                  <th>Courts</th>
-                  <th>Created</th>
+                  {COLUMNS.map(({ key, label, sortable }) => (
+                    <th
+                      key={key}
+                      className={sortable ? 'admin-th--sortable' : ''}
+                      onClick={sortable ? () => handleSort(key) : undefined}
+                      aria-sort={sortBy === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                    >
+                      {label}
+                      {sortable && <SortIcon columnKey={key} />}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -205,11 +279,20 @@ function CourtRows({ court, isExpanded, onRowClick, onCourtUpdated, statusBadge,
         <td>{statusBadge(court.status)}</td>
         <td>{court.surface_type || 'N/A'}</td>
         <td>{court.court_count || 'N/A'}</td>
+        <td>
+          {court.photo_count > 0 ? (
+            <span className="admin-court-photo-count">
+              <Camera size={13} /> {court.photo_count}
+            </span>
+          ) : (
+            <span className="admin-court-photo-count admin-court-photo-count--none">0</span>
+          )}
+        </td>
         <td>{formatDate(court.created_at)}</td>
       </tr>
       {isExpanded && (
         <tr className="admin-court-edit-row">
-          <td colSpan={7}>
+          <td colSpan={8}>
             <CourtEditRow
               court={court}
               onSave={onCourtUpdated}

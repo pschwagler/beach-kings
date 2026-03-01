@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 import uuid
 from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from sqlalchemy import select, func
 
@@ -28,21 +28,16 @@ from backend.database.models import (
     LeagueMember,
     LeagueMessage,
     LeagueRequest,
-    PlayerSeasonStats,
-    PlayerLeagueStats,
     PlayerGlobalStats,
     PartnershipStats,
     OpponentStats,
     EloHistory,
-    SeasonRatingHistory,
     Feedback,
-    CourtReview,
     League,
     Season,
     Session,
     Match,
     RefreshToken,
-    PasswordResetToken,
     SessionParticipant,
 )
 from backend.services import user_service
@@ -79,8 +74,10 @@ async def _create_league_and_season(db_session):
     db_session.add(league)
     await db_session.flush()
     season = Season(
-        league_id=league.id, name="Test Season",
-        start_date=date(2024, 1, 1), end_date=date(2025, 12, 31),
+        league_id=league.id,
+        name="Test Season",
+        start_date=date(2024, 1, 1),
+        end_date=date(2025, 12, 31),
     )
     db_session.add(season)
     await db_session.flush()
@@ -132,7 +129,10 @@ async def rich_user(db_session):
 
     # Notification
     notif = Notification(
-        user_id=u1, type="league_message", title="Test", message="Test msg",
+        user_id=u1,
+        type="league_message",
+        title="Test",
+        message="Test msg",
     )
     db_session.add(notif)
 
@@ -154,23 +154,34 @@ async def rich_user(db_session):
 
     # ELO history — create a session + match first
     sess = Session(
-        date="2024-06-01", name="Test Session", status="SUBMITTED", season_id=season_id,
+        date="2024-06-01",
+        name="Test Session",
+        status="SUBMITTED",
+        season_id=season_id,
     )
     db_session.add(sess)
     await db_session.flush()
 
     match = Match(
-        session_id=sess.id, date="2024-06-01",
-        team1_player1_id=p1, team1_player2_id=p2,
-        team2_player1_id=p3, team2_player2_id=p4,
-        team1_score=21, team2_score=19, winner=1,
+        session_id=sess.id,
+        date="2024-06-01",
+        team1_player1_id=p1,
+        team1_player2_id=p2,
+        team2_player1_id=p3,
+        team2_player2_id=p4,
+        team1_score=21,
+        team2_score=19,
+        winner=1,
     )
     db_session.add(match)
     await db_session.flush()
 
     elo = EloHistory(
-        player_id=p1, match_id=match.id, date="2024-06-01",
-        elo_after=1050.0, elo_change=50.0,
+        player_id=p1,
+        match_id=match.id,
+        date="2024-06-01",
+        elo_after=1050.0,
+        elo_change=50.0,
     )
     db_session.add(elo)
 
@@ -188,7 +199,8 @@ async def rich_user(db_session):
 
     # Refresh token
     rt = RefreshToken(
-        user_id=u1, token="test_refresh_token_del",
+        user_id=u1,
+        token="test_refresh_token_del",
         expires_at=(utcnow() + timedelta(days=7)).isoformat(),
     )
     db_session.add(rt)
@@ -200,11 +212,16 @@ async def rich_user(db_session):
     await db_session.commit()
 
     return {
-        "user_id": u1, "player_id": p1,
-        "other_user_id": u2, "other_player_id": p2,
-        "third_player_id": p3, "fourth_player_id": p4,
-        "league_id": league_id, "season_id": season_id,
-        "session_id": sess.id, "match_id": match.id,
+        "user_id": u1,
+        "player_id": p1,
+        "other_user_id": u2,
+        "other_player_id": p2,
+        "third_player_id": p3,
+        "fourth_player_id": p4,
+        "league_id": league_id,
+        "season_id": season_id,
+        "session_id": sess.id,
+        "match_id": match.id,
     }
 
 
@@ -228,6 +245,7 @@ async def test_schedule_account_deletion(db_session, user_and_player):
     scheduled = user["deletion_scheduled_at"]
     # Should be roughly 30 days from now
     from datetime import datetime
+
     scheduled_dt = datetime.fromisoformat(scheduled)
     expected_min = before + timedelta(days=29, hours=23)
     expected_max = before + timedelta(days=30, minutes=5)
@@ -325,17 +343,19 @@ async def test_execute_deletion_removes_friends_and_requests(db_session, rich_us
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     fr_count = await db_session.execute(
-        select(func.count()).select_from(FriendRequest).where(
-            (FriendRequest.sender_player_id == player_id) |
-            (FriendRequest.receiver_player_id == player_id)
+        select(func.count())
+        .select_from(FriendRequest)
+        .where(
+            (FriendRequest.sender_player_id == player_id)
+            | (FriendRequest.receiver_player_id == player_id)
         )
     )
     assert fr_count.scalar() == 0
 
     f_count = await db_session.execute(
-        select(func.count()).select_from(Friend).where(
-            (Friend.player1_id == player_id) | (Friend.player2_id == player_id)
-        )
+        select(func.count())
+        .select_from(Friend)
+        .where((Friend.player1_id == player_id) | (Friend.player2_id == player_id))
     )
     assert f_count.scalar() == 0
 
@@ -349,17 +369,17 @@ async def test_execute_deletion_removes_messages(db_session, rich_user):
     await user_service.execute_account_deletion(db_session, user_id)
 
     dm_count = await db_session.execute(
-        select(func.count()).select_from(DirectMessage).where(
-            (DirectMessage.sender_player_id == player_id) |
-            (DirectMessage.receiver_player_id == player_id)
+        select(func.count())
+        .select_from(DirectMessage)
+        .where(
+            (DirectMessage.sender_player_id == player_id)
+            | (DirectMessage.receiver_player_id == player_id)
         )
     )
     assert dm_count.scalar() == 0
 
     lm_count = await db_session.execute(
-        select(func.count()).select_from(LeagueMessage).where(
-            LeagueMessage.user_id == user_id
-        )
+        select(func.count()).select_from(LeagueMessage).where(LeagueMessage.user_id == user_id)
     )
     assert lm_count.scalar() == 0
 
@@ -386,9 +406,7 @@ async def test_execute_deletion_removes_notifications_and_feedback(db_session, r
     await user_service.execute_account_deletion(db_session, user_id)
 
     n_count = await db_session.execute(
-        select(func.count()).select_from(Notification).where(
-            Notification.user_id == user_id
-        )
+        select(func.count()).select_from(Notification).where(Notification.user_id == user_id)
     )
     assert n_count.scalar() == 0
 
@@ -406,16 +424,12 @@ async def test_execute_deletion_removes_league_membership(db_session, rich_user)
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     lm_count = await db_session.execute(
-        select(func.count()).select_from(LeagueMember).where(
-            LeagueMember.player_id == player_id
-        )
+        select(func.count()).select_from(LeagueMember).where(LeagueMember.player_id == player_id)
     )
     assert lm_count.scalar() == 0
 
     lr_count = await db_session.execute(
-        select(func.count()).select_from(LeagueRequest).where(
-            LeagueRequest.player_id == player_id
-        )
+        select(func.count()).select_from(LeagueRequest).where(LeagueRequest.player_id == player_id)
     )
     assert lr_count.scalar() == 0
 
@@ -428,9 +442,7 @@ async def test_execute_deletion_removes_tokens(db_session, rich_user):
     await user_service.execute_account_deletion(db_session, user_id)
 
     rt_count = await db_session.execute(
-        select(func.count()).select_from(RefreshToken).where(
-            RefreshToken.user_id == user_id
-        )
+        select(func.count()).select_from(RefreshToken).where(RefreshToken.user_id == user_id)
     )
     assert rt_count.scalar() == 0
 
@@ -598,9 +610,9 @@ async def test_execute_deletion_removes_session_participants(db_session, rich_us
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     sp_count = await db_session.execute(
-        select(func.count()).select_from(SessionParticipant).where(
-            SessionParticipant.player_id == player_id
-        )
+        select(func.count())
+        .select_from(SessionParticipant)
+        .where(SessionParticipant.player_id == player_id)
     )
     assert sp_count.scalar() == 0
 
@@ -620,8 +632,8 @@ async def test_execute_deletion_removes_partner_stats_for_partner(db_session, ri
     await user_service.execute_account_deletion(db_session, rich_user["user_id"])
 
     ps_count = await db_session.execute(
-        select(func.count()).select_from(PartnershipStats).where(
-            PartnershipStats.partner_id == rich_user["player_id"]
-        )
+        select(func.count())
+        .select_from(PartnershipStats)
+        .where(PartnershipStats.partner_id == rich_user["player_id"])
     )
     assert ps_count.scalar() == 0

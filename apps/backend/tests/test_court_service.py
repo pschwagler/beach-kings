@@ -5,12 +5,9 @@ review CRUD, rating recalculation, edit suggestions.
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
 
 from backend.database.models import (
     Court,
-    CourtReview,
-    CourtReviewPhoto,
     CourtTag,
     Location,
     Player,
@@ -172,8 +169,10 @@ class TestSlugGeneration:
         """Duplicate slugs get numeric suffix."""
         # Create first court
         court1 = Court(
-            name="Dup Court", slug="dup-court-test-city",
-            location_id=location.id, status="approved",
+            name="Dup Court",
+            slug="dup-court-test-city",
+            location_id=location.id,
+            status="approved",
         )
         db_session.add(court1)
         await db_session.commit()
@@ -225,8 +224,10 @@ class TestCourtCRUD:
         """Public listing returns only approved courts."""
         # Create a pending court
         c = Court(
-            name="Pending", slug="pending-court",
-            location_id=location.id, status="pending",
+            name="Pending",
+            slug="pending-court",
+            location_id=location.id,
+            status="pending",
         )
         db_session.add(c)
         await db_session.commit()
@@ -241,9 +242,12 @@ class TestCourtCRUD:
         """Filtering by surface_type works."""
         # Create a grass court
         c = Court(
-            name="Grass Place", slug="grass-place",
-            location_id=location.id, status="approved",
-            surface_type="grass", is_active=True,
+            name="Grass Place",
+            slug="grass-place",
+            location_id=location.id,
+            status="approved",
+            surface_type="grass",
+            is_active=True,
         )
         db_session.add(c)
         await db_session.commit()
@@ -279,7 +283,8 @@ class TestCourtCRUD:
     async def test_update_court_fields(self, db_session, court):
         """Updating court fields persists changes."""
         updated = await court_service.update_court_fields(
-            db_session, court["id"],
+            db_session,
+            court["id"],
             description="Updated desc",
             court_count=6,
         )
@@ -369,19 +374,31 @@ class TestNearbyCourts:
         """Nearby courts returns courts within radius, sorted by distance."""
         # Create two courts at known positions (NYC area)
         court1 = Court(
-            name="Close Court", slug="close-court",
-            location_id=location.id, status="approved", is_active=True,
-            latitude=40.73, longitude=-74.00,
+            name="Close Court",
+            slug="close-court",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=40.73,
+            longitude=-74.00,
         )
         court2 = Court(
-            name="Far Court", slug="far-court",
-            location_id=location.id, status="approved", is_active=True,
-            latitude=40.80, longitude=-73.95,
+            name="Far Court",
+            slug="far-court",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=40.80,
+            longitude=-73.95,
         )
         court3 = Court(
-            name="Very Far Court", slug="very-far",
-            location_id=location.id, status="approved", is_active=True,
-            latitude=42.00, longitude=-72.00,  # ~150 miles away
+            name="Very Far Court",
+            slug="very-far",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=42.00,
+            longitude=-72.00,  # ~150 miles away
         )
         db_session.add_all([court1, court2, court3])
         await db_session.commit()
@@ -398,14 +415,22 @@ class TestNearbyCourts:
     async def test_nearby_excludes_court(self, db_session, location):
         """Exclude parameter filters out a specific court."""
         court1 = Court(
-            name="Court A", slug="court-a",
-            location_id=location.id, status="approved", is_active=True,
-            latitude=40.73, longitude=-74.00,
+            name="Court A",
+            slug="court-a",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=40.73,
+            longitude=-74.00,
         )
         court2 = Court(
-            name="Court B", slug="court-b",
-            location_id=location.id, status="approved", is_active=True,
-            latitude=40.735, longitude=-73.99,
+            name="Court B",
+            slug="court-b",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+            latitude=40.735,
+            longitude=-73.99,
         )
         db_session.add_all([court1, court2])
         await db_session.commit()
@@ -730,8 +755,10 @@ class TestSitemap:
         """Sitemap returns approved courts with slugs."""
         # Create a pending court (should not appear)
         c = Court(
-            name="Hidden", slug="hidden-court",
-            location_id=location.id, status="pending",
+            name="Hidden",
+            slug="hidden-court",
+            location_id=location.id,
+            status="pending",
         )
         db_session.add(c)
         await db_session.commit()

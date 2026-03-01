@@ -151,9 +151,7 @@ async def list_courts_public(
     # Apply filters
     if region_id:
         base = base.where(
-            Court.location_id.in_(
-                select(Location.id).where(Location.region_id == region_id)
-            )
+            Court.location_id.in_(select(Location.id).where(Location.region_id == region_id))
         )
     if location_id:
         ids = [lid.strip() for lid in location_id.split(",") if lid.strip()]
@@ -177,9 +175,7 @@ async def list_courts_public(
         base = base.where(Court.nets_provided == nets_provided)
     if search:
         pattern = f"%{_escape_like(search)}%"
-        base = base.where(
-            or_(Court.name.ilike(pattern), Court.address.ilike(pattern))
-        )
+        base = base.where(or_(Court.name.ilike(pattern), Court.address.ilike(pattern)))
 
     # Count
     count_q = select(func.count()).select_from(base.subquery())
@@ -198,8 +194,7 @@ async def list_courts_public(
             * func.acos(
                 func.least(
                     literal(1.0),
-                    func.sin(literal(u_lat_r))
-                    * func.sin(Court.latitude * rad)
+                    func.sin(literal(u_lat_r)) * func.sin(Court.latitude * rad)
                     + func.cos(literal(u_lat_r))
                     * func.cos(Court.latitude * rad)
                     * func.cos(Court.longitude * rad - literal(u_lng_r)),
@@ -341,19 +336,16 @@ async def _batch_get_thumbnails(
     # Union both sources, rank by recency per court
     all_photos = review_photos.union_all(standalone_photos).subquery()
 
-    ranked = (
-        select(
-            all_photos.c.court_id,
-            all_photos.c.url,
-            func.row_number()
-            .over(
-                partition_by=all_photos.c.court_id,
-                order_by=all_photos.c.created_at.desc(),
-            )
-            .label("rn"),
+    ranked = select(
+        all_photos.c.court_id,
+        all_photos.c.url,
+        func.row_number()
+        .over(
+            partition_by=all_photos.c.court_id,
+            order_by=all_photos.c.created_at.desc(),
         )
-        .subquery()
-    )
+        .label("rn"),
+    ).subquery()
 
     q = select(ranked.c.court_id, ranked.c.url).where(ranked.c.rn == 1)
     result = await session.execute(q)
@@ -375,9 +367,7 @@ async def get_court_id_by_slug(session: AsyncSession, slug: str) -> Optional[int
 
     Returns the court's integer ID, or None if not found.
     """
-    result = await session.execute(
-        select(Court.id).where(Court.slug == slug)
-    )
+    result = await session.execute(select(Court.id).where(Court.slug == slug))
     row = result.first()
     return row[0] if row else None
 
@@ -617,9 +607,7 @@ async def get_court_leaderboard(
 
     # Fetch player details
     player_ids = [r.player_id for r in rows]
-    player_q = select(Player.id, Player.full_name, Player.avatar).where(
-        Player.id.in_(player_ids)
-    )
+    player_q = select(Player.id, Player.full_name, Player.avatar).where(Player.id.in_(player_ids))
     player_result = await session.execute(player_q)
     player_map = {p.id: p for p in player_result.all()}
 
@@ -737,9 +725,7 @@ async def create_court(
     """
     # Resolve city from location for slug
     city = None
-    loc_result = await session.execute(
-        select(Location.city).where(Location.id == location_id)
-    )
+    loc_result = await session.execute(select(Location.city).where(Location.id == location_id))
     loc_row = loc_result.first()
     if loc_row:
         city = loc_row[0]
@@ -802,9 +788,7 @@ async def update_court_fields(
         update_values["updated_by"] = updater_player_id
 
     if update_values:
-        await session.execute(
-            update(Court).where(Court.id == court_id).values(**update_values)
-        )
+        await session.execute(update(Court).where(Court.id == court_id).values(**update_values))
         await session.commit()
 
     result = await session.execute(select(Court).where(Court.id == court_id))
@@ -883,23 +867,54 @@ async def _set_court_status(
     }
 
 
+_ADMIN_SORT_COLUMNS = {
+    "name": Court.name,
+    "created_at": Court.created_at,
+    "court_count": Court.court_count,
+    "surface_type": Court.surface_type,
+    "status": Court.status,
+}
+
+
 async def list_all_courts_admin(
     session: AsyncSession,
     *,
     search: Optional[str] = None,
     status: Optional[str] = None,
+    surface_type: Optional[str] = None,
+    has_photos: Optional[bool] = None,
+    sort_by: Optional[str] = None,
+    sort_dir: Optional[str] = "desc",
     page: int = 1,
     page_size: int = 25,
 ) -> Dict:
     """
-    List all courts for admin with search, status filter, and pagination.
+    List all courts for admin with search, filters, sorting, and pagination.
 
+    Supports sorting by name, created_at, court_count, surface_type, status.
+    Supports filtering by status, surface_type, and has_photos (boolean).
     Returns dict with ``items`` list and ``total`` count.
     """
+    # Photo count subquery for has_photos filter and response data
+    photo_count_sq = (
+        select(
+            CourtPhoto.court_id,
+            func.count(CourtPhoto.id).label("photo_count"),
+        )
+        .group_by(CourtPhoto.court_id)
+        .subquery()
+    )
+
     base = (
-        select(Court, Player.full_name, Location.name.label("location_name"))
+        select(
+            Court,
+            Player.full_name,
+            Location.name.label("location_name"),
+            func.coalesce(photo_count_sq.c.photo_count, 0).label("photo_count"),
+        )
         .outerjoin(Player, Court.created_by == Player.id)
         .outerjoin(Location, Court.location_id == Location.id)
+        .outerjoin(photo_count_sq, Court.id == photo_count_sq.c.court_id)
     )
 
     filters = []
@@ -913,6 +928,12 @@ async def list_all_courts_admin(
         )
     if status and status != "all":
         filters.append(Court.status == status)
+    if surface_type and surface_type != "all":
+        filters.append(Court.surface_type == surface_type)
+    if has_photos is True:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) > 0)
+    elif has_photos is False:
+        filters.append(func.coalesce(photo_count_sq.c.photo_count, 0) == 0)
 
     if filters:
         base = base.where(and_(*filters))
@@ -921,8 +942,10 @@ async def list_all_courts_admin(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await session.execute(count_q)).scalar() or 0
 
-    # Paginated results
-    q = base.order_by(Court.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    # Sorting
+    sort_col = _ADMIN_SORT_COLUMNS.get(sort_by, Court.created_at)
+    order_clause = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+    q = base.order_by(order_clause).offset((page - 1) * page_size).limit(page_size)
     rows = (await session.execute(q)).all()
 
     items = [
@@ -949,18 +972,31 @@ async def list_all_courts_admin(
             "cost_info": court.cost_info,
             "parking_info": court.parking_info,
             "submitter_name": submitter_name,
+            "photo_count": photo_count,
             "created_at": court.created_at.isoformat() if court.created_at else None,
         }
-        for court, submitter_name, location_name in rows
+        for court, submitter_name, location_name, photo_count in rows
     ]
 
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 _SUGGESTION_FIELDS = [
-    "name", "address", "description", "court_count", "surface_type",
-    "is_free", "cost_info", "has_lights", "has_restrooms", "has_parking",
-    "parking_info", "nets_provided", "hours", "phone", "website",
+    "name",
+    "address",
+    "description",
+    "court_count",
+    "surface_type",
+    "is_free",
+    "cost_info",
+    "has_lights",
+    "has_restrooms",
+    "has_parking",
+    "parking_info",
+    "nets_provided",
+    "hours",
+    "phone",
+    "website",
 ]
 
 
@@ -1008,12 +1044,8 @@ async def list_all_suggestions_admin(
             "suggester_name": suggester_name,
             "changes": suggestion.changes,
             "status": suggestion.status,
-            "created_at": (
-                suggestion.created_at.isoformat() if suggestion.created_at else None
-            ),
-            "current": {
-                field: getattr(court, field) for field in _SUGGESTION_FIELDS
-            },
+            "created_at": (suggestion.created_at.isoformat() if suggestion.created_at else None),
+            "current": {field: getattr(court, field) for field in _SUGGESTION_FIELDS},
         }
         for suggestion, court, suggester_name in rows
     ]
@@ -1091,9 +1123,7 @@ async def update_review(
 
     Returns updated stats, or None if review not found / not the author.
     """
-    result = await session.execute(
-        select(CourtReview).where(CourtReview.id == review_id)
-    )
+    result = await session.execute(select(CourtReview).where(CourtReview.id == review_id))
     review = result.scalar_one_or_none()
     if not review or review.player_id != player_id:
         return None
@@ -1106,9 +1136,7 @@ async def update_review(
     # Replace tags if provided
     if tag_ids is not None:
         await session.execute(
-            CourtReviewTag.__table__.delete().where(
-                CourtReviewTag.review_id == review_id
-            )
+            CourtReviewTag.__table__.delete().where(CourtReviewTag.review_id == review_id)
         )
         for tid in tag_ids:
             session.add(CourtReviewTag(review_id=review_id, tag_id=tid))
@@ -1230,9 +1258,7 @@ async def reorder_court_photos(
     Raises:
         ValueError: If photo_ids don't match the court's actual photos
     """
-    result = await session.execute(
-        select(CourtPhoto).where(CourtPhoto.court_id == court_id)
-    )
+    result = await session.execute(select(CourtPhoto).where(CourtPhoto.court_id == court_id))
     existing = {p.id: p for p in result.scalars().all()}
 
     if set(photo_ids) != set(existing.keys()):
@@ -1259,9 +1285,7 @@ async def list_reviews(
     """Paginated reviews for a court with tags, photos, and author info."""
     base = select(CourtReview).where(CourtReview.court_id == court_id)
     total = (
-        await session.execute(
-            select(func.count()).select_from(base.subquery())
-        )
+        await session.execute(select(func.count()).select_from(base.subquery()))
     ).scalar() or 0
 
     offset = (page - 1) * page_size
@@ -1318,9 +1342,9 @@ async def _recalc_court_rating(
     session: AsyncSession, court_id: int
 ) -> Tuple[Optional[float], int]:
     """Recalculate and persist average_rating and review_count for a court."""
-    q = select(
-        func.avg(CourtReview.rating), func.count(CourtReview.id)
-    ).where(CourtReview.court_id == court_id)
+    q = select(func.avg(CourtReview.rating), func.count(CourtReview.id)).where(
+        CourtReview.court_id == court_id
+    )
     row = (await session.execute(q)).first()
     avg_val = round(float(row[0]), 2) if row[0] is not None else None
     count_val = row[1] or 0
@@ -1356,9 +1380,7 @@ async def add_review_photo(
     Raises ValueError if photo limit exceeded.
     """
     # Verify authorship
-    result = await session.execute(
-        select(CourtReview).where(CourtReview.id == review_id)
-    )
+    result = await session.execute(select(CourtReview).where(CourtReview.id == review_id))
     review = result.scalar_one_or_none()
     if not review or review.player_id != player_id:
         return None
@@ -1419,9 +1441,7 @@ async def create_edit_suggestion(
     }
 
 
-async def list_edit_suggestions(
-    session: AsyncSession, court_id: int
-) -> List[Dict]:
+async def list_edit_suggestions(session: AsyncSession, court_id: int) -> List[Dict]:
     """List pending edit suggestions for a court."""
     q = (
         select(CourtEditSuggestion, Player.full_name)
@@ -1476,16 +1496,26 @@ async def resolve_edit_suggestion(
         changes = suggestion.changes
         # Only apply known court fields
         allowed_fields = {
-            "name", "address", "description", "court_count", "surface_type",
-            "is_free", "cost_info", "has_lights", "has_restrooms", "has_parking",
-            "parking_info", "nets_provided", "hours", "phone", "website",
+            "name",
+            "address",
+            "description",
+            "court_count",
+            "surface_type",
+            "is_free",
+            "cost_info",
+            "has_lights",
+            "has_restrooms",
+            "has_parking",
+            "parking_info",
+            "nets_provided",
+            "hours",
+            "phone",
+            "website",
         }
         update_values = {k: v for k, v in changes.items() if k in allowed_fields}
         if update_values:
             await session.execute(
-                update(Court)
-                .where(Court.id == suggestion.court_id)
-                .values(**update_values)
+                update(Court).where(Court.id == suggestion.court_id).values(**update_values)
             )
 
     await session.commit()

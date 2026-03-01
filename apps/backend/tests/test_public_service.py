@@ -308,7 +308,8 @@ async def test_get_public_leagues_with_games_played(db_session, test_location, t
     await db_session.refresh(league)
 
     season = Season(
-        league_id=league.id, name="S1",
+        league_id=league.id,
+        name="S1",
         start_date=datetime.date(2026, 1, 1),
         end_date=datetime.date(2026, 6, 30),
     )
@@ -317,8 +318,10 @@ async def test_get_public_leagues_with_games_played(db_session, test_location, t
     await db_session.refresh(season)
 
     sess = Session(
-        date="2026-02-01", name="Sess 1",
-        status=SessionStatus.SUBMITTED, season_id=season.id,
+        date="2026-02-01",
+        name="Sess 1",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
     )
     db_session.add(sess)
     await db_session.commit()
@@ -335,10 +338,15 @@ async def test_get_public_leagues_with_games_played(db_session, test_location, t
     await db_session.refresh(p4)
 
     match = Match(
-        session_id=sess.id, date="2026-02-01",
-        team1_player1_id=test_player.id, team1_player2_id=p2.id,
-        team2_player1_id=p3.id, team2_player2_id=p4.id,
-        team1_score=21, team2_score=15, winner=1,
+        session_id=sess.id,
+        date="2026-02-01",
+        team1_player1_id=test_player.id,
+        team1_player2_id=p2.id,
+        team2_player1_id=p3.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
     )
     db_session.add(match)
     await db_session.commit()
@@ -364,8 +372,11 @@ async def test_get_public_leagues_filter_by_gender(db_session, test_location):
 async def test_get_public_leagues_filter_by_location(db_session, test_location):
     """Location filter returns only matching leagues."""
     loc2 = Location(
-        id="other_loc", name="Other Beach", city="Other City",
-        state="CA", slug="other-city",
+        id="other_loc",
+        name="Other Beach",
+        city="Other City",
+        state="CA",
+        slug="other-city",
     )
     db_session.add(loc2)
     await db_session.commit()
@@ -484,10 +495,22 @@ async def public_league_full(db_session, test_location, test_player):
 
     # Season stats (standings data)
     stats1 = PlayerSeasonStats(
-        player_id=test_player.id, season_id=season.id, games=5, wins=4, points=12, win_rate=0.8, avg_point_diff=3.0
+        player_id=test_player.id,
+        season_id=season.id,
+        games=5,
+        wins=4,
+        points=12,
+        win_rate=0.8,
+        avg_point_diff=3.0,
     )
     stats2 = PlayerSeasonStats(
-        player_id=player2.id, season_id=season.id, games=5, wins=2, points=6, win_rate=0.4, avg_point_diff=-1.0
+        player_id=player2.id,
+        season_id=season.id,
+        games=5,
+        wins=2,
+        points=6,
+        win_rate=0.4,
+        avg_point_diff=-1.0,
     )
     db_session.add_all([stats1, stats2])
 
@@ -847,8 +870,12 @@ async def test_get_public_locations_grouped_by_region(db_session, test_location,
 async def test_get_public_locations_no_region(db_session):
     """Locations without a region go under 'Other'."""
     location = Location(
-        id="orphan_loc", name="Orphan Beach", city="Orphan City",
-        state="TX", region_id=None, slug="orphan-city",
+        id="orphan_loc",
+        name="Orphan Beach",
+        city="Orphan City",
+        state="TX",
+        region_id=None,
+        slug="orphan-city",
     )
     db_session.add(location)
     await db_session.commit()
@@ -882,7 +909,10 @@ async def test_get_public_locations_with_player_count(db_session, test_location,
     db_session.add(test_player)
 
     stats = PlayerGlobalStats(
-        player_id=test_player.id, total_games=5, total_wins=3, current_rating=1250.0,
+        player_id=test_player.id,
+        total_games=5,
+        total_wins=3,
+        current_rating=1250.0,
     )
     db_session.add(stats)
     await db_session.commit()
@@ -893,13 +923,18 @@ async def test_get_public_locations_with_player_count(db_session, test_location,
 
 
 @pytest.mark.asyncio
-async def test_get_public_locations_excludes_zero_game_players(db_session, test_location, test_player):
+async def test_get_public_locations_excludes_zero_game_players(
+    db_session, test_location, test_player
+):
     """Players with 0 games are not counted."""
     test_player.location_id = test_location.id
     db_session.add(test_player)
 
     stats = PlayerGlobalStats(
-        player_id=test_player.id, total_games=0, total_wins=0, current_rating=1200.0,
+        player_id=test_player.id,
+        total_games=0,
+        total_wins=0,
+        current_rating=1200.0,
     )
     db_session.add(stats)
     await db_session.commit()
@@ -1011,7 +1046,9 @@ async def test_get_public_location_with_top_players(db_session, test_location, t
 
 
 @pytest.mark.asyncio
-async def test_get_public_location_excludes_zero_game_players(db_session, test_location, test_player):
+async def test_get_public_location_excludes_zero_game_players(
+    db_session, test_location, test_player
+):
     """Players with 0 games are excluded from top players."""
     test_player.location_id = test_location.id
     db_session.add(test_player)
@@ -1109,12 +1146,14 @@ async def test_get_public_location_match_count(db_session, test_location, test_p
 async def players_for_search(db_session, test_location, test_user):
     """Create several players with stats for search tests."""
     players = []
-    for i, (name, gender, level) in enumerate([
-        ("Alice Johnson", "female", "intermediate"),
-        ("Bob Smith", "male", "advanced"),
-        ("Charlie Brown", "male", "beginner"),
-        ("Diana Prince", "female", "advanced"),
-    ]):
+    for i, (name, gender, level) in enumerate(
+        [
+            ("Alice Johnson", "female", "intermediate"),
+            ("Bob Smith", "male", "advanced"),
+            ("Charlie Brown", "male", "beginner"),
+            ("Diana Prince", "female", "advanced"),
+        ]
+    ):
         p = Player(
             full_name=name,
             gender=gender,
@@ -1193,9 +1232,7 @@ async def test_search_public_players_like_wildcard_escaping(db_session, test_loc
     db_session.add(p)
     await db_session.commit()
     await db_session.refresh(p)
-    stats = PlayerGlobalStats(
-        player_id=p.id, total_games=5, total_wins=2, current_rating=1200.0
-    )
+    stats = PlayerGlobalStats(player_id=p.id, total_games=5, total_wins=2, current_rating=1200.0)
     db_session.add(stats)
     await db_session.commit()
 

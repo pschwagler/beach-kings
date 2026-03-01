@@ -18,6 +18,7 @@ from backend.api.routes import router, limiter as routes_limiter
 from backend.api.public_routes import public_router
 from backend.database import db
 from backend.database.init_defaults import init_defaults
+from backend.database.seed_locations import seed_locations
 from backend.database.seed_courts import seed_courts
 from backend.services.stats_queue import get_stats_queue
 from backend.services.session_cleanup_service import get_session_cleanup_service
@@ -78,6 +79,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize defaults: {e}", exc_info=True)
         # Don't raise - allow app to start even if defaults fail
+
+    # Seed regions and locations (must run before courts)
+    try:
+        await seed_locations()
+        logger.info("✓ Location seed data initialized")
+    except Exception as e:
+        logger.error(f"Failed to seed location data: {e}", exc_info=True)
 
     # Seed court tags and default courts
     try:
