@@ -19,6 +19,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ghcr.io/pschwagler/beach-kings/frontend:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -45,6 +46,7 @@ services:
     restart: unless-stopped
 
   backend:
+    image: ghcr.io/pschwagler/beach-kings/backend:latest
     build:
       context: .
       dockerfile: Dockerfile.backend
