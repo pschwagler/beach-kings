@@ -200,6 +200,31 @@
   color: var(--gray-900);
 }
 
+.kob-create__stepper-input {
+  width: 48px;
+  height: 40px;
+  border: none;
+  border-top: 1px solid var(--gray-300);
+  border-bottom: 1px solid var(--gray-300);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  text-align: center;
+  background: transparent;
+  -moz-appearance: textfield;
+  outline: none;
+}
+
+.kob-create__stepper-input::-webkit-outer-spin-button,
+.kob-create__stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.kob-create__stepper-input:focus {
+  background: var(--primary-lighter);
+}
+
 /* Format toggle group */
 .kob-create__format-options {
   display: flex;
@@ -273,6 +298,63 @@
   background: white;
   cursor: pointer;
   appearance: auto;
+}
+
+/* Format recommendation pills */
+.kob-create__pills {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.kob-create__pill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.kob-create__pill:hover {
+  border-color: var(--gray-400);
+  background: var(--gray-50);
+}
+
+.kob-create__pill--active {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.kob-create__pill--active:hover {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}
+
+.kob-create__pill-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--primary);
+}
+
+.kob-create__pill-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  line-height: 1.2;
+}
+
+.kob-create__pill-stats {
+  font-size: 12px;
+  color: var(--gray-600);
 }
 
 /* Segmented toggle (game-to, cap, games-per-match, rr-cycles) */
@@ -400,6 +482,61 @@
 .kob-create__meta-row .kob-create__row-item--small {
   flex: 0 0 auto;
   min-width: 100px;
+}
+
+/* Coed disclaimer */
+.kob-create__coed-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gray-600);
+  line-height: 1.4;
+}
+
+.kob-create__coed-feedback-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.kob-create__coed-feedback-link:hover {
+  color: var(--primary-dark);
+}
+
+/* Tiebreaker info */
+.kob-create__tiebreaker-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+
+.kob-create__tiebreaker-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.kob-create__tiebreaker-rules {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.kob-create__tiebreaker-note {
+  font-size: 12px;
+  color: var(--gray-600);
+  font-style: italic;
 }
 
 /* Error */

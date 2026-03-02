@@ -57,6 +57,34 @@
   letter-spacing: 0.5px;
 }
 
+/* Finish line */
+.kob-preview__finish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-top: 4px;
+  border-top: 2px solid var(--primary);
+}
+
+.kob-preview__finish-clock {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 36px;
+}
+
+.kob-preview__finish-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.kob-preview__finish-medals {
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
 /* Table */
 .kob-preview__table-wrapper {
   overflow-x: auto;
@@ -156,6 +184,13 @@
   border-top: 1px solid var(--gray-200);
 }
 
+/* Stack multiple matches in a single cell (1-court layout) */
+.kob-preview__match-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Match cell */
 .kob-preview__match-cell {
   display: inline-flex;
@@ -187,6 +222,12 @@
   font-size: 11px;
   font-weight: 500;
   margin: 0 1px;
+}
+
+.kob-preview__draft-pick {
+  font-size: 10px;
+  color: var(--gray-500);
+  font-weight: 400;
 }
 
 .kob-preview__empty-cell {

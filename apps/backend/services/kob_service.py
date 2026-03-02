@@ -5,6 +5,7 @@ Handles tournament CRUD, player management, scheduling, scoring,
 standings calculation, and round advancement.
 """
 
+import hashlib
 import logging
 import secrets
 import string
@@ -1317,6 +1318,12 @@ async def complete_tournament(
 # Standings
 # ---------------------------------------------------------------------------
 
+
+def _tiebreak_hash(tournament_id: int, player_id: int) -> str:
+    """Deterministic coin-flip tiebreaker using a stable hash."""
+    return hashlib.md5(f"{tournament_id}-{player_id}".encode()).hexdigest()
+
+
 async def get_standings(
     session: AsyncSession,
     tournament_id: int,
@@ -1416,7 +1423,15 @@ async def get_standings(
     for s in standings:
         s["point_diff"] = s["points_for"] - s["points_against"]
 
-    standings.sort(key=lambda x: (x["wins"], x["points_for"], x["point_diff"]), reverse=True)
+    # Sort: wins → point diff → deterministic coin flip
+    standings.sort(
+        key=lambda x: (
+            x["wins"],
+            x["point_diff"],
+            _tiebreak_hash(tournament_id, x["player_id"]),
+        ),
+        reverse=True,
+    )
 
     # Assign ranks
     for i, s in enumerate(standings):

@@ -460,6 +460,13 @@
   color: var(--gray-600);
 }
 
+.kob-standings__tiebreaker-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--gray-600);
+  text-align: right;
+}
+
 /* =============================================
    Schedule Tab
    ============================================= */

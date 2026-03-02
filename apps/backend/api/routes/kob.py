@@ -20,6 +20,7 @@ from backend.models.schemas import (
     KobTournamentDetailResponse,
     KobMatchResponse,
     KobFormatRecommendation,
+    KobPillRecommendation,
 )
 
 logger = logging.getLogger(__name__)
@@ -386,9 +387,13 @@ async def get_format_recommendation(
             playoff_size = defaults["playoff_size"]
         if max_rounds is None:
             max_rounds = defaults["max_rounds"]
-        # Use suggested game_to when auto-picking format
+        if playoff_format is None and defaults.get("playoff_format"):
+            playoff_format = defaults["playoff_format"]
+        # Use suggested game_to and games_per_match when auto-picking format
         if defaults.get("game_to"):
             game_to = defaults["game_to"]
+        if defaults.get("games_per_match"):
+            games_per_match = defaults["games_per_match"]
 
     return kob_scheduler.generate_preview(
         num_players=num_players,
@@ -404,6 +409,24 @@ async def get_format_recommendation(
         playoff_format=playoff_format,
         playoff_game_to=playoff_game_to,
         playoff_games_per_match=playoff_games_per_match,
+    )
+
+
+@router.get("/api/kob/recommend/pills", response_model=list[KobPillRecommendation])
+async def get_format_pills(
+    num_players: int = Query(..., ge=4, le=36),
+    num_courts: int = Query(..., ge=1, le=6),
+    duration_minutes: int = Query(None, ge=30, le=480),
+):
+    """
+    Get 1-2 format recommendation pills for quick format switching.
+
+    No auth required — pure computation, no DB access.
+    Only depends on tournament shape (players, courts, duration), not
+    game_to or gpm, so pills only refresh when the shape changes.
+    """
+    return kob_scheduler.suggest_alternatives(
+        num_players, num_courts, duration_minutes
     )
 
 

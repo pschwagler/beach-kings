@@ -1988,6 +1988,21 @@ export const getKobFormatRecommendation = async ({
 };
 
 /**
+ * Get format recommendation pills for quick format switching.
+ * @param {Object} params
+ * @param {number} params.numPlayers
+ * @param {number} params.numCourts
+ * @param {number} [params.durationMinutes]
+ * @returns {Promise<Array>} Array of pill recommendation objects.
+ */
+export const getKobFormatPills = async ({ numPlayers, numCourts, durationMinutes }) => {
+  const params = { num_players: numPlayers, num_courts: numCourts };
+  if (durationMinutes) params.duration_minutes = durationMinutes;
+  const response = await api.get('/api/kob/recommend/pills', { params });
+  return response.data;
+};
+
+/**
  * Update bracket match team assignments (director only).
  * @param {number} tournamentId
  * @param {number} matchId - KobMatch.id

@@ -385,6 +385,20 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 
 **Response:** `KobFormatRecommendation` — includes schedule preview, time model, stats, and `preview_rounds`.
 
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/kob/recommend/pills` | Returns 1-2 format recommendation pills for quick format switching |
+
+**Query Parameters:**
+
+| Param | Required | Type | Description |
+|-------|----------|------|-------------|
+| `num_players` | Yes | int (4-36) | Number of players |
+| `num_courts` | Yes | int (1-6) | Number of available courts |
+| `duration_minutes` | No | int (30-480) | Target tournament duration in minutes |
+
+**Response:** `list[KobPillRecommendation]` — each pill has `label`, `category`, `is_recommended`, format config fields, `total_time_minutes`, and `max_games_per_player`.
+
 ### Public Routes (no auth — by shareable code)
 
 | Method | Path | Description |

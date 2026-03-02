@@ -1765,3 +1765,20 @@ class KobFormatRecommendation(BaseModel):
     # Suggestion
     explanation: str
     suggestion: Optional[str] = None
+
+
+class KobPillRecommendation(BaseModel):
+    """Lightweight format pill for quick format switching."""
+
+    label: str
+    category: str  # "pools" | "round_robin"
+    is_recommended: bool = False
+    format: str
+    num_pools: Optional[int] = None
+    playoff_size: Optional[int] = None
+    max_rounds: Optional[int] = None
+    game_to: int = 21
+    games_per_match: int = 1
+    playoff_format: Optional[str] = None
+    total_time_minutes: int
+    max_games_per_player: int

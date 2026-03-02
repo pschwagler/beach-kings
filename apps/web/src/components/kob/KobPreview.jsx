@@ -27,6 +27,13 @@ function formatTime(minutes) {
   return `${h}h ${m}m`;
 }
 
+/** Format minutes as clock-style "H:MM", e.g. 0 → "0:00", 90 → "1:30" */
+function formatClock(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
 /** Compact inline match cell: two player circles, "v", two player circles */
 function MatchCell({ match }) {
   if (!match) {
@@ -58,20 +65,12 @@ function MatchCell({ match }) {
  * If a round has more matches than courts, split into waves.
  * Returns array of { matches: Match[] } per wave.
  */
-function buildWaveRows(roundMatches, numCourts) {
-  const waves = [];
-  for (let i = 0; i < roundMatches.length; i += numCourts) {
-    waves.push(roundMatches.slice(i, i + numCourts));
-  }
-  return waves;
-}
-
 /**
- * Non-pool table: columns = courts, rows = rounds.
- * Multiple waves per round get separate rows; round # only on first wave.
+ * Non-pool table: columns = courts, rows = rounds (time slots).
+ * Backend guarantees each round has ≤ num_courts matches,
+ * so one row per round.
  */
-function NonPoolTable({ rounds, numCourts }) {
-  // Determine actual court columns used
+function NonPoolTable({ rounds, numCourts, roundClocks }) {
   const courtNums = [];
   for (let c = 1; c <= numCourts; c++) courtNums.push(c);
 
@@ -88,39 +87,29 @@ function NonPoolTable({ rounds, numCourts }) {
           </tr>
         </thead>
         <tbody>
-          {rounds.map((rnd, rndIdx) => {
-            const waves = buildWaveRows(rnd.matches, numCourts);
-            return waves.map((waveMatches, waveIdx) => {
-              const isFirstWave = waveIdx === 0;
-              return (
-                <tr
-                  key={`${rnd.round_num}-${waveIdx}`}
-                  className={isFirstWave ? "kob-preview__tr--round-start" : ""}
-                >
-                  <td className="kob-preview__td kob-preview__td--rd">
-                    {isFirstWave ? rnd.round_num : ""}
+          {rounds.map((rnd) => (
+            <tr key={rnd.round_num} className="kob-preview__tr--round-start">
+              <td className="kob-preview__td kob-preview__td--rd">{rnd.round_num}</td>
+              {courtNums.map((courtNum, colIdx) => {
+                const match = rnd.matches.find((m) => m.court_num === courtNum)
+                  || rnd.matches[colIdx];
+                return (
+                  <td key={courtNum} className="kob-preview__td">
+                    {colIdx < rnd.matches.length ? (
+                      <MatchCell match={match} />
+                    ) : (
+                      <span className="kob-preview__empty-cell">&ndash;</span>
+                    )}
                   </td>
-                  {courtNums.map((courtNum, colIdx) => {
-                    const match = waveMatches.find(
-                      (m) => m.court_num === courtNum
-                    ) || waveMatches[colIdx];
-                    return (
-                      <td key={courtNum} className="kob-preview__td">
-                        {colIdx < waveMatches.length ? (
-                          <MatchCell match={waveMatches[colIdx]} />
-                        ) : (
-                          <span className="kob-preview__empty-cell">&ndash;</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="kob-preview__td kob-preview__td--time">
-                    {isFirstWave ? `${rnd.time_minutes}m` : ""}
-                  </td>
-                </tr>
-              );
-            });
-          })}
+                );
+              })}
+              <td className="kob-preview__td kob-preview__td--time">
+                {roundClocks?.[rnd.round_num] != null
+                  ? formatClock(roundClocks[rnd.round_num])
+                  : ""}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -131,7 +120,7 @@ function NonPoolTable({ rounds, numCourts }) {
  * Pool play table: columns = pools (with court + game_to in header),
  * rows = time slots. Uneven pools → "–" for the pool with fewer matches.
  */
-function PoolTable({ rounds, poolIds, poolCourts, poolGameTo }) {
+function PoolTable({ rounds, poolIds, poolCourts, poolGameTo, roundClocks }) {
   // Build rows: each round becomes a group of sub-rows.
   // For each round, find matches per pool, then zip them into rows.
   const rows = [];
@@ -156,7 +145,9 @@ function PoolTable({ rounds, poolIds, poolCourts, poolGameTo }) {
     for (let i = 0; i < maxMatches; i++) {
       rows.push({
         roundNum: i === 0 ? rnd.round_num : null,
-        time: i === 0 ? `${rnd.time_minutes}m` : null,
+        time: i === 0 && roundClocks?.[rnd.round_num] != null
+          ? formatClock(roundClocks[rnd.round_num])
+          : null,
         cells: poolIds.map((pid) => matchesByPool[pid][i] || null),
       });
     }
@@ -218,13 +209,46 @@ function PoolTable({ rounds, poolIds, poolCourts, poolGameTo }) {
 /**
  * Playoff display: RR playoffs use NonPoolTable, draft playoffs use a bracket list.
  */
-function PlayoffSection({ rounds, numCourts }) {
+function PlayoffSection({ rounds, numCourts, roundClocks }) {
   if (!rounds.length) return null;
 
   // Check if this is a draft bracket (has bracket_position)
   const isDraft = rounds.some((r) => r.bracket_position);
 
   if (isDraft) {
+    /** Render a draft bracket match: "#3 + pick  v  #6 + pick" */
+    const DraftMatch = ({ match }) => {
+      const seed = (team) => team.find((p) => p > 0);
+      const s1 = seed(match.team1);
+      const s2 = seed(match.team2);
+      // Top 4 final: 1st picks, remaining 2 auto-paired
+      if (s1 && !s2) {
+        return (
+          <span className="kob-preview__match-cell">
+            <span className="kob-preview__team">
+              <span className="kob-preview__player">#{s1}</span>
+              <span className="kob-preview__draft-pick">+ pick</span>
+            </span>
+            <span className="kob-preview__vs">v</span>
+            <span className="kob-preview__draft-pick">remaining 2</span>
+          </span>
+        );
+      }
+      return (
+        <span className="kob-preview__match-cell">
+          <span className="kob-preview__team">
+            <span className="kob-preview__player">#{s1 || "?"}</span>
+            <span className="kob-preview__draft-pick">+ pick</span>
+          </span>
+          <span className="kob-preview__vs">v</span>
+          <span className="kob-preview__team">
+            <span className="kob-preview__player">#{s2 || "?"}</span>
+            <span className="kob-preview__draft-pick">+ pick</span>
+          </span>
+        </span>
+      );
+    };
+
     return (
       <div className="kob-preview__bracket">
         {rounds.map((rnd) => (
@@ -232,11 +256,13 @@ function PlayoffSection({ rounds, numCourts }) {
             <div className="kob-preview__bracket-label">{rnd.label}</div>
             {rnd.matches.map((m) => (
               <div key={m.matchup_id} className="kob-preview__bracket-match">
-                <MatchCell match={m} />
+                <DraftMatch match={m} />
               </div>
             ))}
             <div className="kob-preview__bracket-time">
-              {rnd.time_minutes}m
+              {roundClocks?.[rnd.round_num] != null
+                ? formatClock(roundClocks[rnd.round_num])
+                : `${rnd.time_minutes}m`}
             </div>
           </div>
         ))}
@@ -245,7 +271,7 @@ function PlayoffSection({ rounds, numCourts }) {
   }
 
   // RR playoffs — same table format as non-pool
-  return <NonPoolTable rounds={rounds} numCourts={numCourts} />;
+  return <NonPoolTable rounds={rounds} numCourts={numCourts} roundClocks={roundClocks} />;
 }
 
 export default function KobPreview({ recommendation, loading }) {
@@ -268,10 +294,12 @@ export default function KobPreview({ recommendation, loading }) {
     max_games_per_player,
     games_per_court,
     playoff_rounds: playoffRoundCount,
+    playoff_size,
     preview_rounds,
     preview_pools,
     pool_game_to,
     pool_courts,
+    playoff_format,
     explanation,
     suggestion,
   } = recommendation;
@@ -296,6 +324,17 @@ export default function KobPreview({ recommendation, loading }) {
     () => preview_rounds.filter((r) => r.phase === "playoffs"),
     [preview_rounds]
   );
+
+  // Build cumulative clock: round_num → elapsed minutes at start of that round
+  const roundClocks = useMemo(() => {
+    const clocks = {};
+    let elapsed = 0;
+    for (const rnd of preview_rounds) {
+      clocks[rnd.round_num] = elapsed;
+      elapsed += rnd.time_minutes || 0;
+    }
+    return clocks;
+  }, [preview_rounds]);
 
   const hasPlayoffs = playoffRounds.length > 0;
   const hasPools = preview_pools && Object.keys(preview_pools).length > 0;
@@ -364,18 +403,36 @@ export default function KobPreview({ recommendation, loading }) {
             poolIds={poolIds}
             poolCourts={pool_courts}
             poolGameTo={pool_game_to}
+            roundClocks={roundClocks}
           />
         ) : (
-          <NonPoolTable rounds={poolPlayRounds} numCourts={numCourts} />
+          <NonPoolTable rounds={poolPlayRounds} numCourts={numCourts} roundClocks={roundClocks} />
         )}
 
         {/* Playoff divider + rounds */}
         {hasPlayoffs && (
           <>
             <div className="kob-preview__phase-divider">Playoffs</div>
-            <PlayoffSection rounds={playoffRounds} numCourts={numCourts} />
+            <PlayoffSection rounds={playoffRounds} numCourts={numCourts} roundClocks={roundClocks} />
           </>
         )}
+
+        {/* End time */}
+        <div className="kob-preview__finish">
+          <span className="kob-preview__finish-clock">{formatClock(total_time_minutes)}</span>
+          <span className="kob-preview__finish-label">
+            {playoff_format === "DRAFT" ? "Champions crowned" : "Champion crowned"}
+          </span>
+          <span className="kob-preview__finish-medals">
+            {playoff_format === "DRAFT" ? (
+              <>
+                🥇🥇 🥈🥈{playoff_size >= 6 ? " 🥉🥉" : ""}
+              </>
+            ) : (
+              <>🥇 🥈 🥉</>
+            )}
+          </span>
+        </div>
       </div>
 
     </div>
