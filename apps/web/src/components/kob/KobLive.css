@@ -1,0 +1,707 @@
+/* =============================================
+   KOB Live Tournament Page
+   ============================================= */
+
+.kob-live {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px 16px 100px;
+}
+
+.kob-live__loading,
+.kob-live__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+.kob-live__error h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.kob-live__error p {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+/* Header */
+.kob-live__header {
+  margin-bottom: 16px;
+}
+
+.kob-live__header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.kob-live__title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.kob-live__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.kob-live__status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kob-live__status--active {
+  background: var(--success-light);
+  color: var(--success-dark);
+}
+
+.kob-live__status--completed {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.kob-live__status--setup {
+  background: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.kob-live__round {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.kob-live__phase {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: capitalize;
+}
+
+.kob-live__share-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.kob-live__share-btn:active {
+  background: var(--gray-50);
+}
+
+/* Tab bar */
+.kob-live__tabs {
+  display: flex;
+  border-bottom: 2px solid var(--gray-200);
+  margin-bottom: 16px;
+  gap: 0;
+}
+
+.kob-live__tab {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.kob-live__tab--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* Content */
+.kob-live__content {
+  min-height: 200px;
+}
+
+/* =============================================
+   Now Playing Tab
+   ============================================= */
+
+.kob-now__empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--gray-600);
+}
+
+.kob-now__section {
+  margin-bottom: 20px;
+}
+
+.kob-now__section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px;
+}
+
+.kob-now__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kob-now__all-done {
+  text-align: center;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--success);
+  background: var(--success-light);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+/* =============================================
+   Score Entry Card
+   ============================================= */
+
+.kob-score-card {
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: white;
+  position: relative;
+}
+
+.kob-score-card--scored {
+  background: var(--gray-50);
+  border-color: var(--gray-100);
+}
+
+.kob-score-card__court {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.kob-score-card__teams {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kob-score-card__team {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.kob-score-card__team--winner .kob-score-card__team-names {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.kob-score-card__team-names {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.kob-score-card__vs {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-600);
+  flex-shrink: 0;
+}
+
+.kob-score-card__score-input {
+  width: 56px;
+  height: 44px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  border: 2px solid var(--gray-300);
+  border-radius: 8px;
+  outline: none;
+  color: var(--gray-900);
+  -moz-appearance: textfield;
+}
+
+.kob-score-card__score-input::-webkit-outer-spin-button,
+.kob-score-card__score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.kob-score-card__score-input:focus {
+  border-color: var(--primary);
+}
+
+.kob-score-card__score {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.kob-score-card__score--winner {
+  color: var(--primary);
+}
+
+.kob-score-card__error {
+  font-size: 13px;
+  color: var(--danger);
+  margin: 4px 0 0;
+  text-align: center;
+}
+
+.kob-score-card__edit-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--gray-600);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.kob-score-card__edit-btn:hover {
+  background: var(--gray-100);
+  color: var(--primary);
+}
+
+.kob-score-card__bracket-label {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.kob-score-card__series {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.kob-score-card__series-game {
+  background: var(--gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.kob-score-card__series-status {
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.kob-score-card__game-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+/* =============================================
+   Standings Tab
+   ============================================= */
+
+.kob-standings {
+  margin-top: 4px;
+}
+
+.kob-standings__pool-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kob-standings__pool-tab {
+  padding: 6px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.kob-standings__pool-tab--active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.kob-standings__table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kob-standings__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kob-standings__th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.kob-standings__th--rank {
+  width: 32px;
+  text-align: center;
+}
+
+.kob-standings__th--name {
+  text-align: left;
+}
+
+.kob-standings__th--stat {
+  width: 44px;
+}
+
+.kob-standings__row {
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.kob-standings__row--podium {
+  background: var(--primary-lighter);
+}
+
+.kob-standings__td {
+  padding: 10px 6px;
+  font-size: 14px;
+  color: var(--gray-900);
+  text-align: center;
+}
+
+.kob-standings__td--rank {
+  font-weight: 600;
+  color: var(--gray-700);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kob-standings__td--name {
+  text-align: left;
+  font-weight: 500;
+}
+
+.kob-standings__td--wins {
+  font-weight: 600;
+  color: var(--success-dark);
+}
+
+.kob-standings__td--positive {
+  color: var(--success-dark);
+}
+
+.kob-standings__td--negative {
+  color: var(--danger);
+}
+
+.kob-standings__empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--gray-600);
+}
+
+/* =============================================
+   Schedule Tab
+   ============================================= */
+
+.kob-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kob-schedule__empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--gray-600);
+}
+
+.kob-schedule__round {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.kob-schedule__round--current {
+  border-color: var(--primary);
+}
+
+.kob-schedule__round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: white;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.kob-schedule__round--current .kob-schedule__round-header {
+  background: var(--primary-lighter);
+}
+
+.kob-schedule__round-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kob-schedule__round-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kob-schedule__phase-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+  text-transform: capitalize;
+}
+
+.kob-schedule__round-status {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.kob-schedule__round-status--done {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.kob-schedule__matches {
+  border-top: 1px solid var(--gray-200);
+}
+
+.kob-schedule__match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.kob-schedule__match:last-child {
+  border-bottom: none;
+}
+
+.kob-schedule__match--bye {
+  opacity: 0.5;
+}
+
+.kob-schedule__court {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.kob-schedule__match-teams {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--gray-900);
+}
+
+.kob-schedule__match-score {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  flex-shrink: 0;
+}
+
+.kob-schedule__winner {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* =============================================
+   Director Controls
+   ============================================= */
+
+.kob-director {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+}
+
+.kob-director__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  background: var(--gray-50);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.kob-director__panel {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.kob-director__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kob-director__actions .button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.kob-director__drop-section {
+  border-top: 1px solid var(--gray-200);
+  padding-top: 12px;
+}
+
+.kob-director__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.kob-director__drop-row {
+  display: flex;
+  gap: 8px;
+}
+
+.kob-director__select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--gray-900);
+  background: white;
+}
+
+.kob-director__drop-row .button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* =============================================
+   Mobile optimizations
+   ============================================= */
+
+@media (max-width: 480px) {
+  .kob-live {
+    padding: 12px 12px 100px;
+  }
+
+  .kob-live__title {
+    font-size: 18px;
+  }
+
+  .kob-score-card__score-input {
+    width: 48px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .kob-score-card__team-names {
+    font-size: 13px;
+  }
+
+  .kob-standings__th,
+  .kob-standings__td {
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+
+  .kob-standings__th--stat,
+  .kob-standings__td--stat {
+    width: 36px;
+  }
+}

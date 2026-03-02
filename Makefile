@@ -131,7 +131,7 @@ dev: ensure-docker
 	fi
 	@trap 'pkill -f "next dev" 2>/dev/null || true; docker compose down' EXIT INT TERM; \
 	cd apps/web && npx concurrently --names "DOCKER,FRONTEND" --prefix-colors "blue,green" \
-		"docker compose up postgres redis backend" \
+		"docker compose up --build postgres redis backend" \
 		"PORT=$(FRONTEND_PORT) BACKEND_PROXY_TARGET=http://localhost:$(BACKEND_PORT) BACKEND_INTERNAL_URL=http://localhost:$(BACKEND_PORT) npm run dev" || true; \
 	pkill -f "next dev" 2>/dev/null || true; \
 	docker compose down

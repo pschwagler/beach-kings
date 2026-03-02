@@ -335,3 +335,59 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 | GET | `/api/public/courts/nearby` | Courts near lat/lng |
 | GET | `/api/public/courts/{slug}` | Court detail by slug. Response includes `location_slug`, `court_photos: [{id, url, sort_order}]` |
 | GET | `/api/public/courts/{slug}/leaderboard` | Top 10 players by match count at court. Returns `[{rank, player_id, player_name, avatar, match_count, win_count, win_rate}]` |
+
+---
+
+## KOB (King/Queen of the Beach) Tournaments
+
+### Director Routes (auth: `require_verified_player`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/kob/tournaments` | Create a new KOB tournament. Returns full detail response |
+| GET | `/api/kob/tournaments/mine` | List tournaments directed by or participated in by current user |
+| GET | `/api/kob/tournaments/{id}` | Get tournament detail by ID (director only) |
+| PATCH | `/api/kob/tournaments/{id}` | Update tournament config (SETUP status only) |
+| DELETE | `/api/kob/tournaments/{id}` | Delete a tournament (cascades to players/matches) |
+| POST | `/api/kob/tournaments/{id}/players` | Add a player to the roster |
+| DELETE | `/api/kob/tournaments/{id}/players/{player_id}` | Remove a player (SETUP only) |
+| PUT | `/api/kob/tournaments/{id}/seeds` | Reorder player seeds. Body: `{ player_ids: [int] }` |
+| POST | `/api/kob/tournaments/{id}/start` | Lock roster, generate schedule, create matches, set ACTIVE |
+| POST | `/api/kob/tournaments/{id}/advance` | Manually advance to next round |
+| POST | `/api/kob/tournaments/{id}/drop-player` | Drop a player mid-tournament (future matches become byes) |
+| PATCH | `/api/kob/tournaments/{id}/matches/{matchup_id}` | Director score edit/override. Body supports `game_index` for Bo3 |
+| PATCH | `/api/kob/tournaments/{id}/bracket` | Swap player assignments in bracket match (before scoring). Body: `{ match_id, team1: [p1,p2], team2: [p3,p4] }` |
+| POST | `/api/kob/tournaments/{id}/complete` | Manually complete the tournament |
+
+### Format Recommendation (no auth)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/kob/recommend` | Returns optimal format recommendation with schedule preview, time model, and stats |
+
+**Query Parameters:**
+
+| Param | Required | Type | Description |
+|-------|----------|------|-------------|
+| `num_players` | Yes | int (4-40) | Number of players in the tournament |
+| `num_courts` | Yes | int (1-20) | Number of available courts |
+| `format` | No | string | Format override (if null, backend picks smart defaults) |
+| `num_pools` | No | int | Number of pools |
+| `playoff_size` | No | int | Playoff bracket size: 0/null = off, 4, or 6 |
+| `max_rounds` | No | int | Maximum number of rounds |
+| `games_per_match` | No | int (1-3) | Games per match (default 1, 3=Bo3) |
+| `num_rr_cycles` | No | int (1-3) | Round-robin cycles (default 1) |
+| `game_to` | No | int | Points to win a game (default 21) |
+| `duration_minutes` | No | int (30-480) | Target tournament duration in minutes |
+| `playoff_format` | No | string | Playoff format: `ROUND_ROBIN` (default) or `DRAFT` |
+| `playoff_game_to` | No | int | Playoff-specific game_to (falls back to `game_to`) |
+| `playoff_games_per_match` | No | int | Playoff-specific gpm (1 or 3 for Bo3, falls back to `games_per_match`) |
+
+**Response:** `KobFormatRecommendation` — includes schedule preview, time model, stats, and `preview_rounds`.
+
+### Public Routes (no auth — by shareable code)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/kob/{code}` | Full tournament state by shareable code (e.g. `KOB-A3X9R2`) |
+| POST | `/api/kob/{code}/score` | Submit a match score. Query: `matchup_id`. Body: `{ team1_score, team2_score, game_index? }` |

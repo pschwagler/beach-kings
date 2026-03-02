@@ -1493,3 +1493,275 @@ class SeasonAwardResponse(BaseModel):
     rank: Optional[int] = None
     value: Optional[float] = None
     created_at: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# KOB (King/Queen of the Beach) Schemas
+# ---------------------------------------------------------------------------
+
+
+class KobTournamentCreate(BaseModel):
+    """Request to create a KOB tournament."""
+
+    name: str
+    gender: str = "coed"
+    format: str = "FULL_ROUND_ROBIN"
+    game_to: int = 21
+    num_courts: int = 2
+    max_rounds: Optional[int] = None
+    has_playoffs: bool = False
+    playoff_size: Optional[int] = None
+    num_pools: Optional[int] = None
+    games_per_match: int = 1
+    num_rr_cycles: int = 1
+    score_cap: Optional[int] = None
+    playoff_format: Optional[str] = None
+    playoff_game_to: Optional[int] = None
+    playoff_games_per_match: Optional[int] = None
+    playoff_score_cap: Optional[int] = None
+    is_ranked: bool = False
+    league_id: Optional[int] = None
+    location_id: Optional[str] = None
+    scheduled_date: Optional[str] = None
+    auto_advance: bool = True
+
+
+class KobTournamentUpdate(BaseModel):
+    """Request to update a KOB tournament (pre-start only)."""
+
+    name: Optional[str] = None
+    gender: Optional[str] = None
+    format: Optional[str] = None
+    game_to: Optional[int] = None
+    num_courts: Optional[int] = None
+    max_rounds: Optional[int] = None
+    has_playoffs: Optional[bool] = None
+    playoff_size: Optional[int] = None
+    num_pools: Optional[int] = None
+    games_per_match: Optional[int] = None
+    num_rr_cycles: Optional[int] = None
+    score_cap: Optional[int] = None
+    playoff_format: Optional[str] = None
+    playoff_game_to: Optional[int] = None
+    playoff_games_per_match: Optional[int] = None
+    playoff_score_cap: Optional[int] = None
+    is_ranked: Optional[bool] = None
+    scheduled_date: Optional[str] = None
+    auto_advance: Optional[bool] = None
+
+
+class KobPlayerAdd(BaseModel):
+    """Request to add a player to a KOB tournament."""
+
+    player_id: int
+    seed: Optional[int] = None
+
+
+class KobPlaceholderPlayerAdd(BaseModel):
+    """Request to add a placeholder player by name."""
+
+    name: str
+    seed: Optional[int] = None
+
+
+class KobScoreSubmit(BaseModel):
+    """Request to submit a match score."""
+
+    team1_score: int
+    team2_score: int
+    game_index: Optional[int] = None  # For Bo3: which game to update (0-based)
+
+
+class KobSeedReorder(BaseModel):
+    """Request to reorder seeds."""
+
+    player_ids: List[int]  # ordered list, position = seed
+
+
+class KobBracketUpdate(BaseModel):
+    """Request to swap player assignments in a bracket match."""
+
+    match_id: int
+    team1: List[int]  # [player_id, player_id]
+    team2: List[int]  # [player_id, player_id]
+
+
+class KobDropPlayer(BaseModel):
+    """Request to drop a player mid-tournament."""
+
+    player_id: int
+
+
+class KobPlayerResponse(BaseModel):
+    """Player entry in a tournament roster."""
+
+    id: int
+    player_id: int
+    player_name: Optional[str] = None
+    player_avatar: Optional[str] = None
+    seed: Optional[int] = None
+    pool_id: Optional[int] = None
+    is_dropped: bool = False
+    dropped_at_round: Optional[int] = None
+
+
+class KobMatchResponse(BaseModel):
+    """Match data in a KOB tournament."""
+
+    id: int
+    matchup_id: str
+    round_num: int
+    phase: str
+    pool_id: Optional[int] = None
+    court_num: Optional[int] = None
+    team1_player1_id: int
+    team1_player2_id: int
+    team2_player1_id: int
+    team2_player2_id: int
+    team1_player1_name: Optional[str] = None
+    team1_player2_name: Optional[str] = None
+    team2_player1_name: Optional[str] = None
+    team2_player2_name: Optional[str] = None
+    team1_score: Optional[int] = None
+    team2_score: Optional[int] = None
+    winner: Optional[int] = None
+    game_scores: Optional[list] = None
+    bracket_position: Optional[str] = None
+    is_bye: bool = False
+
+
+class KobStandingEntry(BaseModel):
+    """Individual player standing in tournament."""
+
+    player_id: int
+    player_name: Optional[str] = None
+    player_avatar: Optional[str] = None
+    rank: int
+    wins: int = 0
+    losses: int = 0
+    points_for: int = 0
+    points_against: int = 0
+    point_diff: int = 0
+    pool_id: Optional[int] = None
+
+
+class KobTournamentResponse(BaseModel):
+    """Summary tournament data (for listings)."""
+
+    id: int
+    name: str
+    code: str
+    gender: str
+    format: str
+    status: str
+    num_courts: int
+    game_to: int
+    scheduled_date: Optional[str] = None
+    player_count: int = 0
+    current_round: Optional[int] = None
+    created_at: Optional[str] = None
+
+
+class KobTournamentDetailResponse(BaseModel):
+    """Full tournament data (for detail/live view)."""
+
+    id: int
+    name: str
+    code: str
+    gender: str
+    format: str
+    status: str
+    game_to: int
+    win_by: int
+    num_courts: int
+    max_rounds: Optional[int] = None
+    has_playoffs: bool = False
+    playoff_size: Optional[int] = None
+    num_pools: Optional[int] = None
+    games_per_match: int = 1
+    num_rr_cycles: int = 1
+    score_cap: Optional[int] = None
+    playoff_format: Optional[str] = None
+    playoff_game_to: Optional[int] = None
+    playoff_games_per_match: Optional[int] = None
+    playoff_score_cap: Optional[int] = None
+    is_ranked: bool = False
+    current_phase: Optional[str] = None
+    current_round: Optional[int] = None
+    auto_advance: bool = True
+    scheduled_date: Optional[str] = None
+    director_player_id: Optional[int] = None
+    director_name: Optional[str] = None
+    league_id: Optional[int] = None
+    location_id: Optional[str] = None
+    schedule_data: Optional[dict] = None
+    players: List[KobPlayerResponse] = []
+    matches: List[KobMatchResponse] = []
+    standings: List[KobStandingEntry] = []
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KobPreviewMatch(BaseModel):
+    """Single match in a schedule preview round."""
+
+    matchup_id: str
+    court_num: int
+    team1: List[int]
+    team2: List[int]
+    is_bye: bool = False
+    pool_id: Optional[int] = None
+
+
+class KobPreviewRound(BaseModel):
+    """Single round in a schedule preview."""
+
+    round_num: int
+    phase: str
+    pool_id: Optional[int] = None
+    matches: List[KobPreviewMatch]
+    byes: List[int] = []
+    time_minutes: int
+    bracket_position: Optional[str] = None  # "sf1", "final", etc.
+    label: Optional[str] = None  # "Semifinal", "Final"
+
+
+class KobFormatRecommendation(BaseModel):
+    """Format recommendation with full schedule preview."""
+
+    # Config (echoed back)
+    format: str
+    num_pools: Optional[int] = None
+    playoff_size: Optional[int] = None
+    max_rounds: Optional[int] = None
+    game_to: int = 21
+    games_per_match: int = 1
+    num_rr_cycles: int = 1
+    playoff_format: Optional[str] = None
+    playoff_game_to: Optional[int] = None
+    playoff_games_per_match: Optional[int] = None
+
+    # Time model
+    minutes_per_round: int = 30
+    total_time_minutes: int
+    pool_play_time_minutes: int
+    playoff_time_minutes: int
+
+    # Stats
+    estimated_rounds: int
+    pool_play_rounds: int
+    playoff_rounds: int
+    total_matches: int
+    min_games_per_player: int
+    max_games_per_player: int
+    games_per_court: int
+
+    # Preview
+    preview_rounds: List[KobPreviewRound]
+    preview_pools: Optional[dict] = None
+    pool_game_to: Optional[dict] = None  # pool_id → game_to
+    pool_courts: Optional[dict] = None  # pool_id → court_num
+
+    # Suggestion
+    explanation: str
+    suggestion: Optional[str] = None
