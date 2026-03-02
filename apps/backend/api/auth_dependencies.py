@@ -420,6 +420,32 @@ def make_require_league_admin_from_schedule():
     return _dep
 
 
+def make_require_kob_director():
+    """Require authenticated user is the director of the given KOB tournament."""
+
+    async def _dep(
+        tournament_id: int,
+        user: dict = Depends(require_verified_player),
+        session: AsyncSession = Depends(get_db_session),
+    ) -> dict:
+        from backend.services import kob_service
+
+        tournament = await kob_service.get_tournament(session, tournament_id)
+        if not tournament:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tournament not found",
+            )
+        if tournament.director_player_id != user["player_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not the tournament director",
+            )
+        return {**user, "tournament": tournament}
+
+    return _dep
+
+
 def make_require_league_admin_from_signup():
     """Require league admin, getting league_id from signup_id."""
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAuthModal } from "../../contexts/AuthModalContext";
@@ -33,6 +33,8 @@ export default function KobSetup({ tournamentId }) {
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
+  const searchDebounceRef = useRef(null);
+
   // Actions
   const [starting, setStarting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,25 +62,28 @@ export default function KobSetup({ tournamentId }) {
     }
   }, [tournament, router]);
 
-  const handleSearch = async (query) => {
+  const handleSearch = useCallback((query) => {
     setSearchQuery(query);
-    if (query.length < 2) {
+    clearTimeout(searchDebounceRef.current);
+    if (!query.trim()) {
       setSearchResults([]);
       return;
     }
-    setSearching(true);
-    try {
-      const data = await getPlayers({ q: query, limit: 10 });
-      const results = data.items || data;
-      // Filter out already-added players
-      const existingIds = new Set(tournament.players.map((p) => p.player_id));
-      setSearchResults(results.filter((r) => !existingIds.has(r.id)));
-    } catch {
-      // silent
-    } finally {
-      setSearching(false);
-    }
-  };
+    searchDebounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const data = await getPlayers({ q: query, limit: 10 });
+        const results = data.items || data;
+        // Filter out already-added players
+        const existingIds = new Set(tournament.players.map((p) => p.player_id));
+        setSearchResults(results.filter((r) => !existingIds.has(r.id)));
+      } catch {
+        // silent
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+  }, [tournament]);
 
   const handleAddPlayer = async (playerId) => {
     try {

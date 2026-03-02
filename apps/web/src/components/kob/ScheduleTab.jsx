@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import "./KobLive.css";
 
 export default function ScheduleTab({ matches, scheduleData, currentRound }) {
   const [expandedRound, setExpandedRound] = useState(currentRound);
+
+  // Keep expandedRound in sync when the current round advances (e.g. after polling).
+  useEffect(() => {
+    setExpandedRound(currentRound);
+  }, [currentRound]);
 
   if (!matches || matches.length === 0) {
     return (

@@ -64,16 +64,12 @@ export default function KobLive({ code }) {
   }, [tournament?.status, loadTournament]);
 
   const handleScoreSubmit = async (matchupId, team1Score, team2Score) => {
-    try {
-      await submitKobScorePublic(code, matchupId, {
-        team1_score: team1Score,
-        team2_score: team2Score,
-      });
-      // Optimistic: reload immediately
-      await loadTournament();
-    } catch (err) {
-      throw err;
-    }
+    await submitKobScorePublic(code, matchupId, {
+      team1_score: team1Score,
+      team2_score: team2Score,
+    });
+    // Optimistic: reload immediately
+    await loadTournament();
   };
 
   const isDirector = isAuthenticated && tournament?.director_player_id === currentUserPlayer?.id;

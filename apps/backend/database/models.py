@@ -1668,10 +1668,19 @@ class KobMatch(Base):
     pool_id = Column(Integer, nullable=True)
     court_num = Column(Integer, nullable=True)
 
-    team1_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    team1_player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    team2_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    team2_player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    # Player FKs use SET NULL so account deletion doesn't fail.
+    team1_player1_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    team1_player2_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    team2_player1_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
+    team2_player2_id = Column(
+        Integer, ForeignKey("players.id", ondelete="SET NULL"), nullable=True
+    )
 
     team1_score = Column(Integer, nullable=True)
     team2_score = Column(Integer, nullable=True)

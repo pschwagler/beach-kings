@@ -4,7 +4,8 @@ Pydantic models for API request/response validation.
 
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from typing import Literal
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 
 class RankingResponse(BaseModel):
@@ -1500,54 +1501,63 @@ class SeasonAwardResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class KobTournamentCreate(BaseModel):
+class _KobTournamentBase(BaseModel):
+    """Shared fields for KOB tournament create/update schemas."""
+
+    name: str = Field(default=None, min_length=1, max_length=100)
+    gender: Literal["mens", "womens", "coed"] = None
+    format: Literal[
+        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
+    ] = None
+    game_to: int = Field(default=None, ge=7, le=28)
+    num_courts: int = Field(default=None, ge=1, le=20)
+    max_rounds: Optional[int] = Field(default=None, ge=1)
+    has_playoffs: bool = None
+    playoff_size: Optional[int] = Field(default=None, ge=4)
+    num_pools: Optional[int] = Field(default=None, ge=2, le=6)
+    games_per_match: int = None
+    num_rr_cycles: int = Field(default=None, ge=1, le=3)
+    score_cap: Optional[int] = Field(default=None, ge=7)
+    playoff_format: Optional[Literal["ROUND_ROBIN", "DRAFT"]] = None
+    playoff_game_to: Optional[int] = Field(default=None, ge=7, le=28)
+    playoff_games_per_match: Optional[int] = None
+    playoff_score_cap: Optional[int] = Field(default=None, ge=7)
+    is_ranked: bool = None
+    scheduled_date: Optional[str] = None
+    auto_advance: bool = None
+
+    @field_validator("games_per_match", "playoff_games_per_match", mode="before")
+    @classmethod
+    def validate_games_per_match(cls, v):
+        """Only 1 (single game) or 3 (best-of-3) are supported."""
+        if v is not None and v not in (1, 3):
+            raise ValueError("games_per_match must be 1 or 3")
+        return v
+
+
+class KobTournamentCreate(_KobTournamentBase):
     """Request to create a KOB tournament."""
 
-    name: str
-    gender: str = "coed"
-    format: str = "FULL_ROUND_ROBIN"
-    game_to: int = 21
-    num_courts: int = 2
-    max_rounds: Optional[int] = None
-    has_playoffs: bool = False
-    playoff_size: Optional[int] = None
-    num_pools: Optional[int] = None
+    name: str = Field(..., min_length=1, max_length=100)
+    gender: Literal["mens", "womens", "coed"] = "coed"
+    format: Literal[
+        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
+    ] = "FULL_ROUND_ROBIN"
+    game_to: int = Field(21, ge=7, le=28)
+    num_courts: int = Field(2, ge=1, le=20)
     games_per_match: int = 1
-    num_rr_cycles: int = 1
-    score_cap: Optional[int] = None
-    playoff_format: Optional[str] = None
-    playoff_game_to: Optional[int] = None
-    playoff_games_per_match: Optional[int] = None
-    playoff_score_cap: Optional[int] = None
+    num_rr_cycles: int = Field(1, ge=1, le=3)
+    has_playoffs: bool = False
     is_ranked: bool = False
+    auto_advance: bool = True
     league_id: Optional[int] = None
     location_id: Optional[str] = None
-    scheduled_date: Optional[str] = None
-    auto_advance: bool = True
 
 
-class KobTournamentUpdate(BaseModel):
-    """Request to update a KOB tournament (pre-start only)."""
+class KobTournamentUpdate(_KobTournamentBase):
+    """Request to update a KOB tournament (pre-start only). All fields optional."""
 
-    name: Optional[str] = None
-    gender: Optional[str] = None
-    format: Optional[str] = None
-    game_to: Optional[int] = None
-    num_courts: Optional[int] = None
-    max_rounds: Optional[int] = None
-    has_playoffs: Optional[bool] = None
-    playoff_size: Optional[int] = None
-    num_pools: Optional[int] = None
-    games_per_match: Optional[int] = None
-    num_rr_cycles: Optional[int] = None
-    score_cap: Optional[int] = None
-    playoff_format: Optional[str] = None
-    playoff_game_to: Optional[int] = None
-    playoff_games_per_match: Optional[int] = None
-    playoff_score_cap: Optional[int] = None
-    is_ranked: Optional[bool] = None
-    scheduled_date: Optional[str] = None
-    auto_advance: Optional[bool] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
 
 
 class KobPlayerAdd(BaseModel):
@@ -1614,10 +1624,10 @@ class KobMatchResponse(BaseModel):
     phase: str
     pool_id: Optional[int] = None
     court_num: Optional[int] = None
-    team1_player1_id: int
-    team1_player2_id: int
-    team2_player1_id: int
-    team2_player2_id: int
+    team1_player1_id: Optional[int] = None
+    team1_player2_id: Optional[int] = None
+    team2_player1_id: Optional[int] = None
+    team2_player2_id: Optional[int] = None
     team1_player1_name: Optional[str] = None
     team1_player2_name: Optional[str] = None
     team2_player1_name: Optional[str] = None

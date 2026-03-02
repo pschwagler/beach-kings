@@ -188,9 +188,16 @@ export default function KobCreate() {
 
   // Debounced fetch on any config change
   useEffect(() => {
+    let cancelled = false;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(fetchRecommendation, 300);
-    return () => clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      if (cancelled) return;
+      await fetchRecommendation();
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceRef.current);
+    };
   }, [fetchRecommendation]);
 
   // Fetch pills when tournament shape changes (debounced separately)

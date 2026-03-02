@@ -10,7 +10,7 @@ import logging
 import secrets
 import string
 from datetime import date
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, NamedTuple, Optional, Any
 
 from sqlalchemy import select, delete, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,17 @@ logger = logging.getLogger(__name__)
 
 CODE_ALPHABET = string.ascii_uppercase + string.digits
 CODE_LENGTH = 6
+MIN_TOURNAMENT_PLAYERS = 4
+# Re-exported from kob_scheduler for backwards compatibility within this module.
+UNSEEDED_SORT_KEY = kob_scheduler.UNSEEDED_SORT_KEY
+
+
+class GameSettings(NamedTuple):
+    """Phase-aware game settings for scoring."""
+
+    game_to: int
+    score_cap: Optional[int]
+    games_per_match: int
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +62,7 @@ async def _ensure_unique_code(session: AsyncSession) -> str:
         )
         if not exists.scalar_one_or_none():
             return code
-    raise RuntimeError("Failed to generate unique tournament code")
+    raise ValueError("Failed to generate unique tournament code — please try again")
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +240,8 @@ async def delete_tournament(
         raise ValueError("Tournament not found")
     if tournament.director_player_id != director_player_id:
         raise ValueError("Only the director can delete this tournament")
+    if tournament.status != TournamentStatus.SETUP:
+        raise ValueError("Can only delete tournaments in SETUP status")
     await session.delete(tournament)
     await session.flush()
 
@@ -263,6 +276,13 @@ async def add_player(
         raise ValueError("Tournament not found")
     if tournament.status != TournamentStatus.SETUP:
         raise ValueError("Can only add players during SETUP")
+
+    # Validate player exists
+    player_exists = await session.execute(
+        select(Player.id).where(Player.id == player_id)
+    )
+    if not player_exists.scalar_one_or_none():
+        raise ValueError(f"Player {player_id} not found")
 
     # Check for duplicate
     existing = await session.execute(
@@ -341,19 +361,27 @@ async def reorder_seeds(
         session: Database session.
         tournament_id: Tournament ID.
         player_ids: Ordered list of player IDs (index 0 = seed 1).
+
+    Raises:
+        ValueError: If tournament not in SETUP or unknown player IDs provided.
     """
+    tournament = await get_tournament(session, tournament_id)
+    if not tournament:
+        raise ValueError("Tournament not found")
+    if tournament.status != TournamentStatus.SETUP:
+        raise ValueError("Can only reorder seeds during SETUP")
+
+    # Bulk-load all entries in one query
+    entry_map = {kp.player_id: kp for kp in tournament.kob_players}
+
+    # Validate all provided IDs exist in tournament
+    unknown = set(player_ids) - set(entry_map.keys())
+    if unknown:
+        raise ValueError(f"Unknown player IDs: {unknown}")
+
     for idx, pid in enumerate(player_ids):
-        result = await session.execute(
-            select(KobPlayer).where(
-                and_(
-                    KobPlayer.tournament_id == tournament_id,
-                    KobPlayer.player_id == pid,
-                )
-            )
-        )
-        entry = result.scalar_one_or_none()
-        if entry:
-            entry.seed = idx + 1
+        entry_map[pid].seed = idx + 1
+
     await session.flush()
 
 
@@ -394,13 +422,13 @@ async def drop_player(
     entry.is_dropped = True
     entry.dropped_at_round = tournament.current_round
 
-    # Mark unscored future matches involving this player as byes
+    # Mark unscored current + future matches involving this player as byes
     result = await session.execute(
         select(KobMatch).where(
             and_(
                 KobMatch.tournament_id == tournament_id,
-                KobMatch.team1_score.is_(None),
-                KobMatch.round_num > tournament.current_round,
+                KobMatch.winner.is_(None),
+                KobMatch.round_num >= tournament.current_round,
             )
         )
     )
@@ -457,8 +485,8 @@ async def start_tournament(
         raise ValueError("Tournament is not in SETUP status")
 
     # Get player IDs ordered by seed
-    players = sorted(tournament.kob_players, key=lambda p: p.seed or 999)
-    if len(players) < 4:
+    players = sorted(tournament.kob_players, key=lambda p: p.seed or UNSEEDED_SORT_KEY)
+    if len(players) < MIN_TOURNAMENT_PLAYERS:
         raise ValueError("Need at least 4 players to start a tournament")
 
     player_ids = [p.player_id for p in players]
@@ -538,9 +566,9 @@ async def _create_matches_from_schedule(
 def _effective_game_settings(
     tournament: KobTournament,
     phase: str,
-) -> tuple:
+) -> GameSettings:
     """
-    Return (game_to, score_cap, games_per_match) for the given phase.
+    Return phase-aware game settings for scoring.
 
     Playoff matches use playoff-specific overrides when set,
     falling back to the tournament's base settings.
@@ -550,18 +578,18 @@ def _effective_game_settings(
         phase: Match phase ("pool_play" or "playoffs").
 
     Returns:
-        Tuple of (game_to, score_cap, games_per_match).
+        GameSettings named tuple with game_to, score_cap, games_per_match.
     """
     if phase == "playoffs":
-        return (
-            tournament.effective_playoff_game_to,
-            tournament.effective_playoff_score_cap,
-            tournament.effective_playoff_games_per_match,
+        return GameSettings(
+            game_to=tournament.effective_playoff_game_to,
+            score_cap=tournament.effective_playoff_score_cap,
+            games_per_match=tournament.effective_playoff_games_per_match,
         )
-    return (
-        tournament.game_to,
-        tournament.score_cap,
-        tournament.games_per_match or 1,
+    return GameSettings(
+        game_to=tournament.game_to,
+        score_cap=tournament.score_cap,
+        games_per_match=tournament.games_per_match or 1,
     )
 
 
@@ -600,32 +628,38 @@ async def submit_score(
     if tournament.status != TournamentStatus.ACTIVE:
         raise ValueError("Tournament is not active")
 
+    # Row-level lock to prevent concurrent double-scoring
     result = await session.execute(
-        select(KobMatch).where(
+        select(KobMatch)
+        .where(
             and_(
                 KobMatch.tournament_id == tournament_id,
                 KobMatch.matchup_id == matchup_id,
             )
         )
+        .with_for_update()
     )
     match = result.scalar_one_or_none()
     if not match:
         raise ValueError("Match not found")
     if match.is_bye:
         raise ValueError("Cannot score a bye match")
+    if match.round_num != tournament.current_round:
+        raise ValueError(
+            f"Match is in round {match.round_num}, "
+            f"but tournament is in round {tournament.current_round}"
+        )
 
     # Phase-aware settings
-    effective_game_to, effective_cap, effective_gpm = _effective_game_settings(
-        tournament, match.phase
-    )
+    settings = _effective_game_settings(tournament, match.phase)
 
     # Validate the individual game score
     _validate_score(
-        team1_score, team2_score, effective_game_to,
-        score_cap=effective_cap,
+        team1_score, team2_score, settings.game_to,
+        score_cap=settings.score_cap,
     )
 
-    if effective_gpm >= 3:
+    if settings.games_per_match >= 3:
         # Bo3 scoring — manage game_scores array
         _apply_bo3_score(match, team1_score, team2_score, game_index)
     else:
@@ -749,16 +783,14 @@ async def update_score(
     if not match:
         raise ValueError("Match not found")
 
-    effective_game_to, effective_cap, effective_gpm = _effective_game_settings(
-        tournament, match.phase
-    )
+    settings = _effective_game_settings(tournament, match.phase)
 
     _validate_score(
-        team1_score, team2_score, effective_game_to,
-        score_cap=effective_cap,
+        team1_score, team2_score, settings.game_to,
+        score_cap=settings.score_cap,
     )
 
-    if effective_gpm >= 3 and game_index is not None:
+    if settings.games_per_match >= 3 and game_index is not None:
         # Bo3 — update specific game
         _apply_bo3_score(match, team1_score, team2_score, game_index)
     else:
@@ -1173,7 +1205,7 @@ async def _try_advance_draft_bracket(
             semi_winners.extend([m.team2_player1_id, m.team2_player2_id])
 
     # Get seed-ordered advancing players
-    players = sorted(tournament.kob_players, key=lambda p: p.seed or 999)
+    players = sorted(tournament.kob_players, key=lambda p: p.seed or UNSEEDED_SORT_KEY)
     advancing_pids = [p.player_id for p in players if not p.is_dropped]
     playoff_size = tournament.playoff_size or len(advancing_pids)
     top_pids = advancing_pids[:playoff_size]
@@ -1185,8 +1217,8 @@ async def _try_advance_draft_bracket(
     # From semi_winners, exclude seed1/seed2 (they didn't play semis for Top 6)
     available_winners = [pid for pid in semi_winners if pid not in (seed1, seed2)]
     # Sort by seed (higher seed number = lower rank)
-    seed_map = {p.player_id: p.seed or 999 for p in players}
-    available_winners.sort(key=lambda pid: seed_map.get(pid, 999), reverse=True)
+    seed_map = {p.player_id: p.seed or UNSEEDED_SORT_KEY for p in players}
+    available_winners.sort(key=lambda pid: seed_map.get(pid, UNSEEDED_SORT_KEY), reverse=True)
 
     # Seed1 picks lowest-ranked winner, Seed2 gets the other
     partner1 = available_winners[0] if available_winners else 0
@@ -1321,7 +1353,7 @@ async def complete_tournament(
 
 def _tiebreak_hash(tournament_id: int, player_id: int) -> str:
     """Deterministic coin-flip tiebreaker using a stable hash."""
-    return hashlib.md5(f"{tournament_id}-{player_id}".encode()).hexdigest()
+    return hashlib.sha256(f"{tournament_id}-{player_id}".encode()).hexdigest()
 
 
 async def get_standings(
@@ -1344,11 +1376,12 @@ async def get_standings(
     Returns:
         List of standing dicts ordered by rank.
     """
-    # Get all scored matches
+    # Only count fully decided matches (winner set) to avoid
+    # partially-scored Bo3 matches being counted as losses.
     query = select(KobMatch).where(
         and_(
             KobMatch.tournament_id == tournament_id,
-            KobMatch.team1_score.isnot(None),
+            KobMatch.winner.isnot(None),
         )
     )
     if phase:
@@ -1485,6 +1518,42 @@ async def get_my_tournaments(
 # Response building
 # ---------------------------------------------------------------------------
 
+
+def _serialize_match(match: KobMatch, player_map: Dict[int, dict]) -> dict:
+    """
+    Serialize a KobMatch to a response dict.
+
+    Args:
+        match: KobMatch instance.
+        player_map: Dict mapping player ID to {"name": ..., "avatar": ...}.
+
+    Returns:
+        Dict matching KobMatchResponse shape.
+    """
+    return {
+        "id": match.id,
+        "matchup_id": match.matchup_id,
+        "round_num": match.round_num,
+        "phase": match.phase,
+        "pool_id": match.pool_id,
+        "court_num": match.court_num,
+        "team1_player1_id": match.team1_player1_id,
+        "team1_player2_id": match.team1_player2_id,
+        "team2_player1_id": match.team2_player1_id,
+        "team2_player2_id": match.team2_player2_id,
+        "team1_player1_name": player_map.get(match.team1_player1_id, {}).get("name"),
+        "team1_player2_name": player_map.get(match.team1_player2_id, {}).get("name"),
+        "team2_player1_name": player_map.get(match.team2_player1_id, {}).get("name"),
+        "team2_player2_name": player_map.get(match.team2_player2_id, {}).get("name"),
+        "team1_score": match.team1_score,
+        "team2_score": match.team2_score,
+        "winner": match.winner,
+        "game_scores": match.game_scores,
+        "bracket_position": match.bracket_position,
+        "is_bye": match.is_bye,
+    }
+
+
 async def build_detail_response(
     session: AsyncSession,
     tournament: KobTournament,
@@ -1518,7 +1587,7 @@ async def build_detail_response(
 
     # Build players list
     players_resp = []
-    for kp in sorted(tournament.kob_players, key=lambda p: p.seed or 999):
+    for kp in sorted(tournament.kob_players, key=lambda p: p.seed or UNSEEDED_SORT_KEY):
         p_info = player_map.get(kp.player_id, {})
         players_resp.append({
             "id": kp.id,
@@ -1532,30 +1601,10 @@ async def build_detail_response(
         })
 
     # Build matches list
-    matches_resp = []
-    for m in sorted(tournament.kob_matches, key=lambda x: (x.round_num, x.matchup_id)):
-        matches_resp.append({
-            "id": m.id,
-            "matchup_id": m.matchup_id,
-            "round_num": m.round_num,
-            "phase": m.phase,
-            "pool_id": m.pool_id,
-            "court_num": m.court_num,
-            "team1_player1_id": m.team1_player1_id,
-            "team1_player2_id": m.team1_player2_id,
-            "team2_player1_id": m.team2_player1_id,
-            "team2_player2_id": m.team2_player2_id,
-            "team1_player1_name": player_map.get(m.team1_player1_id, {}).get("name"),
-            "team1_player2_name": player_map.get(m.team1_player2_id, {}).get("name"),
-            "team2_player1_name": player_map.get(m.team2_player1_id, {}).get("name"),
-            "team2_player2_name": player_map.get(m.team2_player2_id, {}).get("name"),
-            "team1_score": m.team1_score,
-            "team2_score": m.team2_score,
-            "winner": m.winner,
-            "game_scores": m.game_scores,
-            "bracket_position": m.bracket_position,
-            "is_bye": m.is_bye,
-        })
+    matches_resp = [
+        _serialize_match(m, player_map)
+        for m in sorted(tournament.kob_matches, key=lambda x: (x.round_num, x.matchup_id))
+    ]
 
     # Build standings
     standings = await get_standings(session, tournament.id)
@@ -1615,32 +1664,15 @@ async def build_match_response(session: AsyncSession, match: KobMatch) -> dict:
         match.team2_player1_id, match.team2_player2_id,
     ]
     result = await session.execute(
-        select(Player.id, Player.full_name).where(Player.id.in_(pids))
+        select(Player.id, Player.full_name, Player.profile_picture_url).where(
+            Player.id.in_(pids)
+        )
     )
-    names = {row.id: row.full_name for row in result}
-
-    return {
-        "id": match.id,
-        "matchup_id": match.matchup_id,
-        "round_num": match.round_num,
-        "phase": match.phase,
-        "pool_id": match.pool_id,
-        "court_num": match.court_num,
-        "team1_player1_id": match.team1_player1_id,
-        "team1_player2_id": match.team1_player2_id,
-        "team2_player1_id": match.team2_player1_id,
-        "team2_player2_id": match.team2_player2_id,
-        "team1_player1_name": names.get(match.team1_player1_id),
-        "team1_player2_name": names.get(match.team1_player2_id),
-        "team2_player1_name": names.get(match.team2_player1_id),
-        "team2_player2_name": names.get(match.team2_player2_id),
-        "team1_score": match.team1_score,
-        "team2_score": match.team2_score,
-        "winner": match.winner,
-        "game_scores": match.game_scores,
-        "bracket_position": match.bracket_position,
-        "is_bye": match.is_bye,
+    player_map = {
+        row.id: {"name": row.full_name, "avatar": row.profile_picture_url}
+        for row in result
     }
+    return _serialize_match(match, player_map)
 
 
 def build_summary_response(tournament: KobTournament, player_count: int = 0) -> dict:

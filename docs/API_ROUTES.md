@@ -15,6 +15,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | `make_require_league_admin_from_season()` | League admin via season_id |
 | `make_require_league_admin_from_schedule()` | League admin via schedule_id |
 | `make_require_league_admin_from_signup()` | League admin via signup_id |
+| `make_require_kob_director()` | KOB tournament director (via tournament_id path param) |
 
 ---
 
@@ -340,7 +341,7 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 
 ## KOB (King/Queen of the Beach) Tournaments
 
-### Director Routes (auth: `require_verified_player`)
+### Director Routes (auth: `make_require_kob_director()`, except create/mine which use `require_verified_player`)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -399,9 +400,9 @@ All prefixed with `/api/public`. Responses cached for 5 minutes.
 
 **Response:** `list[KobPillRecommendation]` — each pill has `label`, `category`, `is_recommended`, format config fields, `total_time_minutes`, and `max_games_per_player`.
 
-### Public Routes (no auth — by shareable code)
+### Public Routes (no auth — by shareable code, rate-limited)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/kob/{code}` | Full tournament state by shareable code (e.g. `KOB-A3X9R2`) |
-| POST | `/api/kob/{code}/score` | Submit a match score. Query: `matchup_id`. Body: `{ team1_score, team2_score, game_index? }` |
+| Method | Path | Rate Limit | Description |
+|--------|------|------------|-------------|
+| GET | `/api/kob/{code}` | 60/min | Full tournament state by shareable code (e.g. `KOB-A3X9R2`) |
+| POST | `/api/kob/{code}/score` | 30/min | Submit a match score. Query: `matchup_id`. Body: `{ team1_score, team2_score, game_index? }` |

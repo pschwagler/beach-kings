@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../ui/UI";
 import { Loader2, Check, Edit2 } from "lucide-react";
 import "./KobLive.css";
@@ -35,6 +35,15 @@ export default function ScoreEntryCard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
+
+  // Re-sync scores when the match prop changes (e.g. after a score is submitted
+  // externally or the parent refreshes tournament data).
+  useEffect(() => {
+    if (!isBo3) {
+      setTeam1Score(match.team1_score != null ? String(match.team1_score) : '');
+      setTeam2Score(match.team2_score != null ? String(match.team2_score) : '');
+    }
+  }, [match.matchup_id, match.team1_score, match.team2_score, isBo3]);
 
   const validateScore = (s1, s2) => {
     const a = parseInt(s1, 10);

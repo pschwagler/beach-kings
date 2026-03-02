@@ -755,7 +755,7 @@ Tournament config and state. Shareable via unique `code`.
 | `name` | String | Tournament display name |
 | `code` | String(10) UNIQUE | Shareable slug, e.g. `KOB-A3X9R2` |
 | `director_player_id` | Integer FK → players.id | SET NULL on delete |
-| `gender` | String(10) | `mens` or `womens` |
+| `gender` | String(10) | `mens`, `womens`, or `coed` |
 | `format` | Enum(TournamentFormat) | Scheduling format |
 | `game_to` | Integer | Default 21 |
 | `win_by` | Integer | Default 2 |
@@ -764,7 +764,7 @@ Tournament config and state. Shareable via unique `code`.
 | `has_playoffs` | Boolean | Default false |
 | `playoff_size` | Integer | Nullable |
 | `num_pools` | Integer | Nullable |
-| `games_per_match` | Integer | Default 1, not null. Number of games per matchup slot (1 or 2) |
+| `games_per_match` | Integer | Default 1, not null. Number of games per matchup slot (1 = single game, 3 = best-of-3) |
 | `num_rr_cycles` | Integer | Default 1, not null. Repeat full round robin 1–3× |
 | `score_cap` | Integer | Nullable. Max score ceiling (e.g. 30). NULL = no cap |
 | `playoff_format` | String(20) | Nullable. `ROUND_ROBIN` (default) or `DRAFT` |
@@ -813,10 +813,10 @@ Individual match results within a tournament.
 | `phase` | String(20) | `pool_play`, `playoffs`, `finals` |
 | `pool_id` | Integer | Nullable |
 | `court_num` | Integer | Nullable |
-| `team1_player1_id` | Integer FK → players.id | |
-| `team1_player2_id` | Integer FK → players.id | |
-| `team2_player1_id` | Integer FK → players.id | |
-| `team2_player2_id` | Integer FK → players.id | |
+| `team1_player1_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team1_player2_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team2_player1_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team2_player2_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
 | `team1_score` | Integer | Nullable until scored |
 | `team2_score` | Integer | Nullable until scored |
 | `winner` | Integer | 1 or 2 |

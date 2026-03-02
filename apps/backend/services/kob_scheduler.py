@@ -45,6 +45,19 @@ logger = logging.getLogger(__name__)
 
 WARMUP_MINUTES = 10  # warmup per wave of court play
 
+# ---------------------------------------------------------------------------
+# Schedule / seeding constants
+# ---------------------------------------------------------------------------
+
+#: Sort key used when a player has no explicit seed (pushes unseeded players
+#: to the end of any seed-ordered list).
+UNSEEDED_SORT_KEY = 999
+
+#: Maximum pool-play games per player that _suggest_with_duration will
+#: recommend. Configs exceeding this cap are filtered out to avoid
+#: exhausting tournaments.
+MAX_POOL_PLAY_GPP = 8
+
 # Game duration (excluding warmup) by game_to target score.
 GAME_MINUTES = {
     7: 7,
@@ -209,7 +222,7 @@ def _auto_pool_game_to(
     sizes = list(pool_sizes.values())
     if len(set(sizes)) <= 1:
         # All pools same size — uniform game_to
-        return {pid: base_game_to for pid in pool_sizes}
+        return {pool_id: base_game_to for pool_id in pool_sizes}
 
     max_size = max(sizes)
     ladder_idx = (
@@ -219,12 +232,12 @@ def _auto_pool_game_to(
     )
 
     result = {}
-    for pid, size in pool_sizes.items():
+    for pool_id, size in pool_sizes.items():
         if size < max_size and ladder_idx < len(_GAME_TO_LADDER) - 1:
             # Smaller pool → bump up one notch for longer games
-            result[pid] = _GAME_TO_LADDER[ladder_idx + 1]
+            result[pool_id] = _GAME_TO_LADDER[ladder_idx + 1]
         else:
-            result[pid] = base_game_to
+            result[pool_id] = base_game_to
     return result
 
 
@@ -298,6 +311,108 @@ def _suggest_without_duration(
     }
 
 
+def _best_in_tier(candidates: List[Dict]) -> Optional[Dict]:
+    """
+    Pick the candidate that best fills the time budget.
+
+    Prefer higher game_to (longer, more competitive games) over more
+    total games. Break ties with total time usage. Strips internal
+    scoring keys (_total_time, _max_gpp) from the winning candidate.
+
+    Args:
+        candidates: List of config dicts with _total_time, game_to, and
+            _max_gpp scoring keys alongside the public config fields.
+
+    Returns:
+        The best candidate dict (internal keys removed), or None if the
+        list is empty.
+    """
+    best = None
+    best_score = (-1, -1, -1)
+    for c in candidates:
+        score = (c["_total_time"], c["game_to"], c["_max_gpp"])
+        if score > best_score:
+            best_score = score
+            best = c
+    if best:
+        # Strip internal scoring keys before returning
+        best.pop("_total_time", None)
+        best.pop("_max_gpp", None)
+    return best
+
+
+def _try_config(
+    num_players: int,
+    num_courts: int,
+    duration_minutes: int,
+    fmt: str,
+    game_to: int,
+    games_per_match: int = 1,
+    **kwargs,
+) -> Optional[Dict]:
+    """
+    Generate a schedule preview and return a scored config dict if it fits
+    within the time budget.
+
+    Pool-play games per player are capped at MAX_POOL_PLAY_GPP to filter
+    out exhausting configurations. Playoff games on top are fine — only
+    advancing players play them.
+
+    Args:
+        num_players: Total player count.
+        num_courts: Available courts.
+        duration_minutes: Time budget in minutes.
+        fmt: Tournament format string.
+        game_to: Target score for the preview.
+        games_per_match: Games per matchup slot.
+        **kwargs: Additional kwargs forwarded to generate_preview
+            (num_pools, playoff_size, playoff_format, max_rounds, etc.).
+
+    Returns:
+        Config dict with _total_time and _max_gpp scoring keys, or None if
+        the config does not fit the budget or raises a ValueError.
+    """
+    try:
+        preview = generate_preview(
+            num_players, num_courts, fmt,
+            game_to=game_to, games_per_match=games_per_match, **kwargs,
+        )
+    except ValueError:
+        logger.debug(
+            "_try_config: generate_preview raised ValueError for fmt=%s "
+            "game_to=%d games_per_match=%d kwargs=%s",
+            fmt, game_to, games_per_match, kwargs,
+        )
+        return None
+    total = preview["total_time_minutes"]
+    if total > duration_minutes:
+        return None
+
+    # Cap pool-play games per player to avoid exhausting tournaments.
+    pool_rounds = [r for r in preview["preview_rounds"] if r["phase"] == "pool_play"]
+    if pool_rounds:
+        player_games: Dict[int, int] = {}
+        for rnd in pool_rounds:
+            for m in rnd["matches"]:
+                for player_id in m["team1"] + m["team2"]:
+                    player_games[player_id] = player_games.get(player_id, 0) + games_per_match
+        pool_max_gpp = max(player_games.values()) if player_games else 0
+        if pool_max_gpp > MAX_POOL_PLAY_GPP:
+            return None
+
+    return {
+        "format": fmt,
+        "game_to": game_to,
+        "games_per_match": games_per_match,
+        "num_pools": kwargs.get("num_pools"),
+        "playoff_size": kwargs.get("playoff_size"),
+        "playoff_format": kwargs.get("playoff_format"),
+        "max_rounds": kwargs.get("max_rounds"),
+        "_total_time": total,
+        "_max_gpp": preview["max_games_per_player"],
+    }
+
+
 def _suggest_with_duration(
     num_players: int,
     num_courts: int,
@@ -323,67 +438,7 @@ def _suggest_with_duration(
     """
     full_rounds = _full_rr_round_count(num_players)
     game_to_candidates = [28, 21, 15, 11]
-    gpm_candidates = [1, 2]
-
-    def _best_in_tier(candidates: List[Dict]) -> Optional[Dict]:
-        """Pick the candidate that best fills the time budget.
-
-        Prefer higher game_to (longer, more competitive games) over
-        more total games. Break ties with total time usage.
-        """
-        best = None
-        best_score = (-1, -1, -1)
-        for c in candidates:
-            score = (c["_total_time"], c["game_to"], c["_max_gpp"])
-            if score > best_score:
-                best_score = score
-                best = c
-        if best:
-            # Strip internal scoring keys
-            best.pop("_total_time", None)
-            best.pop("_max_gpp", None)
-        return best
-
-    MAX_POOL_PLAY_GPP = 8  # Don't suggest configs where pool play alone exceeds this
-
-    def _try_config(fmt: str, gt: int, gpm: int = 1, **kwargs) -> Optional[Dict]:
-        """Generate preview; return config dict if it fits budget."""
-        try:
-            preview = generate_preview(
-                num_players, num_courts, fmt,
-                game_to=gt, games_per_match=gpm, **kwargs,
-            )
-        except Exception:
-            return None
-        total = preview["total_time_minutes"]
-        if total > duration_minutes:
-            return None
-
-        # Cap pool-play games per player to avoid exhausting tournaments.
-        # Playoff games on top are fine — only advancing players play them.
-        pool_rounds = [r for r in preview["preview_rounds"]
-                       if r["phase"] == "pool_play"]
-        if pool_rounds:
-            player_games: Dict[int, int] = {}
-            for rnd in pool_rounds:
-                for m in rnd["matches"]:
-                    for pid in m["team1"] + m["team2"]:
-                        player_games[pid] = player_games.get(pid, 0) + gpm
-            pool_max_gpp = max(player_games.values()) if player_games else 0
-            if pool_max_gpp > MAX_POOL_PLAY_GPP:
-                return None
-
-        return {
-            "format": fmt,
-            "game_to": gt,
-            "games_per_match": gpm,
-            "num_pools": kwargs.get("num_pools"),
-            "playoff_size": kwargs.get("playoff_size"),
-            "playoff_format": kwargs.get("playoff_format"),
-            "max_rounds": kwargs.get("max_rounds"),
-            "_total_time": total,
-            "_max_gpp": preview["max_games_per_player"],
-        }
+    games_per_match_candidates = [1, 2]
 
     # --- Tier 1: Pools + playoffs (8+ players, 2+ courts) ---
     # Pools are the standard tournament format: each court runs its own
@@ -400,26 +455,32 @@ def _suggest_with_duration(
         max_pools = min(num_courts, num_players // 4, 6)
         pool_counts = sorted(
             set(range(2, max_pools + 1)),
-            key=lambda np: abs(np - num_courts),
+            key=lambda num_pools: abs(num_pools - num_courts),
         )
-        for np_val in pool_counts:
+        for num_pools in pool_counts:
             # Try with playoffs first; only fall back to no-playoffs
             # if no playoff config fits the budget.
             playoff_candidates = []
             no_playoff_candidates = []
-            for gt in game_to_candidates:
-                for gpm in gpm_candidates:
+            for game_to in game_to_candidates:
+                for games_per_match in games_per_match_candidates:
                     for ps in [4, 6]:
                         if ps > num_players:
                             continue
                         for pf in playoff_formats:
-                            c = _try_config("POOLS_PLAYOFFS", gt, gpm,
-                                            num_pools=np_val, playoff_size=ps,
-                                            playoff_format=pf)
+                            c = _try_config(
+                                num_players, num_courts, duration_minutes,
+                                "POOLS_PLAYOFFS", game_to, games_per_match,
+                                num_pools=num_pools, playoff_size=ps,
+                                playoff_format=pf,
+                            )
                             if c:
                                 playoff_candidates.append(c)
-                    c = _try_config("POOLS_PLAYOFFS", gt, gpm,
-                                    num_pools=np_val, playoff_size=None)
+                    c = _try_config(
+                        num_players, num_courts, duration_minutes,
+                        "POOLS_PLAYOFFS", game_to, games_per_match,
+                        num_pools=num_pools, playoff_size=None,
+                    )
                     if c:
                         no_playoff_candidates.append(c)
             result = _best_in_tier(playoff_candidates)
@@ -434,30 +495,39 @@ def _suggest_with_duration(
     pool1_candidates = []
     pool1_no_playoff = []
     if num_players >= 8 and num_courts == 1:
-        for np_val in [2]:
-            for gt in game_to_candidates:
-                for gpm in gpm_candidates:
-                    c = _try_config("POOLS_PLAYOFFS", gt, gpm,
-                                    num_pools=np_val, playoff_size=4)
+        for num_pools in [2]:
+            for game_to in game_to_candidates:
+                for games_per_match in games_per_match_candidates:
+                    c = _try_config(
+                        num_players, num_courts, duration_minutes,
+                        "POOLS_PLAYOFFS", game_to, games_per_match,
+                        num_pools=num_pools, playoff_size=4,
+                    )
                     if c:
                         pool1_candidates.append(c)
-                    c = _try_config("POOLS_PLAYOFFS", gt, gpm,
-                                    num_pools=np_val, playoff_size=None)
+                    c = _try_config(
+                        num_players, num_courts, duration_minutes,
+                        "POOLS_PLAYOFFS", game_to, games_per_match,
+                        num_pools=num_pools, playoff_size=None,
+                    )
                     if c:
                         pool1_no_playoff.append(c)
 
     # --- Tier 3: Full RR ---
     rr_candidates = []
-    for gt in game_to_candidates:
-        for gpm in gpm_candidates:
-            c = _try_config("FULL_ROUND_ROBIN", gt, gpm)
+    for game_to in game_to_candidates:
+        for games_per_match in games_per_match_candidates:
+            c = _try_config(
+                num_players, num_courts, duration_minutes,
+                "FULL_ROUND_ROBIN", game_to, games_per_match,
+            )
             if c:
                 rr_candidates.append(c)
 
     # --- Tier 4: Partial RR ---
     partial_candidates = []
-    for gt in game_to_candidates:
-        for gpm in gpm_candidates:
+    for game_to in game_to_candidates:
+        for games_per_match in games_per_match_candidates:
             lo, hi = 3, min(full_rounds - 1, 12)
             best_mr = None
             while lo <= hi:
@@ -465,18 +535,28 @@ def _suggest_with_duration(
                 try:
                     preview = generate_preview(
                         num_players, num_courts, "PARTIAL_ROUND_ROBIN",
-                        max_rounds=mid, game_to=gt, games_per_match=gpm,
+                        max_rounds=mid, game_to=game_to,
+                        games_per_match=games_per_match,
                     )
                     if preview["total_time_minutes"] <= duration_minutes:
                         best_mr = mid
                         lo = mid + 1
                     else:
                         hi = mid - 1
-                except Exception:
+                except ValueError:
+                    logger.debug(
+                        "_suggest_with_duration: generate_preview raised ValueError "
+                        "for PARTIAL_ROUND_ROBIN max_rounds=%d game_to=%d "
+                        "games_per_match=%d",
+                        mid, game_to, games_per_match,
+                    )
                     hi = mid - 1
             if best_mr:
-                c = _try_config("PARTIAL_ROUND_ROBIN", gt, gpm,
-                                max_rounds=best_mr)
+                c = _try_config(
+                    num_players, num_courts, duration_minutes,
+                    "PARTIAL_ROUND_ROBIN", game_to, games_per_match,
+                    max_rounds=best_mr,
+                )
                 if c:
                     partial_candidates.append(c)
 
@@ -508,8 +588,8 @@ def _try_pill_config(
     num_courts: int,
     duration_minutes: Optional[int],
     fmt: str,
-    gt: int,
-    gpm: int = 1,
+    game_to: int,
+    games_per_match: int = 1,
     **kwargs,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -520,8 +600,8 @@ def _try_pill_config(
         num_courts: Available courts.
         duration_minutes: Time budget (None = no limit).
         fmt: Tournament format.
-        gt: Game-to target score.
-        gpm: Games per match.
+        game_to: Game-to target score.
+        games_per_match: Games per match.
         **kwargs: num_pools, playoff_size, max_rounds.
 
     Returns:
@@ -530,17 +610,22 @@ def _try_pill_config(
     try:
         preview = generate_preview(
             num_players, num_courts, fmt,
-            game_to=gt, games_per_match=gpm, **kwargs,
+            game_to=game_to, games_per_match=games_per_match, **kwargs,
         )
-    except Exception:
+    except ValueError:
+        logger.debug(
+            "_try_pill_config: generate_preview raised ValueError for fmt=%s "
+            "game_to=%d games_per_match=%d kwargs=%s",
+            fmt, game_to, games_per_match, kwargs,
+        )
         return None
     total = preview["total_time_minutes"]
     if duration_minutes and total > duration_minutes:
         return None
     return {
         "format": fmt,
-        "game_to": gt,
-        "games_per_match": gpm,
+        "game_to": game_to,
+        "games_per_match": games_per_match,
         "num_pools": kwargs.get("num_pools"),
         "playoff_size": kwargs.get("playoff_size"),
         "playoff_format": kwargs.get("playoff_format"),
@@ -687,21 +772,21 @@ def _find_alt_rr(
     candidates: List[Dict] = []
 
     # Full RR
-    for gt in [28, 21, 15, 11]:
+    for game_to in [28, 21, 15, 11]:
         c = _try_pill_config(
             num_players, num_courts, duration_minutes,
-            "FULL_ROUND_ROBIN", gt, 1,
+            "FULL_ROUND_ROBIN", game_to, 1,
         )
         if c:
             candidates.append(c)
 
     # Partial RR — iterate from max rounds down, stop at first fit per game_to
     full_rounds = _full_rr_round_count(num_players)
-    for gt in [28, 21, 15, 11]:
+    for game_to in [28, 21, 15, 11]:
         for mr in range(min(full_rounds - 1, 10), 2, -1):
             c = _try_pill_config(
                 num_players, num_courts, duration_minutes,
-                "PARTIAL_ROUND_ROBIN", gt, 1, max_rounds=mr,
+                "PARTIAL_ROUND_ROBIN", game_to, 1, max_rounds=mr,
             )
             if c:
                 candidates.append(c)
@@ -723,7 +808,7 @@ def _find_alt_pools(
     """
     Find the best pools config that fits the duration budget.
 
-    Tries pool counts matching courts, with playoffs, gpm=1.
+    Tries pool counts matching courts, with playoffs, games_per_match=1.
 
     Args:
         num_players: Total player count.
@@ -740,15 +825,15 @@ def _find_alt_pools(
     max_pools = max(max_pools, 2)
     candidates: List[Dict] = []
 
-    for np_val in range(2, max_pools + 1):
-        for gt in [28, 21, 15, 11]:
+    for num_pools in range(2, max_pools + 1):
+        for game_to in [28, 21, 15, 11]:
             for ps in [4, 6]:
                 if ps > num_players:
                     continue
                 c = _try_pill_config(
                     num_players, num_courts, duration_minutes,
-                    "POOLS_PLAYOFFS", gt, 1,
-                    num_pools=np_val, playoff_size=ps,
+                    "POOLS_PLAYOFFS", game_to, 1,
+                    num_pools=num_pools, playoff_size=ps,
                 )
                 if c:
                     candidates.append(c)
@@ -863,7 +948,7 @@ def generate_preview(
     # Effective playoff settings (fall back to pool play values)
     eff_playoff_format = playoff_format or "ROUND_ROBIN"
     eff_playoff_game_to = playoff_game_to if playoff_game_to is not None else game_to
-    eff_playoff_gpm = playoff_games_per_match if playoff_games_per_match is not None else games_per_match
+    eff_playoff_games_per_match = playoff_games_per_match if playoff_games_per_match is not None else games_per_match
 
     # Determine if playoffs are active (supported for all formats)
     has_playoffs = playoff_size is not None and playoff_size > 0
@@ -912,19 +997,19 @@ def generate_preview(
     resp_pool_courts: Optional[Dict[int, int]] = schedule.get("pool_courts")
     if preview_pools:
         pool_sizes = {
-            int(pid): len(players)
-            for pid, players in preview_pools.items()
+            int(pool_id): len(pool_players)
+            for pool_id, pool_players in preview_pools.items()
         }
         pool_game_to_map = _auto_pool_game_to(pool_sizes, game_to)
 
-    # Build preview rounds with time info (per-phase game_to / gpm)
+    # Build preview rounds with time info (per-phase game_to / games_per_match)
     preview_rounds = []
     pool_play_time = 0
     playoff_time = 0
 
     for rnd in all_rounds:
         is_playoff = rnd["phase"] == "playoffs"
-        rnd_gpm = eff_playoff_gpm if is_playoff else games_per_match
+        rnd_games_per_match = eff_playoff_games_per_match if is_playoff else games_per_match
 
         if is_playoff:
             rnd_game_to = eff_playoff_game_to
@@ -936,8 +1021,8 @@ def generate_preview(
             )
             if pool_ids_in_round:
                 rnd_game_to = max(
-                    pool_game_to_map.get(pid, game_to)
-                    for pid in pool_ids_in_round
+                    pool_game_to_map.get(pool_id, game_to)
+                    for pool_id in pool_ids_in_round
                 )
             else:
                 rnd_game_to = game_to
@@ -945,7 +1030,7 @@ def generate_preview(
             rnd_game_to = game_to
 
         round_time = _round_time_minutes(
-            len(rnd["matches"]), num_courts, rnd_gpm, rnd_game_to
+            len(rnd["matches"]), num_courts, rnd_games_per_match, rnd_game_to
         )
         byes = schedule.get("byes_per_round", {}).get(str(rnd["round_num"]), [])
 
@@ -981,7 +1066,7 @@ def generate_preview(
     # Stats
     total_matches = sum(len(r["matches"]) for r in all_rounds)
     pool_play_games = sum(len(r["matches"]) for r in pool_play_rounds_data) * games_per_match
-    playoff_games = sum(len(r["matches"]) for r in playoff_rounds_data) * eff_playoff_gpm
+    playoff_games = sum(len(r["matches"]) for r in playoff_rounds_data) * eff_playoff_games_per_match
     total_games = pool_play_games + playoff_games
     min_gpp, max_gpp = _games_per_player_range(all_rounds, num_players, games_per_match)
     gpc = math.ceil(total_games / num_courts) if num_courts > 0 else 0
@@ -1337,7 +1422,9 @@ def _apply_rr_cycles(
         Modified schedule with duplicated pool play rounds.
     """
     pool_play_rounds = [r for r in schedule["rounds"] if r["phase"] == "pool_play"]
-    other_rounds = [r for r in schedule["rounds"] if r["phase"] != "pool_play"]
+    # Deep-copy other_rounds so renumbering does not mutate the original
+    # schedule dicts (shared references from the input schedule).
+    other_rounds = [dict(r) for r in schedule["rounds"] if r["phase"] != "pool_play"]
 
     all_pool_rounds = []
     for cycle in range(num_rr_cycles):
@@ -1910,8 +1997,8 @@ def _merge_pool_rounds(
     """
     # Deterministic court assignment per pool
     pool_courts = {
-        pid: ((pid - 1) % num_courts) + 1
-        for pid in range(1, num_pools + 1)
+        pool_id: ((pool_id - 1) % num_courts) + 1
+        for pool_id in range(1, num_pools + 1)
     }
 
     # Group by round_num
