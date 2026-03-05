@@ -15,8 +15,11 @@ import {
 } from "../../services/api";
 import { Button } from "../ui/UI";
 import NavBar from "../layout/NavBar";
-import { Loader2, Trophy, X, GripVertical, Search, Play, Trash2, Copy, Users } from "lucide-react";
+import { Loader2, X, Search, Play, Trash2, Copy, Users, Plus } from "lucide-react";
+import { formatDivisionLabel } from "../../utils/divisionUtils";
 import "./KobSetup.css";
+
+const PLAYER_PAGE_SIZE = 25;
 
 export default function KobSetup({ tournamentId }) {
   const router = useRouter();
@@ -30,8 +33,11 @@ export default function KobSetup({ tournamentId }) {
   // Player search
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [playerOffset, setPlayerOffset] = useState(0);
+  const [playerTotal, setPlayerTotal] = useState(0);
 
   const searchDebounceRef = useRef(null);
 
@@ -62,28 +68,48 @@ export default function KobSetup({ tournamentId }) {
     }
   }, [tournament, router]);
 
-  const handleSearch = useCallback((query) => {
-    setSearchQuery(query);
-    clearTimeout(searchDebounceRef.current);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
+  /**
+   * Fetch a page of players from the API.
+   * @param {string} query - Search query (empty = all players)
+   * @param {number} offset - Pagination offset
+   * @param {boolean} append - Append to existing results or replace
+   */
+  const fetchPlayers = useCallback(async (query, offset, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoadingPlayers(true);
+    try {
+      const data = await getPlayers({ q: query || undefined, limit: PLAYER_PAGE_SIZE, offset });
+      const results = data.items || data;
+      const total = typeof data.total === "number" ? data.total : 0;
+      if (append) setSearchResults((prev) => [...prev, ...results]);
+      else setSearchResults(results);
+      setPlayerTotal(total);
+    } catch {
+      if (!append) setSearchResults([]);
+    } finally {
+      setLoadingPlayers(false);
+      setLoadingMore(false);
     }
-    searchDebounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const data = await getPlayers({ q: query, limit: 10 });
-        const results = data.items || data;
-        // Filter out already-added players
-        const existingIds = new Set(tournament.players.map((p) => p.player_id));
-        setSearchResults(results.filter((r) => !existingIds.has(r.id)));
-      } catch {
-        // silent
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-  }, [tournament]);
+  }, []);
+
+  // Load players when search panel opens, and re-fetch on search query changes
+  useEffect(() => {
+    if (!showSearch || !tournament) return;
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setPlayerOffset(0);
+      fetchPlayers(searchQuery, 0, false);
+    }, searchQuery ? 300 : 0);
+    return () => clearTimeout(searchDebounceRef.current);
+  }, [showSearch, searchQuery, tournament, fetchPlayers]);
+
+  const handleLoadMorePlayers = useCallback(() => {
+    const nextOffset = playerOffset + PLAYER_PAGE_SIZE;
+    setPlayerOffset(nextOffset);
+    fetchPlayers(searchQuery, nextOffset, true);
+  }, [playerOffset, searchQuery, fetchPlayers]);
+
+  const hasMorePlayers = searchResults.length < playerTotal;
 
   const handleAddPlayer = async (playerId) => {
     try {
@@ -242,9 +268,16 @@ export default function KobSetup({ tournamentId }) {
             <button
               type="button"
               className="kob-setup__add-btn"
-              onClick={() => setShowSearch(!showSearch)}
+              onClick={() => {
+                setShowSearch(!showSearch);
+                if (showSearch) {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setPlayerOffset(0);
+                }
+              }}
             >
-              {showSearch ? "Cancel" : "+ Add Player"}
+              {showSearch ? "Done" : "+ Add Player"}
             </button>
 
             {showSearch && (
@@ -256,29 +289,59 @@ export default function KobSetup({ tournamentId }) {
                     className="kob-setup__search-input"
                     placeholder="Search players by name..."
                     value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     autoFocus
                   />
                 </div>
-                {searching && (
+                {loadingPlayers && searchResults.length === 0 ? (
                   <div className="kob-setup__search-loading">
-                    <Loader2 size={14} className="spin" />
+                    <Loader2 size={14} className="spin" /> Loading players...
+                  </div>
+                ) : (
+                  <div className={`kob-setup__search-results${loadingPlayers ? " kob-setup__search-results--loading" : ""}`}>
+                    {(() => {
+                      const existingIds = new Set(tournament.players.map((p) => p.player_id));
+                      const available = searchResults.filter((r) => !existingIds.has(r.id));
+                      if (available.length === 0) {
+                        return (
+                          <div className="kob-setup__search-empty">
+                            {searchQuery.trim() ? "No players match your search." : "No players to add."}
+                          </div>
+                        );
+                      }
+                      return available.map((player) => {
+                        const division = formatDivisionLabel(player.gender, player.level);
+                        return (
+                          <button
+                            key={player.id}
+                            type="button"
+                            className="kob-setup__search-result"
+                            onClick={() => handleAddPlayer(player.id)}
+                          >
+                            <div className="kob-setup__search-result-info">
+                              <span className="kob-setup__search-result-name">{player.full_name}</span>
+                              <span className="kob-setup__search-result-meta">
+                                {[division, player.location_name].filter(Boolean).join(" · ")}
+                              </span>
+                            </div>
+                            <span className="kob-setup__search-result-add">
+                              <Plus size={14} /> Add
+                            </span>
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
-                {searchResults.length > 0 && (
-                  <div className="kob-setup__search-results">
-                    {searchResults.slice(0, 10).map((player) => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        className="kob-setup__search-result"
-                        onClick={() => handleAddPlayer(player.id)}
-                      >
-                        <span className="kob-setup__search-result-name">{player.full_name}</span>
-                        <span className="kob-setup__search-result-add">Add</span>
-                      </button>
-                    ))}
-                  </div>
+                {hasMorePlayers && !loadingPlayers && (
+                  <button
+                    type="button"
+                    className="kob-setup__load-more"
+                    onClick={handleLoadMorePlayers}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </button>
                 )}
               </div>
             )}

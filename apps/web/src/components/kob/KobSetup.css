@@ -146,17 +146,33 @@
 
 .kob-setup__search-loading {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 8px;
+  gap: 8px;
+  padding: 24px 8px;
   color: var(--gray-600);
+  font-size: 14px;
 }
 
 .kob-setup__search-results {
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   margin-top: 4px;
-  max-height: 240px;
+  max-height: 320px;
   overflow-y: auto;
+  transition: opacity 0.15s;
+}
+
+.kob-setup__search-results--loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.kob-setup__search-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--gray-600);
+  font-size: 14px;
 }
 
 .kob-setup__search-result {
@@ -180,15 +196,56 @@
   background: var(--gray-50);
 }
 
+.kob-setup__search-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .kob-setup__search-result-name {
   font-size: 14px;
+  font-weight: 500;
   color: var(--gray-900);
 }
 
+.kob-setup__search-result-meta {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
 .kob-setup__search-result-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   font-weight: 600;
   color: var(--primary);
+  flex-shrink: 0;
+}
+
+.kob-setup__load-more {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+
+.kob-setup__load-more:hover {
+  background: var(--primary-lighter);
+}
+
+.kob-setup__load-more:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Player list */
