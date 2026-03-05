@@ -1,6 +1,6 @@
 # API Routes Reference
 
-Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
+Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `apps/backend/api/public_routes.py` (~14 endpoints)
 
 ## Auth Levels
 
@@ -68,6 +68,10 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | GET | `/api/players/{player_id}/season/{season_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for season (includes `"Player ID"` per row) |
 | GET | `/api/players/{player_id}/league/{league_id}/stats` | None | Get player league stats |
 | GET | `/api/players/{player_id}/league/{league_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for league (normalized: `"Player ID"`, `"Partner/Opponent"`) |
+| GET | `/api/players/{player_id}/home-courts` | None | List player home courts (ordered by position) |
+| POST | `/api/players/{player_id}/home-courts` | Verified Player (self) | Add home court `{court_id}` |
+| DELETE | `/api/players/{player_id}/home-courts/{court_id}` | Verified Player (self) | Remove home court |
+| PUT | `/api/players/{player_id}/home-courts/reorder` | Verified Player (self) | Reorder home courts. Body: `[{court_id, position}]` |
 
 ## Leagues
 
@@ -93,6 +97,10 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | POST | `/api/leagues/{league_id}/leave` | User | Leave league |
 | GET | `/api/leagues/{league_id}/messages` | League Member | Get league messages |
 | POST | `/api/leagues/{league_id}/messages` | League Member | Post league message |
+| GET | `/api/leagues/{league_id}/home-courts` | League Member | List home courts |
+| POST | `/api/leagues/{league_id}/home-courts` | League Admin | Add home court `{court_id}` |
+| DELETE | `/api/leagues/{league_id}/home-courts/{court_id}` | League Admin | Remove home court |
+| PUT | `/api/leagues/{league_id}/home-courts/reorder` | League Admin | Reorder home courts. Body: `[{court_id, position}]` |
 
 ## Seasons
 
@@ -128,7 +136,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | POST | `/api/sessions/{session_id}/invite` | User | Invite player to session |
 | POST | `/api/sessions/{session_id}/invite_batch` | User | Batch invite players to session |
 | POST | `/api/sessions` | User | Create standalone session |
-| PATCH | `/api/sessions/{session_id}` | User | Update session (status, name) |
+| PATCH | `/api/sessions/{session_id}` | User | Update session (status, name, court_id) |
 | DELETE | `/api/sessions/{session_id}` | User | Delete session |
 
 ## Matches
@@ -178,6 +186,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 |--------|------|------|-------------|
 | POST | `/api/courts` | User | Create court (admin) |
 | GET | `/api/courts` | User | List courts for location |
+| GET | `/api/courts/placeholder` | Public | Get placeholder "Other / Private Court" for a location (`?location_id=`) |
 | PUT | `/api/courts/{court_id}` | User | Update court (admin) |
 | DELETE | `/api/courts/{court_id}` | User | Delete court (admin) |
 | POST | `/api/courts/submit` | Verified Player | Submit new court for approval |

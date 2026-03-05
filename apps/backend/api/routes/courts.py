@@ -97,6 +97,22 @@ async def list_courts(
         raise HTTPException(status_code=500, detail=f"Error listing courts: {str(e)}")
 
 
+@router.get("/api/courts/placeholder")
+async def get_placeholder_court(
+    location_id: str = Query(..., description="Location ID to look up placeholder court"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Return the placeholder "Other / Private Court" for a location.
+
+    No auth required. Returns {id, name, location_id} or 404.
+    """
+    result = await court_service.get_placeholder_court(session, location_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No placeholder court for this location")
+    return result
+
+
 @router.put("/api/courts/{court_id}")
 async def update_court(
     court_id: int,

@@ -504,11 +504,10 @@ async def cancel_league_join_request(
                 status_code=404, detail="Player profile not found."
             )
 
-        try:
-            await data_service.cancel_league_request(session, league_id, player["id"])
-            return {"success": True, "message": "Join request cancelled."}
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
+        await data_service.cancel_league_request(session, league_id, player["id"])
+        return {"success": True, "message": "Join request cancelled."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -700,6 +699,89 @@ async def leave_league(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error leaving league: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# League home courts
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/leagues/{league_id}/home-courts")
+async def list_league_home_courts(
+    league_id: int,
+    user: dict = Depends(make_require_league_member()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List home courts for a league (league_member)."""
+    try:
+        return await data_service.get_league_home_courts(session, league_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing home courts: {str(e)}")
+
+
+@router.post("/api/leagues/{league_id}/home-courts")
+async def add_league_home_court(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Add a home court to a league (league_admin)."""
+    try:
+        body = await request.json()
+        court_id = body.get("court_id")
+        if not court_id:
+            raise HTTPException(status_code=400, detail="court_id is required")
+        court = await data_service.add_league_home_court(session, league_id, court_id)
+        return court
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "uq_league_home_courts_league_court" in str(e):
+            raise HTTPException(status_code=409, detail="Court is already a home court")
+        raise HTTPException(status_code=500, detail=f"Error adding home court: {str(e)}")
+
+
+@router.delete("/api/leagues/{league_id}/home-courts/{court_id}")
+async def remove_league_home_court(
+    league_id: int,
+    court_id: int,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Remove a home court from a league (league_admin)."""
+    try:
+        success = await data_service.remove_league_home_court(session, league_id, court_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Home court not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
+
+
+@router.put("/api/leagues/{league_id}/home-courts/reorder")
+async def reorder_league_home_courts(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Reorder home courts for a league (league_admin). Accepts [{court_id, position}]."""
+    try:
+        body = await request.json()
+        court_positions = body.get("court_positions")
+        if not court_positions or not isinstance(court_positions, list):
+            raise HTTPException(status_code=400, detail="court_positions array is required")
+        courts = await data_service.reorder_league_home_courts(session, league_id, court_positions)
+        return courts
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reordering home courts: {str(e)}")
 
 
 # ---------------------------------------------------------------------------

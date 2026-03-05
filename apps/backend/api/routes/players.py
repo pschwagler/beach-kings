@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.services import data_service, placeholder_service
-from backend.api.auth_dependencies import get_current_user, get_current_user_optional
+from backend.api.auth_dependencies import get_current_user, get_current_user_optional, require_verified_player
 from backend.models.schemas import (
     CreatePlaceholderRequest,
 )
@@ -428,3 +428,91 @@ async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_d
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Player Home Courts
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/players/{player_id}/home-courts")
+async def list_player_home_courts(
+    player_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List home courts for a player (public)."""
+    try:
+        return await data_service.get_player_home_courts(session, player_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing home courts: {str(e)}")
+
+
+@router.post("/api/players/{player_id}/home-courts")
+async def add_player_home_court(
+    player_id: int,
+    request: Request,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Add a home court to a player (self only)."""
+    if user["player_id"] != player_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own home courts")
+    try:
+        body = await request.json()
+        court_id = body.get("court_id")
+        if not court_id:
+            raise HTTPException(status_code=400, detail="court_id is required")
+        court = await data_service.add_player_home_court(session, player_id, court_id)
+        return court
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "uq_player_home_courts_player_court" in str(e):
+            raise HTTPException(status_code=409, detail="Court is already a home court")
+        raise HTTPException(status_code=500, detail=f"Error adding home court: {str(e)}")
+
+
+@router.delete("/api/players/{player_id}/home-courts/{court_id}")
+async def remove_player_home_court(
+    player_id: int,
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Remove a home court from a player (self only)."""
+    if user["player_id"] != player_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own home courts")
+    try:
+        success = await data_service.remove_player_home_court(session, player_id, court_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Home court not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
+
+
+@router.put("/api/players/{player_id}/home-courts/reorder")
+async def reorder_player_home_courts(
+    player_id: int,
+    request: Request,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Reorder home courts for a player (self only). Accepts [{court_id, position}]."""
+    if user["player_id"] != player_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own home courts")
+    try:
+        body = await request.json()
+        court_positions = body.get("court_positions")
+        if not court_positions or not isinstance(court_positions, list):
+            raise HTTPException(status_code=400, detail="court_positions array is required")
+        courts = await data_service.reorder_player_home_courts(session, player_id, court_positions)
+        return courts
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reordering home courts: {str(e)}")

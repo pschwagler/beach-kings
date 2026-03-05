@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-PostgreSQL database with 47 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
+PostgreSQL database with 49 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
 
 ## Enums
 
@@ -179,6 +179,7 @@ Court locations with discovery & review support.
 | `review_count` | Integer | Default `0` |
 | `status` | String(20) | `pending`/`approved`/`rejected`, default `approved` |
 | `is_active` | Boolean | Default `true` |
+| `is_placeholder` | Boolean | Default `false`, not null. System-created "Other / Private Court" per location |
 | `slug` | String(200) | **Unique** |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
@@ -264,6 +265,32 @@ User-submitted edit suggestions for court info.
 | `reviewed_by` | Integer FK → players.id | ON DELETE SET NULL |
 | `created_at` | DateTime(tz) | |
 | `reviewed_at` | DateTime(tz) | Nullable |
+
+### `league_home_courts`
+Courts designated as home courts for a league.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `league_id` | Integer FK → leagues.id | ON DELETE CASCADE |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `position` | Integer | Default `0`. Ordering (0 = primary) |
+| `created_at` | DateTime(tz) | |
+
+Unique constraint: `(league_id, court_id)`. Index: `idx_league_home_courts_league`.
+
+### `player_home_courts`
+Courts designated as home courts for a player.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `player_id` | Integer FK → players.id | ON DELETE CASCADE |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `position` | Integer | Default `0`. Ordering (0 = primary) |
+| `created_at` | DateTime(tz) | |
+
+Unique constraint: `(player_id, court_id)`. Index: `idx_player_home_courts_player`.
 
 ---
 

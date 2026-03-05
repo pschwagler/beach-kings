@@ -250,6 +250,9 @@ class Player(Base):
         back_populates="player",
         uselist=False,
     )
+    home_courts = relationship(
+        "PlayerHomeCourt", back_populates="player", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_players_name", "full_name"),
@@ -332,6 +335,7 @@ class League(Base):
     creator = relationship("Player", foreign_keys=[created_by], backref="created_leagues")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_leagues")
     messages = relationship("LeagueMessage", back_populates="league", cascade="all, delete-orphan")
+    home_courts = relationship("LeagueHomeCourt", back_populates="league", cascade="all, delete-orphan")
 
     __table_args__ = (Index("idx_leagues_location", "location_id"),)
 
@@ -469,6 +473,7 @@ class Court(Base):
         String(20), nullable=True, server_default="approved"
     )  # pending/approved/rejected
     is_active = Column(Boolean, nullable=True, server_default="true")
+    is_placeholder = Column(Boolean, default=False, server_default="false", nullable=False)
     slug = Column(String(200), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -488,6 +493,12 @@ class Court(Base):
     photos = relationship("CourtPhoto", back_populates="court", cascade="all, delete-orphan")
     edit_suggestions = relationship(
         "CourtEditSuggestion", back_populates="court", cascade="all, delete-orphan"
+    )
+    league_home_courts = relationship(
+        "LeagueHomeCourt", back_populates="court", cascade="all, delete-orphan"
+    )
+    player_home_courts = relationship(
+        "PlayerHomeCourt", back_populates="court", cascade="all, delete-orphan"
     )
     creator = relationship("Player", foreign_keys=[created_by], backref="created_courts")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_courts")
@@ -1739,4 +1750,46 @@ class SeasonAward(Base):
         Index("idx_season_awards_player", "player_id"),
         Index("idx_season_awards_season", "season_id"),
         Index("idx_season_awards_league", "league_id"),
+    )
+
+
+class LeagueHomeCourt(Base):
+    """Courts designated as home courts for a league."""
+
+    __tablename__ = "league_home_courts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    league = relationship("League", back_populates="home_courts")
+    court = relationship("Court", back_populates="league_home_courts")
+
+    __table_args__ = (
+        UniqueConstraint("league_id", "court_id", name="uq_league_home_courts_league_court"),
+        Index("idx_league_home_courts_league", "league_id"),
+    )
+
+
+class PlayerHomeCourt(Base):
+    """Courts designated as home courts for a player."""
+
+    __tablename__ = "player_home_courts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    player = relationship("Player", back_populates="home_courts")
+    court = relationship("Court", back_populates="player_home_courts")
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "court_id", name="uq_player_home_courts_player_court"),
+        Index("idx_player_home_courts_player", "player_id"),
     )

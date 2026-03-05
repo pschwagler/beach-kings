@@ -395,6 +395,7 @@ class CourtResponse(CourtBase):
     """Court response."""
 
     id: int
+    is_placeholder: bool = False
     created_at: str
     updated_at: str
 
@@ -439,12 +440,31 @@ class LeagueCreate(LeagueBase):
     pass
 
 
+class HomeCourtResponse(BaseModel):
+    """Home court summary for league responses."""
+
+    id: int
+    name: str
+    address: Optional[str] = None
+    position: int = 0
+
+
+class PlayerHomeCourtResponse(BaseModel):
+    """Home court summary for player responses, includes position."""
+
+    id: int
+    name: str
+    address: Optional[str] = None
+    position: int = 0
+
+
 class LeagueResponse(LeagueBase):
     """League response."""
 
     id: int
     created_at: str
     updated_at: str
+    home_courts: List[HomeCourtResponse] = []
 
 
 class LeagueMemberBase(BaseModel):
