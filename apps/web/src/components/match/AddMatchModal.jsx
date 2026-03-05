@@ -195,14 +195,14 @@ export default function AddMatchModal({
       dispatchForm({ type: 'RESET' });
     }
     setFormError(null);
-  }, [editMatch, isOpen, playerNameToIdMap]);
+  }, [editMatch, isOpen, playerNameToIdMap, dispatchForm, setFormError]);
 
   // Open season dropdown and show error state when "Please select a season" error occurs
   useEffect(() => {
     if (formError === 'Please select a season' && !isSeasonDropdownOpen) {
       setIsSeasonDropdownOpen(true);
     }
-  }, [formError, isSeasonDropdownOpen]);
+  }, [formError, isSeasonDropdownOpen, setIsSeasonDropdownOpen]);
 
   // Use validation hook
   const { validateForm } = useMatchValidation({

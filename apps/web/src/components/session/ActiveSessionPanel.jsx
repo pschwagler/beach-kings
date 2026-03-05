@@ -1,10 +1,12 @@
-import { Trophy, Users, ChevronDown } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { Trophy, Users, ChevronDown, MapPin } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import MatchCard from '../match/MatchCard';
 import SessionMatchesClipboardTable from '../match/SessionMatchesClipboardTable';
 import SessionHeader from './SessionHeader';
 import SessionGroupHeader from './SessionGroupHeader';
 import SessionActions from './SessionActions';
+import CourtSelector from '../court/CourtSelector';
 import { formatDateRange } from '../league/utils/leagueUtils';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { getUniquePlayersCount } from '../league/utils/matchUtils';
@@ -22,6 +24,7 @@ export default function ActiveSessionPanel({
   onRequestDeleteSession,
   onRequestLeaveSession,
   onUpdateSessionSeason,
+  onUpdateSessionCourt,
   onStatsClick,
   isEditing = false,
   seasons = [],
@@ -32,6 +35,8 @@ export default function ActiveSessionPanel({
   isSubmitted = false, // when true, show SessionGroupHeader (submitted style) instead of SessionHeader
   submittedTimestampText = null, // e.g. "Submitted 2 days ago by John"
   onEditSessionClick = null, // optional; when provided, show pencil edit in SessionGroupHeader
+  leagueHomeCourts = [],
+  leagueLocationId = null,
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
@@ -132,6 +137,34 @@ export default function ActiveSessionPanel({
             </div>
         </div>
       ) : null}
+
+      {/* Court row (league sessions only — pickup uses Manage Session drawer) */}
+      {isLeague && activeSession?.court_name && !isAdmin && (
+        <div className="session-court-row">
+          <MapPin size={14} />
+          {activeSession.court_slug && !activeSession.court_slug.startsWith('other-private-') ? (
+            <Link href={`/courts/${activeSession.court_slug}`} className="session-court-link">
+              {activeSession.court_name}
+            </Link>
+          ) : (
+            <span>{activeSession.court_name}</span>
+          )}
+        </div>
+      )}
+      {isLeague && isAdmin && onUpdateSessionCourt && (
+        <div className="session-court-row session-court-row--editable">
+          <CourtSelector
+            value={activeSession?.court_id ?? null}
+            valueName={activeSession?.court_name ?? null}
+            onChange={(courtId) => {
+              onUpdateSessionCourt(activeSession.id, courtId);
+            }}
+            homeCourts={leagueHomeCourts}
+            preFilterLocationId={leagueLocationId}
+            label="Court"
+          />
+        </div>
+      )}
 
       <SessionActions
         onAddMatchClick={onAddMatchClick}

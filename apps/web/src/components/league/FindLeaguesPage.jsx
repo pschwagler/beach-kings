@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Users, MapPin, LogIn, UserRoundPlus, Plus } from "lucide-react";
+import { Users, MapPin, LogIn, UserRoundPlus, Plus, X } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
 import NavBar from "../layout/NavBar";
 import LevelBadge from "../ui/LevelBadge";
@@ -8,6 +8,7 @@ import {
   queryLeagues,
   joinLeague,
   requestToJoinLeague,
+  cancelJoinRequest,
   getUserLeagues,
   getLocations,
   createLeague,
@@ -47,6 +48,7 @@ export default function FindLeaguesPage() {
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
   const [showJoinedLeagues, setShowJoinedLeagues] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(new Set());
 
   // Load user leagues for navbar
   useEffect(() => {
@@ -115,8 +117,17 @@ export default function FindLeaguesPage() {
           page,
           page_size: pageSize,
         }, { signal: controller.signal });
-        setLeagues(data.items || []);
+        const items = data.items || [];
+        setLeagues(items);
         setTotalCount(data.total_count || 0);
+        // Seed pending requests from API so state persists across navigation
+        setPendingRequests(prev => {
+          const next = new Set(prev);
+          for (const league of items) {
+            if (league.has_pending_request) next.add(league.id);
+          }
+          return next;
+        });
       } catch (err) {
         if (err.name === 'AbortError' || err.name === 'CanceledError') return;
         console.error("Error fetching leagues:", err);
@@ -211,6 +222,7 @@ export default function FindLeaguesPage() {
         router.push(`/league/${league.id}?tab=details`);
       } else {
         await requestToJoinLeague(league.id);
+        setPendingRequests(prev => new Set(prev).add(league.id));
         setMessage({
           type: "success",
           text: `Join request submitted for ${league.name}. League admins will be notified.`,
@@ -218,6 +230,24 @@ export default function FindLeaguesPage() {
       }
     } catch (err) {
       const errorMsg = err.response?.data?.detail || "Failed to join league";
+      setMessage({ type: "error", text: errorMsg });
+    }
+  };
+
+  const handleCancelRequest = async (league) => {
+    try {
+      await cancelJoinRequest(league.id);
+      setPendingRequests(prev => {
+        const next = new Set(prev);
+        next.delete(league.id);
+        return next;
+      });
+      setMessage({
+        type: "success",
+        text: `Join request for ${league.name} cancelled.`,
+      });
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || "Failed to cancel request";
       setMessage({ type: "error", text: errorMsg });
     }
   };
@@ -280,6 +310,17 @@ export default function FindLeaguesPage() {
             >
               You&apos;re a member
             </span>
+          ) : pendingRequests.has(league.id) ? (
+            <button
+              className="leagues-table-join-button leagues-table-join-button--cancel"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelRequest(league);
+              }}
+            >
+              <X size={14} />
+              Cancel Request
+            </button>
           ) : (
             <button
               className="leagues-table-join-button"

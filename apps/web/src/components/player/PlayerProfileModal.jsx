@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { updatePlayerProfile, getLocations } from '../../services/api';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
@@ -35,6 +35,19 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
     updateLocationsWithDistances,
   } = useLocationAutoSelect(setFormData, setErrorMessage);
 
+  const loadLocations = useCallback(async () => {
+    setIsLoadingLocations(true);
+    try {
+      const locationsData = await getLocations();
+      setAllLocations(locationsData || []);
+      updateLocationsWithDistances(locationsData || []);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    } finally {
+      setIsLoadingLocations(false);
+    }
+  }, [updateLocationsWithDistances]);
+
   useEffect(() => {
     if (isOpen) {
       // Pre-populate form with existing player data if available
@@ -58,20 +71,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
       setErrorMessage('');
       loadLocations();
     }
-  }, [isOpen, currentUserPlayer]);
-
-  const loadLocations = async () => {
-    setIsLoadingLocations(true);
-    try {
-      const locationsData = await getLocations();
-      setAllLocations(locationsData || []);
-      updateLocationsWithDistances(locationsData || []);
-    } catch (error) {
-      console.error('Error loading locations:', error);
-    } finally {
-      setIsLoadingLocations(false);
-    }
-  };
+  }, [isOpen, currentUserPlayer, loadLocations]);
 
   // Add modal-open class to body when modal is open (for iOS z-index fix)
   useEffect(() => {

@@ -168,9 +168,16 @@ async def get_league_sessions(
         List of session objects for the league
     """
     try:
+        from backend.database.models import Court
+
         query = (
-            select(Session)
+            select(
+                Session,
+                Court.name.label("court_name"),
+                Court.slug.label("court_slug"),
+            )
             .join(Season, Session.season_id == Season.id)
+            .outerjoin(Court, Session.court_id == Court.id)
             .where(Season.league_id == league_id)
         )
 
@@ -180,16 +187,19 @@ async def get_league_sessions(
         query = query.order_by(Session.date.desc(), Session.created_at.desc())
 
         result = await session.execute(query)
-        sessions = result.scalars().all()
+        rows = result.all()
 
         session_list = []
-        for sess in sessions:
+        for sess, court_name, court_slug in rows:
             session_dict = {
                 "id": sess.id,
                 "date": sess.date,
                 "name": sess.name,
                 "status": sess.status.value if sess.status else None,
                 "season_id": sess.season_id,
+                "court_id": sess.court_id,
+                "court_name": court_name,
+                "court_slug": court_slug,
                 "created_at": sess.created_at.isoformat() if sess.created_at else None,
                 "updated_at": sess.updated_at.isoformat() if sess.updated_at else None,
                 "created_by": sess.created_by,
@@ -220,6 +230,7 @@ async def create_league_session(
         body = await request.json()
         date = body.get("date") or datetime.now().strftime("%-m/%-d/%Y")
         name = body.get("name")
+        court_id = body.get("court_id")
 
         player_id = None
         if user:
@@ -228,7 +239,12 @@ async def create_league_session(
                 player_id = player["id"]
 
         new_session = await data_service.create_league_session(
-            session=session, league_id=league_id, date=date, name=name, created_by=player_id
+            session=session,
+            league_id=league_id,
+            date=date,
+            name=name,
+            created_by=player_id,
+            court_id=int(court_id) if court_id is not None else None,
         )
         return {"status": "success", "message": "Session created", "session": new_session}
     except ValueError as e:
@@ -625,17 +641,23 @@ async def update_session(
                 "season_id": result["season_id"],
             }
 
-        # Handle other field updates (name, date, season_id)
+        # Handle other field updates (name, date, season_id, court_id)
         name = body.get("name")
         date = body.get("date")
         season_id = body.get("season_id")
+        court_id = body.get("court_id")
 
-        has_updates = name is not None or date is not None or "season_id" in body
+        has_updates = (
+            name is not None
+            or date is not None
+            or "season_id" in body
+            or "court_id" in body
+        )
 
         if not has_updates:
             raise HTTPException(
                 status_code=400,
-                detail="At least one field must be provided: submit, name, date, or season_id",
+                detail="At least one field must be provided: submit, name, date, season_id, or court_id",
             )
 
         processed_season_id = None
@@ -644,6 +666,12 @@ async def update_session(
             update_season_id = True
             processed_season_id = None if season_id is None else int(season_id)
 
+        processed_court_id = None
+        update_court_id = False
+        if "court_id" in body:
+            update_court_id = True
+            processed_court_id = None if court_id is None else int(court_id)
+
         result = await data_service.update_session(
             session,
             session_id,
@@ -651,6 +679,8 @@ async def update_session(
             date=date,
             season_id=processed_season_id,
             update_season_id=update_season_id,
+            court_id=processed_court_id,
+            update_court_id=update_court_id,
         )
 
         if not result:

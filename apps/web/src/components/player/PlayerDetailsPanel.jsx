@@ -7,7 +7,7 @@ export default function PlayerDetailsPanel({
   playerStats,
   playerMatchHistory,
   isPanelOpen,
-  allPlayerNames,
+  allPlayerNames: allPlayers,
   onPlayerChange,
   onClose,
   leagueName,
@@ -43,7 +43,7 @@ export default function PlayerDetailsPanel({
         stats={playerStats}
         matchHistory={playerMatchHistory}
         onClose={onClose}
-        allPlayers={allPlayerNames}
+        allPlayers={allPlayers}
         onPlayerChange={onPlayerChange}
         leagueName={leagueName}
         seasonName={seasonName}

@@ -469,7 +469,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
           {activeMode === 'sign-in' && (
             <div className="auth-modal__footer">
-              <span className="auth-modal__footer-text">Don't have an account? </span>
+              <span className="auth-modal__footer-text">Don&apos;t have an account? </span>
               <button
                 type="button"
                 className="auth-modal__footer-link"

@@ -19,6 +19,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }) {
 
   useEffect(() => {
     if (!isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when modal closes
       setFormData({ name: "", start_date: "", end_date: "" });
     } else {
       // Set default dates when modal opens

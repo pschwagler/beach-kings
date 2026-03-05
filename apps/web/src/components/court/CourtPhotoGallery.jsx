@@ -62,7 +62,7 @@ export default function CourtPhotoGallery({ photos = [], slug }) {
 
         return (
           <div
-            key={photo.id}
+            key={photo.url}
             className={`court-detail__mosaic-cell${index === 1 ? ' court-detail__mosaic-cell--tr' : ''}${index === 3 ? ' court-detail__mosaic-cell--br' : ''}`}
           >
             <img

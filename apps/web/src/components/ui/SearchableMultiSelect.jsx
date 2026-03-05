@@ -78,6 +78,7 @@ export default function SearchableMultiSelect({
 
   // Reset highlight when filtered list changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset highlight on filter change
     setHighlightedIndex(-1);
   }, [query]);
 
@@ -94,6 +95,7 @@ export default function SearchableMultiSelect({
         onClick={handleContainerClick}
         role="combobox"
         aria-expanded={isOpen}
+        aria-controls="searchable-multiselect-listbox"
         aria-haspopup="listbox"
       >
         <div className="searchable-multiselect__value-wrap">
@@ -131,7 +133,7 @@ export default function SearchableMultiSelect({
         </span>
       </div>
       {isOpen && (
-        <ul className="searchable-multiselect__menu" role="listbox" aria-multiselectable="true">
+        <ul className="searchable-multiselect__menu" id="searchable-multiselect-listbox" role="listbox" aria-multiselectable="true">
           {filtered.length === 0 ? (
             <li className="searchable-multiselect__no-results">No matches</li>
           ) : (

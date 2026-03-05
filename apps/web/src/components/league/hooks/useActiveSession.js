@@ -61,6 +61,7 @@ export function useActiveSession({
   // Load active session and all sessions on mount and when dependencies change
   useEffect(() => {
     if (leagueId && seasons?.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on mount
       loadActiveSession();
       loadAllSessions();
     }

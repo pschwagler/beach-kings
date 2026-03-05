@@ -16,7 +16,7 @@ import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import { getUserLeagues, updateLeague, createLeague, joinLeague, requestToJoinLeague } from '../../services/api';
+import { getUserLeagues, updateLeague, createLeague, addLeagueHomeCourt, joinLeague, requestToJoinLeague } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 import './LeagueDashboard.css';
@@ -135,7 +135,11 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
   const handleCreateLeague = async (leagueData) => {
     try {
-      const newLeague = await createLeague(leagueData);
+      const { initial_court_id, ...payload } = leagueData;
+      const newLeague = await createLeague(payload);
+      if (initial_court_id && newLeague?.id) {
+        try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+      }
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
       router.push(`/league/${newLeague.id}?tab=details`);

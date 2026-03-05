@@ -294,7 +294,7 @@ export function useSessionEditing({
     } else {
       console.error('[useSessionEditing.handleCreateMatch] ERROR: matchOperations is not available for match creation');
     }
-  }, [isEditing, addPendingMatch, editingSessions]);
+  }, [isEditing, addPendingMatch]);
 
   /**
    * Router function: Update match - routes to pending changes or API

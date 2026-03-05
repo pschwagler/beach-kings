@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Send, RefreshCw } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -30,7 +30,7 @@ export default function LeagueMessagesTab({ leagueId }) {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getLeagueMessages(leagueId);
@@ -41,11 +41,11 @@ export default function LeagueMessagesTab({ leagueId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [leagueId, showToast]);
 
   useEffect(() => {
     loadMessages();
-  }, [leagueId]);
+  }, [loadMessages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();

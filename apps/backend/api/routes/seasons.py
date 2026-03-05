@@ -17,6 +17,7 @@ from backend.api.auth_dependencies import (
     make_require_league_admin,
     make_require_league_admin_from_season,
 )
+from backend.models.schemas import PartnershipOpponentStatsResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -254,7 +255,10 @@ async def get_season_partnership_opponent_stats(
         )
 
 
-@router.get("/api/players/{player_id}/season/{season_id}/partnership-opponent-stats")
+@router.get(
+    "/api/players/{player_id}/season/{season_id}/partnership-opponent-stats",
+    response_model=PartnershipOpponentStatsResponse,
+)
 async def get_player_season_partnership_opponent_stats(
     player_id: int, season_id: int, session: AsyncSession = Depends(get_db_session)
 ):
@@ -323,7 +327,10 @@ async def get_player_league_stats(
         raise HTTPException(status_code=500, detail=f"Error loading player league stats: {str(e)}")
 
 
-@router.get("/api/players/{player_id}/league/{league_id}/partnership-opponent-stats")
+@router.get(
+    "/api/players/{player_id}/league/{league_id}/partnership-opponent-stats",
+    response_model=PartnershipOpponentStatsResponse,
+)
 async def get_player_league_partnership_opponent_stats(
     player_id: int, league_id: int, session: AsyncSession = Depends(get_db_session)
 ):

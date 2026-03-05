@@ -9,6 +9,7 @@ import SignupModal from '../league/SignupModal';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import SessionSummaryModal from '../modal/SessionSummaryModal';
 import ErrorBoundary from './ErrorBoundary';
+import FeedbackModal from '../FeedbackModal';
 
 const UploadPhotoModal = lazy(() => import('../match/UploadPhotoModal'));
 const PhotoMatchReviewModal = lazy(() => import('../match/PhotoMatchReviewModal'));
@@ -27,6 +28,7 @@ const MODAL_COMPONENTS = {
   [MODAL_TYPES.REVIEW_PHOTO_MATCHES]: PhotoMatchReviewModal,
   [MODAL_TYPES.CREATE_GAME]: CreateGameModal,
   [MODAL_TYPES.SHARE_FALLBACK]: ShareFallbackModal,
+  [MODAL_TYPES.FEEDBACK]: FeedbackModal,
 };
 
 export default function GlobalModal() {

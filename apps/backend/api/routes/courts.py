@@ -97,6 +97,22 @@ async def list_courts(
         raise HTTPException(status_code=500, detail=f"Error listing courts: {str(e)}")
 
 
+@router.get("/api/courts/placeholder")
+async def get_placeholder_court(
+    location_id: str = Query(..., description="Location ID to look up placeholder court"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Return the placeholder "Other / Private Court" for a location.
+
+    No auth required. Returns {id, name, location_id} or 404.
+    """
+    result = await court_service.get_placeholder_court(session, location_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No placeholder court for this location")
+    return result
+
+
 @router.put("/api/courts/{court_id}")
 async def update_court(
     court_id: int,
@@ -640,9 +656,8 @@ async def admin_delete_court_review(
 @router.get("/api/admin-view/courts", response_model=dict)
 async def list_all_courts_admin(
     search: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    surface_type: Optional[str] = Query(None),
-    has_photos: Optional[bool] = Query(None),
+    region_id: Optional[str] = Query(None),
+    location_id: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
@@ -654,9 +669,8 @@ async def list_all_courts_admin(
     return await court_service.list_all_courts_admin(
         session,
         search=search,
-        status=status,
-        surface_type=surface_type,
-        has_photos=has_photos,
+        region_id=region_id,
+        location_id=location_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
         page=page,

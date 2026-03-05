@@ -79,6 +79,9 @@
   --gold-text: #ecd36f;
   --gold-dark: #b68b34;
 
+  /* Base */
+  --white: #ffffff;
+
   /* Pure neutral grays */
   --gray-50: #fafafa;
   --gray-100: #f5f5f5;

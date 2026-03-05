@@ -102,7 +102,7 @@ export default function SignupList({
                     {isSignedUp && (
                       <div className="signed-up-badge">
                         <div className="signed-up-dot" />
-                        You're signed up
+                        You&apos;re signed up
                       </div>
                     )}
                   </div>
@@ -113,10 +113,20 @@ export default function SignupList({
                           <Clock size={14} />
                           {signup.duration_hours} hours
                         </span>
-                        {signup.court_id && (
+                        {signup.court_name && (
                           <span className="league-signup-meta-item">
                             <MapPin size={14} />
-                            Court {signup.court_id}
+                            {signup.court_slug && !signup.court_slug.startsWith('other-private-') ? (
+                              <a
+                                href={`/courts/${signup.court_slug}`}
+                                className="league-signup-court-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {signup.court_name}
+                              </a>
+                            ) : (
+                              signup.court_name
+                            )}
                           </span>
                         )}
                       </>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Calendar, Plus } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,19 +32,6 @@ export default function LeagueSignUpsTab() {
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Load signups and schedules from all seasons or selected season
-  useEffect(() => {
-    if (seasons && seasons.length > 0) {
-      loadSignups();
-      loadWeeklySchedules();
-    }
-  }, [seasons, selectedSeasonId]);
-  
-  // Load courts
-  useEffect(() => {
-    loadCourts();
-  }, []);
-  
   const loadCourts = async () => {
     try {
       const locations = await getLocations();
@@ -59,22 +46,22 @@ export default function LeagueSignUpsTab() {
       console.error('Error loading courts:', err);
     }
   };
-  
-  const loadSignups = async () => {
+
+  const loadSignups = useCallback(async () => {
     if (!seasons || seasons.length === 0) return;
     setLoading(true);
     try {
       // Load signups from all seasons or selected season
-      const seasonsToLoad = selectedSeasonId 
+      const seasonsToLoad = selectedSeasonId
         ? seasons.filter(s => s.id === selectedSeasonId)
         : seasons;
-      
+
       const allSignups = [];
       for (const season of seasonsToLoad) {
         try {
-          const data = await getSignups(season.id, { 
+          const data = await getSignups(season.id, {
             upcoming_only: false,
-            include_players: true 
+            include_players: true
           });
           if (Array.isArray(data)) {
             allSignups.push(...data);
@@ -84,14 +71,14 @@ export default function LeagueSignUpsTab() {
           // Continue loading other seasons even if one fails
         }
       }
-      
+
       // Sort by date (newest first)
       allSignups.sort((a, b) => {
         const dateA = new Date(a.date || 0);
         const dateB = new Date(b.date || 0);
         return dateB - dateA;
       });
-      
+
       setSignups(allSignups);
     } catch (err) {
       console.error('Error loading signups:', err);
@@ -99,16 +86,16 @@ export default function LeagueSignUpsTab() {
     } finally {
       setLoading(false);
     }
-  };
-  
-  const loadWeeklySchedules = async () => {
+  }, [seasons, selectedSeasonId, showToast]);
+
+  const loadWeeklySchedules = useCallback(async () => {
     if (!seasons || seasons.length === 0) return;
     try {
       // Load schedules from all seasons or selected season
-      const seasonsToLoad = selectedSeasonId 
+      const seasonsToLoad = selectedSeasonId
         ? seasons.filter(s => s.id === selectedSeasonId)
         : seasons;
-      
+
       const allSchedules = [];
       for (const season of seasonsToLoad) {
         try {
@@ -121,13 +108,26 @@ export default function LeagueSignUpsTab() {
           // Continue loading other seasons even if one fails
         }
       }
-      
+
       setWeeklySchedules(allSchedules);
     } catch (err) {
       console.error('Error loading weekly schedules:', err);
       showToast('Failed to load weekly schedules', 'error');
     }
-  };
+  }, [seasons, selectedSeasonId, showToast]);
+
+  // Load signups and schedules from all seasons or selected season
+  useEffect(() => {
+    if (seasons && seasons.length > 0) {
+      loadSignups();
+      loadWeeklySchedules();
+    }
+  }, [seasons, selectedSeasonId, loadSignups, loadWeeklySchedules]);
+
+  // Load courts
+  useEffect(() => {
+    loadCourts();
+  }, []);
   
   const handleCreateSignup = async (signupData) => {
     // Use selectedSeasonId or first season if none selected

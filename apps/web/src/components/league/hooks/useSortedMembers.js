@@ -43,6 +43,7 @@ export function useSortedMembers(members, currentUserPlayer) {
     if (members.length !== lastMembersLengthRef.current) {
       // Length changed - re-sort
       lastMembersLengthRef.current = members.length;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync members prop to sorted state
       setSortedMembers(sortMembers(members));
     } else {
       // Length same - update in place (preserve order)

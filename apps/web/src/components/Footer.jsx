@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MessageSquare, Mail } from 'lucide-react';
-import FeedbackModal from './FeedbackModal';
+import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
 
 export default function Footer() {
   const router = useRouter();
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const { openModal } = useModal();
 
   const handleNavigation = (e, path) => {
     e.preventDefault();
@@ -49,9 +49,9 @@ export default function Footer() {
               Contact Us
             </a>
             <span className="footer-separator">•</span>
-            <button 
-              className="footer-link feedback-button" 
-              onClick={() => setIsFeedbackOpen(true)}
+            <button
+              className="footer-link feedback-button"
+              onClick={() => openModal(MODAL_TYPES.FEEDBACK)}
             >
               <MessageSquare size={14} />
               Leave Feedback
@@ -62,11 +62,6 @@ export default function Footer() {
           </div>
         </div>
       </footer>
-
-      <FeedbackModal 
-        isOpen={isFeedbackOpen} 
-        onClose={() => setIsFeedbackOpen(false)} 
-      />
     </>
   );
 }

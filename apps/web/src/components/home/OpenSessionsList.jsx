@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Trophy, UserPlus, User } from 'lucide-react';
+import { Calendar, Trophy, UserPlus, User, MapPin } from 'lucide-react';
 import { getOpenSessions } from '../../services/api';
 import { formatDate } from '../../utils/dateUtils';
 
@@ -109,6 +109,22 @@ export default function OpenSessionsList({ onSessionClick, refreshTrigger, curre
                     <span className="open-sessions-list-badge pickup">Pickup</span>
                   )}
                 </span>
+                {session.court_name && (
+                  <span className="open-sessions-list-court">
+                    <MapPin size={14} />
+                    {session.court_slug && !session.court_slug.startsWith('other-private-') ? (
+                      <a
+                        href={`/courts/${session.court_slug}`}
+                        className="open-sessions-list-court-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {session.court_name}
+                      </a>
+                    ) : (
+                      session.court_name
+                    )}
+                  </span>
+                )}
                 <span className="open-sessions-list-participation">
                   {session.participation === 'creator' && <User size={14} />}
                   {session.participation === 'invited' && <UserPlus size={14} />}

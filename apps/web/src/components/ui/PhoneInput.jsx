@@ -72,6 +72,7 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
       // If value is in E.164 format, convert to display format
       if (value.startsWith('+1')) {
         const digits = value.slice(2).replace(/\D/g, '');
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to display format
         setDisplayValue(formatPhone(digits));
       } else {
         const digits = getDigits(value);
@@ -99,6 +100,7 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
 
     if (isTouched) {
       if (required && !hasValue) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- derive validation from display state
         setError('Phone number is required');
       } else if (hasValue && !isValid) {
         setError('Please enter a valid 10-digit phone number');

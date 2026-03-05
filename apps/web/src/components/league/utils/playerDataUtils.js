@@ -87,23 +87,28 @@ export function formatPlayerMatchHistory(matches, playerId) {
     // Determine which team the player was on
     const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
     
-    let partner, opponent1, opponent2, playerScore, opponentScore, result;
-    
+    let partner, partnerId, opponent1, opponent1Id, opponent2, opponent2Id;
+    let playerScore, opponentScore, result;
+
     if (isTeam1) {
-      partner = match.team1_player1_id === playerId 
-        ? match.team1_player2_name 
-        : match.team1_player1_name;
+      const isP1 = match.team1_player1_id === playerId;
+      partner = isP1 ? match.team1_player2_name : match.team1_player1_name;
+      partnerId = isP1 ? match.team1_player2_id : match.team1_player1_id;
       opponent1 = match.team2_player1_name;
+      opponent1Id = match.team2_player1_id;
       opponent2 = match.team2_player2_name;
+      opponent2Id = match.team2_player2_id;
       playerScore = match.team1_score;
       opponentScore = match.team2_score;
       result = match.winner === 1 ? 'W' : match.winner === 2 ? 'L' : 'T';
     } else {
-      partner = match.team2_player1_id === playerId 
-        ? match.team2_player2_name 
-        : match.team2_player1_name;
+      const isP1 = match.team2_player1_id === playerId;
+      partner = isP1 ? match.team2_player2_name : match.team2_player1_name;
+      partnerId = isP1 ? match.team2_player2_id : match.team2_player1_id;
       opponent1 = match.team1_player1_name;
+      opponent1Id = match.team1_player1_id;
       opponent2 = match.team1_player2_name;
+      opponent2Id = match.team1_player2_id;
       playerScore = match.team2_score;
       opponentScore = match.team1_score;
       result = match.winner === 2 ? 'W' : match.winner === 1 ? 'L' : 'T';
@@ -117,8 +122,11 @@ export function formatPlayerMatchHistory(matches, playerId) {
     return {
       Date: match.date,
       Partner: partner || '',
+      'Partner ID': partnerId,
       'Opponent 1': opponent1 || '',
+      'Opponent 1 ID': opponent1Id,
       'Opponent 2': opponent2 || '',
+      'Opponent 2 ID': opponent2Id,
       Result: result,
       Score: `${playerScore}-${opponentScore}`,
       'ELO After': eloAfter,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { User, LogIn, UserPlus, Home, UserCircle, LogOut } from 'lucide-react';
+import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
@@ -137,6 +137,9 @@ export default function UserMenu({
               </NavDropdownItem>
               <NavDropdownItem icon={UserCircle} onClick={() => handleItemClick('profile')}>
                 My Profile
+              </NavDropdownItem>
+              <NavDropdownItem icon={MessageSquare} onClick={() => handleItemClick('feedback')}>
+                Leave Feedback
               </NavDropdownItem>
               <NavDropdownItem
                 icon={LogOut}

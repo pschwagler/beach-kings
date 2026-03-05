@@ -560,7 +560,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
         return newState;
       });
     }
-  }, [leagueId]);
+  }, [leagueId, seasonData]);
 
   // Automatically load season data when selectedSeasonId changes
   // This centralizes the logic that was duplicated in LeagueRankingsTab and LeagueMatchesTab
