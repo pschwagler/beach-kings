@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { getLocationDistances } from '../services/api';
 
 /**
@@ -77,9 +77,9 @@ export function useLocationAutoSelect(setFormData, setErrorMessage) {
    * Update locations list (for when locations are loaded separately)
    * This should be called when locations are initially loaded
    */
-  const updateLocationsWithDistances = (newLocations) => {
+  const updateLocationsWithDistances = useCallback((newLocations) => {
     setLocations(newLocations);
-  };
+  }, []);
 
   return {
     locations,

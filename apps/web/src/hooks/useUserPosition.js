@@ -38,15 +38,21 @@ export function useUserPosition(profileCoords = null, options = {}) {
     );
   }, [skipGeolocation, timeout]);
 
-  // Update if profile coords arrive after initial render
+  // Update if profile coords arrive after initial render.
+  // Depend on primitive lat/lng to avoid infinite loops when callers pass a new object each render.
+  const profileLat = profileCoords?.latitude;
+  const profileLng = profileCoords?.longitude;
   useEffect(() => {
     if (source === 'geolocation') return; // geo takes priority
-    if (profileCoords?.latitude && profileCoords?.longitude) {
+    if (profileLat && profileLng) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to local state
-      setPosition(profileCoords);
+      setPosition((prev) => {
+        if (prev?.latitude === profileLat && prev?.longitude === profileLng) return prev;
+        return { latitude: profileLat, longitude: profileLng };
+      });
       setSource('profile');
     }
-  }, [profileCoords, source]);
+  }, [profileLat, profileLng, source]);
 
   return { position, source };
 }
