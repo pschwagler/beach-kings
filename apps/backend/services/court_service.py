@@ -395,6 +395,7 @@ async def get_court_by_slug(session: AsyncSession, slug: str) -> Optional[Dict]:
             selectinload(Court.photos),
         )
         .where(filter_clause)
+        .where(Court.is_active == True)  # noqa: E712 — hide placeholder courts
     )
     result = await session.execute(q)
     court = result.scalar_one_or_none()
@@ -955,6 +956,7 @@ async def list_all_courts_admin(
             "court_count": court.court_count,
             "status": court.status,
             "is_active": court.is_active,
+            "is_placeholder": court.is_placeholder,
             "is_free": court.is_free,
             "has_lights": court.has_lights,
             "has_restrooms": court.has_restrooms,
@@ -1546,3 +1548,21 @@ async def get_sitemap_courts(session: AsyncSession) -> List[Dict]:
         }
         for slug, updated_at in rows
     ]
+
+
+async def get_placeholder_court(
+    session: AsyncSession, location_id: str
+) -> Optional[Dict]:
+    """
+    Return the placeholder "Other / Private Court" for a location.
+
+    Returns {id, name, location_id} or None if not found.
+    """
+    q = select(Court.id, Court.name, Court.location_id).where(
+        Court.location_id == location_id,
+        Court.is_placeholder == True,  # noqa: E712
+    )
+    row = (await session.execute(q)).first()
+    if not row:
+        return None
+    return {"id": row[0], "name": row[1], "location_id": row[2]}

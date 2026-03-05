@@ -42,7 +42,8 @@ export default function LeagueMenuBar({
   const handleLeagueSelect = (selectedLeagueId) => {
     if (!selectedLeagueId || selectedLeagueId === leagueId) return;
 
-    // Allow parent to control navigation via window.location / Next router
+    // Full-page navigation to force data reload when switching leagues
+    // eslint-disable-next-line react-hooks/immutability
     window.location.href = `/league/${selectedLeagueId}`;
   };
 

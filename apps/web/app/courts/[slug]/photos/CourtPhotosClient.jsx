@@ -191,7 +191,7 @@ export default function CourtPhotosClient({ court, slug }) {
           <div className="court-photos__grid">
             {photos.map((photo, idx) => (
               <img
-                key={photo.id}
+                key={photo.url}
                 src={photo.url}
                 alt="Court photo"
                 className="court-photos__grid-img"

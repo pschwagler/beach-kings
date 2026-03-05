@@ -53,8 +53,8 @@ function QRCodeDisplay({ qrCode, isLoading }) {
           <ol className="whatsapp-instructions-list">
             <li>Open WhatsApp on your phone</li>
             <li>Tap Menu (⋮) or Settings</li>
-            <li>Select "Linked Devices"</li>
-            <li>Tap "Link a Device"</li>
+            <li>Select &quot;Linked Devices&quot;</li>
+            <li>Tap &quot;Link a Device&quot;</li>
             <li>Scan the QR code above</li>
           </ol>
         </div>

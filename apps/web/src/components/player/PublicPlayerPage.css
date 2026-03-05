@@ -361,3 +361,89 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Home Courts */
+.public-player__home-courts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.public-player__court-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--gray-200);
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.public-player__court-pill--primary {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.public-player__court-pill:hover {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.public-player__court-pill-star {
+  display: flex;
+  align-items: center;
+  color: var(--gray-400);
+  cursor: pointer;
+}
+
+.public-player__court-pill-star:hover {
+  color: #f59e0b;
+}
+
+.public-player__court-pill-star--active {
+  color: #f59e0b;
+}
+
+.public-player__court-pill-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  border-radius: 50%;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.public-player__court-pill-remove:hover {
+  color: var(--danger);
+  background: var(--gray-100);
+}
+
+.public-player__home-courts-empty {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.public-player__add-courts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px dashed var(--gray-300);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.public-player__add-courts-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}

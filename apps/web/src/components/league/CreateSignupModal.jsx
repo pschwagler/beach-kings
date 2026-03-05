@@ -1,23 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
-import { getCourts } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useLeague } from '../../contexts/LeagueContext';
+import CourtSelector from '../court/CourtSelector';
 
-// Helper to convert local datetime to UTC ISO string
+/**
+ * Helper to convert local datetime to UTC ISO string.
+ */
 function localToUTCISOString(dateStr, timeStr) {
   if (!dateStr || !timeStr) return null;
   const localDate = new Date(`${dateStr}T${timeStr}`);
   return localDate.toISOString();
 }
 
-// Helper to get timezone abbreviation
+/**
+ * Get timezone abbreviation (e.g. "PST", "EDT").
+ */
 function getTimezoneAbbr() {
   const date = new Date();
-  const timeZoneName = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
-  return timeZoneName;
+  return new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+    .formatToParts(date)
+    .find((part) => part.type === 'timeZoneName')?.value || '';
 }
 
-// Helper to get today's date in YYYY-MM-DD format
+/**
+ * Get today's date in YYYY-MM-DD format.
+ */
 function getTodayDate() {
   const today = new Date();
   const year = today.getFullYear();
@@ -26,68 +34,64 @@ function getTodayDate() {
   return `${year}-${month}-${day}`;
 }
 
-// Helper to get next hour rounded up (e.g., 11:37 -> 12:00)
+/**
+ * Get next hour rounded up (e.g., 11:37 -> 12:00).
+ */
 function getNextHour() {
   const now = new Date();
   const nextHour = new Date(now);
   nextHour.setHours(now.getHours() + 1, 0, 0, 0);
-  const hours = String(nextHour.getHours()).padStart(2, '0');
-  const minutes = String(nextHour.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+  return `${String(nextHour.getHours()).padStart(2, '0')}:${String(nextHour.getMinutes()).padStart(2, '0')}`;
 }
 
+/**
+ * Modal for scheduling a new session for sign ups.
+ *
+ * Uses CourtSelector with league home courts as quick picks.
+ * Defaults to the primary (first) home court if one exists.
+ *
+ * @param {Object} props
+ * @param {number} props.seasonId - Season to create signup in
+ * @param {() => void} props.onClose - Close handler
+ * @param {(data: Object) => Promise} props.onSubmit - Submit handler
+ */
 export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
   const { showToast } = useToast();
-  const [courts, setCourts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { league, isLeagueAdmin } = useLeague();
+
+  const homeCourts = league?.home_courts || [];
   const [formData, setFormData] = useState({
     scheduled_date: getTodayDate(),
     scheduled_time: getNextHour(),
     duration_hours: '2.0',
-    court_id: ''
+    court_id: homeCourts.length > 0 ? homeCourts[0].id : null,
   });
-  
-  useEffect(() => {
-    const loadCourts = async () => {
-      try {
-        const courtsData = await getCourts();
-        setCourts(courtsData || []);
-      } catch (err) {
-        console.error('Error loading courts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadCourts();
-  }, []);
-  
+
   const handleSubmit = async () => {
     if (!formData.scheduled_date || !formData.scheduled_time) {
       showToast('Scheduled date and time are required', 'error');
       return;
     }
-    
+
     const scheduled_datetime = localToUTCISOString(formData.scheduled_date, formData.scheduled_time);
-    
     if (!scheduled_datetime) {
       showToast('Invalid date/time format', 'error');
       return;
     }
-    
-    // Don't send open_signups_at - backend will default to now (immediately open)
+
     try {
       await onSubmit({
         scheduled_datetime,
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
-        court_id: formData.court_id ? parseInt(formData.court_id) : null
+        court_id: formData.court_id || null,
       });
     } catch (err) {
       // Error handling is done in parent
     }
   };
-  
+
   const timezoneAbbr = getTimezoneAbbr();
-  
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -137,24 +141,22 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="court">Court</label>
-            <select
-              id="court"
+            <CourtSelector
               value={formData.court_id}
-              onChange={(e) => setFormData({ ...formData, court_id: e.target.value })}
-              className="form-input"
-            >
-              <option value="">No court selected</option>
-              {loading ? (
-                <option disabled>Loading courts...</option>
-              ) : (
-                courts.map(court => (
-                  <option key={court.id} value={court.id}>
-                    {court.name}
-                  </option>
-                ))
-              )}
-            </select>
+              onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
+              homeCourts={homeCourts}
+              preFilterLocationId={league?.location_id}
+              label="Court"
+            />
+            {isLeagueAdmin && (
+              <a
+                href={`/league/${league?.id}?tab=details`}
+                className="court-selector__manage-link"
+                onClick={onClose}
+              >
+                Manage home courts &rarr;
+              </a>
+            )}
           </div>
         </div>
         <div className="modal-actions">

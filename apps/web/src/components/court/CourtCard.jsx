@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
 import './CourtCard.css';
@@ -10,12 +11,18 @@ import './CourtCard.css';
  * Court summary card for the directory listing.
  *
  * Displays thumbnail, name, star rating, address, court count, surface type,
- * and top tags. Links to /courts/{slug} detail page.
+ * and top tags. Links to /courts/{slug} detail page by default.
+ *
+ * When `selectable=true`, renders as a clickable div with check overlay
+ * instead of a Link — used inside CourtBrowserModal for court selection.
  *
  * @param {Object} props
  * @param {Object} props.court - Court list item from API
+ * @param {boolean} [props.selectable=false] - Render as selectable card instead of link
+ * @param {boolean} [props.selected=false] - Whether this card is currently selected
+ * @param {(court: Object) => void} [props.onSelect] - Called when selectable card is clicked
  */
-export default function CourtCard({ court }) {
+export default function CourtCard({ court, selectable = false, selected = false, onSelect }) {
   const router = useRouter();
   const {
     slug,
@@ -35,8 +42,14 @@ export default function CourtCard({ court }) {
 
   const surfaceLabel = getSurfaceLabel(surface_type);
 
-  return (
-    <Link href={`/courts/${slug}`} className="court-card">
+  const cardClassName = [
+    'court-card',
+    selectable && 'court-card--selectable',
+    selected && 'court-card--selected',
+  ].filter(Boolean).join(' ');
+
+  const body = (
+    <>
       <div className="court-card__image">
         {photo_url ? (
           <img src={photo_url} alt={name} loading="lazy" />
@@ -47,6 +60,11 @@ export default function CourtCard({ court }) {
               <path d="M12 36c2-8 8-14 12-14s10 6 12 14" stroke="currentColor" strokeWidth="1.5" />
               <circle cx="24" cy="18" r="4" stroke="currentColor" strokeWidth="1.5" />
             </svg>
+          </div>
+        )}
+        {selectable && selected && (
+          <div className="court-card__check-overlay">
+            <Check size={20} strokeWidth={3} />
           </div>
         )}
       </div>
@@ -66,7 +84,7 @@ export default function CourtCard({ court }) {
         </div>
 
         {address && <p className="court-card__address">{address}</p>}
-        {location_name && (
+        {!selectable && location_name && (
           location_slug ? (
             <button
               type="button"
@@ -108,6 +126,27 @@ export default function CourtCard({ court }) {
           </div>
         )}
       </div>
+    </>
+  );
+
+  if (selectable) {
+    return (
+      <div
+        className={cardClassName}
+        onClick={() => onSelect?.(court)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(court); } }}
+        aria-pressed={selected}
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/courts/${slug}`} className={cardClassName}>
+      {body}
     </Link>
   );
 }

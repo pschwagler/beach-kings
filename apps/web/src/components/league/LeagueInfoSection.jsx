@@ -1,13 +1,37 @@
 import { LEVEL_OPTIONS } from './utils/leagueUtils';
-import { updateLeague } from '../../services/api';
+import { updateLeague, addLeagueHomeCourt, removeLeagueHomeCourt, reorderLeagueHomeCourts } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useApp } from '../../contexts/AppContext';
 import { useToast } from '../../contexts/ToastContext';
+import useHomeCourts from '../../hooks/useHomeCourts';
+import CourtSelector from '../court/CourtSelector';
 
+/**
+ * League information section showing access, skill level, location,
+ * and home courts with admin-editable controls.
+ *
+ * Admin home court management uses CourtSelector (multi-select mode)
+ * with inline pills + dropdown for adding courts.
+ *
+ * @param {Object} props
+ * @param {Object} props.league - League data
+ * @param {(league: Object) => void} [props.onUpdate] - Called after league update
+ */
 export default function LeagueInfoSection({ league, onUpdate }) {
   const { isLeagueAdmin, leagueId } = useLeague();
   const { locations } = useApp();
   const { showToast } = useToast();
+
+  const {
+    homeCourts,
+    handleConfirm,
+    handleRemove: handleRemoveHomeCourt,
+    handleSetPrimary,
+  } = useHomeCourts({
+    entityId: leagueId,
+    initialCourts: league?.home_courts,
+    api: { add: addLeagueHomeCourt, remove: removeLeagueHomeCourt, reorder: reorderLeagueHomeCourts },
+  });
 
   const handleLevelChange = async (e) => {
     const newLevel = e.target.value || null;
@@ -24,7 +48,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       onUpdate?.(updatedLeague);
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to update skill level', 'error');
-      // Reset to original value on error
       e.target.value = league?.level || '';
     }
   };
@@ -44,7 +67,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       onUpdate?.(updatedLeague);
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to update location', 'error');
-      // Reset to original value on error
       e.target.value = league?.location_id ? String(league.location_id) : '';
     }
   };
@@ -64,7 +86,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
       onUpdate?.(updatedLeague);
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to update access', 'error');
-      // Reset to original value on error
       e.target.value = league?.is_open ? 'open' : 'invite-only';
     }
   };
@@ -128,6 +149,39 @@ export default function LeagueInfoSection({ league, onUpdate }) {
               {league?.location_id ? (locations.find(loc => loc.id === league.location_id)?.name || `Location ${league.location_id}`) : 'Not set'}
             </span>
           )}
+        </div>
+        <div className="league-info-item">
+          <span className="league-info-label">Home Courts:</span>
+          <div className="league-info-value" style={{ flex: 1 }}>
+            {isLeagueAdmin ? (
+              <CourtSelector
+                mode="multi"
+                selectedCourts={homeCourts}
+                onAdd={(court) => handleConfirm([...homeCourts, court])}
+                onRemove={handleRemoveHomeCourt}
+                onSetPrimary={handleSetPrimary}
+                preFilterLocationId={league?.location_id}
+              />
+            ) : homeCourts.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {homeCourts.map((court, i) => (
+                  <span
+                    key={court.id}
+                    className={`league-info__court-pill${i === 0 && homeCourts.length > 1 ? ' league-info__court-pill--primary' : ''}`}
+                  >
+                    {i === 0 && homeCourts.length > 1 && (
+                      <span className="league-info__court-pill-star--active" style={{ display: 'flex', alignItems: 'center' }}>
+                        &#9733;
+                      </span>
+                    )}
+                    {court.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: 'var(--gray-600)' }}>None set</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

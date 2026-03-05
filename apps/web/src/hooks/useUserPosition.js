@@ -42,10 +42,11 @@ export function useUserPosition(profileCoords = null, options = {}) {
   useEffect(() => {
     if (source === 'geolocation') return; // geo takes priority
     if (profileCoords?.latitude && profileCoords?.longitude) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to local state
       setPosition(profileCoords);
       setSource('profile');
     }
-  }, [profileCoords?.latitude, profileCoords?.longitude, source]);
+  }, [profileCoords, source]);
 
   return { position, source };
 }

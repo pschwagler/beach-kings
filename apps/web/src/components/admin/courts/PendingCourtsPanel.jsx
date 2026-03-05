@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { getAdminPendingCourts, adminApproveCourt, adminRejectCourt } from '../../../services/api';
 import { formatDate } from '../adminUtils';
@@ -14,7 +14,7 @@ export default function PendingCourtsPanel({ onCountChange }) {
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getAdminPendingCourts();
@@ -25,11 +25,11 @@ export default function PendingCourtsPanel({ onCountChange }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCountChange]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleAction = async (courtId, action) => {
     setActionId(courtId);

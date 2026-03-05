@@ -514,6 +514,7 @@ export default function MessagesTab() {
   // Sync threadInfo with URL: clear when thread param is removed
   useEffect(() => {
     if (!threadPlayerId && threadInfo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync URL param to local state
       setThreadInfo(null);
     }
   }, [threadPlayerId, threadInfo]);

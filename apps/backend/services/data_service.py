@@ -21,6 +21,8 @@ from backend.database.models import (
     LeagueMessage,
     LeagueConfig,
     LeagueRequest,
+    LeagueHomeCourt,
+    PlayerHomeCourt,
     Season,
     Location,
     Court,
@@ -154,6 +156,7 @@ async def create_league(
         "level": league.level,
         "created_at": league.created_at.isoformat() if league.created_at else None,
         "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+        "home_courts": [],
     }
 
 
@@ -420,11 +423,15 @@ async def query_leagues(
 
 
 async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
-    """Get a league by ID."""
+    """Get a league by ID, including home courts."""
     result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         return None
+
+    # Fetch home courts
+    home_courts = await get_league_home_courts(session, league_id)
+
     return {
         "id": league.id,
         "name": league.name,
@@ -436,6 +443,7 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
         "level": league.level,
         "created_at": league.created_at.isoformat() if league.created_at else None,
         "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+        "home_courts": home_courts,
     }
 
 
@@ -928,10 +936,12 @@ async def create_league_session(
     date: str,
     name: Optional[str],
     created_by: Optional[int] = None,
+    court_id: Optional[int] = None,
 ) -> Dict:
     """
     Create a league session. Automatically uses the league's most recent active season.
-    Now includes duplicate prevention - will raise ValueError if active session already exists.
+    Defaults court_id to the league's primary home court (position=0) if not provided.
+    Includes duplicate prevention - will raise ValueError if active session already exists.
     """
     # Verify league exists
     result = await session.execute(select(League).where(League.id == league_id))
@@ -995,12 +1005,23 @@ async def create_league_session(
     else:
         session_name = f"{formatted_date} Session #{session_count + 1}"
 
+    # Default court_id to league's primary home court (position=0) if not provided
+    if court_id is None:
+        home_court_result = await session.execute(
+            select(LeagueHomeCourt.court_id)
+            .where(LeagueHomeCourt.league_id == league_id)
+            .order_by(LeagueHomeCourt.position.asc())
+            .limit(1)
+        )
+        court_id = home_court_result.scalar_one_or_none()
+
     new_session = Session(
         date=date,
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
         created_by=created_by,
+        court_id=court_id,
     )
     session.add(new_session)
     await session.commit()
@@ -1011,6 +1032,7 @@ async def create_league_session(
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
+        "court_id": new_session.court_id,
     }
 
 
@@ -1345,11 +1367,19 @@ async def create_court(
     }
 
 
-async def list_courts(session: AsyncSession, location_id: Optional[str] = None) -> List[Dict]:
-    """List courts, optionally filtered by location."""
-    query = select(Court).order_by(Court.name.asc())
+async def list_courts(
+    session: AsyncSession,
+    location_id: Optional[str] = None,
+    only_approved: bool = False,
+) -> List[Dict]:
+    """List courts, optionally filtered by location and/or approval status."""
+    query = select(Court).where(
+        Court.is_placeholder == False  # noqa: E712 — exclude placeholder courts
+    ).order_by(Court.name.asc())
     if location_id is not None:
         query = query.where(Court.location_id == location_id)
+    if only_approved:
+        query = query.where(Court.status == "approved")
 
     result = await session.execute(query)
     courts = result.scalars().all()
@@ -1365,6 +1395,152 @@ async def list_courts(session: AsyncSession, location_id: Optional[str] = None) 
         }
         for c in courts
     ]
+
+
+#
+# League Home Courts
+#
+
+
+async def get_league_home_courts(session: AsyncSession, league_id: int) -> List[Dict]:
+    """Get all home courts for a league, ordered by position."""
+    result = await session.execute(
+        select(LeagueHomeCourt, Court)
+        .join(Court, Court.id == LeagueHomeCourt.court_id)
+        .where(LeagueHomeCourt.league_id == league_id)
+        .order_by(LeagueHomeCourt.position.asc(), Court.name.asc())
+    )
+    rows = result.all()
+    return [
+        {"id": court.id, "name": court.name, "address": court.address, "position": lhc.position}
+        for lhc, court in rows
+    ]
+
+
+async def add_league_home_court(session: AsyncSession, league_id: int, court_id: int) -> Dict:
+    """Add a court as a home court for a league. Returns the court dict."""
+    # Verify court exists
+    court_result = await session.execute(select(Court).where(Court.id == court_id))
+    court = court_result.scalar_one_or_none()
+    if not court:
+        raise ValueError(f"Court {court_id} not found")
+
+    # Determine next position
+    max_pos_result = await session.execute(
+        select(func.max(LeagueHomeCourt.position)).where(
+            LeagueHomeCourt.league_id == league_id
+        )
+    )
+    max_pos = max_pos_result.scalar() or -1
+    position = max_pos + 1
+
+    home_court = LeagueHomeCourt(league_id=league_id, court_id=court_id, position=position)
+    session.add(home_court)
+    await session.commit()
+    return {"id": court.id, "name": court.name, "address": court.address, "position": position}
+
+
+async def remove_league_home_court(session: AsyncSession, league_id: int, court_id: int) -> bool:
+    """Remove a home court from a league. Returns True if deleted."""
+    result = await session.execute(
+        delete(LeagueHomeCourt).where(
+            and_(LeagueHomeCourt.league_id == league_id, LeagueHomeCourt.court_id == court_id)
+        )
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def reorder_league_home_courts(
+    session: AsyncSession, league_id: int, court_positions: List[Dict]
+) -> List[Dict]:
+    """Reorder home courts for a league. Accepts [{court_id, position}]."""
+    for item in court_positions:
+        await session.execute(
+            update(LeagueHomeCourt)
+            .where(
+                and_(
+                    LeagueHomeCourt.league_id == league_id,
+                    LeagueHomeCourt.court_id == item["court_id"],
+                )
+            )
+            .values(position=item["position"])
+        )
+    await session.commit()
+    return await get_league_home_courts(session, league_id)
+
+
+async def reorder_player_home_courts(
+    session: AsyncSession, player_id: int, court_positions: List[Dict]
+) -> List[Dict]:
+    """Reorder home courts for a player. Accepts [{court_id, position}]."""
+    for item in court_positions:
+        await session.execute(
+            update(PlayerHomeCourt)
+            .where(
+                and_(
+                    PlayerHomeCourt.player_id == player_id,
+                    PlayerHomeCourt.court_id == item["court_id"],
+                )
+            )
+            .values(position=item["position"])
+        )
+    await session.commit()
+    return await get_player_home_courts(session, player_id)
+
+
+# ---------------------------------------------------------------------------
+# Player Home Courts
+# ---------------------------------------------------------------------------
+
+
+async def get_player_home_courts(session: AsyncSession, player_id: int) -> List[Dict]:
+    """Get all home courts for a player, ordered by position."""
+    result = await session.execute(
+        select(PlayerHomeCourt, Court)
+        .join(Court, Court.id == PlayerHomeCourt.court_id)
+        .where(PlayerHomeCourt.player_id == player_id)
+        .order_by(PlayerHomeCourt.position.asc(), Court.name.asc())
+    )
+    rows = result.all()
+    return [
+        {"id": court.id, "name": court.name, "address": court.address, "position": phc.position}
+        for phc, court in rows
+    ]
+
+
+async def add_player_home_court(session: AsyncSession, player_id: int, court_id: int) -> Dict:
+    """Add a court as a home court for a player. Returns the court dict."""
+    # Verify court exists
+    court_result = await session.execute(select(Court).where(Court.id == court_id))
+    court = court_result.scalar_one_or_none()
+    if not court:
+        raise ValueError(f"Court {court_id} not found")
+
+    # Determine next position
+    max_pos_result = await session.execute(
+        select(func.max(PlayerHomeCourt.position)).where(
+            PlayerHomeCourt.player_id == player_id
+        )
+    )
+    max_pos = max_pos_result.scalar() or -1
+    position = max_pos + 1
+
+    home_court = PlayerHomeCourt(player_id=player_id, court_id=court_id, position=position)
+    session.add(home_court)
+    await session.commit()
+    return {"id": court.id, "name": court.name, "address": court.address, "position": position}
+
+
+async def remove_player_home_court(session: AsyncSession, player_id: int, court_id: int) -> bool:
+    """Remove a home court from a player. Returns True if deleted."""
+    result = await session.execute(
+        delete(PlayerHomeCourt).where(
+            and_(PlayerHomeCourt.player_id == player_id, PlayerHomeCourt.court_id == court_id)
+        )
+    )
+    await session.commit()
+    return result.rowcount > 0
 
 
 async def update_court(
@@ -2312,9 +2488,11 @@ async def update_session(
     date: Optional[str] = None,
     season_id: Optional[int] = None,
     update_season_id: bool = False,
+    court_id: Optional[int] = None,
+    update_court_id: bool = False,
 ) -> Optional[Dict]:
     """
-    Update a session's fields (name, date, season_id).
+    Update a session's fields (name, date, season_id, court_id).
 
     Args:
         session: Database session
@@ -2323,6 +2501,8 @@ async def update_session(
         date: New session date (optional)
         season_id: New season_id (optional, can be None to remove season)
         update_season_id: If True, update season_id even if it's None (to allow removing season)
+        court_id: New court_id (optional, can be None to remove court)
+        update_court_id: If True, update court_id even if it's None (to allow removing court)
 
     Returns:
         Dict with updated session info, or None if session not found
@@ -2352,11 +2532,21 @@ async def update_session(
                 raise ValueError(f"Season {season_id} not found")
         update_values["season_id"] = season_id
 
+    if update_court_id or court_id is not None:
+        # Verify court exists if court_id is provided (not None)
+        if court_id is not None:
+            court_result = await session.execute(select(Court).where(Court.id == court_id))
+            court_obj = court_result.scalar_one_or_none()
+            if not court_obj:
+                raise ValueError(f"Court {court_id} not found")
+        update_values["court_id"] = court_id
+
     # If no fields to update, return current session
     if not update_values:
         return {
             "id": session_obj.id,
             "season_id": session_obj.season_id,
+            "court_id": session_obj.court_id,
             "status": session_obj.status.value if session_obj.status else None,
             "name": session_obj.name,
             "date": session_obj.date,
@@ -2367,16 +2557,25 @@ async def update_session(
     await session.execute(update(Session).where(Session.id == session_id).values(**update_values))
     await session.commit()
 
-    # Return updated session info
-    result = await session.execute(select(Session).where(Session.id == session_id))
-    updated_session = result.scalar_one_or_none()
+    # Return updated session info with court name
+    result = await session.execute(
+        select(Session, Court.name.label("court_name"), Court.slug.label("court_slug"))
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(Session.id == session_id)
+    )
+    row = result.one_or_none()
 
-    if not updated_session:
+    if not row:
         return None
+
+    updated_session, court_name, court_slug = row
 
     return {
         "id": updated_session.id,
         "season_id": updated_session.season_id,
+        "court_id": updated_session.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
         "status": updated_session.status.value if updated_session.status else None,
         "name": updated_session.name,
         "date": updated_session.date,
@@ -4117,11 +4316,15 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
             Session.season_id,
             Session.created_by,
             Session.updated_at,
+            Session.court_id,
             Season.league_id,
             creator_alias.full_name.label("created_by_name"),
+            Court.name.label("court_name"),
+            Court.slug.label("court_slug"),
         )
         .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(creator_alias, Session.created_by == creator_alias.id)
+        .outerjoin(Court, Session.court_id == Court.id)
         .where(Session.status == SessionStatus.ACTIVE)
         .where(
             or_(
@@ -4185,6 +4388,9 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
                 "status": r.status.value if r.status else None,
                 "season_id": r.season_id,
                 "league_id": r.league_id,
+                "court_id": r.court_id,
+                "court_name": r.court_name,
+                "court_slug": r.court_slug,
                 "match_count": match_counts.get(r.id, 0),
                 "participation": participation,
                 "created_by": r.created_by,
@@ -4196,21 +4402,29 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
 
 
 async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[Dict]:
-    """Return session by code, with league_id, created_by_name, updated_at, updated_by_name; None if not found."""
+    """Return session by code, with league_id, court info, created_by_name, updated_at, updated_by_name; None if not found."""
     creator = aliased(Player)
     updater = aliased(Player)
     q = (
-        select(Session, Season.league_id, creator.full_name, updater.full_name)
+        select(
+            Session,
+            Season.league_id,
+            creator.full_name,
+            updater.full_name,
+            Court.name.label("court_name"),
+            Court.slug.label("court_slug"),
+        )
         .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(creator, Session.created_by == creator.id)
         .outerjoin(updater, Session.updated_by == updater.id)
+        .outerjoin(Court, Session.court_id == Court.id)
         .where(Session.code == code)
     )
     result = await db_session.execute(q)
     row = result.one_or_none()
     if not row:
         return None
-    s, league_id, created_by_name, updated_by_name = row
+    s, league_id, created_by_name, updated_by_name, court_name, court_slug = row
     return {
         "id": s.id,
         "code": s.code,
@@ -4219,6 +4433,8 @@ async def get_session_by_code(db_session: AsyncSession, code: str) -> Optional[D
         "status": s.status.value if s.status else None,
         "season_id": s.season_id,
         "court_id": s.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
         "league_id": league_id,
         "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -6276,6 +6492,17 @@ async def _signup_to_dict(
     )
     player_count = count_result.scalar() or 0
 
+    # Get court name if court_id is set
+    court_name = None
+    court_slug = None
+    if signup.court_id:
+        court_result = await session.execute(
+            select(Court.name, Court.slug).where(Court.id == signup.court_id)
+        )
+        court_row = court_result.one_or_none()
+        if court_row:
+            court_name, court_slug = court_row
+
     # Handle naive datetimes (timezone-naive datetimes)
     scheduled_dt = signup.scheduled_datetime
     if scheduled_dt and scheduled_dt.tzinfo is None:
@@ -6298,6 +6525,8 @@ async def _signup_to_dict(
         else None,
         "duration_hours": signup.duration_hours,
         "court_id": signup.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
         "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
         "weekly_schedule_id": signup.weekly_schedule_id,
         "player_count": player_count,
@@ -6319,6 +6548,17 @@ async def _signup_to_dict_with_players(
     """Convert Signup model to dict with pre-loaded players list (optimized version)."""
     now_utc = utcnow()
 
+    # Get court name if court_id is set
+    court_name = None
+    court_slug = None
+    if signup.court_id:
+        court_result = await session.execute(
+            select(Court.name, Court.slug).where(Court.id == signup.court_id)
+        )
+        court_row = court_result.one_or_none()
+        if court_row:
+            court_name, court_slug = court_row
+
     # Compute is_open and is_past
     # NULL open_signups_at means always open
     is_open = signup.open_signups_at is None or signup.open_signups_at <= now_utc
@@ -6332,6 +6572,8 @@ async def _signup_to_dict_with_players(
         else None,
         "duration_hours": signup.duration_hours,
         "court_id": signup.court_id,
+        "court_name": court_name,
+        "court_slug": court_slug,
         "open_signups_at": signup.open_signups_at.isoformat() if signup.open_signups_at else None,
         "weekly_schedule_id": signup.weekly_schedule_id,
         "player_count": len(players),  # Use pre-loaded count

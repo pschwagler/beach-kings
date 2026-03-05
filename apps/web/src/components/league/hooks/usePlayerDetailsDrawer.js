@@ -152,8 +152,10 @@ export function usePlayerDetailsDrawer({
   // (handlePlayerClick already calls openPlayerDrawer directly)
   const selectedPlayerIdRef = useRef(selectedPlayerId);
   const selectedPlayerNameRef = useRef(selectedPlayerName);
-  selectedPlayerIdRef.current = selectedPlayerId;
-  selectedPlayerNameRef.current = selectedPlayerName;
+  useEffect(() => {
+    selectedPlayerIdRef.current = selectedPlayerId;
+    selectedPlayerNameRef.current = selectedPlayerName;
+  }, [selectedPlayerId, selectedPlayerName]);
 
   // Open drawer with player data
   const openPlayerDrawer = useCallback((playerId, playerName) => {
@@ -205,7 +207,9 @@ export function usePlayerDetailsDrawer({
   }, [allPlayers, setSelectedPlayer, openPlayerDrawer, selectedPlayerName]);
 
   // Keep ref in sync
-  handlePlayerClickRef.current = handlePlayerClick;
+  useEffect(() => {
+    handlePlayerClickRef.current = handlePlayerClick;
+  }, [handlePlayerClick]);
 
   // Auto-update drawer when underlying data changes while drawer is open.
   // Uses refs for selectedPlayer to avoid double-render — handlePlayerClick

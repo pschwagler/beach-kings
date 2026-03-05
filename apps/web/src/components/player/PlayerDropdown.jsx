@@ -240,11 +240,11 @@ export default function PlayerDropdown({
     }
   };
 
-  const handleSelectPlayer = (player) => {
+  const handleSelectPlayer = useCallback((player) => {
     onChange(player);
     setInputValue(getDisplayValue(player));
     setIsOpen(false);
-  };
+  }, [onChange]);
 
   /**
    * Enter inline create mode — shows name input + duplicate search.
@@ -289,7 +289,7 @@ export default function PlayerDropdown({
     };
     setIsCreateMode(false);
     handleSelectPlayer(playerOption);
-  }, []);
+  }, [handleSelectPlayer]);
 
   // Use touch selection hook
   const { handleTouchStart, handleTouchEnd } = useTouchSelection(handleSelectPlayer);

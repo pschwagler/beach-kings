@@ -62,6 +62,7 @@ export default function LeagueDetailsTab() {
   }, [leagueId, isLeagueAdmin, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount
     fetchJoinRequests();
   }, [fetchJoinRequests]);
 

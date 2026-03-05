@@ -133,7 +133,7 @@ export default function PlaceholderCreateModal({
               </div>
               {createdPlayer.inviteUrl && (
                 <p className="placeholder-create-modal__share-text">
-                  Share their invite link so they can claim their matches.
+                  Share their invite link so they can claim their profile.
                 </p>
               )}
             </div>

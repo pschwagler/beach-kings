@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { leaveLeague, createLeague } from '../../services/api';
+import { leaveLeague, createLeague, addLeagueHomeCourt } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import ConfirmationModal from '../modal/ConfirmationModal';
 
@@ -49,7 +49,18 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
 
   const handleCreateLeague = async (leagueData) => {
     try {
-      const newLeague = await createLeague(leagueData);
+      const { initial_court_id, ...payload } = leagueData;
+      const newLeague = await createLeague(payload);
+
+      // Add initial home court if selected
+      if (initial_court_id && newLeague?.id) {
+        try {
+          await addLeagueHomeCourt(newLeague.id, initial_court_id);
+        } catch {
+          // Non-critical — league was created successfully
+        }
+      }
+
       // Refresh leagues list
       if (onLeaguesUpdate) {
         await onLeaguesUpdate();
@@ -109,7 +120,7 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
           <div className="coming-soon-section">
             <Trophy size={48} className="coming-soon-icon" />
             <h3>No leagues found</h3>
-            <p>You haven't joined any leagues yet.</p>
+            <p>You haven&apos;t joined any leagues yet.</p>
           </div>
         ) : (
           <div className="leagues-list">

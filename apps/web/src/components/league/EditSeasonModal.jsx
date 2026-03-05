@@ -37,6 +37,7 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }) 
         }
       }
       
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync season prop to form state
       setFormData({
         name: season.name || "",
         start_date: season.start_date || "",

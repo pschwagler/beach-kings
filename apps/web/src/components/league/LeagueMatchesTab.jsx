@@ -9,7 +9,7 @@ import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import { transformMatchData, buildPlaceholderIdSet } from './utils/matchUtils';
-import { lockInLeagueSession, deleteSession } from '../../services/api';
+import { lockInLeagueSession, deleteSession, updateSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
 import AddPlayersModal from './AddPlayersModal';
@@ -213,6 +213,15 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     getSeasonIdForRefresh
   });
   const { handleUpdateSessionSeason } = sessionSeasonUpdate;
+
+  const handleUpdateSessionCourt = async (sessionId, courtId) => {
+    try {
+      await updateSession(sessionId, { court_id: courtId });
+      await refreshSession();
+    } catch (error) {
+      console.error('Error updating session court:', error);
+    }
+  };
 
   // Session handlers
   const handleRefreshSession = async () => {
@@ -521,6 +530,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         seasons={seasons}
         selectedSeasonId={selectedSeasonId}
         onUpdateSessionSeason={handleUpdateSessionSeason}
+        onUpdateSessionCourt={handleUpdateSessionCourt}
+        leagueHomeCourts={league?.home_courts || []}
         onSeasonChange={setSelectedSeasonId}
         onRefreshData={refreshData}
         contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}

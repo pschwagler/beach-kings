@@ -84,7 +84,7 @@ export default function AllCourtsPanel() {
 
   useEffect(() => {
     load();
-  }, [page, regionFilter, locationFilter, sortBy, sortDir]);
+  }, [load, page, regionFilter, locationFilter, sortBy, sortDir]);
 
   // Clean up debounce timer on unmount
   useEffect(() => () => clearTimeout(debounceRef.current), []);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { UserPlus, UserCheck, Clock, Users, MessageCircle } from 'lucide-react';
+import { UserPlus, UserCheck, Clock, Users, MessageCircle, MapPin, Star } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/UI';
@@ -17,10 +17,16 @@ import {
   removeFriend,
   getMutualFriends,
   getFriendRequests,
+  getPlayerHomeCourts,
+  addPlayerHomeCourt,
+  removePlayerHomeCourt,
+  reorderPlayerHomeCourts,
 } from '../../services/api';
+import useHomeCourts from '../../hooks/useHomeCourts';
 import { slugify } from '../../utils/slugify';
 import { useToast } from '../../contexts/ToastContext';
 import PlayerTrophies from './PlayerTrophies';
+import CourtSelector from '../court/CourtSelector';
 import './PublicPlayerPage.css';
 
 /**
@@ -40,6 +46,18 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const [mutualFriends, setMutualFriends] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
   const { showToast } = useToast();
+
+  const isSelf = currentUserPlayer?.id === player?.id;
+
+  const {
+    homeCourts,
+    handleConfirm: handleCourtConfirm,
+    handleRemove: handleRemoveHomeCourt,
+    handleSetPrimary,
+  } = useHomeCourts({
+    entityId: player?.id,
+    api: { get: getPlayerHomeCourts, add: addPlayerHomeCourt, remove: removePlayerHomeCourt, reorder: reorderPlayerHomeCourts },
+  });
 
   // Fetch friend status and mutual friends for authenticated users
   useEffect(() => {
@@ -281,6 +299,47 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
 
       {/* Trophies — renders nothing if player has no awards */}
       {player?.id && <PlayerTrophies playerId={player.id} />}
+
+      {/* Home Courts */}
+      {(homeCourts.length > 0 || isSelf) && (
+        <section className="public-player__section">
+          <h2 className="public-player__section-title">
+            <MapPin size={16} /> Home Courts
+          </h2>
+          {isSelf ? (
+            <>
+              {homeCourts.length === 0 && (
+                <p className="public-player__home-courts-empty">
+                  Add your favorite courts so others can find you
+                </p>
+              )}
+              <CourtSelector
+                mode="multi"
+                selectedCourts={homeCourts}
+                onAdd={(court) => handleCourtConfirm([...homeCourts, court])}
+                onRemove={handleRemoveHomeCourt}
+                onSetPrimary={handleSetPrimary}
+                preFilterLocationId={player.location?.id}
+              />
+            </>
+          ) : homeCourts.length > 0 ? (
+            <div className="public-player__home-courts">
+              {homeCourts.map((court, i) => (
+                <Link
+                  key={court.id}
+                  href={`/courts/${court.id}`}
+                  className={`public-player__court-pill${i === 0 && homeCourts.length > 1 ? ' public-player__court-pill--primary' : ''}`}
+                >
+                  {i === 0 && homeCourts.length > 1 && (
+                    <Star size={12} className="public-player__court-pill-star--active" />
+                  )}
+                  {court.name}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )}
 
       {/* Stats grid */}
       {stats && (

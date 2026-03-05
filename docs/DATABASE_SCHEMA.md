@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-PostgreSQL database with 47 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
+PostgreSQL database with 49 tables. SQLAlchemy ORM models in `apps/backend/database/models.py`.
 
 ## Enums
 
@@ -179,6 +179,7 @@ Court locations with discovery & review support.
 | `review_count` | Integer | Default `0` |
 | `status` | String(20) | `pending`/`approved`/`rejected`, default `approved` |
 | `is_active` | Boolean | Default `true` |
+| `is_placeholder` | Boolean | Default `false`, not null. System-created "Other / Private Court" per location |
 | `slug` | String(200) | **Unique** |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
@@ -264,6 +265,32 @@ User-submitted edit suggestions for court info.
 | `reviewed_by` | Integer FK → players.id | ON DELETE SET NULL |
 | `created_at` | DateTime(tz) | |
 | `reviewed_at` | DateTime(tz) | Nullable |
+
+### `league_home_courts`
+Courts designated as home courts for a league.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `league_id` | Integer FK → leagues.id | ON DELETE CASCADE |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `position` | Integer | Default `0`. Ordering (0 = primary) |
+| `created_at` | DateTime(tz) | |
+
+Unique constraint: `(league_id, court_id)`. Index: `idx_league_home_courts_league`.
+
+### `player_home_courts`
+Courts designated as home courts for a player.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `player_id` | Integer FK → players.id | ON DELETE CASCADE |
+| `court_id` | Integer FK → courts.id | ON DELETE CASCADE |
+| `position` | Integer | Default `0`. Ordering (0 = primary) |
+| `created_at` | DateTime(tz) | |
+
+Unique constraint: `(player_id, court_id)`. Index: `idx_player_home_courts_player`.
 
 ---
 
@@ -734,3 +761,96 @@ Queue for photo-based match extraction jobs.
 | `completed_at` | DateTime(tz) | |
 | `error_message` | Text | |
 | `result_data` | Text | JSON string of parsed matches |
+
+---
+
+## KOB (King/Queen of the Beach) Tournaments
+
+### Enums
+
+| Enum | Values |
+|------|--------|
+| `TournamentStatus` | `SETUP`, `ACTIVE`, `COMPLETED`, `CANCELLED` |
+| `TournamentFormat` | `FULL_ROUND_ROBIN`, `POOLS_PLAYOFFS`, `PARTIAL_ROUND_ROBIN` |
+
+### `kob_tournaments`
+Tournament config and state. Shareable via unique `code`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `name` | String | Tournament display name |
+| `code` | String(10) UNIQUE | Shareable slug, e.g. `KOB-A3X9R2` |
+| `director_player_id` | Integer FK → players.id | SET NULL on delete |
+| `gender` | String(10) | `mens`, `womens`, or `coed` |
+| `format` | Enum(TournamentFormat) | Scheduling format |
+| `game_to` | Integer | Default 21 |
+| `win_by` | Integer | Default 2 |
+| `num_courts` | Integer | Default 2 |
+| `max_rounds` | Integer | Nullable, for partial RR |
+| `has_playoffs` | Boolean | Default false |
+| `playoff_size` | Integer | Nullable |
+| `num_pools` | Integer | Nullable |
+| `games_per_match` | Integer | Default 1, not null. Number of games per matchup slot (1 = single game, 3 = best-of-3) |
+| `num_rr_cycles` | Integer | Default 1, not null. Repeat full round robin 1–3× |
+| `score_cap` | Integer | Nullable. Max score ceiling (e.g. 30). NULL = no cap |
+| `playoff_format` | String(20) | Nullable. `ROUND_ROBIN` (default) or `DRAFT` |
+| `playoff_game_to` | Integer | Nullable. Override game_to for playoffs. NULL = use tournament game_to |
+| `playoff_games_per_match` | Integer | Nullable. Override gpm for playoffs (1 or 3 for Bo3). NULL = use tournament gpm |
+| `playoff_score_cap` | Integer | Nullable. Override score_cap for playoffs. NULL = use tournament score_cap |
+| `is_ranked` | Boolean | Default false, bridges to ELO on completion |
+| `league_id` | Integer FK → leagues.id | Optional, SET NULL |
+| `location_id` | String FK → locations.id | Optional, SET NULL |
+| `status` | Enum(TournamentStatus) | Default `SETUP` |
+| `current_phase` | String(20) | `pool_play`, `playoffs`, `finals` |
+| `current_round` | Integer | Current active round |
+| `auto_advance` | Boolean | Default true |
+| `schedule_data` | JSONB | Full generated schedule |
+| `scheduled_date` | Date | |
+| `created_at` | DateTime(tz) | |
+| `updated_at` | DateTime(tz) | |
+
+Indexes: `code`, `director_player_id`, `status`
+
+### `kob_players`
+Player roster entries with seeding and pool assignment.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `tournament_id` | Integer FK → kob_tournaments.id | CASCADE |
+| `player_id` | Integer FK → players.id | CASCADE |
+| `seed` | Integer | Nullable |
+| `pool_id` | Integer | Nullable, assigned on start |
+| `is_dropped` | Boolean | Default false |
+| `dropped_at_round` | Integer | Nullable |
+| `created_at` | DateTime(tz) | |
+
+Unique: `(tournament_id, player_id)`. Index: `tournament_id`
+
+### `kob_matches`
+Individual match results within a tournament.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer PK | |
+| `tournament_id` | Integer FK → kob_tournaments.id | CASCADE |
+| `matchup_id` | String(20) | Links to schedule_data, e.g. `r1m1` |
+| `round_num` | Integer | |
+| `phase` | String(20) | `pool_play`, `playoffs`, `finals` |
+| `pool_id` | Integer | Nullable |
+| `court_num` | Integer | Nullable |
+| `team1_player1_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team1_player2_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team2_player1_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team2_player2_id` | Integer FK → players.id | Nullable, SET NULL on player delete |
+| `team1_score` | Integer | Nullable until scored |
+| `team2_score` | Integer | Nullable until scored |
+| `winner` | Integer | 1 or 2 |
+| `game_scores` | JSONB | Nullable. `[{team1_score, team2_score}, ...]` for multi-game (Bo3) |
+| `bracket_position` | String(30) | Nullable. `semifinal`, `final`, etc. for draft bracket |
+| `is_bye` | Boolean | Default false |
+| `created_at` | DateTime(tz) | |
+| `updated_at` | DateTime(tz) | |
+
+Unique: `(tournament_id, matchup_id)`. Indexes: `tournament_id`, `(tournament_id, round_num)`
