@@ -272,7 +272,7 @@ export default function MatchesTable({
       }
     });
     return grouped;
-  }, [matchesWithPendingChanges, Array.from(editingSessions).join(','), Array.from(editingSessionMetadata.keys()).join(','), matches, sessionsMap]);
+  }, [matchesWithPendingChanges, editingSessions, editingSessionMetadata, matches, sessionsMap]);
 
   useEffect(() => {
     if (!loading && matches !== null && Array.isArray(matches) && matchesWithPendingChanges !== null) {
@@ -356,7 +356,7 @@ export default function MatchesTable({
         <div className="league-error">
           <div className="league-message error">
             <h2>Access Denied</h2>
-            <p>You don't have access to view matches for this league. Please contact a league administrator to be added as a member.</p>
+            <p>You don&apos;t have access to view matches for this league. Please contact a league administrator to be added as a member.</p>
           </div>
         </div>
       </div>

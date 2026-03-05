@@ -275,6 +275,42 @@ function PlayoffSection({ rounds, numCourts, roundClocks }) {
 }
 
 export default function KobPreview({ recommendation, loading }) {
+  const preview_rounds = recommendation?.preview_rounds;
+
+  // Derive numCourts from matches
+  const numCourts = useMemo(() => {
+    if (!preview_rounds) return 1;
+    let maxCourt = 1;
+    for (const rnd of preview_rounds) {
+      for (const m of rnd.matches) {
+        if (m.court_num > maxCourt) maxCourt = m.court_num;
+      }
+    }
+    return maxCourt;
+  }, [preview_rounds]);
+
+  // Separate pool play and playoff rounds
+  const poolPlayRounds = useMemo(
+    () => (preview_rounds || []).filter((r) => r.phase === "pool_play"),
+    [preview_rounds]
+  );
+  const playoffRounds = useMemo(
+    () => (preview_rounds || []).filter((r) => r.phase === "playoffs"),
+    [preview_rounds]
+  );
+
+  // Build cumulative clock: round_num → elapsed minutes at start of that round
+  const roundClocks = useMemo(() => {
+    if (!preview_rounds) return {};
+    const clocks = {};
+    let elapsed = 0;
+    for (const rnd of preview_rounds) {
+      clocks[rnd.round_num] = elapsed;
+      elapsed += rnd.time_minutes || 0;
+    }
+    return clocks;
+  }, [preview_rounds]);
+
   if (loading) {
     return (
       <div className="kob-preview__loading">
@@ -295,7 +331,6 @@ export default function KobPreview({ recommendation, loading }) {
     games_per_court,
     playoff_rounds: playoffRoundCount,
     playoff_size,
-    preview_rounds,
     preview_pools,
     pool_game_to,
     pool_courts,
@@ -303,38 +338,6 @@ export default function KobPreview({ recommendation, loading }) {
     explanation,
     suggestion,
   } = recommendation;
-
-  // Derive numCourts from matches
-  const numCourts = useMemo(() => {
-    let maxCourt = 1;
-    for (const rnd of preview_rounds) {
-      for (const m of rnd.matches) {
-        if (m.court_num > maxCourt) maxCourt = m.court_num;
-      }
-    }
-    return maxCourt;
-  }, [preview_rounds]);
-
-  // Separate pool play and playoff rounds
-  const poolPlayRounds = useMemo(
-    () => preview_rounds.filter((r) => r.phase === "pool_play"),
-    [preview_rounds]
-  );
-  const playoffRounds = useMemo(
-    () => preview_rounds.filter((r) => r.phase === "playoffs"),
-    [preview_rounds]
-  );
-
-  // Build cumulative clock: round_num → elapsed minutes at start of that round
-  const roundClocks = useMemo(() => {
-    const clocks = {};
-    let elapsed = 0;
-    for (const rnd of preview_rounds) {
-      clocks[rnd.round_num] = elapsed;
-      elapsed += rnd.time_minutes || 0;
-    }
-    return clocks;
-  }, [preview_rounds]);
 
   const hasPlayoffs = playoffRounds.length > 0;
   const hasPools = preview_pools && Object.keys(preview_pools).length > 0;

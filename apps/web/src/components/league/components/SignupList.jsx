@@ -102,7 +102,7 @@ export default function SignupList({
                     {isSignedUp && (
                       <div className="signed-up-badge">
                         <div className="signed-up-dot" />
-                        You're signed up
+                        You&apos;re signed up
                       </div>
                     )}
                   </div>

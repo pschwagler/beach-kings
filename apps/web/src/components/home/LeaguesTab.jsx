@@ -120,7 +120,7 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
           <div className="coming-soon-section">
             <Trophy size={48} className="coming-soon-icon" />
             <h3>No leagues found</h3>
-            <p>You haven't joined any leagues yet.</p>
+            <p>You haven&apos;t joined any leagues yet.</p>
           </div>
         ) : (
           <div className="leagues-list">

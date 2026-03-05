@@ -7,7 +7,6 @@ import axios from 'axios';
 // In development we use relative /api (empty base) so Next.js proxy decides the backend;
 // no compile-time URL is inlined, avoiding .next cache poisoning between dev and E2E.
 // In production we use NEXT_PUBLIC_API_URL.
-// eslint-disable-next-line no-undef
 const API_BASE_URL = typeof window !== 'undefined'
   ? (process.env.NODE_ENV === 'development' ? '' : (process.env.NEXT_PUBLIC_API_URL || ''))
   : '';

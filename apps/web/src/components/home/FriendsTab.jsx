@@ -212,7 +212,7 @@ export default function FriendsTab() {
       setFriendsTotalCount(results[0].value.total_count || 0);
     }
     if (results[1].status === 'fulfilled') setIncomingRequests(results[1].value || []);
-  }, [dismissFriendNotification]);
+  }, [dismissFriendNotification, showToast]);
 
   const handleDecline = useCallback(async (requestId) => {
     setActionLoadingFor(`decline-${requestId}`, true);
@@ -225,7 +225,7 @@ export default function FriendsTab() {
     } finally {
       setActionLoadingFor(`decline-${requestId}`, false);
     }
-  }, [dismissFriendNotification]);
+  }, [dismissFriendNotification, showToast]);
 
   const handleCancelOutgoing = useCallback(async (requestId) => {
     setActionLoadingFor(`cancel-${requestId}`, true);
@@ -237,7 +237,7 @@ export default function FriendsTab() {
     } finally {
       setActionLoadingFor(`cancel-${requestId}`, false);
     }
-  }, []);
+  }, [showToast]);
 
   const handleUnfriend = useCallback(async (playerId) => {
     setActionLoadingFor(`unfriend-${playerId}`, true);
@@ -254,7 +254,7 @@ export default function FriendsTab() {
     }
     // Refetch suggestions since unfriending may unlock new suggestions
     refetchSuggestionsIfNeeded();
-  }, [refetchSuggestionsIfNeeded]);
+  }, [refetchSuggestionsIfNeeded, showToast]);
 
   const handleSendRequest = useCallback(async (playerId) => {
     setActionLoadingFor(`send-${playerId}`, true);
@@ -274,7 +274,7 @@ export default function FriendsTab() {
     } catch (_) {
       // Non-critical
     }
-  }, [removeSuggestion]);
+  }, [removeSuggestion, showToast]);
 
   /** Dismiss a suggestion (client-side only, not persisted). */
   const handleDismissSuggestion = useCallback((playerId) => {

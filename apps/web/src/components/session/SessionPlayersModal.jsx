@@ -46,6 +46,7 @@ export default function SessionPlayersModal({
   // Sync props → local state when modal opens or props change
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync props to local form state
       setDraftName(sessionName);
       setCourtId(sessionCourtId);
       setCourtName(sessionCourtName);

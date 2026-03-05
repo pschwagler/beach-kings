@@ -12,6 +12,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
 
   // Reset search when player changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state when player prop changes
     setSearchTerm('');
     setIsDropdownOpen(false);
     setHighlightedIndex(-1);
@@ -105,6 +106,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
 
   // Reset highlighted index when filtered players change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset highlight on filter change
     setHighlightedIndex(-1);
   }, [normalizedPlayers.length, searchTerm]);
 
@@ -119,6 +121,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
           tabIndex={0}
           role="combobox"
           aria-expanded={isDropdownOpen}
+          aria-controls="player-selector-listbox"
           aria-haspopup="listbox"
         >
           <span className={`player-selector-name${isPlaceholder ? ' player-selector-name--placeholder' : ''}`}>{playerName}</span>
@@ -136,7 +139,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
               onKeyDown={handleKeyDown}
               autoFocus
             />
-            <div className="player-selector-options">
+            <div className="player-selector-options" id="player-selector-listbox" role="listbox">
               {!allPlayers ? (
                 <div className="player-selector-option disabled">Loading players...</div>
               ) : normalizedPlayers.length > 0 ? (

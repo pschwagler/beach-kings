@@ -100,6 +100,7 @@ export function FallbackImage({ logoSrc }) {
     >
       <img
         src={logoSrc}
+        alt="Beach Kings logo"
         width={OG_STYLES.logoFallback.width}
         height={OG_STYLES.logoFallback.height}
       />

@@ -12,6 +12,7 @@ export default function DescriptionSection({ league, onUpdate }) {
 
   useEffect(() => {
     if (league) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to local state
       setDescription(league.description || '');
     }
   }, [league]);

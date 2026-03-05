@@ -22,6 +22,7 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
   // Sync from external source (e.g. league prop changes)
   useEffect(() => {
     if (initialCourts) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to local state
       setHomeCourts(initialCourts);
     }
   }, [initialCourts]);
@@ -41,7 +42,7 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
       const courts = await api.get(entityId);
       setHomeCourts(courts || []);
     }
-  }, [api.get, entityId]);
+  }, [api, entityId]);
 
   /**
    * Handle court browser confirm: diff selected vs current,

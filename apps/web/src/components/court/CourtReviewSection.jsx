@@ -37,6 +37,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
 
   // Refetch reviews on mount to override stale SSR/ISR cache
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch on mount, not cascading
     refreshCourt();
   }, [refreshCourt]);
 

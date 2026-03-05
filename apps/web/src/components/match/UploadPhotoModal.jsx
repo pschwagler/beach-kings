@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, Image, Camera, AlertCircle, Loader } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Camera, AlertCircle, Loader } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { uploadMatchPhoto } from '../../services/api';
 import { heicTo, isHeic } from 'heic-to';
@@ -310,7 +310,7 @@ export default function UploadPhotoModal({
 
           {/* Info Box */}
           <div className="upload-info">
-            <Image size={16} />
+            <ImageIcon size={16} />
             <span>
               Upload a photo of scores from a whiteboard, paper, or spreadsheet. 
               AI will extract the games and match players to league members.

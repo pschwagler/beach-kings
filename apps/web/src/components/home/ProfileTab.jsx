@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, addPlayerHomeCourt, removePlayerHomeCourt, reorderPlayerHomeCourts } from '../../services/api';
 import { AlertCircle, Save, MapPin } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
@@ -149,11 +149,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     }
   }, [currentUserPlayer]);
 
-  useEffect(() => {
-    loadLocations();
-  }, []);
-
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     setIsLoadingLocations(true);
     try {
       const locationsData = await getLocations();
@@ -164,7 +160,11 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     } finally {
       setIsLoadingLocations(false);
     }
-  };
+  }, [updateLocationsWithDistances]);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;

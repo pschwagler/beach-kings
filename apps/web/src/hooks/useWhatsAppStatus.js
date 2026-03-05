@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 /**
  * Custom hook for managing WhatsApp status polling
@@ -24,9 +24,9 @@ export function useWhatsAppStatus() {
   const WHATSAPP_API_BASE = "/api/whatsapp";
 
   // Fetch groups
-  const fetchGroups = async (force = false) => {
+  const fetchGroups = useCallback(async (force = false) => {
     if (!force && groups.length > 0) return; // Already loaded unless forced
-    
+
     setLoadingGroups(true);
     try {
       const response = await fetch(`${WHATSAPP_API_BASE}/groups`);
@@ -39,7 +39,7 @@ export function useWhatsAppStatus() {
       console.error("Error fetching groups:", err);
     }
     setLoadingGroups(false);
-  };
+  }, [groups.length]);
 
   // Poll for status - simplified with proper dependencies
   useEffect(() => {
@@ -107,7 +107,7 @@ export function useWhatsAppStatus() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isAuthenticated, serviceUnavailable, qrCode, status]);
+  }, [isAuthenticated, serviceUnavailable, qrCode, status, fetchGroups]);
 
   const handleRetry = async () => {
     setIsLoading(true);
