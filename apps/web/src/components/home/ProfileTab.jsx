@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion } from '../../services/api';
-import { AlertCircle, Save } from 'lucide-react';
+import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, addPlayerHomeCourt, removePlayerHomeCourt, reorderPlayerHomeCourts } from '../../services/api';
+import { AlertCircle, Save, MapPin } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import useHomeCourts from '../../hooks/useHomeCourts';
 import PlayerProfileFields from '../player/PlayerProfileFields';
 import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
+import CourtSelector from '../court/CourtSelector';
 import { Button } from '../ui/UI';
 
 const PREFERRED_SIDE_OPTIONS = [
@@ -80,6 +82,17 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const [isDeletionPending, setIsDeletionPending] = useState(false);
   // Store whether there are unsaved changes in a ref so navigation blocker callback can access it
   const hasUnsavedChangesRef = useRef(false);
+
+  // Home courts
+  const {
+    homeCourts,
+    handleConfirm: handleCourtConfirm,
+    handleRemove: handleRemoveHomeCourt,
+    handleSetPrimary,
+  } = useHomeCourts({
+    entityId: currentUserPlayer?.id,
+    api: { get: getPlayerHomeCourts, add: addPlayerHomeCourt, remove: removePlayerHomeCourt, reorder: reorderPlayerHomeCourts },
+  });
 
   const {
     locations,
@@ -468,6 +481,26 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
           </button>
         </div>
       </form>
+
+      {/* Home Courts */}
+      <div className="profile-page__home-courts-section">
+        <h3 className="profile-page__section-title section-title-spaced">
+          <MapPin size={16} /> Home Courts
+        </h3>
+        {homeCourts.length === 0 && (
+          <p style={{ color: 'var(--gray-600)', fontSize: '14px', margin: '0 0 8px' }}>
+            Add your favorite courts so others can find you
+          </p>
+        )}
+        <CourtSelector
+          mode="multi"
+          selectedCourts={homeCourts}
+          onAdd={(court) => handleCourtConfirm([...homeCourts, court])}
+          onRemove={handleRemoveHomeCourt}
+          onSetPrimary={handleSetPrimary}
+          preFilterLocationId={currentUserPlayer?.location_id}
+        />
+      </div>
 
       {/* Account management — intentionally subtle */}
       <div className="profile-page__account-footer">

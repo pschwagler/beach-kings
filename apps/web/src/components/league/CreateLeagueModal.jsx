@@ -6,6 +6,8 @@ import { Button } from '../ui/UI';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import { GENDER_OPTIONS_LEAGUE, LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
+import { getPlayerHomeCourts } from '../../services/api';
+import CourtSelector from '../court/CourtSelector';
 
 const INITIAL_FORM_STATE = {
   name: '',
@@ -13,7 +15,8 @@ const INITIAL_FORM_STATE = {
   is_open: true,
   gender: 'male', // Default to Men's
   level: '',
-  location_id: ''
+  location_id: '',
+  court_id: null,
 };
 
 /** Gender options for league create; Mixed is disabled as not supported yet. */
@@ -26,6 +29,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [playerHomeCourts, setPlayerHomeCourts] = useState([]);
   const { isAuthenticated, currentUserPlayer } = useAuth();
   const { locations } = useApp();
 
@@ -36,6 +40,13 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
       setFormData(INITIAL_FORM_STATE);
       setFormError(null);
       
+      // Load player's home courts for quick picks
+      if (isAuthenticated && currentUserPlayer?.id) {
+        getPlayerHomeCourts(currentUserPlayer.id)
+          .then((courts) => setPlayerHomeCourts(courts || []))
+          .catch(() => {});
+      }
+
       // Then use user's player data from context to set defaults
       if (isAuthenticated && currentUserPlayer) {
         // Normalize player level to match LEVEL_OPTIONS (case-insensitive)
@@ -123,6 +134,10 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
 
       if (formData.location_id) {
         payload.location_id = formData.location_id;
+      }
+
+      if (formData.court_id) {
+        payload.initial_court_id = formData.court_id;
       }
 
       await onSubmit(payload);
@@ -298,6 +313,18 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }) {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-group">
+            <CourtSelector
+              value={formData.court_id}
+              onChange={(courtId) => handleFieldChange('court_id', courtId)}
+              homeCourts={playerHomeCourts}
+              preFilterLocationId={formData.location_id || undefined}
+              label="Home Court (Optional)"
+            />
+            <small className="form-help-text">
+              Set an initial home court for the league
+            </small>
           </div>
         </form>
         <div className="modal-actions">

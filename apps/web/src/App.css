@@ -4459,6 +4459,42 @@ body:hover ::-webkit-scrollbar-thumb {
   font-weight: 600;
 }
 
+.session-manage-details {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.session-manage-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-manage-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.session-manage-input {
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--gray-900);
+  background: white;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.session-manage-input:focus {
+  border-color: var(--primary);
+}
+
 .session-players-modal-intro {
   font-size: 0.85rem;
   color: var(--gray-600);
@@ -5396,6 +5432,77 @@ body:hover ::-webkit-scrollbar-thumb {
   box-shadow: 0 0 0 2px var(--primary-light);
 }
 
+.league-info__court-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--gray-200);
+  color: var(--gray-700);
+  font-size: 13px;
+}
+
+.league-info__court-pill--primary {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}
+
+.league-info__court-pill-star {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--gray-400);
+}
+
+.league-info__court-pill-star:hover:not(:disabled) {
+  color: #f59e0b;
+}
+
+.league-info__court-pill-star--active {
+  color: #f59e0b;
+}
+
+.league-info__court-pill-star:disabled {
+  cursor: default;
+}
+
+.league-info__court-pill-remove {
+  background: none;
+  border: none;
+  padding: 0 0 0 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--gray-600);
+}
+
+.league-info__court-pill-remove:hover {
+  color: var(--danger);
+}
+
+.league-info__add-court-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px dashed var(--gray-300);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 13px;
+  width: fit-content;
+}
+
+.league-info__add-court-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-lighter);
+}
+
 /* Empty State */
 .league-empty-state {
   text-align: center;
@@ -5634,6 +5741,22 @@ body:hover ::-webkit-scrollbar-thumb {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.session-page-court {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--gray-600);
+}
+
+.session-page-court-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.session-page-court-link:hover {
+  text-decoration: underline;
 }
 
 .session-page-code {
@@ -5921,6 +6044,23 @@ body:hover ::-webkit-scrollbar-thumb {
 .open-sessions-list-badge.pickup {
   background: var(--coral-light);
   color: var(--coral-dark);
+}
+
+.open-sessions-list-court {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.open-sessions-list-court-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.open-sessions-list-court-link:hover {
+  text-decoration: underline;
 }
 
 .open-sessions-list-participation {
@@ -7093,6 +7233,28 @@ button.match-config-toggle.inline svg {
   min-width: 0;
 }
 
+.session-court-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.session-court-row--editable {
+  padding: 8px 16px 12px;
+}
+
+.session-court-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.session-court-link:hover {
+  text-decoration: underline;
+}
+
 /* Delete header button: red underlined text, matches session page style */
 .session-btn.session-btn-delete.session-btn-delete-header {
   font-size: small;
@@ -7362,6 +7524,15 @@ button.match-config-toggle.inline svg {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.league-signup-court-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.league-signup-court-link:hover {
+  text-decoration: underline;
 }
 
 .league-signup-status {

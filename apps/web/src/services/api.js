@@ -983,6 +983,62 @@ export const getCourts = async (locationId = null) => {
 };
 
 /**
+ * League Home Courts
+ */
+
+/** List home courts for a league. */
+export const getLeagueHomeCourts = async (leagueId) => {
+  const response = await api.get(`/api/leagues/${leagueId}/home-courts`);
+  return response.data;
+};
+
+/** Add a home court to a league. */
+export const addLeagueHomeCourt = async (leagueId, courtId) => {
+  const response = await api.post(`/api/leagues/${leagueId}/home-courts`, { court_id: courtId });
+  return response.data;
+};
+
+/** Remove a home court from a league. */
+export const removeLeagueHomeCourt = async (leagueId, courtId) => {
+  const response = await api.delete(`/api/leagues/${leagueId}/home-courts/${courtId}`);
+  return response.data;
+};
+
+/** Reorder home courts for a league. */
+export const reorderLeagueHomeCourts = async (leagueId, courtPositions) => {
+  const response = await api.put(`/api/leagues/${leagueId}/home-courts/reorder`, { court_positions: courtPositions });
+  return response.data;
+};
+
+/**
+ * Player Home Courts
+ */
+
+/** List home courts for a player. */
+export const getPlayerHomeCourts = async (playerId) => {
+  const response = await api.get(`/api/players/${playerId}/home-courts`);
+  return response.data;
+};
+
+/** Add a home court to a player. */
+export const addPlayerHomeCourt = async (playerId, courtId) => {
+  const response = await api.post(`/api/players/${playerId}/home-courts`, { court_id: courtId });
+  return response.data;
+};
+
+/** Remove a home court from a player. */
+export const removePlayerHomeCourt = async (playerId, courtId) => {
+  const response = await api.delete(`/api/players/${playerId}/home-courts/${courtId}`);
+  return response.data;
+};
+
+/** Reorder home courts for a player. */
+export const reorderPlayerHomeCourts = async (playerId, courtPositions) => {
+  const response = await api.put(`/api/players/${playerId}/home-courts/reorder`, { court_positions: courtPositions });
+  return response.data;
+};
+
+/**
  * Court Discovery API methods (public + auth)
  */
 
@@ -1009,6 +1065,12 @@ export const getNearbyCourts = async (lat, lng, radius = 25, excludeId = null) =
   const params = { lat, lng, radius };
   if (excludeId) params.exclude = excludeId;
   const response = await api.get('/api/public/courts/nearby', { params });
+  return response.data;
+};
+
+/** Get the placeholder "Other / Private Court" for a location. */
+export const getPlaceholderCourt = async (locationId) => {
+  const response = await api.get('/api/courts/placeholder', { params: { location_id: locationId } });
   return response.data;
 };
 

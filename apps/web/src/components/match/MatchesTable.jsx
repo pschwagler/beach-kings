@@ -52,6 +52,8 @@ export default function MatchesTable({
   seasons = [],
   selectedSeasonId = null,
   onUpdateSessionSeason = null,
+  onUpdateSessionCourt = null,
+  leagueHomeCourts = [],
   activeSessionMatchesOverride = null,
   activeSeasons = [],
   onSeasonChange = null,
@@ -552,6 +554,9 @@ export default function MatchesTable({
           }}
             onDeleteSession={onDeleteSession}
             onUpdateSessionSeason={onUpdateSessionSeason}
+            onUpdateSessionCourt={onUpdateSessionCourt}
+            leagueHomeCourts={leagueHomeCourts}
+            leagueLocationId={league?.location_id}
             seasons={seasons}
             selectedSeasonId={selectedSeasonId}
           />
@@ -640,6 +645,7 @@ export default function MatchesTable({
                   });
                 }}
                   isEditing={true}
+                  leagueLocationId={league?.location_id}
                   seasons={seasons}
                   selectedSeasonId={selectedSeasonId}
                 />

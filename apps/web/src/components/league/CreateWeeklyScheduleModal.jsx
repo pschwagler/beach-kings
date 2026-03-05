@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
+import { useLeague } from '../../contexts/LeagueContext';
+import CourtSelector from '../court/CourtSelector';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Monday' },
@@ -14,6 +16,9 @@ const DAYS_OF_WEEK = [
 
 export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit }) {
   const { showToast } = useToast();
+  const { league, isLeagueAdmin } = useLeague();
+
+  const homeCourts = league?.home_courts || [];
 
   // Get today's date in YYYY-MM-DD format for default start_date
   const getTodayDate = () => {
@@ -28,20 +33,20 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
     day_of_week: '0',
     start_time: '18:00',
     duration_hours: '2.0',
-    court_id: '',
+    court_id: homeCourts.length > 0 ? homeCourts[0].id : null,
     open_signups_mode: 'auto_after_last_session',
     open_signups_day_of_week: '',
     open_signups_time: '',
     start_date: getTodayDate(),
     end_date: ''
   });
-  
+
   const handleSubmit = async () => {
     if (!formData.day_of_week || !formData.start_time || !formData.start_date || !formData.end_date) {
       showToast('Day of week, start time, start date, and end date are required', 'error');
       return;
     }
-    
+
     // Validate that start_date is not after end_date
     const selectedStartDate = new Date(formData.start_date);
     const selectedEndDate = new Date(formData.end_date);
@@ -49,14 +54,14 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
       showToast('Start date cannot be after end date', 'error');
       return;
     }
-    
+
     if (formData.open_signups_mode === 'specific_day_time') {
       if (!formData.open_signups_day_of_week || !formData.open_signups_time) {
         showToast('Open signups day and time are required for specific day/time mode', 'error');
         return;
       }
     }
-    
+
     // Convert local time to UTC for start_time
     // We use a reference date to properly handle DST
     const convertLocalTimeToUTC = (localTimeStr) => {
@@ -70,17 +75,17 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
       const utcMinutes = String(localDateTime.getUTCMinutes()).padStart(2, '0');
       return `${utcHours}:${utcMinutes}`;
     };
-    
+
     // Convert times to UTC before sending
     const utcStartTime = convertLocalTimeToUTC(formData.start_time);
     const utcOpenSignupsTime = formData.open_signups_time ? convertLocalTimeToUTC(formData.open_signups_time) : null;
-    
+
     try {
       await onSubmit({
         day_of_week: parseInt(formData.day_of_week),
         start_time: utcStartTime,
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
-        court_id: formData.court_id ? parseInt(formData.court_id) : null,
+        court_id: formData.court_id || null,
         open_signups_mode: formData.open_signups_mode,
         open_signups_day_of_week: formData.open_signups_day_of_week ? parseInt(formData.open_signups_day_of_week) : null,
         open_signups_time: utcOpenSignupsTime,
@@ -92,7 +97,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
       // Error handling is done in parent
     }
   };
-  
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -147,14 +152,22 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
             </div>
           </div>
           <div className="form-group">
-            <label htmlFor="court-id">Court ID (Optional)</label>
-            <input
-              id="court-id"
-              type="number"
+            <CourtSelector
               value={formData.court_id}
-              onChange={(e) => setFormData({ ...formData, court_id: e.target.value })}
-              className="form-input"
+              onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
+              homeCourts={homeCourts}
+              preFilterLocationId={league?.location_id}
+              label="Court (Optional)"
             />
+            {isLeagueAdmin && (
+              <a
+                href={`/league/${league?.id}?tab=details`}
+                className="court-selector__manage-link"
+                onClick={onClose}
+              >
+                Manage home courts &rarr;
+              </a>
+            )}
           </div>
           <div className="form-group">
             <label htmlFor="open-signups-mode">Open Signups Mode</label>

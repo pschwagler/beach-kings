@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
-import { getUserLeagues, createLeague } from "../services/api";
+import { getUserLeagues, createLeague, addLeagueHomeCourt } from "../services/api";
 import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
@@ -109,7 +109,11 @@ export default function HomePage({ initialTab = 'home' }) {
   };
 
   const handleCreateLeague = async (leagueData) => {
-    const newLeague = await createLeague(leagueData);
+    const { initial_court_id, ...payload } = leagueData;
+    const newLeague = await createLeague(payload);
+    if (initial_court_id && newLeague?.id) {
+      try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+    }
     const leagues = await getUserLeagues();
     setUserLeagues(leagues);
     router.push(`/league/${newLeague.id}?tab=details`);

@@ -3,7 +3,7 @@
 import { Trophy, ChevronRight, Users, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import { createLeague } from '../../services/api';
+import { createLeague, addLeagueHomeCourt } from '../../services/api';
 
 export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdate, onViewAll }) {
   const router = useRouter();
@@ -19,7 +19,11 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
 
   const handleCreateLeague = async (leagueData) => {
     try {
-      const newLeague = await createLeague(leagueData);
+      const { initial_court_id, ...payload } = leagueData;
+      const newLeague = await createLeague(payload);
+      if (initial_court_id && newLeague?.id) {
+        try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+      }
       // Refresh leagues list
       if (onLeaguesUpdate) {
         await onLeaguesUpdate();

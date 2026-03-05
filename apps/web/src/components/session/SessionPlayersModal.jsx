@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Users, UserPlus } from 'lucide-react';
 import { useSessionPlayersModal } from './hooks/useSessionPlayersModal';
 import SessionPlayersInSessionPanel from './SessionPlayersInSessionPanel';
 import SessionPlayersAddPanel from './SessionPlayersAddPanel';
+import CourtSelector from '../court/CourtSelector';
+import { getPlayerHomeCourts, getNearbyCourts } from '../../services/api';
+import { useUserPosition } from '../../hooks/useUserPosition';
 
 /**
- * Session Players modal (drawer): manages participants optimistically; add/remove
- * updates local state without parent refetch. Parent is notified only on close
- * (if mutations occurred). Uses batch invite on Done for pending adds.
+ * Manage Session modal (drawer): session name, court selection, and participant management.
+ * Session name and court are editable by anyone with access (not just creator).
+ * Uses batch invite on Done for pending adds.
  */
 export default function SessionPlayersModal({
   isOpen,
@@ -17,11 +20,113 @@ export default function SessionPlayersModal({
   participants = [],
   sessionCreatedByPlayerId = null,
   currentUserPlayerId = null,
+  currentUserPlayer = null,
   onClose,
   onSuccess,
   message,
+  sessionName = '',
+  sessionCourtId = null,
+  sessionCourtName = null,
+  sessionCourtSlug = null,
+  onUpdateSession,
 }) {
   const drawerRef = useRef(null);
+  const [draftName, setDraftName] = useState(sessionName);
+  const [courtId, setCourtId] = useState(sessionCourtId);
+  const [courtName, setCourtName] = useState(sessionCourtName);
+  const [playerHomeCourts, setPlayerHomeCourts] = useState([]);
+  const defaultAppliedRef = useRef(false);
+
+  // Geo position for nearest-court fallback
+  const profileCoords = currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
+    ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
+    : null;
+  const { position } = useUserPosition(profileCoords);
+
+  // Sync props → local state when modal opens or props change
+  useEffect(() => {
+    if (isOpen) {
+      setDraftName(sessionName);
+      setCourtId(sessionCourtId);
+      setCourtName(sessionCourtName);
+      // Reset default tracking when session court changes externally
+      if (sessionCourtId != null) {
+        defaultAppliedRef.current = true;
+      } else {
+        defaultAppliedRef.current = false;
+      }
+    }
+  }, [isOpen, sessionName, sessionCourtId, sessionCourtName]);
+
+  // Load player home courts for CourtSelector quick picks
+  useEffect(() => {
+    if (!isOpen || !currentUserPlayerId) return;
+    getPlayerHomeCourts(currentUserPlayerId)
+      .then((courts) => setPlayerHomeCourts(courts || []))
+      .catch(() => {});
+  }, [isOpen, currentUserPlayerId]);
+
+  // Auto-default court when session has none:
+  // 1. Player's primary home court (position=0)
+  // 2. Nearest court to player's geo position
+  // 3. Leave as null (user can pick manually)
+  useEffect(() => {
+    if (!isOpen || !onUpdateSession || defaultAppliedRef.current || sessionCourtId != null) return;
+
+    const applyDefault = async () => {
+      // Priority 1: player's primary home court
+      if (playerHomeCourts.length > 0) {
+        const primary = playerHomeCourts[0];
+        defaultAppliedRef.current = true;
+        setCourtId(primary.id);
+        setCourtName(primary.name);
+        onUpdateSession({ court_id: primary.id });
+        return;
+      }
+
+      // Priority 2: nearest court to geo position
+      if (position?.latitude && position?.longitude) {
+        try {
+          const nearby = await getNearbyCourts(position.latitude, position.longitude, 25);
+          if (nearby?.length > 0) {
+            defaultAppliedRef.current = true;
+            setCourtId(nearby[0].id);
+            setCourtName(nearby[0].name);
+            onUpdateSession({ court_id: nearby[0].id });
+            return;
+          }
+        } catch {
+          // Ignore — fall through to no default
+        }
+      }
+
+      // No default found — leave as null
+      defaultAppliedRef.current = true;
+    };
+
+    applyDefault();
+  }, [isOpen, onUpdateSession, sessionCourtId, playerHomeCourts, position]);
+
+  const handleNameBlur = useCallback(() => {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== sessionName && onUpdateSession) {
+      onUpdateSession({ name: trimmed });
+    }
+  }, [draftName, sessionName, onUpdateSession]);
+
+  const handleNameKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  }, []);
+
+  const handleCourtChange = useCallback((newCourtId) => {
+    setCourtId(newCourtId);
+    setCourtName(null); // CourtSelector manages display name internally after user interaction
+    if (onUpdateSession) {
+      onUpdateSession({ court_id: newCourtId });
+    }
+  }, [onUpdateSession]);
 
   const {
     localParticipants,
@@ -106,7 +211,7 @@ export default function SessionPlayersModal({
         data-testid="session-players-drawer"
       >
         <div className="session-players-drawer-header">
-          <h2 id="session-players-drawer-title">Manage players</h2>
+          <h2 id="session-players-drawer-title">Manage session</h2>
           <button
             type="button"
             className="modal-close-button"
@@ -116,6 +221,34 @@ export default function SessionPlayersModal({
             <X size={20} />
           </button>
         </div>
+
+        {onUpdateSession && (
+          <div className="session-manage-details">
+            <div className="session-manage-field">
+              <label className="session-manage-label" htmlFor="session-manage-name">Session Name</label>
+              <input
+                id="session-manage-name"
+                type="text"
+                className="session-manage-input"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onBlur={handleNameBlur}
+                onKeyDown={handleNameKeyDown}
+                placeholder="Session name"
+              />
+            </div>
+            <div className="session-manage-field">
+              <CourtSelector
+                value={courtId}
+                valueName={courtName}
+                onChange={handleCourtChange}
+                homeCourts={playerHomeCourts}
+                preFilterLocationId={currentUserPlayer?.location_id}
+                label="Court"
+              />
+            </div>
+          </div>
+        )}
 
         {localParticipants.length < 4 && (
           <p className="session-players-modal-intro">

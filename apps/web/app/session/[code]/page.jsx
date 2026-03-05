@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Copy, Calendar, LayoutList, ClipboardList, Plus, Share2, ChevronDown, Pencil } from 'lucide-react';
+import { ArrowLeft, Copy, Calendar, LayoutList, ClipboardList, Plus, Share2, ChevronDown, Pencil, MapPin } from 'lucide-react';
 import {
   joinSessionByCode,
   createMatch,
@@ -30,6 +30,7 @@ import { useClickOutside } from '../../../src/hooks/useClickOutside';
 import { usePickupSession } from '../../../src/hooks/usePickupSession';
 import { useEditBuffer, mergeBufferWithMatches } from '../../../src/hooks/useEditBuffer';
 import { useToast } from '../../../src/contexts/ToastContext';
+import useShare from '../../../src/hooks/useShare';
 
 const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 
@@ -65,6 +66,7 @@ export default function SessionByCodePage() {
   const [draftSessionName, setDraftSessionName] = useState('');
   const [message, setMessage] = useState(null);
   const shareMenuRef = useRef(null);
+  const { shareInvite } = useShare();
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
   const [isEditing, setIsEditing] = useState(false);
   const { buffer, isDirty, bufferEdit, bufferAdd, bufferDelete, clearBuffer, flush } = useEditBuffer();
@@ -159,21 +161,10 @@ export default function SessionByCodePage() {
   };
 
   const handleShareVia = async () => {
-    if (typeof window === 'undefined' || !navigator.share || !code) {
-      handleCopyLink();
-      return;
-    }
+    if (!code) { handleCopyLink(); return; }
     const url = `${window.location.origin}/session/${code}`;
-    try {
-      await navigator.share({
-        title: session?.name || 'Session',
-        url,
-        text: 'Join this session',
-      });
-      setShareMenuOpen(false);
-    } catch (err) {
-      if (err.name !== 'AbortError') handleCopyLink();
-    }
+    await shareInvite({ name: session?.name || 'Session', url });
+    setShareMenuOpen(false);
   };
 
   /**
@@ -332,7 +323,7 @@ export default function SessionByCodePage() {
     setCreatingFromPlayers(true);
     setMessage(null);
     try {
-      const res = await createSession({});
+      const res = await createSession({ court_id: session.court_id || undefined });
       const newSess = res?.session ?? res;
       if (!newSess?.code) {
         setMessage('Could not create session. Please try again.');
@@ -554,6 +545,18 @@ export default function SessionByCodePage() {
                           <Calendar size={16} /> {formatDate(session.date)}
                         </span>
                       )}
+                      {session.court_name && (
+                        <span className="session-page-court">
+                          <MapPin size={14} />
+                          {session.court_slug && !session.court_slug.startsWith('other-private-') ? (
+                            <Link href={`/courts/${session.court_slug}`} className="session-page-court-link">
+                              {session.court_name}
+                            </Link>
+                          ) : (
+                            session.court_name
+                          )}
+                        </span>
+                      )}
                       {session.code && (
                         <span className="session-page-share" ref={shareMenuRef}>
                           <div className="session-share-dropdown">
@@ -596,6 +599,18 @@ export default function SessionByCodePage() {
                       {session.date && (
                         <span className="session-page-date">
                           <Calendar size={16} /> {formatDate(session.date)}
+                        </span>
+                      )}
+                      {session.court_name && (
+                        <span className="session-page-court">
+                          <MapPin size={14} />
+                          {session.court_slug && !session.court_slug.startsWith('other-private-') ? (
+                            <Link href={`/courts/${session.court_slug}`} className="session-page-court-link">
+                              {session.court_name}
+                            </Link>
+                          ) : (
+                            session.court_name
+                          )}
                         </span>
                       )}
                       {isCreator ? (
@@ -652,7 +667,7 @@ export default function SessionByCodePage() {
                     className="league-text-button primary"
                     onClick={() => setShowPlayersModal(true)}
                   >
-                    <Plus size={18} /> Manage players
+                    <Plus size={18} /> Manage session
                   </button>
                 </div>
               ) : (
@@ -683,7 +698,7 @@ export default function SessionByCodePage() {
                         onClick={() => setShowPlayersModal(true)}
                         style={{ marginLeft: '16px' }}
                       >
-                        Manage players
+                        Manage session
                       </button>
                     )}
                     {!isActive && isCreator && isEditing && (
@@ -751,9 +766,19 @@ export default function SessionByCodePage() {
         participants={participants}
         sessionCreatedByPlayerId={session?.created_by ?? null}
         currentUserPlayerId={currentUserPlayer?.id ?? null}
-        onClose={() => { setShowPlayersModal(false); setMessage(null); }}
+        currentUserPlayer={currentUserPlayer}
+        onClose={() => { setShowPlayersModal(false); setMessage(null); refresh(); }}
         onSuccess={refresh}
         message={message}
+        sessionName={session?.name || ''}
+        sessionCourtId={session?.court_id ?? null}
+        sessionCourtName={session?.court_name ?? null}
+        sessionCourtSlug={session?.court_slug ?? null}
+        onUpdateSession={isActive ? (updates) => {
+          updateSession(session.id, updates).catch((err) => {
+            console.error('Failed to update session:', err);
+          });
+        } : undefined}
       />
 
       {popover && (
