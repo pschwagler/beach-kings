@@ -225,7 +225,12 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
       await client.query(`DELETE FROM league_messages WHERE user_id = ANY($1)`, [userIds]);
     }
 
-    // 11b. Court reviews and court submissions by test players
+    // 11b. Player home courts
+    if (playerIds.length > 0) {
+      await client.query(`DELETE FROM player_home_courts WHERE player_id = ANY($1)`, [playerIds]);
+    }
+
+    // 11c. Court reviews and court submissions by test players
     if (playerIds.length > 0) {
       await client.query(`
         DELETE FROM court_review_photos WHERE review_id IN (

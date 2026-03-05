@@ -163,6 +163,38 @@
   }
 }
 
+/* ── Recent Players ── */
+.admin-recent-players-section {
+  margin-top: 2rem;
+}
+
+.admin-recent-players-section__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 1rem 0;
+}
+
+.admin-player-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-player-badge--user {
+  background: #e6f9f0;
+  color: var(--success);
+}
+
+.admin-player-badge--no-user {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
 /* ── Settings ── */
 .admin-view-container p {
   color: var(--gray-600);

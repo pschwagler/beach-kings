@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Player, Feedback
+from backend.database.models import Player, User, Feedback
 from backend.services import data_service, email_service, settings_service
 from backend.services.redis_service import redis_get, redis_set
 from backend.api.auth_dependencies import (
@@ -485,6 +485,61 @@ async def get_platform_stats(
     except Exception as e:
         logger.error(f"Error fetching platform stats: {e}")
         raise HTTPException(status_code=500, detail="Error fetching platform stats.")
+
+
+# ---------------------------------------------------------------------------
+# Recent players endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/admin-view/players/recent")
+async def get_recent_players(
+    limit: int = 50,
+    user: dict = Depends(require_system_admin),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get recently created players for the admin dashboard.
+
+    Returns players ordered by created_at desc, with a flag indicating
+    whether they have an associated user account.
+    """
+    try:
+        capped_limit = min(limit, 200)
+
+        result = await session.execute(
+            select(
+                Player.id,
+                Player.full_name,
+                Player.is_placeholder,
+                Player.user_id,
+                Player.created_at,
+                User.phone_number,
+                User.auth_provider,
+            )
+            .outerjoin(User, User.id == Player.user_id)
+            .where(Player.is_placeholder == False)  # noqa: E712
+            .order_by(Player.created_at.desc())
+            .limit(capped_limit)
+        )
+        rows = result.all()
+
+        return [
+            {
+                "id": row.id,
+                "full_name": row.full_name,
+                "is_placeholder": row.is_placeholder,
+                "has_user": row.user_id is not None,
+                "auth_provider": row.auth_provider,
+                "phone_number": row.phone_number,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ]
+
+    except Exception:
+        logger.exception("Error fetching recent players")
+        raise HTTPException(status_code=500, detail="Error fetching recent players.")
 
 
 # ---------------------------------------------------------------------------
