@@ -330,12 +330,6 @@ def _rebalance_game_counts(
     if not games:
         return rounds, byes_per_round
 
-    # Target: floor(total_slots / num_players) or ceil
-    total_slots = sum(games.values())
-    n = len(player_ids)
-    target_lo = total_slots // n
-    target_hi = target_lo + (1 if total_slots % n else 0)
-
     # Iteratively swap until balanced (max 50 iterations as safety)
     for _ in range(50):
         max_g = max(games.values())
