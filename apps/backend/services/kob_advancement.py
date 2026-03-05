@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
     KobTournament,
-    KobPlayer,
     KobMatch,
     TournamentStatus,
 )

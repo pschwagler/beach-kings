@@ -109,15 +109,21 @@ def upgrade() -> None:
         )
     ).fetchall()
 
+    # Bulk update all placeholder courts in a single statement
+    updates = []
     for court_id, loc_id in placeholders:
         loc_name = loc_map.get(loc_id, loc_id)
         short = _derive_short_label(loc_id, loc_name)
         new_name = f"Other / Private Court ({short})"
-        conn.execute(
+        updates.append({"_id": court_id, "name": new_name})
+
+    if updates:
+        stmt = (
             courts.update()
-            .where(courts.c.id == court_id)
-            .values(name=new_name)
+            .where(courts.c.id == sa.bindparam("_id"))
+            .values(name=sa.bindparam("name"))
         )
+        conn.execute(stmt, updates)
 
 
 def downgrade() -> None:

@@ -7,7 +7,7 @@ counting games per player, and auto-calculating per-pool game_to.
 """
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 # ---------------------------------------------------------------------------
 # Shared constants

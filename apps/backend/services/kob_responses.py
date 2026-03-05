@@ -5,7 +5,7 @@ Builds response dicts from KobTournament/KobMatch/KobPlayer models
 for API endpoints.
 """
 
-from typing import Any, Dict, List
+from typing import Dict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

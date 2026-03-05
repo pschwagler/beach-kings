@@ -9,7 +9,7 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,7 +17,6 @@ from backend.database.models import (
     KobTournament,
     KobPlayer,
     KobMatch,
-    Player,
 )
 
 logger = logging.getLogger(__name__)

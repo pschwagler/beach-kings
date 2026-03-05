@@ -52,31 +52,27 @@ def upgrade() -> None:
     )
 
     result = conn.execute(sa.select(locations.c.id))
-    location_ids = [row[0] for row in result]
+    all_location_ids = {row[0] for row in result}
 
-    for loc_id in location_ids:
-        # Check if placeholder already exists for this location
-        existing = conn.execute(
-            sa.select(sa.literal(1)).select_from(courts).where(
-                sa.and_(
-                    courts.c.location_id == loc_id,
-                    courts.c.is_placeholder == True,  # noqa: E712
-                )
-            )
-        ).first()
+    # Fetch locations that already have a placeholder in a single query
+    existing_q = sa.select(courts.c.location_id).where(
+        courts.c.is_placeholder == True  # noqa: E712
+    )
+    existing_locs = {row[0] for row in conn.execute(existing_q)}
 
-        if not existing:
-            conn.execute(
-                courts.insert().values(
-                    name="Other / Private Court",
-                    address=None,
-                    location_id=loc_id,
-                    slug=f"other-private-{loc_id}",
-                    status="approved",
-                    is_active=False,
-                    is_placeholder=True,
-                )
+    locs_to_add = all_location_ids - existing_locs
+    for loc_id in locs_to_add:
+        conn.execute(
+            courts.insert().values(
+                name="Other / Private Court",
+                address=None,
+                location_id=loc_id,
+                slug=f"other-private-{loc_id}",
+                status="approved",
+                is_active=False,
+                is_placeholder=True,
             )
+        )
 
 
 def downgrade() -> None:

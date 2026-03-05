@@ -7,7 +7,7 @@ so it can be safely imported by kob_suggest without circular dependencies.
 """
 
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from backend.services.kob_time import (
     _wave_minutes,

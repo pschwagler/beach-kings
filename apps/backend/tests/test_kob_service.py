@@ -17,7 +17,6 @@ from backend.database.models import (
     Player,
     KobPlayer,
     KobTournament,
-    KobMatch,
     TournamentStatus,
     TournamentFormat,
 )
