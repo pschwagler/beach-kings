@@ -4413,6 +4413,42 @@ body:hover ::-webkit-scrollbar-thumb {
   transform: scale(0.95);
 }
 
+/* "+ Add Unregistered Player" row at bottom of search results */
+.add-players-unregistered-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 4px;
+  border: 1px dashed var(--gray-300);
+  border-radius: 8px;
+  background: none;
+  color: var(--primary-dark);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.add-players-unregistered-row:hover {
+  background: var(--primary-lighter);
+}
+
+.add-players-unregistered-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 /* Session Players Drawer */
 .session-players-drawer-backdrop {
   position: fixed;
@@ -4992,110 +5028,6 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 8px 10px;
   font-size: 0.8rem;
   color: var(--gray-400);
-}
-
-/* "+ New" button in session players add panel */
-.session-players-new-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--primary-dark);
-  background: var(--primary-lighter);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-.session-players-new-btn:hover {
-  background: var(--primary-light);
-}
-
-/* Inline create form in session players add panel */
-.session-players-create-form {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  margin-bottom: 8px;
-}
-.session-players-create-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--gray-300);
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-}
-.session-players-create-input:focus {
-  border-color: var(--primary);
-}
-.session-players-create-submit {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background: var(--primary);
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.session-players-create-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Wrap for create form + search results + submit button */
-.session-players-create-form-wrap {
-  padding: 0 0 8px;
-  margin-bottom: 8px;
-}
-
-/* Search results in session players create form */
-.session-players-create-search-results {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 0;
-}
-
-.session-players-create-search-label {
-  font-size: 12px;
-  color: var(--gray-600);
-  font-weight: 500;
-}
-
-.session-players-create-search-result {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  background: var(--gray-50);
-}
-
-.session-players-create-search-result__info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.session-players-create-search-result__name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--gray-900);
-}
-
-.session-players-create-search-result__meta {
-  font-size: 12px;
-  color: var(--gray-600);
 }
 
 .session-players-filter-pills {

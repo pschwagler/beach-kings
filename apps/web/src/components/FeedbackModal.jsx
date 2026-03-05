@@ -63,7 +63,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
         ) : (
           <>
             <p className="auth-modal__description">
-              We'd love to hear your thoughts! Please be as specific as possible about what you like or what we can improve.
+              We'd love to hear your thoughts about the app! Please be as specific as possible about what you like or what we can improve.
             </p>
 
             {status === 'error' && (

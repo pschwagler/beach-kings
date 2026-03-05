@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { X, Plus, Filter, UserPlus } from 'lucide-react';
+import { X, Plus, Filter } from 'lucide-react';
 import {
   getPlayers,
   addLeagueMembersBatch,
@@ -47,17 +47,11 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
   const [selectedPlayerDetails, setSelectedPlayerDetails] = useState({}); // { player_id: player }
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState('');
   const [createModalState, setCreateModalState] = useState(null);
   const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);
-  const [createSearchResults, setCreateSearchResults] = useState([]);
-  const [isCreateSearching, setIsCreateSearching] = useState(false);
   const debounceRef = useRef(null);
   const filterButtonRef = useRef(null);
   const filterPopoverRef = useRef(null);
-  const createInputRef = useRef(null);
-  const createSearchDebounceRef = useRef(null);
 
   const memberIds = useMemo(() => new Set((members || []).map((m) => m.player_id)), [members]);
   const selectedIds = useMemo(() => new Set(selectedPlayers.map((sp) => sp.player_id)), [selectedPlayers]);
@@ -155,10 +149,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
       setOffset(0);
       setLoading(false);
       setLoadingMore(false);
-      setShowCreateForm(false);
-      setNewPlayerName('');
       setCreateModalState(null);
-      setCreateSearchResults([]);
     }
   }, [isOpen, defaultLocationIds]);
 
@@ -252,48 +243,12 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
     setOffset(0);
   }, []);
 
-  // Auto-focus create input when form opens
-  useEffect(() => {
-    if (showCreateForm) {
-      setTimeout(() => createInputRef.current?.focus(), 50);
-    }
-  }, [showCreateForm]);
-
-  // Debounced search for existing players when typing in the create form
-  useEffect(() => {
-    if (!showCreateForm) {
-      setCreateSearchResults([]);
-      return;
-    }
-    const trimmed = newPlayerName.trim();
-    if (trimmed.length < 2) {
-      setCreateSearchResults([]);
-      return;
-    }
-    if (createSearchDebounceRef.current) clearTimeout(createSearchDebounceRef.current);
-    setIsCreateSearching(true);
-    createSearchDebounceRef.current = setTimeout(async () => {
-      try {
-        const data = await getPlayers({ q: trimmed, limit: 5, offset: 0 });
-        setCreateSearchResults(data?.items || []);
-      } catch {
-        setCreateSearchResults([]);
-      } finally {
-        setIsCreateSearching(false);
-      }
-    }, 300);
-    return () => {
-      if (createSearchDebounceRef.current) clearTimeout(createSearchDebounceRef.current);
-    };
-  }, [newPlayerName, showCreateForm]);
-
   /**
-   * Open the PlaceholderCreateModal with the entered name.
+   * Open the PlaceholderCreateModal, pre-filling the current search term.
    */
-  const handleCreateFormSubmit = useCallback(() => {
-    if (!newPlayerName.trim()) return;
-    setCreateModalState({ name: newPlayerName.trim() });
-  }, [newPlayerName]);
+  const handleOpenCreateModal = useCallback(() => {
+    setCreateModalState({ name: searchTerm.trim() });
+  }, [searchTerm]);
 
   /**
    * Create placeholder player via API, add to selection list.
@@ -337,14 +292,13 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
   }, [isCreatingPlaceholder, showToast]);
 
   /**
-   * Handle PlaceholderCreateModal close — reset create form on success.
+   * Handle PlaceholderCreateModal close — reset on success.
    * @param {Object|null} result - Created player data or null if cancelled
    */
   const handleCreateModalClose = useCallback((result) => {
     setCreateModalState(null);
     if (result) {
-      setNewPlayerName('');
-      setShowCreateForm(false);
+      setSearchTerm('');
     }
   }, []);
 
@@ -400,6 +354,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="session-players-drawer-backdrop" onClick={onClose}>
       <div
         className="session-players-drawer"
@@ -462,81 +417,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
                   />
                 )}
               </div>
-              <button
-                type="button"
-                className="session-players-new-btn"
-                onClick={() => setShowCreateForm((prev) => !prev)}
-                aria-label="Add unregistered player"
-                title="Add unregistered player"
-              >
-                <UserPlus size={16} aria-hidden />
-                <span>+ Unregistered</span>
-              </button>
             </div>
-
-            {showCreateForm && (
-              <div className="session-players-create-form-wrap">
-                <div className="session-players-create-form">
-                  <input
-                    ref={createInputRef}
-                    type="text"
-                    value={newPlayerName}
-                    onChange={(e) => setNewPlayerName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); handleCreateFormSubmit(); }
-                      if (e.key === 'Escape') { setShowCreateForm(false); setNewPlayerName(''); }
-                    }}
-                    placeholder="Player name"
-                    className="session-players-create-input"
-                    autoComplete="off"
-                  />
-                </div>
-
-                {isCreateSearching && (
-                  <div className="session-players-create-search-results">
-                    <span className="session-players-create-search-label">Searching...</span>
-                  </div>
-                )}
-
-                {!isCreateSearching && createSearchResults.length > 0 && (
-                  <div className="session-players-create-search-results">
-                    <span className="session-players-create-search-label">Did you mean one of these?</span>
-                    {createSearchResults.map((result) => (
-                      <div key={result.id} className="session-players-create-search-result">
-                        <div className="session-players-create-search-result__info">
-                          <span className="session-players-create-search-result__name">{result.full_name}</span>
-                          <span className="session-players-create-search-result__meta">
-                            {[result.location_name, result.gender, result.level].filter(Boolean).join(' · ')}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="session-players-add-btn"
-                          onClick={() => handleAddPlayer(result)}
-                          aria-label={`Add ${result.full_name}`}
-                        >
-                          <Plus size={16} /> Add
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="session-players-create-submit"
-                  onClick={handleCreateFormSubmit}
-                  disabled={isCreatingPlaceholder || newPlayerName.trim().length < 2}
-                >
-                  {isCreatingPlaceholder
-                    ? 'Creating...'
-                    : createSearchResults.length > 0
-                      ? 'None of these — Create & Add'
-                      : 'Create & Add'
-                  }
-                </button>
-              </div>
-            )}
           </div>
 
           {hasActiveFilters && (
@@ -612,11 +493,22 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
             {loading && playersToDisplay.length === 0 ? (
               <p>Loading players...</p>
             ) : playersToDisplay.length === 0 ? (
-              <p className="modal-hint">
-                {hasActiveFilters || searchTerm.trim()
-                  ? 'No players match. Try different filters or search.'
-                  : 'All available players are already in this league.'}
-              </p>
+              <>
+                <p className="modal-hint">
+                  {hasActiveFilters || searchTerm.trim()
+                    ? 'No players match. Try different filters or search.'
+                    : 'All available players are already in this league.'}
+                </p>
+                <button
+                  type="button"
+                  className="add-players-unregistered-row"
+                  onClick={handleOpenCreateModal}
+                  data-testid="add-unregistered-player-option"
+                >
+                  <span className="add-players-unregistered-row__icon">+</span>
+                  Add Unregistered Player
+                </button>
+              </>
             ) : (
               <>
                 <div className="add-players-table">
@@ -695,6 +587,15 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
                     {loadingMore ? 'Loading…' : 'Load more'}
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="add-players-unregistered-row"
+                  onClick={handleOpenCreateModal}
+                  data-testid="add-unregistered-player-option"
+                >
+                  <span className="add-players-unregistered-row__icon">+</span>
+                  Add Unregistered Player
+                </button>
               </>
             )}
           </div>
@@ -712,12 +613,14 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess })
           </button>
         </div>
       </div>
-      <PlaceholderCreateModal
-        isOpen={!!createModalState}
-        playerName={createModalState?.name || ''}
-        onCreate={handleCreatePlaceholder}
-        onClose={handleCreateModalClose}
-      />
     </div>
+    {/* Rendered outside the backdrop so portal click events don't bubble to onClose */}
+    <PlaceholderCreateModal
+      isOpen={!!createModalState}
+      playerName={createModalState?.name || ''}
+      onCreate={handleCreatePlaceholder}
+      onClose={handleCreateModalClose}
+    />
+    </>
   );
 }
