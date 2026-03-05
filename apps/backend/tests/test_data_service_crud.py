@@ -12,6 +12,7 @@ from sqlalchemy import select
 from backend.database.models import (
     League,
     LeagueMember,
+    LeagueRequest,
     Session,
     Player,
     SessionStatus,
@@ -273,6 +274,64 @@ async def test_delete_league(db_session, test_player):
     # Verify league was deleted
     league = await data_service.get_league(db_session, created["id"])
     assert league is None
+
+
+@pytest.mark.asyncio
+async def test_query_leagues_has_pending_request(db_session, test_player, test_user):
+    """Test that query_leagues returns has_pending_request for leagues with pending join requests."""
+    # Create two leagues
+    league_with_request = await data_service.create_league(
+        session=db_session,
+        name="League With Request",
+        description=None,
+        location_id=None,
+        is_open=False,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+    league_without_request = await data_service.create_league(
+        session=db_session,
+        name="League Without Request",
+        description=None,
+        location_id=None,
+        is_open=False,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    # Create a second user + player who will have a pending request
+    password_hash = bcrypt.hashpw("test2".encode(), bcrypt.gensalt()).decode()
+    user2_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15559999999",
+        password_hash=password_hash,
+        email="test2@example.com",
+    )
+    player2 = Player(full_name="Requester", user_id=user2_id)
+    db_session.add(player2)
+    await db_session.commit()
+    await db_session.refresh(player2)
+
+    # Create a pending join request for player2 on league_with_request
+    request = LeagueRequest(
+        league_id=league_with_request["id"],
+        player_id=player2.id,
+        status="pending",
+    )
+    db_session.add(request)
+    await db_session.commit()
+
+    # Query as player2 (user2_id)
+    result = await data_service.query_leagues(session=db_session, user_id=user2_id)
+    items_by_id = {item["id"]: item for item in result["items"]}
+
+    assert items_by_id[league_with_request["id"]]["has_pending_request"] is True
+    assert items_by_id[league_without_request["id"]]["has_pending_request"] is False
+
+    # Query without user_id — has_pending_request should be False for all
+    result_anon = await data_service.query_leagues(session=db_session)
+    for item in result_anon["items"]:
+        assert item["has_pending_request"] is False
 
 
 # ============================================================================

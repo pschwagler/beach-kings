@@ -377,6 +377,19 @@ async def query_leagues(
     result = await session.execute(items_query)
     rows = result.all()
 
+    # Check for pending join requests when player is authenticated
+    pending_league_ids: set = set()
+    if player_id is not None:
+        pending_result = await session.execute(
+            select(LeagueRequest.league_id).where(
+                and_(
+                    LeagueRequest.player_id == player_id,
+                    LeagueRequest.status == "pending",
+                )
+            )
+        )
+        pending_league_ids = {row[0] for row in pending_result.all()}
+
     items = [
         {
             "id": league.id,
@@ -393,6 +406,7 @@ async def query_leagues(
             "member_count": int(member_count) if member_count is not None else 0,
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+            "has_pending_request": league.id in pending_league_ids,
         }
         for league, member_count, location_name, league_region_id, league_region_name in rows
     ]
@@ -1703,6 +1717,41 @@ async def list_league_join_requests_rejected(session: AsyncSession, league_id: i
     )
     rows = result.all()
     return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
+
+
+async def cancel_league_request(
+    session: AsyncSession, league_id: int, player_id: int
+) -> bool:
+    """
+    Cancel a pending join request for a league.
+
+    Args:
+        session: Database session
+        league_id: League ID
+        player_id: Player ID of the requesting user
+
+    Returns:
+        True if a pending request was found and deleted
+
+    Raises:
+        ValueError: If no pending request exists for this player and league
+    """
+    result = await session.execute(
+        select(LeagueRequest).where(
+            and_(
+                LeagueRequest.league_id == league_id,
+                LeagueRequest.player_id == player_id,
+                LeagueRequest.status == "pending",
+            )
+        )
+    )
+    request = result.scalar_one_or_none()
+    if not request:
+        raise ValueError("No pending join request found for this league")
+
+    await session.delete(request)
+    await session.commit()
+    return True
 
 
 async def get_all_player_names(session: AsyncSession) -> List[str]:
@@ -3121,6 +3170,7 @@ async def get_player_season_partnership_opponent_stats(
         partnership, partner_name = row
         partnerships.append(
             {
+                "Player ID": partnership.partner_id,
                 "Partner/Opponent": partner_name,
                 "Points": partnership.points,
                 "Games": partnership.games,
@@ -3151,6 +3201,7 @@ async def get_player_season_partnership_opponent_stats(
         opponent_stat, opponent_name = row
         opponents.append(
             {
+                "Player ID": opponent_stat.opponent_id,
                 "Partner/Opponent": opponent_name,
                 "Points": opponent_stat.points,
                 "Games": opponent_stat.games,
@@ -3259,6 +3310,7 @@ async def get_all_player_season_partnership_opponent_stats(
 
         partnerships_by_player[player_id].append(
             {
+                "Player ID": partnership.partner_id,
                 "Partner/Opponent": partner_name,
                 "Points": partnership.points,
                 "Games": partnership.games,
@@ -3290,6 +3342,7 @@ async def get_all_player_season_partnership_opponent_stats(
 
         opponents_by_player[player_id].append(
             {
+                "Player ID": opponent_stat.opponent_id,
                 "Partner/Opponent": opponent_name,
                 "Points": opponent_stat.points,
                 "Games": opponent_stat.games,
@@ -3589,35 +3642,37 @@ async def get_player_league_partnership_opponent_stats(
         for player in result.scalars().all():
             player_name_map[player.id] = player.full_name
 
-    partnership_stats = []
-    for ps in partnership_rows:
-        partnership_stats.append(
+    partnerships = []
+    for ps in sorted(partnership_rows, key=lambda p: (p.points, p.win_rate), reverse=True):
+        partnerships.append(
             {
-                "partner_id": ps.partner_id,
-                "partner_name": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
-                "games": ps.games,
-                "wins": ps.wins,
-                "points": ps.points,
-                "win_rate": ps.win_rate,
-                "avg_point_diff": ps.avg_point_diff,
+                "Player ID": ps.partner_id,
+                "Partner/Opponent": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
+                "Points": ps.points,
+                "Games": ps.games,
+                "Wins": ps.wins,
+                "Losses": ps.games - ps.wins,
+                "Win Rate": ps.win_rate,
+                "Avg Pt Diff": ps.avg_point_diff,
             }
         )
 
-    opponent_stats = []
-    for os in opponent_rows:
-        opponent_stats.append(
+    opponents = []
+    for os in sorted(opponent_rows, key=lambda o: (o.points, o.win_rate), reverse=True):
+        opponents.append(
             {
-                "opponent_id": os.opponent_id,
-                "opponent_name": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
-                "games": os.games,
-                "wins": os.wins,
-                "points": os.points,
-                "win_rate": os.win_rate,
-                "avg_point_diff": os.avg_point_diff,
+                "Player ID": os.opponent_id,
+                "Partner/Opponent": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
+                "Points": os.points,
+                "Games": os.games,
+                "Wins": os.wins,
+                "Losses": os.games - os.wins,
+                "Win Rate": os.win_rate,
+                "Avg Pt Diff": os.avg_point_diff,
             }
         )
 
-    return {"partnership_stats": partnership_stats, "opponent_stats": opponent_stats}
+    return {"partnerships": partnerships, "opponents": opponents}
 
 
 async def get_all_player_league_partnership_opponent_stats(
@@ -3668,6 +3723,7 @@ async def get_all_player_league_partnership_opponent_stats(
             result_dict[ps.player_id] = {"partnerships": [], "opponents": []}
         result_dict[ps.player_id]["partnerships"].append(
             {
+                "Player ID": ps.partner_id,
                 "Partner/Opponent": player_name_map.get(ps.partner_id, f"Player {ps.partner_id}"),
                 "Points": ps.points,
                 "Games": ps.games,
@@ -3683,6 +3739,7 @@ async def get_all_player_league_partnership_opponent_stats(
             result_dict[os.player_id] = {"partnerships": [], "opponents": []}
         result_dict[os.player_id]["opponents"].append(
             {
+                "Player ID": os.opponent_id,
                 "Partner/Opponent": player_name_map.get(
                     os.opponent_id, f"Player {os.opponent_id}"
                 ),

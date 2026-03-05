@@ -55,16 +55,16 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
                   )}
                 </td>
                 <td>
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match.Partner)}>
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match['Partner ID'] ?? match.Partner)}>
                     {match.Partner}
                   </span>
                 </td>
                 <td>
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match['Opponent 1'])}>
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match['Opponent 1 ID'] ?? match['Opponent 1'])}>
                     {match['Opponent 1']}
                   </span>
                   {' / '}
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match['Opponent 2'])}>
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match['Opponent 2 ID'] ?? match['Opponent 2'])}>
                     {match['Opponent 2']}
                   </span>
                 </td>

@@ -51,8 +51,9 @@ export default function NavBar({
   const handleUserMenuClick = (action) => {
     if (action === 'profile') {
       router.push('/profile');
+    } else if (action === 'feedback') {
+      openModal(MODAL_TYPES.FEEDBACK);
     }
-    // Handle user menu actions (except sign-out which is handled by onSignOut)
   };
 
   const handleHomeClick = () => {

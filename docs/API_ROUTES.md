@@ -64,9 +64,9 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | GET | `/api/players/{player_id}/matches` | None | Get player match history |
 | GET | `/api/players/{player_id}/stats` | None | Get player global stats |
 | GET | `/api/players/{player_id}/season/{season_id}/stats` | None | Get player season stats |
-| GET | `/api/players/{player_id}/season/{season_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for season |
+| GET | `/api/players/{player_id}/season/{season_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for season (includes `"Player ID"` per row) |
 | GET | `/api/players/{player_id}/league/{league_id}/stats` | None | Get player league stats |
-| GET | `/api/players/{player_id}/league/{league_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for league |
+| GET | `/api/players/{player_id}/league/{league_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for league (normalized: `"Player ID"`, `"Partner/Opponent"`) |
 
 ## Leagues
 
@@ -74,7 +74,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 |--------|------|------|-------------|
 | POST | `/api/leagues` | User | Create league |
 | GET | `/api/leagues` | None | List all leagues |
-| POST | `/api/leagues/query` | Optional | Query leagues with filters & pagination |
+| POST | `/api/leagues/query` | Optional | Query leagues with filters & pagination (includes `has_pending_request` when authenticated) |
 | GET | `/api/leagues/{league_id}` | User | Get league by ID |
 | PUT | `/api/leagues/{league_id}` | League Admin | Update league |
 | DELETE | `/api/leagues/{league_id}` | System Admin | Delete league |
@@ -85,6 +85,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | DELETE | `/api/leagues/{league_id}/members/{member_id}` | League Admin | Remove member |
 | POST | `/api/leagues/{league_id}/join` | User | Join open league |
 | POST | `/api/leagues/{league_id}/request-join` | User | Request to join invite-only league |
+| DELETE | `/api/leagues/{league_id}/join-request` | User | Cancel own pending join request |
 | GET | `/api/leagues/{league_id}/join-requests` | League Admin | List pending join requests |
 | POST | `/api/leagues/{league_id}/join-requests/{request_id}/approve` | League Admin | Approve join request |
 | POST | `/api/leagues/{league_id}/join-requests/{request_id}/reject` | League Admin | Reject join request |
@@ -194,7 +195,7 @@ Source: `apps/backend/api/routes/` (~164 endpoints across 14 domain modules) + `
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/admin-view/courts/pending` | System Admin | List pending court submissions |
-| GET | `/api/admin-view/courts` | System Admin | List all courts (search, status filter, paginated) |
+| GET | `/api/admin-view/courts` | System Admin | List all courts (search, region/location filter, paginated) |
 | GET | `/api/admin-view/courts/suggestions` | System Admin | List all edit suggestions (status filter, paginated, includes `current` court values) |
 | PUT | `/api/admin-view/courts/{court_id}/approve` | System Admin | Approve court |
 | PUT | `/api/admin-view/courts/{court_id}/reject` | System Admin | Reject court |

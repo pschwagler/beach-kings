@@ -3599,6 +3599,15 @@ body:hover ::-webkit-scrollbar-thumb {
   height: 14px;
 }
 
+.leagues-table-join-button--cancel {
+  color: var(--danger);
+}
+
+.leagues-table-join-button--cancel:hover:not(:disabled) {
+  color: var(--danger);
+  opacity: 0.8;
+}
+
 /* League Members Modal Styles */
 .league-members-modal {
   max-width: 600px;
