@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, addPlayerHomeCourt, removePlayerHomeCourt, reorderPlayerHomeCourts } from '../../services/api';
+import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, setPlayerHomeCourts } from '../../services/api';
 import { AlertCircle, Save, MapPin } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import { useAuth } from '../../contexts/AuthContext';
@@ -86,12 +86,12 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   // Home courts
   const {
     homeCourts,
-    handleConfirm: handleCourtConfirm,
+    handleSet: handleSetHomeCourts,
     handleRemove: handleRemoveHomeCourt,
     handleSetPrimary,
   } = useHomeCourts({
     entityId: currentUserPlayer?.id,
-    api: { get: getPlayerHomeCourts, add: addPlayerHomeCourt, remove: removePlayerHomeCourt, reorder: reorderPlayerHomeCourts },
+    api: { get: getPlayerHomeCourts, set: setPlayerHomeCourts },
   });
 
   const {
@@ -495,7 +495,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         <CourtSelector
           mode="multi"
           selectedCourts={homeCourts}
-          onAdd={(court) => handleCourtConfirm([...homeCourts, court])}
+          onSet={handleSetHomeCourts}
           onRemove={handleRemoveHomeCourt}
           onSetPrimary={handleSetPrimary}
           preFilterLocationId={currentUserPlayer?.location_id}

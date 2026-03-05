@@ -1,5 +1,5 @@
 import { LEVEL_OPTIONS } from './utils/leagueUtils';
-import { updateLeague, addLeagueHomeCourt, removeLeagueHomeCourt, reorderLeagueHomeCourts } from '../../services/api';
+import { updateLeague, setLeagueHomeCourts } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useApp } from '../../contexts/AppContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -24,13 +24,13 @@ export default function LeagueInfoSection({ league, onUpdate }) {
 
   const {
     homeCourts,
-    handleConfirm,
+    handleSet: handleSetHomeCourts,
     handleRemove: handleRemoveHomeCourt,
     handleSetPrimary,
   } = useHomeCourts({
     entityId: leagueId,
     initialCourts: league?.home_courts,
-    api: { add: addLeagueHomeCourt, remove: removeLeagueHomeCourt, reorder: reorderLeagueHomeCourts },
+    api: { set: setLeagueHomeCourts },
   });
 
   const handleLevelChange = async (e) => {
@@ -157,7 +157,7 @@ export default function LeagueInfoSection({ league, onUpdate }) {
               <CourtSelector
                 mode="multi"
                 selectedCourts={homeCourts}
-                onAdd={(court) => handleConfirm([...homeCourts, court])}
+                onSet={handleSetHomeCourts}
                 onRemove={handleRemoveHomeCourt}
                 onSetPrimary={handleSetPrimary}
                 preFilterLocationId={league?.location_id}

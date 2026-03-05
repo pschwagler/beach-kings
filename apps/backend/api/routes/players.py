@@ -495,6 +495,29 @@ async def remove_player_home_court(
         raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
 
 
+@router.put("/api/players/{player_id}/home-courts")
+async def set_player_home_courts(
+    player_id: int,
+    request: Request,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Set all home courts for a player (self only). Accepts {court_ids: [1, 2, 3]}."""
+    if user["player_id"] != player_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own home courts")
+    try:
+        body = await request.json()
+        court_ids = body.get("court_ids")
+        if court_ids is None or not isinstance(court_ids, list):
+            raise HTTPException(status_code=400, detail="court_ids array is required")
+        courts = await data_service.set_player_home_courts(session, player_id, court_ids)
+        return courts
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting home courts: {str(e)}")
+
+
 @router.put("/api/players/{player_id}/home-courts/reorder")
 async def reorder_player_home_courts(
     player_id: int,

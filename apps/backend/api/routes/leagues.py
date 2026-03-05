@@ -763,6 +763,27 @@ async def remove_league_home_court(
         raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
 
 
+@router.put("/api/leagues/{league_id}/home-courts")
+async def set_league_home_courts(
+    league_id: int,
+    request: Request,
+    user: dict = Depends(make_require_league_admin()),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Set all home courts for a league (league_admin). Accepts {court_ids: [1, 2, 3]}."""
+    try:
+        body = await request.json()
+        court_ids = body.get("court_ids")
+        if court_ids is None or not isinstance(court_ids, list):
+            raise HTTPException(status_code=400, detail="court_ids array is required")
+        courts = await data_service.set_league_home_courts(session, league_id, court_ids)
+        return courts
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting home courts: {str(e)}")
+
+
 @router.put("/api/leagues/{league_id}/home-courts/reorder")
 async def reorder_league_home_courts(
     league_id: int,

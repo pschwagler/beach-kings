@@ -4,20 +4,20 @@ import { useToast } from '../contexts/ToastContext';
 /**
  * Manage home courts for a league or player with optimistic updates.
  *
+ * Uses a single `set` API call to replace the entire list, avoiding
+ * stale-closure bugs from rapid sequential add/remove calls.
+ *
  * @param {Object} options
  * @param {number|string|null} options.entityId - League or player ID
  * @param {Array<{id, name, address}>} [options.initialCourts] - Initial courts (e.g. from league prop)
- * @param {Object} options.api - API functions: { get, add, remove, reorder }
+ * @param {Object} options.api - API functions: { get, set }
  *   - get(entityId) → court[] — fetch current list (optional if initialCourts provided)
- *   - add(entityId, courtId) → void
- *   - remove(entityId, courtId) → void
- *   - reorder(entityId, courtPositions) → void — optional, enables set-as-primary
- * @returns {{ homeCourts, showBrowser, setShowBrowser, handleConfirm, handleRemove, handleSetPrimary }}
+ *   - set(entityId, courtIds) → court[] — replace all courts with ordered list
+ * @returns {{ homeCourts, handleSet, handleRemove, handleSetPrimary }}
  */
 export default function useHomeCourts({ entityId, initialCourts, api }) {
   const { showToast } = useToast();
   const [homeCourts, setHomeCourts] = useState(initialCourts || []);
-  const [showBrowser, setShowBrowser] = useState(false);
 
   // Keep api in a ref so callbacks don't depend on its object identity
   const apiRef = useRef(api);
@@ -49,74 +49,38 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
   }, [entityId]);
 
   /**
-   * Handle court browser confirm: diff selected vs current,
-   * POST adds and DELETE removes with optimistic update.
+   * Replace the entire home courts list with a new ordered array.
+   * Optimistically updates UI, then calls the set API.
    */
-  const handleConfirm = useCallback(async (selectedCourts) => {
-    const currentIds = new Set(homeCourts.map((c) => c.id));
-    const selectedIds = new Set(selectedCourts.map((c) => c.id));
-
-    const toAdd = selectedCourts.filter((c) => !currentIds.has(c.id));
-    const toRemove = homeCourts.filter((c) => !selectedIds.has(c.id));
-
-    // Optimistic update
-    setHomeCourts(selectedCourts.map((c, i) => ({ ...c, position: i })));
-
+  const handleSet = useCallback(async (newCourts) => {
+    const prev = homeCourts;
+    const courtsWithPosition = newCourts.map((c, i) => ({ ...c, position: i }));
+    setHomeCourts(courtsWithPosition);
     try {
-      await Promise.all([
-        ...toAdd.map((c) => apiRef.current.add(entityId, c.id)),
-        ...toRemove.map((c) => apiRef.current.remove(entityId, c.id)),
-      ]);
+      await apiRef.current.set(entityId, newCourts.map((c) => c.id));
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to update home courts', 'error');
       if (apiRef.current.get) {
         await refetch();
       } else if (initialCourts) {
         setHomeCourts(initialCourts);
+      } else {
+        setHomeCourts(prev);
       }
     }
   }, [homeCourts, entityId, initialCourts, showToast, refetch]);
 
-  /** Remove a single home court with optimistic update. */
+  /** Remove a single home court. */
   const handleRemove = useCallback(async (courtId) => {
-    setHomeCourts((prev) => prev.filter((c) => c.id !== courtId));
-    try {
-      await apiRef.current.remove(entityId, courtId);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to remove home court', 'error');
-      if (apiRef.current.get) {
-        await refetch();
-      } else if (initialCourts) {
-        setHomeCourts(initialCourts);
-      }
-    }
-  }, [entityId, initialCourts, showToast, refetch]);
+    await handleSet(homeCourts.filter((c) => c.id !== courtId));
+  }, [homeCourts, handleSet]);
 
-  /**
-   * Set a court as primary by moving it to position 0.
-   * Requires api.reorder to be provided.
-   */
+  /** Set a court as primary by moving it to position 0. */
   const handleSetPrimary = useCallback(async (courtId) => {
-    if (!apiRef.current.reorder || !entityId) return;
-
     const court = homeCourts.find((c) => c.id === courtId);
-    if (!court || homeCourts[0]?.id === courtId) return; // already primary or not found
+    if (!court || homeCourts[0]?.id === courtId) return;
+    await handleSet([court, ...homeCourts.filter((c) => c.id !== courtId)]);
+  }, [homeCourts, handleSet]);
 
-    // Optimistic: move to front
-    const reordered = [court, ...homeCourts.filter((c) => c.id !== courtId)];
-    setHomeCourts(reordered);
-
-    try {
-      await apiRef.current.reorder(entityId, reordered.map((c, i) => ({ court_id: c.id, position: i })));
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to set primary court', 'error');
-      if (apiRef.current.get) {
-        await refetch();
-      } else if (initialCourts) {
-        setHomeCourts(initialCourts);
-      }
-    }
-  }, [homeCourts, entityId, initialCourts, showToast, refetch]);
-
-  return { homeCourts, showBrowser, setShowBrowser, handleConfirm, handleRemove, handleSetPrimary };
+  return { homeCourts, handleSet, handleRemove, handleSetPrimary };
 }

@@ -19,7 +19,7 @@ import './CourtSelector.css';
  *
  * Multi-mode props:
  * @param {Array<{id: number, name: string, address?: string}>} props.selectedCourts - Currently selected courts
- * @param {(court: {id, name, address}) => void} props.onAdd - Called when a court is added
+ * @param {(courts: Array<{id, name, address}>) => void} props.onSet - Called with the full new list of courts
  * @param {(courtId: number) => void} props.onRemove - Called when a court is removed
  * @param {(courtId: number) => void} [props.onSetPrimary] - Called to set a court as primary (optional)
  *
@@ -39,7 +39,7 @@ export default function CourtSelector({
   homeCourts = [],
   // Multi-mode
   selectedCourts = [],
-  onAdd,
+  onSet,
   onRemove,
   onSetPrimary,
   // Common
@@ -134,14 +134,14 @@ export default function CourtSelector({
 
   const handleMultiAdd = (court) => {
     if (!selectedIds.has(court.id)) {
-      onAdd?.(court);
+      onSet?.([...selectedCourts, court]);
     }
     setIsOpen(false);
   };
 
   const handleMultiAddOther = () => {
     if (placeholderCourt && !selectedIds.has(placeholderCourt.id)) {
-      onAdd?.({ id: placeholderCourt.id, name: placeholderCourt.name });
+      onSet?.([...selectedCourts, { id: placeholderCourt.id, name: placeholderCourt.name }]);
     }
     setIsOpen(false);
   };
@@ -156,12 +156,11 @@ export default function CourtSelector({
         onChange(court.id);
       }
     } else {
-      // Multi: add any courts not already selected
-      selected.forEach((court) => {
-        if (!selectedIds.has(court.id)) {
-          onAdd?.(court);
-        }
-      });
+      // Multi: merge browser selection with existing courts
+      const newCourts = selected.filter((c) => !selectedIds.has(c.id));
+      if (newCourts.length > 0) {
+        onSet?.([...selectedCourts, ...newCourts]);
+      }
     }
     setShowBrowser(false);
   };

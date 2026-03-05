@@ -18,9 +18,7 @@ import {
   getMutualFriends,
   getFriendRequests,
   getPlayerHomeCourts,
-  addPlayerHomeCourt,
-  removePlayerHomeCourt,
-  reorderPlayerHomeCourts,
+  setPlayerHomeCourts,
 } from '../../services/api';
 import useHomeCourts from '../../hooks/useHomeCourts';
 import { slugify } from '../../utils/slugify';
@@ -51,12 +49,12 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
 
   const {
     homeCourts,
-    handleConfirm: handleCourtConfirm,
+    handleSet: handleSetHomeCourts,
     handleRemove: handleRemoveHomeCourt,
     handleSetPrimary,
   } = useHomeCourts({
     entityId: player?.id,
-    api: { get: getPlayerHomeCourts, add: addPlayerHomeCourt, remove: removePlayerHomeCourt, reorder: reorderPlayerHomeCourts },
+    api: { get: getPlayerHomeCourts, set: setPlayerHomeCourts },
   });
 
   // Fetch friend status and mutual friends for authenticated users
@@ -316,7 +314,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
               <CourtSelector
                 mode="multi"
                 selectedCourts={homeCourts}
-                onAdd={(court) => handleCourtConfirm([...homeCourts, court])}
+                onSet={handleSetHomeCourts}
                 onRemove={handleRemoveHomeCourt}
                 onSetPrimary={handleSetPrimary}
                 preFilterLocationId={player.location?.id}

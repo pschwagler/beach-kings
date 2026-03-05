@@ -1543,6 +1543,40 @@ async def remove_player_home_court(session: AsyncSession, player_id: int, court_
     return result.rowcount > 0
 
 
+async def set_player_home_courts(
+    session: AsyncSession, player_id: int, court_ids: List[int]
+) -> List[Dict]:
+    """Replace all home courts for a player with the given ordered list of court IDs.
+
+    Position is implicit from array index. Existing rows are deleted and replaced.
+    Returns the new list in the same shape as get_player_home_courts.
+    """
+    await session.execute(
+        delete(PlayerHomeCourt).where(PlayerHomeCourt.player_id == player_id)
+    )
+    for position, court_id in enumerate(court_ids):
+        session.add(PlayerHomeCourt(player_id=player_id, court_id=court_id, position=position))
+    await session.commit()
+    return await get_player_home_courts(session, player_id)
+
+
+async def set_league_home_courts(
+    session: AsyncSession, league_id: int, court_ids: List[int]
+) -> List[Dict]:
+    """Replace all home courts for a league with the given ordered list of court IDs.
+
+    Position is implicit from array index. Existing rows are deleted and replaced.
+    Returns the new list in the same shape as get_league_home_courts.
+    """
+    await session.execute(
+        delete(LeagueHomeCourt).where(LeagueHomeCourt.league_id == league_id)
+    )
+    for position, court_id in enumerate(court_ids):
+        session.add(LeagueHomeCourt(league_id=league_id, court_id=court_id, position=position))
+    await session.commit()
+    return await get_league_home_courts(session, league_id)
+
+
 async def update_court(
     session: AsyncSession,
     court_id: int,

@@ -1009,6 +1009,12 @@ export const reorderLeagueHomeCourts = async (leagueId, courtPositions) => {
   return response.data;
 };
 
+/** Set all home courts for a league (replaces existing). */
+export const setLeagueHomeCourts = async (leagueId, courtIds) => {
+  const response = await api.put(`/api/leagues/${leagueId}/home-courts`, { court_ids: courtIds });
+  return response.data;
+};
+
 /**
  * Player Home Courts
  */
@@ -1034,6 +1040,12 @@ export const removePlayerHomeCourt = async (playerId, courtId) => {
 /** Reorder home courts for a player. */
 export const reorderPlayerHomeCourts = async (playerId, courtPositions) => {
   const response = await api.put(`/api/players/${playerId}/home-courts/reorder`, { court_positions: courtPositions });
+  return response.data;
+};
+
+/** Set all home courts for a player (replaces existing). */
+export const setPlayerHomeCourts = async (playerId, courtIds) => {
+  const response = await api.put(`/api/players/${playerId}/home-courts`, { court_ids: courtIds });
   return response.data;
 };
 
@@ -1360,6 +1372,12 @@ export const submitFeedback = async ({ feedback, email }) => {
  */
 export const getAdminStats = async () => {
   const response = await api.get('/api/admin-view/stats');
+  return response.data;
+};
+
+/** Admin: get recently created players. */
+export const getAdminRecentPlayers = async (limit = 50) => {
+  const response = await api.get('/api/admin-view/players/recent', { params: { limit } });
   return response.data;
 };
 

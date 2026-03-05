@@ -69,6 +69,7 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 | GET | `/api/players/{player_id}/league/{league_id}/stats` | None | Get player league stats |
 | GET | `/api/players/{player_id}/league/{league_id}/partnership-opponent-stats` | None | Get player partnership/opponent stats for league (normalized: `"Player ID"`, `"Partner/Opponent"`) |
 | GET | `/api/players/{player_id}/home-courts` | None | List player home courts (ordered by position) |
+| PUT | `/api/players/{player_id}/home-courts` | Verified Player (self) | Set all home courts (replaces existing). Body: `{court_ids: [1, 2, 3]}` |
 | POST | `/api/players/{player_id}/home-courts` | Verified Player (self) | Add home court `{court_id}` |
 | DELETE | `/api/players/{player_id}/home-courts/{court_id}` | Verified Player (self) | Remove home court |
 | PUT | `/api/players/{player_id}/home-courts/reorder` | Verified Player (self) | Reorder home courts. Body: `[{court_id, position}]` |
@@ -98,6 +99,7 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 | GET | `/api/leagues/{league_id}/messages` | League Member | Get league messages |
 | POST | `/api/leagues/{league_id}/messages` | League Member | Post league message |
 | GET | `/api/leagues/{league_id}/home-courts` | League Member | List home courts |
+| PUT | `/api/leagues/{league_id}/home-courts` | League Admin | Set all home courts (replaces existing). Body: `{court_ids: [1, 2, 3]}` |
 | POST | `/api/leagues/{league_id}/home-courts` | League Admin | Add home court `{court_id}` |
 | DELETE | `/api/leagues/{league_id}/home-courts/{court_id}` | League Admin | Remove home court |
 | PUT | `/api/leagues/{league_id}/home-courts/reorder` | League Admin | Reorder home courts. Body: `[{court_id, position}]` |
