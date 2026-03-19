@@ -702,8 +702,8 @@ async def delete_session(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Delete an active session and all its matches.
-    Only active (pending) sessions can be deleted.
+    Delete a session and all its matches.
+    Works for any session status (ACTIVE, SUBMITTED, EDITED).
     """
     try:
         success = await data_service.delete_session(session, session_id)
