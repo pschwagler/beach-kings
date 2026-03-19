@@ -611,6 +611,7 @@ async def confirm_photo_matches(
         body = await request.json()
         season_id = body.get("season_id")
         match_date = body.get("match_date")
+        player_overrides = body.get("player_overrides")
 
         if not season_id:
             raise HTTPException(status_code=400, detail="season_id is required")
@@ -633,7 +634,7 @@ async def confirm_photo_matches(
             )
 
         success, match_ids, message = await photo_match_service.create_matches_from_session(
-            session, session_id, season_id, match_date
+            session, session_id, season_id, match_date, player_overrides=player_overrides
         )
 
         if not success:

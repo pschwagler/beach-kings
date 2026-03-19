@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Check, Loader2, AlertCircle, Expand } from 'lucide-react';
+import { X, Check, Loader2, AlertCircle, Expand, ImageOff } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { usePhotoMatchReview } from './hooks/usePhotoMatchReview';
 import PhotoMatchResultsTable from './components/PhotoMatchResultsTable';
 import PhotoMatchConversation from './components/PhotoMatchConversation';
 import PhotoMatchConfirmationOptions from './components/PhotoMatchConfirmationOptions';
+import UnrecognizedPlayersSection from './components/UnrecognizedPlayersSection';
+import PlayerSearchModal from './components/PlayerSearchModal';
 
 /**
  * Modal for reviewing AI-parsed match results and confirming creation.
@@ -24,6 +26,7 @@ export default function PhotoMatchReviewModal({
   onSuccess,
 }) {
   const [imageExpanded, setImageExpanded] = useState(false);
+  const [resolutionTarget, setResolutionTarget] = useState(null);
   const conversationEndRef = useRef(null);
 
   const {
@@ -39,9 +42,11 @@ export default function PhotoMatchReviewModal({
     setSelectedSeasonId,
     matchDate,
     setMatchDate,
+    unmatchedNames,
     handleClose,
     handleSendEdit,
     handleConfirm,
+    handleResolvePlayer,
   } = usePhotoMatchReview({
     isOpen,
     initialJobId,
@@ -66,6 +71,8 @@ export default function PhotoMatchReviewModal({
   const needsClarification = result?.status === 'needs_clarification';
   const isUnreadable = result?.status === 'unreadable';
   const hasMatches = result?.matches?.length > 0;
+  const hasUnmatchedPlayers = unmatchedNames.length > 0;
+  const noMatchesFound = !isProcessing && result && !isUnreadable && !hasMatches && status !== 'confirmed';
   const displayMatches = result?.matches ?? partialMatches ?? [];
   const showSideBySide = Boolean(uploadedImageUrl && displayMatches.length > 0);
 
@@ -100,8 +107,25 @@ export default function PhotoMatchReviewModal({
         </div>
       )}
 
+      {noMatchesFound && (
+        <div className="review-no-matches">
+          <ImageOff size={32} />
+          <p>No games extracted from this image</p>
+          {result?.note && (
+            <p className="no-matches-detail">{result.note}</p>
+          )}
+        </div>
+      )}
+
       {displayMatches.length > 0 && (
         <PhotoMatchResultsTable matches={displayMatches} isProcessing={isProcessing} />
+      )}
+
+      {hasMatches && !isProcessing && hasUnmatchedPlayers && (
+        <UnrecognizedPlayersSection
+          unmatchedNames={unmatchedNames}
+          onResolve={(name) => setResolutionTarget({ rawName: name })}
+        />
       )}
 
       <PhotoMatchConversation
@@ -195,7 +219,7 @@ export default function PhotoMatchReviewModal({
             <Button
               variant="success"
               onClick={handleConfirm}
-              disabled={isSubmitting || needsClarification}
+              disabled={isSubmitting || needsClarification || hasUnmatchedPlayers}
             >
               {isSubmitting ? (
                 <>
@@ -212,6 +236,19 @@ export default function PhotoMatchReviewModal({
           )}
         </div>
       </div>
+
+      <PlayerSearchModal
+        isOpen={!!resolutionTarget}
+        rawName={resolutionTarget?.rawName || ''}
+        leagueId={leagueId}
+        onSelect={(playerId, playerName) => {
+          if (resolutionTarget) {
+            handleResolvePlayer(resolutionTarget.rawName, playerId, playerName);
+          }
+          setResolutionTarget(null);
+        }}
+        onClose={() => setResolutionTarget(null)}
+      />
 
       {imageExpanded && uploadedImageUrl && (
         <div
@@ -256,6 +293,7 @@ export default function PhotoMatchReviewModal({
 
         .photo-review-modal .modal-body {
           overflow-y: auto;
+          overflow-x: hidden;
           flex: 1;
         }
 
@@ -313,6 +351,32 @@ export default function PhotoMatchReviewModal({
           }
           .photo-review-modal .review-image-panel img {
             max-height: min(280px, 50vh);
+          }
+          /* Tighter padding on mobile to give the table more room */
+          .photo-review-modal .modal-body {
+            padding: 16px;
+          }
+          /* Prevent iOS auto-zoom on input focus (triggers at < 16px) */
+          .photo-review-modal .edit-input-row textarea,
+          .photo-review-modal .option-row select,
+          .photo-review-modal .option-row input {
+            font-size: 16px;
+          }
+          /* Compact table cells on mobile */
+          .photo-review-modal .matches-table th,
+          .photo-review-modal .matches-table td {
+            padding: 6px 6px;
+          }
+          .photo-review-modal .match-num {
+            width: 24px;
+          }
+          .photo-review-modal .score {
+            width: 40px;
+          }
+          /* Stack season/date options vertically */
+          .photo-review-modal .confirmation-options {
+            flex-direction: column;
+            gap: 12px;
           }
         }
 
@@ -399,6 +463,35 @@ export default function PhotoMatchReviewModal({
         .photo-review-modal .unreadable-detail {
           font-size: 13px;
           color: var(--text-muted, #6b7280);
+        }
+
+        .photo-review-modal .review-no-matches {
+          text-align: center;
+          padding: 32px 20px;
+          color: var(--text-secondary, #6b7280);
+        }
+
+        .photo-review-modal .review-no-matches svg {
+          color: var(--warning-text, #d97706);
+        }
+
+        .photo-review-modal .review-no-matches p {
+          margin: 12px 0 0 0;
+          font-size: 14px;
+          color: var(--text-primary, #374151);
+          font-weight: 500;
+        }
+
+        .photo-review-modal .no-matches-detail {
+          font-size: 13px;
+          font-weight: 400;
+          color: var(--text-muted, #6b7280);
+        }
+
+        .photo-review-modal .no-matches-hint {
+          font-size: 13px;
+          font-weight: 400;
+          color: var(--info-text, #1e40af);
         }
 
         .photo-review-modal .review-results h3 {
@@ -544,6 +637,7 @@ export default function PhotoMatchReviewModal({
 
         .photo-review-modal .edit-input-row textarea {
           flex: 1;
+          min-width: 0;
           padding: 8px 10px;
           border: 1px solid var(--border-color, #e5e7eb);
           border-radius: 8px;
