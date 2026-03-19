@@ -184,18 +184,27 @@ export default function AddMatchModal({
     return isOpen && !editMatch && leagueMatchOnly;
   }, [isOpen, editMatch, leagueMatchOnly]);
 
-  // Pre-populate fields when editing
+  // Pre-populate fields when editing — re-runs when playerNameToIdMap updates
+  // so that player name→ID mapping resolves once members finish loading.
   useEffect(() => {
     if (editMatch) {
-      dispatchForm({ 
-        type: 'LOAD_MATCH', 
-        formData: mapEditMatchToFormData(editMatch, playerNameToIdMap) 
+      dispatchForm({
+        type: 'LOAD_MATCH',
+        formData: mapEditMatchToFormData(editMatch, playerNameToIdMap)
       });
-    } else {
-      dispatchForm({ type: 'RESET' });
+      setFormError(null);
     }
-    setFormError(null);
-  }, [editMatch, isOpen, playerNameToIdMap, dispatchForm, setFormError]);
+  }, [editMatch, playerNameToIdMap, dispatchForm, setFormError]);
+
+  // Reset form when modal opens for a new match (not editing).
+  // Deliberately excludes playerNameToIdMap — adding a local placeholder
+  // should NOT wipe the form.
+  useEffect(() => {
+    if (!editMatch) {
+      dispatchForm({ type: 'RESET' });
+      setFormError(null);
+    }
+  }, [editMatch, isOpen, dispatchForm, setFormError]);
 
   // Open season dropdown and show error state when "Please select a season" error occurs
   useEffect(() => {
