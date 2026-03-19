@@ -1,5 +1,5 @@
 import { Edit2 } from 'lucide-react';
-import PlaceholderBadge from '../player/PlaceholderBadge';
+import ShareInviteIcon from '../player/ShareInviteIcon';
 import './SessionMatchesClipboardTable.css';
 
 /**
@@ -75,14 +75,14 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t1p1 && onPlayerClick(t1p1Id, t1p1, e)}>
                           {t1p1}
                         </span>
-                        {match['Team 1 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
+                        {match['Team 1 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={t1p1Id} playerName={t1p1} />}
                       </span>
                       {t1p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t1p2Id, t1p2, e)}>
                             {t1p2}
                           </span>
-                          {match['Team 1 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
+                          {match['Team 1 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={t1p2Id} playerName={t1p2} />}
                         </span>
                       )}
                     </div>
@@ -95,14 +95,14 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t2p1 && onPlayerClick(t2p1Id, t2p1, e)}>
                           {t2p1}
                         </span>
-                        {match['Team 2 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
+                        {match['Team 2 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={t2p1Id} playerName={t2p1} />}
                       </span>
                       {t2p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t2p2Id, t2p2, e)}>
                             {t2p2}
                           </span>
-                          {match['Team 2 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
+                          {match['Team 2 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={t2p2Id} playerName={t2p2} />}
                         </span>
                       )}
                     </div>

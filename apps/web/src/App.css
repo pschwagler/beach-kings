@@ -840,6 +840,11 @@ h1 {
   color: var(--gray-600);
 }
 
+.dashboard-match-league {
+  font-size: 0.75rem;
+  color: var(--ocean-gray);
+}
+
 .dashboard-match-date {
   font-size: 0.875rem;
   color: var(--gray-600);

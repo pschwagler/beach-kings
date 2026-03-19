@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
+import ShareInviteIcon from '../player/ShareInviteIcon';
 
 export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchClick, onViewAll }) {
   const [showAll, setShowAll] = useState(false);
@@ -42,21 +43,22 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
   }
 
   const getMatchResult = (match) => {
-    // Match data format from API:
-    // { Result: 'W'/'L'/'T', Partner: 'name', 'Opponent 1': 'name', 'Opponent 2': 'name', Score: '21-15' }
-    
     const won = match.Result === 'W';
     const score = match.Score || '0-0';
-    const partner = match.Partner || 'Solo';
-    
-    const opponents = [match['Opponent 1'], match['Opponent 2']].filter(Boolean);
-    const opponent = opponents.length > 0 ? opponents.join(' & ') : 'Unknown';
-    
+
     return {
       won,
       score,
-      partner,
-      opponent
+      partner: match.Partner || 'Solo',
+      partnerId: match['Partner ID'],
+      partnerIsPlaceholder: match['Partner IsPlaceholder'],
+      opponent1: match['Opponent 1'],
+      opponent1Id: match['Opponent 1 ID'],
+      opponent1IsPlaceholder: match['Opponent 1 IsPlaceholder'],
+      opponent2: match['Opponent 2'],
+      opponent2Id: match['Opponent 2 ID'],
+      opponent2IsPlaceholder: match['Opponent 2 IsPlaceholder'],
+      leagueName: match['League Name'],
     };
   };
 
@@ -95,7 +97,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
                 onKeyDown={handleKeyDown}
                 role={isClickable ? 'button' : undefined}
                 tabIndex={isClickable ? 0 : undefined}
-                aria-label={isClickable ? `View game: ${result.score} with ${result.partner} vs ${result.opponent}` : undefined}
+                aria-label={isClickable ? `View game: ${result.score} with ${result.partner} vs ${[result.opponent1, result.opponent2].filter(Boolean).join(' & ')}` : undefined}
               >
                 <div className="dashboard-match-result">
                   <span className={`dashboard-match-status ${result.won ? 'won' : 'lost'}`}>
@@ -103,8 +105,23 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
                   </span>
                   <div className="dashboard-match-details">
                     <span className="dashboard-match-score">{result.score}</span>
-                    <span className="dashboard-match-partner">w/ {result.partner}</span>
-                    <span className="dashboard-match-opponent">vs {result.opponent}</span>
+                    <span className="dashboard-match-partner">
+                      w/ {result.partner}
+                      {result.partnerIsPlaceholder && <ShareInviteIcon playerId={result.partnerId} playerName={result.partner} />}
+                    </span>
+                    <span className="dashboard-match-opponent">
+                      vs {result.opponent1}
+                      {result.opponent1IsPlaceholder && <ShareInviteIcon playerId={result.opponent1Id} playerName={result.opponent1} />}
+                      {result.opponent2 && (
+                        <>
+                          {' & '}{result.opponent2}
+                          {result.opponent2IsPlaceholder && <ShareInviteIcon playerId={result.opponent2Id} playerName={result.opponent2} />}
+                        </>
+                      )}
+                    </span>
+                    {result.leagueName && (
+                      <span className="dashboard-match-league">{result.leagueName}</span>
+                    )}
                   </div>
                 </div>
                 {match.Date && (

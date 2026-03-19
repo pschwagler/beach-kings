@@ -43,13 +43,6 @@ async def list_players(
     include_placeholders (bool, requires auth), session_id (int, for placeholder scoping).
     """
     try:
-        # Resolve placeholder scoping — requires auth
-        include_placeholders_for_player_id = None
-        if include_placeholders and current_user:
-            player = await data_service.get_player_by_user_id(session, current_user["id"])
-            if player:
-                include_placeholders_for_player_id = player["id"]
-
         items, total = await data_service.list_players_search(
             session,
             q=q,
@@ -59,7 +52,7 @@ async def list_players(
             levels=level,
             limit=limit,
             offset=offset,
-            include_placeholders_for_player_id=include_placeholders_for_player_id,
+            include_placeholders=include_placeholders,
             session_id=session_id,
         )
         return {"items": items, "total": total}
@@ -178,6 +171,27 @@ async def delete_placeholder_player(
         raise HTTPException(status_code=403, detail="You can only delete placeholders you created")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting placeholder: {str(e)}")
+
+
+@router.get("/api/players/{player_id}/invite-url")
+async def get_player_invite_url(
+    player_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get the invite URL for a placeholder player by player ID.
+
+    Returns:
+        InviteUrlResponse with invite_url
+    """
+    try:
+        result = await placeholder_service.get_invite_url_by_player_id(session, player_id)
+        return result
+    except placeholder_service.InviteNotFoundError:
+        raise HTTPException(status_code=404, detail="No pending invite found for this player")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving invite URL: {str(e)}")
 
 
 # --- Invite Claim endpoints ---

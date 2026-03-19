@@ -1,0 +1,50 @@
+/* ShareInviteIcon — small inline share button for placeholder players */
+.share-invite-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  margin-left: 4px;
+  border: none;
+  border-radius: 6px;
+  background: var(--gray-200);
+  color: var(--ocean-gray);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.share-invite-icon:hover:not(:disabled) {
+  background: var(--primary-lighter);
+  color: var(--primary);
+}
+
+.share-invite-icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Inside match cards and clipboard table: no background, primary color */
+.match-team .share-invite-icon,
+.player-cell .share-invite-icon {
+  width: 18px;
+  height: 16px;
+  background: none;
+  color: var(--primary);
+}
+
+.match-team .share-invite-icon svg,
+.player-cell .share-invite-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.match-team .share-invite-icon:hover:not(:disabled),
+.player-cell .share-invite-icon:hover:not(:disabled) {
+  background: var(--primary-lighter);
+  color: var(--primary-dark);
+}

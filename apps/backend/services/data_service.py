@@ -1075,33 +1075,10 @@ def _normalize_list_str(lst: Optional[List[str]]) -> List[str]:
     return [s.strip().lower() for s in lst if s is not None and str(s).strip()]
 
 
-def _filter_placeholders(stmt, include_for_player_id, league_ids, session_id):
-    """Scope placeholder visibility: show only caller's own + league/session scoped."""
-    if include_for_player_id is not None:
-        conditions = [Player.created_by_player_id == include_for_player_id]
-        clean_ids = [x for x in (league_ids or []) if x is not None]
-        if clean_ids:
-            conditions.append(
-                Player.id.in_(
-                    select(LeagueMember.player_id)
-                    .where(LeagueMember.league_id.in_(clean_ids))
-                    .distinct()
-                )
-            )
-        if session_id is not None:
-            conditions.append(
-                Player.id.in_(
-                    select(SessionParticipant.player_id)
-                    .where(SessionParticipant.session_id == session_id)
-                    .distinct()
-                )
-            )
-        return stmt.where(
-            or_(
-                Player.is_placeholder.is_(False),
-                and_(Player.is_placeholder.is_(True), or_(*conditions)),
-            )
-        )
+def _filter_placeholders(stmt, include_placeholders):
+    """Exclude placeholder players unless include_placeholders is True."""
+    if include_placeholders:
+        return stmt
     return stmt.where(Player.is_placeholder.is_(False))
 
 
@@ -1156,7 +1133,7 @@ async def list_players_search(
     levels: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
-    include_placeholders_for_player_id: Optional[int] = None,
+    include_placeholders: bool = False,
     session_id: Optional[int] = None,
 ) -> Tuple[List[Dict], int]:
     """
@@ -1167,17 +1144,13 @@ async def list_players_search(
     location_id, location_name, is_placeholder.
 
     System records (status='system') are always excluded. Placeholder players are
-    excluded by default unless ``include_placeholders_for_player_id`` is set, in
-    which case the caller's own placeholders (and those scoped to the given
-    league_ids / session_id) are included.
+    excluded by default unless ``include_placeholders`` is True.
     """
 
     def _apply_common_filters(stmt, *, for_count: bool = False):
         """Apply shared WHERE clauses to both count and page queries."""
         stmt = stmt.where(or_(Player.status != "system", Player.status.is_(None)))
-        stmt = _filter_placeholders(
-            stmt, include_placeholders_for_player_id, league_ids, session_id
-        )
+        stmt = _filter_placeholders(stmt, include_placeholders)
         stmt = _filter_search(stmt, q)
         stmt = _filter_location(stmt, location_ids)
         stmt = _filter_league_membership(stmt, league_ids)
@@ -2618,31 +2591,64 @@ async def update_session(
 
 async def delete_session(session: AsyncSession, session_id: int) -> bool:
     """
-    Delete an active session and all its matches - async version.
-    Only ACTIVE sessions can be deleted.
+    Delete a session and all its matches, regardless of status.
+
+    For submitted/edited sessions, also cleans up rating history and
+    enqueues stats recalculation so totals stay accurate.
 
     Returns:
-        True if successful, False if session not found or not active
-
-    Raises:
-        ValueError: If session is not active (already submitted/edited)
+        True if successful, False if session not found
     """
-    # Check if session exists and is active
     result = await session.execute(select(Session).where(Session.id == session_id))
     session_obj = result.scalar_one_or_none()
 
     if not session_obj:
         return False
 
-    if session_obj.status != SessionStatus.ACTIVE:
-        raise ValueError("Cannot delete a session that has already been submitted")
+    was_submitted = session_obj.status != SessionStatus.ACTIVE
+    season_id = session_obj.season_id
 
-    # Delete matches first (foreign key constraint)
-    await session.execute(delete(Match).where(Match.session_id == session_id))
+    # Get match IDs for FK cleanup
+    match_ids_result = await session.execute(
+        select(Match.id).where(Match.session_id == session_id)
+    )
+    match_ids = [row[0] for row in match_ids_result.fetchall()]
 
-    # Delete the session
+    if match_ids:
+        # Delete rating history rows that reference these matches
+        await session.execute(
+            delete(EloHistory).where(EloHistory.match_id.in_(match_ids))
+        )
+        await session.execute(
+            delete(SeasonRatingHistory).where(
+                SeasonRatingHistory.match_id.in_(match_ids)
+            )
+        )
+
+        # Delete the matches
+        await session.execute(delete(Match).where(Match.session_id == session_id))
+
+    # Delete the session (session_participants cascade automatically)
     await session.execute(delete(Session).where(Session.id == session_id))
     await session.commit()
+
+    # Recalculate stats if matches were already counted
+    if was_submitted and match_ids:
+        from backend.services.stats_queue import get_stats_queue
+
+        queue = get_stats_queue()
+        await queue.enqueue_calculation(session, "global", None)
+
+        if season_id:
+            season_result = await session.execute(
+                select(Season).where(Season.id == season_id)
+            )
+            season_obj = season_result.scalar_one_or_none()
+            if season_obj:
+                await queue.enqueue_calculation(
+                    session, "league", season_obj.league_id
+                )
+
     return True
 
 
@@ -4106,6 +4112,10 @@ async def get_player_match_history_by_id(
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
             p4.full_name.label("team2_player2_name"),
+            p1.is_placeholder.label("t1p1_is_placeholder"),
+            p2.is_placeholder.label("t1p2_is_placeholder"),
+            p3.is_placeholder.label("t2p1_is_placeholder"),
+            p4.is_placeholder.label("t2p2_is_placeholder"),
             eh.elo_after,
             Match.is_ranked,
             Match.ranked_intent,
@@ -4148,13 +4158,17 @@ async def get_player_match_history_by_id(
             if row.team1_player1_id == player_id:
                 partner = row.team1_player2_name
                 partner_id = row.team1_player2_id
+                partner_is_placeholder = bool(row.t1p2_is_placeholder)
             else:
                 partner = row.team1_player1_name
                 partner_id = row.team1_player1_id
+                partner_is_placeholder = bool(row.t1p1_is_placeholder)
             opponent1 = row.team2_player1_name
             opponent1_id = row.team2_player1_id
+            opponent1_is_placeholder = bool(row.t2p1_is_placeholder)
             opponent2 = row.team2_player2_name
             opponent2_id = row.team2_player2_id
+            opponent2_is_placeholder = bool(row.t2p2_is_placeholder)
             player_score = row.team1_score
             opponent_score = row.team2_score
             elo_change = row.team1_elo_change or 0
@@ -4170,13 +4184,17 @@ async def get_player_match_history_by_id(
             if row.team2_player1_id == player_id:
                 partner = row.team2_player2_name
                 partner_id = row.team2_player2_id
+                partner_is_placeholder = bool(row.t2p2_is_placeholder)
             else:
                 partner = row.team2_player1_name
                 partner_id = row.team2_player1_id
+                partner_is_placeholder = bool(row.t2p1_is_placeholder)
             opponent1 = row.team1_player1_name
             opponent1_id = row.team1_player1_id
+            opponent1_is_placeholder = bool(row.t1p1_is_placeholder)
             opponent2 = row.team1_player2_name
             opponent2_id = row.team1_player2_id
+            opponent2_is_placeholder = bool(row.t1p2_is_placeholder)
             player_score = row.team2_score
             opponent_score = row.team1_score
             elo_change = row.team2_elo_change or 0
@@ -4201,10 +4219,13 @@ async def get_player_match_history_by_id(
                 "Date": row.date,
                 "Partner": partner,
                 "Partner ID": partner_id,
+                "Partner IsPlaceholder": partner_is_placeholder,
                 "Opponent 1": opponent1,
                 "Opponent 1 ID": opponent1_id,
+                "Opponent 1 IsPlaceholder": opponent1_is_placeholder,
                 "Opponent 2": opponent2,
                 "Opponent 2 ID": opponent2_id,
+                "Opponent 2 IsPlaceholder": opponent2_is_placeholder,
                 "Result": match_result,
                 "Score": f"{player_score}-{opponent_score}",
                 "ELO Change": elo_change,

@@ -313,6 +313,7 @@ export const getPlayers = async (params = {}) => {
     level,
     limit = 50,
     offset = 0,
+    include_placeholders = true,
   } = params;
   const searchParams = new URLSearchParams();
   if (q != null && q !== '') searchParams.set('q', String(q));
@@ -326,6 +327,7 @@ export const getPlayers = async (params = {}) => {
   levels.forEach((l) => searchParams.append('level', String(l)));
   searchParams.set('limit', String(limit));
   searchParams.set('offset', String(offset));
+  if (include_placeholders) searchParams.set('include_placeholders', 'true');
   const response = await api.get(`/api/players?${searchParams.toString()}`);
   return response.data;
 };
@@ -1592,10 +1594,14 @@ export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
  * @param {number} seasonId - Season to create matches in
  * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
  */
-export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate) => {
+export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate, playerOverrides = null) => {
+  const body = { season_id: seasonId, match_date: matchDate };
+  if (playerOverrides?.length) {
+    body.player_overrides = playerOverrides;
+  }
   const response = await api.post(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/confirm`,
-    { season_id: seasonId, match_date: matchDate }
+    body
   );
   return response.data;
 };

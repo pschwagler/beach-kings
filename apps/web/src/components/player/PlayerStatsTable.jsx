@@ -79,7 +79,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
               acc.groupRowIndex++;
             }
 
-            const rowKey = row['Player ID'] ?? idx;
+            const rowKey = row['Player ID'] != null ? `${row['Player ID']}-${idx}` : idx;
             if (isEmpty) {
               acc.rows.push(<tr key={`spacer-${idx}`}><td colSpan="6" className="spacer-row"></td></tr>);
             } else if (isSectionHeader) {

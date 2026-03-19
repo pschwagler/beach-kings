@@ -124,6 +124,10 @@ async def test_team1_player1_sees_correct_ids(db_session, match_scenario):
     assert m["Opponent 2 ID"] == p4.id
     assert m["Result"] == "W"
     assert m["Score"] == "21-19"
+    # All non-placeholder players
+    assert m["Partner IsPlaceholder"] is False
+    assert m["Opponent 1 IsPlaceholder"] is False
+    assert m["Opponent 2 IsPlaceholder"] is False
 
 
 @pytest.mark.asyncio
@@ -268,6 +272,51 @@ async def test_same_named_players_have_distinct_ids(db_session):
     match2 = [m for m in history if m["Partner ID"] == p3.id][0]
     assert match2["Opponent 1 ID"] == p2.id
     assert match2["Opponent 1"] == "John Smith"
+
+
+@pytest.mark.asyncio
+async def test_placeholder_flags_in_match_history(db_session):
+    """
+    When a partner or opponent is a placeholder, IsPlaceholder should be True.
+    """
+    u1 = await user_service.create_user(
+        session=db_session, phone_number=_unique_phone(), password_hash="hash"
+    )
+    p1 = await _create_player(db_session, "Real Player", user_id=u1)
+    p2 = Player(full_name="Placeholder Partner", gender="M", level="intermediate", is_placeholder=True)
+    p3 = await _create_player(db_session, "Real Opp 1")
+    p4 = Player(full_name="Placeholder Opp", gender="F", level="beginner", is_placeholder=True)
+    db_session.add_all([p2, p4])
+    await db_session.flush()
+    await db_session.refresh(p2)
+    await db_session.refresh(p4)
+
+    league = League(name="PH Flag League", is_open=True)
+    db_session.add(league)
+    await db_session.flush()
+    season = Season(
+        league_id=league.id, name="S", start_date=date(2024, 1, 1), end_date=date(2025, 12, 31)
+    )
+    db_session.add(season)
+    await db_session.flush()
+    sess = Session(date="2024-06-01", name="PH Session", status="SUBMITTED", season_id=season.id)
+    db_session.add(sess)
+    await db_session.flush()
+    match = Match(
+        session_id=sess.id, date="2024-06-01",
+        team1_player1_id=p1.id, team1_player2_id=p2.id,
+        team2_player1_id=p3.id, team2_player2_id=p4.id,
+        team1_score=21, team2_score=15, winner=1,
+    )
+    db_session.add(match)
+    await db_session.commit()
+
+    history = await data_service.get_player_match_history_by_id(db_session, p1.id)
+    assert len(history) == 1
+    m = history[0]
+    assert m["Partner IsPlaceholder"] is True
+    assert m["Opponent 1 IsPlaceholder"] is False
+    assert m["Opponent 2 IsPlaceholder"] is True
 
 
 @pytest.mark.asyncio

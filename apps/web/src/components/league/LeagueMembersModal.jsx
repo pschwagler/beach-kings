@@ -6,7 +6,7 @@ import { getLeagueMembers } from '../../services/api';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { slugify } from '../../utils/slugify';
 import LevelBadge from '../ui/LevelBadge';
-import PlaceholderBadge from '../player/PlaceholderBadge';
+import ShareInviteIcon from '../player/ShareInviteIcon';
 import { isImageUrl } from '../../utils/avatar';
 
 export default function LeagueMembersModal({ 
@@ -182,7 +182,7 @@ export default function LeagueMembersModal({
                       ) : (
                         <span className="league-member-name">{member.player_name || 'Unknown'}</span>
                       )}
-                      {member.is_placeholder && <PlaceholderBadge />}
+                      {member.is_placeholder && <ShareInviteIcon playerId={member.player_id} playerName={member.player_name} />}
                       {member.joined_at && (
                         <span className="league-member-joined">
                           Joined {formatJoinDate(member.joined_at)}

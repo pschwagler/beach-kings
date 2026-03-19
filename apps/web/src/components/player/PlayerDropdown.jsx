@@ -11,7 +11,7 @@ import {
   filterPlayers,
   hasExactMatch,
 } from '../../utils/playerDropdownUtils';
-import PlaceholderBadge from './PlaceholderBadge';
+import ShareInviteIcon from './ShareInviteIcon';
 import PlaceholderCreateModal from './PlaceholderCreateModal';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -421,7 +421,7 @@ export default function PlayerDropdown({
                 data-testid="player-dropdown-option"
               >
                 {getDisplayValue(player)}
-                {player.isPlaceholder && <PlaceholderBadge />}
+                {player.isPlaceholder && <ShareInviteIcon playerId={player.id} playerName={getDisplayValue(player)} />}
               </li>
             ))
           ) : inputValue ? (
