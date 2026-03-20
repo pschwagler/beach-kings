@@ -4,7 +4,6 @@ import {
   createTestLeague,
   createTestSeason,
   addPlayerToLeague,
-  createTestSession,
 } from '../utils/test-helpers.js';
 import { createApiClient } from '../fixtures/api.js';
 
@@ -56,37 +55,40 @@ test.describe('Season Switching on Games Tab', () => {
       playerIds[name] = resp.data.player_id;
     }
 
-    // Create & submit a match in season 1
-    const session1 = await createTestSession(token, leagueId);
-    await api.post('/api/matches', {
+    // Create matches via the match endpoint (no session_id) — the backend
+    // auto-creates sessions with the correct season_id when season_id + league_id are provided.
+    // This is important because the league session endpoint auto-assigns the active season,
+    // which wouldn't work for past seasons.
+
+    // Match in season 1
+    const match1Resp = await api.post('/api/matches', {
       team1_player1_id: playerIds[playerNames[0]],
       team1_player2_id: playerIds[playerNames[1]],
       team2_player1_id: playerIds[playerNames[2]],
       team2_player2_id: playerIds[playerNames[3]],
       team1_score: 21,
       team2_score: 15,
-      session_id: session1.id,
       season_id: season1Id,
       league_id: leagueId,
       is_ranked: true,
     });
-    await api.patch(`/api/leagues/${leagueId}/sessions/${session1.id}`, { submit: true });
+    const session1Id = match1Resp.data.session_id;
+    await api.patch(`/api/leagues/${leagueId}/sessions/${session1Id}`, { submit: true });
 
-    // Create & submit a match in season 2
-    const session2 = await createTestSession(token, leagueId);
-    await api.post('/api/matches', {
+    // Match in season 2
+    const match2Resp = await api.post('/api/matches', {
       team1_player1_id: playerIds[playerNames[2]],
       team1_player2_id: playerIds[playerNames[3]],
       team2_player1_id: playerIds[playerNames[0]],
       team2_player2_id: playerIds[playerNames[1]],
       team1_score: 21,
       team2_score: 18,
-      session_id: session2.id,
       season_id: season2Id,
       league_id: leagueId,
       is_ranked: true,
     });
-    await api.patch(`/api/leagues/${leagueId}/sessions/${session2.id}`, { submit: true });
+    const session2Id = match2Resp.data.session_id;
+    await api.patch(`/api/leagues/${leagueId}/sessions/${session2Id}`, { submit: true });
 
     // Navigate to Games tab
     await leaguePage.goto(leagueId);

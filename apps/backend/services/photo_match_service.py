@@ -823,112 +823,6 @@ async def clarify_scores_chat(
         }
 
 
-def repair_json(text: str) -> str:
-    """
-    Attempt to repair common JSON errors from LLM output.
-
-    Common errors:
-    - }}, instead of },  (extra closing brace in arrays)
-    - Missing closing brackets
-    """
-    # Fix }}, -> }, (common error where model outputs extra } in arrays)
-    repaired = re.sub(r"\}\},", "},", text)
-    # Fix }}" -> },"
-    repaired = re.sub(r'\}\}"', '},"', repaired)
-    return repaired
-
-
-def _try_parse_direct(text: str) -> Optional[Dict]:
-    """Try direct JSON parse."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return None
-
-
-def _try_parse_repaired(text: str) -> Optional[Dict]:
-    """Try parsing after repairing common LLM JSON errors."""
-    try:
-        repaired = repair_json(text)
-        if repaired != text:
-            return json.loads(repaired)
-    except json.JSONDecodeError:
-        pass
-    return None
-
-
-def _try_parse_markdown_block(text: str) -> Optional[Dict]:
-    """Try extracting JSON from markdown code blocks."""
-    m = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", text)
-    if m:
-        try:
-            return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-def _try_parse_brace_match(text: str) -> Optional[Dict]:
-    """Try extracting the outermost {...} via brace-depth counting."""
-    start = text.find("{")
-    if start == -1:
-        return None
-    depth = 0
-    for i, char in enumerate(text[start:], start=start):
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    return json.loads(text[start : i + 1])
-                except json.JSONDecodeError:
-                    return None
-    return None
-
-
-def _try_parse_regex(text: str) -> Optional[Dict]:
-    """Last-resort regex extraction of a JSON object."""
-    m = re.search(r"\{[\s\S]*\}", text)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-_JSON_PARSE_STRATEGIES = [
-    _try_parse_direct,
-    _try_parse_repaired,
-    _try_parse_markdown_block,
-    _try_parse_brace_match,
-    _try_parse_regex,
-]
-
-
-def parse_openai_response(response_text: str) -> Dict[str, Any]:
-    """
-    Parse OpenAI response text to extract JSON using a chain of fallback strategies.
-
-    Args:
-        response_text: Raw response from OpenAI
-
-    Returns:
-        Parsed dictionary
-    """
-    if not response_text:
-        raise ValueError("Empty response from OpenAI")
-
-    text = response_text.strip()
-    for strategy in _JSON_PARSE_STRATEGIES:
-        result = strategy(text)
-        if result is not None:
-            return result
-
-    raise ValueError("Could not parse JSON from response")
-
-
 # ============================================================================
 # Job Management
 # ============================================================================
@@ -1427,7 +1321,6 @@ async def create_matches_from_session(
     session_id: str,
     season_id: int,
     match_date: str,
-    created_by_player_id: Optional[int] = None,
     player_overrides: Optional[List[Dict]] = None,
 ) -> Tuple[bool, List[int], str]:
     """
@@ -1438,7 +1331,6 @@ async def create_matches_from_session(
         session_id: Redis session ID
         season_id: Season to create matches in
         match_date: Date for the matches
-        created_by_player_id: Player ID of creator
         player_overrides: Optional list of manual player resolutions
             [{raw_name, player_id, player_name}, ...]
 

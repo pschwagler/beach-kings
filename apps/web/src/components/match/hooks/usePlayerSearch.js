@@ -40,7 +40,7 @@ export function usePlayerSearch({ leagueId = null, limit = 10 } = {}) {
       if (leagueId) {
         params.league_id = leagueId;
       }
-      const data = await getPlayers(params);
+      const data = await getPlayers(params, { signal: controller.signal });
       if (!controller.signal.aborted) {
         setResults(data.items || []);
         setIsLoading(false);

@@ -317,12 +317,14 @@ class StatsTracker:
             )
         return self.players[player_id]
 
-    def process_match(self, match: Match) -> Tuple[float, float]:
+    def process_match(self, match: Match, skip_global_elo: bool = False) -> Tuple[float, float]:
         """
         Process a single match and update all relevant statistics.
 
         Args:
             match: Match ORM object containing match information
+            skip_global_elo: If True, skip global ELO calculation (for placeholder matches).
+                Season rating is still calculated.
 
         Returns:
             Tuple of (team1_elo_delta, team2_elo_delta)
@@ -344,7 +346,7 @@ class StatsTracker:
         self._record_point_differentials(match)
 
         # Calculate and apply ELO changes
-        elo_deltas = self._update_elos(match, winner)
+        elo_deltas = self._update_elos(match, winner, skip_global_elo=skip_global_elo)
 
         return elo_deltas
 
@@ -459,28 +461,38 @@ class StatsTracker:
             elo_change(k, team_ratings[1], exp[1], 1 - normalized_score),
         ]
 
-    def _update_elos(self, match: Match, winner: int) -> Tuple[float, float]:
+    def _update_elos(
+        self, match: Match, winner: int, skip_global_elo: bool = False
+    ) -> Tuple[float, float]:
         """
         Calculate and apply ELO changes for all players in the match.
         Updates both global ELO and season ELO (if Season Rating mode) completely separately.
+
+        Args:
+            match: Match ORM object
+            winner: Winner indicator (1, 2, or -1 for tie)
+            skip_global_elo: If True, skip global ELO update (for placeholder matches).
+                Season rating is still calculated.
         """
         teams = match.player_ids
         normalized = normalize_score(match.team1_score, match.team2_score, winner)
 
-        # Global ELO
-        global_deltas = self._calculate_elo_deltas(
-            teams,
-            K,
-            normalized,
-            rating_getter=lambda p: p.elo,
-        )
-        for team_idx, team in enumerate(teams):
-            for player_id in team:
-                self.get_player(player_id).update_elo(
-                    global_deltas[team_idx], match.date, match.id
-                )
+        # Global ELO (skip for placeholder matches)
+        global_deltas = [0.0, 0.0]
+        if not skip_global_elo:
+            global_deltas = self._calculate_elo_deltas(
+                teams,
+                K,
+                normalized,
+                rating_getter=lambda p: p.elo,
+            )
+            for team_idx, team in enumerate(teams):
+                for player_id in team:
+                    self.get_player(player_id).update_elo(
+                        global_deltas[team_idx], match.date, match.id
+                    )
 
-        # Season ELO (separate rating pool, lower K-factor)
+        # Season ELO (always calculated, even for placeholder matches)
         if self.is_season_rating:
             season_deltas = self._calculate_elo_deltas(
                 teams,
@@ -594,7 +606,9 @@ def process_matches(
     """
     tracker = StatsTracker(initial_ratings=initial_ratings, scoring_config=scoring_config)
     for match in match_list:
-        tracker.process_match(match)
+        # Skip global ELO for placeholder matches (ranked_intent=True but is_ranked=False)
+        skip_global_elo = not match.is_ranked
+        tracker.process_match(match, skip_global_elo=skip_global_elo)
 
     config = scoring_config or {}
     return (

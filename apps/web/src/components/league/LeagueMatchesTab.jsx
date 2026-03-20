@@ -123,11 +123,18 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const { refreshData } = dataRefresh;
 
   // Handle navigation from URL parameters (e.g., clicking from "My Games" dashboard)
+  // Apply once on mount, then clear the URL param so the dropdown is free to change
+  const seasonUrlAppliedRef = useRef(false);
   useEffect(() => {
-    if (seasonIdFromUrl && selectedSeasonId !== seasonIdFromUrl) {
+    if (!seasonUrlAppliedRef.current && seasonIdFromUrl) {
+      seasonUrlAppliedRef.current = true;
       setSelectedSeasonId(seasonIdFromUrl);
+      // Clear the season param from the URL to prevent it from locking the dropdown
+      const url = new URL(window.location.href);
+      url.searchParams.delete('season');
+      router.replace(url.pathname + url.search, { scroll: false });
     }
-  }, [seasonIdFromUrl, selectedSeasonId, setSelectedSeasonId]);
+  }, [seasonIdFromUrl, setSelectedSeasonId, router]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 

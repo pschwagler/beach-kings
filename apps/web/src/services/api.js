@@ -304,7 +304,7 @@ export const getRankings = async (queryParams = {}) => {
  * @param {Object} params - q, location_id (string or string[]), league_id (number or number[]),
  *   gender (string or string[]), level (string or string[]), limit, offset
  */
-export const getPlayers = async (params = {}) => {
+export const getPlayers = async (params = {}, { signal } = {}) => {
   const {
     q,
     location_id,
@@ -328,7 +328,7 @@ export const getPlayers = async (params = {}) => {
   searchParams.set('limit', String(limit));
   searchParams.set('offset', String(offset));
   if (include_placeholders) searchParams.set('include_placeholders', 'true');
-  const response = await api.get(`/api/players?${searchParams.toString()}`);
+  const response = await api.get(`/api/players?${searchParams.toString()}`, { signal });
   return response.data;
 };
 

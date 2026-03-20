@@ -4976,13 +4976,17 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
 # ============================================================================
 
 
-async def load_ranked_matches_async(
+async def load_stat_eligible_matches_async(
     session: AsyncSession, season_id: Optional[int] = None, league_id: Optional[int] = None
 ) -> List[Match]:
     """
-    Load ranked matches from database.
+    Load stat-eligible matches from database.
 
+    Includes all matches where ranked_intent=True (both fully ranked and placeholder matches).
     Only includes matches from finalized sessions (SUBMITTED or EDITED) or matches with no session.
+
+    Global ELO is handled downstream: placeholder matches (is_ranked=False) skip global ELO
+    but are included in all other stats (season, partnership, opponent).
 
     Args:
         session: Database session
@@ -4993,7 +4997,7 @@ async def load_ranked_matches_async(
         List of Match objects
     """
     conditions = [
-        Match.is_ranked.is_(True),
+        Match.ranked_intent.is_(True),
         or_(
             Session.status.in_([SessionStatus.SUBMITTED, SessionStatus.EDITED]),
             Session.id.is_(None),
@@ -5108,11 +5112,11 @@ async def upsert_player_global_stats_async(
     """
     Update PlayerGlobalStats based on elo_history and match data.
     For each player, calculate:
-    - current_rating: Latest elo_after from elo_history
-    - total_games: Count of matches they participated in
-    - total_wins: Count of matches they won
+    - current_rating: Latest elo_after from elo_history (INITIAL_ELO if no ELO history)
+    - total_games: Count of matches they participated in (includes placeholder matches)
+    - total_wins: Count of matches they won (includes placeholder matches)
     """
-    if not elo_history_list:
+    if not elo_history_list and not matches:
         return
 
     # Group elo_history by player_id and get latest rating
@@ -5312,7 +5316,7 @@ async def calculate_global_stats_async(session: AsyncSession) -> Dict:
         Dict with player_count and match_count
     """
     # Load all ranked matches
-    matches = await load_ranked_matches_async(session)
+    matches = await load_stat_eligible_matches_async(session)
 
     if not matches:
         # No matches - delete stats and return
@@ -5559,7 +5563,7 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
         Dict with league_player_count, league_match_count, and season_counts
     """
     # Load all ranked matches for the league (across all seasons) - single query
-    all_matches = await load_ranked_matches_async(session, league_id=league_id)
+    all_matches = await load_stat_eligible_matches_async(session, league_id=league_id)
 
     # Get all seasons for the league
     seasons = await list_seasons(session, league_id)
@@ -5591,9 +5595,9 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
             if sess_season_id:
                 session_to_season_map[sess_id] = sess_season_id
 
-    # Process all matches through calculation service to get league-level stats
-    # Note: player_id_map is no longer needed since we use IDs directly
-    partnerships, opponents, elo_history_list = calculation_service.process_matches(all_matches)
+    # Process all matches through calculation service to get league-level partnership/opponent stats
+    # Note: elo_history is not needed at league level (global ELO is handled by calculate_global_stats_async)
+    partnerships, opponents, _ = calculation_service.process_matches(all_matches)
 
     # Create tracker for player league stats (process all matches to get player-level stats)
     league_tracker = calculation_service.StatsTracker()
@@ -5725,7 +5729,7 @@ async def calculate_season_stats_async(session: AsyncSession, season_id: int) ->
         Dict with player_count and match_count
     """
     # Load ranked matches for this season
-    matches = await load_ranked_matches_async(session, season_id=season_id)
+    matches = await load_stat_eligible_matches_async(session, season_id=season_id)
 
     # Use the helper function to calculate season stats
     result = await _calculate_season_stats_from_matches(session, season_id, matches)

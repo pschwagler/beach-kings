@@ -414,40 +414,6 @@ class TestNormalizeExtractionResponse:
 
 
 # ============================================================================
-# Legacy JSON Parsing (parse_openai_response) - still used for fallback
-# ============================================================================
-
-
-class TestParseOpenAIResponse:
-    """Tests for parse_openai_response function (legacy/clarification)."""
-
-    def test_parse_valid_json(self):
-        """Test parsing valid JSON response."""
-        response = '{"status": "success", "matches": []}'
-        result = photo_match_service.parse_openai_response(response)
-        assert result["status"] == "success"
-        assert result["matches"] == []
-
-    def test_parse_json_in_markdown(self):
-        """Test parsing JSON wrapped in markdown code block."""
-        response = """Here are the extracted matches:
-
-```json
-{"status": "success", "matches": [{"team1_score": 21}]}
-```
-
-I found one match in the image."""
-        result = photo_match_service.parse_openai_response(response)
-        assert result["status"] == "success"
-        assert len(result["matches"]) == 1
-
-    def test_parse_invalid_json(self):
-        """Test parsing invalid JSON raises error."""
-        with pytest.raises(ValueError):
-            photo_match_service.parse_openai_response("This is not JSON at all")
-
-
-# ============================================================================
 # Scoreboard Prompt Tests
 # ============================================================================
 
@@ -861,35 +827,6 @@ class TestTruncateErrorMessage:
         assert msg == "Unknown error"
 
 
-class TestJsonParseStrategies:
-    """Tests for individual JSON parse strategy functions."""
-
-    def test_try_parse_direct_valid(self):
-        result = photo_match_service._try_parse_direct('{"key": "val"}')
-        assert result == {"key": "val"}
-
-    def test_try_parse_direct_invalid(self):
-        result = photo_match_service._try_parse_direct("not json")
-        assert result is None
-
-    def test_try_parse_markdown_block(self):
-        text = 'Some text\n```json\n{"a": 1}\n```\nmore text'
-        result = photo_match_service._try_parse_markdown_block(text)
-        assert result == {"a": 1}
-
-    def test_try_parse_brace_match(self):
-        text = 'prefix {"nested": {"deep": true}} suffix'
-        result = photo_match_service._try_parse_brace_match(text)
-        assert result == {"nested": {"deep": True}}
-
-    def test_try_parse_brace_match_no_braces(self):
-        result = photo_match_service._try_parse_brace_match("no braces here")
-        assert result is None
-
-    def test_try_parse_regex_fallback(self):
-        text = 'garbage {"status": "ok"} more garbage'
-        result = photo_match_service._try_parse_regex(text)
-        assert result == {"status": "ok"}
 
 
 # ============================================================================
