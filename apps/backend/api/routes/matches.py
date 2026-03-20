@@ -29,10 +29,31 @@ from backend.api.auth_dependencies import (
     require_user,
     make_require_league_member,
 )
-from backend.models.schemas import CreateMatchRequest, UpdateMatchRequest
+from backend.models.schemas import (
+    CreateMatchRequest,
+    UpdateMatchRequest,
+    EditPhotoResultsRequest,
+    ConfirmPhotoMatchesRequest,
+)
 from backend.utils.datetime_utils import utcnow
 
 logger = logging.getLogger(__name__)
+
+
+def _create_logged_task(coro, *, name: str) -> asyncio.Task:
+    """Create a background task with error logging on failure."""
+    task = asyncio.create_task(coro, name=name)
+
+    def _on_done(t: asyncio.Task) -> None:
+        if t.cancelled():
+            logger.warning("Background task %s was cancelled", name)
+        elif exc := t.exception():
+            logger.error("Background task %s failed: %s", name, exc, exc_info=exc)
+
+    task.add_done_callback(_on_done)
+    return task
+
+
 router = APIRouter()
 
 
@@ -431,14 +452,15 @@ async def upload_match_photo(
 
         job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
 
-        asyncio.create_task(
+        _create_logged_task(
             photo_match_service.process_photo_job(
                 job_id=job_id,
                 league_id=league_id,
                 session_id=session_id,
                 image_base64=image_base64,
                 league_members=members,
-            )
+            ),
+            name=f"process_photo_job_{job_id}",
         )
 
         return {"job_id": job_id, "session_id": session_id, "status": "PENDING"}
@@ -456,14 +478,14 @@ async def edit_photo_results(
     league_id: int,
     session_id: str,
     request: Request,
+    body: EditPhotoResultsRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member),
 ):
     """Send edit prompt for conversation refinement."""
     try:
-        body = await request.json()
-        edit_prompt = body.get("edit_prompt")
+        edit_prompt = body.edit_prompt
 
         if not edit_prompt:
             raise HTTPException(status_code=400, detail="edit_prompt is required")
@@ -479,14 +501,15 @@ async def edit_photo_results(
 
         job_id = await photo_match_service.create_photo_match_job(session, league_id, session_id)
 
-        asyncio.create_task(
+        _create_logged_task(
             photo_match_service.process_clarification_job(
                 job_id=job_id,
                 league_id=league_id,
                 session_id=session_id,
                 league_members=members,
                 user_prompt=edit_prompt,
-            )
+            ),
+            name=f"process_clarification_job_{job_id}",
         )
 
         return {"job_id": job_id, "session_id": session_id, "status": "PENDING"}
@@ -602,16 +625,16 @@ async def confirm_photo_matches(
     league_id: int,
     session_id: str,
     request: Request,
+    body: ConfirmPhotoMatchesRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(require_user),
     _league_member=Depends(make_require_league_member),
 ):
     """Confirm parsed matches and create them in the database."""
     try:
-        body = await request.json()
-        season_id = body.get("season_id")
-        match_date = body.get("match_date")
-        player_overrides = body.get("player_overrides")
+        season_id = body.season_id
+        match_date = body.match_date
+        player_overrides = body.player_overrides
 
         if not season_id:
             raise HTTPException(status_code=400, detail="season_id is required")

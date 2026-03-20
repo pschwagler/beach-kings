@@ -963,6 +963,116 @@ class MarkAsReadRequest(BaseModel):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Session route request schemas
+# ---------------------------------------------------------------------------
+
+
+class CreateLeagueSessionRequest(BaseModel):
+    """Request to create a new league session."""
+
+    date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
+    name: Optional[str] = None
+    court_id: Optional[int] = None
+
+
+class EndLeagueSessionRequest(BaseModel):
+    """Request to submit/lock a league session."""
+
+    submit: bool
+
+
+class JoinSessionRequest(BaseModel):
+    """Request to join a session by shareable code."""
+
+    code: str
+
+
+class InviteToSessionRequest(BaseModel):
+    """Request to invite a single player to a session."""
+
+    player_id: int
+
+
+class InviteBatchToSessionRequest(BaseModel):
+    """Request to invite multiple players to a session."""
+
+    player_ids: List[int]
+
+
+class CreateNonLeagueSessionRequest(BaseModel):
+    """Request to create a non-league session."""
+
+    date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
+    name: Optional[str] = None
+    court_id: Optional[int] = None
+
+
+class UpdateSessionRequest(BaseModel):
+    """Request to update a non-league session (submit, rename, re-date, re-season, re-court)."""
+
+    submit: Optional[bool] = None
+    name: Optional[str] = None
+    date: Optional[str] = None
+    season_id: Optional[int] = None
+    court_id: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# Player route request schemas
+# ---------------------------------------------------------------------------
+
+
+class CreatePlayerRequest(BaseModel):
+    """Request to create a new player by name."""
+
+    name: str
+
+
+class AddPlayerHomeCourt(BaseModel):
+    """Request to add a home court for a player."""
+
+    court_id: int
+
+
+class SetPlayerHomeCourts(BaseModel):
+    """Request to replace all home courts for a player."""
+
+    court_ids: List[int]
+
+
+class CourtPosition(BaseModel):
+    """A single (court_id, position) pair used when reordering home courts."""
+
+    court_id: int
+    position: int
+
+
+class ReorderPlayerHomeCourts(BaseModel):
+    """Request to reorder home courts for a player."""
+
+    court_positions: List[CourtPosition]
+
+
+# ---------------------------------------------------------------------------
+# Photo-match route request schemas
+# ---------------------------------------------------------------------------
+
+
+class EditPhotoResultsRequest(BaseModel):
+    """Request to send an edit prompt for photo-match conversation refinement."""
+
+    edit_prompt: str
+
+
+class ConfirmPhotoMatchesRequest(BaseModel):
+    """Request to confirm parsed photo matches and create them in the database."""
+
+    season_id: int
+    match_date: str
+    player_overrides: Optional[dict] = None
+
+
 class UnreadCountResponse(BaseModel):
     """Unread notification count response."""
 

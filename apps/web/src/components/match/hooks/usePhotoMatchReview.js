@@ -8,6 +8,15 @@ import {
   subscribePhotoJobStream,
 } from '../../../services/api';
 
+/** Job status constants shared between hook and modal. */
+export const JOB_STATUS = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CONFIRMED: 'confirmed',
+};
+
 /**
  * Hook for PhotoMatchReviewModal: job state, streaming, and submit logic.
  *
@@ -30,7 +39,7 @@ export function usePhotoMatchReview({
   onSuccess,
 }) {
   const [jobId, setJobId] = useState(initialJobId);
-  const [status, setStatus] = useState('PENDING');
+  const [status, setStatus] = useState(JOB_STATUS.PENDING);
   const [result, setResult] = useState(null);
   const [partialMatches, setPartialMatches] = useState(null);
   const [error, setError] = useState(null);
@@ -45,7 +54,7 @@ export function usePhotoMatchReview({
   const prevInitialJobIdRef = useRef(initialJobId);
 
   useEffect(() => {
-    if (!isOpen || !jobId || !leagueId || status === 'COMPLETED' || status === 'FAILED') {
+    if (!isOpen || !jobId || !leagueId || status === JOB_STATUS.COMPLETED || status === JOB_STATUS.FAILED) {
       return;
     }
     streamAbortRef.current = subscribePhotoJobStream(leagueId, jobId, {
@@ -56,8 +65,8 @@ export function usePhotoMatchReview({
       },
       onDone: (data) => {
         setPartialMatches(null);
-        setStatus(data.status || 'COMPLETED');
-        if (data.status === 'COMPLETED' && data.result) {
+        setStatus(data.status || JOB_STATUS.COMPLETED);
+        if (data.status === JOB_STATUS.COMPLETED && data.result) {
           setResult(data.result);
           if (data.result.clarification_question) {
             setConversationHistory((prev) => [
@@ -69,7 +78,7 @@ export function usePhotoMatchReview({
               },
             ]);
           }
-        } else if (data.status === 'FAILED') {
+        } else if (data.status === JOB_STATUS.FAILED) {
           setError(data.result?.error_message || 'Processing failed');
         }
       },
@@ -90,7 +99,7 @@ export function usePhotoMatchReview({
     if (initialJobId !== prevInitialJobIdRef.current) {
       prevInitialJobIdRef.current = initialJobId;
       setJobId(initialJobId);
-      setStatus('PENDING');
+      setStatus(JOB_STATUS.PENDING);
       setResult(null);
       setError(null);
       setConversationHistory([]);
@@ -102,7 +111,7 @@ export function usePhotoMatchReview({
   const handleClose = useCallback(async () => {
     if (isSubmitting) return;
 
-    if (sessionId && status !== 'confirmed') {
+    if (sessionId && status !== JOB_STATUS.CONFIRMED) {
       try {
         await cancelPhotoSession(leagueId, sessionId);
       } catch (err) {
@@ -136,7 +145,7 @@ export function usePhotoMatchReview({
     try {
       const response = await editPhotoResults(leagueId, sessionId, editPrompt.trim());
       setJobId(response.job_id);
-      setStatus('PENDING');
+      setStatus(JOB_STATUS.PENDING);
       setResult(null);
       setEditPrompt('');
       setPlayerOverrides([]);
@@ -262,7 +271,7 @@ export function usePhotoMatchReview({
         matchDate,
         overridesPayload
       );
-      setStatus('confirmed');
+      setStatus(JOB_STATUS.CONFIRMED);
       onSuccess?.(response.match_ids);
     } catch (err) {
       console.error('Error confirming matches:', err);

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MatchesTable from '../match/MatchesTable';
 
-import { useLeague } from '../../contexts/LeagueContext';
+import { useLeague, ALL_SEASONS_KEY } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -65,8 +65,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
-  const getSeasonIdForRefresh = useMemo(() => {
-    return () => selectedSeasonId || null;
+  const getSeasonIdForRefresh = useCallback(() => {
+    return selectedSeasonId || null;
   }, [selectedSeasonId]);
 
   // Use custom hooks
@@ -511,7 +511,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         onPlayerClick={handlePlayerClick}
         loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)
-          : (seasonDataLoadingMap['all-seasons'] || false)
+          : (seasonDataLoadingMap[ALL_SEASONS_KEY] || false)
         }
         activeSession={
           activeSession || null

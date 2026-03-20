@@ -41,8 +41,8 @@ export default function UnrecognizedPlayersSection({ unmatchedNames, onResolve }
         .unrecognized-players {
           margin-top: 16px;
           padding: 12px;
-          background: var(--warning-bg, #fffbeb);
-          border: 1px solid var(--warning-border, #fde68a);
+          background: var(--warning-bg);
+          border: 1px solid var(--warning-border);
           border-radius: 8px;
         }
 
@@ -53,13 +53,13 @@ export default function UnrecognizedPlayersSection({ unmatchedNames, onResolve }
         .unrecognized-players__title {
           font-size: 13px;
           font-weight: 600;
-          color: var(--warning-text, #d97706);
+          color: var(--warning-text);
           margin: 0;
         }
 
         .unrecognized-players__hint {
           font-size: 12px;
-          color: var(--text-muted, #6b7280);
+          color: var(--gray-600);
         }
 
         .unrecognized-players__list {
@@ -74,27 +74,27 @@ export default function UnrecognizedPlayersSection({ unmatchedNames, onResolve }
           gap: 6px;
           padding: 8px 12px;
           background: white;
-          border: 1px solid var(--warning-border, #fde68a);
+          border: 1px solid var(--warning-border);
           border-radius: 20px;
           cursor: pointer;
           font-size: 13px;
           font-family: inherit;
-          color: var(--text-primary, #374151);
+          color: var(--gray-900);
           transition: background 0.15s, border-color 0.15s;
           min-height: 36px;
         }
 
         .unrecognized-players__chip:hover {
-          background: var(--gray-50, #f9fafb);
-          border-color: var(--primary, #3b82f6);
+          background: var(--gray-50);
+          border-color: var(--primary);
         }
 
         .unrecognized-players__chip:active {
-          background: var(--gray-100, #f3f4f6);
+          background: var(--gray-100);
         }
 
         .unrecognized-players__chip-icon {
-          color: var(--warning-text, #d97706);
+          color: var(--warning-text);
           flex-shrink: 0;
         }
 

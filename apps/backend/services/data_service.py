@@ -2628,6 +2628,14 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
         # Delete the matches
         await session.execute(delete(Match).where(Match.session_id == session_id))
 
+    # Fetch league_id before commit (session expires objects post-commit)
+    league_id = None
+    if was_submitted and season_id:
+        season_result = await session.execute(
+            select(Season.league_id).where(Season.id == season_id)
+        )
+        league_id = season_result.scalar_one_or_none()
+
     # Delete the session (session_participants cascade automatically)
     await session.execute(delete(Session).where(Session.id == session_id))
     await session.commit()
@@ -2639,15 +2647,8 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
         queue = get_stats_queue()
         await queue.enqueue_calculation(session, "global", None)
 
-        if season_id:
-            season_result = await session.execute(
-                select(Season).where(Season.id == season_id)
-            )
-            season_obj = season_result.scalar_one_or_none()
-            if season_obj:
-                await queue.enqueue_calculation(
-                    session, "league", season_obj.league_id
-                )
+        if league_id:
+            await queue.enqueue_calculation(session, "league", league_id)
 
     return True
 

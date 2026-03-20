@@ -586,7 +586,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
   const digit2 = formattedValue[1] || '0';
   
   const isTeam1 = teamNumber === 1;
-  const bgColor = isTeam1 ? '#dc2626' : '#2563eb'; // red-600 : blue-600
+  const bgColor = isTeam1 ? 'var(--danger)' : 'var(--primary)';
   
   const input1Ref = useRef(null);
   const input2Ref = useRef(null);

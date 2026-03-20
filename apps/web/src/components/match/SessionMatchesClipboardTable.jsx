@@ -18,7 +18,7 @@ export default function SessionMatchesClipboardTable({
   lastUpdated = null,
   formatRelativeTime = (date) => date,
 }) {
-  const colSpan = showActions ? 7 : 7;
+  const colSpan = showActions ? 7 : 6;
 
   return (
     <div className="clipboard-table-wrapper">

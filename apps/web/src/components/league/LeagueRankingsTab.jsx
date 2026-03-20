@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Trophy, Search, Plus } from 'lucide-react';
-import { useLeague } from '../../contexts/LeagueContext';
+import { useLeague, ALL_SEASONS_KEY } from '../../contexts/LeagueContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
 import RankingsTable from '../rankings/RankingsTable';
@@ -54,7 +54,7 @@ export default function LeagueRankingsTab() {
   const allRankings = useMemo(() => {
     if (!selectedSeasonId) {
       // "All Seasons" selected - get from all-seasons key
-      const allSeasonsData = seasonData['all-seasons'];
+      const allSeasonsData = seasonData[ALL_SEASONS_KEY];
       if (!allSeasonsData) return null;
       if (allSeasonsData.rankings === undefined) return null;
       return Array.isArray(allSeasonsData.rankings) ? allSeasonsData.rankings : [];
@@ -218,7 +218,7 @@ export default function LeagueRankingsTab() {
         onPlayerClick={handlePlayerClick}
         loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)
-          : (seasonDataLoadingMap['all-seasons'] || false)
+          : (seasonDataLoadingMap[ALL_SEASONS_KEY] || false)
         }
         isAllSeasons={!selectedSeasonId}
         season={selectedSeason}

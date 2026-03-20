@@ -226,10 +226,9 @@ async def update_session_data(
         logger.warning(f"Session {session_id} not found for update")
         return False
 
-    existing.update(updates)
-    existing["last_updated"] = utcnow().isoformat()
+    merged = {**existing, **updates, "last_updated": utcnow().isoformat()}
 
-    return await store_session_data(session_id, existing)
+    return await store_session_data(session_id, merged)
 
 
 async def cleanup_session(session_id: str) -> bool:

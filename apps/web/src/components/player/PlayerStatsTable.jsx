@@ -57,26 +57,24 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
         </thead>
         <tbody>
           {playerStats.reduce((acc, row, idx) => {
-            const isSectionHeader = 
-              row['Partner/Opponent'] === 'WITH PARTNERS' || 
+            const isSectionHeader =
+              row['Partner/Opponent'] === 'WITH PARTNERS' ||
               row['Partner/Opponent'] === 'VS OPPONENTS';
             const isEmpty = row['Partner/Opponent'] === '';
             const isOverall = row['Partner/Opponent'] === 'OVERALL';
 
             // Reset counter on section header
-            if (isSectionHeader) {
-              acc.groupRowIndex = 0;
-            }
+            let groupRowIndex = isSectionHeader ? 0 : acc.groupRowIndex;
 
             let className = '';
             if (isOverall) {
               className = 'overall-row';
             } else if (!isEmpty && !isSectionHeader) {
               // Increment counter for data rows
-              if (acc.groupRowIndex % 2 !== 0) {
+              if (groupRowIndex % 2 !== 0) {
                 className = 'row-gray';
               }
-              acc.groupRowIndex++;
+              groupRowIndex++;
             }
 
             const rowKey = row['Player ID'] != null ? `${row['Player ID']}-${idx}` : idx;
@@ -110,7 +108,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }) {
                 </tr>
               );
             }
-            return acc;
+            return { rows: acc.rows, groupRowIndex };
           }, { rows: [], groupRowIndex: 0 }).rows}
         </tbody>
       </table>

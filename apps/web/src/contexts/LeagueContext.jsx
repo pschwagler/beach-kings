@@ -7,6 +7,8 @@ import { transformPlayerData } from '../components/league/utils/playerDataUtils'
 
 const LeagueContext = createContext(null);
 
+export const ALL_SEASONS_KEY = 'all-seasons';
+
 export const LeagueProvider = ({ children, leagueId }) => {
   const { currentUserPlayer, isInitializing: isAuthInitializing } = useAuth();
   const [league, setLeague] = useState(null);
@@ -89,9 +91,9 @@ export const LeagueProvider = ({ children, leagueId }) => {
   // This ensures consistency across RankingsTab and MatchesTab
   const selectedSeasonData = useMemo(() => {
     if (!selectedSeasonId) {
-      // "All Seasons" selected - use league stats data from 'all-seasons' key
+      // "All Seasons" selected - use league stats data from ALL_SEASONS_KEY
       // loadAllSeasonsRankings already loads all matches via getMatchesWithElo
-      const allSeasonsData = seasonData['all-seasons'];
+      const allSeasonsData = seasonData[ALL_SEASONS_KEY];
       if (allSeasonsData) {
         // Use matches directly from all-seasons data (already contains all matches)
         return allSeasonsData;
@@ -270,6 +272,16 @@ export const LeagueProvider = ({ children, leagueId }) => {
       ]);
       
       // Update with complete data (skip check if force reloading)
+      // Update ref immediately so callers that await loadSeasonData can read data
+      // without polling (e.g., refreshSeasonData).
+      const completeData = {
+        rankings: dataRef.current[seasonId]?.rankings || rankings || [],
+        matches: matches || [],
+        player_season_stats: playerStats || {},
+        partnership_opponent_stats: partnershipOpponentStats || {},
+      };
+      dataRef.current[seasonId] = completeData;
+
       setSeasonData(prev => {
         const existing = prev[seasonId];
         if (!forceReload && existing?.matches && existing?.player_season_stats) {
@@ -278,12 +290,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
         }
         return {
           ...prev,
-          [seasonId]: {
-            rankings: existing?.rankings || rankings || [],
-            matches: matches || [],
-            player_season_stats: playerStats || {},
-            partnership_opponent_stats: partnershipOpponentStats || {}
-          }
+          [seasonId]: completeData,
         };
       });
     } catch (err) {
@@ -321,7 +328,8 @@ export const LeagueProvider = ({ children, leagueId }) => {
     try {
       // If forceClear is true, clear the cached data to force a fresh fetch
       if (forceClear && dataRef.current[seasonId]) {
-        delete dataRef.current[seasonId].matches;
+        const { matches: _removed, ...rest } = dataRef.current[seasonId];
+        dataRef.current[seasonId] = rest;
       }
       
       // Only fetch matches - much faster than full season data refresh
@@ -375,36 +383,19 @@ export const LeagueProvider = ({ children, leagueId }) => {
 
   const refreshSeasonData = useCallback(async (seasonId) => {
     if (!seasonId) return;
-    
+
     // Check if already loading to prevent duplicate refreshes
     if (loadingRef.current[seasonId]) {
       return;
     }
-    
+
     // Clear the data ref so loadSeasonData will reload
-    // But keep loadingRef to prevent concurrent calls
     delete dataRef.current[seasonId];
-    
-    // Force reload the data (this will update seasonData in place)
+
+    // Force reload — loadSeasonData updates dataRef synchronously after fetch,
+    // so data is available in the ref as soon as the await resolves.
     await loadSeasonData(seasonId, true);
-    
-    // Wait for the data to actually be available in state
-    // Check up to 15 times with 150ms intervals (2.25 seconds total max wait)
-    let dataLoaded = false;
-    for (let i = 0; i < 15; i++) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      const currentData = dataRef.current[seasonId];
-      if (currentData?.matches !== undefined && currentData?.matches !== null) {
-        dataLoaded = true;
-        break;
-      }
-    }
-    
-    // If data loaded, wait one more cycle to ensure React has re-rendered
-    if (dataLoaded) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-    }
-    
+
     // Note: Player data will be reloaded automatically when selectedSeasonData changes
   }, [loadSeasonData]);
 
@@ -412,7 +403,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
   const loadAllSeasonsRankings = useCallback(async () => {
     if (!leagueId) return;
     
-    const allSeasonsKey = 'all-seasons';
+    const allSeasonsKey = ALL_SEASONS_KEY;
     
     // Check if already loading
     if (loadingRef.current[allSeasonsKey]) {
@@ -580,7 +571,15 @@ export const LeagueProvider = ({ children, leagueId }) => {
     }
   }, [selectedSeasonData, selectedPlayerId, updatePlayerStats]);
 
-  const value = {
+  const setSelectedPlayer = useCallback((playerId, playerName) => {
+    setSelectedPlayerId(playerId);
+    setSelectedPlayerName(playerName);
+    if (playerId && playerName) {
+      loadPlayerData(playerId, playerName);
+    }
+  }, [loadPlayerData]);
+
+  const value = useMemo(() => ({
     league,
     seasons,
     members,
@@ -611,16 +610,20 @@ export const LeagueProvider = ({ children, leagueId }) => {
     selectedPlayerName,
     playerSeasonStats,
     playerMatchHistory,
-    setSelectedPlayer: (playerId, playerName) => {
-      setSelectedPlayerId(playerId);
-      setSelectedPlayerName(playerName);
-      if (playerId && playerName) {
-        loadPlayerData(playerId, playerName);
-      }
-    },
+    setSelectedPlayer,
     // League ID
     leagueId,
-  };
+  }), [
+    league, seasons, members, loading, error,
+    refreshLeague, refreshSeasons, refreshMembers, updateLeague, updateMember,
+    activeSeasons, isSeasonActive, isSeasonPast,
+    selectedSeasonData, seasonData, seasonDataLoading,
+    loadSeasonData, refreshSeasonData, refreshMatchData, loadAllSeasonsRankings,
+    isLeagueMember, isLeagueAdmin,
+    selectedSeasonId, setSelectedSeasonId,
+    selectedPlayerId, selectedPlayerName, playerSeasonStats, playerMatchHistory,
+    setSelectedPlayer, leagueId,
+  ]);
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;
 };

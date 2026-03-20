@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,15 @@ from backend.api.auth_dependencies import (
     get_current_user,
     make_require_league_admin,
     make_require_league_member,
+)
+from backend.models.schemas import (
+    CreateLeagueSessionRequest,
+    EndLeagueSessionRequest,
+    JoinSessionRequest,
+    InviteToSessionRequest,
+    InviteBatchToSessionRequest,
+    CreateNonLeagueSessionRequest,
+    UpdateSessionRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -218,7 +227,7 @@ async def get_league_sessions(
 @router.post("/api/leagues/{league_id}/sessions")
 async def create_league_session(
     league_id: int,
-    request: Request,
+    body: CreateLeagueSessionRequest,
     user: dict = Depends(make_require_league_admin()),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -227,10 +236,9 @@ async def create_league_session(
     Body: { date?: 'MM/DD/YYYY', name?: string }
     """
     try:
-        body = await request.json()
-        date = body.get("date") or datetime.now().strftime("%-m/%-d/%Y")
-        name = body.get("name")
-        court_id = body.get("court_id")
+        date = body.date or datetime.now().strftime("%-m/%-d/%Y")
+        name = body.name
+        court_id = body.court_id
 
         player_id = None
         if user:
@@ -244,7 +252,7 @@ async def create_league_session(
             date=date,
             name=name,
             created_by=player_id,
-            court_id=int(court_id) if court_id is not None else None,
+            court_id=court_id,
         )
         return {"status": "success", "message": "Session created", "session": new_session}
     except ValueError as e:
@@ -257,7 +265,7 @@ async def create_league_session(
 async def end_league_session(
     league_id: int,
     session_id: int,
-    request: Request,
+    body: EndLeagueSessionRequest,
     user: dict = Depends(make_require_league_member()),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -272,8 +280,7 @@ async def end_league_session(
     3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
     """
     try:
-        body = await request.json()
-        submit = body.get("submit")
+        submit = body.submit
 
         if submit is not True:
             raise HTTPException(
@@ -422,14 +429,13 @@ async def remove_session_participant(
 
 @router.post("/api/sessions/join")
 async def join_session_by_code(
-    request: Request,
+    body: JoinSessionRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Join a session by code (adds current user's player to session participants)."""
     try:
-        body = await request.json()
-        code = body.get("code")
+        code = body.code
         if not code or not isinstance(code, str):
             raise HTTPException(status_code=400, detail="code is required")
         player = await data_service.get_player_by_user_id(session, current_user["id"])
@@ -449,7 +455,7 @@ async def join_session_by_code(
 @router.post("/api/sessions/{session_id}/invite")
 async def invite_to_session(
     session_id: int,
-    request: Request,
+    body: InviteToSessionRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -469,11 +475,9 @@ async def invite_to_session(
             raise HTTPException(
                 status_code=403, detail="Only session participants can invite others"
             )
-        body = await request.json()
-        invited_player_id = body.get("player_id")
+        invited_player_id = body.player_id
         if invited_player_id is None:
             raise HTTPException(status_code=400, detail="player_id is required")
-        invited_player_id = int(invited_player_id)
         await data_service.add_session_participant(
             session, session_id, invited_player_id, invited_by=player["id"]
         )
@@ -490,7 +494,7 @@ async def invite_to_session(
 @router.post("/api/sessions/{session_id}/invite_batch")
 async def invite_to_session_batch(
     session_id: int,
-    request: Request,
+    body: InviteBatchToSessionRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -512,8 +516,7 @@ async def invite_to_session_batch(
             raise HTTPException(
                 status_code=403, detail="Only session participants can invite others"
             )
-        body = await request.json()
-        player_ids = body.get("player_ids")
+        player_ids = body.player_ids
         if not isinstance(player_ids, list):
             raise HTTPException(status_code=400, detail="player_ids must be an array")
         added = []
@@ -544,7 +547,7 @@ async def invite_to_session_batch(
 
 @router.post("/api/sessions")
 async def create_session(
-    request: Request,
+    body: CreateNonLeagueSessionRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -554,14 +557,9 @@ async def create_session(
     Returns created session info including code.
     """
     try:
-        body = await request.json()
-        if not isinstance(body, dict):
-            body = {}
-        date = body.get("date")
-        if not date:
-            date = datetime.now().strftime("%-m/%-d/%Y")
-        name = body.get("name")
-        court_id = body.get("court_id")
+        date = body.date or datetime.now().strftime("%-m/%-d/%Y")
+        name = body.name
+        court_id = body.court_id
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         created_by = player["id"] if player else None
         new_session = await data_service.create_session(
@@ -581,7 +579,7 @@ async def create_session(
 @router.patch("/api/sessions/{session_id}")
 async def update_session(
     session_id: int,
-    request: Request,
+    body: UpdateSessionRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -602,8 +600,7 @@ async def update_session(
     3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
     """
     try:
-        body = await request.json()
-        submit = body.get("submit")
+        submit = body.submit
 
         # Handle submit (original behavior) - this takes precedence
         if submit is True:
@@ -641,17 +638,20 @@ async def update_session(
                 "season_id": result["season_id"],
             }
 
-        # Handle other field updates (name, date, season_id, court_id)
-        name = body.get("name")
-        date = body.get("date")
-        season_id = body.get("season_id")
-        court_id = body.get("court_id")
+        # Handle other field updates (name, date, season_id, court_id).
+        # Use model_fields_set to distinguish "field sent as null" from "field omitted".
+        name = body.name
+        date = body.date
+        update_season_id = "season_id" in body.model_fields_set
+        processed_season_id = None if body.season_id is None else int(body.season_id)
+        update_court_id = "court_id" in body.model_fields_set
+        processed_court_id = None if body.court_id is None else int(body.court_id)
 
         has_updates = (
             name is not None
             or date is not None
-            or "season_id" in body
-            or "court_id" in body
+            or update_season_id
+            or update_court_id
         )
 
         if not has_updates:
@@ -659,18 +659,6 @@ async def update_session(
                 status_code=400,
                 detail="At least one field must be provided: submit, name, date, season_id, or court_id",
             )
-
-        processed_season_id = None
-        update_season_id = False
-        if "season_id" in body:
-            update_season_id = True
-            processed_season_id = None if season_id is None else int(season_id)
-
-        processed_court_id = None
-        update_court_id = False
-        if "court_id" in body:
-            update_court_id = True
-            processed_court_id = None if court_id is None else int(court_id)
 
         result = await data_service.update_session(
             session,
@@ -704,8 +692,30 @@ async def delete_session(
     """
     Delete a session and all its matches.
     Works for any session status (ACTIVE, SUBMITTED, EDITED).
+
+    Authorization: session creator or league admin (for league sessions).
     """
     try:
+        # Verify session exists
+        session_obj = await data_service.get_session(session, session_id)
+        if not session_obj:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+        # Authorization: must be session creator or league admin
+        player = await data_service.get_player_by_user_id(session, current_user["id"])
+        is_creator = player and session_obj.get("created_by") == player["id"]
+
+        if not is_creator:
+            # Check if user is a league admin for this session's league
+            is_admin = await is_user_admin_of_session_league(
+                session, current_user["id"], session_id
+            )
+            if not is_admin:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only the session creator or a league admin can delete this session",
+                )
+
         success = await data_service.delete_session(session, session_id)
 
         if not success:
@@ -721,4 +731,5 @@ async def delete_session(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
+        logger.error(f"Error deleting session {session_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
