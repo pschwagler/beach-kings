@@ -185,18 +185,10 @@ export const LeagueProvider = ({ children, leagueId }) => {
     ));
   }, []);
 
-  // Use refs to track loading state without causing re-renders
+  // Refs mirror state for synchronous reads inside async callbacks.
+  // Written at every mutation site — no sync effects needed.
   const loadingRef = useRef({});
   const dataRef = useRef({});
-  
-  // Update refs when state changes
-  useEffect(() => {
-    loadingRef.current = seasonDataLoading;
-  }, [seasonDataLoading]);
-  
-  useEffect(() => {
-    dataRef.current = seasonData;
-  }, [seasonData]);
   
   // Load season data with progressive loading
   const loadSeasonData = useCallback(async (seasonId, forceReload = false) => {
@@ -234,20 +226,18 @@ export const LeagueProvider = ({ children, leagueId }) => {
       
       // Update with rankings first (skip check if force reloading)
       // Preserve existing matches during reload to avoid clearing them
+      const rankingsData = {
+        rankings: rankings || [],
+        matches: dataRef.current[seasonId]?.matches || null,
+        player_season_stats: dataRef.current[seasonId]?.player_season_stats || null,
+        partnership_opponent_stats: dataRef.current[seasonId]?.partnership_opponent_stats || null,
+      };
+      dataRef.current[seasonId] = rankingsData;
       setSeasonData(prev => {
         if (!forceReload && prev[seasonId]) {
           return prev; // Already loaded
         }
-        const existing = prev[seasonId];
-        return {
-          ...prev,
-          [seasonId]: {
-            rankings: rankings || [],
-            matches: existing?.matches || null, // Preserve existing matches during reload
-            player_season_stats: existing?.player_season_stats || null,
-            partnership_opponent_stats: existing?.partnership_opponent_stats || null
-          }
-        };
+        return { ...prev, [seasonId]: rankingsData };
       });
       
       // Load matches, player stats, and partnership/opponent stats in parallel (background)
@@ -296,20 +286,16 @@ export const LeagueProvider = ({ children, leagueId }) => {
     } catch (err) {
       console.error('Error loading season data:', err);
       // Set empty data structure on error to prevent retries
-      setSeasonData(prev => {
-        if (prev[seasonId]) {
-          return prev; // Don't overwrite if data exists
-        }
-        return {
-          ...prev,
-          [seasonId]: {
-            rankings: [],
-            matches: [],
-            player_season_stats: {},
-            partnership_opponent_stats: {}
-          }
+      if (!dataRef.current[seasonId]) {
+        const emptyData = {
+          rankings: [],
+          matches: [],
+          player_season_stats: {},
+          partnership_opponent_stats: {},
         };
-      });
+        dataRef.current[seasonId] = emptyData;
+        setSeasonData(prev => prev[seasonId] ? prev : { ...prev, [seasonId]: emptyData });
+      }
     } finally {
       // Clear loading flag
       delete loadingRef.current[seasonId];

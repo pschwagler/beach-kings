@@ -51,7 +51,7 @@ export function usePhotoMatchReview({
   const [playerOverrides, setPlayerOverrides] = useState([]);
 
   const streamAbortRef = useRef(null);
-  const prevInitialJobIdRef = useRef(initialJobId);
+
 
   useEffect(() => {
     if (!isOpen || !jobId || !leagueId || status === JOB_STATUS.COMPLETED || status === JOB_STATUS.FAILED) {
@@ -95,18 +95,8 @@ export function usePhotoMatchReview({
     };
   }, [isOpen, jobId, leagueId, status]);
 
-  useEffect(() => {
-    if (initialJobId !== prevInitialJobIdRef.current) {
-      prevInitialJobIdRef.current = initialJobId;
-      setJobId(initialJobId);
-      setStatus(JOB_STATUS.PENDING);
-      setResult(null);
-      setError(null);
-      setConversationHistory([]);
-      setPartialMatches(null);
-      setPlayerOverrides([]);
-    }
-  }, [initialJobId]);
+  // State reset on new initialJobId is handled by the parent re-keying the
+  // component (key={initialJobId} in GlobalModal), which remounts the hook.
 
   const handleClose = useCallback(async () => {
     if (isSubmitting) return;

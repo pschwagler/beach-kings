@@ -172,13 +172,6 @@ export default function AddMatchModal({
     };
   }, [matchType, selectedLeagueId]);
 
-  // Reset match type and ranked state when modal opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setIsRanked(true);
-    }
-  }, [isOpen]);
-
   // Track if modal is newly opened (for auto-open behavior) - derived state
   const shouldAutoOpen = useMemo(() => {
     return isOpen && !editMatch && leagueMatchOnly;
@@ -203,15 +196,10 @@ export default function AddMatchModal({
     if (!editMatch) {
       dispatchForm({ type: 'RESET' });
       setFormError(null);
+      setIsRanked(true);
     }
   }, [editMatch, isOpen, dispatchForm, setFormError]);
 
-  // Open season dropdown and show error state when "Please select a season" error occurs
-  useEffect(() => {
-    if (formError === 'Please select a season' && !isSeasonDropdownOpen) {
-      setIsSeasonDropdownOpen(true);
-    }
-  }, [formError, isSeasonDropdownOpen, setIsSeasonDropdownOpen]);
 
   // Use validation hook
   const { validateForm } = useMatchValidation({
@@ -244,6 +232,9 @@ export default function AddMatchModal({
     // Validate form
     const validationResult = validateForm();
     if (!validationResult.isValid) {
+      if (validationResult.openSeasonDropdown) {
+        setIsSeasonDropdownOpen(true);
+      }
       return;
     }
 
