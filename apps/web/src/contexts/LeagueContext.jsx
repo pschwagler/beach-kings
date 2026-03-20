@@ -528,7 +528,6 @@ export const LeagueProvider = ({ children, leagueId }) => {
       // "All Seasons" selected - load rankings for all seasons in the league
       loadAllSeasonsRankings();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSeasonId, loadSeasonData, loadAllSeasonsRankings]);
 
   // Helper to update player stats from active season data

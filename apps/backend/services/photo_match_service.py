@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import queue
-import re
+
 import time
 import uuid
 from difflib import SequenceMatcher
