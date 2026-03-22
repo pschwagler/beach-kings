@@ -20,8 +20,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(table: str) -> bool:
+    """Check if a table exists (used for idempotent migrations)."""
+    from sqlalchemy import text
+
+    conn = op.get_bind()
+    result = conn.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = :table"),
+        {"table": table},
+    )
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     """Create league_home_courts table."""
+    if _table_exists("league_home_courts"):
+        return
     op.create_table(
         "league_home_courts",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),

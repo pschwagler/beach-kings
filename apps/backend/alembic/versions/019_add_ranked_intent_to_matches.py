@@ -22,8 +22,25 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table: str, column: str) -> bool:
+    """Check if a column exists on a table (used for idempotent migrations)."""
+    from sqlalchemy import text
+
+    conn = op.get_bind()
+    result = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :table AND column_name = :column"
+        ),
+        {"table": table, "column": column},
+    )
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     """Add ranked_intent column with server default True."""
+    if _column_exists("matches", "ranked_intent"):
+        return
     op.add_column(
         "matches",
         sa.Column(
