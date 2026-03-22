@@ -41,7 +41,12 @@ export default function PlayerSearchModal({ isOpen, rawName, leagueId, onSelect,
       data.league_id = leagueId;
     }
     const result = await createPlaceholderPlayer(data);
-    return result;
+    // API returns snake_case; PlaceholderCreateModal expects camelCase
+    return {
+      ...result,
+      inviteUrl: result.invite_url || result.inviteUrl,
+      inviteToken: result.invite_token || result.inviteToken,
+    };
   }, [leagueId]);
 
   const handlePlaceholderClose = useCallback((createdPlayer) => {

@@ -9,6 +9,7 @@ export function useDataRefresh({
   loadAllSessions,
   refreshSeasonData,
   refreshMatchData,
+  refreshAllSeasonsMatches,
   getSeasonIdForRefresh,
   selectedSeasonId,
   seasons
@@ -54,17 +55,16 @@ export function useDataRefresh({
     // Refresh match data
     if (matches) {
       const idToRefresh = seasonId || (getSeasonIdForRefresh ? getSeasonIdForRefresh() : null);
-      
+
       if (idToRefresh) {
         if (refreshMatchData) {
           promises.push(refreshMatchData(idToRefresh, forceClear));
         }
-      } else if (!selectedSeasonId && seasons?.length > 0) {
-        // "All Seasons" selected - refresh all seasons
-        if (refreshMatchData) {
-          const refreshPromises = seasons.map(s => refreshMatchData(s.id, forceClear));
-          promises.push(...refreshPromises);
-        }
+      }
+
+      // When "All Seasons" is selected, also refresh the combined view
+      if (!selectedSeasonId && refreshAllSeasonsMatches) {
+        promises.push(refreshAllSeasonsMatches());
       }
     }
 
@@ -74,6 +74,7 @@ export function useDataRefresh({
     loadAllSessions,
     refreshSeasonData,
     refreshMatchData,
+    refreshAllSeasonsMatches,
     getSeasonIdForRefresh,
     selectedSeasonId,
     seasons
@@ -81,4 +82,3 @@ export function useDataRefresh({
 
   return { refreshData };
 }
-
