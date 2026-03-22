@@ -1550,9 +1550,7 @@ async def get_sitemap_courts(session: AsyncSession) -> List[Dict]:
     ]
 
 
-async def get_placeholder_court(
-    session: AsyncSession, location_id: str
-) -> Optional[Dict]:
+async def get_placeholder_court(session: AsyncSession, location_id: str) -> Optional[Dict]:
     """
     Return the placeholder "Other / Private Court" for a location.
 

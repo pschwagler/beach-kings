@@ -500,9 +500,7 @@ async def cancel_league_join_request(
     try:
         player = await data_service.get_player_by_user_id(session, user["id"])
         if not player:
-            raise HTTPException(
-                status_code=404, detail="Player profile not found."
-            )
+            raise HTTPException(status_code=404, detail="Player profile not found.")
 
         await data_service.cancel_league_request(session, league_id, player["id"])
         return {"success": True, "message": "Join request cancelled."}
@@ -512,9 +510,7 @@ async def cancel_league_join_request(
         raise
     except Exception as e:
         logger.error(f"Error cancelling join request: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Error cancelling join request: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error cancelling join request: {str(e)}")
 
 
 @router.get("/api/leagues/{league_id}/join-requests")

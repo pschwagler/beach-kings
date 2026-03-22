@@ -968,14 +968,6 @@ class MarkAsReadRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class CreateLeagueSessionRequest(BaseModel):
-    """Request to create a new league session."""
-
-    date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
-    name: Optional[str] = None
-    court_id: Optional[int] = None
-
-
 class EndLeagueSessionRequest(BaseModel):
     """Request to submit/lock a league session."""
 
@@ -1070,7 +1062,7 @@ class ConfirmPhotoMatchesRequest(BaseModel):
 
     season_id: int
     match_date: str
-    player_overrides: Optional[dict] = None
+    player_overrides: Optional[list] = None
 
 
 class UnreadCountResponse(BaseModel):
@@ -1248,6 +1240,7 @@ class PublicPlayerResponse(BaseModel):
     avatar: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
+    is_placeholder: bool = False
     location: Optional[PublicLocationRef] = None
     stats: PublicPlayerStats
     league_memberships: List[PublicPlayerLeagueMembership] = []
@@ -1343,6 +1336,7 @@ class PublicPlayerListItem(BaseModel):
     location_name: Optional[str] = None
     total_games: int = 0
     current_rating: float = 1200.0
+    is_placeholder: bool = False
 
 
 class PaginatedPublicPlayersResponse(BaseModel):
@@ -1636,9 +1630,7 @@ class _KobTournamentBase(BaseModel):
 
     name: str = Field(default=None, min_length=1, max_length=100)
     gender: Literal["mens", "womens", "coed"] = None
-    format: Literal[
-        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
-    ] = None
+    format: Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"] = None
     game_to: int = Field(default=None, ge=7, le=28)
     num_courts: int = Field(default=None, ge=1, le=20)
     max_rounds: Optional[int] = Field(default=None, ge=1)
@@ -1670,9 +1662,9 @@ class KobTournamentCreate(_KobTournamentBase):
 
     name: str = Field(..., min_length=1, max_length=100)
     gender: Literal["mens", "womens", "coed"] = "coed"
-    format: Literal[
-        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
-    ] = "FULL_ROUND_ROBIN"
+    format: Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"] = (
+        "FULL_ROUND_ROBIN"
+    )
     game_to: int = Field(21, ge=7, le=28)
     num_courts: int = Field(2, ge=1, le=20)
     games_per_match: int = 1

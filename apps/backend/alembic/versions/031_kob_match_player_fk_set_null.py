@@ -94,11 +94,7 @@ def downgrade() -> None:
         return
 
     for col in _FK_COLUMNS:
-        op.drop_constraint(
-            f"fk_kob_matches_{col}_players", "kob_matches", type_="foreignkey"
-        )
+        op.drop_constraint(f"fk_kob_matches_{col}_players", "kob_matches", type_="foreignkey")
         # Note: ALTER COLUMN SET NOT NULL will fail if any NULLs exist
         op.alter_column("kob_matches", col, nullable=False)
-        op.create_foreign_key(
-            None, "kob_matches", "players", [col], ["id"]
-        )
+        op.create_foreign_key(None, "kob_matches", "players", [col], ["id"])

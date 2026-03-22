@@ -413,6 +413,7 @@ export default function MatchesTable({
       defaultLeagueId: leagueId,
       members,
       league,
+      sessionSeasonId: match['Session Season ID'] ?? null,
       defaultSeasonId: selectedSeasonId,
       onSeasonChange: onSeasonChange
     });
@@ -618,14 +619,16 @@ export default function MatchesTable({
                     });
                   }}
                   onUpdateSessionSeason={onUpdateSessionSeason}
+                  onUpdateSessionCourt={onUpdateSessionCourt}
+                  leagueHomeCourts={leagueHomeCourts}
                   onStatsClick={() => {
                   // Get season for this session
                   const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
                   const seasonId = sessionMatch?.['Session Season ID'];
-                  const sessionSeason = seasonId && seasons.length > 0 
-                    ? seasons.find(s => s.id === seasonId) 
+                  const sessionSeason = seasonId && seasons.length > 0
+                    ? seasons.find(s => s.id === seasonId)
                     : null;
-                  
+
                   const sessionGameCount = group.matches?.length || 0;
                   const sessionPlayers = new Set();
                   group.matches?.forEach(match => {
@@ -635,7 +638,7 @@ export default function MatchesTable({
                     if (match['Team 2 Player 2']) sessionPlayers.add(match['Team 2 Player 2']);
                   });
                   const sessionPlayerCount = sessionPlayers.size;
-                  
+
                   openModal(MODAL_TYPES.SESSION_SUMMARY, {
                     title: group.name || "Session Summary",
                     gameCount: sessionGameCount,

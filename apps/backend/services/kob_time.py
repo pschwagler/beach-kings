@@ -45,6 +45,7 @@ _GAME_TO_LADDER = [7, 11, 15, 21, 28]
 # Time calculation helpers
 # ---------------------------------------------------------------------------
 
+
 def _wave_minutes(game_to: int = 21, games_per_match: int = 1) -> int:
     """
     Minutes per wave of court play.
@@ -123,13 +124,15 @@ def _split_into_time_slots(
             num_slots = math.ceil(len(matches) / num_courts)
             time_per_slot = rnd["time_minutes"] // num_slots if num_slots else 0
             for i in range(0, len(matches), num_courts):
-                chunk = matches[i:i + num_courts]
-                result.append({
-                    **rnd,
-                    "round_num": slot_num,
-                    "matches": chunk,
-                    "time_minutes": time_per_slot,
-                })
+                chunk = matches[i : i + num_courts]
+                result.append(
+                    {
+                        **rnd,
+                        "round_num": slot_num,
+                        "matches": chunk,
+                        "time_minutes": time_per_slot,
+                    }
+                )
                 slot_num += 1
     return result
 
@@ -169,6 +172,7 @@ def _games_per_player_range(
 # ---------------------------------------------------------------------------
 # Per-pool game_to auto-calculation
 # ---------------------------------------------------------------------------
+
 
 def _auto_pool_game_to(
     pool_sizes: Dict[int, int],

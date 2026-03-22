@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/test-fixtures.js';
+import { execSync } from 'child_process';
 
 /**
  * Photo Match — Unrecognized Player Resolution E2E Tests
@@ -6,8 +7,8 @@ import { test, expect } from '../fixtures/test-fixtures.js';
  * Tests the flow where AI-extracted player names can't be matched and
  * the user resolves them via the PlayerSearchModal / PlaceholderCreateModal.
  *
- * Uses route interception to mock the photo upload + SSE stream, avoiding
- * real AI processing while exercising the full modal interaction chain.
+ * Only the upload + SSE stream are mocked (Gemini dependency).
+ * Player search, placeholder creation, and confirm hit the REAL test backend.
  */
 
 // Minimal valid 1x1 JPEG for file upload
@@ -21,26 +22,31 @@ const JPEG_BYTES = Buffer.from(
   'base64'
 );
 
+const TEST_SESSION_ID = 'e2e-photo-resolve-test';
+const REDIS_KEY_PREFIX = 'photo_match_session:';
+
 /**
- * Build mock match data with 2 matched and 2 unmatched players.
+ * Build mock match data using real player IDs for matched players.
+ * Two players are matched (from fixture), two are unmatched raw names.
  */
-function buildMockMatchesWithUnmatched() {
+function buildMockMatches(playerIds) {
+  const ids = Object.values(playerIds);
   return [
     {
       match_number: 1,
-      team1_player1: { id: null, name: 'JD' },
+      team1_player1: { id: null, name: 'Unknown Alpha' },
       team1_player1_id: null,
       team1_player1_matched: '',
       team1_player1_confidence: 0,
-      team1_player2: { id: 101, name: '' },
-      team1_player2_id: 101,
-      team1_player2_matched: 'Jane Smith',
+      team1_player2: { id: ids[0], name: '' },
+      team1_player2_id: ids[0],
+      team1_player2_matched: Object.keys(playerIds)[0],
       team1_player2_confidence: 1.0,
-      team2_player1: { id: 102, name: '' },
-      team2_player1_id: 102,
-      team2_player1_matched: 'Bob Wilson',
+      team2_player1: { id: ids[1], name: '' },
+      team2_player1_id: ids[1],
+      team2_player1_matched: Object.keys(playerIds)[1],
       team2_player1_confidence: 1.0,
-      team2_player2: { id: null, name: 'Mike S' },
+      team2_player2: { id: null, name: 'Unknown Beta' },
       team2_player2_id: null,
       team2_player2_matched: '',
       team2_player2_confidence: 0,
@@ -51,17 +57,18 @@ function buildMockMatchesWithUnmatched() {
 }
 
 /**
- * Set up all route mocks needed for the photo match review flow.
+ * Set up route mocks for upload + SSE stream ONLY.
+ * Player search, placeholder creation, and confirm hit real API.
  */
-async function setupPhotoMatchMocks(page, leagueId) {
-  const matches = buildMockMatchesWithUnmatched();
+async function setupPhotoMatchMocks(page, leagueId, playerIds) {
+  const matches = buildMockMatches(playerIds);
 
-  // Mock photo upload
+  // Mock photo upload — return a fake job/session so we don't call Gemini
   await page.route(`**/api/leagues/${leagueId}/matches/upload-photo`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ job_id: 9999, session_id: 'test-session-123' }),
+      body: JSON.stringify({ job_id: 9999, session_id: TEST_SESSION_ID }),
     });
   });
 
@@ -73,7 +80,7 @@ async function setupPhotoMatchMocks(page, leagueId) {
         status: 'needs_clarification',
         matches,
         clarification_question:
-          "I couldn't match these player names: JD, Mike S. Please clarify.",
+          "I couldn't match these player names: Unknown Alpha, Unknown Beta. Please clarify.",
         error_message: null,
         note: null,
       },
@@ -86,57 +93,43 @@ async function setupPhotoMatchMocks(page, leagueId) {
     });
   });
 
-  // Mock player search
-  await page.route('**/api/players?*', async (route, request) => {
-    const url = new URL(request.url());
-    const q = (url.searchParams.get('q') || '').toLowerCase();
-    const allPlayers = [
-      { player_id: 201, name: 'John Doe', gender: 'male', location_name: 'San Diego', elo_rating: 1450 },
-      { player_id: 202, name: 'John Davis', gender: 'male', location_name: 'Los Angeles', elo_rating: 1300 },
-      { player_id: 203, name: 'Mike Sullivan', gender: 'male', location_name: 'San Diego', elo_rating: 1200 },
-    ];
-    const filtered = q ? allPlayers.filter((p) => p.name.toLowerCase().includes(q)) : allPlayers;
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ players: filtered, total: filtered.length }),
-    });
+  // Mock the cancel/delete endpoint for tests that don't seed a Redis session.
+  // The modal's onClose calls DELETE /photo-sessions/{session_id} which would 404
+  // without a real Redis session.
+  await page.route(`**/api/leagues/${leagueId}/matches/photo-sessions/${TEST_SESSION_ID}`, async (route) => {
+    if (route.request().method() === 'DELETE') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"status":"cancelled"}' });
+    } else {
+      await route.fallback();
+    }
   });
+}
 
-  // Mock placeholder creation
-  await page.route('**/api/players/placeholder', async (route) => {
-    const body = JSON.parse(route.request().postData() || '{}');
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        player_id: 999,
-        name: body.name || 'New Player',
-        invite_url: 'https://example.com/invite/abc123',
-        invite_token: 'abc123',
-      }),
-    });
-  });
+/**
+ * Seed a Redis session so the real confirm endpoint can read it.
+ * Uses redis-cli via docker exec to avoid adding a Redis client dependency.
+ */
+function seedRedisSession(leagueId, playerIds) {
+  const matches = buildMockMatches(playerIds);
+  const sessionData = {
+    league_id: leagueId,
+    parsed_matches: matches,
+    status: 'needs_clarification',
+    clarification_question:
+      "I couldn't match these player names: Unknown Alpha, Unknown Beta. Please clarify.",
+  };
 
-  // Mock confirm
-  await page.route(`**/api/leagues/${leagueId}/matches/photo-sessions/*/confirm`, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        status: 'success',
-        message: 'Created 1 matches',
-        matches_created: 1,
-        match_ids: [5001],
-      }),
-    });
-  });
+  const key = `${REDIS_KEY_PREFIX}${TEST_SESSION_ID}`;
+  const value = JSON.stringify(sessionData);
+  execSync(
+    `docker exec beach-kings-redis-test redis-cli SET '${key}' '${value.replace(/'/g, "'\\''")}' EX 900`,
+    { stdio: 'pipe' }
+  );
 }
 
 /**
  * Navigate to a league, go to Games tab, upload a mock photo, and wait
  * for the review modal with unrecognized players to appear.
- * Returns once the unrecognized players section is visible.
  */
 async function navigateToPhotoReviewWithUnmatched(page, leagueId) {
   await page.goto(`/league/${leagueId}`);
@@ -195,6 +188,26 @@ async function openPlaceholderCreateFromUnmatched(page) {
   await page.waitForSelector('.placeholder-create-modal', { state: 'visible', timeout: 5000 });
 }
 
+/**
+ * Resolve the first unmatched chip by searching for a real player from the fixture.
+ * Clears the pre-filled search, types the player name prefix, and clicks the result.
+ */
+async function resolveFirstUnmatchedViaSearch(page, playerNames) {
+  // The third player in the fixture (index 2) — not used in matched slots
+  const targetName = playerNames[2];
+  // Use a short prefix that uniquely matches
+  const searchPrefix = targetName.substring(0, 10);
+
+  await page.locator('.unrecognized-players__chip').first().click();
+  await page.waitForSelector('.player-search-modal', { state: 'visible', timeout: 5000 });
+  const searchInput = page.locator('.player-search-modal__input');
+  await searchInput.clear();
+  await searchInput.fill(searchPrefix);
+  const result = page.locator(`.player-search-modal__result:has-text("${targetName}")`);
+  await result.waitFor({ state: 'visible', timeout: 5000 });
+  await result.click();
+}
+
 test.describe('Photo Match — Unrecognized Player Resolution', () => {
   test('selecting gender in PlaceholderCreateModal does not close parent modals', async ({
     authedPage,
@@ -202,9 +215,9 @@ test.describe('Photo Match — Unrecognized Player Resolution', () => {
     leagueWithPlayers,
   }) => {
     const page = authedPage;
-    const { leagueId } = leagueWithPlayers;
+    const { leagueId, playerIds } = leagueWithPlayers;
 
-    await setupPhotoMatchMocks(page, leagueId);
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
     await navigateToPhotoReviewWithUnmatched(page, leagueId);
     await openPlaceholderCreateFromUnmatched(page);
 
@@ -224,9 +237,9 @@ test.describe('Photo Match — Unrecognized Player Resolution', () => {
     leagueWithPlayers,
   }) => {
     const page = authedPage;
-    const { leagueId } = leagueWithPlayers;
+    const { leagueId, playerIds } = leagueWithPlayers;
 
-    await setupPhotoMatchMocks(page, leagueId);
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
     await navigateToPhotoReviewWithUnmatched(page, leagueId);
     await openPlaceholderCreateFromUnmatched(page);
 
@@ -247,12 +260,12 @@ test.describe('Photo Match — Unrecognized Player Resolution', () => {
     leagueWithPlayers,
   }) => {
     const page = authedPage;
-    const { leagueId } = leagueWithPlayers;
+    const { leagueId, playerIds } = leagueWithPlayers;
 
-    await setupPhotoMatchMocks(page, leagueId);
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
     await navigateToPhotoReviewWithUnmatched(page, leagueId);
 
-    // Open PlayerSearchModal for "JD"
+    // Open PlayerSearchModal for "Unknown Alpha"
     await page.locator('.unrecognized-players__chip').first().click();
     await page.waitForSelector('.player-search-modal', { state: 'visible', timeout: 5000 });
 
@@ -266,8 +279,143 @@ test.describe('Photo Match — Unrecognized Player Resolution', () => {
     await page.locator('.player-search-modal__add-new').click();
     await page.waitForSelector('.placeholder-create-modal', { state: 'visible', timeout: 5000 });
 
-    // Name input should have the updated query, not original "JD"
+    // Name input should have the updated query, not original "Unknown Alpha"
     const nameInput = page.locator('.placeholder-create-modal__name');
     await expect(nameInput).toHaveValue('Jonathan Doe');
+  });
+
+  test('resolving all unmatched players via search enables confirm button', async ({
+    authedPage,
+    testUser,
+    leagueWithPlayers,
+  }) => {
+    const page = authedPage;
+    const { leagueId, playerIds, playerNames } = leagueWithPlayers;
+
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
+    await navigateToPhotoReviewWithUnmatched(page, leagueId);
+
+    // Confirm button should be disabled while players are unmatched
+    const confirmBtn = page.locator('button:has-text("Confirm & Create")');
+    await expect(confirmBtn).toBeDisabled();
+
+    // Resolve first unmatched player ("Unknown Alpha") via real player search
+    await resolveFirstUnmatchedViaSearch(page, playerNames);
+
+    // First chip resolved — second chip should still be visible
+    await page.locator('.unrecognized-players__chip').first().waitFor({ state: 'visible', timeout: 5000 });
+    await expect(confirmBtn).toBeDisabled();
+
+    // Resolve second unmatched player ("Unknown Beta") via search for 4th fixture player
+    const fourthName = playerNames[3];
+    const searchPrefix = fourthName.substring(0, 10);
+    await page.locator('.unrecognized-players__chip').first().click();
+    await page.waitForSelector('.player-search-modal', { state: 'visible', timeout: 5000 });
+    const searchInput = page.locator('.player-search-modal__input');
+    await searchInput.clear();
+    await searchInput.fill(searchPrefix);
+    const result = page.locator(`.player-search-modal__result:has-text("${fourthName}")`);
+    await result.waitFor({ state: 'visible', timeout: 5000 });
+    await result.click();
+
+    // All players resolved — confirm button should be enabled
+    await expect(page.locator('.unrecognized-players')).not.toBeVisible({ timeout: 3000 });
+    await expect(confirmBtn).toBeEnabled({ timeout: 3000 });
+  });
+
+  test('resolving unmatched player via placeholder creation enables confirm button', async ({
+    authedPage,
+    testUser,
+    leagueWithPlayers,
+  }) => {
+    const page = authedPage;
+    const { leagueId, playerIds, playerNames } = leagueWithPlayers;
+
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
+    await navigateToPhotoReviewWithUnmatched(page, leagueId);
+
+    const confirmBtn = page.locator('button:has-text("Confirm & Create")');
+    await expect(confirmBtn).toBeDisabled();
+
+    // Resolve "Unknown Alpha" via real player search
+    await resolveFirstUnmatchedViaSearch(page, playerNames);
+
+    // Resolve "Unknown Beta" by creating a new placeholder player (hits real API)
+    await page.locator('.unrecognized-players__chip').first().click();
+    await page.waitForSelector('.player-search-modal', { state: 'visible', timeout: 5000 });
+
+    const searchInput = page.locator('.player-search-modal__input');
+    await searchInput.clear();
+    await searchInput.fill(`E2E Placeholder ${Date.now()}`);
+    await page.waitForTimeout(500); // debounce
+
+    await page.locator('.player-search-modal__add-new').click();
+    await page.waitForSelector('.placeholder-create-modal', { state: 'visible', timeout: 5000 });
+
+    // Create the placeholder via real API
+    await page.locator('.placeholder-create-modal__create-btn').click();
+
+    // Wait for success state, then close
+    await page.waitForSelector('.placeholder-create-modal__success', { state: 'visible', timeout: 5000 });
+    await page.locator('.placeholder-create-modal__done-btn').click();
+
+    // All players resolved — confirm button should be enabled
+    await expect(page.locator('.unrecognized-players')).not.toBeVisible({ timeout: 3000 });
+    await expect(confirmBtn).toBeEnabled({ timeout: 3000 });
+  });
+
+  test('confirm creates real matches after resolving players via placeholder', async ({
+    authedPage,
+    testUser,
+    leagueWithPlayers,
+  }) => {
+    const page = authedPage;
+    const { leagueId, seasonId, playerIds, playerNames } = leagueWithPlayers;
+
+    await setupPhotoMatchMocks(page, leagueId, playerIds);
+
+    // Seed Redis session so the real confirm endpoint can read parsed_matches
+    seedRedisSession(leagueId, playerIds);
+
+    await navigateToPhotoReviewWithUnmatched(page, leagueId);
+
+    // Resolve "Unknown Alpha" via real player search
+    await resolveFirstUnmatchedViaSearch(page, playerNames);
+
+    // Resolve "Unknown Beta" via real placeholder creation
+    await page.locator('.unrecognized-players__chip').first().click();
+    await page.waitForSelector('.player-search-modal', { state: 'visible', timeout: 5000 });
+    const searchInput = page.locator('.player-search-modal__input');
+    await searchInput.clear();
+    await searchInput.fill(`E2E Confirm Test ${Date.now()}`);
+    await page.waitForTimeout(500);
+    await page.locator('.player-search-modal__add-new').click();
+    await page.waitForSelector('.placeholder-create-modal', { state: 'visible', timeout: 5000 });
+    await page.locator('.placeholder-create-modal__create-btn').click();
+    await page.waitForSelector('.placeholder-create-modal__success', { state: 'visible', timeout: 5000 });
+    await page.locator('.placeholder-create-modal__done-btn').click();
+
+    // Select the season
+    const seasonSelect = page.locator('.confirmation-options select').first();
+    await seasonSelect.waitFor({ state: 'visible', timeout: 5000 });
+    await seasonSelect.selectOption({ index: 1 });
+
+    // Listen for the real confirm API call
+    const confirmResponsePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/confirm') && resp.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+
+    // Click confirm
+    const confirmBtn = page.locator('button:has-text("Confirm & Create")');
+    await expect(confirmBtn).toBeEnabled({ timeout: 3000 });
+    await confirmBtn.click();
+
+    // Verify the real confirm API returned success
+    const confirmResponse = await confirmResponsePromise;
+    const body = await confirmResponse.json();
+    expect(confirmResponse.status()).toBe(200);
+    expect(body.status).toBe('success');
+    expect(body.match_ids.length).toBeGreaterThan(0);
   });
 });

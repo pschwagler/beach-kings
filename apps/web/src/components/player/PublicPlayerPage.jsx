@@ -46,6 +46,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const { showToast } = useToast();
 
   const isSelf = currentUserPlayer?.id === player?.id;
+  const isPlaceholder = player?.is_placeholder;
 
   const {
     homeCourts,
@@ -146,7 +147,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
   const { stats } = player;
 
   const renderFriendButton = () => {
-    if (!isAuthenticated || friendStatus === null || friendStatus === 'self') return null;
+    if (!isAuthenticated || friendStatus === null || friendStatus === 'self' || isPlaceholder) return null;
 
     if (friendStatus === 'friend') {
       return (
@@ -217,6 +218,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
         <div className="public-player__info">
           <h1 className="public-player__name" data-testid="player-name">{player.full_name}</h1>
           <div className="public-player__meta">
+            {isPlaceholder && (
+              <span className="public-player__badge public-player__badge--placeholder">Unregistered</span>
+            )}
             {player.location && (
               <Link
                 href={`/beach-volleyball/${player.location.slug}`}
@@ -233,7 +237,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }) {
         </div>
         {/* Friend action icons */}
         <div className="public-player__friend-action">
-          {isAuthenticated && friendStatus !== 'self' && (
+          {isAuthenticated && friendStatus !== 'self' && !isPlaceholder && (
             friendStatus === 'friend' ? (
               <button
                 className="public-player__friend-icon public-player__friend-icon--message"

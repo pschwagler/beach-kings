@@ -1,16 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '../ui/UI';
-import OpenSessionsList from './OpenSessionsList';
+import { MySessionsWidget } from './OpenSessionsList';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import { getPlayerMatchHistory } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
 /**
- * My Games tab: open sessions (where user is creator, has match, or invited) and optional recent games.
- * Clicking "Create game" opens the CreateGameModal to choose league vs pickup.
+ * My Games tab: sessions and match history side-by-side on desktop, stacked on mobile.
+ * Both lists render in "full" mode — no widget chrome, all items visible, natural page flow.
  */
 export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClick }) {
   const { openModal } = useModal();
@@ -18,7 +18,6 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
-  // Refresh open sessions when page becomes visible (e.g., returning from session page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -69,24 +68,25 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
         </Button>
       </div>
 
-      <section className="my-games-tab-section">
-        <h3 className="my-games-tab-section-title">
-          <Calendar size={18} />
-          Open sessions
-        </h3>
-        <OpenSessionsList refreshTrigger={refreshTrigger} currentUserPlayerId={currentUserPlayer?.id} />
-      </section>
-
-      {currentUserPlayer && (
-        <section className="my-games-tab-section">
-          <h3 className="my-games-tab-section-title">Recent games</h3>
-          <MyMatchesWidget
-            matches={userMatches}
-            currentUserPlayer={currentUserPlayer}
-            onMatchClick={onMatchClick}
+      <div className="my-games-tab-grid">
+        <div className="my-games-tab-col">
+          <MySessionsWidget
+            variant="full"
+            refreshTrigger={refreshTrigger}
+            currentUserPlayerId={currentUserPlayer?.id}
           />
-        </section>
-      )}
+        </div>
+        {currentUserPlayer && (
+          <div className="my-games-tab-col">
+            <MyMatchesWidget
+              variant="full"
+              matches={userMatches}
+              currentUserPlayer={currentUserPlayer}
+              onMatchClick={onMatchClick}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -138,7 +138,8 @@ class TestCreateTournament:
     @pytest.mark.asyncio
     async def test_creates_with_custom_config(self, db_session, director):
         tid, _ = await _create_tournament(
-            db_session, director,
+            db_session,
+            director,
             name="Custom Tourney",
             format="POOLS_PLAYOFFS",
             game_to=15,
@@ -184,17 +185,13 @@ class TestUpdateTournament:
     async def test_rejects_non_director(self, db_session, director, players):
         tid, _ = await _create_tournament(db_session, director)
         with pytest.raises(ValueError, match="Only the director"):
-            await kob_service.update_tournament(
-                db_session, tid, players[0], {"name": "Hacked"}
-            )
+            await kob_service.update_tournament(db_session, tid, players[0], {"name": "Hacked"})
 
     @pytest.mark.asyncio
     async def test_rejects_non_setup(self, db_session, director, players):
         tid = await _start_tournament(db_session, director, players[:4])
         with pytest.raises(ValueError, match="SETUP"):
-            await kob_service.update_tournament(
-                db_session, tid, director, {"name": "Late Change"}
-            )
+            await kob_service.update_tournament(db_session, tid, director, {"name": "Late Change"})
 
 
 class TestDeleteTournament:
@@ -425,9 +422,7 @@ class TestSubmitScore:
         await db_session.flush()
 
         m = _r1_matches(t)[0]
-        scored = await kob_service.submit_score(
-            db_session, tid, m.matchup_id, 21, 15
-        )
+        scored = await kob_service.submit_score(db_session, tid, m.matchup_id, 21, 15)
         assert scored.team1_score == 21
         assert scored.team2_score == 15
         assert scored.winner == 1
@@ -441,9 +436,7 @@ class TestSubmitScore:
         future = [m for m in t.kob_matches if m.round_num > 1 and not m.is_bye]
         if future:
             with pytest.raises(ValueError, match="round"):
-                await kob_service.submit_score(
-                    db_session, tid, future[0].matchup_id, 21, 15
-                )
+                await kob_service.submit_score(db_session, tid, future[0].matchup_id, 21, 15)
 
     @pytest.mark.asyncio
     async def test_rejects_double_score(self, db_session, director, players):
@@ -473,9 +466,7 @@ class TestSubmitScore:
         byes = [m for m in t.kob_matches if m.is_bye and m.round_num == 1]
         if byes:
             with pytest.raises(ValueError, match="bye"):
-                await kob_service.submit_score(
-                    db_session, tid, byes[0].matchup_id, 21, 15
-                )
+                await kob_service.submit_score(db_session, tid, byes[0].matchup_id, 21, 15)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -489,9 +480,7 @@ class TestBo3Scoring:
     @pytest.mark.asyncio
     async def test_bo3_two_game_sweep(self, db_session, director, players):
         """Team 1 wins 2-0: match decided after game 2."""
-        tid = await _start_tournament(
-            db_session, director, players[:4], games_per_match=3
-        )
+        tid = await _start_tournament(db_session, director, players[:4], games_per_match=3)
         t = await _fresh_tournament(db_session, tid)
         t.auto_advance = False
         await db_session.flush()
@@ -509,9 +498,7 @@ class TestBo3Scoring:
     @pytest.mark.asyncio
     async def test_bo3_three_games(self, db_session, director, players):
         """Split to 1-1, then team 2 wins game 3."""
-        tid = await _start_tournament(
-            db_session, director, players[:4], games_per_match=3
-        )
+        tid = await _start_tournament(db_session, director, players[:4], games_per_match=3)
         t = await _fresh_tournament(db_session, tid)
         t.auto_advance = False
         await db_session.flush()
@@ -527,9 +514,7 @@ class TestBo3Scoring:
     @pytest.mark.asyncio
     async def test_bo3_rejects_fourth_game(self, db_session, director, players):
         """Cannot add a 4th game score."""
-        tid = await _start_tournament(
-            db_session, director, players[:4], games_per_match=3
-        )
+        tid = await _start_tournament(db_session, director, players[:4], games_per_match=3)
         t = await _fresh_tournament(db_session, tid)
         t.auto_advance = False
         await db_session.flush()
@@ -546,9 +531,7 @@ class TestBo3Scoring:
     @pytest.mark.asyncio
     async def test_bo3_edit_game_index(self, db_session, director, players):
         """Director can edit a specific game score via game_index."""
-        tid = await _start_tournament(
-            db_session, director, players[:4], games_per_match=3
-        )
+        tid = await _start_tournament(db_session, director, players[:4], games_per_match=3)
         t = await _fresh_tournament(db_session, tid)
         t.auto_advance = False
         await db_session.flush()
@@ -583,9 +566,7 @@ class TestUpdateScore:
         m = _r1_matches(t)[0]
         await kob_service.submit_score(db_session, tid, m.matchup_id, 21, 15)
 
-        corrected = await kob_service.update_score(
-            db_session, tid, m.matchup_id, 15, 21
-        )
+        corrected = await kob_service.update_score(db_session, tid, m.matchup_id, 15, 21)
         assert corrected.team1_score == 15
         assert corrected.team2_score == 21
         assert corrected.winner == 2
@@ -690,9 +671,10 @@ class TestDropPlayer:
 
         # Unscored matches with this player should be byes
         player_matches = [
-            m for m in refreshed.kob_matches
-            if drop_pid in [m.team1_player1_id, m.team1_player2_id,
-                            m.team2_player1_id, m.team2_player2_id]
+            m
+            for m in refreshed.kob_matches
+            if drop_pid
+            in [m.team1_player1_id, m.team1_player2_id, m.team2_player1_id, m.team2_player2_id]
             and m.round_num >= 1
         ]
         for m in player_matches:
@@ -755,9 +737,7 @@ class TestStandings:
     @pytest.mark.asyncio
     async def test_standings_bo3_only_counts_decided(self, db_session, director, players):
         """In Bo3 mode, partially-scored matches don't count as losses."""
-        tid = await _start_tournament(
-            db_session, director, players[:4], games_per_match=3
-        )
+        tid = await _start_tournament(db_session, director, players[:4], games_per_match=3)
         t = await _fresh_tournament(db_session, tid)
         t.auto_advance = False
         await db_session.flush()
@@ -792,8 +772,11 @@ class TestUpdateBracketMatch:
             m = r1[0]
             with pytest.raises(ValueError, match="bracket"):
                 await kob_service.update_bracket_match(
-                    db_session, tid, m.id,
-                    [players[0], players[1]], [players[2], players[3]],
+                    db_session,
+                    tid,
+                    m.id,
+                    [players[0], players[1]],
+                    [players[2], players[3]],
                 )
 
     @pytest.mark.asyncio
@@ -806,8 +789,11 @@ class TestUpdateBracketMatch:
         if r1:
             with pytest.raises(ValueError):
                 await kob_service.update_bracket_match(
-                    db_session, tid, r1[0].id,
-                    [players[0]], [players[2], players[3]],
+                    db_session,
+                    tid,
+                    r1[0].id,
+                    [players[0]],
+                    [players[2], players[3]],
                 )
 
 
@@ -939,7 +925,9 @@ class TestPoolsPlayoffs:
     async def test_pools_assigns_pool_ids(self, db_session, director, players):
         """Starting a POOLS_PLAYOFFS tournament assigns pool_id to players."""
         tid = await _start_tournament(
-            db_session, director, players[:6],
+            db_session,
+            director,
+            players[:6],
             format="POOLS_PLAYOFFS",
             num_pools=2,
             has_playoffs=True,
@@ -971,7 +959,8 @@ class TestEffectiveGameSettings:
     @pytest.mark.asyncio
     async def test_playoff_uses_override(self, db_session, director):
         tid, _ = await _create_tournament(
-            db_session, director,
+            db_session,
+            director,
             game_to=15,
             playoff_game_to=21,
             playoff_games_per_match=3,
@@ -1015,7 +1004,8 @@ class TestFullLifecycle:
                 break
 
             r_matches = [
-                m for m in t.kob_matches
+                m
+                for m in t.kob_matches
                 if m.round_num == round_num and not m.is_bye and m.winner is None
             ]
             for m in r_matches:

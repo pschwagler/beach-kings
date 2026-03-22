@@ -827,8 +827,6 @@ class TestTruncateErrorMessage:
         assert msg == "Unknown error"
 
 
-
-
 # ============================================================================
 # apply_player_overrides Tests
 # ============================================================================
@@ -896,13 +894,17 @@ class TestApplyPlayerOverrides:
         assert result[1]["team1_player2_id"] == 1
 
     def test_case_insensitive_matching(self):
-        matches = [self._make_match("jd", ("Jane Smith", 2), ("Bob Wilson", 3), ("Alice Brown", 4))]
+        matches = [
+            self._make_match("jd", ("Jane Smith", 2), ("Bob Wilson", 3), ("Alice Brown", 4))
+        ]
         overrides = [{"raw_name": "JD", "player_id": 1, "player_name": "John Doe"}]
         result = photo_match_service.apply_player_overrides(matches, overrides)
         assert result[0]["team1_player1_id"] == 1
 
     def test_does_not_overwrite_already_matched(self):
-        matches = [self._make_match(("John Doe", 1), ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")]
+        matches = [
+            self._make_match(("John Doe", 1), ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")
+        ]
         overrides = [{"raw_name": "John Doe", "player_id": 99, "player_name": "Other John"}]
         result = photo_match_service.apply_player_overrides(matches, overrides)
         # Should NOT overwrite an already-matched player

@@ -74,7 +74,6 @@ export default function AddMatchModal({
     selectedSeasonId,
     setSelectedSeasonId,
     setActiveSeason,
-    hasActiveSession,
     isSeasonDisabled,
     loadingLeagues,
     loadingSeason,
@@ -338,7 +337,34 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Collapsible */}
+          {/* Season info — always visible for league matches (disabled when editing or in a session) */}
+          {editMatch && leagueMatchOnly && selectedLeagueId && (
+            <div className="match-config-section">
+              <div className="match-config-item compact league-season-item">
+                <div className="league-season-combined-inline">
+                  <div className="season-dropdown-container compact" ref={seasonDropdownRef}>
+                    <SeasonDropdown
+                      loadingSeason={loadingSeason}
+                      allSeasons={allSeasons}
+                      selectedSeasonId={selectedSeasonId}
+                      isSeasonDisabled={true}
+                      isSeasonDropdownOpen={false}
+                      setIsSeasonDropdownOpen={() => {}}
+                      setSelectedSeasonId={setSelectedSeasonId}
+                      setActiveSeason={setActiveSeason}
+                      formError={formError}
+                      setFormError={setFormError}
+                      onSeasonChange={onSeasonChange}
+                      isSeasonActive={isSeasonActive}
+                      seasonDropdownRef={seasonDropdownRef}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Match Configuration Section - Collapsible (new matches only) */}
           {!editMatch && (
             <div className="match-config-section">
               <div className="match-config-header-row">
@@ -461,7 +487,6 @@ export default function AddMatchModal({
                       <div className="season-dropdown-container compact" ref={seasonDropdownRef}>
                         <SeasonDropdown
                           loadingSeason={loadingSeason}
-                          hasActiveSession={hasActiveSession}
                           allSeasons={allSeasons}
                           selectedSeasonId={selectedSeasonId}
                           isSeasonDisabled={isSeasonDisabled}

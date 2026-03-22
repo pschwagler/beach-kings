@@ -517,11 +517,14 @@ export const getActiveSession = async (leagueId) => {
 };
 
 /**
- * Get open sessions for the current user (creator, has match, or invited).
+ * Get sessions for the current user (creator, has match, or invited).
+ * @param {Object} [options]
+ * @param {boolean} [options.includeAll=false] - When true, returns all statuses (not just ACTIVE).
  * @returns {Promise<Array>} Array of session objects with participation, match_count, etc.
  */
-export const getOpenSessions = async () => {
-  const response = await api.get('/api/sessions/open');
+export const getOpenSessions = async ({ includeAll = false } = {}) => {
+  const params = includeAll ? { include_all: true } : {};
+  const response = await api.get('/api/sessions/open', { params });
   return response.data;
 };
 
@@ -871,14 +874,6 @@ export const createLeagueSeason = async (leagueId, seasonData) => {
  */
 export const updateSeason = async (seasonId, seasonData) => {
   const response = await api.put(`/api/seasons/${seasonId}`, seasonData);
-  return response.data;
-};
-
-/**
- * Create a session for a league
- */
-export const createLeagueSession = async (leagueId, sessionData) => {
-  const response = await api.post(`/api/leagues/${leagueId}/sessions`, sessionData);
   return response.data;
 };
 

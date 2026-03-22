@@ -335,7 +335,9 @@ class League(Base):
     creator = relationship("Player", foreign_keys=[created_by], backref="created_leagues")
     updater = relationship("Player", foreign_keys=[updated_by], backref="updated_leagues")
     messages = relationship("LeagueMessage", back_populates="league", cascade="all, delete-orphan")
-    home_courts = relationship("LeagueHomeCourt", back_populates="league", cascade="all, delete-orphan")
+    home_courts = relationship(
+        "LeagueHomeCourt", back_populates="league", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (Index("idx_leagues_location", "location_id"),)
 
@@ -1575,17 +1577,11 @@ class KobTournament(Base):
     is_ranked = Column(Boolean, default=False)
 
     # Optional associations
-    league_id = Column(
-        Integer, ForeignKey("leagues.id", ondelete="SET NULL"), nullable=True
-    )
-    location_id = Column(
-        String, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True
-    )
+    league_id = Column(Integer, ForeignKey("leagues.id", ondelete="SET NULL"), nullable=True)
+    location_id = Column(String, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True)
 
     # State
-    status = Column(
-        Enum(TournamentStatus), nullable=False, default=TournamentStatus.SETUP
-    )
+    status = Column(Enum(TournamentStatus), nullable=False, default=TournamentStatus.SETUP)
     current_phase = Column(String(20), nullable=True)  # pool_play / playoffs / finals
     current_round = Column(Integer, nullable=True)
     auto_advance = Column(Boolean, default=True)
@@ -1593,16 +1589,20 @@ class KobTournament(Base):
 
     scheduled_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    director = relationship("Player", foreign_keys=[director_player_id], backref="directed_kob_tournaments")
+    director = relationship(
+        "Player", foreign_keys=[director_player_id], backref="directed_kob_tournaments"
+    )
     league = relationship("League", backref="kob_tournaments")
     location = relationship("Location", backref="kob_tournaments")
-    kob_players = relationship("KobPlayer", back_populates="tournament", cascade="all, delete-orphan")
-    kob_matches = relationship("KobMatch", back_populates="tournament", cascade="all, delete-orphan")
+    kob_players = relationship(
+        "KobPlayer", back_populates="tournament", cascade="all, delete-orphan"
+    )
+    kob_matches = relationship(
+        "KobMatch", back_populates="tournament", cascade="all, delete-orphan"
+    )
 
     @property
     def effective_playoff_format(self) -> str:
@@ -1617,7 +1617,11 @@ class KobTournament(Base):
     @property
     def effective_playoff_games_per_match(self) -> int:
         """Playoff games_per_match, falling back to tournament games_per_match."""
-        return self.playoff_games_per_match if self.playoff_games_per_match is not None else (self.games_per_match or 1)
+        return (
+            self.playoff_games_per_match
+            if self.playoff_games_per_match is not None
+            else (self.games_per_match or 1)
+        )
 
     @property
     def effective_playoff_score_cap(self):
@@ -1642,9 +1646,7 @@ class KobPlayer(Base):
         ForeignKey("kob_tournaments.id", ondelete="CASCADE"),
         nullable=False,
     )
-    player_id = Column(
-        Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False
-    )
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
     seed = Column(Integer, nullable=True)
     pool_id = Column(Integer, nullable=True)
     is_dropped = Column(Boolean, default=False)
@@ -1702,9 +1704,7 @@ class KobMatch(Base):
     is_bye = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     tournament = relationship("KobTournament", back_populates="kob_matches")

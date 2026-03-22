@@ -283,7 +283,9 @@ async def test_placeholder_flags_in_match_history(db_session):
         session=db_session, phone_number=_unique_phone(), password_hash="hash"
     )
     p1 = await _create_player(db_session, "Real Player", user_id=u1)
-    p2 = Player(full_name="Placeholder Partner", gender="M", level="intermediate", is_placeholder=True)
+    p2 = Player(
+        full_name="Placeholder Partner", gender="M", level="intermediate", is_placeholder=True
+    )
     p3 = await _create_player(db_session, "Real Opp 1")
     p4 = Player(full_name="Placeholder Opp", gender="F", level="beginner", is_placeholder=True)
     db_session.add_all([p2, p4])
@@ -303,10 +305,15 @@ async def test_placeholder_flags_in_match_history(db_session):
     db_session.add(sess)
     await db_session.flush()
     match = Match(
-        session_id=sess.id, date="2024-06-01",
-        team1_player1_id=p1.id, team1_player2_id=p2.id,
-        team2_player1_id=p3.id, team2_player2_id=p4.id,
-        team1_score=21, team2_score=15, winner=1,
+        session_id=sess.id,
+        date="2024-06-01",
+        team1_player1_id=p1.id,
+        team1_player2_id=p2.id,
+        team2_player1_id=p3.id,
+        team2_player2_id=p4.id,
+        team1_score=21,
+        team2_score=15,
+        winner=1,
     )
     db_session.add(match)
     await db_session.commit()

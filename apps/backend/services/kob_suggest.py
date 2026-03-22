@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Smart defaults
 # ---------------------------------------------------------------------------
 
+
 def suggest_defaults(
     num_players: int,
     num_courts: int,
@@ -150,14 +151,21 @@ def _try_config(
     """
     try:
         preview = generate_preview(
-            num_players, num_courts, fmt,
-            game_to=game_to, games_per_match=games_per_match, **kwargs,
+            num_players,
+            num_courts,
+            fmt,
+            game_to=game_to,
+            games_per_match=games_per_match,
+            **kwargs,
         )
     except ValueError:
         logger.debug(
             "_try_config: generate_preview raised ValueError for fmt=%s "
             "game_to=%d games_per_match=%d kwargs=%s",
-            fmt, game_to, games_per_match, kwargs,
+            fmt,
+            game_to,
+            games_per_match,
+            kwargs,
         )
         return None
     total = preview["total_time_minutes"]
@@ -245,17 +253,27 @@ def _suggest_with_duration(
                             continue
                         for pf in playoff_formats:
                             c = _try_config(
-                                num_players, num_courts, duration_minutes,
-                                "POOLS_PLAYOFFS", game_to, games_per_match,
-                                num_pools=num_pools, playoff_size=ps,
+                                num_players,
+                                num_courts,
+                                duration_minutes,
+                                "POOLS_PLAYOFFS",
+                                game_to,
+                                games_per_match,
+                                num_pools=num_pools,
+                                playoff_size=ps,
                                 playoff_format=pf,
                             )
                             if c:
                                 playoff_candidates.append(c)
                     c = _try_config(
-                        num_players, num_courts, duration_minutes,
-                        "POOLS_PLAYOFFS", game_to, games_per_match,
-                        num_pools=num_pools, playoff_size=None,
+                        num_players,
+                        num_courts,
+                        duration_minutes,
+                        "POOLS_PLAYOFFS",
+                        game_to,
+                        games_per_match,
+                        num_pools=num_pools,
+                        playoff_size=None,
                     )
                     if c:
                         no_playoff_candidates.append(c)
@@ -275,16 +293,26 @@ def _suggest_with_duration(
             for game_to in game_to_candidates:
                 for games_per_match in games_per_match_candidates:
                     c = _try_config(
-                        num_players, num_courts, duration_minutes,
-                        "POOLS_PLAYOFFS", game_to, games_per_match,
-                        num_pools=num_pools, playoff_size=4,
+                        num_players,
+                        num_courts,
+                        duration_minutes,
+                        "POOLS_PLAYOFFS",
+                        game_to,
+                        games_per_match,
+                        num_pools=num_pools,
+                        playoff_size=4,
                     )
                     if c:
                         pool1_candidates.append(c)
                     c = _try_config(
-                        num_players, num_courts, duration_minutes,
-                        "POOLS_PLAYOFFS", game_to, games_per_match,
-                        num_pools=num_pools, playoff_size=None,
+                        num_players,
+                        num_courts,
+                        duration_minutes,
+                        "POOLS_PLAYOFFS",
+                        game_to,
+                        games_per_match,
+                        num_pools=num_pools,
+                        playoff_size=None,
                     )
                     if c:
                         pool1_no_playoff.append(c)
@@ -294,8 +322,12 @@ def _suggest_with_duration(
     for game_to in game_to_candidates:
         for games_per_match in games_per_match_candidates:
             c = _try_config(
-                num_players, num_courts, duration_minutes,
-                "FULL_ROUND_ROBIN", game_to, games_per_match,
+                num_players,
+                num_courts,
+                duration_minutes,
+                "FULL_ROUND_ROBIN",
+                game_to,
+                games_per_match,
             )
             if c:
                 rr_candidates.append(c)
@@ -310,8 +342,11 @@ def _suggest_with_duration(
                 mid = (lo + hi) // 2
                 try:
                     preview = generate_preview(
-                        num_players, num_courts, "PARTIAL_ROUND_ROBIN",
-                        max_rounds=mid, game_to=game_to,
+                        num_players,
+                        num_courts,
+                        "PARTIAL_ROUND_ROBIN",
+                        max_rounds=mid,
+                        game_to=game_to,
                         games_per_match=games_per_match,
                     )
                     if preview["total_time_minutes"] <= duration_minutes:
@@ -324,13 +359,19 @@ def _suggest_with_duration(
                         "_suggest_with_duration: generate_preview raised ValueError "
                         "for PARTIAL_ROUND_ROBIN max_rounds=%d game_to=%d "
                         "games_per_match=%d",
-                        mid, game_to, games_per_match,
+                        mid,
+                        game_to,
+                        games_per_match,
                     )
                     hi = mid - 1
             if best_mr:
                 c = _try_config(
-                    num_players, num_courts, duration_minutes,
-                    "PARTIAL_ROUND_ROBIN", game_to, games_per_match,
+                    num_players,
+                    num_courts,
+                    duration_minutes,
+                    "PARTIAL_ROUND_ROBIN",
+                    game_to,
+                    games_per_match,
                     max_rounds=best_mr,
                 )
                 if c:
@@ -385,14 +426,21 @@ def _try_pill_config(
     """
     try:
         preview = generate_preview(
-            num_players, num_courts, fmt,
-            game_to=game_to, games_per_match=games_per_match, **kwargs,
+            num_players,
+            num_courts,
+            fmt,
+            game_to=game_to,
+            games_per_match=games_per_match,
+            **kwargs,
         )
     except ValueError:
         logger.debug(
             "_try_pill_config: generate_preview raised ValueError for fmt=%s "
             "game_to=%d games_per_match=%d kwargs=%s",
-            fmt, game_to, games_per_match, kwargs,
+            fmt,
+            game_to,
+            games_per_match,
+            kwargs,
         )
         return None
     total = preview["total_time_minutes"]
@@ -453,8 +501,10 @@ def _make_pill(config: Dict[str, Any], is_recommended: bool = False) -> Dict[str
     fmt = config["format"]
     return {
         "label": _pill_label(
-            fmt, config.get("num_pools"),
-            config.get("playoff_size"), config.get("max_rounds"),
+            fmt,
+            config.get("num_pools"),
+            config.get("playoff_size"),
+            config.get("max_rounds"),
         ),
         "category": "pools" if fmt == "POOLS_PLAYOFFS" else "round_robin",
         "is_recommended": is_recommended,
@@ -492,7 +542,9 @@ def suggest_alternatives(
     """
     recommended = suggest_defaults(num_players, num_courts, duration_minutes)
     rec_enriched = _try_pill_config(
-        num_players, num_courts, None,  # skip budget check — already validated
+        num_players,
+        num_courts,
+        None,  # skip budget check — already validated
         recommended["format"],
         recommended.get("game_to", 21),
         recommended.get("games_per_match", 1),
@@ -550,8 +602,12 @@ def _find_alt_rr(
     # Full RR
     for game_to in [28, 21, 15, 11]:
         c = _try_pill_config(
-            num_players, num_courts, duration_minutes,
-            "FULL_ROUND_ROBIN", game_to, 1,
+            num_players,
+            num_courts,
+            duration_minutes,
+            "FULL_ROUND_ROBIN",
+            game_to,
+            1,
         )
         if c:
             candidates.append(c)
@@ -561,8 +617,13 @@ def _find_alt_rr(
     for game_to in [28, 21, 15, 11]:
         for mr in range(min(full_rounds - 1, 10), 2, -1):
             c = _try_pill_config(
-                num_players, num_courts, duration_minutes,
-                "PARTIAL_ROUND_ROBIN", game_to, 1, max_rounds=mr,
+                num_players,
+                num_courts,
+                duration_minutes,
+                "PARTIAL_ROUND_ROBIN",
+                game_to,
+                1,
+                max_rounds=mr,
             )
             if c:
                 candidates.append(c)
@@ -607,9 +668,14 @@ def _find_alt_pools(
                 if ps > num_players:
                     continue
                 c = _try_pill_config(
-                    num_players, num_courts, duration_minutes,
-                    "POOLS_PLAYOFFS", game_to, 1,
-                    num_pools=num_pools, playoff_size=ps,
+                    num_players,
+                    num_courts,
+                    duration_minutes,
+                    "POOLS_PLAYOFFS",
+                    game_to,
+                    1,
+                    num_pools=num_pools,
+                    playoff_size=ps,
                 )
                 if c:
                     candidates.append(c)
@@ -640,14 +706,23 @@ def _alt_rr_no_duration(
     """
     if num_players <= 12:
         return _try_pill_config(
-            num_players, num_courts, None,
-            "FULL_ROUND_ROBIN", 21, 1,
+            num_players,
+            num_courts,
+            None,
+            "FULL_ROUND_ROBIN",
+            21,
+            1,
         )
     # Large group — partial RR is more practical
     max_rounds = min(_full_rr_round_count(num_players) - 1, 7)
     return _try_pill_config(
-        num_players, num_courts, None,
-        "PARTIAL_ROUND_ROBIN", 21, 1, max_rounds=max_rounds,
+        num_players,
+        num_courts,
+        None,
+        "PARTIAL_ROUND_ROBIN",
+        21,
+        1,
+        max_rounds=max_rounds,
     )
 
 
@@ -670,15 +745,21 @@ def _alt_pools_no_duration(
     num_pools = min(num_courts, num_players // 4, 6)
     num_pools = max(num_pools, 2)
     return _try_pill_config(
-        num_players, num_courts, None,
-        "POOLS_PLAYOFFS", 21, 1,
-        num_pools=num_pools, playoff_size=4,
+        num_players,
+        num_courts,
+        None,
+        "POOLS_PLAYOFFS",
+        21,
+        1,
+        num_pools=num_pools,
+        playoff_size=4,
     )
 
 
 # ---------------------------------------------------------------------------
 # Legacy compat
 # ---------------------------------------------------------------------------
+
 
 def recommend_format(
     num_players: int,

@@ -911,12 +911,22 @@ async def get_or_create_active_league_session(
     else:
         session_name = f"{formatted_date} Session #{session_count + 1}"
 
+    # Default court_id to league's primary home court (position=0)
+    home_court_result = await session.execute(
+        select(LeagueHomeCourt.court_id)
+        .where(LeagueHomeCourt.league_id == league_id)
+        .order_by(LeagueHomeCourt.position.asc())
+        .limit(1)
+    )
+    default_court_id = home_court_result.scalar_one_or_none()
+
     new_session = Session(
         date=session_date,
         name=session_name,
         status=SessionStatus.ACTIVE,
         season_id=active_season.id,
         created_by=created_by,
+        court_id=default_court_id,
     )
     session.add(new_session)
     await session.flush()  # Flush to get the ID
@@ -927,6 +937,7 @@ async def get_or_create_active_league_session(
         "name": new_session.name,
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
+        "court_id": new_session.court_id,
     }
 
 
@@ -1346,9 +1357,13 @@ async def list_courts(
     only_approved: bool = False,
 ) -> List[Dict]:
     """List courts, optionally filtered by location and/or approval status."""
-    query = select(Court).where(
-        Court.is_placeholder == False  # noqa: E712 — exclude placeholder courts
-    ).order_by(Court.name.asc())
+    query = (
+        select(Court)
+        .where(
+            Court.is_placeholder == False  # noqa: E712 — exclude placeholder courts
+        )
+        .order_by(Court.name.asc())
+    )
     if location_id is not None:
         query = query.where(Court.location_id == location_id)
     if only_approved:
@@ -1400,9 +1415,7 @@ async def add_league_home_court(session: AsyncSession, league_id: int, court_id:
 
     # Determine next position
     max_pos_result = await session.execute(
-        select(func.max(LeagueHomeCourt.position)).where(
-            LeagueHomeCourt.league_id == league_id
-        )
+        select(func.max(LeagueHomeCourt.position)).where(LeagueHomeCourt.league_id == league_id)
     )
     max_pos = max_pos_result.scalar() or -1
     position = max_pos + 1
@@ -1492,9 +1505,7 @@ async def add_player_home_court(session: AsyncSession, player_id: int, court_id:
 
     # Determine next position
     max_pos_result = await session.execute(
-        select(func.max(PlayerHomeCourt.position)).where(
-            PlayerHomeCourt.player_id == player_id
-        )
+        select(func.max(PlayerHomeCourt.position)).where(PlayerHomeCourt.player_id == player_id)
     )
     max_pos = max_pos_result.scalar() or -1
     position = max_pos + 1
@@ -1524,9 +1535,7 @@ async def set_player_home_courts(
     Position is implicit from array index. Existing rows are deleted and replaced.
     Returns the new list in the same shape as get_player_home_courts.
     """
-    await session.execute(
-        delete(PlayerHomeCourt).where(PlayerHomeCourt.player_id == player_id)
-    )
+    await session.execute(delete(PlayerHomeCourt).where(PlayerHomeCourt.player_id == player_id))
     for position, court_id in enumerate(court_ids):
         session.add(PlayerHomeCourt(player_id=player_id, court_id=court_id, position=position))
     await session.commit()
@@ -1541,9 +1550,7 @@ async def set_league_home_courts(
     Position is implicit from array index. Existing rows are deleted and replaced.
     Returns the new list in the same shape as get_league_home_courts.
     """
-    await session.execute(
-        delete(LeagueHomeCourt).where(LeagueHomeCourt.league_id == league_id)
-    )
+    await session.execute(delete(LeagueHomeCourt).where(LeagueHomeCourt.league_id == league_id))
     for position, court_id in enumerate(court_ids):
         session.add(LeagueHomeCourt(league_id=league_id, court_id=court_id, position=position))
     await session.commit()
@@ -1902,9 +1909,7 @@ async def list_league_join_requests_rejected(session: AsyncSession, league_id: i
     return [_join_request_row_to_dict(req, full_name) for req, full_name in rows]
 
 
-async def cancel_league_request(
-    session: AsyncSession, league_id: int, player_id: int
-) -> bool:
+async def cancel_league_request(session: AsyncSession, league_id: int, player_id: int) -> bool:
     """
     Cancel a pending join request for a league.
 
@@ -2616,13 +2621,9 @@ async def delete_session(session: AsyncSession, session_id: int) -> bool:
 
     if match_ids:
         # Delete rating history rows that reference these matches
+        await session.execute(delete(EloHistory).where(EloHistory.match_id.in_(match_ids)))
         await session.execute(
-            delete(EloHistory).where(EloHistory.match_id.in_(match_ids))
-        )
-        await session.execute(
-            delete(SeasonRatingHistory).where(
-                SeasonRatingHistory.match_id.in_(match_ids)
-            )
+            delete(SeasonRatingHistory).where(SeasonRatingHistory.match_id.in_(match_ids))
         )
 
         # Delete the matches
@@ -3245,6 +3246,26 @@ async def query_matches(
         }
         for row in rows
     ]
+
+
+async def get_player_by_id(session: AsyncSession, player_id: int) -> Optional[Dict]:
+    """
+    Get a player by ID, returning basic player fields as a dict.
+
+    Returns None if the player does not exist.
+    """
+    result = await session.execute(select(Player).where(Player.id == player_id))
+    player = result.scalar_one_or_none()
+    if not player:
+        return None
+    return {
+        "id": player.id,
+        "full_name": player.full_name,
+        "nickname": player.nickname,
+        "is_placeholder": player.is_placeholder,
+        "created_by_player_id": player.created_by_player_id,
+        "user_id": player.user_id,
+    }
 
 
 async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optional[Dict]:
@@ -3902,7 +3923,9 @@ async def get_player_league_partnership_opponent_stats(
         opponents.append(
             {
                 "Player ID": os.opponent_id,
-                "Partner/Opponent": player_name_map.get(os.opponent_id, f"Player {os.opponent_id}"),
+                "Partner/Opponent": player_name_map.get(
+                    os.opponent_id, f"Player {os.opponent_id}"
+                ),
                 "Points": os.points,
                 "Games": os.games,
                 "Wins": os.wins,
@@ -4127,6 +4150,7 @@ async def get_player_match_history_by_id(
             Season.league_id.label("league_id"),
             League.name.label("league_name"),
             Season.name.label("season_name"),
+            Court.name.label("court_name"),
         )
         .select_from(Match)
         .outerjoin(p1, Match.team1_player1_id == p1.id)
@@ -4137,6 +4161,7 @@ async def get_player_match_history_by_id(
         .outerjoin(Session, Match.session_id == Session.id)
         .outerjoin(Season, Session.season_id == Season.id)
         .outerjoin(League, Season.league_id == League.id)
+        .outerjoin(Court, Session.court_id == Court.id)
         .where(
             or_(
                 Match.team1_player1_id == player_id,
@@ -4241,6 +4266,7 @@ async def get_player_match_history_by_id(
                 "League Name": row.league_name,
                 "Is Ranked": row.is_ranked,
                 "Ranked Intent": row.ranked_intent,
+                "Court Name": row.court_name,
             }
         )
 
@@ -4333,10 +4359,13 @@ async def create_session(
     }
 
 
-async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -> List[Dict]:
+async def get_open_sessions_for_user(
+    db_session: AsyncSession, player_id: int, *, active_only: bool = True
+) -> List[Dict]:
     """
-    Return all ACTIVE sessions where the player is creator, has a match, or is invited.
-    Includes league and non-league sessions. Ordered by session updated_at desc.
+    Return sessions where the player is creator, has a match, or is invited.
+    When active_only=True (default), only ACTIVE sessions are returned.
+    Includes league and non-league sessions. Ordered by session date desc, then updated_at desc.
     """
     # Subquery: session IDs where player has at least one match
     match_sess = (
@@ -4360,7 +4389,7 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
         SessionParticipant.player_id == player_id
     )
 
-    # Sessions: ACTIVE and (created_by = player OR session_id in match_sess OR session_id in part_sess)
+    # Sessions: (optionally ACTIVE only) and (created_by = player OR session_id in match_sess OR session_id in part_sess)
     creator_alias = aliased(Player)
     q = (
         select(
@@ -4374,14 +4403,15 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
             Session.updated_at,
             Session.court_id,
             Season.league_id,
+            League.name.label("league_name"),
             creator_alias.full_name.label("created_by_name"),
             Court.name.label("court_name"),
             Court.slug.label("court_slug"),
         )
         .outerjoin(Season, Session.season_id == Season.id)
+        .outerjoin(League, Season.league_id == League.id)
         .outerjoin(creator_alias, Session.created_by == creator_alias.id)
         .outerjoin(Court, Session.court_id == Court.id)
-        .where(Session.status == SessionStatus.ACTIVE)
         .where(
             or_(
                 Session.created_by == player_id,
@@ -4389,8 +4419,10 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
                 Session.id.in_(part_sess.scalar_subquery()),
             )
         )
-        .order_by(Session.updated_at.desc())
+        .order_by(Session.date.desc(), Session.updated_at.desc())
     )
+    if active_only:
+        q = q.where(Session.status == SessionStatus.ACTIVE)
     result = await db_session.execute(q)
     rows = result.all()
 
@@ -4407,18 +4439,29 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
     count_result = await db_session.execute(count_q)
     match_counts = {r.session_id: r.match_count for r in count_result.all()}
 
+    # Match count per session for this specific player
+    player_match_filter = or_(
+        Match.team1_player1_id == player_id,
+        Match.team1_player2_id == player_id,
+        Match.team2_player1_id == player_id,
+        Match.team2_player2_id == player_id,
+    )
+    user_count_q = (
+        select(Match.session_id, func.count(Match.id).label("user_match_count"))
+        .where(Match.session_id.in_(session_ids))
+        .where(player_match_filter)
+        .group_by(Match.session_id)
+    )
+    user_count_result = await db_session.execute(user_count_q)
+    user_match_counts = {r.session_id: r.user_match_count for r in user_count_result.all()}
+
     # Session IDs where this player has at least one match
     match_sess_ids_q = (
         select(Match.session_id)
         .where(
             and_(
                 Match.session_id.isnot(None),
-                or_(
-                    Match.team1_player1_id == player_id,
-                    Match.team1_player2_id == player_id,
-                    Match.team2_player1_id == player_id,
-                    Match.team2_player2_id == player_id,
-                ),
+                player_match_filter,
             )
         )
         .distinct()
@@ -4444,10 +4487,12 @@ async def get_open_sessions_for_user(db_session: AsyncSession, player_id: int) -
                 "status": r.status.value if r.status else None,
                 "season_id": r.season_id,
                 "league_id": r.league_id,
+                "league_name": r.league_name,
                 "court_id": r.court_id,
                 "court_name": r.court_name,
                 "court_slug": r.court_slug,
                 "match_count": match_counts.get(r.id, 0),
+                "user_match_count": user_match_counts.get(r.id, 0),
                 "participation": participation,
                 "created_by": r.created_by,
                 "created_by_name": created_by_name,

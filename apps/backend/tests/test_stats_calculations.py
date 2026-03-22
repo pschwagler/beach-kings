@@ -465,8 +465,16 @@ async def test_explicitly_unranked_matches_excluded(db_session, test_players, te
 
     # Create an explicitly unranked match (user chose unranked)
     unranked_match = await create_match(
-        db_session, test_session, alice, charlie, bob, dave, 21, 17,
-        is_ranked=False, ranked_intent=False,
+        db_session,
+        test_session,
+        alice,
+        charlie,
+        bob,
+        dave,
+        21,
+        17,
+        is_ranked=False,
+        ranked_intent=False,
     )
 
     # Calculate global stats
@@ -517,8 +525,16 @@ async def test_placeholder_matches_in_stats_not_elo(db_session, test_players, te
 
     # Create a placeholder match (ranked_intent=True but is_ranked=False)
     placeholder_match = await create_match(
-        db_session, test_session, alice, charlie, bob, dave, 21, 17,
-        is_ranked=False, ranked_intent=True,
+        db_session,
+        test_session,
+        alice,
+        charlie,
+        bob,
+        dave,
+        21,
+        17,
+        is_ranked=False,
+        ranked_intent=True,
     )
 
     # Calculate global stats
@@ -580,8 +596,16 @@ async def test_placeholder_match_in_season_stats(
 
     # Create a placeholder match
     await create_match(
-        db_session, test_session, alice, bob, charlie, dave, 21, 19,
-        is_ranked=False, ranked_intent=True,
+        db_session,
+        test_session,
+        alice,
+        bob,
+        charlie,
+        dave,
+        21,
+        19,
+        is_ranked=False,
+        ranked_intent=True,
     )
 
     # Calculate league stats (which also calculates season stats)
@@ -615,8 +639,16 @@ async def test_placeholder_only_player_gets_global_stats(db_session, test_player
 
     # Only placeholder matches, no ranked matches
     await create_match(
-        db_session, test_session, alice, bob, charlie, dave, 21, 19,
-        is_ranked=False, ranked_intent=True,
+        db_session,
+        test_session,
+        alice,
+        bob,
+        charlie,
+        dave,
+        21,
+        19,
+        is_ranked=False,
+        ranked_intent=True,
     )
 
     result = await data_service.calculate_global_stats_async(db_session)

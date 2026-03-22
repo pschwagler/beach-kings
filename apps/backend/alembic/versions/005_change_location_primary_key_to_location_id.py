@@ -41,11 +41,11 @@ def upgrade() -> None:
     # from the *current* model definitions. If the models already have
     # location_id (String) instead of default_location_id (Integer),
     # then this migration's column renames are already done. Skip them.
-    already_migrated = not _column_exists("locations", "location_id") is False
-    # More precisely: if players has no default_location_id, the rename already happened.
     needs_player_rename = _column_exists("players", "default_location_id")
     # If locations still has an integer "id" alongside "location_id", we need the PK swap.
-    needs_pk_swap = _column_exists("locations", "location_id") and _column_exists("locations", "id")
+    needs_pk_swap = _column_exists("locations", "location_id") and _column_exists(
+        "locations", "id"
+    )
 
     if not needs_player_rename and not needs_pk_swap:
         # Schema is already in the final state (created by create_all from current models).

@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.services import data_service, placeholder_service
-from backend.api.auth_dependencies import get_current_user, get_current_user_optional, require_verified_player
+from backend.api.auth_dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    require_verified_player,
+)
 from backend.models.schemas import (
     CreatePlaceholderRequest,
     CreatePlayerRequest,
@@ -507,6 +511,7 @@ async def add_player_home_court(
         raise
     except Exception as e:
         from sqlalchemy.exc import IntegrityError
+
         if isinstance(e, IntegrityError):
             raise HTTPException(status_code=409, detail="Court is already a home court")
         logger.error(f"Error adding home court for player {player_id}: {e}", exc_info=True)

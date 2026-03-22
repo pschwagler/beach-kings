@@ -186,7 +186,22 @@ export function usePhotoMatchReview({
         }
         return newMatch;
       });
-      return { ...prev, matches: updatedMatches };
+
+      // If all players are now resolved, clear needs_clarification status
+      const allResolved = updatedMatches.every((match) =>
+        playerFields.every((field) => {
+          if (match[`${field}_id`]) return true;
+          const player = match[field];
+          return typeof player === 'object' && !!player?.id;
+        })
+      );
+
+      const updated = { ...prev, matches: updatedMatches };
+      if (allResolved && prev.status === 'needs_clarification') {
+        updated.status = 'success';
+        updated.clarification_question = null;
+      }
+      return updated;
     });
   }, []);
 
@@ -265,7 +280,11 @@ export function usePhotoMatchReview({
       onSuccess?.(response.match_ids);
     } catch (err) {
       console.error('Error confirming matches:', err);
-      setError(err.response?.data?.detail || 'Failed to create games');
+      const detail = err.response?.data?.detail;
+      const errorMsg = Array.isArray(detail)
+        ? detail.map((e) => e.msg).join('; ')
+        : detail || 'Failed to create games';
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

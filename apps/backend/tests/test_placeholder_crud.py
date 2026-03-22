@@ -469,9 +469,7 @@ class TestPlayerSearchScoping:
         assert "Visible Placeholder" in names
 
     @pytest.mark.asyncio
-    async def test_all_placeholders_included(
-        self, db_session, creator_player, other_player
-    ):
+    async def test_all_placeholders_included(self, db_session, creator_player, other_player):
         """All placeholders appear when include_placeholders=True, regardless of creator."""
         await placeholder_service.create_placeholder(
             db_session, name="Other's Placeholder", created_by_player_id=other_player.id
@@ -680,3 +678,47 @@ class TestGetInviteUrlByPlayerId:
 
         with pytest.raises(placeholder_service.InviteNotFoundError):
             await placeholder_service.get_invite_url_by_player_id(db_session, ph.player_id)
+
+
+# ============================================================================
+# 8. Get player by ID tests
+# ============================================================================
+
+
+class TestGetPlayerById:
+    """Tests for data_service.get_player_by_id."""
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_dict_for_real_player(self, db_session, creator_player):
+        """Returns a dict with all expected fields for an existing real player."""
+        result = await data_service.get_player_by_id(db_session, creator_player.id)
+
+        assert result is not None
+        assert result["id"] == creator_player.id
+        assert result["full_name"] == "Creator Player"
+        assert result["is_placeholder"] is False
+        assert result["created_by_player_id"] is None
+        assert result["user_id"] == creator_player.user_id
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_dict_for_placeholder_player(self, db_session, creator_player):
+        """Returns a dict with is_placeholder=True and created_by_player_id set for a placeholder."""
+        ph = await placeholder_service.create_placeholder(
+            db_session, name="Lookup Placeholder", created_by_player_id=creator_player.id
+        )
+
+        result = await data_service.get_player_by_id(db_session, ph.player_id)
+
+        assert result is not None
+        assert result["id"] == ph.player_id
+        assert result["full_name"] == "Lookup Placeholder"
+        assert result["is_placeholder"] is True
+        assert result["created_by_player_id"] == creator_player.id
+        assert result["user_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_nonexistent_player(self, db_session):
+        """Returns None when no player exists with the given ID."""
+        result = await data_service.get_player_by_id(db_session, 999999)
+
+        assert result is None

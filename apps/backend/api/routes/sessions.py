@@ -14,11 +14,9 @@ from backend.services import data_service
 from backend.services.notification_service import notify_players_about_session_submitted
 from backend.api.auth_dependencies import (
     get_current_user,
-    make_require_league_admin,
     make_require_league_member,
 )
 from backend.models.schemas import (
-    CreateLeagueSessionRequest,
     EndLeagueSessionRequest,
     JoinSessionRequest,
     InviteToSessionRequest,
@@ -224,43 +222,6 @@ async def get_league_sessions(
         raise HTTPException(status_code=500, detail=f"Error getting league sessions: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/sessions")
-async def create_league_session(
-    league_id: int,
-    body: CreateLeagueSessionRequest,
-    user: dict = Depends(make_require_league_admin()),
-    session: AsyncSession = Depends(get_db_session),
-):
-    """
-    Create a new pending session for a league (league_admin).
-    Body: { date?: 'MM/DD/YYYY', name?: string }
-    """
-    try:
-        date = body.date or datetime.now().strftime("%-m/%-d/%Y")
-        name = body.name
-        court_id = body.court_id
-
-        player_id = None
-        if user:
-            player = await data_service.get_player_by_user_id(session, user["id"])
-            if player:
-                player_id = player["id"]
-
-        new_session = await data_service.create_league_session(
-            session=session,
-            league_id=league_id,
-            date=date,
-            name=name,
-            created_by=player_id,
-            court_id=court_id,
-        )
-        return {"status": "success", "message": "Session created", "session": new_session}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating league session: {str(e)}")
-
-
 @router.patch("/api/leagues/{league_id}/sessions/{session_id}")
 async def end_league_session(
     league_id: int,
@@ -334,17 +295,21 @@ async def end_league_session(
 
 @router.get("/api/sessions/open")
 async def get_open_sessions(
-    current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
+    include_all: bool = False,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Get all open (ACTIVE) sessions where the current user is creator, has a match, or is invited.
-    Returns league and non-league sessions.
+    Get sessions where the current user is creator, has a match, or is invited.
+    By default returns only ACTIVE sessions. Pass include_all=true for all statuses.
     """
     try:
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         if not player:
             return []
-        return await data_service.get_open_sessions_for_user(session, player["id"])
+        return await data_service.get_open_sessions_for_user(
+            session, player["id"], active_only=not include_all
+        )
     except Exception as e:
         logger.error(f"Error getting open sessions: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting open sessions: {str(e)}")
@@ -647,12 +612,7 @@ async def update_session(
         update_court_id = "court_id" in body.model_fields_set
         processed_court_id = None if body.court_id is None else int(body.court_id)
 
-        has_updates = (
-            name is not None
-            or date is not None
-            or update_season_id
-            or update_court_id
-        )
+        has_updates = name is not None or date is not None or update_season_id or update_court_id
 
         if not has_updates:
             raise HTTPException(

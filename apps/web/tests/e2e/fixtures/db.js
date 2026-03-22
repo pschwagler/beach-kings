@@ -257,9 +257,20 @@ export async function cleanupTestUsers(phonePattern = '%+1555%') {
       const phIds = phRows.rows.map(r => r.id);
       if (phIds.length > 0) {
         await client.query('DELETE FROM player_invites WHERE player_id = ANY($1)', [phIds]);
-        // Null out match FKs referencing placeholder players
-        for (const col of ['team1_player1_id', 'team1_player2_id', 'team2_player1_id', 'team2_player2_id']) {
-          await client.query(`UPDATE matches SET ${col} = NULL WHERE ${col} = ANY($1)`, [phIds]);
+        // Delete matches referencing placeholder players (FK columns are NOT NULL)
+        const phMatchRows = await client.query(
+          `SELECT id FROM matches
+           WHERE team1_player1_id = ANY($1)
+              OR team1_player2_id = ANY($1)
+              OR team2_player1_id = ANY($1)
+              OR team2_player2_id = ANY($1)`,
+          [phIds]
+        );
+        const phMatchIds = phMatchRows.rows.map(r => r.id);
+        if (phMatchIds.length > 0) {
+          await client.query('DELETE FROM elo_history WHERE match_id = ANY($1)', [phMatchIds]);
+          await client.query('DELETE FROM season_rating_history WHERE match_id = ANY($1)', [phMatchIds]);
+          await client.query('DELETE FROM matches WHERE id = ANY($1)', [phMatchIds]);
         }
         await client.query('DELETE FROM league_members WHERE player_id = ANY($1)', [phIds]);
         await client.query('DELETE FROM session_participants WHERE player_id = ANY($1)', [phIds]);

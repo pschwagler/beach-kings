@@ -1260,9 +1260,7 @@ async def process_clarification_job(
             )
 
 
-def apply_player_overrides(
-    parsed_matches: List[Dict], overrides: List[Dict]
-) -> List[Dict]:
+def apply_player_overrides(parsed_matches: List[Dict], overrides: List[Dict]) -> List[Dict]:
     """
     Apply manual player overrides to parsed match data.
 

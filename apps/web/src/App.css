@@ -765,7 +765,7 @@ h1 {
   padding: 16px;
   border: 1px solid var(--gray-200);
   border-radius: 12px;
-  background: var(--gray-50);
+  background: white;
 }
 
 .dashboard-match-item-clickable {
@@ -845,10 +845,27 @@ h1 {
   color: var(--ocean-gray);
 }
 
+.dashboard-match-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .dashboard-match-date {
   font-size: 0.875rem;
   color: var(--gray-600);
-  flex-shrink: 0;
+}
+
+.dashboard-match-court {
+  font-size: 0.75rem;
+  color: var(--ocean-gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  text-align: right;
 }
 
 .dashboard-widget-footer {
@@ -5921,7 +5938,6 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .open-sessions-list-ul {
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -5944,6 +5960,14 @@ body:hover ::-webkit-scrollbar-thumb {
 .open-sessions-list-card:hover {
   border-color: var(--primary);
   box-shadow: var(--shadow-md);
+}
+
+.open-sessions-list-card--active {
+  border-color: var(--success);
+}
+
+.open-sessions-list-card--active:hover {
+  border-color: var(--success);
 }
 
 .open-sessions-list-card-main {
@@ -6018,14 +6042,147 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
 }
 
-/* Non-League Sessions - My Games Tab */
+.open-sessions-list-expanded {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Sessions widget toggle */
+.sessions-widget-toggle {
+  font-size: 12px;
+  color: var(--gray-600);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.sessions-widget-toggle:hover {
+  color: var(--primary);
+}
+
+/* My Leagues Bar — full-width horizontal scroll */
+.home-leagues-bar {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+}
+
+.home-leagues-bar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.home-leagues-bar__header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-leagues-bar__header-title svg {
+  color: var(--primary);
+}
+
+.home-leagues-bar__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.home-leagues-bar__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.home-leagues-bar__empty {
+  padding: 20px 24px;
+  text-align: center;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.home-leagues-bar__scroll-track {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.home-leagues-bar__scroll-track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-leagues-bar__card {
+  flex-shrink: 0;
+  width: 200px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.home-leagues-bar__card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  background: white;
+}
+
+.home-leagues-bar__card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-leagues-bar__card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--gray-600);
+}
+
+.home-leagues-bar__card-location {
+  background: var(--gray-100);
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.home-leagues-bar__card-members {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* My Games Tab */
 .my-games-tab-container {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 640px;
-  margin-left: 0;
-  margin-right: auto;
 }
 
 .my-games-tab-header {
@@ -6042,28 +6199,21 @@ body:hover ::-webkit-scrollbar-thumb {
   color: var(--gray-900);
 }
 
-/* Create game button - outline primary, minimal aesthetic */
 .my-games-tab-create-btn {
   gap: 8px;
   font-size: 0.95rem;
   font-weight: 600;
 }
 
-.my-games-tab-error {
-  color: var(--color-error, #dc2626);
-  font-size: 0.9rem;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: var(--danger-light, #ffeceb);
-  border-radius: 8px;
+.my-games-tab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
 }
 
-.my-games-tab-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--gray-200);
+.my-games-tab-col {
+  min-width: 0;
 }
 
 .my-games-tab-section-title {
@@ -6074,6 +6224,13 @@ body:hover ::-webkit-scrollbar-thumb {
   font-weight: 600;
   color: var(--gray-900);
   margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .my-games-tab-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
 }
 
 
@@ -8533,6 +8690,10 @@ button.match-config-toggle.inline svg {
     font-size: 0.8rem;
   }
 
+  .dashboard-match-court {
+    display: none;
+  }
+
   .landing-brand-crown {
     width: 24px;
     height: 24px;
@@ -10236,25 +10397,43 @@ button.match-config-toggle.inline svg {
   .home-header-row {
     padding: 12px 16px;
   }
-  
+
   .home-header-name {
     font-size: 1rem;
   }
-  
+
   .home-stats-row {
     gap: 8px;
   }
-  
+
   .home-stat-card {
     padding: 16px 8px;
   }
-  
+
   .home-stat-value {
     font-size: 1.25rem;
   }
-  
+
   .home-content-grid {
     gap: 16px;
+  }
+
+  .home-leagues-bar__header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .home-leagues-bar__scroll-track {
+    padding: 12px 16px;
+  }
+
+  .home-leagues-bar__card {
+    width: 160px;
+  }
+
+  .home-leagues-bar__empty {
+    padding: 16px;
   }
 }
 .status-badge {

@@ -36,6 +36,7 @@ _require_director = make_require_kob_director()
 # Helper
 # ---------------------------------------------------------------------------
 
+
 async def _reload_detail(session: AsyncSession, tournament_id: int) -> dict:
     """Re-fetch tournament with eager loads and build detail response."""
     tournament = await kob_service.get_tournament(session, tournament_id)
@@ -73,12 +74,9 @@ async def get_my_tournaments(
 ):
     """Get tournaments directed by or participated in by the current user."""
     try:
-        tournaments = await kob_service.get_my_tournaments(
-            session, user["player_id"]
-        )
+        tournaments = await kob_service.get_my_tournaments(session, user["player_id"])
         return [
-            kob_service.build_summary_response(t, len(t.kob_players or []))
-            for t in tournaments
+            kob_service.build_summary_response(t, len(t.kob_players or [])) for t in tournaments
         ]
     except Exception as e:
         logger.error(f"Error fetching my tournaments: {e}")
@@ -133,7 +131,9 @@ async def delete_tournament(
         raise HTTPException(status_code=500, detail="Error deleting tournament")
 
 
-@router.post("/api/kob/tournaments/{tournament_id}/players", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments/{tournament_id}/players", response_model=KobTournamentDetailResponse
+)
 async def add_player(
     payload: KobPlayerAdd,
     director: dict = Depends(_require_director),
@@ -172,7 +172,9 @@ async def remove_player(
         raise HTTPException(status_code=500, detail="Error removing player")
 
 
-@router.put("/api/kob/tournaments/{tournament_id}/seeds", response_model=KobTournamentDetailResponse)
+@router.put(
+    "/api/kob/tournaments/{tournament_id}/seeds", response_model=KobTournamentDetailResponse
+)
 async def reorder_seeds(
     payload: KobSeedReorder,
     director: dict = Depends(_require_director),
@@ -180,9 +182,7 @@ async def reorder_seeds(
 ):
     """Reorder player seeds."""
     try:
-        await kob_service.reorder_seeds(
-            session, director["tournament"].id, payload.player_ids
-        )
+        await kob_service.reorder_seeds(session, director["tournament"].id, payload.player_ids)
         return await _reload_detail(session, director["tournament"].id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -191,7 +191,9 @@ async def reorder_seeds(
         raise HTTPException(status_code=500, detail="Error reordering seeds")
 
 
-@router.post("/api/kob/tournaments/{tournament_id}/start", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments/{tournament_id}/start", response_model=KobTournamentDetailResponse
+)
 async def start_tournament(
     director: dict = Depends(_require_director),
     session: AsyncSession = Depends(get_db_session),
@@ -209,16 +211,16 @@ async def start_tournament(
         raise HTTPException(status_code=500, detail="Error starting tournament")
 
 
-@router.post("/api/kob/tournaments/{tournament_id}/advance", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments/{tournament_id}/advance", response_model=KobTournamentDetailResponse
+)
 async def manual_advance(
     director: dict = Depends(_require_director),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Manually advance to the next round (director only)."""
     try:
-        tournament = await kob_service.advance_round(
-            session, director["tournament"].id
-        )
+        tournament = await kob_service.advance_round(session, director["tournament"].id)
         return await kob_service.build_detail_response(session, tournament)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -227,7 +229,9 @@ async def manual_advance(
         raise HTTPException(status_code=500, detail="Error advancing round")
 
 
-@router.post("/api/kob/tournaments/{tournament_id}/drop-player", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments/{tournament_id}/drop-player", response_model=KobTournamentDetailResponse
+)
 async def drop_player(
     payload: KobDropPlayer,
     director: dict = Depends(_require_director),
@@ -235,9 +239,7 @@ async def drop_player(
 ):
     """Drop a player from an active tournament (director only)."""
     try:
-        await kob_service.drop_player(
-            session, director["tournament"].id, payload.player_id
-        )
+        await kob_service.drop_player(session, director["tournament"].id, payload.player_id)
         return await _reload_detail(session, director["tournament"].id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -259,8 +261,11 @@ async def edit_score(
     """Edit a match score (director override)."""
     try:
         match = await kob_service.update_score(
-            session, director["tournament"].id, matchup_id,
-            payload.team1_score, payload.team2_score,
+            session,
+            director["tournament"].id,
+            matchup_id,
+            payload.team1_score,
+            payload.team2_score,
             game_index=payload.game_index,
         )
         return await kob_service.build_match_response(session, match)
@@ -271,7 +276,9 @@ async def edit_score(
         raise HTTPException(status_code=500, detail="Error editing score")
 
 
-@router.post("/api/kob/tournaments/{tournament_id}/complete", response_model=KobTournamentDetailResponse)
+@router.post(
+    "/api/kob/tournaments/{tournament_id}/complete", response_model=KobTournamentDetailResponse
+)
 async def complete_tournament(
     director: dict = Depends(_require_director),
     session: AsyncSession = Depends(get_db_session),
@@ -301,8 +308,11 @@ async def update_bracket(
     """Swap player assignments in a bracket match (director only, before scoring)."""
     try:
         match = await kob_service.update_bracket_match(
-            session, director["tournament"].id, payload.match_id,
-            payload.team1, payload.team2,
+            session,
+            director["tournament"].id,
+            payload.match_id,
+            payload.team1,
+            payload.team2,
         )
         return await kob_service.build_match_response(session, match)
     except ValueError as e:
@@ -337,9 +347,7 @@ async def get_format_recommendation(
     effective_format = tournament_format
 
     if effective_format is None:
-        defaults = kob_scheduler.suggest_defaults(
-            num_players, num_courts, duration_minutes
-        )
+        defaults = kob_scheduler.suggest_defaults(num_players, num_courts, duration_minutes)
         effective_format = defaults["format"]
         if num_pools is None:
             num_pools = defaults["num_pools"]
@@ -382,9 +390,7 @@ async def get_format_pills(
 
     No auth required — pure computation, no DB access.
     """
-    return kob_scheduler.suggest_alternatives(
-        num_players, num_courts, duration_minutes
-    )
+    return kob_scheduler.suggest_alternatives(num_players, num_courts, duration_minutes)
 
 
 # ---------------------------------------------------------------------------
@@ -422,8 +428,11 @@ async def submit_score_public(
             raise HTTPException(status_code=404, detail="Tournament not found")
 
         match = await kob_service.submit_score(
-            session, tournament.id, matchup_id,
-            payload.team1_score, payload.team2_score,
+            session,
+            tournament.id,
+            matchup_id,
+            payload.team1_score,
+            payload.team2_score,
             game_index=payload.game_index,
         )
         return await kob_service.build_match_response(session, match)
