@@ -38,20 +38,14 @@ def upgrade() -> None:
                 server_default=sa.func.now(),
                 nullable=True,
             ),
-            sa.ForeignKeyConstraint(
-                ["player_id"], ["players.id"], ondelete="CASCADE"
-            ),
-            sa.ForeignKeyConstraint(
-                ["court_id"], ["courts.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["court_id"], ["courts.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(
                 "player_id", "court_id", name="uq_player_home_courts_player_court"
             ),
         )
-        op.create_index(
-            "idx_player_home_courts_player", "player_home_courts", ["player_id"]
-        )
+        op.create_index("idx_player_home_courts_player", "player_home_courts", ["player_id"])
 
 
 def downgrade() -> None:

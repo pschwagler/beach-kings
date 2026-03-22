@@ -73,32 +73,40 @@ async def build_detail_response(
     for kp in tournament.kob_players:
         player_ids.add(kp.player_id)
     for m in tournament.kob_matches:
-        player_ids.update([
-            m.team1_player1_id, m.team1_player2_id,
-            m.team2_player1_id, m.team2_player2_id,
-        ])
+        player_ids.update(
+            [
+                m.team1_player1_id,
+                m.team1_player2_id,
+                m.team2_player1_id,
+                m.team2_player2_id,
+            ]
+        )
 
     result = await session.execute(
         select(Player.id, Player.full_name, Player.profile_picture_url).where(
             Player.id.in_(player_ids)
         )
     )
-    player_map = {row.id: {"name": row.full_name, "avatar": row.profile_picture_url} for row in result}
+    player_map = {
+        row.id: {"name": row.full_name, "avatar": row.profile_picture_url} for row in result
+    }
 
     # Build players list
     players_resp = []
     for kp in sorted(tournament.kob_players, key=lambda p: p.seed or UNSEEDED_SORT_KEY):
         p_info = player_map.get(kp.player_id, {})
-        players_resp.append({
-            "id": kp.id,
-            "player_id": kp.player_id,
-            "player_name": p_info.get("name"),
-            "player_avatar": p_info.get("avatar"),
-            "seed": kp.seed,
-            "pool_id": kp.pool_id,
-            "is_dropped": kp.is_dropped,
-            "dropped_at_round": kp.dropped_at_round,
-        })
+        players_resp.append(
+            {
+                "id": kp.id,
+                "player_id": kp.player_id,
+                "player_name": p_info.get("name"),
+                "player_avatar": p_info.get("avatar"),
+                "seed": kp.seed,
+                "pool_id": kp.pool_id,
+                "is_dropped": kp.is_dropped,
+                "dropped_at_round": kp.dropped_at_round,
+            }
+        )
 
     # Build matches list
     matches_resp = [
@@ -160,17 +168,16 @@ async def build_match_response(session: AsyncSession, match: KobMatch) -> dict:
         Dict matching KobMatchResponse shape.
     """
     pids = [
-        match.team1_player1_id, match.team1_player2_id,
-        match.team2_player1_id, match.team2_player2_id,
+        match.team1_player1_id,
+        match.team1_player2_id,
+        match.team2_player1_id,
+        match.team2_player2_id,
     ]
     result = await session.execute(
-        select(Player.id, Player.full_name, Player.profile_picture_url).where(
-            Player.id.in_(pids)
-        )
+        select(Player.id, Player.full_name, Player.profile_picture_url).where(Player.id.in_(pids))
     )
     player_map = {
-        row.id: {"name": row.full_name, "avatar": row.profile_picture_url}
-        for row in result
+        row.id: {"name": row.full_name, "avatar": row.profile_picture_url} for row in result
     }
     return _serialize_match(match, player_map)
 

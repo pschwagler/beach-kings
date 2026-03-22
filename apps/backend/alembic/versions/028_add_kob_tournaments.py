@@ -44,11 +44,16 @@ def upgrade() -> None:
     # --- kob_tournaments ---
     if not _table_exists(conn, "kob_tournaments"):
         tournament_status = sa.Enum(
-            "SETUP", "ACTIVE", "COMPLETED", "CANCELLED",
+            "SETUP",
+            "ACTIVE",
+            "COMPLETED",
+            "CANCELLED",
             name="tournamentstatus",
         )
         tournament_format = sa.Enum(
-            "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN",
+            "FULL_ROUND_ROBIN",
+            "POOLS_PLAYOFFS",
+            "PARTIAL_ROUND_ROBIN",
             name="tournamentformat",
         )
 

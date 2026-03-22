@@ -21,9 +21,26 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table: str, column: str) -> bool:
+    """Check if a column exists on a table (used for idempotent migrations)."""
+    from sqlalchemy import text
+
+    conn = op.get_bind()
+    result = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :table AND column_name = :column"
+        ),
+        {"table": table, "column": column},
+    )
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     # Drop the current_elo column from player_season_stats
-    # Values are already cleared/not used, so we can drop directly
+    # Guard: column may not exist if create_all() used current models
+    if not _column_exists("player_season_stats", "current_elo"):
+        return
     op.drop_column("player_season_stats", "current_elo")
 
 

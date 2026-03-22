@@ -67,6 +67,7 @@ from backend.services.kob_responses import (  # noqa: F401, E402
 # Code generation
 # ---------------------------------------------------------------------------
 
+
 def _generate_code() -> str:
     """Generate a unique tournament code like 'KOB-A3X9R2'."""
     suffix = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
@@ -77,9 +78,7 @@ async def _ensure_unique_code(session: AsyncSession) -> str:
     """Generate a code that doesn't collide with existing tournaments."""
     for _ in range(10):
         code = _generate_code()
-        exists = await session.execute(
-            select(KobTournament.id).where(KobTournament.code == code)
-        )
+        exists = await session.execute(select(KobTournament.id).where(KobTournament.code == code))
         if not exists.scalar_one_or_none():
             return code
     raise ValueError("Failed to generate unique tournament code — please try again")
@@ -88,6 +87,7 @@ async def _ensure_unique_code(session: AsyncSession) -> str:
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
+
 
 async def create_tournament(
     session: AsyncSession,
@@ -218,6 +218,7 @@ async def delete_tournament(
 # Player management
 # ---------------------------------------------------------------------------
 
+
 async def add_player(
     session: AsyncSession,
     tournament_id: int,
@@ -246,9 +247,7 @@ async def add_player(
         raise ValueError("Can only add players during SETUP")
 
     # Validate player exists
-    player_exists = await session.execute(
-        select(Player.id).where(Player.id == player_id)
-    )
+    player_exists = await session.execute(select(Player.id).where(Player.id == player_id))
     if not player_exists.scalar_one_or_none():
         raise ValueError(f"Player {player_id} not found")
 
@@ -267,9 +266,7 @@ async def add_player(
     # Auto-assign seed if not provided
     if seed is None:
         result = await session.execute(
-            select(func.count(KobPlayer.id)).where(
-                KobPlayer.tournament_id == tournament_id
-            )
+            select(func.count(KobPlayer.id)).where(KobPlayer.tournament_id == tournament_id)
         )
         seed = result.scalar() + 1
 
@@ -403,8 +400,10 @@ async def drop_player(
     future_matches = result.scalars().all()
     for match in future_matches:
         players_in_match = [
-            match.team1_player1_id, match.team1_player2_id,
-            match.team2_player1_id, match.team2_player2_id,
+            match.team1_player1_id,
+            match.team1_player2_id,
+            match.team2_player1_id,
+            match.team2_player2_id,
         ]
         if player_id in players_in_match:
             match.is_bye = True
@@ -424,6 +423,7 @@ async def drop_player(
 # ---------------------------------------------------------------------------
 # Schedule + Start
 # ---------------------------------------------------------------------------
+
 
 async def start_tournament(
     session: AsyncSession,
@@ -531,6 +531,7 @@ async def _create_matches_from_schedule(
 # Scoring
 # ---------------------------------------------------------------------------
 
+
 async def submit_score(
     session: AsyncSession,
     tournament_id: int,
@@ -593,7 +594,9 @@ async def submit_score(
 
     # Validate the individual game score
     _validate_score(
-        team1_score, team2_score, settings.game_to,
+        team1_score,
+        team2_score,
+        settings.game_to,
         score_cap=settings.score_cap,
     )
 
@@ -613,9 +616,7 @@ async def submit_score(
 
     # Check if round is complete for auto-advance
     if tournament.auto_advance and match.winner is not None:
-        round_complete = await check_round_complete(
-            session, tournament_id, match.round_num
-        )
+        round_complete = await check_round_complete(session, tournament_id, match.round_num)
         if round_complete:
             await advance_round(session, tournament_id)
 
@@ -666,7 +667,9 @@ async def update_score(
     settings = _effective_game_settings(tournament, match.phase)
 
     _validate_score(
-        team1_score, team2_score, settings.game_to,
+        team1_score,
+        team2_score,
+        settings.game_to,
         score_cap=settings.score_cap,
     )
 

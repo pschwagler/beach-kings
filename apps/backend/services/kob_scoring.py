@@ -151,6 +151,4 @@ def _validate_score(
 
     # If over game_to, must be exactly 2 apart (e.g. 22-20 but not 25-20)
     if high > game_to and (high - low) != 2:
-        raise ValueError(
-            f"When score exceeds {game_to}, difference must be exactly 2"
-        )
+        raise ValueError(f"When score exceeds {game_to}, difference must be exactly 2")

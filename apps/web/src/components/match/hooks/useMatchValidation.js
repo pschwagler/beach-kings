@@ -41,7 +41,7 @@ export function useMatchValidation({
     if (!editMatch && matchType === 'league' && selectedLeagueId) {
       if (allSeasons.length > 1 && !selectedSeasonId) {
         setFormError('Please select a season');
-        return { isValid: false };
+        return { isValid: false, openSeasonDropdown: true };
       }
       if (allSeasons.length === 1 && !selectedSeasonId) {
         // Auto-select the single season

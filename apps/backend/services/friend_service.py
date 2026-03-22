@@ -154,13 +154,19 @@ async def send_friend_request(
 
     # Batch-fetch sender name and receiver user_id in one query
     player_result = await session.execute(
-        select(Player.id, Player.full_name, Player.user_id).where(
+        select(Player.id, Player.full_name, Player.user_id, Player.is_placeholder).where(
             Player.id.in_([sender_player_id, receiver_player_id])
         )
     )
     player_map = {row.id: row for row in player_result.all()}
     sender_row = player_map.get(sender_player_id)
     receiver_row = player_map.get(receiver_player_id)
+
+    if not receiver_row:
+        raise ValueError("Player not found")
+    if receiver_row.is_placeholder:
+        raise ValueError("Cannot send a friend request to an unregistered player")
+
     sender_name = sender_row.full_name if sender_row else "Someone"
     receiver_user_id = receiver_row.user_id if receiver_row else None
 

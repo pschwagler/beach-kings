@@ -45,6 +45,10 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    ...(process.env.CI || process.env.MOBILE ? [{
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    }] : []),
     ...(process.env.CI || process.env.ALL_BROWSERS ? [
       {
         name: 'firefox',

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Tournament lookups
 # ---------------------------------------------------------------------------
 
+
 async def get_tournament(
     session: AsyncSession,
     tournament_id: int,
@@ -119,6 +120,7 @@ async def get_my_tournaments(
 # Standings
 # ---------------------------------------------------------------------------
 
+
 def _tiebreak_hash(tournament_id: int, player_id: int) -> str:
     """Deterministic coin-flip tiebreaker using a stable hash."""
     return hashlib.sha256(f"{tournament_id}-{player_id}".encode()).hexdigest()
@@ -159,15 +161,11 @@ async def get_standings(
     matches = result.scalars().all()
 
     # Get tournament players
-    player_query = select(KobPlayer).where(
-        KobPlayer.tournament_id == tournament_id
-    )
+    player_query = select(KobPlayer).where(KobPlayer.tournament_id == tournament_id)
     if pool_id is not None:
         player_query = player_query.where(KobPlayer.pool_id == pool_id)
 
-    result = await session.execute(
-        player_query.options(selectinload(KobPlayer.player))
-    )
+    result = await session.execute(player_query.options(selectinload(KobPlayer.player)))
     kob_players = result.scalars().all()
 
     player_ids_in_scope = {kp.player_id for kp in kob_players}
@@ -190,8 +188,10 @@ async def get_standings(
     # If filtering by pool, only count matches where all players are in that pool
     for m in matches:
         all_pids = [
-            m.team1_player1_id, m.team1_player2_id,
-            m.team2_player1_id, m.team2_player2_id,
+            m.team1_player1_id,
+            m.team1_player2_id,
+            m.team2_player1_id,
+            m.team2_player2_id,
         ]
 
         # If pool filter, only count matches with players in this pool

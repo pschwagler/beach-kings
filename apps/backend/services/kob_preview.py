@@ -67,7 +67,9 @@ def generate_preview(
     # Effective playoff settings (fall back to pool play values)
     eff_playoff_format = playoff_format or "ROUND_ROBIN"
     eff_playoff_game_to = playoff_game_to if playoff_game_to is not None else game_to
-    eff_playoff_games_per_match = playoff_games_per_match if playoff_games_per_match is not None else games_per_match
+    eff_playoff_games_per_match = (
+        playoff_games_per_match if playoff_games_per_match is not None else games_per_match
+    )
 
     # Determine if playoffs are active (supported for all formats)
     has_playoffs = playoff_size is not None and playoff_size > 0
@@ -83,9 +85,7 @@ def generate_preview(
         num_rr_cycles=num_rr_cycles,
     )
 
-    pool_play_rounds_data = [
-        r for r in schedule["rounds"] if r["phase"] == "pool_play"
-    ]
+    pool_play_rounds_data = [r for r in schedule["rounds"] if r["phase"] == "pool_play"]
 
     # If has_playoffs, generate preview playoff rounds
     playoff_rounds_data = []
@@ -107,17 +107,14 @@ def generate_preview(
     # Build pools map for preview
     preview_pools = None
     if schedule.get("pools"):
-        preview_pools = {
-            str(k): v for k, v in schedule["pools"].items()
-        }
+        preview_pools = {str(k): v for k, v in schedule["pools"].items()}
 
     # Per-pool game_to auto-calculation
     pool_game_to_map: Optional[Dict[int, int]] = None
     resp_pool_courts: Optional[Dict[int, int]] = schedule.get("pool_courts")
     if preview_pools:
         pool_sizes = {
-            int(pool_id): len(pool_players)
-            for pool_id, pool_players in preview_pools.items()
+            int(pool_id): len(pool_players) for pool_id, pool_players in preview_pools.items()
         }
         pool_game_to_map = _auto_pool_game_to(pool_sizes, game_to)
 
@@ -135,13 +132,10 @@ def generate_preview(
         elif pool_game_to_map:
             # Use the max per-pool game_to for the merged round time estimate
             # (the round finishes when the slowest pool finishes)
-            pool_ids_in_round = set(
-                m.get("pool_id") for m in rnd["matches"] if m.get("pool_id")
-            )
+            pool_ids_in_round = set(m.get("pool_id") for m in rnd["matches"] if m.get("pool_id"))
             if pool_ids_in_round:
                 rnd_game_to = max(
-                    pool_game_to_map.get(pool_id, game_to)
-                    for pool_id in pool_ids_in_round
+                    pool_game_to_map.get(pool_id, game_to) for pool_id in pool_ids_in_round
                 )
             else:
                 rnd_game_to = game_to
@@ -185,7 +179,9 @@ def generate_preview(
     # Stats
     total_matches = sum(len(r["matches"]) for r in all_rounds)
     pool_play_games = sum(len(r["matches"]) for r in pool_play_rounds_data) * games_per_match
-    playoff_games = sum(len(r["matches"]) for r in playoff_rounds_data) * eff_playoff_games_per_match
+    playoff_games = (
+        sum(len(r["matches"]) for r in playoff_rounds_data) * eff_playoff_games_per_match
+    )
     total_games = pool_play_games + playoff_games
     min_gpp, max_gpp = _games_per_player_range(all_rounds, num_players, games_per_match)
     gpc = math.ceil(total_games / num_courts) if num_courts > 0 else 0
@@ -195,36 +191,43 @@ def generate_preview(
 
     # Build explanation
     explanation = _build_explanation(
-        format, num_players, num_courts, num_pools, playoff_size,
-        pool_play_round_count, playoff_round_count, total_time,
-        games_per_match, num_rr_cycles,
+        format,
+        num_players,
+        num_courts,
+        num_pools,
+        playoff_size,
+        pool_play_round_count,
+        playoff_round_count,
+        total_time,
+        games_per_match,
+        num_rr_cycles,
     )
 
     # Build suggestion
     suggestion = _build_suggestion(
-        format, num_players, num_rr_cycles, games_per_match,
-        pool_play_round_count, total_time, duration_minutes,
-        max_games_per_player=max_gpp, game_to=game_to,
+        format,
+        num_players,
+        num_rr_cycles,
+        games_per_match,
+        pool_play_round_count,
+        total_time,
+        duration_minutes,
+        max_games_per_player=max_gpp,
+        game_to=game_to,
     )
 
     # Split rounds into time slots — each slot has at most num_courts matches.
     # This makes each preview round = one time slot on the courts.
     preview_rounds = _split_into_time_slots(preview_rounds, num_courts)
-    pool_play_round_count = sum(
-        1 for r in preview_rounds if r["phase"] == "pool_play"
-    )
-    playoff_round_count = sum(
-        1 for r in preview_rounds if r["phase"] == "playoffs"
-    )
+    pool_play_round_count = sum(1 for r in preview_rounds if r["phase"] == "pool_play")
+    playoff_round_count = sum(1 for r in preview_rounds if r["phase"] == "playoffs")
 
     # Serialize pool_game_to and pool_courts with string keys for JSON
     resp_pool_game_to = (
-        {str(k): v for k, v in pool_game_to_map.items()}
-        if pool_game_to_map else None
+        {str(k): v for k, v in pool_game_to_map.items()} if pool_game_to_map else None
     )
     resp_pool_courts_str = (
-        {str(k): v for k, v in resp_pool_courts.items()}
-        if resp_pool_courts else None
+        {str(k): v for k, v in resp_pool_courts.items()} if resp_pool_courts else None
     )
 
     return {
@@ -294,7 +297,9 @@ def _build_explanation(
             parts.append(f"top {playoff_size} advance to playoffs")
         desc = " → ".join(parts)
         cycle_note = f" ({num_rr_cycles}x cycles)" if num_rr_cycles > 1 else ""
-        return f"{desc}{cycle_note}. {pool_play_rounds + playoff_rounds} total rounds, ~{time_str}."
+        return (
+            f"{desc}{cycle_note}. {pool_play_rounds + playoff_rounds} total rounds, ~{time_str}."
+        )
 
     return f"{pool_play_rounds + playoff_rounds} rounds, ~{time_str}."
 
@@ -320,6 +325,7 @@ def _build_suggestion(
     - "Lots of volleyball": 10 games x 21 = 210 points
     - "Consider reducing": 14 games x 21 = 294 points
     """
+
     def _fmt(mins: int) -> str:
         """Format minutes as 'Xh Ym', e.g. 150 -> '2h 30m'."""
         h, m = divmod(int(mins), 60)
@@ -355,5 +361,3 @@ def _build_suggestion(
         )
 
     return None
-
-

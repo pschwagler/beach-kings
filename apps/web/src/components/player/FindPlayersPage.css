@@ -226,6 +226,31 @@
   color: var(--gray-500);
 }
 
+/* Toggle label for checkbox filters */
+.find-players__filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.find-players__filter-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Card name row (name + badge inline) */
+.find-players__card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 /* Suppress the label inside SearchableMultiSelect when used in the panel */
 .find-players__filter-group .searchable-multiselect {
   min-width: 0;
@@ -435,6 +460,11 @@
 .find-players__card-badge--mutual {
   background: var(--sand-light);
   color: var(--warm-brown);
+}
+
+.find-players__card-badge--placeholder {
+  background: var(--gray-200);
+  color: var(--gray-600);
 }
 
 /* Small avatar variant for table view */

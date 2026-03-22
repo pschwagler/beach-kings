@@ -160,6 +160,9 @@ async def list_public_players(
         None, description="Sort direction (default depends on sort_by)"
     ),
     min_games: Optional[int] = Query(None, ge=1, description="Minimum total games played"),
+    include_placeholders: bool = Query(
+        False, description="Include unregistered placeholder players"
+    ),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(25, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),
@@ -170,7 +173,7 @@ async def list_public_players(
     Returns paginated players with total_games >= 1. Supports filtering
     by name, location, gender, level, and min_games. Supports sorting by
     games (default), name, or rating with optional direction override.
-    No authentication required.
+    No authentication required. Placeholder players are hidden by default.
     """
     return await public_service.search_public_players(
         session,
@@ -181,6 +184,7 @@ async def list_public_players(
         sort_by=sort_by,
         sort_dir=sort_dir,
         min_games=min_games,
+        include_placeholders=include_placeholders,
         page=page,
         page_size=page_size,
     )

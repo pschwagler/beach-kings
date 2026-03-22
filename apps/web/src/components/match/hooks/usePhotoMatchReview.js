@@ -1,12 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   editPhotoResults,
   confirmPhotoMatches,
   cancelPhotoSession,
   subscribePhotoJobStream,
 } from '../../../services/api';
+
+/** Job status constants shared between hook and modal. */
+export const JOB_STATUS = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CONFIRMED: 'confirmed',
+};
 
 /**
  * Hook for PhotoMatchReviewModal: job state, streaming, and submit logic.
@@ -30,7 +39,7 @@ export function usePhotoMatchReview({
   onSuccess,
 }) {
   const [jobId, setJobId] = useState(initialJobId);
-  const [status, setStatus] = useState('PENDING');
+  const [status, setStatus] = useState(JOB_STATUS.PENDING);
   const [result, setResult] = useState(null);
   const [partialMatches, setPartialMatches] = useState(null);
   const [error, setError] = useState(null);
@@ -39,12 +48,13 @@ export function usePhotoMatchReview({
   const [conversationHistory, setConversationHistory] = useState([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState(seasonId);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
+  const [playerOverrides, setPlayerOverrides] = useState([]);
 
   const streamAbortRef = useRef(null);
-  const prevInitialJobIdRef = useRef(initialJobId);
+
 
   useEffect(() => {
-    if (!isOpen || !jobId || !leagueId || status === 'COMPLETED' || status === 'FAILED') {
+    if (!isOpen || !jobId || !leagueId || status === JOB_STATUS.COMPLETED || status === JOB_STATUS.FAILED) {
       return;
     }
     streamAbortRef.current = subscribePhotoJobStream(leagueId, jobId, {
@@ -55,8 +65,8 @@ export function usePhotoMatchReview({
       },
       onDone: (data) => {
         setPartialMatches(null);
-        setStatus(data.status || 'COMPLETED');
-        if (data.status === 'COMPLETED' && data.result) {
+        setStatus(data.status || JOB_STATUS.COMPLETED);
+        if (data.status === JOB_STATUS.COMPLETED && data.result) {
           setResult(data.result);
           if (data.result.clarification_question) {
             setConversationHistory((prev) => [
@@ -68,7 +78,7 @@ export function usePhotoMatchReview({
               },
             ]);
           }
-        } else if (data.status === 'FAILED') {
+        } else if (data.status === JOB_STATUS.FAILED) {
           setError(data.result?.error_message || 'Processing failed');
         }
       },
@@ -85,22 +95,13 @@ export function usePhotoMatchReview({
     };
   }, [isOpen, jobId, leagueId, status]);
 
-  useEffect(() => {
-    if (initialJobId !== prevInitialJobIdRef.current) {
-      prevInitialJobIdRef.current = initialJobId;
-      setJobId(initialJobId);
-      setStatus('PENDING');
-      setResult(null);
-      setError(null);
-      setConversationHistory([]);
-      setPartialMatches(null);
-    }
-  }, [initialJobId]);
+  // State reset on new initialJobId is handled by the parent re-keying the
+  // component (key={initialJobId} in GlobalModal), which remounts the hook.
 
   const handleClose = useCallback(async () => {
     if (isSubmitting) return;
 
-    if (sessionId && status !== 'confirmed') {
+    if (sessionId && status !== JOB_STATUS.CONFIRMED) {
       try {
         await cancelPhotoSession(leagueId, sessionId);
       } catch (err) {
@@ -134,9 +135,10 @@ export function usePhotoMatchReview({
     try {
       const response = await editPhotoResults(leagueId, sessionId, editPrompt.trim());
       setJobId(response.job_id);
-      setStatus('PENDING');
+      setStatus(JOB_STATUS.PENDING);
       setResult(null);
       setEditPrompt('');
+      setPlayerOverrides([]);
       if (streamAbortRef.current) {
         streamAbortRef.current();
         streamAbortRef.current = null;
@@ -148,6 +150,85 @@ export function usePhotoMatchReview({
       setIsSubmitting(false);
     }
   }, [editPrompt, isSubmitting, leagueId, sessionId]);
+
+  /**
+   * Resolve an unrecognized player name to a known player.
+   * Updates result.matches in state so the table reflects the resolution immediately.
+   */
+  const handleResolvePlayer = useCallback((rawName, playerId, playerName) => {
+    // Upsert into overrides
+    setPlayerOverrides((prev) => {
+      const filtered = prev.filter((o) => o.raw_name !== rawName);
+      return [...filtered, { raw_name: rawName, player_id: playerId, player_name: playerName }];
+    });
+
+    // Update result.matches in state so table shows resolved names immediately
+    setResult((prev) => {
+      if (!prev?.matches) return prev;
+      const playerFields = ['team1_player1', 'team1_player2', 'team2_player1', 'team2_player2'];
+      const updatedMatches = prev.matches.map((match) => {
+        const newMatch = { ...match };
+        for (const field of playerFields) {
+          // Check if this field is unmatched and has the raw name
+          if (newMatch[`${field}_id`]) continue;
+          const player = newMatch[field];
+          let fieldRawName = '';
+          if (typeof player === 'object' && player?.name) {
+            fieldRawName = player.name.trim();
+          } else if (typeof player === 'string') {
+            fieldRawName = player.trim();
+          }
+          if (fieldRawName.toLowerCase() === rawName.toLowerCase()) {
+            newMatch[`${field}_id`] = playerId;
+            newMatch[`${field}_matched`] = playerName;
+            newMatch[`${field}_confidence`] = 1.0;
+          }
+        }
+        return newMatch;
+      });
+
+      // If all players are now resolved, clear needs_clarification status
+      const allResolved = updatedMatches.every((match) =>
+        playerFields.every((field) => {
+          if (match[`${field}_id`]) return true;
+          const player = match[field];
+          return typeof player === 'object' && !!player?.id;
+        })
+      );
+
+      const updated = { ...prev, matches: updatedMatches };
+      if (allResolved && prev.status === 'needs_clarification') {
+        updated.status = 'success';
+        updated.clarification_question = null;
+      }
+      return updated;
+    });
+  }, []);
+
+  /**
+   * Derive unique unmatched player names from current result.matches.
+   */
+  const unmatchedNames = useMemo(() => {
+    if (!result?.matches) return [];
+    const playerFields = ['team1_player1', 'team1_player2', 'team2_player1', 'team2_player2'];
+    const names = new Set();
+    for (const match of result.matches) {
+      for (const field of playerFields) {
+        if (match[`${field}_id`]) continue;
+        const player = match[field];
+        let rawName = '';
+        if (typeof player === 'object' && player?.name) {
+          rawName = player.name.trim();
+        } else if (typeof player === 'string') {
+          rawName = player.trim();
+        }
+        if (rawName) {
+          names.add(rawName);
+        }
+      }
+    }
+    return [...names];
+  }, [result?.matches]);
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting || !result?.matches?.length) return;
@@ -161,13 +242,14 @@ export function usePhotoMatchReview({
       return;
     }
 
+    // Check for unmatched players (accounting for overrides already applied to state)
     const isPlayerMatched = (player, playerId) => {
       if (typeof player === 'object' && player?.id) return true;
       if (playerId) return true;
       return false;
     };
 
-    const unmatchedPlayers = result.matches.some(
+    const hasUnmatched = result.matches.some(
       (match) =>
         !isPlayerMatched(match.team1_player1, match.team1_player1_id) ||
         !isPlayerMatched(match.team1_player2, match.team1_player2_id) ||
@@ -175,9 +257,9 @@ export function usePhotoMatchReview({
         !isPlayerMatched(match.team2_player2, match.team2_player2_id)
     );
 
-    if (unmatchedPlayers) {
+    if (hasUnmatched) {
       setError(
-        'Some players could not be matched. Please use the edit prompt to clarify player names.'
+        'Some players could not be matched. Resolve all unrecognized players before confirming.'
       );
       return;
     }
@@ -186,21 +268,27 @@ export function usePhotoMatchReview({
     setError(null);
 
     try {
+      const overridesPayload = playerOverrides.length > 0 ? playerOverrides : null;
       const response = await confirmPhotoMatches(
         leagueId,
         sessionId,
         selectedSeasonId,
-        matchDate
+        matchDate,
+        overridesPayload
       );
-      setStatus('confirmed');
+      setStatus(JOB_STATUS.CONFIRMED);
       onSuccess?.(response.match_ids);
     } catch (err) {
       console.error('Error confirming matches:', err);
-      setError(err.response?.data?.detail || 'Failed to create games');
+      const detail = err.response?.data?.detail;
+      const errorMsg = Array.isArray(detail)
+        ? detail.map((e) => e.msg).join('; ')
+        : detail || 'Failed to create games';
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, result, selectedSeasonId, matchDate, leagueId, sessionId, onSuccess]);
+  }, [isSubmitting, result, selectedSeasonId, matchDate, leagueId, sessionId, onSuccess, playerOverrides]);
 
   return {
     jobId,
@@ -216,8 +304,10 @@ export function usePhotoMatchReview({
     setSelectedSeasonId,
     matchDate,
     setMatchDate,
+    unmatchedNames,
     handleClose,
     handleSendEdit,
     handleConfirm,
+    handleResolvePlayer,
   };
 }

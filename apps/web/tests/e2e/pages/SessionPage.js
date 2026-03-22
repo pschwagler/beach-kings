@@ -26,7 +26,7 @@ export class SessionPage extends BasePage {
       shareViaButton: '.session-share-dropdown-item:has-text("Share via")',
 
       // Players management
-      managePlayers: 'button:has-text("Manage players")',
+      managePlayers: 'button:has-text("Manage session")',
       playersModal: '.session-players-drawer, .session-players-modal',
       playersDrawer: '.session-players-drawer',
       playersModalClose: '.session-players-drawer .modal-close-button, .session-players-modal .modal-close-button',
@@ -127,6 +127,17 @@ export class SessionPage extends BasePage {
       await this.click(this.selectors.managePlayers);
       await this.page.waitForSelector(this.selectors.playersModal, { state: 'visible', timeout: 5000 });
     }
+    // Wait for slideUpMobile animation to complete (250ms) before interacting
+    await this.page.evaluate(() => new Promise(resolve => {
+      const drawer = document.querySelector('.session-players-drawer');
+      if (!drawer) { resolve(); return; }
+      const handler = () => { drawer.removeEventListener('animationend', handler); resolve(); };
+      const s = window.getComputedStyle(drawer);
+      if (s.animationName === 'none' || s.transform === 'none') { resolve(); return; }
+      drawer.addEventListener('animationend', handler);
+      // Fallback timeout in case animationend doesn't fire
+      setTimeout(resolve, 400);
+    }));
   }
 
   /**
@@ -303,5 +314,58 @@ export class SessionPage extends BasePage {
   async goBack() {
     await this.click(this.selectors.backLink);
     await this.page.waitForURL('**/home**', { timeout: 10000 });
+  }
+
+  // --- Mobile viewport helpers ---
+
+  /**
+   * Set the viewport to a specific mobile size.
+   * @param {number} width - Viewport width in pixels
+   * @param {number} height - Viewport height in pixels
+   */
+  async setMobileViewport(width, height) {
+    await this.page.setViewportSize({ width, height });
+  }
+
+  /**
+   * Assert that an element's bounding box is fully within the current viewport.
+   * Returns the bounding box for further assertions.
+   * @param {string} selector - CSS selector for the element
+   * @returns {Promise<{x: number, y: number, width: number, height: number}>}
+   */
+  async assertElementWithinViewport(selector) {
+    const locator = this.page.locator(selector).first();
+    await locator.waitFor({ state: 'visible', timeout: 5000 });
+    const box = await locator.boundingBox();
+    if (!box) throw new Error(`Element "${selector}" has no bounding box (not rendered)`);
+    const viewport = this.page.viewportSize();
+    if (box.y + box.height > viewport.height) {
+      throw new Error(
+        `Element "${selector}" extends below viewport: bottom=${Math.round(box.y + box.height)}px, viewport=${viewport.height}px`
+      );
+    }
+    return box;
+  }
+
+  /**
+   * Get the scroll area dimensions of the drawer's scrollable content.
+   * @returns {Promise<{scrollHeight: number, clientHeight: number}>}
+   */
+  async getDrawerScrollAreaDimensions() {
+    return await this.page.evaluate(() => {
+      const el = document.querySelector('.session-players-column-scroll');
+      if (!el) return { scrollHeight: 0, clientHeight: 0 };
+      return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+    });
+  }
+
+  /**
+   * Scroll the drawer's scrollable content to the bottom.
+   */
+  async scrollDrawerToBottom() {
+    await this.page.evaluate(() => {
+      const el = document.querySelector('.session-players-column-scroll');
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   }
 }

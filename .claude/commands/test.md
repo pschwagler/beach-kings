@@ -121,6 +121,13 @@ cd apps/web && npm run test:e2e -- tests/e2e/league/
 cd apps/web && npm run test:e2e -- --project=chromium
 cd apps/web && npm run test:e2e -- --project=firefox
 cd apps/web && npm run test:e2e -- --project=webkit
+cd apps/web && npm run test:e2e -- --project=mobile-chrome  # Mobile viewport (Pixel 5)
+```
+
+**Mobile E2E tests:**
+```bash
+cd apps/web && npm run test:e2e:mobile            # Mobile viewport only (Pixel 5)
+cd apps/web && npm run test:e2e:all-viewports      # Desktop + mobile together
 ```
 
 ### Debugging E2E tests

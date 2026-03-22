@@ -74,7 +74,6 @@ export default function AddMatchModal({
     selectedSeasonId,
     setSelectedSeasonId,
     setActiveSeason,
-    hasActiveSession,
     isSeasonDisabled,
     loadingLeagues,
     loadingSeason,
@@ -172,37 +171,34 @@ export default function AddMatchModal({
     };
   }, [matchType, selectedLeagueId]);
 
-  // Reset match type and ranked state when modal opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setIsRanked(true);
-    }
-  }, [isOpen]);
-
   // Track if modal is newly opened (for auto-open behavior) - derived state
   const shouldAutoOpen = useMemo(() => {
     return isOpen && !editMatch && leagueMatchOnly;
   }, [isOpen, editMatch, leagueMatchOnly]);
 
-  // Pre-populate fields when editing
+  // Pre-populate fields when editing — re-runs when playerNameToIdMap updates
+  // so that player name→ID mapping resolves once members finish loading.
   useEffect(() => {
     if (editMatch) {
-      dispatchForm({ 
-        type: 'LOAD_MATCH', 
-        formData: mapEditMatchToFormData(editMatch, playerNameToIdMap) 
+      dispatchForm({
+        type: 'LOAD_MATCH',
+        formData: mapEditMatchToFormData(editMatch, playerNameToIdMap)
       });
-    } else {
-      dispatchForm({ type: 'RESET' });
+      setFormError(null);
     }
-    setFormError(null);
-  }, [editMatch, isOpen, playerNameToIdMap, dispatchForm, setFormError]);
+  }, [editMatch, playerNameToIdMap, dispatchForm, setFormError]);
 
-  // Open season dropdown and show error state when "Please select a season" error occurs
+  // Reset form when modal opens for a new match (not editing).
+  // Deliberately excludes playerNameToIdMap — adding a local placeholder
+  // should NOT wipe the form.
   useEffect(() => {
-    if (formError === 'Please select a season' && !isSeasonDropdownOpen) {
-      setIsSeasonDropdownOpen(true);
+    if (!editMatch) {
+      dispatchForm({ type: 'RESET' });
+      setFormError(null);
+      setIsRanked(true);
     }
-  }, [formError, isSeasonDropdownOpen, setIsSeasonDropdownOpen]);
+  }, [editMatch, isOpen, dispatchForm, setFormError]);
+
 
   // Use validation hook
   const { validateForm } = useMatchValidation({
@@ -235,6 +231,9 @@ export default function AddMatchModal({
     // Validate form
     const validationResult = validateForm();
     if (!validationResult.isValid) {
+      if (validationResult.openSeasonDropdown) {
+        setIsSeasonDropdownOpen(true);
+      }
       return;
     }
 
@@ -338,7 +337,34 @@ export default function AddMatchModal({
             </div>
           )}
 
-          {/* Match Configuration Section - Collapsible */}
+          {/* Season info — always visible for league matches (disabled when editing or in a session) */}
+          {editMatch && leagueMatchOnly && selectedLeagueId && (
+            <div className="match-config-section">
+              <div className="match-config-item compact league-season-item">
+                <div className="league-season-combined-inline">
+                  <div className="season-dropdown-container compact" ref={seasonDropdownRef}>
+                    <SeasonDropdown
+                      loadingSeason={loadingSeason}
+                      allSeasons={allSeasons}
+                      selectedSeasonId={selectedSeasonId}
+                      isSeasonDisabled={true}
+                      isSeasonDropdownOpen={false}
+                      setIsSeasonDropdownOpen={() => {}}
+                      setSelectedSeasonId={setSelectedSeasonId}
+                      setActiveSeason={setActiveSeason}
+                      formError={formError}
+                      setFormError={setFormError}
+                      onSeasonChange={onSeasonChange}
+                      isSeasonActive={isSeasonActive}
+                      seasonDropdownRef={seasonDropdownRef}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Match Configuration Section - Collapsible (new matches only) */}
           {!editMatch && (
             <div className="match-config-section">
               <div className="match-config-header-row">
@@ -461,7 +487,6 @@ export default function AddMatchModal({
                       <div className="season-dropdown-container compact" ref={seasonDropdownRef}>
                         <SeasonDropdown
                           loadingSeason={loadingSeason}
-                          hasActiveSession={hasActiveSession}
                           allSeasons={allSeasons}
                           selectedSeasonId={selectedSeasonId}
                           isSeasonDisabled={isSeasonDisabled}
@@ -577,7 +602,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef })
   const digit2 = formattedValue[1] || '0';
   
   const isTeam1 = teamNumber === 1;
-  const bgColor = isTeam1 ? '#dc2626' : '#2563eb'; // red-600 : blue-600
+  const bgColor = isTeam1 ? 'var(--danger)' : 'var(--primary)';
   
   const input1Ref = useRef(null);
   const input2Ref = useRef(null);

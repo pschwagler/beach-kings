@@ -104,6 +104,9 @@
   --warning: #f59e0b;
   --warning-dark: #92400e;
   --warning-light: #fef3c7;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #d97706;
 
   /* Warm-tinted elevation shadows */
   --shadow-sm: 0 1px 2px 0 rgb(150 110 80 / 0.06);

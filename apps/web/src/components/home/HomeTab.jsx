@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, Target, Award } from 'lucide-react';
-import MyLeaguesWidget from '../dashboard/MyLeaguesWidget';
+import MyLeaguesBar from '../dashboard/MyLeaguesBar';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
-import OpenSessionsList from './OpenSessionsList';
+import { MySessionsWidget } from './OpenSessionsList';
 import NearYouSection from './NearYouSection';
-import { getPlayerMatchHistory, getOpenSessions } from '../../services/api';
+import { getPlayerMatchHistory } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
 
 const getAvatarInitial = (currentUserPlayer) => {
@@ -24,28 +24,13 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   const router = useRouter();
   const [userMatches, setUserMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
-  const [openSessions, setOpenSessions] = useState([]);
-  const [openSessionsRefreshTrigger, setOpenSessionsRefreshTrigger] = useState(0);
+  const [sessionsRefreshTrigger, setSessionsRefreshTrigger] = useState(0);
 
-  // Load open sessions (for top-of-home block)
-  useEffect(() => {
-    const loadOpenSessions = async () => {
-      try {
-        const data = await getOpenSessions();
-        setOpenSessions(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error loading open sessions:', err);
-        setOpenSessions([]);
-      }
-    };
-    loadOpenSessions();
-  }, [openSessionsRefreshTrigger]);
-
-  // Refresh open sessions when page becomes visible (e.g., returning from session page)
+  // Refresh sessions when page becomes visible (e.g., returning from session page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        setOpenSessionsRefreshTrigger((t) => t + 1);
+        setSessionsRefreshTrigger((t) => t + 1);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -56,7 +41,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   useEffect(() => {
     const loadUserMatches = async () => {
       if (!currentUserPlayer) return;
-      
+
       setLoadingMatches(true);
       try {
         const playerId = currentUserPlayer.id;
@@ -139,7 +124,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         const dateB = b.Date ? new Date(b.Date).getTime() : 0;
         return dateB - dateA;
       });
-      
+
       // Get rating from most recent match
       const mostRecentMatch = sortedMatches[0];
       if (mostRecentMatch['ELO After'] !== undefined && mostRecentMatch['ELO After'] !== null) {
@@ -173,7 +158,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     <div className="home-tab-container">
       {/* Top Header Row */}
       <div className="home-header-row">
-        <div 
+        <div
           className="home-header-left"
           onClick={() => onTabChange('profile')}
           style={{ cursor: 'pointer' }}
@@ -192,7 +177,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
           <span className="home-header-name">{fullName}</span>
         </div>
         <div className="home-header-right">
-          <button 
+          <button
             className="home-header-icon-btn"
             onClick={() => onTabChange('friends')}
             title="Friends"
@@ -206,9 +191,9 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
       <div className="home-stats-row">
         {[
           { icon: Target, label: 'Total Games Played', value: totalGames },
-          { icon: TrendingUp, label: 'Rating', value: totalGames === 0 && currentRating === 0 ? '—' : Math.round(currentRating) },
+          { icon: TrendingUp, label: 'Rating', value: totalGames === 0 && currentRating === 0 ? '\u2014' : Math.round(currentRating) },
           { icon: Target, label: 'Games Played (Last 30 days)', value: games30Days },
-          { icon: Award, label: 'Win Rate (Last 30 days)', value: games30Days > 0 ? `${winRate30Days}%` : '—' },
+          { icon: Award, label: 'Win Rate (Last 30 days)', value: games30Days > 0 ? `${winRate30Days}%` : '\u2014' },
         ].map(({ icon: Icon, label, value }) => (
           <div
             key={label}
@@ -225,30 +210,27 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         ))}
       </div>
 
-      {/* Open sessions at top when user has any */}
-      {openSessions && openSessions.length > 0 && (
-        <section className="home-open-sessions-section" style={{ marginBottom: '20px' }}>
-          <h3 className="home-section-title" style={{ marginBottom: '8px', fontSize: '1rem' }}>Open sessions</h3>
-          <OpenSessionsList currentUserPlayerId={currentUserPlayer?.id} refreshTrigger={openSessionsRefreshTrigger} />
-        </section>
-      )}
+      {/* My Leagues — full-width horizontal bar */}
+      <MyLeaguesBar
+        leagues={userLeagues}
+        onLeagueClick={navigateToLeague}
+        onLeaguesUpdate={onLeaguesUpdate}
+        onViewAll={() => onTabChange('leagues')}
+      />
 
-      {/* Main Content Grid */}
+      {/* Sessions + Games — 2-col grid */}
       <div className="home-content-grid">
-        <MyLeaguesWidget
-          leagues={userLeagues}
-          onLeagueClick={navigateToLeague}
-          onLeaguesUpdate={onLeaguesUpdate}
-          onViewAll={() => onTabChange('leagues')}
+        <MySessionsWidget
+          currentUserPlayerId={currentUserPlayer?.id}
+          refreshTrigger={sessionsRefreshTrigger}
+          onViewAll={() => onTabChange('my-games')}
         />
-        <div className="home-my-games-widget-wrapper">
-          <MyMatchesWidget
-            matches={userMatches}
-            currentUserPlayer={currentUserPlayer}
-            onMatchClick={handleMatchClick}
-            onViewAll={() => onTabChange('my-games')}
-          />
-        </div>
+        <MyMatchesWidget
+          matches={userMatches}
+          currentUserPlayer={currentUserPlayer}
+          onMatchClick={handleMatchClick}
+          onViewAll={() => onTabChange('my-games')}
+        />
       </div>
 
       {/* Near You discovery section */}

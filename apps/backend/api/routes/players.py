@@ -12,9 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.services import data_service, placeholder_service
-from backend.api.auth_dependencies import get_current_user, get_current_user_optional, require_verified_player
+from backend.api.auth_dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    require_verified_player,
+)
 from backend.models.schemas import (
     CreatePlaceholderRequest,
+    CreatePlayerRequest,
+    AddPlayerHomeCourt,
+    SetPlayerHomeCourts,
+    ReorderPlayerHomeCourts,
+    MatchesQueryRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,7 +31,9 @@ router = APIRouter()
 
 
 @router.get("/api/players")
+@limiter.limit("60/minute")
 async def list_players(
+    request: Request,
     q: Optional[str] = None,
     location_id: Optional[List[str]] = Query(None),
     league_id: Optional[List[int]] = Query(None),
@@ -43,13 +54,6 @@ async def list_players(
     include_placeholders (bool, requires auth), session_id (int, for placeholder scoping).
     """
     try:
-        # Resolve placeholder scoping — requires auth
-        include_placeholders_for_player_id = None
-        if include_placeholders and current_user:
-            player = await data_service.get_player_by_user_id(session, current_user["id"])
-            if player:
-                include_placeholders_for_player_id = player["id"]
-
         items, total = await data_service.list_players_search(
             session,
             q=q,
@@ -59,7 +63,7 @@ async def list_players(
             levels=level,
             limit=limit,
             offset=offset,
-            include_placeholders_for_player_id=include_placeholders_for_player_id,
+            include_placeholders=include_placeholders,
             session_id=session_id,
         )
         return {"items": items, "total": total}
@@ -180,6 +184,46 @@ async def delete_placeholder_player(
         raise HTTPException(status_code=500, detail=f"Error deleting placeholder: {str(e)}")
 
 
+@router.get("/api/players/{player_id}/invite-url")
+async def get_player_invite_url(
+    player_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get the invite URL for a placeholder player by player ID.
+
+    Authorization: only the user who created the placeholder can retrieve its invite URL.
+
+    Returns:
+        InviteUrlResponse with invite_url
+    """
+    try:
+        # Verify the current user created this placeholder
+        placeholder = await data_service.get_player_by_id(session, player_id)
+        if not placeholder:
+            raise HTTPException(status_code=404, detail="Player not found")
+        if not placeholder.get("is_placeholder"):
+            raise HTTPException(status_code=400, detail="Player is not a placeholder")
+
+        caller_player = await data_service.get_player_by_user_id(session, current_user["id"])
+        if not caller_player or placeholder.get("created_by_player_id") != caller_player["id"]:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only retrieve invite URLs for placeholders you created",
+            )
+
+        result = await placeholder_service.get_invite_url_by_player_id(session, player_id)
+        return result
+    except placeholder_service.InviteNotFoundError:
+        raise HTTPException(status_code=404, detail="No pending invite found for this player")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving invite URL for player {player_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
 # --- Invite Claim endpoints ---
 
 
@@ -247,7 +291,7 @@ async def claim_invite(
 
 @router.post("/api/players")
 async def create_player(
-    request: Request,
+    body: CreatePlayerRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -263,8 +307,7 @@ async def create_player(
         dict: Created player info
     """
     try:
-        body = await request.json()
-        name = body.get("name", "").strip()
+        name = body.name.strip()
 
         if not name:
             raise HTTPException(status_code=400, detail="Player name is required")
@@ -366,7 +409,7 @@ async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
 
 @router.post("/api/matches/search")
 async def search_matches(
-    request: Request,
+    body: MatchesQueryRequest,
     user: Optional[dict] = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -378,8 +421,7 @@ async def search_matches(
         list: Array of matches matching the query criteria
     """
     try:
-        body = await request.json()
-        results = await data_service.query_matches(session, body, user)
+        results = await data_service.query_matches(session, body.model_dump(), user)
         return results
     except HTTPException:
         raise
@@ -450,7 +492,7 @@ async def list_player_home_courts(
 @router.post("/api/players/{player_id}/home-courts")
 async def add_player_home_court(
     player_id: int,
-    request: Request,
+    body: AddPlayerHomeCourt,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -458,8 +500,7 @@ async def add_player_home_court(
     if user["player_id"] != player_id:
         raise HTTPException(status_code=403, detail="You can only manage your own home courts")
     try:
-        body = await request.json()
-        court_id = body.get("court_id")
+        court_id = body.court_id
         if not court_id:
             raise HTTPException(status_code=400, detail="court_id is required")
         court = await data_service.add_player_home_court(session, player_id, court_id)
@@ -469,9 +510,12 @@ async def add_player_home_court(
     except HTTPException:
         raise
     except Exception as e:
-        if "uq_player_home_courts_player_court" in str(e):
+        from sqlalchemy.exc import IntegrityError
+
+        if isinstance(e, IntegrityError):
             raise HTTPException(status_code=409, detail="Court is already a home court")
-        raise HTTPException(status_code=500, detail=f"Error adding home court: {str(e)}")
+        logger.error(f"Error adding home court for player {player_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
 @router.delete("/api/players/{player_id}/home-courts/{court_id}")
@@ -498,7 +542,7 @@ async def remove_player_home_court(
 @router.put("/api/players/{player_id}/home-courts")
 async def set_player_home_courts(
     player_id: int,
-    request: Request,
+    body: SetPlayerHomeCourts,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -506,8 +550,7 @@ async def set_player_home_courts(
     if user["player_id"] != player_id:
         raise HTTPException(status_code=403, detail="You can only manage your own home courts")
     try:
-        body = await request.json()
-        court_ids = body.get("court_ids")
+        court_ids = body.court_ids
         if court_ids is None or not isinstance(court_ids, list):
             raise HTTPException(status_code=400, detail="court_ids array is required")
         courts = await data_service.set_player_home_courts(session, player_id, court_ids)
@@ -521,7 +564,7 @@ async def set_player_home_courts(
 @router.put("/api/players/{player_id}/home-courts/reorder")
 async def reorder_player_home_courts(
     player_id: int,
-    request: Request,
+    body: ReorderPlayerHomeCourts,
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -529,11 +572,13 @@ async def reorder_player_home_courts(
     if user["player_id"] != player_id:
         raise HTTPException(status_code=403, detail="You can only manage your own home courts")
     try:
-        body = await request.json()
-        court_positions = body.get("court_positions")
+        court_positions = body.court_positions
         if not court_positions or not isinstance(court_positions, list):
             raise HTTPException(status_code=400, detail="court_positions array is required")
-        courts = await data_service.reorder_player_home_courts(session, player_id, court_positions)
+        court_positions_dicts = [cp.model_dump() for cp in court_positions]
+        courts = await data_service.reorder_player_home_courts(
+            session, player_id, court_positions_dicts
+        )
         return courts
     except HTTPException:
         raise

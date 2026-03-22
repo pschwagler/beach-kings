@@ -7,7 +7,6 @@ import { formatDateRange } from '../../league/utils/leagueUtils';
  */
 export default function SeasonDropdown({
   loadingSeason,
-  hasActiveSession,
   allSeasons,
   selectedSeasonId,
   isSeasonDisabled,

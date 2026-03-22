@@ -157,7 +157,7 @@ export class LeaguePage extends BasePage {
   }
 
   /**
-   * Get the selected season from the season selector
+   * Get the selected season from the season selector (Leaderboard tab)
    */
   async getSelectedSeason() {
     const selector = this.page.locator(this.selectors.seasonSelector).first();
@@ -168,12 +168,38 @@ export class LeaguePage extends BasePage {
   }
 
   /**
-   * Select a season from the season dropdown
+   * Select a season from the season dropdown (Leaderboard tab)
    */
   async selectSeason(seasonValue) {
     const selector = this.page.locator(this.selectors.seasonSelector).first();
     await selector.waitFor({ state: 'visible', timeout: 10000 });
-    // Wait for the rankings API response after selection
+    // Wait for an API response after selection
+    const responsePromise = this.page.waitForResponse(
+      response => response.url().includes('/api/') && response.status() === 200,
+      { timeout: 10000 }
+    ).catch(() => {});
+    await selector.selectOption(seasonValue === 'all' ? '' : seasonValue);
+    await responsePromise;
+  }
+
+  /**
+   * Get the selected season from the Games tab season selector
+   */
+  async getSelectedSeasonOnGamesTab() {
+    const selector = this.page.locator(this.selectors.seasonSelectorMatches).first();
+    if (await selector.isVisible({ timeout: 2000 }).catch(() => false)) {
+      return await selector.inputValue();
+    }
+    return null;
+  }
+
+  /**
+   * Select a season from the Games tab season dropdown
+   */
+  async selectSeasonOnGamesTab(seasonValue) {
+    const selector = this.page.locator(this.selectors.seasonSelectorMatches).first();
+    await selector.waitFor({ state: 'visible', timeout: 10000 });
+    // Wait for an API response after selection
     const responsePromise = this.page.waitForResponse(
       response => response.url().includes('/api/') && response.status() === 200,
       { timeout: 10000 }

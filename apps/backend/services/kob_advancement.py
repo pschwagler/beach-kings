@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Round completion check
 # ---------------------------------------------------------------------------
 
+
 async def check_round_complete(
     session: AsyncSession,
     tournament_id: int,
@@ -61,6 +62,7 @@ async def check_round_complete(
 # ---------------------------------------------------------------------------
 # Round advancement
 # ---------------------------------------------------------------------------
+
 
 async def advance_round(
     session: AsyncSession,
@@ -99,10 +101,7 @@ async def advance_round(
         return tournament
 
     # Draft bracket: after semi round, create final match with winners
-    if (
-        tournament.current_phase == "playoffs"
-        and tournament.effective_playoff_format == "DRAFT"
-    ):
+    if tournament.current_phase == "playoffs" and tournament.effective_playoff_format == "DRAFT":
         advanced = await _try_advance_draft_bracket(session, tournament)
         if advanced:
             return tournament
@@ -124,6 +123,7 @@ async def advance_round(
 # ---------------------------------------------------------------------------
 # Playoff transitions
 # ---------------------------------------------------------------------------
+
 
 async def _advance_to_playoffs(
     session: AsyncSession,
@@ -148,9 +148,7 @@ async def _advance_to_playoffs(
     advancing = []
     if pools:
         for pool_id_str, pool_pids in pools.items():
-            pool_standings = await get_standings(
-                session, tournament.id, pool_id=int(pool_id_str)
-            )
+            pool_standings = await get_standings(session, tournament.id, pool_id=int(pool_id_str))
             for entry in pool_standings[:advance_per_pool]:
                 advancing.append(entry["player_id"])
     else:
@@ -242,13 +240,15 @@ async def _create_draft_bracket(
             "pool_id": None,
             "bracket_position": "final",
             "label": "Final",
-            "matches": [{
-                "matchup_id": "pf_bracket_final",
-                "court_num": 1,
-                "team1": [advancing[0], advancing[3]],
-                "team2": [advancing[1], advancing[2]],
-                "is_bye": False,
-            }],
+            "matches": [
+                {
+                    "matchup_id": "pf_bracket_final",
+                    "court_num": 1,
+                    "team1": [advancing[0], advancing[3]],
+                    "team2": [advancing[1], advancing[2]],
+                    "is_bye": False,
+                }
+            ],
         }
         schedule["rounds"].append(rnd)
         schedule["total_rounds"] = round_offset + 1
@@ -288,13 +288,15 @@ async def _create_draft_bracket(
         }
         # If 8+ players, add sf2
         if playoff_size >= 8:
-            semi_rnd["matches"].append({
-                "matchup_id": "pf_bracket_sf2",
-                "court_num": min(2, tournament.num_courts),
-                "team1": [advancing[4], advancing[7]] if playoff_size >= 8 else [0, 0],
-                "team2": [advancing[5], advancing[6]] if playoff_size >= 8 else [0, 0],
-                "is_bye": False,
-            })
+            semi_rnd["matches"].append(
+                {
+                    "matchup_id": "pf_bracket_sf2",
+                    "court_num": min(2, tournament.num_courts),
+                    "team1": [advancing[4], advancing[7]] if playoff_size >= 8 else [0, 0],
+                    "team2": [advancing[5], advancing[6]] if playoff_size >= 8 else [0, 0],
+                    "is_bye": False,
+                }
+            )
 
         schedule["rounds"].append(semi_rnd)
         # Final will be added after semis complete — reserve the slot
@@ -409,13 +411,15 @@ async def _try_advance_draft_bracket(
         "pool_id": None,
         "bracket_position": "final",
         "label": "Final",
-        "matches": [{
-            "matchup_id": "pf_bracket_final",
-            "court_num": 1,
-            "team1": [seed1, partner1],
-            "team2": [seed2, partner2],
-            "is_bye": False,
-        }],
+        "matches": [
+            {
+                "matchup_id": "pf_bracket_final",
+                "court_num": 1,
+                "team1": [seed1, partner1],
+                "team2": [seed2, partner2],
+                "is_bye": False,
+            }
+        ],
     }
     schedule["rounds"].append(final_rnd)
     schedule["total_rounds"] = final_round_num
@@ -444,6 +448,7 @@ async def _try_advance_draft_bracket(
 # ---------------------------------------------------------------------------
 # Bracket editing
 # ---------------------------------------------------------------------------
+
 
 async def update_bracket_match(
     session: AsyncSession,
@@ -500,6 +505,7 @@ async def update_bracket_match(
 # ---------------------------------------------------------------------------
 # Tournament completion
 # ---------------------------------------------------------------------------
+
 
 async def complete_tournament(
     session: AsyncSession,

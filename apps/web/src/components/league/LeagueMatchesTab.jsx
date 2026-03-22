@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { Swords, Plus, LayoutList, Clipboard, ClipboardList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MatchesTable from '../match/MatchesTable';
 
-import { useLeague } from '../../contexts/LeagueContext';
+import { useLeague, ALL_SEASONS_KEY } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -65,8 +65,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Helper to get season ID for refreshing (use selected filter only)
   // Returns null when "All Seasons" is selected so useDataRefresh can refresh all seasons
-  const getSeasonIdForRefresh = useMemo(() => {
-    return () => selectedSeasonId || null;
+  const getSeasonIdForRefresh = useCallback(() => {
+    return selectedSeasonId || null;
   }, [selectedSeasonId]);
 
   // Use custom hooks
@@ -123,11 +123,18 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const { refreshData } = dataRefresh;
 
   // Handle navigation from URL parameters (e.g., clicking from "My Games" dashboard)
+  // Apply once on mount, then clear the URL param so the dropdown is free to change
+  const seasonUrlAppliedRef = useRef(false);
   useEffect(() => {
-    if (seasonIdFromUrl && selectedSeasonId !== seasonIdFromUrl) {
+    if (!seasonUrlAppliedRef.current && seasonIdFromUrl) {
+      seasonUrlAppliedRef.current = true;
       setSelectedSeasonId(seasonIdFromUrl);
+      // Clear the season param from the URL to prevent it from locking the dropdown
+      const url = new URL(window.location.href);
+      url.searchParams.delete('season');
+      router.replace(url.pathname + url.search, { scroll: false });
     }
-  }, [seasonIdFromUrl, selectedSeasonId, setSelectedSeasonId]);
+  }, [seasonIdFromUrl, setSelectedSeasonId, router]);
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 
@@ -504,7 +511,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         onPlayerClick={handlePlayerClick}
         loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)
-          : (seasonDataLoadingMap['all-seasons'] || false)
+          : (seasonDataLoadingMap[ALL_SEASONS_KEY] || false)
         }
         activeSession={
           activeSession || null

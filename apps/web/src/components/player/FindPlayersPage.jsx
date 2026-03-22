@@ -113,6 +113,7 @@ export default function FindPlayersPage() {
   const [sortDir, setSortDir] = useState(() => DEFAULT_SORT_DIR[searchParams.get('sort') || 'games']);
   const [minGames, setMinGames] = useState('');
   const [debouncedMinGames, setDebouncedMinGames] = useState('');
+  const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [viewMode, setViewMode] = useState('table');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -187,6 +188,9 @@ export default function FindPlayersPage() {
         if (debouncedMinGames && parseInt(debouncedMinGames, 10) >= 1) {
           params.min_games = parseInt(debouncedMinGames, 10);
         }
+        if (showPlaceholders) {
+          params.include_placeholders = true;
+        }
         const data = await getPublicPlayers(params, { signal: controller.signal });
         setPlayers(data.items || []);
         setTotalCount(data.total_count || 0);
@@ -199,7 +203,7 @@ export default function FindPlayersPage() {
     };
     fetchPlayers();
     return () => controller.abort();
-  }, [filters, locationIds, debouncedSearch, sortBy, sortDir, debouncedMinGames, page]);
+  }, [filters, locationIds, debouncedSearch, sortBy, sortDir, debouncedMinGames, showPlaceholders, page]);
 
   // Fetch friend statuses when players load (authenticated only)
   useEffect(() => {
@@ -256,6 +260,7 @@ export default function FindPlayersPage() {
     setLocationIds([]);
     setMinGames('');
     setDebouncedMinGames('');
+    setShowPlaceholders(false);
     setSearchQuery('');
     setSortBy('games');
     setSortDir(DEFAULT_SORT_DIR['games']);
@@ -323,7 +328,7 @@ export default function FindPlayersPage() {
     return pills;
   }, [filters, locationIds, locationOptions, minGames]);
 
-  const activeFilterCount = filterPills.length;
+  const activeFilterCount = filterPills.length + (showPlaceholders ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0 || searchQuery.trim();
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -458,6 +463,17 @@ export default function FindPlayersPage() {
                               />
                             </div>
 
+                            <div className="find-players__filter-group">
+                              <label className="find-players__filter-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={showPlaceholders}
+                                  onChange={(e) => { setShowPlaceholders(e.target.checked); setPage(1); }}
+                                />
+                                <span>Show unregistered players</span>
+                              </label>
+                            </div>
+
                             <div className="find-players__filter-divider" />
 
                             <div className="find-players__filter-group">
@@ -590,6 +606,9 @@ export default function FindPlayersPage() {
                                       }
                                     </div>
                                     <span className="find-players__card-name">{player.full_name}</span>
+                                    {player.is_placeholder && (
+                                      <span className="find-players__card-badge find-players__card-badge--placeholder">Unregistered</span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="find-players__table-cell--secondary">{player.location_name || '—'}</td>
@@ -619,7 +638,12 @@ export default function FindPlayersPage() {
                             }
                           </div>
                           <div className="find-players__card-info">
-                            <span className="find-players__card-name">{player.full_name}</span>
+                            <div className="find-players__card-name-row">
+                              <span className="find-players__card-name">{player.full_name}</span>
+                              {player.is_placeholder && (
+                                <span className="find-players__card-badge find-players__card-badge--placeholder">Unregistered</span>
+                              )}
+                            </div>
                             {player.location_name && (
                               <span className="find-players__card-location">
                                 <MapPin size={12} />

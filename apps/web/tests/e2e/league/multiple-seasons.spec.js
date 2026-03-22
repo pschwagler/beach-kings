@@ -76,9 +76,9 @@ test.describe('View Leaderboard Across Multiple Seasons', () => {
     await leaguePage.clickLeaderboardTab();
     await leaguePage.waitForRankingsTable();
 
-    // 2. Verify current season is selected (should be season 2)
+    // 2. Verify "All Seasons" is the default selection
     const selectedSeason = await leaguePage.getSelectedSeason();
-    expect(selectedSeason).toBe(String(season2Id));
+    expect(selectedSeason || '').toBe('');
 
     // 3. Select season 2 explicitly (verify switching works)
     await leaguePage.selectSeason(String(season2Id));
@@ -88,7 +88,11 @@ test.describe('View Leaderboard Across Multiple Seasons', () => {
     const hasEmptyState = await leaguePage.hasRankingsEmptyState();
     expect(hasTable || hasEmptyState).toBeTruthy();
 
-    // 4. Select "All Seasons"
+    // Verify the selection changed
+    const season2Selected = await leaguePage.getSelectedSeason();
+    expect(season2Selected).toBe(String(season2Id));
+
+    // 4. Switch back to "All Seasons"
     await leaguePage.selectSeason('all');
     await leaguePage.waitForRankingsTable();
 

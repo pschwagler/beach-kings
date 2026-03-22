@@ -20,8 +20,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(table: str) -> bool:
+    """Check if a table exists (used for idempotent migrations)."""
+    from sqlalchemy import text
+
+    conn = op.get_bind()
+    result = conn.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = :table"),
+        {"table": table},
+    )
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
     """Create league_home_courts table."""
+    if _table_exists("league_home_courts"):
+        return
     op.create_table(
         "league_home_courts",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -33,20 +47,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=True,
         ),
-        sa.ForeignKeyConstraint(
-            ["league_id"], ["leagues.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["court_id"], ["courts.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["league_id"], ["leagues.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["court_id"], ["courts.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "league_id", "court_id", name="uq_league_home_courts_league_court"
-        ),
+        sa.UniqueConstraint("league_id", "court_id", name="uq_league_home_courts_league_court"),
     )
-    op.create_index(
-        "idx_league_home_courts_league", "league_home_courts", ["league_id"]
-    )
+    op.create_index("idx_league_home_courts_league", "league_home_courts", ["league_id"])
 
 
 def downgrade() -> None:

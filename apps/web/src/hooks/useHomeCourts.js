@@ -21,7 +21,9 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
 
   // Keep api in a ref so callbacks don't depend on its object identity
   const apiRef = useRef(api);
-  apiRef.current = api;
+  useEffect(() => {
+    apiRef.current = api;
+  }, [api]);
 
   // Sync from external source (e.g. league prop changes)
   useEffect(() => {

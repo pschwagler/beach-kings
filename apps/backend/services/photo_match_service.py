@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import queue
-import re
+
 import time
 import uuid
 from difflib import SequenceMatcher
@@ -226,10 +226,9 @@ async def update_session_data(
         logger.warning(f"Session {session_id} not found for update")
         return False
 
-    existing.update(updates)
-    existing["last_updated"] = utcnow().isoformat()
+    merged = {**existing, **updates, "last_updated": utcnow().isoformat()}
 
-    return await store_session_data(session_id, existing)
+    return await store_session_data(session_id, merged)
 
 
 async def cleanup_session(session_id: str) -> bool:
@@ -823,112 +822,6 @@ async def clarify_scores_chat(
         }
 
 
-def repair_json(text: str) -> str:
-    """
-    Attempt to repair common JSON errors from LLM output.
-
-    Common errors:
-    - }}, instead of },  (extra closing brace in arrays)
-    - Missing closing brackets
-    """
-    # Fix }}, -> }, (common error where model outputs extra } in arrays)
-    repaired = re.sub(r"\}\},", "},", text)
-    # Fix }}" -> },"
-    repaired = re.sub(r'\}\}"', '},"', repaired)
-    return repaired
-
-
-def _try_parse_direct(text: str) -> Optional[Dict]:
-    """Try direct JSON parse."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return None
-
-
-def _try_parse_repaired(text: str) -> Optional[Dict]:
-    """Try parsing after repairing common LLM JSON errors."""
-    try:
-        repaired = repair_json(text)
-        if repaired != text:
-            return json.loads(repaired)
-    except json.JSONDecodeError:
-        pass
-    return None
-
-
-def _try_parse_markdown_block(text: str) -> Optional[Dict]:
-    """Try extracting JSON from markdown code blocks."""
-    m = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", text)
-    if m:
-        try:
-            return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-def _try_parse_brace_match(text: str) -> Optional[Dict]:
-    """Try extracting the outermost {...} via brace-depth counting."""
-    start = text.find("{")
-    if start == -1:
-        return None
-    depth = 0
-    for i, char in enumerate(text[start:], start=start):
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    return json.loads(text[start : i + 1])
-                except json.JSONDecodeError:
-                    return None
-    return None
-
-
-def _try_parse_regex(text: str) -> Optional[Dict]:
-    """Last-resort regex extraction of a JSON object."""
-    m = re.search(r"\{[\s\S]*\}", text)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-_JSON_PARSE_STRATEGIES = [
-    _try_parse_direct,
-    _try_parse_repaired,
-    _try_parse_markdown_block,
-    _try_parse_brace_match,
-    _try_parse_regex,
-]
-
-
-def parse_openai_response(response_text: str) -> Dict[str, Any]:
-    """
-    Parse OpenAI response text to extract JSON using a chain of fallback strategies.
-
-    Args:
-        response_text: Raw response from OpenAI
-
-    Returns:
-        Parsed dictionary
-    """
-    if not response_text:
-        raise ValueError("Empty response from OpenAI")
-
-    text = response_text.strip()
-    for strategy in _JSON_PARSE_STRATEGIES:
-        result = strategy(text)
-        if result is not None:
-            return result
-
-    raise ValueError("Could not parse JSON from response")
-
-
 # ============================================================================
 # Job Management
 # ============================================================================
@@ -1120,6 +1013,54 @@ async def stream_photo_job_events(
 
 
 # ============================================================================
+# Image Description (empty matches fallback)
+# ============================================================================
+
+DESCRIBE_IMAGE_MODEL = "gemini-2.5-flash"
+
+_DESCRIBE_IMAGE_PROMPT = (
+    "This image was uploaded as a beach volleyball scoresheet but no game scores "
+    "could be found. In 1 brief sentance, describe what the image shows instead."
+)
+
+
+async def _describe_image_on_empty(image_bytes: bytes) -> Optional[str]:
+    """
+    Call a cheap Gemini model to describe an image when no matches were extracted.
+
+    Returns a brief note explaining what the image contains, or None on failure.
+    """
+
+    def _call() -> str:
+        client = get_gemini_client()
+        from google.genai import types
+
+        contents = [
+            types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+            _DESCRIBE_IMAGE_PROMPT,
+        ]
+        response = client.models.generate_content(
+            model=DESCRIBE_IMAGE_MODEL,
+            contents=contents,
+        )
+        if (
+            response
+            and response.candidates
+            and response.candidates[0].content
+            and response.candidates[0].content.parts
+        ):
+            return (response.candidates[0].content.parts[0].text or "").strip()
+        return ""
+
+    try:
+        text = await asyncio.to_thread(_call)
+        return text if text else None
+    except Exception as e:
+        logger.warning("Failed to describe image on empty matches: %s", e)
+        return None
+
+
+# ============================================================================
 # Main Processing Functions
 # ============================================================================
 
@@ -1204,12 +1145,18 @@ async def process_photo_job(
                     "partial_matches": result.get("matches", []),
                 },
             )
+            # If no matches were extracted, ask a cheap model what the image contains
+            if not result.get("matches"):
+                note = await _describe_image_on_empty(image_bytes)
+                result["note"] = note
+
             result_json = json.dumps(
                 {
                     "status": result.get("status"),
                     "matches": result.get("matches", []),
                     "clarification_question": result.get("clarification_question"),
                     "error_message": result.get("error_message"),
+                    "note": result.get("note"),
                 },
                 default=str,
             )
@@ -1313,12 +1260,65 @@ async def process_clarification_job(
             )
 
 
+def apply_player_overrides(parsed_matches: List[Dict], overrides: List[Dict]) -> List[Dict]:
+    """
+    Apply manual player overrides to parsed match data.
+
+    For each override, replaces the matching raw name in all player fields
+    across all matches with the resolved player_id and name.
+
+    Args:
+        parsed_matches: List of match dictionaries from AI extraction
+        overrides: List of dicts with keys: raw_name, player_id, player_name
+
+    Returns:
+        New list of match dicts with overrides applied (immutable — originals unchanged)
+    """
+    if not overrides:
+        return parsed_matches
+
+    # Build lookup: lowercase raw name -> (player_id, player_name)
+    override_map = {}
+    for ov in overrides:
+        raw = (ov.get("raw_name") or "").strip().lower()
+        if raw:
+            override_map[raw] = (ov.get("player_id"), ov.get("player_name", ""))
+
+    if not override_map:
+        return parsed_matches
+
+    player_fields = ["team1_player1", "team1_player2", "team2_player1", "team2_player2"]
+    result = []
+
+    for match in parsed_matches:
+        new_match = dict(match)
+        for field in player_fields:
+            # Determine the raw extracted name for this field
+            raw_name = ""
+            player_val = match.get(field)
+            if isinstance(player_val, dict):
+                raw_name = (player_val.get("name") or "").strip()
+            elif isinstance(player_val, str):
+                raw_name = player_val.strip()
+
+            # If this field has no ID and the raw name matches an override, apply it
+            if not match.get(f"{field}_id") and raw_name.lower() in override_map:
+                pid, pname = override_map[raw_name.lower()]
+                new_match[f"{field}_id"] = pid
+                new_match[f"{field}_matched"] = pname
+                new_match[f"{field}_confidence"] = 1.0
+
+        result.append(new_match)
+
+    return result
+
+
 async def create_matches_from_session(
     db_session: AsyncSession,
     session_id: str,
     season_id: int,
     match_date: str,
-    created_by_player_id: Optional[int] = None,
+    player_overrides: Optional[List[Dict]] = None,
 ) -> Tuple[bool, List[int], str]:
     """
     Create matches from a confirmed photo session.
@@ -1328,7 +1328,8 @@ async def create_matches_from_session(
         session_id: Redis session ID
         season_id: Season to create matches in
         match_date: Date for the matches
-        created_by_player_id: Player ID of creator
+        player_overrides: Optional list of manual player resolutions
+            [{raw_name, player_id, player_name}, ...]
 
     Returns:
         Tuple of (success, match_ids, message)
@@ -1344,6 +1345,10 @@ async def create_matches_from_session(
         return False, [], "Session not found or expired"
 
     parsed_matches = session_data.get("parsed_matches", [])
+
+    # Apply player overrides before validation
+    if player_overrides:
+        parsed_matches = apply_player_overrides(parsed_matches, player_overrides)
     if not parsed_matches:
         return False, [], "No matches to create"
 

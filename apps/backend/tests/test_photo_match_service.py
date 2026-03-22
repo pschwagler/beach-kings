@@ -414,40 +414,6 @@ class TestNormalizeExtractionResponse:
 
 
 # ============================================================================
-# Legacy JSON Parsing (parse_openai_response) - still used for fallback
-# ============================================================================
-
-
-class TestParseOpenAIResponse:
-    """Tests for parse_openai_response function (legacy/clarification)."""
-
-    def test_parse_valid_json(self):
-        """Test parsing valid JSON response."""
-        response = '{"status": "success", "matches": []}'
-        result = photo_match_service.parse_openai_response(response)
-        assert result["status"] == "success"
-        assert result["matches"] == []
-
-    def test_parse_json_in_markdown(self):
-        """Test parsing JSON wrapped in markdown code block."""
-        response = """Here are the extracted matches:
-
-```json
-{"status": "success", "matches": [{"team1_score": 21}]}
-```
-
-I found one match in the image."""
-        result = photo_match_service.parse_openai_response(response)
-        assert result["status"] == "success"
-        assert len(result["matches"]) == 1
-
-    def test_parse_invalid_json(self):
-        """Test parsing invalid JSON raises error."""
-        with pytest.raises(ValueError):
-            photo_match_service.parse_openai_response("This is not JSON at all")
-
-
-# ============================================================================
 # Scoreboard Prompt Tests
 # ============================================================================
 
@@ -861,32 +827,108 @@ class TestTruncateErrorMessage:
         assert msg == "Unknown error"
 
 
-class TestJsonParseStrategies:
-    """Tests for individual JSON parse strategy functions."""
+# ============================================================================
+# apply_player_overrides Tests
+# ============================================================================
 
-    def test_try_parse_direct_valid(self):
-        result = photo_match_service._try_parse_direct('{"key": "val"}')
-        assert result == {"key": "val"}
 
-    def test_try_parse_direct_invalid(self):
-        result = photo_match_service._try_parse_direct("not json")
-        assert result is None
+class TestApplyPlayerOverrides:
+    """Tests for the apply_player_overrides function."""
 
-    def test_try_parse_markdown_block(self):
-        text = 'Some text\n```json\n{"a": 1}\n```\nmore text'
-        result = photo_match_service._try_parse_markdown_block(text)
-        assert result == {"a": 1}
+    def _make_match(self, t1p1, t1p2, t2p1, t2p2):
+        """Helper to build a match dict with unmatched players (dict-style names)."""
+        fields = {}
+        for field, val in [
+            ("team1_player1", t1p1),
+            ("team1_player2", t1p2),
+            ("team2_player1", t2p1),
+            ("team2_player2", t2p2),
+        ]:
+            if isinstance(val, tuple):
+                # (name, player_id) — matched
+                fields[field] = {"id": val[1], "name": val[0]}
+                fields[f"{field}_id"] = val[1]
+                fields[f"{field}_matched"] = val[0]
+                fields[f"{field}_confidence"] = 1.0
+            else:
+                # string — unmatched
+                fields[field] = {"id": None, "name": val}
+                fields[f"{field}_id"] = None
+                fields[f"{field}_matched"] = ""
+                fields[f"{field}_confidence"] = 0
+        fields["team1_score"] = 21
+        fields["team2_score"] = 15
+        return fields
 
-    def test_try_parse_brace_match(self):
-        text = 'prefix {"nested": {"deep": true}} suffix'
-        result = photo_match_service._try_parse_brace_match(text)
-        assert result == {"nested": {"deep": True}}
+    def test_no_overrides_returns_original(self):
+        matches = [self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")]
+        result = photo_match_service.apply_player_overrides(matches, [])
+        assert result is matches
 
-    def test_try_parse_brace_match_no_braces(self):
-        result = photo_match_service._try_parse_brace_match("no braces here")
-        assert result is None
+    def test_none_overrides_returns_original(self):
+        matches = [self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")]
+        result = photo_match_service.apply_player_overrides(matches, None)
+        assert result is matches
 
-    def test_try_parse_regex_fallback(self):
-        text = 'garbage {"status": "ok"} more garbage'
-        result = photo_match_service._try_parse_regex(text)
-        assert result == {"status": "ok"}
+    def test_single_override_resolves_name(self):
+        matches = [self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")]
+        overrides = [{"raw_name": "JD", "player_id": 1, "player_name": "John Doe"}]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+
+        assert len(result) == 1
+        assert result[0]["team1_player1_id"] == 1
+        assert result[0]["team1_player1_matched"] == "John Doe"
+        assert result[0]["team1_player1_confidence"] == 1.0
+        # Already-matched player untouched
+        assert result[0]["team1_player2_id"] == 2
+
+    def test_override_resolves_across_multiple_matches(self):
+        matches = [
+            self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), ("Alice Brown", 4)),
+            self._make_match(("Jane Smith", 2), "JD", ("Bob Wilson", 3), ("Alice Brown", 4)),
+        ]
+        overrides = [{"raw_name": "JD", "player_id": 1, "player_name": "John Doe"}]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+
+        assert result[0]["team1_player1_id"] == 1
+        assert result[1]["team1_player2_id"] == 1
+
+    def test_case_insensitive_matching(self):
+        matches = [
+            self._make_match("jd", ("Jane Smith", 2), ("Bob Wilson", 3), ("Alice Brown", 4))
+        ]
+        overrides = [{"raw_name": "JD", "player_id": 1, "player_name": "John Doe"}]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+        assert result[0]["team1_player1_id"] == 1
+
+    def test_does_not_overwrite_already_matched(self):
+        matches = [
+            self._make_match(("John Doe", 1), ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")
+        ]
+        overrides = [{"raw_name": "John Doe", "player_id": 99, "player_name": "Other John"}]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+        # Should NOT overwrite an already-matched player
+        assert result[0]["team1_player1_id"] == 1
+
+    def test_immutability(self):
+        original = self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), ("Alice Brown", 4))
+        matches = [original]
+        overrides = [{"raw_name": "JD", "player_id": 1, "player_name": "John Doe"}]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+
+        # Original should be unchanged
+        assert original["team1_player1_id"] is None
+        # Result should be different object
+        assert result[0] is not original
+        assert result[0]["team1_player1_id"] == 1
+
+    def test_multiple_overrides(self):
+        matches = [self._make_match("JD", ("Jane Smith", 2), ("Bob Wilson", 3), "Mike S")]
+        overrides = [
+            {"raw_name": "JD", "player_id": 1, "player_name": "John Doe"},
+            {"raw_name": "Mike S", "player_id": 5, "player_name": "Mike Sullivan"},
+        ]
+        result = photo_match_service.apply_player_overrides(matches, overrides)
+        assert result[0]["team1_player1_id"] == 1
+        assert result[0]["team2_player2_id"] == 5
+        assert result[0]["team2_player2_matched"] == "Mike Sullivan"

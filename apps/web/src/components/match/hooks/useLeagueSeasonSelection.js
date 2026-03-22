@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUserLeagues, getLeagueSeasons, getActiveSession } from '../../../services/api';
+import { getUserLeagues, getLeagueSeasons } from '../../../services/api';
 
 /**
- * Hook to manage league and season selection state
- * Consolidates 8 state variables into one hook
+ * Hook to manage league and season selection state.
+ * Consolidates league, season, and match-type state for AddMatchModal.
  */
 export function useLeagueSeasonSelection({
   isOpen,
@@ -20,7 +20,6 @@ export function useLeagueSeasonSelection({
   const [activeSeason, setActiveSeason] = useState(null);
   const [allSeasons, setAllSeasons] = useState([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState(null);
-  const [hasActiveSession, setHasActiveSession] = useState(true); // Assume true initially
   const [isSeasonDisabled, setIsSeasonDisabled] = useState(false);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingSeason, setLoadingSeason] = useState(false);
@@ -36,6 +35,24 @@ export function useLeagueSeasonSelection({
     endDate.setHours(0, 0, 0, 0);
     return today >= startDate && today <= endDate;
   }, []);
+
+  /**
+   * Pick the best default season from a list: most recent active season,
+   * falling back to the season with the latest start_date.
+   */
+  const pickDefaultSeason = useCallback((seasons) => {
+    const activeSeasons = seasons.filter(isSeasonActive);
+    if (activeSeasons.length > 0) {
+      // Most recent active season by start_date
+      return [...activeSeasons].sort(
+        (a, b) => new Date(b.start_date) - new Date(a.start_date)
+      )[0];
+    }
+    // No active seasons — fall back to most recent by start_date
+    return [...seasons].sort(
+      (a, b) => new Date(b.start_date) - new Date(a.start_date)
+    )[0] ?? null;
+  }, [isSeasonActive]);
 
   // Load user leagues when modal opens and match type is league
   useEffect(() => {
@@ -81,38 +98,26 @@ export function useLeagueSeasonSelection({
         setLoadingSeason(true);
         try {
           // If sessionSeasonId is provided, we're opening from an active session
-          // Pre-populate and disable the season dropdown
+          // or editing a match — pre-populate and disable the season dropdown
           if (sessionSeasonId) {
             setSelectedSeasonId(sessionSeasonId);
             setIsSeasonDisabled(true);
-            setHasActiveSession(true);
-            
+
             const seasons = await getLeagueSeasons(selectedLeagueId);
             setAllSeasons(seasons || []);
-            
+
             // Find and set the active season
             const season = seasons.find(s => s.id === sessionSeasonId);
             if (season) {
               setActiveSeason(season);
             }
           } else {
-            // No session provided - check if there's an active session
-            let hasActive = true;
-            try {
-              const activeSession = await getActiveSession(selectedLeagueId).catch(() => null);
-              hasActive = !!activeSession;
-              setHasActiveSession(hasActive);
-            } catch (err) {
-              // If we can't check, assume there's an active session
-              setHasActiveSession(true);
-            }
-            
             setIsSeasonDisabled(false); // Allow selection when not from a session
-            
+
             const seasons = await getLeagueSeasons(selectedLeagueId);
             setAllSeasons(seasons || []);
-            
-            // Use defaultSeasonId if provided, otherwise auto-select if only one season
+
+            // Use defaultSeasonId if provided, otherwise auto-select best season
             if (defaultSeasonId !== null && defaultSeasonId !== undefined) {
               // Use the provided default season
               setSelectedSeasonId(defaultSeasonId);
@@ -124,8 +129,17 @@ export function useLeagueSeasonSelection({
               // If exactly one season, select it automatically
               setSelectedSeasonId(seasons[0].id);
               setActiveSeason(seasons[0]);
+            } else if (seasons.length > 1) {
+              // Multiple seasons — pick most recent active, or most recent overall
+              const best = pickDefaultSeason(seasons);
+              if (best) {
+                setSelectedSeasonId(best.id);
+                setActiveSeason(best);
+              } else {
+                setSelectedSeasonId(null);
+                setActiveSeason(null);
+              }
             } else {
-              // Multiple seasons - clear selection (user must choose)
               setSelectedSeasonId(null);
               setActiveSeason(null);
             }
@@ -144,10 +158,9 @@ export function useLeagueSeasonSelection({
       setAllSeasons([]);
       setActiveSeason(null);
       setSelectedSeasonId(null);
-      setHasActiveSession(true);
       setIsSeasonDisabled(false);
     }
-  }, [selectedLeagueId, matchType, sessionSeasonId, defaultSeasonId, isSeasonActive]);
+  }, [selectedLeagueId, matchType, sessionSeasonId, defaultSeasonId, isSeasonActive, pickDefaultSeason]);
 
   // Reset match type when modal opens/closes
   useEffect(() => {
@@ -174,11 +187,9 @@ export function useLeagueSeasonSelection({
     selectedSeasonId,
     setSelectedSeasonId,
     setActiveSeason,
-    hasActiveSession,
     isSeasonDisabled,
     loadingLeagues,
     loadingSeason,
     isSeasonActive
   };
 }
-

@@ -304,7 +304,7 @@ export const getRankings = async (queryParams = {}) => {
  * @param {Object} params - q, location_id (string or string[]), league_id (number or number[]),
  *   gender (string or string[]), level (string or string[]), limit, offset
  */
-export const getPlayers = async (params = {}) => {
+export const getPlayers = async (params = {}, { signal } = {}) => {
   const {
     q,
     location_id,
@@ -313,6 +313,7 @@ export const getPlayers = async (params = {}) => {
     level,
     limit = 50,
     offset = 0,
+    include_placeholders = true,
   } = params;
   const searchParams = new URLSearchParams();
   if (q != null && q !== '') searchParams.set('q', String(q));
@@ -326,7 +327,8 @@ export const getPlayers = async (params = {}) => {
   levels.forEach((l) => searchParams.append('level', String(l)));
   searchParams.set('limit', String(limit));
   searchParams.set('offset', String(offset));
-  const response = await api.get(`/api/players?${searchParams.toString()}`);
+  if (include_placeholders) searchParams.set('include_placeholders', 'true');
+  const response = await api.get(`/api/players?${searchParams.toString()}`, { signal });
   return response.data;
 };
 
@@ -515,11 +517,14 @@ export const getActiveSession = async (leagueId) => {
 };
 
 /**
- * Get open sessions for the current user (creator, has match, or invited).
+ * Get sessions for the current user (creator, has match, or invited).
+ * @param {Object} [options]
+ * @param {boolean} [options.includeAll=false] - When true, returns all statuses (not just ACTIVE).
  * @returns {Promise<Array>} Array of session objects with participation, match_count, etc.
  */
-export const getOpenSessions = async () => {
-  const response = await api.get('/api/sessions/open');
+export const getOpenSessions = async ({ includeAll = false } = {}) => {
+  const params = includeAll ? { include_all: true } : {};
+  const response = await api.get('/api/sessions/open', { params });
   return response.data;
 };
 
@@ -869,14 +874,6 @@ export const createLeagueSeason = async (leagueId, seasonData) => {
  */
 export const updateSeason = async (seasonId, seasonData) => {
   const response = await api.put(`/api/seasons/${seasonId}`, seasonData);
-  return response.data;
-};
-
-/**
- * Create a session for a league
- */
-export const createLeagueSession = async (leagueId, sessionData) => {
-  const response = await api.post(`/api/leagues/${leagueId}/sessions`, sessionData);
   return response.data;
 };
 
@@ -1592,10 +1589,14 @@ export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
  * @param {number} seasonId - Season to create matches in
  * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
  */
-export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate) => {
+export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate, playerOverrides = null) => {
+  const body = { season_id: seasonId, match_date: matchDate };
+  if (playerOverrides?.length) {
+    body.player_overrides = playerOverrides;
+  }
   const response = await api.post(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/confirm`,
-    { season_id: seasonId, match_date: matchDate }
+    body
   );
   return response.data;
 };

@@ -483,6 +483,7 @@ async def get_public_player(session: AsyncSession, player_id: int) -> Optional[D
         "avatar": player.avatar or generate_player_initials(player.full_name or ""),
         "gender": player.gender,
         "level": player.level,
+        "is_placeholder": player.is_placeholder,
         "location": {
             "id": location.id,
             "name": location.name,
@@ -816,6 +817,7 @@ async def search_public_players(
     sort_by: Optional[str] = None,
     sort_dir: Optional[str] = None,
     min_games: Optional[int] = None,
+    include_placeholders: bool = False,
     page: int = 1,
     page_size: int = 25,
 ) -> Dict:
@@ -841,6 +843,7 @@ async def search_public_players(
             Player.avatar,
             Player.gender,
             Player.level,
+            Player.is_placeholder,
             Location.name.label("location_name"),
             PlayerGlobalStats.total_games,
             PlayerGlobalStats.current_rating,
@@ -849,6 +852,9 @@ async def search_public_players(
         .outerjoin(Location, Player.location_id == Location.id)
         .where(PlayerGlobalStats.total_games >= 1)
     )
+
+    if not include_placeholders:
+        base = base.where(Player.is_placeholder == False)  # noqa: E712
 
     if search:
         # Escape LIKE metacharacters to prevent wildcard injection
@@ -903,6 +909,7 @@ async def search_public_players(
             "avatar": r.avatar or generate_player_initials(r.full_name or ""),
             "gender": r.gender,
             "level": r.level,
+            "is_placeholder": r.is_placeholder,
             "location_name": r.location_name,
             "total_games": r.total_games,
             "current_rating": r.current_rating,

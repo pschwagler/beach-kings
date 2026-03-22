@@ -28,6 +28,7 @@ from backend.services.kob_service import _validate_score
 # Helpers shared across test classes
 # ---------------------------------------------------------------------------
 
+
 def _all_partnerships(rounds: List[Dict]) -> List[Tuple[int, int]]:
     """Return every (partner_a, partner_b) pair that appears across all rounds.
 
@@ -71,6 +72,7 @@ def _court_nums(rounds: List[Dict]) -> Set[int]:
 # ===========================================================================
 # 1. generate_full_round_robin
 # ===========================================================================
+
 
 class TestGenerateFullRoundRobin:
     """Tests for the circle-method full round-robin generator."""
@@ -138,9 +140,7 @@ class TestGenerateFullRoundRobin:
         for rnd in result["rounds"]:
             round_key = str(rnd["round_num"])
             byes = result["byes_per_round"].get(round_key, [])
-            assert len(byes) >= 1, (
-                f"Round {rnd['round_num']} has no bye player despite odd count"
-            )
+            assert len(byes) >= 1, f"Round {rnd['round_num']} has no bye player despite odd count"
 
     def test_even_players_no_byes(self):
         """With 4 players, there should be no byes."""
@@ -165,9 +165,7 @@ class TestGenerateFullRoundRobin:
         """Court numbers must never exceed num_courts."""
         result = generate_full_round_robin(list(range(1, 9)), num_courts=num_courts)
         for court in _court_nums(result["rounds"]):
-            assert 1 <= court <= num_courts, (
-                f"Court {court} out of range [1, {num_courts}]"
-            )
+            assert 1 <= court <= num_courts, f"Court {court} out of range [1, {num_courts}]"
 
     def test_court_numbers_start_at_one(self):
         """Court numbering starts at 1, not 0."""
@@ -198,11 +196,7 @@ class TestGenerateFullRoundRobin:
     def test_matchup_ids_are_unique(self):
         """Every matchup_id is unique across the entire schedule."""
         result = generate_full_round_robin(list(range(1, 9)), num_courts=2)
-        ids = [
-            m["matchup_id"]
-            for rnd in result["rounds"]
-            for m in rnd["matches"]
-        ]
+        ids = [m["matchup_id"] for rnd in result["rounds"] for m in rnd["matches"]]
         assert len(ids) == len(set(ids))
 
     def test_four_players_produces_three_rounds(self):
@@ -221,6 +215,7 @@ class TestGenerateFullRoundRobin:
 # ===========================================================================
 # 2. generate_partial_round_robin
 # ===========================================================================
+
 
 class TestGeneratePartialRoundRobin:
     """Tests for the balanced partial round-robin generator."""
@@ -286,9 +281,7 @@ class TestGeneratePartialRoundRobin:
 
     def test_court_assignments_respect_limit_partial(self):
         """Court numbers in partial RR must not exceed num_courts."""
-        result = generate_partial_round_robin(
-            list(range(1, 9)), num_courts=2, max_rounds=4
-        )
+        result = generate_partial_round_robin(list(range(1, 9)), num_courts=2, max_rounds=4)
         for court in _court_nums(result["rounds"]):
             assert 1 <= court <= 2
 
@@ -296,6 +289,7 @@ class TestGeneratePartialRoundRobin:
 # ===========================================================================
 # 3. generate_pools_schedule
 # ===========================================================================
+
 
 class TestGeneratePoolsSchedule:
     """Tests for pool-play schedule generation."""
@@ -418,9 +412,7 @@ class TestGeneratePoolsSchedule:
         pair_counts = Counter(partnerships)
 
         for pool in [pool1, pool2]:
-            expected = {
-                (min(a, b), max(a, b)) for a, b in combinations(pool, 2)
-            }
+            expected = {(min(a, b), max(a, b)) for a, b in combinations(pool, 2)}
             for pair in expected:
                 assert pair_counts[pair] == 1, (
                     f"Partnership {pair} appears {pair_counts[pair]} times (expected 1)"
@@ -430,6 +422,7 @@ class TestGeneratePoolsSchedule:
 # ===========================================================================
 # 4. generate_schedule — format dispatch
 # ===========================================================================
+
 
 class TestGenerateSchedule:
     """Tests for the top-level generate_schedule dispatcher."""
@@ -454,8 +447,7 @@ class TestGenerateSchedule:
         """POOLS_PLAYOFFS format generates pool structure."""
         player_ids = list(range(1, 9))
         result = generate_schedule(
-            player_ids, format="POOLS_PLAYOFFS", num_courts=2,
-            num_pools=2, playoff_size=4
+            player_ids, format="POOLS_PLAYOFFS", num_courts=2, num_pools=2, playoff_size=4
         )
         assert result.get("pools") is not None
         assert "1" in result["pools"]
@@ -472,8 +464,12 @@ class TestGenerateSchedule:
         player_ids = [1, 2, 3, 4]
         seeds = [4, 3, 2, 1]
         result = generate_schedule(
-            player_ids, format="POOLS_PLAYOFFS", num_courts=2,
-            num_pools=2, playoff_size=4, seeds=seeds
+            player_ids,
+            format="POOLS_PLAYOFFS",
+            num_courts=2,
+            num_pools=2,
+            playoff_size=4,
+            seeds=seeds,
         )
         # Pool 1 gets seeds 1&4 of the seeds list = player_ids 4 and 1
         pool1 = set(result["pools"]["1"])
@@ -491,15 +487,14 @@ class TestGenerateSchedule:
     def test_partial_rr_default_max_rounds_fallback(self):
         """generate_schedule uses max_rounds=5 when not provided for PARTIAL_ROUND_ROBIN."""
         player_ids = list(range(1, 9))
-        result = generate_schedule(
-            player_ids, format="PARTIAL_ROUND_ROBIN", num_courts=2
-        )
+        result = generate_schedule(player_ids, format="PARTIAL_ROUND_ROBIN", num_courts=2)
         assert result["total_rounds"] == 5
 
 
 # ===========================================================================
 # 5. _validate_score (from kob_service)
 # ===========================================================================
+
 
 class TestValidateScore:
     """Tests for the score validation helper."""
@@ -592,26 +587,32 @@ class TestValidateScore:
         with pytest.raises(ValueError, match="tied"):
             _validate_score(0, 0, game_to=21)
 
-    @pytest.mark.parametrize("high,low,game_to,cap", [
-        (21, 19, 21, None),    # exact game_to, win by 2
-        (22, 20, 21, None),    # deuce +1
-        (25, 23, 21, None),    # deuce +2
-        (28, 27, 21, 28),      # at cap, win by 1 ok
-        (28, 20, 21, 28),      # at cap, large margin ok
-        (11, 9, 11, None),     # game_to=11
-    ])
+    @pytest.mark.parametrize(
+        "high,low,game_to,cap",
+        [
+            (21, 19, 21, None),  # exact game_to, win by 2
+            (22, 20, 21, None),  # deuce +1
+            (25, 23, 21, None),  # deuce +2
+            (28, 27, 21, 28),  # at cap, win by 1 ok
+            (28, 20, 21, 28),  # at cap, large margin ok
+            (11, 9, 11, None),  # game_to=11
+        ],
+    )
     def test_parametrized_valid_scores(self, high, low, game_to, cap):
         """Parametrized valid score combinations should not raise."""
         _validate_score(high, low, game_to=game_to, score_cap=cap)
 
-    @pytest.mark.parametrize("high,low,game_to,cap,match", [
-        (20, 18, 21, None, "at least"),      # winner below game_to
-        (-1, 21, 21, None, "negative"),       # negative score
-        (21, 21, 21, None, "tied"),           # tied
-        (22, 21, 21, None, ""),               # win by 1 at deuce
-        (24, 21, 21, None, ""),               # win by 3 at deuce
-        (29, 20, 21, 28, "cap"),              # exceeds cap
-    ])
+    @pytest.mark.parametrize(
+        "high,low,game_to,cap,match",
+        [
+            (20, 18, 21, None, "at least"),  # winner below game_to
+            (-1, 21, 21, None, "negative"),  # negative score
+            (21, 21, 21, None, "tied"),  # tied
+            (22, 21, 21, None, ""),  # win by 1 at deuce
+            (24, 21, 21, None, ""),  # win by 3 at deuce
+            (29, 20, 21, 28, "cap"),  # exceeds cap
+        ],
+    )
     def test_parametrized_invalid_scores(self, high, low, game_to, cap, match):
         """Parametrized invalid score combinations should raise ValueError."""
         with pytest.raises(ValueError):
@@ -621,6 +622,7 @@ class TestValidateScore:
 # ===========================================================================
 # 6. suggest_defaults
 # ===========================================================================
+
 
 class TestSuggestDefaults:
     """Tests for format/config suggestion logic."""
@@ -647,7 +649,14 @@ class TestSuggestDefaults:
     def test_result_contains_required_keys(self):
         """suggest_defaults always returns all required keys."""
         result = suggest_defaults(8, num_courts=2)
-        for key in ("format", "num_pools", "playoff_size", "max_rounds", "game_to", "games_per_match"):
+        for key in (
+            "format",
+            "num_pools",
+            "playoff_size",
+            "max_rounds",
+            "game_to",
+            "games_per_match",
+        ):
             assert key in result, f"Missing key: {key}"
 
     def test_game_to_default_is_21(self):
@@ -669,9 +678,7 @@ class TestSuggestDefaults:
         budget = 120
         result = suggest_defaults(8, num_courts=2, duration_minutes=budget)
         assert "format" in result
-        assert result["format"] in (
-            "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
-        )
+        assert result["format"] in ("FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN")
         assert "game_to" in result
         assert "games_per_match" in result
 
@@ -691,6 +698,7 @@ class TestSuggestDefaults:
 # 7. generate_preview
 # ===========================================================================
 
+
 class TestGeneratePreview:
     """Tests for the preview generator output structure."""
 
@@ -698,9 +706,13 @@ class TestGeneratePreview:
         """FULL_ROUND_ROBIN preview has expected top-level keys."""
         preview = generate_preview(6, num_courts=2, format="FULL_ROUND_ROBIN")
         expected_keys = (
-            "format", "total_time_minutes", "estimated_rounds",
-            "max_games_per_player", "min_games_per_player",
-            "preview_rounds", "explanation",
+            "format",
+            "total_time_minutes",
+            "estimated_rounds",
+            "max_games_per_player",
+            "min_games_per_player",
+            "preview_rounds",
+            "explanation",
         )
         for key in expected_keys:
             assert key in preview, f"Missing key: {key}"
@@ -735,19 +747,14 @@ class TestGeneratePreview:
 
     def test_partial_rr_preview_respects_max_rounds(self):
         """Partial RR preview should have pool_play_rounds == max_rounds."""
-        preview = generate_preview(
-            8, num_courts=2, format="PARTIAL_ROUND_ROBIN", max_rounds=4
-        )
-        pool_play_rounds = [
-            r for r in preview["preview_rounds"] if r["phase"] == "pool_play"
-        ]
+        preview = generate_preview(8, num_courts=2, format="PARTIAL_ROUND_ROBIN", max_rounds=4)
+        pool_play_rounds = [r for r in preview["preview_rounds"] if r["phase"] == "pool_play"]
         assert len(pool_play_rounds) == 4
 
     def test_pools_preview_includes_pools_map(self):
         """POOLS_PLAYOFFS preview includes preview_pools."""
         preview = generate_preview(
-            8, num_courts=2, format="POOLS_PLAYOFFS",
-            num_pools=2, playoff_size=4
+            8, num_courts=2, format="POOLS_PLAYOFFS", num_pools=2, playoff_size=4
         )
         assert preview.get("preview_pools") is not None
         assert "1" in preview["preview_pools"]
@@ -766,16 +773,14 @@ class TestGeneratePreview:
     def test_pools_preview_with_playoffs(self):
         """Preview with playoffs includes playoff rounds."""
         preview = generate_preview(
-            8, num_courts=2, format="POOLS_PLAYOFFS",
-            num_pools=2, playoff_size=4
+            8, num_courts=2, format="POOLS_PLAYOFFS", num_pools=2, playoff_size=4
         )
         assert preview["playoff_rounds"] > 0
 
     def test_pools_preview_without_playoffs(self):
         """Preview without playoffs has 0 playoff rounds."""
         preview = generate_preview(
-            8, num_courts=2, format="POOLS_PLAYOFFS",
-            num_pools=2, playoff_size=None
+            8, num_courts=2, format="POOLS_PLAYOFFS", num_pools=2, playoff_size=None
         )
         assert preview["playoff_rounds"] == 0
 
@@ -783,6 +788,7 @@ class TestGeneratePreview:
 # ===========================================================================
 # 8. Edge cases
 # ===========================================================================
+
 
 class TestEdgeCases:
     """Edge cases, boundary conditions, and minimum-valid inputs."""
@@ -846,9 +852,7 @@ class TestEdgeCases:
         player_ids = list(range(1, 17))
         result = generate_pools_schedule(player_ids, num_pools=4, num_courts=4, playoff_size=8)
         all_pool_players = [
-            pid
-            for pool_players in result["pools"].values()
-            for pid in pool_players
+            pid for pool_players in result["pools"].values() for pid in pool_players
         ]
         assert sorted(all_pool_players) == player_ids
 
@@ -856,9 +860,17 @@ class TestEdgeCases:
     # _full_rr_round_count helper
     # -----------------------------------------------------------------------
 
-    @pytest.mark.parametrize("n,expected", [
-        (4, 3), (5, 5), (6, 5), (7, 7), (8, 7), (10, 9),
-    ])
+    @pytest.mark.parametrize(
+        "n,expected",
+        [
+            (4, 3),
+            (5, 5),
+            (6, 5),
+            (7, 7),
+            (8, 7),
+            (10, 9),
+        ],
+    )
     def test_full_rr_round_count(self, n: int, expected: int):
         """_full_rr_round_count returns correct round count for N players."""
         assert _full_rr_round_count(n) == expected
@@ -888,14 +900,9 @@ class TestEdgeCases:
         result = generate_pools_schedule(
             list(range(1, 9)), num_pools=2, num_courts=2, playoff_size=4
         )
-        ids = [
-            m["matchup_id"]
-            for rnd in result["rounds"]
-            for m in rnd["matches"]
-        ]
+        ids = [m["matchup_id"] for rnd in result["rounds"] for m in rnd["matches"]]
         assert len(ids) == len(set(ids)), (
-            f"Duplicate matchup IDs found: "
-            f"{[mid for mid, cnt in Counter(ids).items() if cnt > 1]}"
+            f"Duplicate matchup IDs found: {[mid for mid, cnt in Counter(ids).items() if cnt > 1]}"
         )
 
     # -----------------------------------------------------------------------

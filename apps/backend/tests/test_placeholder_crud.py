@@ -22,7 +22,6 @@ from backend.database.models import (
     Match,
     Session,
     SessionStatus,
-    SessionParticipant,
 )
 from backend.models.schemas import CreateMatchRequest
 from backend.services import placeholder_service, data_service, user_service
@@ -457,77 +456,30 @@ class TestPlayerSearchScoping:
         assert "Unknown Player" not in names
 
     @pytest.mark.asyncio
-    async def test_included_when_scoped_by_creator(self, db_session, creator_player):
-        """Creator's own placeholders appear when include_placeholders_for_player_id is set."""
+    async def test_included_when_include_placeholders_true(self, db_session, creator_player):
+        """Placeholders appear when include_placeholders=True."""
         await placeholder_service.create_placeholder(
             db_session, name="Visible Placeholder", created_by_player_id=creator_player.id
         )
 
         items, total = await data_service.list_players_search(
-            db_session, include_placeholders_for_player_id=creator_player.id
+            db_session, include_placeholders=True
         )
         names = [item["full_name"] for item in items]
         assert "Visible Placeholder" in names
 
     @pytest.mark.asyncio
-    async def test_other_creators_placeholders_excluded(
-        self, db_session, creator_player, other_player
-    ):
-        """Another creator's placeholders should NOT appear even with scoping."""
+    async def test_all_placeholders_included(self, db_session, creator_player, other_player):
+        """All placeholders appear when include_placeholders=True, regardless of creator."""
         await placeholder_service.create_placeholder(
             db_session, name="Other's Placeholder", created_by_player_id=other_player.id
         )
 
         items, total = await data_service.list_players_search(
-            db_session, include_placeholders_for_player_id=creator_player.id
+            db_session, include_placeholders=True
         )
         names = [item["full_name"] for item in items]
-        assert "Other's Placeholder" not in names
-
-    @pytest.mark.asyncio
-    async def test_scoped_by_league(self, db_session, creator_player, other_player, test_league):
-        """Placeholders in the specified league appear when scoped."""
-        # Other player creates a placeholder and adds it to the league
-        ph = await placeholder_service.create_placeholder(
-            db_session,
-            name="League Scoped Placeholder",
-            created_by_player_id=other_player.id,
-            league_id=test_league.id,
-        )
-
-        items, total = await data_service.list_players_search(
-            db_session,
-            include_placeholders_for_player_id=creator_player.id,
-            league_ids=[test_league.id],
-        )
-        names = [item["full_name"] for item in items]
-        assert "League Scoped Placeholder" in names
-
-    @pytest.mark.asyncio
-    async def test_scoped_by_session(self, db_session, creator_player, other_player, test_session):
-        """Placeholders in the specified session appear when scoped."""
-        ph = await placeholder_service.create_placeholder(
-            db_session,
-            name="Session Scoped Placeholder",
-            created_by_player_id=other_player.id,
-        )
-
-        # Add placeholder as session participant
-        sp = SessionParticipant(
-            session_id=test_session.id,
-            player_id=ph.player_id,
-            invited_by=other_player.id,
-        )
-        db_session.add(sp)
-        await db_session.commit()
-
-        items, total = await data_service.list_players_search(
-            db_session,
-            include_placeholders_for_player_id=creator_player.id,
-            session_id=test_session.id,
-        )
-        names = [item["full_name"] for item in items]
-        assert "Session Scoped Placeholder" in names
+        assert "Other's Placeholder" in names
 
     @pytest.mark.asyncio
     async def test_is_placeholder_in_response_items(self, db_session, creator_player):
@@ -537,7 +489,7 @@ class TestPlayerSearchScoping:
         )
 
         items, total = await data_service.list_players_search(
-            db_session, include_placeholders_for_player_id=creator_player.id
+            db_session, include_placeholders=True
         )
 
         placeholder_items = [i for i in items if i["full_name"] == "Flagged Placeholder"]
@@ -726,3 +678,47 @@ class TestGetInviteUrlByPlayerId:
 
         with pytest.raises(placeholder_service.InviteNotFoundError):
             await placeholder_service.get_invite_url_by_player_id(db_session, ph.player_id)
+
+
+# ============================================================================
+# 8. Get player by ID tests
+# ============================================================================
+
+
+class TestGetPlayerById:
+    """Tests for data_service.get_player_by_id."""
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_dict_for_real_player(self, db_session, creator_player):
+        """Returns a dict with all expected fields for an existing real player."""
+        result = await data_service.get_player_by_id(db_session, creator_player.id)
+
+        assert result is not None
+        assert result["id"] == creator_player.id
+        assert result["full_name"] == "Creator Player"
+        assert result["is_placeholder"] is False
+        assert result["created_by_player_id"] is None
+        assert result["user_id"] == creator_player.user_id
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_dict_for_placeholder_player(self, db_session, creator_player):
+        """Returns a dict with is_placeholder=True and created_by_player_id set for a placeholder."""
+        ph = await placeholder_service.create_placeholder(
+            db_session, name="Lookup Placeholder", created_by_player_id=creator_player.id
+        )
+
+        result = await data_service.get_player_by_id(db_session, ph.player_id)
+
+        assert result is not None
+        assert result["id"] == ph.player_id
+        assert result["full_name"] == "Lookup Placeholder"
+        assert result["is_placeholder"] is True
+        assert result["created_by_player_id"] == creator_player.id
+        assert result["user_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_nonexistent_player(self, db_session):
+        """Returns None when no player exists with the given ID."""
+        result = await data_service.get_player_by_id(db_session, 999999)
+
+        assert result is None

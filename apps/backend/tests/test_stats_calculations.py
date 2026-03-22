@@ -26,6 +26,7 @@ from backend.database.models import (
     PartnershipStatsSeason,
     OpponentStatsSeason,
     PlayerSeasonStats,
+    PlayerGlobalStats,
     PartnershipStatsLeague,
     OpponentStatsLeague,
     PlayerLeagueStats,
@@ -103,8 +104,17 @@ async def create_match(
     team1_score: int,
     team2_score: int,
     is_ranked: bool = True,
+    ranked_intent: bool = None,
 ) -> Match:
-    """Helper to create a match."""
+    """Helper to create a match.
+
+    Args:
+        ranked_intent: User's original ranked choice. Defaults to same as is_ranked.
+            Set ranked_intent=True with is_ranked=False to simulate a placeholder match.
+            Set both to False to simulate an explicitly unranked match.
+    """
+    if ranked_intent is None:
+        ranked_intent = is_ranked
     winner = 1 if team1_score > team2_score else (2 if team2_score > team1_score else -1)
     match = Match(
         session_id=session.id,
@@ -117,6 +127,7 @@ async def create_match(
         team2_score=team2_score,
         winner=winner,
         is_ranked=is_ranked,
+        ranked_intent=ranked_intent,
         is_public=True,
         created_by=1,
     )
@@ -443,8 +454,8 @@ async def test_global_vs_season_stats_separation(
 
 
 @pytest.mark.asyncio
-async def test_unranked_matches_excluded(db_session, test_players, test_session):
-    """Test that unranked matches are excluded from calculations."""
+async def test_explicitly_unranked_matches_excluded(db_session, test_players, test_session):
+    """Test that explicitly unranked matches (ranked_intent=False) are excluded from all calculations."""
     alice, bob, charlie, dave = test_players
 
     # Create a ranked match
@@ -452,9 +463,18 @@ async def test_unranked_matches_excluded(db_session, test_players, test_session)
         db_session, test_session, alice, bob, charlie, dave, 21, 19, is_ranked=True
     )
 
-    # Create an unranked match
+    # Create an explicitly unranked match (user chose unranked)
     unranked_match = await create_match(
-        db_session, test_session, alice, charlie, bob, dave, 21, 17, is_ranked=False
+        db_session,
+        test_session,
+        alice,
+        charlie,
+        bob,
+        dave,
+        21,
+        17,
+        is_ranked=False,
+        ranked_intent=False,
     )
 
     # Calculate global stats
@@ -473,6 +493,180 @@ async def test_unranked_matches_excluded(db_session, test_players, test_session)
     # Check that the unranked match is not in ELO history
     unranked_elo = [r for r in elo_records if r.match_id == unranked_match.id]
     assert len(unranked_elo) == 0
+
+    # Partnership stats should only reflect the ranked match
+    partnerships = await db_session.execute(select(PartnershipStats))
+    partnership_list = partnerships.scalars().all()
+    # Alice+Bob partnership from ranked match should exist
+    alice_bob = next(
+        (p for p in partnership_list if p.player_id == alice.id and p.partner_id == bob.id),
+        None,
+    )
+    assert alice_bob is not None
+    assert alice_bob.games == 1
+    # Alice+Charlie partnership from unranked match should NOT exist
+    alice_charlie = next(
+        (p for p in partnership_list if p.player_id == alice.id and p.partner_id == charlie.id),
+        None,
+    )
+    assert alice_charlie is None
+
+
+@pytest.mark.asyncio
+async def test_placeholder_matches_in_stats_not_elo(db_session, test_players, test_session):
+    """Placeholder matches (ranked_intent=True, is_ranked=False) are included in
+    partnership/opponent/global stats but excluded from global ELO."""
+    alice, bob, charlie, dave = test_players
+
+    # Create a fully ranked match
+    ranked_match = await create_match(
+        db_session, test_session, alice, bob, charlie, dave, 21, 19, is_ranked=True
+    )
+
+    # Create a placeholder match (ranked_intent=True but is_ranked=False)
+    placeholder_match = await create_match(
+        db_session,
+        test_session,
+        alice,
+        charlie,
+        bob,
+        dave,
+        21,
+        17,
+        is_ranked=False,
+        ranked_intent=True,
+    )
+
+    # Calculate global stats
+    result = await data_service.calculate_global_stats_async(db_session)
+
+    # Both matches should be counted in match_count
+    assert result["match_count"] == 2
+
+    # ELO history should only have entries for the ranked match
+    elo_history = await db_session.execute(select(EloHistory))
+    elo_records = elo_history.scalars().all()
+    assert len(elo_records) == 4  # 4 players * 1 ranked match
+
+    # No ELO for the placeholder match
+    placeholder_elo = [r for r in elo_records if r.match_id == placeholder_match.id]
+    assert len(placeholder_elo) == 0
+
+    # Ranked match ELO should exist
+    ranked_elo = [r for r in elo_records if r.match_id == ranked_match.id]
+    assert len(ranked_elo) == 4
+
+    # Partnership stats should include BOTH matches
+    partnerships = await db_session.execute(select(PartnershipStats))
+    partnership_list = partnerships.scalars().all()
+
+    # Alice+Bob from ranked match
+    alice_bob = next(
+        (p for p in partnership_list if p.player_id == alice.id and p.partner_id == bob.id),
+        None,
+    )
+    assert alice_bob is not None
+    assert alice_bob.games == 1
+
+    # Alice+Charlie from placeholder match — should exist
+    alice_charlie = next(
+        (p for p in partnership_list if p.player_id == alice.id and p.partner_id == charlie.id),
+        None,
+    )
+    assert alice_charlie is not None
+    assert alice_charlie.games == 1
+
+    # PlayerGlobalStats should reflect both matches
+    global_stats = await db_session.execute(
+        select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == alice.id)
+    )
+    alice_global = global_stats.scalar_one_or_none()
+    assert alice_global is not None
+    assert alice_global.total_games == 2
+    assert alice_global.total_wins == 2  # Alice won both matches
+
+
+@pytest.mark.asyncio
+async def test_placeholder_match_in_season_stats(
+    db_session, test_players, test_session, test_league_and_season
+):
+    """Placeholder matches appear in season stats (PlayerSeasonStats)."""
+    alice, bob, charlie, dave = test_players
+    league, season = test_league_and_season
+
+    # Create a placeholder match
+    await create_match(
+        db_session,
+        test_session,
+        alice,
+        bob,
+        charlie,
+        dave,
+        21,
+        19,
+        is_ranked=False,
+        ranked_intent=True,
+    )
+
+    # Calculate league stats (which also calculates season stats)
+    await data_service.calculate_league_stats_async(db_session, league.id)
+
+    # Season stats should include the placeholder match
+    season_stats = await db_session.execute(
+        select(PlayerSeasonStats).where(PlayerSeasonStats.season_id == season.id)
+    )
+    stats_list = season_stats.scalars().all()
+
+    # All 4 players should have season stats
+    assert len(stats_list) == 4
+
+    alice_stats = next((s for s in stats_list if s.player_id == alice.id), None)
+    assert alice_stats is not None
+    assert alice_stats.games == 1
+    assert alice_stats.wins == 1
+
+    charlie_stats = next((s for s in stats_list if s.player_id == charlie.id), None)
+    assert charlie_stats is not None
+    assert charlie_stats.games == 1
+    assert charlie_stats.wins == 0
+
+
+@pytest.mark.asyncio
+async def test_placeholder_only_player_gets_global_stats(db_session, test_players, test_session):
+    """A player who only appears in placeholder matches still gets PlayerGlobalStats
+    with games/wins counted and current_rating = INITIAL_ELO."""
+    alice, bob, charlie, dave = test_players
+
+    # Only placeholder matches, no ranked matches
+    await create_match(
+        db_session,
+        test_session,
+        alice,
+        bob,
+        charlie,
+        dave,
+        21,
+        19,
+        is_ranked=False,
+        ranked_intent=True,
+    )
+
+    result = await data_service.calculate_global_stats_async(db_session)
+    assert result["match_count"] == 1
+
+    # No ELO history at all
+    elo_history = await db_session.execute(select(EloHistory))
+    assert len(elo_history.scalars().all()) == 0
+
+    # But PlayerGlobalStats should exist with game counts
+    global_stats = await db_session.execute(
+        select(PlayerGlobalStats).where(PlayerGlobalStats.player_id == alice.id)
+    )
+    alice_global = global_stats.scalar_one_or_none()
+    assert alice_global is not None
+    assert alice_global.total_games == 1
+    assert alice_global.total_wins == 1
+    assert alice_global.current_rating == INITIAL_ELO  # No ELO history, defaults to 1200
 
 
 @pytest.mark.asyncio

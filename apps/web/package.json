@@ -15,7 +15,9 @@
     "test:e2e:debug": "npm run test:e2e:setup && playwright test --debug",
     "test:e2e:headed": "npm run test:e2e:setup && playwright test --headed",
     "test:e2e:file": "npm run test:e2e:setup && playwright test",
-    "test:e2e:grep": "npm run test:e2e:setup && playwright test --grep"
+    "test:e2e:grep": "npm run test:e2e:setup && playwright test --grep",
+    "test:e2e:mobile": "npm run test:e2e:setup && MOBILE=1 playwright test --project=mobile-chrome",
+    "test:e2e:all-viewports": "npm run test:e2e:setup && MOBILE=1 playwright test"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",

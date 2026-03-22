@@ -963,6 +963,108 @@ class MarkAsReadRequest(BaseModel):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Session route request schemas
+# ---------------------------------------------------------------------------
+
+
+class EndLeagueSessionRequest(BaseModel):
+    """Request to submit/lock a league session."""
+
+    submit: bool
+
+
+class JoinSessionRequest(BaseModel):
+    """Request to join a session by shareable code."""
+
+    code: str
+
+
+class InviteToSessionRequest(BaseModel):
+    """Request to invite a single player to a session."""
+
+    player_id: int
+
+
+class InviteBatchToSessionRequest(BaseModel):
+    """Request to invite multiple players to a session."""
+
+    player_ids: List[int]
+
+
+class CreateNonLeagueSessionRequest(BaseModel):
+    """Request to create a non-league session."""
+
+    date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
+    name: Optional[str] = None
+    court_id: Optional[int] = None
+
+
+class UpdateSessionRequest(BaseModel):
+    """Request to update a non-league session (submit, rename, re-date, re-season, re-court)."""
+
+    submit: Optional[bool] = None
+    name: Optional[str] = None
+    date: Optional[str] = None
+    season_id: Optional[int] = None
+    court_id: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# Player route request schemas
+# ---------------------------------------------------------------------------
+
+
+class CreatePlayerRequest(BaseModel):
+    """Request to create a new player by name."""
+
+    name: str
+
+
+class AddPlayerHomeCourt(BaseModel):
+    """Request to add a home court for a player."""
+
+    court_id: int
+
+
+class SetPlayerHomeCourts(BaseModel):
+    """Request to replace all home courts for a player."""
+
+    court_ids: List[int]
+
+
+class CourtPosition(BaseModel):
+    """A single (court_id, position) pair used when reordering home courts."""
+
+    court_id: int
+    position: int
+
+
+class ReorderPlayerHomeCourts(BaseModel):
+    """Request to reorder home courts for a player."""
+
+    court_positions: List[CourtPosition]
+
+
+# ---------------------------------------------------------------------------
+# Photo-match route request schemas
+# ---------------------------------------------------------------------------
+
+
+class EditPhotoResultsRequest(BaseModel):
+    """Request to send an edit prompt for photo-match conversation refinement."""
+
+    edit_prompt: str
+
+
+class ConfirmPhotoMatchesRequest(BaseModel):
+    """Request to confirm parsed photo matches and create them in the database."""
+
+    season_id: int
+    match_date: str
+    player_overrides: Optional[list] = None
+
+
 class UnreadCountResponse(BaseModel):
     """Unread notification count response."""
 
@@ -1138,6 +1240,7 @@ class PublicPlayerResponse(BaseModel):
     avatar: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None
+    is_placeholder: bool = False
     location: Optional[PublicLocationRef] = None
     stats: PublicPlayerStats
     league_memberships: List[PublicPlayerLeagueMembership] = []
@@ -1233,6 +1336,7 @@ class PublicPlayerListItem(BaseModel):
     location_name: Optional[str] = None
     total_games: int = 0
     current_rating: float = 1200.0
+    is_placeholder: bool = False
 
 
 class PaginatedPublicPlayersResponse(BaseModel):
@@ -1526,9 +1630,7 @@ class _KobTournamentBase(BaseModel):
 
     name: str = Field(default=None, min_length=1, max_length=100)
     gender: Literal["mens", "womens", "coed"] = None
-    format: Literal[
-        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
-    ] = None
+    format: Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"] = None
     game_to: int = Field(default=None, ge=7, le=28)
     num_courts: int = Field(default=None, ge=1, le=20)
     max_rounds: Optional[int] = Field(default=None, ge=1)
@@ -1560,9 +1662,9 @@ class KobTournamentCreate(_KobTournamentBase):
 
     name: str = Field(..., min_length=1, max_length=100)
     gender: Literal["mens", "womens", "coed"] = "coed"
-    format: Literal[
-        "FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"
-    ] = "FULL_ROUND_ROBIN"
+    format: Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"] = (
+        "FULL_ROUND_ROBIN"
+    )
     game_to: int = Field(21, ge=7, le=28)
     num_courts: int = Field(2, ge=1, le=20)
     games_per_match: int = 1

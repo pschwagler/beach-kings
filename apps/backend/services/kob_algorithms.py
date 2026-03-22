@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # Circle method primitives
 # ---------------------------------------------------------------------------
 
+
 def _full_rr_round_count(num_players: int) -> int:
     """Number of rounds in a full RR for N players."""
     n = num_players if num_players % 2 == 0 else num_players + 1
@@ -95,13 +96,15 @@ def _match_partnerships(
         team1 = real_pairs[i]
         team2 = real_pairs[i + 1]
         match_id = f"r{round_num}m{len(matches) + 1}"
-        matches.append({
-            "matchup_id": match_id,
-            "court_num": ((court - 1) % num_courts) + 1,
-            "team1": list(team1),
-            "team2": list(team2),
-            "is_bye": False,
-        })
+        matches.append(
+            {
+                "matchup_id": match_id,
+                "court_num": ((court - 1) % num_courts) + 1,
+                "team1": list(team1),
+                "team2": list(team2),
+                "is_bye": False,
+            }
+        )
         court += 1
 
     # If odd number of real pairs, last pair sits out (rare)
@@ -115,6 +118,7 @@ def _match_partnerships(
 # ---------------------------------------------------------------------------
 # Full round robin
 # ---------------------------------------------------------------------------
+
 
 def generate_full_round_robin(
     player_ids: List[int],
@@ -153,12 +157,14 @@ def generate_full_round_robin(
         round_matches, round_byes = _match_partnerships(
             partnerships, r + 1, "pool_play", num_courts, phantom
         )
-        rounds.append({
-            "round_num": r + 1,
-            "phase": "pool_play",
-            "pool_id": None,
-            "matches": round_matches,
-        })
+        rounds.append(
+            {
+                "round_num": r + 1,
+                "phase": "pool_play",
+                "pool_id": None,
+                "matches": round_matches,
+            }
+        )
         if round_byes:
             byes_per_round[str(r + 1)] = round_byes
 
@@ -173,6 +179,7 @@ def generate_full_round_robin(
 # ---------------------------------------------------------------------------
 # Partial round robin
 # ---------------------------------------------------------------------------
+
 
 def generate_partial_round_robin(
     player_ids: List[int],
@@ -205,7 +212,10 @@ def generate_partial_round_robin(
 
     # --- Step 1: Greedy round selection for bye balance ---
     selected_indices = _select_balanced_rounds(
-        full["rounds"], full["byes_per_round"], max_rounds, player_ids,
+        full["rounds"],
+        full["byes_per_round"],
+        max_rounds,
+        player_ids,
     )
 
     selected_rounds = [full["rounds"][i] for i in selected_indices]
@@ -217,7 +227,9 @@ def generate_partial_round_robin(
 
     # --- Step 2: Rebalance via swaps (max-min diff -> <= 1) ---
     selected_rounds, selected_byes = _rebalance_game_counts(
-        selected_rounds, selected_byes, player_ids,
+        selected_rounds,
+        selected_byes,
+        player_ids,
     )
 
     # --- Renumber rounds sequentially ---
@@ -414,6 +426,7 @@ def _rebalance_game_counts(
 # Pool-based scheduling
 # ---------------------------------------------------------------------------
 
+
 def generate_pools_schedule(
     player_ids: List[int],
     num_pools: int,
@@ -456,9 +469,7 @@ def generate_pools_schedule(
             all_byes[f"p{pool_id}_r{k}"] = v
 
     # Merge pool rounds so they play concurrently
-    merged_rounds, pool_courts = _merge_pool_rounds(
-        all_rounds, num_courts, num_pools
-    )
+    merged_rounds, pool_courts = _merge_pool_rounds(all_rounds, num_courts, num_pools)
 
     pools_map = {}
     for i, pool in enumerate(pools):
@@ -533,8 +544,7 @@ def _merge_pool_rounds(
     """
     # Deterministic court assignment per pool
     pool_courts = {
-        pool_id: ((pool_id - 1) % num_courts) + 1
-        for pool_id in range(1, num_pools + 1)
+        pool_id: ((pool_id - 1) % num_courts) + 1 for pool_id in range(1, num_pools + 1)
     }
 
     # Group by round_num
@@ -556,12 +566,14 @@ def _merge_pool_rounds(
                 m["court_num"] = court
                 m["pool_id"] = pool_id
                 all_matches.append(m)
-        merged.append({
-            "round_num": round_num,
-            "phase": "pool_play",
-            "pool_id": None,  # merged round spans pools
-            "matches": all_matches,
-        })
+        merged.append(
+            {
+                "round_num": round_num,
+                "phase": "pool_play",
+                "pool_id": None,  # merged round spans pools
+                "matches": all_matches,
+            }
+        )
 
     return merged, pool_courts
 
@@ -569,6 +581,7 @@ def _merge_pool_rounds(
 # ---------------------------------------------------------------------------
 # Playoff round generation
 # ---------------------------------------------------------------------------
+
 
 def generate_playoff_schedule(
     advancing_player_ids: List[int],
@@ -603,6 +616,7 @@ def generate_playoff_schedule(
 # Draft playoff bracket preview
 # ---------------------------------------------------------------------------
 
+
 def generate_draft_playoff_preview(
     playoff_size: int,
     num_courts: int,
@@ -629,54 +643,66 @@ def generate_draft_playoff_preview(
 
     if playoff_size == 4:
         # Top 4: 1st picks a partner, remaining 2 are auto-paired
-        rounds.append({
-            "round_num": round_offset + 1,
-            "phase": "playoffs",
-            "pool_id": None,
-            "bracket_position": "final",
-            "label": "Final — 1st picks partner",
-            "matches": [{
-                "matchup_id": "pf_bracket_final",
-                "court_num": 1,
-                "team1": [1, 0],  # 1st seed + picked partner
-                "team2": [0, 0],  # remaining 2 auto-paired
-                "is_bye": False,
-            }],
-        })
+        rounds.append(
+            {
+                "round_num": round_offset + 1,
+                "phase": "playoffs",
+                "pool_id": None,
+                "bracket_position": "final",
+                "label": "Final — 1st picks partner",
+                "matches": [
+                    {
+                        "matchup_id": "pf_bracket_final",
+                        "court_num": 1,
+                        "team1": [1, 0],  # 1st seed + picked partner
+                        "team2": [0, 0],  # remaining 2 auto-paired
+                        "is_bye": False,
+                    }
+                ],
+            }
+        )
     elif playoff_size >= 6:
         # Top 6 bracket: 1 match per round, pick-and-play format.
         # Semi: 3rd picks partner from 4th-6th -> 2v2 vs remaining 2
         # Final: 1st picks partner from remaining 4 -> 2v2 vs remaining 2
-        rounds.append({
-            "round_num": round_offset + 1,
-            "phase": "playoffs",
-            "pool_id": None,
-            "bracket_position": "semifinal",
-            "label": "Semifinal — 1st & 2nd have byes",
-            "matches": [{
-                "matchup_id": "pf_bracket_sf",
-                "court_num": 1,
-                "team1": [3, 0],  # 3rd picks partner
-                "team2": [0, 0],  # remaining 2
-                "is_bye": False,
-            }],
-        })
+        rounds.append(
+            {
+                "round_num": round_offset + 1,
+                "phase": "playoffs",
+                "pool_id": None,
+                "bracket_position": "semifinal",
+                "label": "Semifinal — 1st & 2nd have byes",
+                "matches": [
+                    {
+                        "matchup_id": "pf_bracket_sf",
+                        "court_num": 1,
+                        "team1": [3, 0],  # 3rd picks partner
+                        "team2": [0, 0],  # remaining 2
+                        "is_bye": False,
+                    }
+                ],
+            }
+        )
 
         # Final: 1st picks partner -> 2v2 vs remaining 2
-        rounds.append({
-            "round_num": round_offset + 2,
-            "phase": "playoffs",
-            "pool_id": None,
-            "bracket_position": "final",
-            "label": "Final",
-            "matches": [{
-                "matchup_id": "pf_bracket_final",
-                "court_num": 1,
-                "team1": [1, 0],  # 1st picks partner
-                "team2": [0, 0],  # remaining 2
-                "is_bye": False,
-            }],
-        })
+        rounds.append(
+            {
+                "round_num": round_offset + 2,
+                "phase": "playoffs",
+                "pool_id": None,
+                "bracket_position": "final",
+                "label": "Final",
+                "matches": [
+                    {
+                        "matchup_id": "pf_bracket_final",
+                        "court_num": 1,
+                        "team1": [1, 0],  # 1st picks partner
+                        "team2": [0, 0],  # remaining 2
+                        "is_bye": False,
+                    }
+                ],
+            }
+        )
 
     return rounds
 
@@ -684,6 +710,7 @@ def generate_draft_playoff_preview(
 # ---------------------------------------------------------------------------
 # Schedule generation (top-level orchestration)
 # ---------------------------------------------------------------------------
+
 
 def generate_schedule(
     player_ids: List[int],

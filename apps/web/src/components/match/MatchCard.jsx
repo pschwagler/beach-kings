@@ -1,10 +1,10 @@
 import { Edit } from 'lucide-react';
-import PlaceholderBadge from '../player/PlaceholderBadge';
+import ShareInviteIcon from '../player/ShareInviteIcon';
 
 /**
  * MatchCard Component — individual match display.
  * Shows two teams with players, scores, and winner highlight.
- * Displays PlaceholderBadge next to placeholder player names.
+ * Displays ShareInviteIcon next to placeholder player names.
  */
 export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = false }) {
   const team1Won = match.Winner === 'Team 1';
@@ -38,11 +38,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         <div className="team-players">
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1 ID'], match['Team 1 Player 1'], e); }}>
             {match['Team 1 Player 1']}
-            {match['Team 1 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
+            {match['Team 1 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 1 Player 1 ID']} playerName={match['Team 1 Player 1']} />}
           </span>
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2 ID'], match['Team 1 Player 2'], e); }}>
             {match['Team 1 Player 2']}
-            {match['Team 1 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
+            {match['Team 1 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 1 Player 2 ID']} playerName={match['Team 1 Player 2']} />}
           </span>
         </div>
         <div className={`team-score ${team1Won ? 'winner-score' : 'loser-score'}`}>
@@ -55,11 +55,11 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         <div className="team-players">
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1 ID'], match['Team 2 Player 1'], e); }}>
             {match['Team 2 Player 1']}
-            {match['Team 2 Player 1 IsPlaceholder'] && <PlaceholderBadge />}
+            {match['Team 2 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 2 Player 1 ID']} playerName={match['Team 2 Player 1']} />}
           </span>
           <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2 ID'], match['Team 2 Player 2'], e); }}>
             {match['Team 2 Player 2']}
-            {match['Team 2 Player 2 IsPlaceholder'] && <PlaceholderBadge />}
+            {match['Team 2 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 2 Player 2 ID']} playerName={match['Team 2 Player 2']} />}
           </span>
         </div>
         <div className={`team-score ${team2Won ? 'winner-score' : 'loser-score'}`}>

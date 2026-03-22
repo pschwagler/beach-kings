@@ -758,13 +758,17 @@ async def test_delete_session(db_session):
 
 
 @pytest.mark.asyncio
-async def test_delete_session_not_active(db_session):
-    """Test that deleting a submitted session raises error."""
+async def test_delete_submitted_session(db_session):
+    """Test that deleting a submitted session succeeds."""
     session = await data_service.create_session(db_session, date="2024-01-15")
     await data_service.lock_in_session(db_session, session["id"])
 
-    with pytest.raises(ValueError, match="Cannot delete"):
-        await data_service.delete_session(db_session, session["id"])
+    result = await data_service.delete_session(db_session, session["id"])
+    assert result is True
+
+    # Verify session was deleted
+    result_query = await db_session.execute(select(Session).where(Session.id == session["id"]))
+    assert result_query.scalar_one_or_none() is None
 
 
 @pytest.mark.asyncio
