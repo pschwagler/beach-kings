@@ -3,17 +3,34 @@ Comprehensive unit tests for all API endpoints.
 Tests ensure all routes work correctly with proper mocking of dependencies.
 """
 
+from unittest.mock import AsyncMock
+
+import pytest
 from fastapi.testclient import TestClient
 from datetime import datetime, timedelta
 from backend.utils.datetime_utils import utcnow
 from backend.api.main import app
 from backend.api import auth_dependencies
+from backend.database.db import get_db_session
 from backend.services import auth_service, user_service, data_service, photo_match_service
 
 
 # ============================================================================
 # Test Fixtures and Helpers
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _mock_db_session():
+    """Override get_db_session for all tests in this module.
+
+    All tests here mock service calls and never need a real DB connection.
+    Without this, the real AsyncSession dependency can race with event loop
+    shutdown in TestClient, causing flaky 'Event loop is closed' errors in CI.
+    """
+    app.dependency_overrides[get_db_session] = lambda: AsyncMock()
+    yield
+    app.dependency_overrides.pop(get_db_session, None)
 
 
 async def _async(value):
@@ -292,6 +309,13 @@ class TestAuthEndpoints:
         )
         monkeypatch.setattr(
             user_service, "create_refresh_token", fake_create_refresh_token, raising=True
+        )
+
+        async def fake_get_player_by_user_id(session, user_id):
+            return {"id": 1, "user_id": user_id, "gender": "M", "level": "intermediate"}
+
+        monkeypatch.setattr(
+            data_service, "get_player_by_user_id", fake_get_player_by_user_id, raising=True
         )
 
         payload = {"phone_number": "+15551234567", "code": "123456"}
