@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean whatsapp whatsapp-install frontend-install ensure-docker migrate seed-users dev-login mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
+.PHONY: help install dev dev-backend dev-frontend build docker-build docker-up start clean clean-volumes clean-venv test test-local test-clean check lint whatsapp whatsapp-install frontend-install ensure-docker migrate seed-users dev-login mobile-install mobile-dev mobile-ios mobile-android mobile-test mobile-build mobile-build-ios mobile-build-android
 
 BACKEND_PORT ?= 8000
 BACKEND_HOST ?= 0.0.0.0
@@ -56,7 +56,9 @@ help:
 	@echo "  make dev-login           - List all available players"
 	@echo ""
 	@echo "🧪 Testing:"
-	@echo "  make test              - Run tests in Docker containers"
+	@echo "  make check             - Run ALL checks: lint, format, build, tests"
+	@echo "  make lint              - Run linters + format checks + frontend build"
+	@echo "  make test              - Run backend tests in Docker containers"
 	@echo "  make test-local        - Run tests locally (requires venv)"
 	@echo ""
 	@echo "Quick Start:"
@@ -229,10 +231,24 @@ seed-users:
 dev-login:
 	@docker compose exec backend bash -c "cd /app && PYTHONPATH=/app python scripts/dev_login.py '$(ID)'"
 
-test: ensure-docker
-	@echo "🧪 Running tests in Docker containers..."
-	@echo "This will start PostgreSQL and Redis containers for testing..."
+check: lint test
 	@echo ""
+	@echo "All checks passed."
+
+lint:
+	@echo "--- Python lint ---"
+	@ruff check apps/backend
+	@echo "--- Python format ---"
+	@ruff format --check apps/backend
+	@echo "--- JS/TS lint ---"
+	@npm run lint
+	@echo "--- Frontend build ---"
+	@npm run build
+	@echo ""
+	@echo "Lint and build passed."
+
+test: ensure-docker
+	@echo "--- Backend tests (Docker) ---"
 	@docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
 	@docker compose -f docker-compose.test.yml down
 
