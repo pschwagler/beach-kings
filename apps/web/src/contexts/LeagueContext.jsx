@@ -385,6 +385,46 @@ export const LeagueProvider = ({ children, leagueId }) => {
     // Note: Player data will be reloaded automatically when selectedSeasonData changes
   }, [loadSeasonData]);
 
+  /**
+   * Refresh only the matches portion of the "All Seasons" combined view.
+   * Unlike loadAllSeasonsRankings, this skips the already-loaded guard
+   * so it always fetches fresh match data.
+   */
+  const refreshAllSeasonsMatches = useCallback(async () => {
+    if (!leagueId) return;
+
+    try {
+      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch(err => {
+        console.error('Error refreshing all seasons matches:', err);
+        return null;
+      });
+      if (allMatches === null) return;
+
+      const sortedMatches = [...allMatches].sort((a, b) =>
+        new Date(b.date || 0) - new Date(a.date || 0)
+      );
+
+      setSeasonData(prev => {
+        const existing = prev[ALL_SEASONS_KEY];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [ALL_SEASONS_KEY]: { ...existing, matches: sortedMatches }
+        };
+      });
+
+      // Update the ref immediately
+      if (dataRef.current[ALL_SEASONS_KEY]) {
+        dataRef.current[ALL_SEASONS_KEY] = {
+          ...dataRef.current[ALL_SEASONS_KEY],
+          matches: sortedMatches
+        };
+      }
+    } catch (err) {
+      console.error('Error refreshing all seasons matches:', err);
+    }
+  }, [leagueId]);
+
   // Load rankings for all seasons in the league (when "All Seasons" is selected)
   const loadAllSeasonsRankings = useCallback(async () => {
     if (!leagueId) return;
@@ -584,6 +624,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     loadSeasonData,
     refreshSeasonData,
     refreshMatchData,
+    refreshAllSeasonsMatches,
     loadAllSeasonsRankings,
     isLeagueMember,
     isLeagueAdmin,
@@ -603,7 +644,7 @@ export const LeagueProvider = ({ children, leagueId }) => {
     refreshLeague, refreshSeasons, refreshMembers, updateLeague, updateMember,
     activeSeasons, isSeasonActive, isSeasonPast,
     selectedSeasonData, seasonData, seasonDataLoading,
-    loadSeasonData, refreshSeasonData, refreshMatchData, loadAllSeasonsRankings,
+    loadSeasonData, refreshSeasonData, refreshMatchData, refreshAllSeasonsMatches, loadAllSeasonsRankings,
     isLeagueMember, isLeagueAdmin,
     selectedSeasonId, setSelectedSeasonId,
     selectedPlayerId, selectedPlayerName, playerSeasonStats, playerMatchHistory,

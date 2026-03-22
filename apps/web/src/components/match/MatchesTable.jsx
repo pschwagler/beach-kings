@@ -11,13 +11,14 @@ import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { calculateWinner } from '../league/utils/matchUtils';
 
-function createSessionGroup(sessionId, sessionName, sessionStatus, sessionCreatedAt, sessionUpdatedAt, sessionCreatedBy, sessionUpdatedBy) {
+function createSessionGroup(sessionId, sessionName, sessionStatus, sessionCreatedAt, sessionUpdatedAt, sessionCreatedBy, sessionUpdatedBy, sessionDate) {
   return {
     type: 'session',
     id: sessionId,
     name: sessionName,
     status: sessionStatus,
     isActive: sessionStatus === 'ACTIVE',
+    date: sessionDate || null,
     createdAt: sessionCreatedAt,
     updatedAt: sessionUpdatedAt,
     createdBy: sessionCreatedBy,
@@ -68,20 +69,25 @@ export default function MatchesTable({
   const [photoJobId, setPhotoJobId] = useState(null);
   const [photoSessionId, setPhotoSessionId] = useState(null);
   
-  const handlePhotoMatchesCreated = useCallback(async (matchIds) => {
+  const handlePhotoMatchesCreated = useCallback(async (matchIds, photoSeasonId) => {
     setPhotoJobId(null);
     setPhotoSessionId(null);
     closeModal();
-    
+
+    // Switch to the season where matches were created (if different from current filter)
+    if (photoSeasonId && onSeasonChange && photoSeasonId !== selectedSeasonId) {
+      onSeasonChange(photoSeasonId);
+    }
+
     // Refresh data to show the newly created matches
     if (onRefreshData) {
       try {
-        await onRefreshData({ sessions: true, season: true, matches: true });
+        await onRefreshData({ sessions: true, season: true, matches: true, seasonId: photoSeasonId || undefined });
       } catch (error) {
         console.error('[MatchesTable] Error refreshing data after photo matches created:', error);
       }
     }
-  }, [closeModal, onRefreshData]);
+  }, [closeModal, onRefreshData, onSeasonChange, selectedSeasonId]);
   
   const handleProceedToPhotoReview = useCallback((jobId, sessionId, uploadedImageUrl = null) => {
     setPhotoJobId(jobId);
@@ -190,7 +196,8 @@ export default function MatchesTable({
           const sessionCreatedAt = sessionData?.created_at || match['Session Created At'];
           const sessionName = sessionData?.name || match['Session Name'];
           const sessionStatus = sessionData?.status || match['Session Status'];
-          
+          const sessionDate = sessionData?.date || match.Date;
+
           acc[key] = createSessionGroup(
             sessionId,
             sessionName,
@@ -198,7 +205,8 @@ export default function MatchesTable({
             sessionCreatedAt,
             match['Session Updated At'],
             match['Session Created By'],
-            match['Session Updated By']
+            match['Session Updated By'],
+            sessionDate
           );
         }
         acc[key].matches.push(match);
@@ -241,7 +249,8 @@ export default function MatchesTable({
           // Use session data from allSessions if available
           const sessionData = sessionsMap.get(sessionId);
           const sessionCreatedAt = sessionData?.created_at || sessionMetadata.createdAt;
-          
+          const sessionDate = sessionData?.date || null;
+
           grouped[key] = createSessionGroup(
             sessionId,
             sessionMetadata.name || `Session ${sessionId}`,
@@ -249,7 +258,8 @@ export default function MatchesTable({
             sessionCreatedAt,
             sessionMetadata.updatedAt,
             sessionMetadata.createdBy,
-            sessionMetadata.updatedBy
+            sessionMetadata.updatedBy,
+            sessionDate
           );
         } else {
           const sessionMatch = matches?.find(m => m['Session ID'] === sessionId);
@@ -257,7 +267,8 @@ export default function MatchesTable({
             // Use session data from allSessions if available
             const sessionData = sessionsMap.get(sessionId);
             const sessionCreatedAt = sessionData?.created_at || sessionMatch['Session Created At'];
-            
+            const sessionDate = sessionData?.date || sessionMatch.Date;
+
             grouped[key] = createSessionGroup(
               sessionId,
               sessionMatch['Session Name'] || `Session ${sessionId}`,
@@ -265,7 +276,8 @@ export default function MatchesTable({
               sessionCreatedAt,
               sessionMatch['Session Updated At'],
               sessionMatch['Session Created By'],
-              sessionMatch['Session Updated By']
+              sessionMatch['Session Updated By'],
+              sessionDate
             );
           }
         }
@@ -309,25 +321,29 @@ export default function MatchesTable({
 
   const sessionGroups = useMemo(() => {
     return Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
-      // Sort by created_at (newest first)
-      // Use createdAt if available, otherwise fall back to lastUpdated
-      const dateA = groupA.createdAt || groupA.lastUpdated;
-      const dateB = groupB.createdAt || groupB.lastUpdated;
-      
-      if (dateA && dateB) {
-        // Compare timestamps directly (newest first = descending order)
-        const timeDiff = new Date(dateB) - new Date(dateA);
-        if (timeDiff !== 0) {
-          return timeDiff;
-        }
+      // Primary sort: session date descending (matches backend ORDER BY date DESC)
+      // Session date is a YYYY-MM-DD string — lexicographic comparison works correctly
+      const sessionDateA = groupA.date || groupA.name;
+      const sessionDateB = groupB.date || groupB.name;
+
+      if (sessionDateA && sessionDateB) {
+        const dateCmp = sessionDateB.localeCompare(sessionDateA);
+        if (dateCmp !== 0) return dateCmp;
       }
-      
-      // If one has a date and the other doesn't, prioritize the one with a date
-      if (dateA && !dateB) return -1;
-      if (!dateA && dateB) return 1;
-      
-      // Final fallback to alphabetical (descending)
-      return groupB.name.localeCompare(groupA.name);
+
+      // Tiebreaker: created_at descending (matches backend ORDER BY created_at DESC)
+      const createdA = groupA.createdAt;
+      const createdB = groupB.createdAt;
+
+      if (createdA && createdB) {
+        const timeDiff = new Date(createdB) - new Date(createdA);
+        if (timeDiff !== 0) return timeDiff;
+      }
+
+      if (createdA && !createdB) return -1;
+      if (!createdA && createdB) return 1;
+
+      return 0;
     });
   }, [matchesBySession]);
 

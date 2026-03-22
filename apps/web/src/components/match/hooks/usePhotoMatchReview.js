@@ -277,7 +277,7 @@ export function usePhotoMatchReview({
         overridesPayload
       );
       setStatus(JOB_STATUS.CONFIRMED);
-      onSuccess?.(response.match_ids);
+      onSuccess?.(response.match_ids, selectedSeasonId);
     } catch (err) {
       console.error('Error confirming matches:', err);
       const detail = err.response?.data?.detail;

@@ -41,6 +41,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     loadAllSeasonsRankings,
     refreshSeasonData,
     refreshMatchData,
+    refreshAllSeasonsMatches,
     isLeagueAdmin,
     selectedSeasonId,
     setSelectedSeasonId,
@@ -116,6 +117,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     loadAllSessions,
     refreshSeasonData,
     refreshMatchData,
+    refreshAllSeasonsMatches,
     getSeasonIdForRefresh,
     selectedSeasonId,
     seasons

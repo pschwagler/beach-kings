@@ -57,7 +57,7 @@ export default function ShareFallbackModal({ isOpen, onClose, name, url, text })
     >
       <div className="share-fallback">
         <div className="share-fallback__header">
-          <span>Share Invite</span>
+          <span>{name ? `Share Invite for ${name}` : 'Share Invite'}</span>
           <button
             type="button"
             className="share-fallback__close"
