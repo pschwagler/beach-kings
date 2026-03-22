@@ -36,6 +36,43 @@ def _column_exists(table: str, column: str) -> bool:
     return result.scalar() is not None
 
 
+def _get_fks_referencing_table(referenced_table: str) -> list:
+    """Return all foreign key constraints referencing the given table.
+
+    Returns list of dicts with keys: constraint_name, table_name, column_name,
+    foreign_column_name.
+    """
+    conn = op.get_bind()
+    rows = conn.execute(
+        text("""
+            SELECT
+                tc.constraint_name,
+                tc.table_name,
+                kcu.column_name,
+                ccu.column_name AS foreign_column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage ccu
+                ON tc.constraint_name = ccu.constraint_name
+                AND tc.table_schema = ccu.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND ccu.table_name = :ref_table
+        """),
+        {"ref_table": referenced_table},
+    ).fetchall()
+    return [
+        {
+            "constraint_name": r[0],
+            "table_name": r[1],
+            "column_name": r[2],
+            "foreign_column_name": r[3],
+        }
+        for r in rows
+    ]
+
+
 def upgrade() -> None:
     # Migration 001 uses Base.metadata.create_all(), which creates tables
     # from the *current* model definitions. If the models already have
@@ -164,9 +201,13 @@ def upgrade() -> None:
         # Make it NOT NULL
         op.alter_column("courts", "location_id", nullable=False)
 
-    # Step 6: Drop remaining foreign key constraints
-    op.drop_constraint("fk_players_location_id", "players", type_="foreignkey", if_exists=True)
-    op.drop_constraint("fk_leagues_location_id", "leagues", type_="foreignkey", if_exists=True)
+    # Step 6: Dynamically drop ALL foreign key constraints referencing locations.
+    # This handles FKs regardless of naming convention (create_all vs explicit)
+    # and includes tables added after this migration was originally written
+    # (e.g., kob_tournaments).
+    location_fks = _get_fks_referencing_table("locations")
+    for fk in location_fks:
+        op.drop_constraint(fk["constraint_name"], fk["table_name"], type_="foreignkey")
 
     if needs_pk_swap:
         # Step 7: Make location_id NOT NULL
@@ -180,16 +221,15 @@ def upgrade() -> None:
         op.alter_column("locations", "location_id", new_column_name="id")
         op.create_primary_key("locations_pkey", "locations", ["id"])
 
-    # Step 10: Recreate foreign key constraints pointing to id
-    op.create_foreign_key(
-        "fk_players_location_id", "players", "locations", ["location_id"], ["id"]
-    )
-
-    op.create_foreign_key(
-        "fk_leagues_location_id", "leagues", "locations", ["location_id"], ["id"]
-    )
-
-    op.create_foreign_key("fk_courts_location_id", "courts", "locations", ["location_id"], ["id"])
+    # Step 10: Recreate all foreign key constraints pointing to locations.id
+    for fk in location_fks:
+        op.create_foreign_key(
+            fk["constraint_name"],
+            fk["table_name"],
+            "locations",
+            [fk["column_name"]],
+            ["id"],
+        )
 
     # Step 11: Clean up any temporary ids we created
     op.execute(
