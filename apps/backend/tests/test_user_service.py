@@ -15,7 +15,7 @@ from backend.database.models import VerificationCode
 @pytest_asyncio.fixture
 async def test_session(db_session):
     """Alias for db_session for backward compatibility with existing tests."""
-    return db_session
+    yield db_session
 
 
 @pytest.mark.asyncio

@@ -26,6 +26,7 @@ def _mock_response(json_data: dict, status_code: int = 200) -> MagicMock:
 
     if status_code >= 400:
         import httpx
+
         resp.raise_for_status.side_effect = httpx.HTTPStatusError(
             "HTTP Error",
             request=MagicMock(),
@@ -285,9 +286,7 @@ class TestGeocodeAddressNetworkErrors:
         import httpx
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=httpx.ConnectError("Connection refused")
-        )
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
 
         with (
             patch.dict(os.environ, {"MAPBOX_ACCESS_TOKEN": "pk.test"}),

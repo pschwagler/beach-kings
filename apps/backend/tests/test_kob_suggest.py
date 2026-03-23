@@ -15,7 +15,6 @@ from backend.services.kob_suggest import (
     suggest_alternatives,
     recommend_format,
     _pill_label,
-    _make_pill,
     _alt_rr_no_duration,
     _alt_pools_no_duration,
 )

@@ -1151,9 +1151,7 @@ class TestRedisSessionManagement:
     @pytest.mark.asyncio
     async def test_get_session_data_returns_none_when_missing(self):
         """get_session_data returns None when key is absent from Redis."""
-        with patch.object(
-            photo_match_service.redis_service, "redis_get", return_value=None
-        ):
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
             result = await photo_match_service.get_session_data("nonexistent-session")
             assert result is None
 
@@ -1199,9 +1197,7 @@ class TestRedisSessionManagement:
     @pytest.mark.asyncio
     async def test_update_session_data_returns_false_when_session_missing(self):
         """update_session_data returns False when the session does not exist."""
-        with patch.object(
-            photo_match_service.redis_service, "redis_get", return_value=None
-        ):
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
             result = await photo_match_service.update_session_data(
                 "missing-session", {"status": "done"}
             )
@@ -1241,8 +1237,6 @@ class TestProcessPhotoJob:
     async def test_job_transitions_to_completed_on_success(self, db_session):
         """process_photo_job drives job from PENDING through RUNNING to COMPLETED."""
         from backend.database.models import League
-        from unittest.mock import AsyncMock
-        import queue as queue_module
 
         league = League(name="Photo League 1")
         db_session.add(league)
@@ -1280,9 +1274,7 @@ class TestProcessPhotoJob:
                 "redis_get",
                 return_value=json.dumps({"league_id": league.id}),
             ),
-            patch.object(
-                photo_match_service.redis_service, "redis_set", return_value=True
-            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
         ):
             await photo_match_service.process_photo_job(
                 job_id=job_id,
@@ -1329,9 +1321,7 @@ class TestProcessPhotoJob:
                 "redis_get",
                 return_value=json.dumps({"league_id": league.id}),
             ),
-            patch.object(
-                photo_match_service.redis_service, "redis_set", return_value=True
-            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
         ):
             await photo_match_service.process_photo_job(
                 job_id=job_id,
@@ -1381,9 +1371,7 @@ class TestProcessPhotoJob:
                 "redis_get",
                 return_value=json.dumps({"league_id": league.id}),
             ),
-            patch.object(
-                photo_match_service.redis_service, "redis_set", return_value=True
-            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
         ):
             await photo_match_service.process_photo_job(
                 job_id=job_id,
@@ -1457,9 +1445,7 @@ class TestProcessClarificationJob:
                 "redis_get",
                 return_value=json.dumps(existing_session),
             ),
-            patch.object(
-                photo_match_service.redis_service, "redis_set", return_value=True
-            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
         ):
             await photo_match_service.process_clarification_job(
                 job_id=job_id,
@@ -1489,9 +1475,7 @@ class TestProcessClarificationJob:
             db_session, league.id, session_id
         )
 
-        with patch.object(
-            photo_match_service.redis_service, "redis_get", return_value=None
-        ):
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
             await photo_match_service.process_clarification_job(
                 job_id=job_id,
                 league_id=league.id,
@@ -1572,7 +1556,12 @@ class TestMatchAllPlayersEdgeCases:
         )
         assert len(result_matches) == 1
         assert len(unmatched) == 4
-        for field in ["team1_player1_id", "team1_player2_id", "team2_player1_id", "team2_player2_id"]:
+        for field in [
+            "team1_player1_id",
+            "team1_player2_id",
+            "team2_player1_id",
+            "team2_player2_id",
+        ]:
             assert result_matches[0][field] is None
 
     def test_partial_match_correct_split(self):

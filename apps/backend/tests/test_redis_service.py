@@ -7,7 +7,7 @@ to provide clean state.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import backend.services.redis_service as redis_service
 

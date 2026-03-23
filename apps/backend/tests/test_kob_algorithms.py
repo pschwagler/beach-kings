@@ -15,8 +15,6 @@ import pytest
 from backend.services.kob_algorithms import (
     _full_rr_round_count,
     _rotate_circle,
-    _pair_partnerships,
-    _match_partnerships,
     generate_full_round_robin,
     generate_partial_round_robin,
     generate_pools_schedule,
@@ -24,7 +22,6 @@ from backend.services.kob_algorithms import (
     generate_draft_playoff_preview,
     generate_schedule,
     _snake_draft,
-    _apply_rr_cycles,
 )
 
 
@@ -214,9 +211,7 @@ class TestGenerateFullRoundRobin:
         schedule = generate_full_round_robin(players, num_courts=n // 2)
         all_pairs = _all_partnerships(schedule["rounds"])
         pair_counts = Counter(all_pairs)
-        expected_pairs = set(
-            (min(a, b), max(a, b)) for a, b in combinations(players, 2)
-        )
+        expected_pairs = set((min(a, b), max(a, b)) for a, b in combinations(players, 2))
         assert set(pair_counts.keys()) == expected_pairs
         assert all(v == 1 for v in pair_counts.values())
 
@@ -285,11 +280,7 @@ class TestGenerateFullRoundRobin:
 
     def test_matchup_ids_unique(self):
         schedule = generate_full_round_robin(list(range(1, 9)), num_courts=2)
-        ids = [
-            m["matchup_id"]
-            for rnd in schedule["rounds"]
-            for m in rnd["matches"]
-        ]
+        ids = [m["matchup_id"] for rnd in schedule["rounds"] for m in rnd["matches"]]
         assert len(ids) == len(set(ids))
 
 
@@ -389,9 +380,7 @@ class TestGeneratePoolsSchedule:
     def test_all_players_assigned_to_a_pool(self):
         players = list(range(1, 13))
         schedule = generate_pools_schedule(players, num_pools=3, num_courts=3, playoff_size=4)
-        assigned = [
-            pid for pids in schedule["pools"].values() for pid in pids
-        ]
+        assigned = [pid for pids in schedule["pools"].values() for pid in pids]
         assert sorted(assigned) == sorted(players)
 
     def test_snake_draft_distributes_seeds(self):
@@ -530,9 +519,7 @@ class TestGenerateSchedule:
         schedule_with_seeds = generate_schedule(
             players, format="FULL_ROUND_ROBIN", num_courts=2, seeds=seeds
         )
-        schedule_natural = generate_schedule(
-            seeds, format="FULL_ROUND_ROBIN", num_courts=2
-        )
+        schedule_natural = generate_schedule(seeds, format="FULL_ROUND_ROBIN", num_courts=2)
         # Both should produce same structure because seeds == ordered list
         assert schedule_with_seeds["total_rounds"] == schedule_natural["total_rounds"]
 
@@ -625,10 +612,6 @@ class TestEdgeCases:
             players, format="FULL_ROUND_ROBIN", num_courts=2, num_rr_cycles=2
         )
         # Second cycle matchup_ids should start with "c2_"
-        all_ids = [
-            m["matchup_id"]
-            for rnd in schedule["rounds"]
-            for m in rnd["matches"]
-        ]
+        all_ids = [m["matchup_id"] for rnd in schedule["rounds"] for m in rnd["matches"]]
         c2_ids = [mid for mid in all_ids if mid.startswith("c2_")]
         assert len(c2_ids) > 0

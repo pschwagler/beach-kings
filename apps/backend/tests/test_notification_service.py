@@ -1029,9 +1029,7 @@ async def test_notify_members_about_new_member_notifies_existing_members(
 
 
 @pytest.mark.asyncio
-async def test_notify_members_about_new_member_only_new_member_in_list(
-    db_session, test_user
-):
+async def test_notify_members_about_new_member_only_new_member_in_list(db_session, test_user):
     """When the only member_user_id is the new member, no notifications are created."""
     league = League(name="Solo League")
     db_session.add(league)

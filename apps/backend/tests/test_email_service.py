@@ -6,7 +6,6 @@ Mocks:
 - settings_service.get_bool_setting (controls is_enabled)
 """
 
-import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
@@ -121,12 +120,15 @@ async def test_is_enabled_falls_back_true_on_exception(monkeypatch):
 @pytest.mark.asyncio
 async def test_send_feedback_email_disabled_skips_sendgrid():
     """When email is disabled, SendGrid is never called and True is returned."""
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=False,
-    ), patch("backend.services.email_service.SendGridAPIClient") as mock_sg:
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient") as mock_sg,
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Awesome app!",
             session=None,
@@ -141,12 +143,15 @@ async def test_send_feedback_email_missing_api_key_returns_true(monkeypatch):
     """No SENDGRID_API_KEY configured → returns True without raising."""
     monkeypatch.setattr(email_service, "SENDGRID_API_KEY", None)
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient") as mock_sg:
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient") as mock_sg,
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Great!",
             session=None,
@@ -169,12 +174,15 @@ async def test_send_feedback_email_calls_sendgrid_with_correct_fields(monkeypatc
     mock_sg_instance = MagicMock()
     mock_sg_instance.send.return_value = mock_response
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance):
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="This is feedback",
             contact_email="user@example.com",
@@ -201,12 +209,15 @@ async def test_send_feedback_email_includes_user_details(monkeypatch):
 
     ts = datetime(2025, 3, 22, 12, 0, 0)
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance):
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Loved the tournament bracket!",
             contact_email="player@beach.com",
@@ -230,12 +241,15 @@ async def test_send_feedback_email_sendgrid_error_status_returns_false(monkeypat
     mock_sg_instance = MagicMock()
     mock_sg_instance.send.return_value = mock_response
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance):
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Testing error handling",
             session=None,
@@ -252,12 +266,15 @@ async def test_send_feedback_email_sendgrid_raises_returns_false(monkeypatch):
     mock_sg_instance = MagicMock()
     mock_sg_instance.send.side_effect = Exception("network error")
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance):
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Exception test",
             session=None,
@@ -276,12 +293,15 @@ async def test_send_feedback_email_anonymous_user(monkeypatch):
     mock_sg_instance = MagicMock()
     mock_sg_instance.send.return_value = mock_response
 
-    with patch.object(
-        email_service.settings_service,
-        "get_bool_setting",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance):
+    with (
+        patch.object(
+            email_service.settings_service,
+            "get_bool_setting",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("backend.services.email_service.SendGridAPIClient", return_value=mock_sg_instance),
+    ):
         result = await email_service.send_feedback_email(
             feedback_text="Anonymous feedback",
             session=None,

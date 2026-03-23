@@ -8,8 +8,7 @@ Tests cover pure/synchronous functions that require no database connection:
 Re-export smoke tests verify that data_service still exposes signup functions.
 """
 
-import pytest
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, timedelta
 from unittest.mock import MagicMock
 import pytz
 

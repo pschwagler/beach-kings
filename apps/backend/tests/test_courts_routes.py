@@ -7,7 +7,6 @@ Mocked services: data_service, court_service, court_photo_service, s3_service, g
 """
 
 import io
-from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -54,7 +53,9 @@ FAKE_REGULAR_USER = {
 }
 
 
-def _make_system_admin_client(monkeypatch, phone=_ADMIN_PHONE, user_id=1, player_id=_ADMIN_PLAYER_ID):
+def _make_system_admin_client(
+    monkeypatch, phone=_ADMIN_PHONE, user_id=1, player_id=_ADMIN_PLAYER_ID
+):
     """Return (client, headers) with system-admin auth mocked."""
 
     def fake_verify_token(token):
@@ -230,6 +231,7 @@ class TestCreateCourt:
         client, headers = _make_system_admin_client(
             monkeypatch, phone=_USER_PHONE, user_id=2, player_id=_USER_PLAYER_ID
         )
+
         # Override the admin check to return non-admin phone
         async def fake_get_setting(session, key):
             if key == "system_admin_phone_numbers":
@@ -376,7 +378,9 @@ class TestGetPlaceholderCourt:
         async def fake_get_placeholder(session, location_id):
             return {"id": 99, "name": "Other / Private Court", "location_id": location_id}
 
-        monkeypatch.setattr(court_service, "get_placeholder_court", fake_get_placeholder, raising=True)
+        monkeypatch.setattr(
+            court_service, "get_placeholder_court", fake_get_placeholder, raising=True
+        )
 
         client = TestClient(app)
         response = client.get("/api/courts/placeholder?location_id=socal_sd")
@@ -389,7 +393,9 @@ class TestGetPlaceholderCourt:
         async def fake_get_placeholder(session, location_id):
             return None
 
-        monkeypatch.setattr(court_service, "get_placeholder_court", fake_get_placeholder, raising=True)
+        monkeypatch.setattr(
+            court_service, "get_placeholder_court", fake_get_placeholder, raising=True
+        )
 
         client = TestClient(app)
         response = client.get("/api/courts/placeholder?location_id=unknown")
@@ -447,7 +453,9 @@ class TestSubmitCourt:
         monkeypatch.setattr(geocoding_service, "geocode_address", fake_geocode, raising=True)
         monkeypatch.setattr(court_service, "create_court", fake_create_court, raising=True)
 
-        body_no_coords = {k: v for k, v in self._SUBMIT_BODY.items() if k not in ("latitude", "longitude")}
+        body_no_coords = {
+            k: v for k, v in self._SUBMIT_BODY.items() if k not in ("latitude", "longitude")
+        }
         client, headers = _make_verified_player_client(monkeypatch)
         response = client.post("/api/courts/submit", json=body_no_coords, headers=headers)
         _restore_verified_player()
@@ -957,7 +965,9 @@ class TestListAllSuggestionsAdmin:
         )
 
         client, headers = _make_system_admin_client(monkeypatch)
-        response = client.get("/api/admin-view/courts/suggestions?status=approved", headers=headers)
+        response = client.get(
+            "/api/admin-view/courts/suggestions?status=approved", headers=headers
+        )
         assert response.status_code == 200
         assert captured["status"] == "approved"
 

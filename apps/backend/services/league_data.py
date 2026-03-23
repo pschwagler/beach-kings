@@ -9,12 +9,12 @@ data_service.py for backward compatibility.
 """
 
 from datetime import datetime, date
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import json
 import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
+from sqlalchemy import select, update, delete, func, and_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func as sql_func
 
@@ -33,7 +33,6 @@ from backend.database.models import (
     Setting,
     Region,
     ScoringSystem,
-    PlayerGlobalStats,
 )
 
 logger = logging.getLogger(__name__)
@@ -1261,6 +1260,9 @@ async def add_league_members_batch(
     """
     Add multiple league members in one request.
 
+    Pre-fetches existing members in a single query and batch-inserts
+    new members to avoid N+1 database round-trips.
+
     Args:
         session: Database session.
         league_id: League ID.
@@ -1272,6 +1274,9 @@ async def add_league_members_batch(
     """
     added: List[Dict] = []
     failed: List[Dict] = []
+
+    # Validate inputs and collect valid player IDs
+    valid_entries: List[tuple] = []  # (player_id, role)
     for item in members:
         player_id = item.get("player_id")
         role = item.get("role", "member")
@@ -1283,17 +1288,56 @@ async def add_league_members_batch(
         except (TypeError, ValueError):
             failed.append({"player_id": player_id, "error": "Invalid player_id"})
             continue
+        valid_entries.append((pid, role))
+
+    if not valid_entries:
+        return {"added": added, "failed": failed}
+
+    # Pre-fetch all existing member player_ids for this league in one query
+    valid_pids = [pid for pid, _ in valid_entries]
+    result = await session.execute(
+        select(LeagueMember.player_id).where(
+            and_(
+                LeagueMember.league_id == league_id,
+                LeagueMember.player_id.in_(valid_pids),
+            )
+        )
+    )
+    existing_pids = {row[0] for row in result.all()}
+
+    # Collect new members to insert
+    new_members: List[LeagueMember] = []
+    new_entries: List[tuple] = []  # (player_id, role) for successful adds
+    for pid, role in valid_entries:
+        if pid in existing_pids:
+            failed.append({"player_id": pid, "error": "Already a member"})
+            continue
+        new_members.append(LeagueMember(league_id=league_id, player_id=pid, role=role))
+        new_entries.append((pid, role))
+
+    # Batch insert all new members in a single transaction
+    if new_members:
         try:
-            if await is_league_member(session, league_id, pid):
-                failed.append({"player_id": pid, "error": "Already a member"})
-                continue
-            member = await add_league_member(session, league_id, pid, role)
-            added.append(member)
+            session.add_all(new_members)
+            await session.commit()
+            for member in new_members:
+                await session.refresh(member)
+                added.append(
+                    {
+                        "id": member.id,
+                        "league_id": member.league_id,
+                        "player_id": member.player_id,
+                        "role": member.role,
+                    }
+                )
         except Exception as e:
+            await session.rollback()
             err_msg = str(e)
             if "foreign key" in err_msg.lower() or "unique" in err_msg.lower():
                 err_msg = "Player not found or already a member"
-            failed.append({"player_id": pid, "error": err_msg})
+            for pid, _ in new_entries:
+                failed.append({"player_id": pid, "error": err_msg})
+
     return {"added": added, "failed": failed}
 
 

@@ -36,7 +36,9 @@ def _make_jpeg_bytes(width: int = 100, height: int = 100, color: tuple = (255, 0
 
 def _make_png_bytes(width: int = 100, height: int = 100, mode: str = "RGB") -> bytes:
     """Create a PNG image (RGB or RGBA) in memory."""
-    img = Image.new(mode, (width, height), color=(0, 128, 255, 255) if mode == "RGBA" else (0, 128, 255))
+    img = Image.new(
+        mode, (width, height), color=(0, 128, 255, 255) if mode == "RGBA" else (0, 128, 255)
+    )
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

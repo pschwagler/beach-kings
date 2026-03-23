@@ -13,7 +13,7 @@ from datetime import datetime, date, time, timedelta
 import pytz
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, and_
+from sqlalchemy import select, delete, func, and_
 
 from backend.database.models import (
     Season,

@@ -25,7 +25,6 @@ from backend.database.models import (
     Court,
     EloHistory,
     League,
-    LeagueMember,
     Match,
     OpponentStats,
     OpponentStatsSeason,
@@ -223,7 +222,11 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
 
 
 async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
-    """Get ELO timeline data for all players."""
+    """Get ELO timeline data for all players.
+
+    Fetches all EloHistory records in a single query and builds the
+    timeline in Python to avoid O(N*M) database round-trips.
+    """
     result = await session.execute(
         select(EloHistory.date).distinct().order_by(EloHistory.date.asc())
     )
@@ -231,22 +234,51 @@ async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
     if not dates:
         return []
 
-    result = await session.execute(select(Player.full_name).order_by(Player.full_name.asc()))
-    player_names = [row[0] for row in result.all()]
+    result = await session.execute(
+        select(Player.id, Player.full_name).order_by(Player.full_name.asc())
+    )
+    player_rows = result.all()
+    player_id_to_name = {row[0]: row[1] for row in player_rows}
+
+    # Fetch all EloHistory records once, ordered by player, date, id
+    result = await session.execute(
+        select(EloHistory.player_id, EloHistory.date, EloHistory.elo_after).order_by(
+            EloHistory.player_id, EloHistory.date.asc(), EloHistory.id.asc()
+        )
+    )
+    all_elo_rows = result.all()
+
+    # Build per-player sorted list of (date, elo_after)
+    # Since rows are ordered by player_id, date asc, id asc, the last entry
+    # for each date is the most recent elo for that player on that date.
+    player_elo_history: Dict[int, List] = {}
+    for player_id, elo_date, elo_after in all_elo_rows:
+        if player_id not in player_elo_history:
+            player_elo_history[player_id] = []
+        history = player_elo_history[player_id]
+        # Keep only the latest elo per date (last write wins since sorted by id asc)
+        if history and history[-1][0] == elo_date:
+            history[-1] = (elo_date, elo_after)
+        else:
+            history.append((elo_date, elo_after))
+
+    # For each player, track the current elo as we walk through dates
+    # Using a pointer per player into their sorted history
+    player_pointers: Dict[int, int] = {pid: 0 for pid in player_id_to_name}
+    player_current_elo: Dict[int, float] = {pid: INITIAL_ELO for pid in player_id_to_name}
 
     timeline = []
     for d in dates:
         row_data: Dict = {"Date": d}
-        for player_name in player_names:
-            result = await session.execute(
-                select(EloHistory.elo_after)
-                .join(Player, EloHistory.player_id == Player.id)
-                .where(and_(Player.full_name == player_name, EloHistory.date <= d))
-                .order_by(EloHistory.date.desc(), EloHistory.id.desc())
-                .limit(1)
-            )
-            elo_result = result.scalar_one_or_none()
-            row_data[player_name] = elo_result if elo_result else INITIAL_ELO
+        for player_id, name in player_id_to_name.items():
+            history = player_elo_history.get(player_id, [])
+            ptr = player_pointers[player_id]
+            # Advance pointer to include all entries up to and including date d
+            while ptr < len(history) and history[ptr][0] <= d:
+                player_current_elo[player_id] = history[ptr][1]
+                ptr += 1
+            player_pointers[player_id] = ptr
+            row_data[name] = player_current_elo[player_id]
         timeline.append(row_data)
 
     return timeline

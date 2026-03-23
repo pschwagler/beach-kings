@@ -179,7 +179,9 @@ class TestCreateTournament:
         monkeypatch.setattr(kob_service, "build_detail_response", fake_build_detail, raising=True)
         monkeypatch.setattr(kob_service, "get_tournament", fake_get_tournament, raising=True)
 
-        response = client.post("/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers)
+        response = client.post(
+            "/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers
+        )
 
         assert response.status_code == 200
         assert response.json()["id"] == _TOURNAMENT_ID
@@ -192,7 +194,9 @@ class TestCreateTournament:
 
         monkeypatch.setattr(kob_service, "create_tournament", fake_create, raising=True)
 
-        response = client.post("/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers)
+        response = client.post(
+            "/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers
+        )
         assert response.status_code == 400
         assert "Minimum 4 players" in response.json()["detail"]
 
@@ -204,7 +208,9 @@ class TestCreateTournament:
 
         monkeypatch.setattr(kob_service, "create_tournament", fake_create, raising=True)
 
-        response = client.post("/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers)
+        response = client.post(
+            "/api/kob/tournaments", json=VALID_TOURNAMENT_CREATE, headers=headers
+        )
         assert response.status_code == 500
 
     def test_create_requires_auth(self):
@@ -246,7 +252,9 @@ class TestGetMyTournaments:
             return FAKE_TOURNAMENT_SUMMARY
 
         monkeypatch.setattr(kob_service, "get_my_tournaments", fake_get_my, raising=True)
-        monkeypatch.setattr(kob_service, "build_summary_response", fake_build_summary, raising=True)
+        monkeypatch.setattr(
+            kob_service, "build_summary_response", fake_build_summary, raising=True
+        )
 
         response = client.get("/api/kob/tournaments/mine", headers=headers)
         assert response.status_code == 200
@@ -620,7 +628,9 @@ class TestEditScore:
         fake_match = MagicMock()
         fake_match.id = 1
 
-        async def fake_update_score(session, tid, matchup_id, team1_score, team2_score, game_index):
+        async def fake_update_score(
+            session, tid, matchup_id, team1_score, team2_score, game_index
+        ):
             return fake_match
 
         async def fake_build_match(session, match):
@@ -641,7 +651,9 @@ class TestEditScore:
         """Unknown matchup_id raises ValueError -> 400."""
         _patch_director_dep(monkeypatch)
 
-        async def fake_update_score(session, tid, matchup_id, team1_score, team2_score, game_index):
+        async def fake_update_score(
+            session, tid, matchup_id, team1_score, team2_score, game_index
+        ):
             raise ValueError("Match not found")
 
         monkeypatch.setattr(kob_service, "update_score", fake_update_score, raising=True)
@@ -745,7 +757,9 @@ class TestGetFormatRecommendation:
         monkeypatch.setattr(kob_scheduler, "suggest_defaults", fake_suggest_defaults, raising=True)
         monkeypatch.setattr(kob_scheduler, "generate_preview", fake_generate_preview, raising=True)
 
-        response = client.get("/api/kob/recommend?num_players=8&num_courts=2&format=FULL_ROUND_ROBIN")
+        response = client.get(
+            "/api/kob/recommend?num_players=8&num_courts=2&format=FULL_ROUND_ROBIN"
+        )
         assert response.status_code == 200
         assert "suggest_defaults" not in call_log
 

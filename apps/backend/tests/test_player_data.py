@@ -11,7 +11,6 @@ Tests cover pure/synchronous functions that require no database connection:
 Re-export smoke tests verify the module exposes all expected symbols.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from backend.services.player_data import (

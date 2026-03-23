@@ -6,7 +6,6 @@ Dependencies (redis_service and data_service) are fully mocked so no database or
 connection is required.
 """
 
-import os
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -52,16 +51,19 @@ class TestGetBoolEnv:
 @pytest.mark.asyncio
 async def test_get_setting_cache_hit_skips_db():
     """Cache hit returns the cached value without touching data_service."""
-    with patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value="cached_val",
-    ) as mock_redis_get, patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-    ) as mock_db:
+    with (
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value="cached_val",
+        ) as mock_redis_get,
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+        ) as mock_db,
+    ):
         # No session — falls straight to cache path
         result = await settings_service.get_setting_with_fallback(
             session=None, key="my_key", fallback_to_cache=True
@@ -77,16 +79,19 @@ async def test_get_setting_db_hit_caches_value():
     """DB hit → value returned and written to Redis cache."""
     mock_session = AsyncMock()
 
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="db_value",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
-    ) as mock_redis_set:
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="db_value",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ) as mock_redis_set,
+    ):
         result = await settings_service.get_setting_with_fallback(
             session=mock_session, key="my_key"
         )
@@ -100,16 +105,19 @@ async def test_get_setting_cache_miss_then_db_miss_falls_back_to_env(monkeypatch
     """Cache miss + DB miss → falls back to env var."""
     monkeypatch.setenv("MY_ENV_KEY", "from_env")
 
-    with patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value=None,
+    with (
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
     ):
         result = await settings_service.get_setting_with_fallback(
             session=AsyncMock(),
@@ -124,16 +132,19 @@ async def test_get_setting_cache_miss_then_db_miss_falls_back_to_env(monkeypatch
 @pytest.mark.asyncio
 async def test_get_setting_all_miss_returns_default():
     """Cache miss + DB miss + no env var → returns the provided default."""
-    with patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value=None,
+    with (
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
     ):
         result = await settings_service.get_setting_with_fallback(
             session=AsyncMock(),
@@ -166,16 +177,19 @@ async def test_get_setting_no_session_uses_cache():
 @pytest.mark.asyncio
 async def test_get_setting_db_error_falls_to_cache():
     """DB exception → falls through to cache (if available)."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        side_effect=RuntimeError("db error"),
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value="fallback_cache",
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("db error"),
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value="fallback_cache",
+        ),
     ):
         result = await settings_service.get_setting_with_fallback(
             session=AsyncMock(),
@@ -194,19 +208,20 @@ async def test_get_setting_db_error_falls_to_cache():
 @pytest.mark.asyncio
 async def test_get_bool_setting_true_string():
     """DB returns 'true' → get_bool_setting returns True."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="true",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="true",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ),
     ):
-        result = await settings_service.get_bool_setting(
-            session=AsyncMock(), key="feature_flag"
-        )
+        result = await settings_service.get_bool_setting(session=AsyncMock(), key="feature_flag")
 
     assert result is True
 
@@ -214,19 +229,20 @@ async def test_get_bool_setting_true_string():
 @pytest.mark.asyncio
 async def test_get_bool_setting_false_string():
     """DB returns 'false' → get_bool_setting returns False."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="false",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="false",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ),
     ):
-        result = await settings_service.get_bool_setting(
-            session=AsyncMock(), key="feature_flag"
-        )
+        result = await settings_service.get_bool_setting(session=AsyncMock(), key="feature_flag")
 
     assert result is False
 
@@ -234,16 +250,19 @@ async def test_get_bool_setting_false_string():
 @pytest.mark.asyncio
 async def test_get_bool_setting_none_returns_default():
     """No value found → returns the provided default."""
-    with patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value=None,
+    with (
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
     ):
         result = await settings_service.get_bool_setting(
             session=AsyncMock(), key="absent_flag", default=True
@@ -255,19 +274,20 @@ async def test_get_bool_setting_none_returns_default():
 @pytest.mark.asyncio
 async def test_get_bool_setting_yes_string():
     """'yes' string → True."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="yes",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="yes",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ),
     ):
-        result = await settings_service.get_bool_setting(
-            session=AsyncMock(), key="some_flag"
-        )
+        result = await settings_service.get_bool_setting(session=AsyncMock(), key="some_flag")
 
     assert result is True
 
@@ -280,19 +300,20 @@ async def test_get_bool_setting_yes_string():
 @pytest.mark.asyncio
 async def test_get_float_setting_valid_value():
     """DB returns '3.14' → get_float_setting returns 3.14."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="3.14",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="3.14",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ),
     ):
-        result = await settings_service.get_float_setting(
-            session=AsyncMock(), key="elo_k_factor"
-        )
+        result = await settings_service.get_float_setting(session=AsyncMock(), key="elo_k_factor")
 
     assert result == pytest.approx(3.14)
 
@@ -300,15 +321,18 @@ async def test_get_float_setting_valid_value():
 @pytest.mark.asyncio
 async def test_get_float_setting_invalid_value_returns_default():
     """Non-numeric DB value → returns the provided default."""
-    with patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value="not_a_number",
-    ), patch.object(
-        settings_service.redis_service,
-        "redis_set",
-        new_callable=AsyncMock,
+    with (
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value="not_a_number",
+        ),
+        patch.object(
+            settings_service.redis_service,
+            "redis_set",
+            new_callable=AsyncMock,
+        ),
     ):
         result = await settings_service.get_float_setting(
             session=AsyncMock(), key="bad_float", default=1.5
@@ -320,16 +344,19 @@ async def test_get_float_setting_invalid_value_returns_default():
 @pytest.mark.asyncio
 async def test_get_float_setting_none_returns_default():
     """No value found → returns the default."""
-    with patch.object(
-        settings_service.redis_service,
-        "redis_get",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        settings_service.data_service,
-        "get_setting",
-        new_callable=AsyncMock,
-        return_value=None,
+    with (
+        patch.object(
+            settings_service.redis_service,
+            "redis_get",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            settings_service.data_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
     ):
         result = await settings_service.get_float_setting(
             session=AsyncMock(), key="missing_float", default=2.0

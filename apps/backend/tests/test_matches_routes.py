@@ -351,9 +351,7 @@ class TestUploadMatchPhoto:
         monkeypatch.setattr(photo_match_service, "preprocess_image", fake_preprocess)
         monkeypatch.setattr(photo_match_service, "generate_session_id", fake_generate_session_id)
         monkeypatch.setattr(data_service, "list_league_members", fake_list_members, raising=True)
-        monkeypatch.setattr(
-            data_service, "get_player_by_user_id", fake_get_player, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(photo_match_service, "store_session_data", fake_store_session)
         monkeypatch.setattr(photo_match_service, "create_photo_match_job", fake_create_job)
         monkeypatch.setattr(photo_match_service, "process_photo_job", fake_process_photo_job)
@@ -420,9 +418,7 @@ class TestUploadMatchPhoto:
         monkeypatch.setattr(photo_match_service, "preprocess_image", fake_preprocess)
         monkeypatch.setattr(photo_match_service, "generate_session_id", fake_generate_session_id)
         monkeypatch.setattr(data_service, "list_league_members", fake_list_members, raising=True)
-        monkeypatch.setattr(
-            data_service, "get_player_by_user_id", fake_get_player, raising=True
-        )
+        monkeypatch.setattr(data_service, "get_player_by_user_id", fake_get_player, raising=True)
         monkeypatch.setattr(photo_match_service, "store_session_data", fake_store_session)
 
         import io
@@ -659,9 +655,7 @@ class TestStreamPhotoJob:
         monkeypatch.setattr(
             photo_match_service, "get_photo_match_job", fake_get_photo_match_job, raising=True
         )
-        monkeypatch.setattr(
-            photo_match_service, "stream_photo_job_events", fake_stream_events
-        )
+        monkeypatch.setattr(photo_match_service, "stream_photo_job_events", fake_stream_events)
 
         response = client.get("/api/leagues/1/matches/photo-jobs/1/stream", headers=headers)
         assert response.status_code == 200

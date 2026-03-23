@@ -25,7 +25,6 @@ from backend.database.models import (
     KobTournament,
     KobMatch,
     TournamentStatus,
-    TournamentFormat,
 )
 
 
@@ -490,7 +489,11 @@ class TestUpdateBracketMatch:
 
         with pytest.raises(ValueError, match="exactly 2 players"):
             await update_bracket_match(
-                db_session, tid, final_match.id, [four_players[0]], [four_players[1], four_players[2]]
+                db_session,
+                tid,
+                final_match.id,
+                [four_players[0]],
+                [four_players[1], four_players[2]],
             )
 
     @pytest.mark.asyncio
@@ -507,7 +510,11 @@ class TestUpdateBracketMatch:
 
         with pytest.raises(ValueError, match="bracket matches"):
             await update_bracket_match(
-                db_session, tid, pool_match.id, [four_players[0], four_players[1]], [four_players[2], four_players[3]]
+                db_session,
+                tid,
+                pool_match.id,
+                [four_players[0], four_players[1]],
+                [four_players[2], four_players[3]],
             )
 
 

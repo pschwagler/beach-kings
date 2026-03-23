@@ -820,13 +820,16 @@ async def test_poll_loop_calls_process_expired_deletions():
         # Signal stop after the first call so the loop exits
         service._stop_event.set()
 
-    with patch.object(
-        service,
-        "_process_expired_deletions",
-        side_effect=_fake_process,
-    ), patch(
-        "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
-        0,
+    with (
+        patch.object(
+            service,
+            "_process_expired_deletions",
+            side_effect=_fake_process,
+        ),
+        patch(
+            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            0,
+        ),
     ):
         # Run the loop directly; it will exit after one iteration because
         # _fake_process sets the stop event, causing wait_for to return
@@ -849,13 +852,16 @@ async def test_poll_loop_continues_after_process_raises():
         # Stop after the second call
         service._stop_event.set()
 
-    with patch.object(
-        service,
-        "_process_expired_deletions",
-        side_effect=_failing_then_stop,
-    ), patch(
-        "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
-        0,
+    with (
+        patch.object(
+            service,
+            "_process_expired_deletions",
+            side_effect=_failing_then_stop,
+        ),
+        patch(
+            "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+            0,
+        ),
     ):
         await service._poll_loop()
 

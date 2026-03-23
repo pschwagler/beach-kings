@@ -468,7 +468,12 @@ async def _calculate_season_stats_from_matches(
     season_rating_history_list = []
     if is_season_rating:
         for player_id, player_stats in tracker.players.items():
-            for match_id, rating_after, rating_change, d in player_stats.match_season_rating_history:
+            for (
+                match_id,
+                rating_after,
+                rating_change,
+                d,
+            ) in player_stats.match_season_rating_history:
                 season_rating_history_list.append(
                     SeasonRatingHistory(
                         player_id=player_id,
@@ -629,7 +634,9 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
     season_counts: Dict[int, Dict] = {}
     for sid in season_ids:
         season_matches = matches_by_season.get(sid, [])
-        season_counts[sid] = await _calculate_season_stats_from_matches(session, sid, season_matches)
+        season_counts[sid] = await _calculate_season_stats_from_matches(
+            session, sid, season_matches
+        )
 
     unique_league_players = {
         pid

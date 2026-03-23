@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from backend.services.session_data import (
     SESSION_CODE_ALPHABET,
     SESSION_CODE_LENGTH,
@@ -108,7 +108,9 @@ async def test_can_user_add_match_league_session_returns_true():
     mock_db = AsyncMock()
     session_obj = {"season_id": 5, "created_by": 10}
 
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=99)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=99
+    )
 
     assert result is True
     mock_db.execute.assert_not_called()
@@ -134,7 +136,9 @@ async def test_can_user_add_match_no_player_returns_false():
     mock_db.execute.return_value = _make_scalar_result(None)
 
     session_obj = {"season_id": None, "created_by": 10}
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=99)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=99
+    )
 
     assert result is False
 
@@ -148,7 +152,9 @@ async def test_can_user_add_match_is_creator_returns_true():
     mock_db.execute.return_value = _make_scalar_result(player_id)
 
     session_obj = {"season_id": None, "created_by": player_id}
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=99)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=99
+    )
 
     assert result is True
     # Only the player-lookup query should have been executed
@@ -163,12 +169,14 @@ async def test_can_user_add_match_has_match_returns_true():
 
     # Side effects: [player lookup → player_id, match query → match id, ...]
     mock_db.execute.side_effect = [
-        _make_scalar_result(player_id),   # player lookup
-        _make_scalar_result(100),          # match found
+        _make_scalar_result(player_id),  # player lookup
+        _make_scalar_result(100),  # match found
     ]
 
     session_obj = {"season_id": None, "created_by": 99}  # different creator
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=7)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=7
+    )
 
     assert result is True
 
@@ -182,12 +190,14 @@ async def test_can_user_add_match_is_participant_returns_true():
     # Side effects: player lookup → player_id, match query → None, participant query → participant id
     mock_db.execute.side_effect = [
         _make_scalar_result(player_id),  # player lookup
-        _make_scalar_result(None),        # no match found
-        _make_scalar_result(55),          # participant found
+        _make_scalar_result(None),  # no match found
+        _make_scalar_result(55),  # participant found
     ]
 
     session_obj = {"season_id": None, "created_by": 99}
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=7)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=7
+    )
 
     assert result is True
 
@@ -201,12 +211,14 @@ async def test_can_user_add_match_not_creator_no_match_no_participant_returns_fa
     # Side effects: player lookup → player_id, match query → None, participant query → None
     mock_db.execute.side_effect = [
         _make_scalar_result(player_id),  # player lookup
-        _make_scalar_result(None),        # no match
-        _make_scalar_result(None),        # not a participant
+        _make_scalar_result(None),  # no match
+        _make_scalar_result(None),  # not a participant
     ]
 
     session_obj = {"season_id": None, "created_by": 99}
-    result = await can_user_add_match_to_session(mock_db, session_id=1, session_obj=session_obj, user_id=7)
+    result = await can_user_add_match_to_session(
+        mock_db, session_id=1, session_obj=session_obj, user_id=7
+    )
 
     assert result is False
     assert mock_db.execute.call_count == 3
