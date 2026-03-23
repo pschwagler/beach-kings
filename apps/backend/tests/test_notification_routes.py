@@ -268,3 +268,109 @@ async def test_get_unread_count_error_handling(monkeypatch):
 
     response = client.get("/api/notifications/unread-count", headers=headers)
     assert response.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# mark_as_read error handling
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_mark_notification_as_read_server_error(monkeypatch):
+    """Unexpected exception in mark_as_read returns 500."""
+    client, headers = make_client_with_auth(monkeypatch, user_id=1)
+
+    async def fake_mark_as_read(session, notification_id, user_id):
+        raise RuntimeError("unexpected db failure")
+
+    monkeypatch.setattr(notification_service, "mark_as_read", fake_mark_as_read, raising=True)
+
+    response = client.put("/api/notifications/1/read", headers=headers)
+    assert response.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# mark_all_as_read error handling
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_mark_all_as_read_server_error(monkeypatch):
+    """Unexpected exception in mark_all_as_read returns 500."""
+    client, headers = make_client_with_auth(monkeypatch, user_id=1)
+
+    async def fake_mark_all_as_read(session, user_id):
+        raise RuntimeError("db exploded")
+
+    monkeypatch.setattr(
+        notification_service, "mark_all_as_read", fake_mark_all_as_read, raising=True
+    )
+
+    response = client.put("/api/notifications/mark-all-read", headers=headers)
+    assert response.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# WebSocket endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestWebSocketNotifications:
+    """Tests for the WebSocket notification endpoint at /api/ws/notifications."""
+
+    def test_websocket_closes_without_token(self, monkeypatch):
+        """WebSocket without a token query param should close immediately."""
+        client = TestClient(app)
+        with client.websocket_connect("/api/ws/notifications") as ws:
+            # Server should close with policy violation code
+            try:
+                ws.receive_text()
+            except Exception:
+                pass  # normal — connection was closed by the server
+
+    def test_websocket_closes_with_invalid_token(self, monkeypatch):
+        """WebSocket with an invalid token is closed after auth failure."""
+
+        def fake_verify_token(token: str):
+            return None  # invalid token
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+
+        client = TestClient(app)
+        with client.websocket_connect("/api/ws/notifications?token=bad_token") as ws:
+            try:
+                ws.receive_text()
+            except Exception:
+                pass  # server closed the connection
+
+    def test_websocket_accepts_valid_token(self, monkeypatch):
+        """WebSocket with a valid token is accepted and responds to ping."""
+
+        def fake_verify_token(token: str):
+            return {"user_id": 1}
+
+        from backend.services.websocket_manager import get_websocket_manager
+
+        manager = get_websocket_manager()
+
+        # Patch connect/disconnect/update_activity to no-ops so we don't need a real manager
+        async def fake_connect(user_id, ws):
+            pass
+
+        async def fake_disconnect(user_id, ws):
+            pass
+
+        async def fake_update_activity(ws):
+            pass
+
+        monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
+        monkeypatch.setattr(manager, "connect", fake_connect)
+        monkeypatch.setattr(manager, "disconnect", fake_disconnect)
+        monkeypatch.setattr(manager, "update_activity", fake_update_activity)
+
+        client = TestClient(app)
+        with client.websocket_connect("/api/ws/notifications?token=valid_token") as ws:
+            # Send ping, expect pong
+            ws.send_text("ping")
+            data = ws.receive_text()
+            assert data == "pong"

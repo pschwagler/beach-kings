@@ -627,3 +627,481 @@ async def test_session_submitted_excludes_submitter(db_session, test_user):
         session=db_session, user_id=test_user
     )
     assert result["total_count"] == 0
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_league_members_about_message tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_league_members_about_message_creates_notifications(
+    db_session, test_user, test_user2
+):
+    """Members (excluding sender) receive LEAGUE_MESSAGE notifications."""
+    player1 = Player(user_id=test_user, full_name="Sender Name")
+    player2 = Player(user_id=test_user2, full_name="Member Name")
+    db_session.add_all([player1, player2])
+    league = League(name="Beach League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_league_members_about_message(
+        session=db_session,
+        league_id=league.id,
+        message_id=42,
+        sender_user_id=test_user,
+        message_text="Hello everyone!",
+        league_name="Beach League",
+        member_user_ids=[test_user, test_user2],  # sender filtered out internally
+    )
+    await db_session.commit()
+
+    # sender should NOT receive notification
+    sender_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert sender_notifs["total_count"] == 0
+
+    # member should receive notification
+    member_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user2
+    )
+    assert member_notifs["total_count"] == 1
+    notif = member_notifs["notifications"][0]
+    assert notif["type"] == NotificationType.LEAGUE_MESSAGE.value
+    assert "Beach League" in notif["title"]
+    assert notif["link_url"] == f"/league/{league.id}?tab=messages"
+
+
+@pytest.mark.asyncio
+async def test_notify_league_members_about_message_empty_member_list(db_session, test_user):
+    """Empty member_user_ids list → no notifications created."""
+    league = League(name="Empty League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_league_members_about_message(
+        session=db_session,
+        league_id=league.id,
+        message_id=1,
+        sender_user_id=test_user,
+        message_text="Nobody here",
+        league_name="Empty League",
+        member_user_ids=[],
+    )
+    await db_session.commit()
+
+    league_msg_result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert league_msg_result["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_notify_league_members_truncates_long_message(db_session, test_user, test_user2):
+    """Messages longer than 100 characters are truncated with ellipsis."""
+    player1 = Player(user_id=test_user, full_name="Alpha")
+    player2 = Player(user_id=test_user2, full_name="Beta")
+    db_session.add_all([player1, player2])
+    league = League(name="Truncation League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    long_text = "x" * 200
+
+    await notification_service.notify_league_members_about_message(
+        session=db_session,
+        league_id=league.id,
+        message_id=99,
+        sender_user_id=test_user,
+        message_text=long_text,
+        league_name="Truncation League",
+        member_user_ids=[test_user2],
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user2
+    )
+    assert notifs["total_count"] == 1
+    assert notifs["notifications"][0]["message"].endswith("...")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_admins_about_join_request tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_admins_about_join_request_creates_notification(
+    db_session, test_user, test_user2
+):
+    """League admins receive a LEAGUE_JOIN_REQUEST notification."""
+    player_requesting = Player(user_id=test_user2, full_name="Requesting Player")
+    db_session.add(player_requesting)
+    league = League(name="Admin League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_admins_about_join_request(
+        session=db_session,
+        league_id=league.id,
+        request_id=77,
+        player_id=player_requesting.id,
+        league_name="Admin League",
+        player_name="Requesting Player",
+        admin_user_ids=[test_user],
+    )
+    await db_session.commit()
+
+    admin_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert admin_notifs["total_count"] == 1
+    notif = admin_notifs["notifications"][0]
+    assert notif["type"] == NotificationType.LEAGUE_JOIN_REQUEST.value
+    assert notif["title"] == "New Join Request"
+    assert "Requesting Player" in notif["message"]
+    assert "Admin League" in notif["message"]
+    assert notif["link_url"] == f"/league/{league.id}?tab=details"
+    # Data should include action buttons
+    assert "actions" in notif["data"]
+
+
+@pytest.mark.asyncio
+async def test_notify_admins_about_join_request_empty_admin_list(db_session, test_user):
+    """Empty admin_user_ids list → no notifications created."""
+    league = League(name="No Admin League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_admins_about_join_request(
+        session=db_session,
+        league_id=league.id,
+        request_id=1,
+        player_id=1,
+        admin_user_ids=[],
+    )
+    await db_session.commit()
+
+    join_req_result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert join_req_result["total_count"] == 0
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_player_about_join_approval / rejection tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_player_about_join_approval(db_session, test_user):
+    """Approved player receives a LEAGUE_INVITE notification."""
+    league = League(name="Approved League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_player_about_join_approval(
+        session=db_session,
+        league_id=league.id,
+        player_user_id=test_user,
+        league_name="Approved League",
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 1
+    notif = notifs["notifications"][0]
+    assert notif["type"] == NotificationType.LEAGUE_INVITE.value
+    assert notif["title"] == "Join request approved"
+    assert "Approved League" in notif["message"]
+    assert notif["link_url"] == f"/league/{league.id}"
+
+
+@pytest.mark.asyncio
+async def test_notify_player_about_join_rejection(db_session, test_user):
+    """Rejected player receives a LEAGUE_JOIN_REJECTED notification."""
+    league = League(name="Rejected League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_player_about_join_rejection(
+        session=db_session,
+        league_id=league.id,
+        player_user_id=test_user,
+        league_name="Rejected League",
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 1
+    notif = notifs["notifications"][0]
+    assert notif["type"] == NotificationType.LEAGUE_JOIN_REJECTED.value
+    assert notif["title"] == "Join request declined"
+    assert "Rejected League" in notif["message"]
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_members_about_season_activated tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_season_activated_active_season(db_session, test_user):
+    """Members receive SEASON_ACTIVATED notification when season is currently active."""
+    from datetime import date, timedelta
+
+    league = League(name="Active League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    today = date.today()
+    start = (today - timedelta(days=5)).isoformat()
+    end = (today + timedelta(days=25)).isoformat()
+
+    await notification_service.notify_members_about_season_activated(
+        session=db_session,
+        league_id=league.id,
+        season_id=1,
+        season_name="Spring 2025",
+        start_date=start,
+        end_date=end,
+        league_name="Active League",
+        member_user_ids=[test_user],
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 1
+    notif = notifs["notifications"][0]
+    assert notif["type"] == NotificationType.SEASON_ACTIVATED.value
+    assert "Active League" in notif["title"]
+    assert "Spring 2025" in notif["message"]
+    assert notif["link_url"] == f"/league/{league.id}?tab=rankings"
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_season_activated_future_season(db_session, test_user):
+    """No notifications sent when season start date is in the future."""
+    from datetime import date, timedelta
+
+    league = League(name="Future League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    today = date.today()
+    start = (today + timedelta(days=10)).isoformat()
+    end = (today + timedelta(days=40)).isoformat()
+
+    await notification_service.notify_members_about_season_activated(
+        session=db_session,
+        league_id=league.id,
+        season_id=2,
+        season_name="Future Season",
+        start_date=start,
+        end_date=end,
+        league_name="Future League",
+        member_user_ids=[test_user],
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_season_activated_no_dates(db_session, test_user):
+    """No notifications sent when start_date/end_date are not provided."""
+    league = League(name="Dateless League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_members_about_season_activated(
+        session=db_session,
+        league_id=league.id,
+        season_id=3,
+        season_name="No Date Season",
+        start_date=None,
+        end_date=None,
+        member_user_ids=[test_user],
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_season_activated_empty_members(db_session, test_user):
+    """Empty member_user_ids → no notifications created."""
+    from datetime import date, timedelta
+
+    league = League(name="Empty Members League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    today = date.today()
+    start = (today - timedelta(days=1)).isoformat()
+    end = (today + timedelta(days=30)).isoformat()
+
+    await notification_service.notify_members_about_season_activated(
+        session=db_session,
+        league_id=league.id,
+        season_id=4,
+        season_name="Empty Season",
+        start_date=start,
+        end_date=end,
+        member_user_ids=[],
+    )
+    await db_session.commit()
+
+    season_act_result = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert season_act_result["total_count"] == 0
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_members_about_new_member tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_new_member_notifies_existing_members(
+    db_session, test_user, test_user2
+):
+    """Existing members receive MEMBER_JOINED notification; new member is excluded."""
+    existing_player = Player(user_id=test_user, full_name="Veteran")
+    new_player = Player(user_id=test_user2, full_name="Newbie")
+    db_session.add_all([existing_player, new_player])
+    league = League(name="Growing League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_members_about_new_member(
+        session=db_session,
+        league_id=league.id,
+        new_member_user_id=test_user2,
+        league_name="Growing League",
+        member_user_ids=[test_user, test_user2],  # new member filtered internally
+    )
+    await db_session.commit()
+
+    # Existing member gets notified
+    veteran_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert veteran_notifs["total_count"] == 1
+    notif = veteran_notifs["notifications"][0]
+    assert notif["type"] == NotificationType.MEMBER_JOINED.value
+    assert "Growing League" in notif["title"]
+    assert notif["link_url"] == f"/league/{league.id}"
+
+    # New member does NOT get notified about themselves
+    newbie_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user2
+    )
+    assert newbie_notifs["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_notify_members_about_new_member_only_new_member_in_list(
+    db_session, test_user
+):
+    """When the only member_user_id is the new member, no notifications are created."""
+    league = League(name="Solo League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_members_about_new_member(
+        session=db_session,
+        league_id=league.id,
+        new_member_user_id=test_user,
+        member_user_ids=[test_user],
+    )
+    await db_session.commit()
+
+    solo_notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert solo_notifs["total_count"] == 0
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# notify_player_about_removal_from_league tests
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_player_about_removal_from_league(db_session, test_user):
+    """Removed player receives a MEMBER_REMOVED notification."""
+    league = League(name="Kicker League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_player_about_removal_from_league(
+        session=db_session,
+        league_id=league.id,
+        removed_user_id=test_user,
+        league_name="Kicker League",
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 1
+    notif = notifs["notifications"][0]
+    assert notif["type"] == NotificationType.MEMBER_REMOVED.value
+    assert notif["title"] == "Removed from league"
+    assert "Kicker League" in notif["message"]
+    assert notif["link_url"] == "/home"
+
+
+@pytest.mark.asyncio
+async def test_notify_player_about_removal_fetches_league_name(db_session, test_user):
+    """When league_name is None, it is fetched from the database."""
+    league = League(name="Auto-fetched League")
+    db_session.add(league)
+    await db_session.flush()
+    await db_session.commit()
+
+    await notification_service.notify_player_about_removal_from_league(
+        session=db_session,
+        league_id=league.id,
+        removed_user_id=test_user,
+        league_name=None,  # forces DB lookup
+    )
+    await db_session.commit()
+
+    notifs = await notification_service.get_user_notifications(
+        session=db_session, user_id=test_user
+    )
+    assert notifs["total_count"] == 1
+    assert "Auto-fetched League" in notifs["notifications"][0]["message"]

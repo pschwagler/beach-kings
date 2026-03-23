@@ -436,6 +436,8 @@ async def submit_score_public(
             game_index=payload.game_index,
         )
         return await kob_service.build_match_response(session, match)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

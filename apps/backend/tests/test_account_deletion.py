@@ -10,6 +10,8 @@ Covers:
 - Background worker processes expired accounts
 """
 
+import asyncio
+
 import pytest
 import pytest_asyncio
 import uuid
@@ -637,3 +639,224 @@ async def test_execute_deletion_removes_partner_stats_for_partner(db_session, ri
         .where(PartnershipStats.partner_id == rich_user["player_id"])
     )
     assert ps_count.scalar() == 0
+
+
+# ---------------------------------------------------------------------------
+# _process_expired_deletions — multiple users and error resilience
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_process_expired_deletions_handles_multiple_users(db_session):
+    """Multiple expired users are all processed in a single worker run."""
+    from datetime import timezone
+    from datetime import datetime as dt
+
+    past = dt(2020, 1, 1, tzinfo=timezone.utc)
+
+    u1, p1 = await _create_user_and_player(db_session, name="Expired One")
+    u2, p2 = await _create_user_and_player(db_session, name="Expired Two")
+    u3, p3 = await _create_user_and_player(db_session, name="Active User")
+
+    # Mark u1 and u2 as expired, leave u3 alone
+    for uid in (u1, u2):
+        result = await db_session.execute(select(User).where(User.id == uid))
+        user = result.scalar_one()
+        user.deletion_scheduled_at = past
+    await db_session.commit()
+
+    service = AccountDeletionService()
+    await service._process_expired_deletions()
+
+    # Reload state from DB
+    db_session.expire_all()
+    await db_session.rollback()
+
+    # u1 and u2 players should be anonymized (full_name cleared)
+    for pid in (p1, p2):
+        r = await db_session.execute(select(Player).where(Player.id == pid))
+        player = r.scalar_one()
+        assert player.full_name != "Expired One"
+        assert player.full_name != "Expired Two"
+
+    # u3 should be untouched
+    r3 = await db_session.execute(select(Player).where(Player.id == p3))
+    player3 = r3.scalar_one()
+    assert player3.full_name == "Active User"
+
+
+@pytest.mark.asyncio
+async def test_process_expired_deletions_continues_after_single_failure(db_session):
+    """A failure deleting one account does not prevent processing of subsequent accounts."""
+    from datetime import timezone
+    from datetime import datetime as dt
+
+    past = dt(2020, 1, 1, tzinfo=timezone.utc)
+
+    u1, p1 = await _create_user_and_player(db_session, name="Will Fail")
+    u2, p2 = await _create_user_and_player(db_session, name="Will Succeed")
+
+    for uid in (u1, u2):
+        result = await db_session.execute(select(User).where(User.id == uid))
+        user = result.scalar_one()
+        user.deletion_scheduled_at = past
+    await db_session.commit()
+
+    call_count = 0
+    original_execute = user_service.execute_account_deletion
+
+    async def _patched_execute(session, uid):
+        nonlocal call_count
+        call_count += 1
+        if uid == u1:
+            raise RuntimeError("simulated failure for first user")
+        return await original_execute(session, uid)
+
+    with patch.object(user_service, "execute_account_deletion", side_effect=_patched_execute):
+        service = AccountDeletionService()
+        # Should not raise even though the first user's deletion errors
+        await service._process_expired_deletions()
+
+    assert call_count == 2  # Both users were attempted
+
+    db_session.expire_all()
+    await db_session.rollback()
+
+    # u2 should be anonymized despite u1 failing
+    r2 = await db_session.execute(select(Player).where(Player.id == p2))
+    player2 = r2.scalar_one()
+    assert player2.full_name != "Will Succeed"
+
+
+# ---------------------------------------------------------------------------
+# AccountDeletionService lifecycle — start / stop idempotency
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_does_not_create_duplicate_task():
+    """Calling start() twice does not spawn a second background task."""
+    service = AccountDeletionService()
+    try:
+        service.start()
+        first_task = service._worker_task
+
+        service.start()
+        second_task = service._worker_task
+
+        assert first_task is second_task
+    finally:
+        service.stop()
+        if service._worker_task:
+            try:
+                await service._worker_task
+            except (asyncio.CancelledError, Exception):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_running_task():
+    """stop() cancels the worker task and sets the stop event."""
+    service = AccountDeletionService()
+    service.start()
+
+    assert service._worker_task is not None
+    assert not service._worker_task.done()
+
+    service.stop()
+
+    # Give the event loop a tick to process the cancellation
+    try:
+        await asyncio.wait_for(asyncio.shield(service._worker_task), timeout=0.1)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+
+    assert service._stop_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_start_after_stop_creates_new_task():
+    """After stop(), start() creates a fresh task because the old one is done."""
+    service = AccountDeletionService()
+    service.start()
+    first_task = service._worker_task
+
+    service.stop()
+    # Drain the cancellation
+    try:
+        await asyncio.wait_for(asyncio.shield(first_task), timeout=0.2)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+
+    # Reset stop event and start again
+    service._stop_event.clear()
+    service.start()
+    second_task = service._worker_task
+
+    try:
+        assert second_task is not first_task
+    finally:
+        service.stop()
+        try:
+            await asyncio.wait_for(asyncio.shield(second_task), timeout=0.2)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+
+
+# ---------------------------------------------------------------------------
+# _poll_loop — one iteration with mocked interval
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_poll_loop_calls_process_expired_deletions():
+    """_poll_loop() calls _process_expired_deletions() at least once before stop."""
+    service = AccountDeletionService()
+    call_count = 0
+
+    async def _fake_process():
+        nonlocal call_count
+        call_count += 1
+        # Signal stop after the first call so the loop exits
+        service._stop_event.set()
+
+    with patch.object(
+        service,
+        "_process_expired_deletions",
+        side_effect=_fake_process,
+    ), patch(
+        "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+        0,
+    ):
+        # Run the loop directly; it will exit after one iteration because
+        # _fake_process sets the stop event, causing wait_for to return
+        await service._poll_loop()
+
+    assert call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_poll_loop_continues_after_process_raises():
+    """_poll_loop() catches exceptions from _process_expired_deletions and keeps running."""
+    service = AccountDeletionService()
+    call_count = 0
+
+    async def _failing_then_stop():
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise RuntimeError("transient error")
+        # Stop after the second call
+        service._stop_event.set()
+
+    with patch.object(
+        service,
+        "_process_expired_deletions",
+        side_effect=_failing_then_stop,
+    ), patch(
+        "backend.services.account_deletion_service.POLL_INTERVAL_SECONDS",
+        0,
+    ):
+        await service._poll_loop()
+
+    assert call_count == 2

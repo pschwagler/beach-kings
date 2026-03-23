@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from backend.database.db import get_db_session
 from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, Feedback, PlayerGlobalStats, Location
-from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
+from backend.services import data_service, calculation_service, auth_service, user_service, email_service, rate_limiting_service, settings_service
 from backend.services import location_service
 from backend.services.stats_queue import get_stats_queue
 from backend.api.auth_dependencies import (

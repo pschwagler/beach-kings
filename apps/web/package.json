@@ -17,7 +17,10 @@
     "test:e2e:file": "npm run test:e2e:setup && playwright test",
     "test:e2e:grep": "npm run test:e2e:setup && playwright test --grep",
     "test:e2e:mobile": "npm run test:e2e:setup && MOBILE=1 playwright test --project=mobile-chrome",
-    "test:e2e:all-viewports": "npm run test:e2e:setup && MOBILE=1 playwright test"
+    "test:e2e:all-viewports": "npm run test:e2e:setup && MOBILE=1 playwright test",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
@@ -35,14 +38,20 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
+    "@vitest/coverage-v8": "^4.1.0",
     "axios": "^1.13.1",
     "concurrently": "^9.1.0",
     "eslint": "^9.36.0",
     "eslint-config-next": "^16.0.8",
+    "jsdom": "^20.0.3",
     "libphonenumber-js": "^1.12.33",
     "pg": "^8.13.1",
-    "playwright": "^1.48.0"
+    "playwright": "^1.48.0",
+    "vitest": "^4.1.0"
   }
 }
