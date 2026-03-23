@@ -10,7 +10,6 @@ or misconfigured.
 """
 
 import os
-import asyncio
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -232,20 +231,11 @@ async def test_engine():
     # Restore original AsyncSessionLocal
     db.AsyncSessionLocal = original_async_session_local
 
-    # Cleanup - gracefully close connections
+    # Cleanup - dispose the engine without dropping tables.
+    # Tables are already truncated at the start of each test via db_session,
+    # so drop_all is not needed here and would cause AccessExclusiveLock
+    # deadlocks when other tests have open connections to the same tables.
     try:
-        # Explicitly close all connections before disposing
-        # This helps prevent "event loop closed" errors
-        await asyncio.sleep(0.05)  # Small delay to let connections finish
-
-        # Drop all tables first (using a fresh connection)
-        try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.drop_all)
-        except Exception:
-            pass  # Ignore errors during cleanup
-
-        # Dispose engine properly
         await engine.dispose(close=True)
     except Exception:
         pass  # Ignore cleanup errors

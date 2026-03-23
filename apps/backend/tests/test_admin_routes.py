@@ -404,3 +404,289 @@ class TestWhatsAppEndpoints:
         )
         assert response.status_code == 400
         assert "group_id" in response.json()["detail"]
+
+    def test_whatsapp_status_success(self, monkeypatch):
+        """Admin can get WhatsApp status via proxy."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            return {"status": "authenticated"}
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get("/api/whatsapp/status", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["status"] == "authenticated"
+
+    def test_whatsapp_initialize_success(self, monkeypatch):
+        """Admin can initialize WhatsApp via proxy."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            return {"success": True}
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post("/api/whatsapp/initialize", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_whatsapp_logout_success(self, monkeypatch):
+        """Admin can logout WhatsApp via proxy."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            return {"success": True}
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post("/api/whatsapp/logout", headers=headers)
+        assert response.status_code == 200
+
+    def test_whatsapp_groups_success(self, monkeypatch):
+        """Admin can list WhatsApp groups via proxy."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            return {"groups": [{"id": "g1", "name": "Beach Kings"}]}
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get("/api/whatsapp/groups", headers=headers)
+        assert response.status_code == 200
+        assert len(response.json()["groups"]) == 1
+
+    def test_whatsapp_send_success(self, monkeypatch):
+        """Admin can send a WhatsApp message via proxy."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            return {"sent": True}
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.post(
+            "/api/whatsapp/send",
+            json={"group_id": "g1", "message": "Hello"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["sent"] is True
+
+    def test_whatsapp_proxy_timeout_returns_504(self, monkeypatch):
+        """Proxy timeout surfaces as 504."""
+
+        async def fake_proxy(method, path, body=None, timeout=30.0):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=504, detail="WhatsApp service request timed out.")
+
+        monkeypatch.setattr(
+            "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.get("/api/whatsapp/status", headers=headers)
+        assert response.status_code == 504
+
+
+# ============================================================================
+# Settings key endpoints
+# ============================================================================
+
+
+class TestSettingsKeyEndpoints:
+    """Tests for GET/PUT /api/settings/{key}."""
+
+    def test_get_setting_requires_admin(self, monkeypatch):
+        """Non-admin cannot read a setting."""
+        client, headers = _make_non_admin_client(monkeypatch)
+        response = client.get("/api/settings/some_key", headers=headers)
+        assert response.status_code == 403
+
+    def test_get_setting_success(self, monkeypatch):
+        """Admin can read a setting by key."""
+        # Build admin client first, then override get_setting to also handle the feature key.
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_get_setting(session, key):
+            if key == "system_admin_phone_numbers":
+                return "+10000000000"
+            if key == "system_admin_emails":
+                return None
+            if key == "feature_flag_x":
+                return "true"
+            return None
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+        response = client.get("/api/settings/feature_flag_x", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["key"] == "feature_flag_x"
+        assert body["value"] == "true"
+
+    def test_get_setting_returns_none_for_missing_key(self, monkeypatch):
+        """Reading a non-existent setting returns null value."""
+        client, headers = _make_admin_client(monkeypatch)
+
+        # Override to confirm None is returned for unknown keys.
+        async def fake_get_setting(session, key):
+            if key == "system_admin_phone_numbers":
+                return "+10000000000"
+            if key == "system_admin_emails":
+                return None
+            return None
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+        response = client.get("/api/settings/nonexistent_key", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["value"] is None
+
+    def test_put_setting_requires_admin(self, monkeypatch):
+        """Non-admin cannot write a setting."""
+        client, headers = _make_non_admin_client(monkeypatch)
+        response = client.put(
+            "/api/settings/some_key",
+            json={"value": "new_value"},
+            headers=headers,
+        )
+        assert response.status_code == 403
+
+    def test_put_setting_success(self, monkeypatch):
+        """Admin can write a setting by key."""
+        stored = {}
+
+        async def fake_get_setting(session, key):
+            if key == "system_admin_phone_numbers":
+                return "+10000000000"
+            if key == "system_admin_emails":
+                return None
+            return stored.get(key)
+
+        async def fake_set_setting(session, key, value):
+            stored[key] = value
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+        monkeypatch.setattr(data_service, "set_setting", fake_set_setting, raising=True)
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.put(
+            "/api/settings/my_feature",
+            json={"value": "enabled"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        assert stored["my_feature"] == "enabled"
+
+    def test_put_setting_missing_value_returns_400(self, monkeypatch):
+        """PUT without 'value' key in body returns 400."""
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.put(
+            "/api/settings/my_feature",
+            json={"other_field": "oops"},
+            headers=headers,
+        )
+        assert response.status_code == 400
+        assert "value is required" in response.json()["detail"]
+
+
+# ============================================================================
+# Admin update config happy path
+# ============================================================================
+
+
+class TestAdminConfigUpdate:
+    """Additional tests for PUT /api/admin-view/config — happy path."""
+
+    def test_update_config_enable_sms_and_email(self, monkeypatch):
+        """Admin can toggle enable_sms and enable_email."""
+        stored = {}
+
+        async def fake_get_setting(session, key):
+            if key == "system_admin_phone_numbers":
+                return "+10000000000"
+            if key == "system_admin_emails":
+                return None
+            return stored.get(key)
+
+        async def fake_set_setting(session, key, value):
+            stored[key] = value
+
+        async def fake_invalidate(**kwargs):
+            pass
+
+        async def fake_get_bool_setting(session, key, env_var=None, default=True):
+            return stored.get(key, "true") == "true"
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+        monkeypatch.setattr(data_service, "set_setting", fake_set_setting, raising=True)
+        monkeypatch.setattr(
+            settings_service, "invalidate_settings_cache", fake_invalidate, raising=True
+        )
+        monkeypatch.setattr(
+            settings_service, "get_bool_setting", fake_get_bool_setting, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.put(
+            "/api/admin-view/config",
+            json={"enable_sms": False, "enable_email": True},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "enable_sms" in data
+        assert "enable_email" in data
+
+    def test_update_config_valid_log_level(self, monkeypatch):
+        """Admin can set a valid log level."""
+        stored = {}
+
+        async def fake_get_setting(session, key):
+            if key == "system_admin_phone_numbers":
+                return "+10000000000"
+            if key == "system_admin_emails":
+                return None
+            if key == "log_level":
+                return stored.get("log_level")
+            return None
+
+        async def fake_set_setting(session, key, value):
+            stored[key] = value
+
+        async def fake_invalidate(**kwargs):
+            pass
+
+        async def fake_get_bool_setting(session, key, env_var=None, default=True):
+            return default
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+        monkeypatch.setattr(data_service, "set_setting", fake_set_setting, raising=True)
+        monkeypatch.setattr(
+            settings_service, "invalidate_settings_cache", fake_invalidate, raising=True
+        )
+        monkeypatch.setattr(
+            settings_service, "get_bool_setting", fake_get_bool_setting, raising=True
+        )
+
+        client, headers = _make_admin_client(monkeypatch)
+        response = client.put(
+            "/api/admin-view/config",
+            json={"log_level": "DEBUG"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert stored.get("log_level") == "DEBUG"

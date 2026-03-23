@@ -79,7 +79,7 @@ services:
       - "--cov=backend"
       - "--cov-report=xml:backend/coverage.xml"
       - "--cov-report=term"
-      - "--cov-fail-under=0"
+      - "--cov-fail-under=82"
 
   # Backend service for E2E tests
   backend-test:

@@ -932,3 +932,935 @@ class TestApplyPlayerOverrides:
         assert result[0]["team1_player1_id"] == 1
         assert result[0]["team2_player2_id"] == 5
         assert result[0]["team2_player2_matched"] == "Mike Sullivan"
+
+
+# ============================================================================
+# get_gemini_client Tests
+# ============================================================================
+
+
+class TestGetGeminiClient:
+    """Tests for get_gemini_client singleton factory."""
+
+    def setup_method(self):
+        """Reset the module-level singleton before each test."""
+        photo_match_service._gemini_client = None
+
+    def teardown_method(self):
+        """Reset the module-level singleton after each test."""
+        photo_match_service._gemini_client = None
+
+    def test_missing_api_key_raises_value_error(self):
+        """get_gemini_client() must raise ValueError when no API key is set."""
+        with patch.object(photo_match_service, "GEMINI_API_KEY", None):
+            with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+                photo_match_service.get_gemini_client()
+
+    def test_valid_api_key_returns_client(self):
+        """get_gemini_client() returns a client object when API key is present."""
+        mock_client = MagicMock()
+        mock_genai = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        with patch.object(photo_match_service, "GEMINI_API_KEY", "test-key-123"):
+            with patch.dict("sys.modules", {"google": MagicMock(), "google.genai": mock_genai}):
+                # Force re-import path by patching the lazy import inside get_gemini_client
+                with patch("builtins.__import__", wraps=__import__) as mock_import:
+                    # Patch at module attribute level so the already-imported path works
+                    photo_match_service._gemini_client = None
+                    # Inject the mock client directly to simulate what genai.Client() returns
+                    photo_match_service._gemini_client = mock_client
+                    client = photo_match_service.get_gemini_client()
+
+        assert client is mock_client
+
+    def test_singleton_returns_same_instance(self):
+        """get_gemini_client() returns cached instance on second call."""
+        mock_client = MagicMock()
+        photo_match_service._gemini_client = mock_client
+
+        result1 = photo_match_service.get_gemini_client()
+        result2 = photo_match_service.get_gemini_client()
+
+        assert result1 is mock_client
+        assert result2 is mock_client
+
+
+# ============================================================================
+# create_photo_match_job DB Tests
+# ============================================================================
+
+
+class TestCreatePhotoMatchJob:
+    """Tests for create_photo_match_job database function."""
+
+    @pytest.mark.asyncio
+    async def test_creates_job_with_pending_status(self, db_session):
+        """create_photo_match_job creates a row with PENDING status."""
+        from backend.database.models import League
+
+        # Create minimal league row
+        league = League(name="Test League")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        assert isinstance(job_id, int)
+        assert job_id > 0
+
+        # Retrieve and verify
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job is not None
+        assert job.status == photo_match_service.PhotoMatchJobStatus.PENDING
+        assert job.session_id == session_id
+        assert job.league_id == league.id
+        assert job.result_data is None
+        assert job.error_message is None
+
+    @pytest.mark.asyncio
+    async def test_get_photo_match_job_returns_none_for_missing(self, db_session):
+        """get_photo_match_job returns None for a non-existent job ID."""
+        result = await photo_match_service.get_photo_match_job(db_session, 999999)
+        assert result is None
+
+
+# ============================================================================
+# update_job_status Tests
+# ============================================================================
+
+
+class TestUpdateJobStatus:
+    """Tests for update_job_status transitions."""
+
+    @pytest.mark.asyncio
+    async def test_pending_to_running_sets_started_at(self, db_session):
+        """Transitioning to RUNNING should set started_at timestamp."""
+        from backend.database.models import League
+
+        league = League(name="Test League 2")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        await photo_match_service.update_job_status(
+            db_session, job_id, photo_match_service.PhotoMatchJobStatus.RUNNING
+        )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.RUNNING
+        assert job.started_at is not None
+
+    @pytest.mark.asyncio
+    async def test_running_to_completed_sets_completed_at(self, db_session):
+        """Transitioning to COMPLETED should set completed_at and store result_data."""
+        from backend.database.models import League
+
+        league = League(name="Test League 3")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        result_payload = json.dumps({"status": "success", "matches": []})
+        await photo_match_service.update_job_status(
+            db_session,
+            job_id,
+            photo_match_service.PhotoMatchJobStatus.COMPLETED,
+            result_data=result_payload,
+        )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.COMPLETED
+        assert job.completed_at is not None
+        assert job.result_data == result_payload
+
+    @pytest.mark.asyncio
+    async def test_failed_status_stores_error_message(self, db_session):
+        """Transitioning to FAILED should store error_message."""
+        from backend.database.models import League
+
+        league = League(name="Test League 4")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        await photo_match_service.update_job_status(
+            db_session,
+            job_id,
+            photo_match_service.PhotoMatchJobStatus.FAILED,
+            error_message="Gemini timed out",
+        )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.FAILED
+        assert job.error_message == "Gemini timed out"
+        assert job.completed_at is not None
+
+
+# ============================================================================
+# Redis Session Management Tests (store / get / update / cleanup)
+# ============================================================================
+
+
+class TestRedisSessionManagement:
+    """Tests for store_session_data, get_session_data, update_session_data, cleanup_session."""
+
+    @pytest.mark.asyncio
+    async def test_store_and_retrieve_session_data(self):
+        """store_session_data writes to Redis; get_session_data reads it back."""
+        session_id = "test-session-store"
+        payload = {"league_id": 42, "status": "pending"}
+
+        with (
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_set",
+                return_value=True,
+            ) as mock_set,
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps(payload),
+            ) as mock_get,
+        ):
+            success = await photo_match_service.store_session_data(session_id, payload)
+            assert success is True
+            mock_set.assert_called_once()
+            key_used = mock_set.call_args[0][0]
+            assert session_id in key_used
+
+            result = await photo_match_service.get_session_data(session_id)
+            assert result == payload
+            mock_get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_session_data_returns_none_when_missing(self):
+        """get_session_data returns None when key is absent from Redis."""
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
+            result = await photo_match_service.get_session_data("nonexistent-session")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_session_data_returns_none_on_redis_error(self):
+        """get_session_data returns None when Redis raises an exception."""
+        with patch.object(
+            photo_match_service.redis_service,
+            "redis_get",
+            side_effect=Exception("Redis connection failed"),
+        ):
+            result = await photo_match_service.get_session_data("error-session")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_session_data_merges_fields(self):
+        """update_session_data merges new fields onto existing session."""
+        session_id = "test-session-update"
+        existing = {"league_id": 1, "status": "pending", "partial_matches": []}
+        updates = {"status": "running", "raw_response": "[]"}
+
+        with (
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps(existing),
+            ),
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_set",
+                return_value=True,
+            ) as mock_set,
+        ):
+            success = await photo_match_service.update_session_data(session_id, updates)
+            assert success is True
+            # Verify merged payload was written
+            written_json = mock_set.call_args[0][1]
+            written = json.loads(written_json)
+            assert written["league_id"] == 1  # preserved
+            assert written["status"] == "running"  # updated
+            assert written["raw_response"] == "[]"  # new field
+
+    @pytest.mark.asyncio
+    async def test_update_session_data_returns_false_when_session_missing(self):
+        """update_session_data returns False when the session does not exist."""
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
+            result = await photo_match_service.update_session_data(
+                "missing-session", {"status": "done"}
+            )
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_cleanup_session_deletes_key(self):
+        """cleanup_session calls redis_delete with the correct key."""
+        session_id = "test-session-cleanup"
+        with patch.object(
+            photo_match_service.redis_service, "redis_delete", return_value=True
+        ) as mock_del:
+            result = await photo_match_service.cleanup_session(session_id)
+            assert result is True
+            key_used = mock_del.call_args[0][0]
+            assert session_id in key_used
+
+
+# ============================================================================
+# process_photo_job PENDING -> RUNNING -> COMPLETED / FAILED
+# ============================================================================
+
+
+class TestProcessPhotoJob:
+    """Integration tests for process_photo_job with mocked Gemini."""
+
+    def _make_valid_image_base64(self) -> str:
+        """Return a base64-encoded minimal JPEG for use in tests."""
+        from io import BytesIO
+
+        img = Image.new("RGB", (100, 50), color="white")
+        buf = BytesIO()
+        img.save(buf, format="JPEG")
+        return base64.b64encode(buf.getvalue()).decode()
+
+    @pytest.mark.asyncio
+    async def test_job_transitions_to_completed_on_success(self, db_session):
+        """process_photo_job drives job from PENDING through RUNNING to COMPLETED."""
+        from backend.database.models import League
+
+        league = League(name="Photo League 1")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        # Seed session data that process_photo_job will update
+        raw_extraction = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-15"}]'
+
+        # Gemini stream consumer emits DONE with valid extraction
+        def fake_stream_consumer(out_q, image_bytes, prompt):
+            out_q.put((photo_match_service.STREAM_MSG_DONE, raw_extraction))
+
+        league_members = [
+            {"player_id": 1, "player_name": "Alice"},
+            {"player_id": 2, "player_name": "Bob"},
+            {"player_id": 3, "player_name": "Carol"},
+            {"player_id": 4, "player_name": "Dave"},
+        ]
+
+        image_b64 = self._make_valid_image_base64()
+
+        with (
+            patch.object(
+                photo_match_service,
+                "_run_gemini_stream_consumer",
+                side_effect=fake_stream_consumer,
+            ),
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps({"league_id": league.id}),
+            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
+        ):
+            await photo_match_service.process_photo_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                image_base64=image_b64,
+                league_members=league_members,
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.COMPLETED
+        assert job.result_data is not None
+        result = json.loads(job.result_data)
+        assert result["status"] in ("success", "needs_clarification")
+        assert len(result["matches"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_job_transitions_to_failed_on_gemini_error(self, db_session):
+        """process_photo_job sets job to FAILED when Gemini stream raises an error."""
+        from backend.database.models import League
+
+        league = League(name="Photo League 2")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        def fake_stream_error(out_q, image_bytes, prompt):
+            out_q.put((photo_match_service.STREAM_MSG_ERROR, "Gemini unavailable"))
+
+        image_b64 = self._make_valid_image_base64()
+
+        with (
+            patch.object(
+                photo_match_service,
+                "_run_gemini_stream_consumer",
+                side_effect=fake_stream_error,
+            ),
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps({"league_id": league.id}),
+            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
+        ):
+            await photo_match_service.process_photo_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                image_base64=image_b64,
+                league_members=[],
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.FAILED
+        assert job.error_message is not None
+
+    @pytest.mark.asyncio
+    async def test_job_completed_with_empty_matches_adds_note(self, db_session):
+        """process_photo_job calls _describe_image_on_empty when Gemini finds no matches."""
+        from backend.database.models import League
+
+        league = League(name="Photo League 3")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        # Stream returns empty array
+        def fake_stream_empty(out_q, image_bytes, prompt):
+            out_q.put((photo_match_service.STREAM_MSG_DONE, "[]"))
+
+        image_b64 = self._make_valid_image_base64()
+
+        with (
+            patch.object(
+                photo_match_service,
+                "_run_gemini_stream_consumer",
+                side_effect=fake_stream_empty,
+            ),
+            patch.object(
+                photo_match_service,
+                "_describe_image_on_empty",
+                return_value="This is a photo of a cat.",
+            ),
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps({"league_id": league.id}),
+            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
+        ):
+            await photo_match_service.process_photo_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                image_base64=image_b64,
+                league_members=[],
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.COMPLETED
+        result = json.loads(job.result_data)
+        assert result["matches"] == []
+        assert result.get("note") == "This is a photo of a cat."
+
+
+# ============================================================================
+# process_clarification_job Tests
+# ============================================================================
+
+
+class TestProcessClarificationJob:
+    """Tests for process_clarification_job."""
+
+    @pytest.mark.asyncio
+    async def test_clarification_job_completes_with_updated_matches(self, db_session):
+        """process_clarification_job reads session, calls Gemini, marks job COMPLETED."""
+        from backend.database.models import League
+
+        league = League(name="Clarify League 1")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        existing_session = {
+            "league_id": league.id,
+            "raw_response": '[{"t1": [1, 2], "t2": [3, 4], "s": "21-15"}]',
+            "parsed_matches": [],
+        }
+        clarification_response = '[{"t1": [1, 2], "t2": [3, 4], "s": "21-19"}]'
+        league_members = [
+            {"player_id": 1, "player_name": "Alice"},
+            {"player_id": 2, "player_name": "Bob"},
+            {"player_id": 3, "player_name": "Carol"},
+            {"player_id": 4, "player_name": "Dave"},
+        ]
+
+        mock_gemini_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content = MagicMock()
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[0].text = clarification_response
+        mock_gemini_client.models.generate_content.return_value = mock_response
+
+        mock_types = MagicMock()
+        with (
+            patch.object(
+                photo_match_service, "get_gemini_client", return_value=mock_gemini_client
+            ),
+            patch.dict(
+                "sys.modules",
+                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
+            ),
+            patch.object(
+                photo_match_service.redis_service,
+                "redis_get",
+                return_value=json.dumps(existing_session),
+            ),
+            patch.object(photo_match_service.redis_service, "redis_set", return_value=True),
+        ):
+            await photo_match_service.process_clarification_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                league_members=league_members,
+                user_prompt="Score for match 1 was 21-19 not 21-15",
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.COMPLETED
+        result = json.loads(job.result_data)
+        assert len(result["matches"]) == 1
+        assert result["matches"][0]["team2_score"] == 19
+
+    @pytest.mark.asyncio
+    async def test_clarification_job_fails_when_session_missing(self, db_session):
+        """process_clarification_job sets FAILED when session is not in Redis."""
+        from backend.database.models import League
+
+        league = League(name="Clarify League 2")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        with patch.object(photo_match_service.redis_service, "redis_get", return_value=None):
+            await photo_match_service.process_clarification_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                league_members=[],
+                user_prompt="fix score",
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.FAILED
+        assert "not found" in job.error_message.lower() or "expired" in job.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_clarification_job_fails_when_no_raw_response(self, db_session):
+        """process_clarification_job sets FAILED when session exists but has no raw_response."""
+        from backend.database.models import League
+
+        league = League(name="Clarify League 3")
+        db_session.add(league)
+        await db_session.flush()
+
+        session_id = photo_match_service.generate_session_id()
+        job_id = await photo_match_service.create_photo_match_job(
+            db_session, league.id, session_id
+        )
+
+        session_without_raw = json.dumps({"league_id": league.id, "partial_matches": []})
+
+        with patch.object(
+            photo_match_service.redis_service,
+            "redis_get",
+            return_value=session_without_raw,
+        ):
+            await photo_match_service.process_clarification_job(
+                job_id=job_id,
+                league_id=league.id,
+                session_id=session_id,
+                league_members=[],
+                user_prompt="fix score",
+            )
+
+        job = await photo_match_service.get_photo_match_job(db_session, job_id)
+        assert job.status == photo_match_service.PhotoMatchJobStatus.FAILED
+
+
+# ============================================================================
+# match_all_players_in_matches — partial / no-match edge cases
+# ============================================================================
+
+
+class TestMatchAllPlayersEdgeCases:
+    """Additional match_all_players_in_matches edge-case tests."""
+
+    def test_no_matches_returns_empty(self):
+        """Empty input produces empty output with no unmatched names."""
+        result_matches, unmatched = photo_match_service.match_all_players_in_matches([], [])
+        assert result_matches == []
+        assert unmatched == []
+
+    def test_all_players_unmatched_splits_correctly(self):
+        """When no players match, all four are returned as unmatched."""
+        matches = [
+            {
+                "team1_player1": "Zed Alpha",
+                "team1_player2": "Zed Beta",
+                "team2_player1": "Zed Gamma",
+                "team2_player2": "Zed Delta",
+                "team1_score": 21,
+                "team2_score": 19,
+            }
+        ]
+        members = [
+            {"player_id": 1, "player_name": "John Doe"},
+            {"player_id": 2, "player_name": "Jane Smith"},
+        ]
+        result_matches, unmatched = photo_match_service.match_all_players_in_matches(
+            matches, members
+        )
+        assert len(result_matches) == 1
+        assert len(unmatched) == 4
+        for field in [
+            "team1_player1_id",
+            "team1_player2_id",
+            "team2_player1_id",
+            "team2_player2_id",
+        ]:
+            assert result_matches[0][field] is None
+
+    def test_partial_match_correct_split(self):
+        """Two matched and two unmatched players are split correctly."""
+        matches = [
+            {
+                "team1_player1": "John Doe",
+                "team1_player2": "NoOne Here",
+                "team2_player1": "Jane Smith",
+                "team2_player2": "Ghost Player",
+                "team1_score": 21,
+                "team2_score": 17,
+            }
+        ]
+        members = [
+            {"player_id": 1, "player_name": "John Doe"},
+            {"player_id": 2, "player_name": "Jane Smith"},
+        ]
+        result_matches, unmatched = photo_match_service.match_all_players_in_matches(
+            matches, members
+        )
+        assert result_matches[0]["team1_player1_id"] == 1
+        assert result_matches[0]["team1_player2_id"] is None
+        assert result_matches[0]["team2_player1_id"] == 2
+        assert result_matches[0]["team2_player2_id"] is None
+        assert "NoOne Here" in unmatched
+        assert "Ghost Player" in unmatched
+        assert len(unmatched) == 2
+
+    def test_multiple_matches_carry_through_correctly(self):
+        """Multiple matches all have player IDs resolved independently."""
+        matches = [
+            {
+                "team1_player1": "Alice",
+                "team1_player2": "Bob",
+                "team2_player1": "Carol",
+                "team2_player2": "Dave",
+                "team1_score": 21,
+                "team2_score": 15,
+            },
+            {
+                "team1_player1": "Alice",
+                "team1_player2": "Carol",
+                "team2_player1": "Bob",
+                "team2_player2": "Dave",
+                "team1_score": 21,
+                "team2_score": 18,
+            },
+        ]
+        members = [
+            {"player_id": 10, "player_name": "Alice"},
+            {"player_id": 20, "player_name": "Bob"},
+            {"player_id": 30, "player_name": "Carol"},
+            {"player_id": 40, "player_name": "Dave"},
+        ]
+        result_matches, unmatched = photo_match_service.match_all_players_in_matches(
+            matches, members
+        )
+        assert len(result_matches) == 2
+        assert unmatched == []
+        assert result_matches[0]["team1_player1_id"] == 10
+        assert result_matches[1]["team2_player1_id"] == 20
+
+
+# ============================================================================
+# _describe_image_on_empty Tests
+# ============================================================================
+
+
+class TestDescribeImageOnEmpty:
+    """Tests for the _describe_image_on_empty fallback function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_description_string_on_success(self):
+        """_describe_image_on_empty returns the model's description text."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content = MagicMock()
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[0].text = "A photo of a trophy."
+        mock_client.models.generate_content.return_value = mock_response
+
+        mock_types = MagicMock()
+        with (
+            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
+            patch.dict(
+                "sys.modules",
+                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
+            ),
+        ):
+            result = await photo_match_service._describe_image_on_empty(b"fake-image")
+
+        assert result == "A photo of a trophy."
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_gemini_failure(self):
+        """_describe_image_on_empty returns None when Gemini raises."""
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = Exception("API timeout")
+
+        mock_types = MagicMock()
+        with (
+            patch.object(photo_match_service, "get_gemini_client", return_value=mock_client),
+            patch.dict(
+                "sys.modules",
+                {"google": MagicMock(), "google.genai": MagicMock(types=mock_types)},
+            ),
+        ):
+            result = await photo_match_service._describe_image_on_empty(b"fake-image")
+
+        assert result is None
+
+
+# ============================================================================
+# _parse_score_string Tests
+# ============================================================================
+
+
+class TestParseScoreString:
+    """Tests for _parse_score_string helper."""
+
+    def test_valid_score_string(self):
+        """Standard 'T1-T2' score strings are parsed correctly."""
+        t1, t2 = photo_match_service._parse_score_string("21-15")
+        assert t1 == 21
+        assert t2 == 15
+
+    def test_score_with_spaces(self):
+        """Scores with surrounding spaces are handled."""
+        t1, t2 = photo_match_service._parse_score_string(" 21 - 15 ")
+        assert t1 == 21
+        assert t2 == 15
+
+    def test_empty_string_returns_none_pair(self):
+        """Empty string returns (None, None)."""
+        t1, t2 = photo_match_service._parse_score_string("")
+        assert t1 is None
+        assert t2 is None
+
+    def test_non_string_returns_none_pair(self):
+        """Non-string input returns (None, None)."""
+        t1, t2 = photo_match_service._parse_score_string(None)
+        assert t1 is None
+        assert t2 is None
+
+    def test_malformed_score_returns_none_pair(self):
+        """Score strings that can't be parsed return (None, None)."""
+        t1, t2 = photo_match_service._parse_score_string("twenty-one to fifteen")
+        assert t1 is None
+        assert t2 is None
+
+    def test_single_number_returns_none_pair(self):
+        """A score with only one number (no dash) returns (None, None)."""
+        t1, t2 = photo_match_service._parse_score_string("21")
+        assert t1 is None
+        assert t2 is None
+
+
+# ============================================================================
+# _to_player_dict Tests
+# ============================================================================
+
+
+class TestToPlayerDict:
+    """Tests for _to_player_dict helper."""
+
+    def test_integer_id_maps_to_id_with_empty_name(self):
+        """Integer inputs produce {id: n, name: ''}."""
+        result = photo_match_service._to_player_dict(7)
+        assert result == {"id": 7, "name": ""}
+
+    def test_string_name_maps_to_none_id(self):
+        """String inputs produce {id: None, name: string}."""
+        result = photo_match_service._to_player_dict("Unknown Guy")
+        assert result == {"id": None, "name": "Unknown Guy"}
+
+    def test_none_maps_to_null_id_empty_name(self):
+        """None input produces {id: None, name: ''}."""
+        result = photo_match_service._to_player_dict(None)
+        assert result == {"id": None, "name": ""}
+
+
+# ============================================================================
+# stream_photo_job_events — FAILED job and league mismatch paths
+# ============================================================================
+
+
+class TestStreamPhotoJobEventsAdditional:
+    """Additional tests for stream_photo_job_events edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_yields_done_when_job_already_failed(self):
+        """Generator yields 'done' with FAILED status when job is already failed."""
+        from backend.database import db
+
+        job_failed = MagicMock()
+        job_failed.status = photo_match_service.PhotoMatchJobStatus.FAILED
+        job_failed.league_id = 1
+        job_failed.session_id = "s1"
+        job_failed.error_message = "Gemini error"
+
+        class FakeCM:
+            async def __aenter__(self):
+                return MagicMock()
+
+            async def __aexit__(self, *args):
+                pass
+
+        events = []
+        with patch.object(photo_match_service, "get_photo_match_job", return_value=job_failed):
+            with patch.object(db, "AsyncSessionLocal", lambda: FakeCM()):
+                async for event_name, data in photo_match_service.stream_photo_job_events(
+                    job_id=1,
+                    league_id=1,
+                    session_id="s1",
+                    poll_interval_sec=0.01,
+                    timeout_sec=5,
+                ):
+                    events.append((event_name, data))
+                    break
+
+        assert len(events) == 1
+        assert events[0][0] == "done"
+        assert events[0][1]["status"] == "FAILED"
+
+    @pytest.mark.asyncio
+    async def test_yields_error_when_league_id_mismatch(self):
+        """Generator yields error when job.league_id doesn't match the requested league_id."""
+        from backend.database import db
+
+        job_wrong_league = MagicMock()
+        job_wrong_league.status = photo_match_service.PhotoMatchJobStatus.RUNNING
+        job_wrong_league.league_id = 99  # different from requested
+        job_wrong_league.session_id = "s1"
+
+        class FakeCM:
+            async def __aenter__(self):
+                return MagicMock()
+
+            async def __aexit__(self, *args):
+                pass
+
+        events = []
+        with patch.object(
+            photo_match_service, "get_photo_match_job", return_value=job_wrong_league
+        ):
+            with patch.object(db, "AsyncSessionLocal", lambda: FakeCM()):
+                async for event_name, data in photo_match_service.stream_photo_job_events(
+                    job_id=1,
+                    league_id=1,  # does not match job.league_id=99
+                    session_id="s1",
+                    poll_interval_sec=0.01,
+                    timeout_sec=5,
+                ):
+                    events.append((event_name, data))
+                    break
+
+        assert len(events) == 1
+        assert events[0][0] == "error"
+        assert "league" in events[0][1].get("message", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_yields_error_on_timeout(self):
+        """Generator yields error when the timeout is exceeded."""
+        from backend.database import db
+
+        job_running = MagicMock()
+        job_running.status = photo_match_service.PhotoMatchJobStatus.RUNNING
+        job_running.league_id = 1
+        job_running.session_id = "s1"
+        job_running.result_data = None
+
+        class FakeCM:
+            async def __aenter__(self):
+                return MagicMock()
+
+            async def __aexit__(self, *args):
+                pass
+
+        events = []
+        with patch.object(photo_match_service, "get_photo_match_job", return_value=job_running):
+            with patch.object(
+                photo_match_service,
+                "get_session_data",
+                return_value={"partial_matches": []},
+            ):
+                with patch.object(db, "AsyncSessionLocal", lambda: FakeCM()):
+                    async for event_name, data in photo_match_service.stream_photo_job_events(
+                        job_id=1,
+                        league_id=1,
+                        session_id="s1",
+                        poll_interval_sec=0.001,
+                        timeout_sec=0.002,  # immediately time out
+                    ):
+                        events.append((event_name, data))
+                        if event_name in ("error", "done"):
+                            break
+
+        assert any(e[0] == "error" for e in events)
+        timeout_event = next(e for e in events if e[0] == "error")
+        assert "timed out" in timeout_event[1].get("message", "").lower()

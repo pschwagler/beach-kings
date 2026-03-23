@@ -22,6 +22,7 @@ from backend.database.models import (
     SessionParticipant,
 )
 from backend.services import data_service
+from backend.services import signup_data
 from backend.services import user_service
 import bcrypt
 
@@ -1441,9 +1442,9 @@ async def test_delete_weekly_schedule_calls_recalculate_open_signups(
     schedule_id = schedule["id"]
     initial_call_count = len(recalculate_calls)
 
-    # Now patch the function to track calls from delete_weekly_schedule
+    # Now patch the function in signup_data (where delete_weekly_schedule lives and calls it directly)
     monkeypatch.setattr(
-        data_service, "recalculate_open_signups_for_season", mock_recalculate, raising=True
+        signup_data, "recalculate_open_signups_for_season", mock_recalculate, raising=True
     )
 
     # Delete the schedule
