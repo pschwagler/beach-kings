@@ -43,7 +43,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         location_id: league?.location_id || null,
         is_open: league?.is_open ?? true,
         gender: league?.gender || null,
-        whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
     } catch (err) {
@@ -62,7 +61,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         location_id: newLocationId,
         is_open: league?.is_open ?? true,
         gender: league?.gender || null,
-        whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
     } catch (err) {
@@ -81,7 +79,6 @@ export default function LeagueInfoSection({ league, onUpdate }) {
         location_id: league?.location_id || null,
         is_open: isOpen,
         gender: league?.gender || null,
-        whatsapp_group_id: league?.whatsapp_group_id || null
       });
       onUpdate?.(updatedLeague);
     } catch (err) {

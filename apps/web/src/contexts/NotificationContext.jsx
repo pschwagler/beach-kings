@@ -9,6 +9,7 @@ import {
   getUnreadMessageCount,
 } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useNotificationWebSocket } from '../hooks/useNotificationWebSocket';
 
 const NotificationContext = createContext(null);
 
@@ -18,30 +19,13 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
-
-  // Callback ref for real-time DM delivery into an open thread
-  const onDirectMessageRef = useRef(null);
-
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const pingIntervalRef = useRef(null);
-  const reconnectAttemptsRef = useRef(0);
-  const intentionalCloseRef = useRef(false);
-  const isAuthenticatedRef = useRef(isAuthenticated);
-  const userRef = useRef(user);
-  const maxReconnectDelay = 30000; // 30 seconds max delay
-
-  // Keep refs in sync so onclose handler reads current values
-  isAuthenticatedRef.current = isAuthenticated;
-  userRef.current = user;
 
   /**
    * Fetch notifications with pagination
    */
   const fetchNotifications = useCallback(async (limit = 50, offset = 0, unreadOnly = false) => {
     if (!isAuthenticated) return;
-    
+
     setIsLoading(true);
     try {
       const response = await getNotifications({ limit, offset, unreadOnly });
@@ -76,7 +60,7 @@ export const NotificationProvider = ({ children }) => {
    */
   const fetchUnreadCount = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     try {
       const response = await getUnreadCount();
       setUnreadCount(response.count || 0);
@@ -92,24 +76,22 @@ export const NotificationProvider = ({ children }) => {
    */
   const markAsRead = useCallback(async (notificationId) => {
     if (!isAuthenticated) return;
-    
+
     try {
       const updatedNotification = await markNotificationAsRead(notificationId);
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notif => 
-          notif.id === notificationId 
+
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === notificationId
             ? { ...notif, is_read: true, read_at: updatedNotification.read_at }
             : notif
         )
       );
-      
-      // Update unread count
+
       if (unreadCount > 0) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-      
+
       return updatedNotification;
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -122,18 +104,16 @@ export const NotificationProvider = ({ children }) => {
    */
   const markAllAsRead = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     try {
       const response = await markAllNotificationsAsRead();
-      
-      // Update local state
-      setNotifications(prev => 
+
+      setNotifications(prev =>
         prev.map(notif => ({ ...notif, is_read: true, read_at: new Date().toISOString() }))
       );
-      
-      // Reset unread count
+
       setUnreadCount(0);
-      
+
       return response;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -141,197 +121,51 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  // Stable refs for callbacks passed to the WebSocket hook (avoids recreating WS on every render)
+  const fetchUnreadCountRef = useRef(fetchUnreadCount);
+  const fetchDmUnreadCountRef = useRef(fetchDmUnreadCount);
+  useEffect(() => { fetchUnreadCountRef.current = fetchUnreadCount; }, [fetchUnreadCount]);
+  useEffect(() => { fetchDmUnreadCountRef.current = fetchDmUnreadCount; }, [fetchDmUnreadCount]);
+
   /**
-   * Resolve backend host for WebSocket. In dev we fetch /api/backend-url (with fallback and one retry).
+   * Handle new notification from WebSocket
    */
-  const getBackendHostForWebSocket = useCallback(async () => {
-    if (process.env.NODE_ENV !== 'development') {
-      if (process.env.NEXT_PUBLIC_API_URL) {
-        return process.env.NEXT_PUBLIC_API_URL.replace(/^https?:\/\//, '');
-      }
-      return 'localhost:8000';
+  const handleNotification = useCallback((notification) => {
+    setNotifications(prev => [notification, ...prev]);
+    if (!notification.is_read) {
+      setUnreadCount(prev => prev + 1);
     }
-    const fallback = 'localhost:8000';
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch('/api/backend-url');
-        if (res.ok) {
-          const { url } = await res.json();
-          if (url) return url.replace(/^https?:\/\//, '');
+  }, []);
+
+  /**
+   * Handle updated notification from WebSocket (e.g. DM summary upsert)
+   */
+  const handleNotificationUpdated = useCallback((updated) => {
+    setNotifications(prev => {
+      const idx = prev.findIndex(n => n.id === updated.id);
+      if (idx !== -1) {
+        const next = prev.filter(n => n.id !== updated.id);
+        if (!updated.is_read) {
+          return [updated, ...next];
         }
-      } catch (_) {
-        if (attempt === 1) return fallback;
+        return [...next, updated];
       }
-    }
-    return fallback;
+      if (!updated.is_read) {
+        return [updated, ...prev];
+      }
+      return prev;
+    });
   }, []);
 
-  /**
-   * Connect to WebSocket for real-time notifications
-   */
-  const connectWebSocket = useCallback(() => {
-    if (!isAuthenticatedRef.current || !userRef.current) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-    // Also skip if a connection is currently being established
-    if (wsRef.current?.readyState === WebSocket.CONNECTING) return;
-
-    const token = window.localStorage.getItem('beach_access_token');
-    if (!token) {
-      console.warn('No access token available for WebSocket connection');
-      return;
-    }
-
-    intentionalCloseRef.current = false;
-
-    (async () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = await getBackendHostForWebSocket();
-      const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
-
-      try {
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          setWsConnected(true);
-          reconnectAttemptsRef.current = 0;
-
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-          }
-
-          pingIntervalRef.current = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send('ping');
-            }
-          }, 30000);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            if (typeof event.data === 'string') {
-              if (event.data === 'ping') {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send('pong');
-                }
-                return;
-              }
-              if (event.data === 'pong') return;
-            }
-
-            const data = JSON.parse(event.data);
-
-            if (data && data.type === 'notification' && data.notification) {
-              const notification = data.notification;
-              setNotifications(prev => [notification, ...prev]);
-              if (!notification.is_read) {
-                setUnreadCount(prev => prev + 1);
-              }
-            }
-
-            // Handle updated notification (e.g. DM summary upsert)
-            if (data && data.type === 'notification_updated' && data.notification) {
-              const updated = data.notification;
-              setNotifications(prev => {
-                const idx = prev.findIndex(n => n.id === updated.id);
-                if (idx !== -1) {
-                  // Replace in place, then move to top
-                  const next = prev.filter(n => n.id !== updated.id);
-                  if (!updated.is_read) {
-                    return [updated, ...next];
-                  }
-                  // If marked read, just replace in place (don't re-sort to top)
-                  return [...next, updated];
-                }
-                // Not found in current list — treat as new
-                if (!updated.is_read) {
-                  return [updated, ...prev];
-                }
-                return prev;
-              });
-
-              // Recalculate unread count from server truth
-              fetchUnreadCount();
-            }
-
-            // Handle real-time DM delivery
-            if (data && data.type === 'direct_message' && data.message) {
-              // If a thread view is listening, forward the message
-              if (onDirectMessageRef.current) {
-                onDirectMessageRef.current(data.message);
-              }
-              // Refresh authoritative DM unread count from server
-              fetchDmUnreadCount();
-            }
-          } catch (error) {
-            if (event.data !== 'ping' && event.data !== 'pong') {
-              console.error('Error parsing WebSocket message:', error, 'Data:', event.data);
-            }
-          }
-        };
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          setWsConnected(false);
-        };
-
-        ws.onclose = () => {
-          setWsConnected(false);
-
-          if (pingIntervalRef.current) {
-            clearInterval(pingIntervalRef.current);
-            pingIntervalRef.current = null;
-          }
-
-          // Only reconnect on unexpected disconnects while still authenticated
-          if (!intentionalCloseRef.current && isAuthenticatedRef.current && userRef.current) {
-            const baseDelay = 3000;
-            const delay = Math.min(
-              baseDelay * Math.pow(2, reconnectAttemptsRef.current),
-              maxReconnectDelay
-            );
-            reconnectAttemptsRef.current += 1;
-
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connectWebSocket();
-            }, delay);
-          }
-        };
-      } catch (error) {
-        console.error('Error creating WebSocket connection:', error);
-        setWsConnected(false);
-      }
-    })();
-  }, [getBackendHostForWebSocket]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /**
-   * Disconnect WebSocket
-   */
-  const disconnectWebSocket = useCallback(() => {
-    intentionalCloseRef.current = true;
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    
-    // Clear ping interval
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-      pingIntervalRef.current = null;
-    }
-    
-    // Clear reconnect timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    // Reset reconnect attempts
-    reconnectAttemptsRef.current = 0;
-    
-    setWsConnected(false);
-  }, []);
+  const { wsConnected, connectWebSocket, disconnectWebSocket, onDirectMessageRef } =
+    useNotificationWebSocket({
+      isAuthenticated,
+      user,
+      onNotification: handleNotification,
+      onNotificationUpdated: handleNotificationUpdated,
+      fetchUnreadCountRef,
+      fetchDmUnreadCountRef,
+    });
 
   // Connect WebSocket when authenticated, disconnect when not
   useEffect(() => {
@@ -378,4 +212,3 @@ export const useNotifications = () => {
   }
   return context;
 };
-

@@ -31,7 +31,10 @@ export function usePickupSession(code) {
   const [userLeagues, setUserLeagues] = useState([]);
 
   const load = useCallback(async () => {
-    if (!code) return;
+    if (!code) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

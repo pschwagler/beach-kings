@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { RefreshCw, ExternalLink, Loader2, MessageCircle, Download } from 'lucide-react';
+import { RefreshCw, ExternalLink, Loader2, Download } from 'lucide-react';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { exportMatchesToCSV } from '../../services/api';
@@ -11,7 +10,6 @@ import { useToast } from '../../contexts/ToastContext';
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 
 export default function ControlPanel({ onLoadFromSheets }) {
-  const router = useRouter();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -31,10 +29,6 @@ export default function ControlPanel({ onLoadFromSheets }) {
     // Then proceed with loading from sheets
     await onLoadFromSheets();
     setIsLoading(false);
-  };
-
-  const handleWhatsAppClick = () => {
-    router.push('/whatsapp');
   };
 
   const handleExportCSV = async () => {
@@ -76,11 +70,6 @@ export default function ControlPanel({ onLoadFromSheets }) {
         <Button variant="secondary" onClick={handleExportCSV}>
           <Download size={18} />
           Export to CSV
-        </Button>
-
-        <Button variant="whatsapp" onClick={handleWhatsAppClick}>
-          <MessageCircle size={18} />
-          WhatsApp
         </Button>
       </div>
 

@@ -14,7 +14,9 @@ export const DrawerProvider = ({ children }) => {
     setDrawerProps(props);
     setIsOpen(true);
     // Add drawer-open class to body for iOS z-index fix
-    document.body.classList.add('drawer-open');
+    if (typeof document !== 'undefined') {
+      document.body.classList.add('drawer-open');
+    }
   }, []);
 
   const closeDrawer = useCallback(() => {
@@ -22,7 +24,9 @@ export const DrawerProvider = ({ children }) => {
     setDrawerType(null);
     setDrawerProps({});
     // Remove drawer-open class
-    document.body.classList.remove('drawer-open');
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('drawer-open');
+    }
   }, []);
 
   const value = {

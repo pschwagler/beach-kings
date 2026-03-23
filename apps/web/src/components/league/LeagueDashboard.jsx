@@ -121,9 +121,8 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
         location_id: league?.location_id || null,
         is_open: league?.is_open ?? true,
         gender: league?.gender || null,
-        whatsapp_group_id: league?.whatsapp_group_id || null
       });
-      
+
       updateLeagueInContext(updatedLeague);
       setIsEditingName(false);
     } catch (err) {

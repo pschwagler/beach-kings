@@ -6,7 +6,7 @@
  * Check if an item is an object with value/label
  */
 export function isPlayerOption(item) {
-  return item && typeof item === 'object' && 'value' in item && 'label' in item;
+  return !!(item && typeof item === 'object' && 'value' in item && 'label' in item);
 }
 
 /**

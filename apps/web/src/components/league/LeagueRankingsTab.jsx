@@ -26,7 +26,6 @@ export default function LeagueRankingsTab() {
     selectedPlayerId,
     selectedPlayerName,
     setSelectedPlayer,
-    message,
     refreshSeasons,
     refreshMembers,
   } = useLeague();
@@ -169,12 +168,6 @@ export default function LeagueRankingsTab() {
 
   return (
     <div className="league-section">
-      {message && (
-        <div className={`league-message ${message.type}`}>
-          {message.text}
-        </div>
-      )}
-      
       {/* Filters Row */}
       <div className="rankings-filters-row">
         {/* Player Search */}

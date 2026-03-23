@@ -21,8 +21,6 @@ export function Button({
     buttonClass = 'button btn-success';
   } else if (variant === 'danger') {
     buttonClass = 'button btn-danger';
-  } else if (variant === 'whatsapp') {
-    buttonClass = 'button btn-whatsapp';
   } else if (variant === 'tab') {
     buttonClass = `tab ${active ? 'active' : ''}`;
   } else if (variant === 'close') {
