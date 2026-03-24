@@ -22,7 +22,11 @@ const VIEW_STORAGE_KEY = 'court_directory_view';
  * Renders NavBar + map/list toggle + court list or map view + optional "Add Court" form.
  * Supports ?location=<id> query param to pre-filter courts by location hub.
  */
-export default function CourtDirectoryClient({ initialCourts }) {
+interface CourtDirectoryClientProps {
+  initialCourts: any;
+}
+
+export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
@@ -51,14 +55,14 @@ export default function CourtDirectoryClient({ initialCourts }) {
   // Fetch courts for map view (filtered by location when param is set)
   useEffect(() => {
     if (viewMode !== 'map' || mapCourts) return;
-    const params = { page: 1, page_size: 500 };
+    const params: { page: number; page_size: number; location_id?: string } = { page: 1, page_size: 500 };
     if (locationParam) params.location_id = locationParam;
     getPublicCourts(params)
       .then((data) => setMapCourts(data.items || []))
       .catch((err) => console.error('Error loading map courts:', err));
   }, [viewMode, mapCourts, locationParam]);
 
-  const handleViewChange = (mode) => {
+  const handleViewChange = (mode: string) => {
     setViewMode(mode);
     try { localStorage.setItem(VIEW_STORAGE_KEY, mode); } catch {}
   };

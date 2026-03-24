@@ -6,7 +6,7 @@ import PublicLocationPageClient from './PublicLocationPageClient';
 /**
  * Build SEO description from location data.
  */
-function buildDescription(location) {
+function buildDescription(location: any) {
   const parts = [`Beach volleyball in ${location.city}, ${location.state}`];
 
   if (location.stats?.total_leagues) {
@@ -28,7 +28,7 @@ function buildDescription(location) {
  * Generate SEO metadata for location landing pages via the public API.
  * Falls back to generic metadata if the location is not found.
  */
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   try {
@@ -59,7 +59,7 @@ export async function generateMetadata({ params }) {
  * Location landing page — server component with SSR metadata.
  * Fetches public location data and passes to client component.
  */
-export default async function LocationPage({ params }) {
+export default async function LocationPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   let location = null;

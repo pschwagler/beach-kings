@@ -18,7 +18,12 @@ import './CourtPhotos.css';
  * Displays a full grid of all photos (court photos + review photos)
  * and an upload form for adding new photos.
  */
-export default function CourtPhotosClient({ court, slug }) {
+interface CourtPhotosClientProps {
+  court: any;
+  slug: string;
+}
+
+export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

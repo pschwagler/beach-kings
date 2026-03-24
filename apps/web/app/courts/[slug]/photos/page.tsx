@@ -4,7 +4,7 @@ import CourtPhotosClient from './CourtPhotosClient';
 /**
  * Generate SEO metadata for the court photos page.
  */
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
     const court = await fetchBackend(`/api/public/courts/${slug}`);
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }) {
  * Court photos page — server component with SSR.
  * Fetches court data and passes to client for full photo grid + upload.
  */
-export default async function CourtPhotosPage({ params }) {
+export default async function CourtPhotosPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   let court = null;
   try {

@@ -7,7 +7,7 @@ const VALID_LEAGUE_TABS = ['rankings', 'matches', 'awards', 'details', 'signups'
 /**
  * Build a meta description from public league data.
  */
-function buildDescription(league) {
+function buildDescription(league: any) {
   const parts = [];
 
   if (league.location) {
@@ -37,7 +37,7 @@ function buildDescription(league) {
  * Generate SEO metadata for league pages via the public API.
  * Falls back to generic metadata if the league is not found.
  */
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
@@ -69,7 +69,7 @@ export async function generateMetadata({ params }) {
  * generateMetadata() provides SEO tags; the client component handles auth + UI.
  * Pre-fetches public league data to avoid a second request on the client.
  */
-export default async function LeaguePage({ params, searchParams }) {
+export default async function LeaguePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const tab = resolvedSearchParams?.tab;

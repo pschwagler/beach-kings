@@ -13,7 +13,13 @@ import PublicLeaguePage from '../../../src/components/league/PublicLeaguePage';
  * Authenticated users see the full LeagueDashboard.
  * Unauthenticated users see the PublicLeaguePage with Navbar and pre-fetched data.
  */
-export default function LeaguePageClient({ leagueId, publicLeagueData, initialTab }) {
+interface LeaguePageClientProps {
+  leagueId: number;
+  publicLeagueData: any;
+  initialTab: string;
+}
+
+export default function LeaguePageClient({ leagueId, publicLeagueData, initialTab }: LeaguePageClientProps) {
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
 

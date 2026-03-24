@@ -15,8 +15,12 @@ import GlobalModal from '../src/components/ui/GlobalModal';
 import GlobalDrawer from '../src/components/ui/GlobalDrawer';
 import Footer from '../src/components/Footer';
 
+interface ChildrenProps {
+  children: React.ReactNode;
+}
+
 // Layout component that handles /signup and /login routes
-function LayoutContent({ children }) {
+function LayoutContent({ children }: ChildrenProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthModalOpen, authModalMode, closeAuthModal, handleVerifySuccess, openAuthModal } = useAuthModal();
@@ -55,7 +59,7 @@ function LayoutContent({ children }) {
   );
 }
 
-export default function ClientProviders({ children }) {
+export default function ClientProviders({ children }: ChildrenProps) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const content = (

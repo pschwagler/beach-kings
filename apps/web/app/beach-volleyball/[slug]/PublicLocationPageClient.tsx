@@ -14,7 +14,11 @@ import PublicLocationPage from '../../../src/components/location/PublicLocationP
  * Renders NavBar (required on all pages) + PublicLocationPage.
  * Auth state determines whether to show login CTAs.
  */
-export default function PublicLocationPageClient({ location }) {
+interface PublicLocationPageClientProps {
+  location: any;
+}
+
+export default function PublicLocationPageClient({ location }: PublicLocationPageClientProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

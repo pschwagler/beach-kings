@@ -5,7 +5,12 @@
  * Next.js App Router requires this to be a 'use client' component
  * with `error` and `reset` props.
  */
-export default function RootError({ error, reset }) {
+interface RootErrorProps {
+  error: Error & { digest?: string };
+  reset: () => void;
+}
+
+export default function RootError({ error, reset }: RootErrorProps) {
   return (
     <div style={{
       display: 'flex',

@@ -7,7 +7,7 @@ import PublicPlayerPageClient from './PublicPlayerPageClient';
 /**
  * Build SEO description from player data.
  */
-function buildDescription(player) {
+function buildDescription(player: any) {
   const parts = [];
 
   if (player.location) {
@@ -35,7 +35,7 @@ function buildDescription(player) {
  * Generate SEO metadata for player profile pages via the public API.
  * Falls back to generic metadata if the player is not found.
  */
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string; slug: string }> }) {
   const { id } = await params;
 
   try {
@@ -73,7 +73,7 @@ export async function generateMetadata({ params }) {
  * Fetches public player data and passes to client component.
  * Redirects to canonical slug URL if slug doesn't match player name.
  */
-export default async function PlayerPage({ params }) {
+export default async function PlayerPage({ params }: { params: Promise<{ id: string; slug: string }> }) {
   const { id, slug } = await params;
   const playerId = parseInt(id);
 

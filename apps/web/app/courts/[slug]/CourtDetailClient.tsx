@@ -21,7 +21,12 @@ import '../../../src/components/court/CourtDetail.css';
  * Client wrapper for the court detail page.
  * Renders NavBar + full court profile with reviews, leaderboard, and photos.
  */
-export default function CourtDetailClient({ court, slug }) {
+interface CourtDetailClientProps {
+  court: any;
+  slug: string;
+}
+
+export default function CourtDetailClient({ court, slug }: CourtDetailClientProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

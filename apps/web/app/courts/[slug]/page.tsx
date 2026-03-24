@@ -4,7 +4,7 @@ import CourtDetailClient from './CourtDetailClient';
 /**
  * Generate dynamic SEO metadata for the court detail page.
  */
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
     const court = await fetchBackend(`/api/public/courts/${slug}`);
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }) {
  * Court detail page — server component with SSR.
  * Fetches court data by slug and passes to client component.
  */
-export default async function CourtDetailPage({ params }) {
+export default async function CourtDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   let court = null;
   try {

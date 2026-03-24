@@ -2,19 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../../src/contexts/AuthContext';
-import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
-import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague } from '../../../../src/services/api';
-import NavBar from '../../../../src/components/layout/NavBar';
-import PublicPlayerPage from '../../../../src/components/player/PublicPlayerPage';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { useAuthModal } from '../../src/contexts/AuthModalContext';
+import { useModal, MODAL_TYPES } from '../../src/contexts/ModalContext';
+import { getUserLeagues, createLeague } from '../../src/services/api';
+import NavBar from '../../src/components/layout/NavBar';
+import LocationDirectory from '../../src/components/location/LocationDirectory';
 
 /**
- * Client wrapper for the player profile page.
- * Renders NavBar (required on all pages) + PublicPlayerPage.
- * Auth state determines whether to show login CTAs or not.
+ * Client wrapper for the location directory page.
+ * Renders NavBar (required on all pages) + LocationDirectory.
+ * Auth state determines whether to show login CTAs.
  */
-export default function PublicPlayerPageClient({ player, canonicalSlug, currentSlug }) {
+interface LocationDirectoryClientProps {
+  regions: any[];
+}
+
+export default function LocationDirectoryClient({ regions }: LocationDirectoryClientProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -59,8 +63,8 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
         onSignIn={() => openAuthModal('sign-in')}
         onSignUp={() => openAuthModal('sign-up')}
       />
-      <PublicPlayerPage
-        player={player}
+      <LocationDirectory
+        regions={regions}
         isAuthenticated={isAuthenticated}
       />
     </>

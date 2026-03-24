@@ -42,7 +42,7 @@ const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 export default function SessionByCodePage() {
   const router = useRouter();
   const params = useParams();
-  const code = params?.code;
+  const code = params?.code as string | undefined;
   const { openModal, closeModal } = useModal();
   const { isAuthenticated, isInitializing, user, currentUserPlayer, logout } = useAuth();
   const { showToast } = useToast();
@@ -379,7 +379,7 @@ export default function SessionByCodePage() {
         />
         <div className="league-dashboard-container">
           <div className="league-dashboard">
-            <HomeMenuBar />
+            <HomeMenuBar activeTab="" />
             <main className="home-content">
               <div className="session-page session-page-loading">
                 <p>Loading session…</p>
@@ -406,7 +406,7 @@ export default function SessionByCodePage() {
         />
         <div className="league-dashboard-container">
           <div className="league-dashboard">
-            <HomeMenuBar />
+            <HomeMenuBar activeTab="" />
             <main className="home-content">
               <div className="session-page session-page-error">
                 <Link href="/home?tab=my-games" className="session-page-back">
@@ -435,7 +435,7 @@ export default function SessionByCodePage() {
       />
       <div className="league-dashboard-container">
         <div className="league-dashboard">
-          <HomeMenuBar />
+          <HomeMenuBar activeTab="" />
           <main className="home-content">
             <div className="session-page">
               <Link href="/home?tab=my-games" className="session-page-back" onClick={handleBackClick}>
