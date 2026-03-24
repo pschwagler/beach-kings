@@ -1,0 +1,513 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
+import { useAuth } from '../../contexts/AuthContext';
+import PhoneInput from '../ui/PhoneInput';
+import VerificationCodeInput from './VerificationCodeInput';
+
+const MODE_TITLES = {
+  'sign-in': 'Log In',
+  'sign-up': 'Create Account',
+  'sms-login': 'SMS Login',
+  verify: 'Verify Phone Number',
+  'reset-password': 'Send Code',
+  'reset-password-code': 'Continue',
+  'reset-password-new': 'Reset Password',
+};
+
+const defaultFormState = {
+  phoneNumber: '',
+  password: '',
+  fullName: '',
+  email: '',
+  code: '',
+};
+
+const getErrorMessage = (error: any) => error.response?.data?.detail || error.message || 'Something went wrong';
+
+interface AuthModalProps {
+  isOpen: boolean;
+  mode?: string;
+  onClose?: () => void;
+  onVerifySuccess?: (profileComplete: boolean) => void;
+}
+
+export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifySuccess }: AuthModalProps) {
+  const {
+    loginWithGoogle,
+    loginWithPassword,
+    loginWithSms,
+    signup,
+    sendVerificationCode,
+    verifyPhone,
+    resetPassword,
+    verifyPasswordReset,
+    confirmPasswordReset,
+  } = useAuth();
+  const [activeMode, setActiveMode] = useState(mode);
+  const [formData, setFormData] = useState(defaultFormState);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPhoneValid, setIsPhoneValid] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasNumber: false,
+  });
+  const [resetToken, setResetToken] = useState(null);
+  const [isSignupFlow, setIsSignupFlow] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveMode(mode);
+      setErrorMessage('');
+      setStatusMessage('');
+    }
+  }, [isOpen, mode]);
+
+  // Add modal-open class to body when modal is open (for iOS z-index fix)
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen]);
+
+  const handlePhoneChange = useCallback((value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumber: value,
+    }));
+  }, []);
+
+  const handlePhoneValidation = useCallback(({ isValid }: { isValid: boolean }) => {
+    setIsPhoneValid(isValid);
+  }, []);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const handleClose = () => {
+    setActiveMode('sign-in');
+    setFormData(defaultFormState);
+    setErrorMessage('');
+    setStatusMessage('');
+    setIsPhoneValid(false);
+    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setResetToken(null);
+    setIsSignupFlow(false);
+    onClose?.();
+  };
+
+  const validatePassword = (password) => {
+    return {
+      minLength: password.length >= 8,
+      hasNumber: /\d/.test(password),
+    };
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    // Validate password in real-time if it's the password field
+    if (name === 'password' && (activeMode === 'sign-up' || activeMode === 'reset-password-new')) {
+      setPasswordRequirements(validatePassword(value));
+    }
+  };
+
+  const handleSwitchMode = (newMode: string) => {
+    setActiveMode(newMode);
+    setErrorMessage('');
+    setStatusMessage('');
+    setFormData(defaultFormState);
+    setIsPhoneValid(false);
+    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setResetToken(null);
+  };
+
+  const handleSendVerification = async () => {
+    if (!isPhoneValid || !formData.phoneNumber) {
+      setErrorMessage('Please enter a valid phone number');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+    setStatusMessage('');
+    try {
+      await sendVerificationCode(formData.phoneNumber);
+      setStatusMessage('Verification code sent! Please check your SMS messages.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setStatusMessage('');
+
+    // Validate phone number if required (not needed for reset-password-new as it's already verified)
+    if ((activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'sms-login' || activeMode === 'verify' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && !isPhoneValid) {
+      setErrorMessage('Please enter a valid phone number');
+      return;
+    }
+
+    // Validate password strength and full name for sign-up
+    if (activeMode === 'sign-up') {
+      if (!formData.fullName || !formData.fullName.trim()) {
+        setErrorMessage('Full name is required');
+        return;
+      }
+      const passwordValid = validatePassword(formData.password);
+      if (!passwordValid.minLength || !passwordValid.hasNumber) {
+        setErrorMessage('Password must be at least 8 characters long and include a number');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      if (activeMode === 'sign-in') {
+        await loginWithPassword(formData.phoneNumber, formData.password);
+        handleClose();
+        return;
+      }
+
+      if (activeMode === 'sign-up') {
+        const result = await signup({
+          phoneNumber: formData.phoneNumber,
+          password: formData.password,
+          fullName: formData.fullName.trim(),
+          email: formData.email,
+        });
+        setStatusMessage('Account created! Enter the verification code we just sent you.');
+        setFormData((prev) => ({
+          ...prev,
+          phoneNumber: result.phone_number || prev.phoneNumber,
+        }));
+        setIsSignupFlow(true); // Mark that we're in signup flow
+        setActiveMode('verify');
+        return;
+      }
+
+      if (activeMode === 'sms-login') {
+        await loginWithSms(formData.phoneNumber, formData.code);
+        handleClose();
+        return;
+      }
+
+      if (activeMode === 'verify') {
+        const result = await verifyPhone(formData.phoneNumber, formData.code);
+        // If this was a signup flow, close modal first, then notify parent to show player profile modal
+        if (isSignupFlow && onVerifySuccess) {
+          handleClose();
+          // Wait a bit for auth state to update and modal to close
+          setTimeout(() => {
+            // result is { profile_complete: boolean }
+            // Always call onVerifySuccess for signups - the handler will decide whether to open modal
+            onVerifySuccess(result?.profile_complete);
+          }, 300);
+        } else {
+          // Not signup flow, close modal normally
+          handleClose();
+        }
+        return;
+      }
+
+      if (activeMode === 'reset-password') {
+        await resetPassword(formData.phoneNumber);
+        setStatusMessage('Verification code sent! Please check your SMS messages.');
+        setActiveMode('reset-password-code');
+        return;
+      }
+
+      if (activeMode === 'reset-password-code') {
+        // Verify code and get reset token
+        if (!formData.code || formData.code.length !== 4) {
+          setErrorMessage('Please enter a valid 4-digit verification code');
+          return;
+        }
+        const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
+        setResetToken(result.reset_token);
+        setActiveMode('reset-password-new');
+        setErrorMessage('');
+        setStatusMessage('');
+        return;
+      }
+
+      if (activeMode === 'reset-password-new') {
+        // Validate password strength
+        const passwordValid = validatePassword(formData.password);
+        if (!passwordValid.minLength || !passwordValid.hasNumber) {
+          setErrorMessage('Password must be at least 8 characters long and include a number');
+          return;
+        }
+        if (!resetToken) {
+          setErrorMessage('Reset token is missing. Please start over.');
+          return;
+        }
+        // This will automatically log the user in
+        await confirmPasswordReset(resetToken, formData.password);
+        handleClose();
+        return;
+      }
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderDescription = () => {
+    switch (activeMode) {
+      case 'sign-up':
+        return 'Create an account to continue.';
+      case 'sms-login':
+        return 'Enter your phone number and the code we send via SMS.';
+      case 'verify':
+        return 'Enter the verification code we sent to your phone to complete signup.';
+      case 'reset-password':
+        return 'Enter your phone number to receive a verification code for password reset.';
+      case 'reset-password-code':
+        return 'Enter the verification code we sent to your phone.';
+      case 'reset-password-new':
+        return 'Enter your new password.';
+      default:
+        return 'Log in to access leagues, record games, and more.';
+    }
+  };
+
+  return (
+    <div className="auth-modal-overlay">
+      <div className="auth-modal">
+        <div className="auth-modal__header">
+          <div>
+            {/* <p className="auth-modal__eyebrow">Beach Volleyball Accounts</p> */}
+            <h2>{MODE_TITLES[activeMode]}</h2>
+          </div>
+          <button className="auth-modal__close" onClick={handleClose} aria-label="Close authentication modal">
+            <X size={20} />
+          </button>
+        </div>
+
+        <p className="auth-modal__description">{renderDescription()}</p>
+
+        {(activeMode === 'sign-in' || activeMode === 'sign-up') && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="auth-modal__google-wrapper">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  setIsSubmitting(true);
+                  setErrorMessage('');
+                  try {
+                    const result = await loginWithGoogle(credentialResponse);
+                    if (!result.profile_complete && onVerifySuccess) {
+                      handleClose();
+                      setTimeout(() => onVerifySuccess(false), 300);
+                    } else {
+                      handleClose();
+                    }
+                  } catch (error) {
+                    setErrorMessage(getErrorMessage(error));
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                onError={() => {
+                  setErrorMessage('Google sign-in failed. Please try again.');
+                }}
+                width="100%"
+                text={activeMode === 'sign-up' ? 'signup_with' : 'signin_with'}
+                shape="rectangular"
+                size="large"
+              />
+            </div>
+            <div className="auth-modal__divider">
+              <span>or</span>
+            </div>
+          </>
+        )}
+
+        {(statusMessage || errorMessage) && (
+          <div className={`auth-modal__alert ${errorMessage ? 'error' : 'success'}`}>
+            {errorMessage ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+            <span>{errorMessage || statusMessage}</span>
+          </div>
+        )}
+
+        <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
+          {activeMode === 'sign-up' && (
+            <label className="auth-modal__label">
+              <span>Full Name <span className="required-asterisk">*</span></span>
+              <input
+                type="text"
+                name="fullName"
+                className="auth-modal__input"
+                placeholder="John Doe"
+                value={formData.fullName}
+                onChange={handleInputChange}
+              />
+            </label>
+          )}
+
+          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
+            <label className="auth-modal__label">
+              <span>Phone Number <span className="required-asterisk">*</span></span>
+              <PhoneInput
+                value={formData.phoneNumber}
+                onChange={handlePhoneChange}
+                onValidationChange={handlePhoneValidation}
+                required
+                placeholder="(555) 123-4567"
+              />
+            </label>
+          )}
+
+          {activeMode === 'reset-password-new' && (
+            <label className="auth-modal__label">
+              Phone Number
+              <input
+                type="tel"
+                className="auth-modal__input disabled-button"
+                value={formData.phoneNumber}
+                disabled
+              />
+            </label>
+          )}
+
+          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
+            <label className="auth-modal__label">
+              <span>Password <span className="required-asterisk">*</span></span>
+              <input
+                type="password"
+                name="password"
+                className="auth-modal__input"
+                placeholder=""
+                value={formData.password}
+                onChange={handleInputChange}
+              />
+              {(activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
+                <div className="auth-modal__password-requirements">
+                  <div className={`auth-modal__requirement ${passwordRequirements.minLength ? 'valid' : ''}`}>
+                    {passwordRequirements.minLength ? (
+                      <Check size={14} className="auth-modal__requirement-icon" />
+                    ) : (
+                      <XIcon size={14} className="auth-modal__requirement-icon" />
+                    )}
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`auth-modal__requirement ${passwordRequirements.hasNumber ? 'valid' : ''}`}>
+                    {passwordRequirements.hasNumber ? (
+                      <Check size={14} className="auth-modal__requirement-icon" />
+                    ) : (
+                      <XIcon size={14} className="auth-modal__requirement-icon" />
+                    )}
+                    <span>Includes a number</span>
+                  </div>
+                </div>
+              )}
+            </label>
+          )}
+
+          {activeMode === 'reset-password-code' && (
+            <VerificationCodeInput
+              value={formData.code}
+              onChange={handleInputChange}
+            />
+          )}
+
+          {activeMode === 'sign-up' && (
+            <label className="auth-modal__label">
+              Email
+              <input
+                type="email"
+                name="email"
+                className="auth-modal__input"
+                placeholder="Optional"
+                value={formData.email}
+                onChange={handleInputChange}
+              />
+            </label>
+          )}
+
+          {(activeMode === 'sms-login' || activeMode === 'verify') && (
+            <VerificationCodeInput
+              value={formData.code}
+              onChange={handleInputChange}
+              onSendCode={handleSendVerification}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          <button type="submit" className="auth-modal__submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Please wait...' : MODE_TITLES[activeMode]}
+          </button>
+
+          {activeMode === 'sign-in' && (
+            <p className="auth-modal__legal-text">
+              By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+            </p>
+          )}
+
+          {activeMode === 'sign-up' && (
+            <p className="auth-modal__legal-text">
+              By providing your phone number, you agree to receive a one-time verification code from Beach League. Message and data rates may apply. Message frequency varies. Reply HELP for help or STOP to cancel. By continuing, you agree to our <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and have read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+            </p>
+          )}
+        </form>
+
+          {activeMode === 'sign-in' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Don&apos;t have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-up')}
+              >
+                Sign up
+              </button>
+              <span className="auth-modal__footer-text footer-bullet">• </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('reset-password')}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
+          {activeMode === 'sign-up' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Already have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-in')}
+              >
+                Log in
+              </button>
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
