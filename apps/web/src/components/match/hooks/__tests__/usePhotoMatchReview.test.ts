@@ -306,7 +306,7 @@ describe('usePhotoMatchReview', () => {
         await result.current.handleClose();
       });
 
-      expect(cancelPhotoSession).toHaveBeenCalledWith(1, 10);
+      expect(cancelPhotoSession).toHaveBeenCalledWith(1, '10');
       expect(onClose).toHaveBeenCalled();
     });
 

@@ -27,7 +27,7 @@ export function useLeagueCore(leagueId: number, isAuthInitializing: boolean, cur
   const [error, setError] = useState<string | null>(null);
 
   // Helper function to check if a season is active based on dates
-  const isSeasonActive = useCallback((season) => {
+  const isSeasonActive = useCallback((season: any) => {
     if (!season || !season.start_date || !season.end_date) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day
@@ -42,7 +42,7 @@ export function useLeagueCore(leagueId: number, isAuthInitializing: boolean, cur
   }, []);
 
   // Helper function to check if a season is past
-  const isSeasonPast = useCallback((season) => {
+  const isSeasonPast = useCallback((season: any) => {
     if (!season || !season.end_date) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -151,11 +151,11 @@ export function useLeagueCore(leagueId: number, isAuthInitializing: boolean, cur
     }
   }, [leagueId]);
 
-  const updateLeague = useCallback((updatedLeague) => {
+  const updateLeague = useCallback((updatedLeague: any) => {
     setLeague(updatedLeague);
   }, []);
 
-  const updateMember = useCallback((memberId, updates) => {
+  const updateMember = useCallback((memberId: any, updates: any) => {
     setMembers(prev => prev.map(m =>
       m.id === memberId ? { ...m, ...updates } : m
     ));

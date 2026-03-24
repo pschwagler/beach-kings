@@ -36,8 +36,8 @@ export default function LeagueSignUpsTab() {
     try {
       const locations = await getLocations();
       // Flatten courts from all locations
-      const allCourts = [];
-      locations.forEach(loc => {
+      const allCourts: Record<string, unknown>[] = [];
+      locations.forEach((loc: unknown) => {
         // Note: This assumes locations have courts. You may need to adjust based on your API
         // For now, we'll just store locations as courts if needed
       });
@@ -288,13 +288,13 @@ export default function LeagueSignUpsTab() {
             openModal(MODAL_TYPES.SIGNUP, {
               signup,
               seasonId: seasonId,
-              onSubmit: (data) => handleUpdateSignup(signup.id, data)
+              onSubmit: (data: Record<string, unknown>) => handleUpdateSignup(signup.id, data)
             });
           }}
           onDelete={handleDeleteSignup}
         />
       </div>
-      
+
       {/* Past Signups Section */}
       {pastSignups.length > 0 && (
         <div className="league-section">
@@ -322,7 +322,7 @@ export default function LeagueSignUpsTab() {
               openModal(MODAL_TYPES.SIGNUP, {
                 signup,
                 seasonId: seasonId,
-                onSubmit: (data) => handleUpdateSignup(signup.id, data)
+                onSubmit: (data: Record<string, unknown>) => handleUpdateSignup(signup.id, data)
               });
             }}
             onDelete={handleDeleteSignup}
@@ -362,7 +362,7 @@ export default function LeagueSignUpsTab() {
             onEdit={(schedule) => {
               openModal(MODAL_TYPES.EDIT_SCHEDULE, {
                 schedule,
-                onSubmit: (data) => handleUpdateSchedule(schedule.id, data)
+                onSubmit: (data: Record<string, unknown>) => handleUpdateSchedule(schedule.id, data)
               });
             }}
             onDelete={handleDeleteSchedule}

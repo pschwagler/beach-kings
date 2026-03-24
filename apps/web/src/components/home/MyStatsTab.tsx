@@ -10,6 +10,7 @@ import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
 
 /** Shape of one match history record returned by the API. */
 interface MatchRecord {
+  [key: string]: string | number | boolean | null | undefined;
   'Session Status'?: string | null;
   'ELO After'?: number | null;
   'ELO Before'?: number | null;
@@ -395,7 +396,7 @@ function buildPartnerOptions(allCompleted: MatchRecord[]): string[] {
   const counts: Record<string, number> = {};
   for (const m of allCompleted) {
     const name = m[F.PARTNER];
-    if (name) counts[name] = (counts[name] || 0) + 1;
+    if (typeof name === 'string') counts[name] = (counts[name] || 0) + 1;
   }
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -453,7 +454,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
 
         if (statsRes.status === 'fulfilled') setGlobalStats(statsRes.value);
         if (matchRes.status === 'fulfilled') {
-          const sorted = (matchRes.value || []).sort((a, b) => {
+          const sorted = ((matchRes.value || []) as MatchRecord[]).sort((a, b) => {
             const da = a[F.DATE] ? new Date(a[F.DATE] as string).getTime() : 0;
             const db = b[F.DATE] ? new Date(b[F.DATE] as string).getTime() : 0;
             return db - da;
@@ -497,7 +498,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
   );
 
   // Overview stats
-  const currentElo = globalStats?.current_elo ?? (matchHistory.length > 0 ? matchHistory[0]?.[F.ELO_AFTER] : null);
+  const currentElo = (globalStats?.current_elo ?? (matchHistory.length > 0 ? matchHistory[0]?.[F.ELO_AFTER] : null)) as number | null | undefined;
   const overview = useMemo(
     () => computeOverview(filtered, currentElo),
     [filtered, currentElo]
@@ -527,7 +528,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
       const existing = byDate.get(m[F.DATE]);
       if (existing) {
         existing.rating = m[F.ELO_AFTER]; // last match wins (end-of-day)
-        existing.maxRating = Math.max(existing.maxRating, m[F.ELO_AFTER]);
+        existing.maxRating = Math.max(existing.maxRating, m[F.ELO_AFTER] as number);
         existing.games += 1;
       } else {
         byDate.set(m[F.DATE], {
@@ -568,7 +569,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
   // Partnership table
   const partnerships = useMemo(
     () => groupByPlayer(filtered, m => [
-      { id: m[F.PARTNER_ID], name: m[F.PARTNER] },
+      { id: m[F.PARTNER_ID] as string | number, name: m[F.PARTNER] as string },
     ]),
     [filtered]
   );
@@ -576,8 +577,8 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
   // Opponents table
   const opponents = useMemo(
     () => groupByPlayer(filtered, m => [
-      { id: m[F.OPPONENT_1_ID], name: m[F.OPPONENT_1] },
-      { id: m[F.OPPONENT_2_ID], name: m[F.OPPONENT_2] },
+      { id: m[F.OPPONENT_1_ID] as string | number, name: m[F.OPPONENT_1] as string },
+      { id: m[F.OPPONENT_2_ID] as string | number, name: m[F.OPPONENT_2] as string },
     ]),
     [filtered]
   );

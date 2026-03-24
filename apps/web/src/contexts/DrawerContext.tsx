@@ -18,7 +18,7 @@ export const DrawerProvider = ({ children }: { children: ReactNode }) => {
   const [drawerType, setDrawerType] = useState<string | null>(null);
   const [drawerProps, setDrawerProps] = useState<Record<string, unknown>>({});
 
-  const openDrawer = useCallback((type, props = {}) => {
+  const openDrawer = useCallback((type: string, props: Record<string, unknown> = {}) => {
     setDrawerType(type);
     setDrawerProps(props);
     setIsOpen(true);

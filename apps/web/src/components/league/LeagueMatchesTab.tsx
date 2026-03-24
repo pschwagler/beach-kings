@@ -89,12 +89,12 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Build player objects and name mappings from members
   const { allPlayers, allPlayerNames, playerNameToId, playerIdToName } = useMemo(() => {
-    const idToName = new Map();
-    const nameToId = new Map();
-    const players = [];
+    const idToName = new Map<number, string>();
+    const nameToId = new Map<string, number>();
+    const players: Array<{ id: number; name: string }> = [];
     if (members && members.length > 0) {
       members.forEach((m) => {
-        const name = m.player_name || `Player ${m.player_id}`;
+        const name = (m.player_name as string | undefined) || `Player ${m.player_id}`;
         idToName.set(m.player_id, name);
         nameToId.set(name, m.player_id);
         players.push({ id: m.player_id, name });
@@ -161,7 +161,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       league,
       defaultSeasonId: selectedSeasonId,
       onSeasonChange: setSelectedSeasonId,
-      onSubmit: async (matchData) => {
+      onSubmit: async (matchData: Record<string, unknown>) => {
         const payload = { ...matchData, league_id: leagueId };
         await handleCreateMatch(payload);
       },

@@ -29,6 +29,16 @@ export const JOB_STATUS = {
  * @param {function()} [opts.onClose]
  * @param {function(number[])} [opts.onSuccess]
  */
+interface UsePhotoMatchReviewParams {
+  isOpen: boolean;
+  initialJobId: number | null;
+  leagueId: number;
+  sessionId: number | null;
+  seasonId: number | null;
+  onClose?: () => void;
+  onSuccess?: (matchIds: number[], seasonId: number) => void;
+}
+
 export function usePhotoMatchReview({
   isOpen,
   initialJobId,
@@ -37,7 +47,7 @@ export function usePhotoMatchReview({
   seasonId,
   onClose,
   onSuccess,
-}) {
+}: UsePhotoMatchReviewParams) {
   const [jobId, setJobId] = useState<number | null>(initialJobId);
   const [status, setStatus] = useState<string>(JOB_STATUS.PENDING);
   // result holds the AI photo extraction result — shape is opaque to the frontend
@@ -106,7 +116,7 @@ export function usePhotoMatchReview({
 
     if (sessionId && status !== JOB_STATUS.CONFIRMED) {
       try {
-        await cancelPhotoSession(leagueId, sessionId);
+        await cancelPhotoSession(leagueId, String(sessionId));
       } catch (err) {
         console.error('[PhotoMatchReviewModal] Error cancelling session:', err);
       }
@@ -136,7 +146,7 @@ export function usePhotoMatchReview({
     ]);
 
     try {
-      const response = await editPhotoResults(leagueId, sessionId, editPrompt.trim());
+      const response = await editPhotoResults(leagueId, String(sessionId), editPrompt.trim());
       setJobId(response.job_id);
       setStatus(JOB_STATUS.PENDING);
       setResult(null);
@@ -158,7 +168,7 @@ export function usePhotoMatchReview({
    * Resolve an unrecognized player name to a known player.
    * Updates result.matches in state so the table reflects the resolution immediately.
    */
-  const handleResolvePlayer = useCallback((rawName, playerId, playerName) => {
+  const handleResolvePlayer = useCallback((rawName: any, playerId: any, playerName: any) => {
     // Upsert into overrides
     setPlayerOverrides((prev) => {
       const filtered = prev.filter((o) => o.raw_name !== rawName);
@@ -166,10 +176,10 @@ export function usePhotoMatchReview({
     });
 
     // Update result.matches in state so table shows resolved names immediately
-    setResult((prev) => {
+    setResult((prev: any) => {
       if (!prev?.matches) return prev;
       const playerFields = ['team1_player1', 'team1_player2', 'team2_player1', 'team2_player2'];
-      const updatedMatches = prev.matches.map((match) => {
+      const updatedMatches = prev.matches.map((match: any) => {
         const newMatch = { ...match };
         for (const field of playerFields) {
           // Check if this field is unmatched and has the raw name
@@ -191,7 +201,7 @@ export function usePhotoMatchReview({
       });
 
       // If all players are now resolved, clear needs_clarification status
-      const allResolved = updatedMatches.every((match) =>
+      const allResolved = updatedMatches.every((match: any) =>
         playerFields.every((field) => {
           if (match[`${field}_id`]) return true;
           const player = match[field];
@@ -246,14 +256,14 @@ export function usePhotoMatchReview({
     }
 
     // Check for unmatched players (accounting for overrides already applied to state)
-    const isPlayerMatched = (player, playerId) => {
+    const isPlayerMatched = (player: any, playerId: any) => {
       if (typeof player === 'object' && player?.id) return true;
       if (playerId) return true;
       return false;
     };
 
     const hasUnmatched = result.matches.some(
-      (match) =>
+      (match: any) =>
         !isPlayerMatched(match.team1_player1, match.team1_player1_id) ||
         !isPlayerMatched(match.team1_player2, match.team1_player2_id) ||
         !isPlayerMatched(match.team2_player1, match.team2_player1_id) ||
@@ -274,7 +284,7 @@ export function usePhotoMatchReview({
       const overridesPayload = playerOverrides.length > 0 ? playerOverrides : null;
       const response = await confirmPhotoMatches(
         leagueId,
-        sessionId,
+        String(sessionId),
         selectedSeasonId,
         matchDate,
         overridesPayload

@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, Award, TrendingUp, Target, Flame, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getLeagueAwards } from '../../services/api';
-import { AWARD_CONFIG, formatAwardValue } from '../../utils/awardConstants';
+import { AWARD_CONFIG, formatAwardValue, type AwardConfig } from '../../utils/awardConstants';
 import { slugify } from '../../utils/slugify';
 import './LeagueAwardsTab.css';
 
 /** Map iconName strings from AWARD_CONFIG to actual Lucide components. */
-const ICONS = { Trophy, Award, TrendingUp, Target, Flame, Zap };
+const ICONS: Record<string, React.FC<{ size?: number }>> = { Trophy, Award, TrendingUp, Target, Flame, Zap };
 
 function getIcon(config: { iconName?: string } | undefined) {
-  return ICONS[config?.iconName] || Trophy;
+  return (config?.iconName ? ICONS[config.iconName] : null) || Trophy;
 }
 
 /**
@@ -154,7 +154,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
             {placements.length > 0 && (
               <div className="awards-tab__podium">
                 {placements.map((award) => {
-                  const config = AWARD_CONFIG[award.award_key] || {};
+                  const config = (AWARD_CONFIG[award.award_key] || {}) as AwardConfig;
                   const Icon = getIcon(config);
                   return (
                     <button
@@ -178,7 +178,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
             {statAwards.length > 0 && (
               <div className="awards-tab__stats">
                 {statAwards.map((award) => {
-                  const config = AWARD_CONFIG[award.award_key] || {};
+                  const config = (AWARD_CONFIG[award.award_key] || {}) as AwardConfig;
                   const Icon = getIcon(config);
                   return (
                     <button

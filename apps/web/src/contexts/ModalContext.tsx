@@ -18,7 +18,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [modalType, setModalType] = useState<string | null>(null);
   const [modalProps, setModalProps] = useState<Record<string, unknown>>({});
 
-  const openModal = useCallback((type, props = {}) => {
+  const openModal = useCallback((type: string, props: Record<string, unknown> = {}) => {
     setModalType(type);
     setModalProps(props);
     setIsOpen(true);

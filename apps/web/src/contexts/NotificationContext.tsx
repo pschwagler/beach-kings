@@ -114,7 +114,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Mark a single notification as read
    */
-  const markAsRead = useCallback(async (notificationId) => {
+  const markAsRead = useCallback(async (notificationId: number) => {
     if (!isAuthenticated) return;
 
     try {
@@ -170,7 +170,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Handle new notification from WebSocket
    */
-  const handleNotification = useCallback((notification) => {
+  const handleNotification = useCallback((notification: any) => {
     setNotifications(prev => [notification, ...prev]);
     if (!notification.is_read) {
       setUnreadCount(prev => prev + 1);
@@ -180,7 +180,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Handle updated notification from WebSocket (e.g. DM summary upsert)
    */
-  const handleNotificationUpdated = useCallback((updated) => {
+  const handleNotificationUpdated = useCallback((updated: any) => {
     setNotifications(prev => {
       const idx = prev.findIndex(n => n.id === updated.id);
       if (idx !== -1) {

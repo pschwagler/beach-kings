@@ -22,11 +22,11 @@ import { useMatchPayload } from './hooks/useMatchPayload';
 import SeasonDropdown from './components/SeasonDropdown';
 
 // Helper function to map edit match to form data
-const mapEditMatchToFormData = (editMatch, nameToIdMap) => ({
-  team1Player1: nameToPlayerOption(editMatch['Team 1 Player 1'] || '', nameToIdMap),
-  team1Player2: nameToPlayerOption(editMatch['Team 1 Player 2'] || '', nameToIdMap),
-  team2Player1: nameToPlayerOption(editMatch['Team 2 Player 1'] || '', nameToIdMap),
-  team2Player2: nameToPlayerOption(editMatch['Team 2 Player 2'] || '', nameToIdMap),
+const mapEditMatchToFormData = (editMatch: Record<string, unknown>, nameToIdMap: Map<any, any>) => ({
+  team1Player1: nameToPlayerOption((editMatch['Team 1 Player 1'] || '') as string, nameToIdMap),
+  team1Player2: nameToPlayerOption((editMatch['Team 1 Player 2'] || '') as string, nameToIdMap),
+  team2Player1: nameToPlayerOption((editMatch['Team 2 Player 1'] || '') as string, nameToIdMap),
+  team2Player2: nameToPlayerOption((editMatch['Team 2 Player 2'] || '') as string, nameToIdMap),
   team1Score: formatScore(editMatch['Team 1 Score']),
   team2Score: formatScore(editMatch['Team 2 Score'])
 });
@@ -146,7 +146,7 @@ export default function AddMatchModal({
   /**
    * Search registered players by name for duplicate checking in PlayerDropdown.
    */
-  const handleSearchPlayers = useCallback(async (query) => {
+  const handleSearchPlayers = useCallback(async (query: string) => {
     return getPublicPlayers({ search: query, page_size: 5 });
   }, []);
 
@@ -165,7 +165,7 @@ export default function AddMatchModal({
    * @param {Object} [extras] - Optional gender/level
    * @returns {Object} Player option for immediate selection
    */
-  const handleCreatePlaceholder = useCallback(async (name, extras: any = {}) => {
+  const handleCreatePlaceholder = useCallback(async (name: string, extras: { gender?: string; level?: string } = {}) => {
     const leagueId = (matchType === 'league' && selectedLeagueId) ? selectedLeagueId : undefined;
     const response = await createPlaceholderPlayer({
       name,
@@ -243,7 +243,7 @@ export default function AddMatchModal({
     formData
   });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
@@ -275,7 +275,7 @@ export default function AddMatchModal({
 
       // Collect placeholder players from this match for invite link toasts
       const selectedPlayers = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
-      const placeholdersInMatch = selectedPlayers.filter(p => p && p.isPlaceholder && p.inviteUrl);
+      const placeholdersInMatch = selectedPlayers.filter(p => p && typeof p === 'object' && (p as any).isPlaceholder && (p as any).inviteUrl);
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
@@ -288,7 +288,7 @@ export default function AddMatchModal({
       // native share may fire if activation persists, otherwise falls back to
       // ShareFallbackModal via the still-mounted ModalContext)
       if (placeholdersInMatch.length > 0) {
-        const ph = placeholdersInMatch[0];
+        const ph = placeholdersInMatch[0] as any;
         shareInvite({ name: ph.label, url: ph.inviteUrl });
       }
     } catch (error) {
@@ -323,7 +323,7 @@ export default function AddMatchModal({
   if (!isOpen) return null;
 
   // Get list of selected players for each dropdown to exclude
-  const getExcludedPlayers = (currentPlayer) => {
+  const getExcludedPlayers = (currentPlayer: unknown) => {
     const allSelected = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
     return allSelected.filter(player => {
       if (!player) return false;
@@ -642,7 +642,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
     }
   }, [scoreRef]);
   
-  const handleDigitChange = (position, inputValue) => {
+  const handleDigitChange = (position: number, inputValue: string) => {
     // Remove non-numeric characters and get the last character (for paste support)
     const numericValue = inputValue.replace(/\D/g, '');
     const lastDigit = numericValue.slice(-1) || '0';
@@ -670,7 +670,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
     }
   };
   
-  const handleKeyDown = (e, position) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, position: number) => {
     const keyCode = e.keyCode || e.which;
     const key = e.key;
     
@@ -678,13 +678,13 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
     if (keyCode === 37) { // Left arrow
       e.preventDefault();
       if (position === 2) {
-        e.target.previousSibling?.focus();
+        (e.currentTarget.previousSibling as HTMLElement)?.focus();
       }
       return;
     } else if (keyCode === 39) { // Right arrow
       e.preventDefault();
       if (position === 1) {
-        e.target.nextSibling?.focus();
+        (e.currentTarget.nextSibling as HTMLElement)?.focus();
       }
       return;
     }
@@ -721,7 +721,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
     const isNumber = (keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105);
     
     // If input has a value and a number is pressed, replace and advance
-    if (isNumber && e.target.value.length === 1) {
+    if (isNumber && e.currentTarget.value.length === 1) {
       e.preventDefault();
       handleDigitChange(position, key);
       return;
@@ -733,7 +733,7 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
     }
   };
   
-  const handleFocus = (e) => {
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     // Select all text when focused for easy replacement
     setTimeout(() => {
       e.target.select();

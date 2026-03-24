@@ -67,8 +67,8 @@ export default function KobLive({ code }: KobLiveProps) {
     };
   }, [tournament?.status, loadTournament]);
 
-  const handleScoreSubmit = async (matchupId, team1Score, team2Score) => {
-    await submitKobScorePublic(code, matchupId, {
+  const handleScoreSubmit = async (matchupId: number, team1Score: number, team2Score: number) => {
+    await submitKobScorePublic(code, String(matchupId), {
       team1_score: team1Score,
       team2_score: team2Score,
     });
@@ -87,7 +87,7 @@ export default function KobLive({ code }: KobLiveProps) {
     }
   };
 
-  const handleDirectorDrop = async (playerId) => {
+  const handleDirectorDrop = async (playerId: number) => {
     try {
       await dropKobPlayer(tournament.id, playerId);
       await loadTournament();
@@ -96,9 +96,9 @@ export default function KobLive({ code }: KobLiveProps) {
     }
   };
 
-  const handleDirectorEditScore = async (matchupId, team1Score, team2Score) => {
+  const handleDirectorEditScore = async (matchupId: number, team1Score: number, team2Score: number) => {
     try {
-      await editKobScore(tournament.id, matchupId, {
+      await editKobScore(tournament.id, String(matchupId), {
         team1_score: team1Score,
         team2_score: team2Score,
       });
@@ -165,7 +165,7 @@ export default function KobLive({ code }: KobLiveProps) {
   }
 
   const currentRoundMatches = tournament.matches?.filter(
-    (m) => m.round_num === tournament.current_round
+    (m: any) => m.round_num === tournament.current_round
   ) || [];
 
   // Compute display label for current round (e.g. "Round 3" or "Playoff 2" or "Final")
@@ -177,7 +177,7 @@ export default function KobLive({ code }: KobLiveProps) {
     if (tournament.current_phase === "playoffs") {
       // Count how many pool play rounds there are
       const poolPlayRounds = new Set(
-        (tournament.matches || []).filter((m) => m.phase === "pool_play").map((m) => m.round_num)
+        (tournament.matches || []).filter((m: any) => m.phase === "pool_play").map((m: any) => m.round_num)
       ).size;
       return `Playoff ${tournament.current_round - poolPlayRounds}`;
     }

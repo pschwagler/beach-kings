@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react';
 import { Trophy, Award, Flame, Target, Zap, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getPlayerAwards } from '../../services/api';
-import { AWARD_CONFIG } from '../../utils/awardConstants';
+import { AWARD_CONFIG, type AwardConfig } from '../../utils/awardConstants';
 import './PlayerTrophies.css';
 
 /** Map iconName strings from AWARD_CONFIG to actual Lucide components. */
 const ICONS = { Trophy, Award, Flame, Target, Zap, TrendingUp };
 
-function getIcon(config) {
-  return ICONS[config?.iconName] || Award;
+function getIcon(config: AwardConfig | Record<string, unknown>) {
+  const iconName = (config as AwardConfig)?.iconName;
+  return (iconName && ICONS[iconName as keyof typeof ICONS]) || Award;
 }
 
 /**
@@ -60,7 +61,7 @@ export default function PlayerTrophies({ playerId, compact = false }: PlayerTrop
 
   if (awards.length === 0) return null;
 
-  const handleLeagueClick = (leagueId) => {
+  const handleLeagueClick = (leagueId: number | string) => {
     router.push(`/league/${leagueId}?tab=awards`);
   };
 
@@ -73,7 +74,7 @@ export default function PlayerTrophies({ playerId, compact = false }: PlayerTrop
         </h3>
         <div className="player-trophies__badges">
           {awards.map((award) => {
-            const config = AWARD_CONFIG[award.award_key] || {};
+            const config = (AWARD_CONFIG[award.award_key] || {}) as AwardConfig;
             const Icon = getIcon(config);
             return (
               <button
@@ -101,7 +102,7 @@ export default function PlayerTrophies({ playerId, compact = false }: PlayerTrop
       </h2>
       <div className="player-trophies__list">
         {awards.map((award) => {
-          const config = AWARD_CONFIG[award.award_key] || {};
+          const config = (AWARD_CONFIG[award.award_key] || {}) as AwardConfig;
           const Icon = getIcon(config);
           return (
             <button

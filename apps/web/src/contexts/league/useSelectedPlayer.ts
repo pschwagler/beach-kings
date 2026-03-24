@@ -18,7 +18,7 @@ export function useSelectedPlayer(selectedSeasonData: SeasonDataEntry | null) {
   const [playerMatchHistory, setPlayerMatchHistory] = useState<unknown[] | null>(null);
 
   // Helper to update player stats from active season data
-  const updatePlayerStats = useCallback((seasonData, playerId) => {
+  const updatePlayerStats = useCallback((seasonData: any, playerId: any) => {
     if (!seasonData || !playerId) {
       setPlayerSeasonStats(null);
       setPlayerMatchHistory(null);
@@ -33,7 +33,7 @@ export function useSelectedPlayer(selectedSeasonData: SeasonDataEntry | null) {
   }, []);
 
   // Load player data for the selected player (internal use only)
-  const loadPlayerData = useCallback((playerId, playerName, seasonDataToUse = null) => {
+  const loadPlayerData = useCallback((playerId: any, playerName: any, seasonDataToUse: any = null) => {
     const dataToUse = seasonDataToUse || selectedSeasonData;
     if (!dataToUse) {
       setSelectedPlayerId(null);
@@ -57,7 +57,7 @@ export function useSelectedPlayer(selectedSeasonData: SeasonDataEntry | null) {
     }
   }, [selectedSeasonData, selectedPlayerId, updatePlayerStats]);
 
-  const setSelectedPlayer = useCallback((playerId, playerName) => {
+  const setSelectedPlayer = useCallback((playerId: any, playerName: any) => {
     setSelectedPlayerId(playerId);
     setSelectedPlayerName(playerName);
     if (playerId && playerName) {

@@ -74,7 +74,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   }, [selectedSeasonId, seasonData]);
 
   // Load season data with progressive loading
-  const loadSeasonData = useCallback(async (seasonId, forceReload = false) => {
+  const loadSeasonData = useCallback(async (seasonId: any, forceReload = false) => {
     if (!seasonId) return;
 
     // Check if already loading - even for force reload, prevent concurrent loads
@@ -125,7 +125,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
 
       // Load matches, player stats, and partnership/opponent stats in parallel (background)
       const [matches, playerStats, partnershipOpponentStats] = await Promise.all([
-        getSeasonMatches(seasonId).catch(err => {
+        getSeasonMatches(seasonId).catch((err): any[] | null => {
           console.error('Error loading season matches:', err);
           // Return empty array for 404 (season has no matches) instead of null
           // This allows the add matches card to show
@@ -134,11 +134,11 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
           }
           return null;
         }),
-        getAllPlayerSeasonStats(seasonId).catch(err => {
+        getAllPlayerSeasonStats(seasonId).catch((err): null => {
           console.error('Error loading player season stats:', err);
           return null;
         }),
-        getAllSeasonPartnershipOpponentStats(seasonId).catch(err => {
+        getAllSeasonPartnershipOpponentStats(seasonId).catch((err): null => {
           console.error('Error loading partnership/opponent stats:', err);
           return null;
         })
@@ -170,7 +170,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
       console.error('Error loading season data:', err);
       // Set empty data structure on error to prevent retries
       if (!dataRef.current[seasonId]) {
-        const emptyData = {
+        const emptyData: SeasonDataEntry = {
           rankings: [],
           matches: [],
           player_season_stats: {},
@@ -191,7 +191,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   }, []); // Empty deps - function is stable, uses refs for state checks
 
   // Lightweight function to refresh only matches (not stats/rankings)
-  const refreshMatchData = useCallback(async (seasonId, forceClear = false) => {
+  const refreshMatchData = useCallback(async (seasonId: any, forceClear = false) => {
     if (!seasonId) return;
 
     try {
@@ -202,7 +202,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
       }
 
       // Only fetch matches - much faster than full season data refresh
-      const matches = await getSeasonMatches(seasonId).catch(err => {
+      const matches = await getSeasonMatches(seasonId).catch((err): any[] | null => {
         console.error('Error loading season matches:', err);
         // Return empty array for 404 (season has no matches or doesn't exist yet) instead of null
         // This allows the add matches card to show
@@ -250,7 +250,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     }
   }, []);
 
-  const refreshSeasonData = useCallback(async (seasonId) => {
+  const refreshSeasonData = useCallback(async (seasonId: any) => {
     if (!seasonId) return;
 
     // Check if already loading to prevent duplicate refreshes
@@ -277,7 +277,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     if (!leagueId) return;
 
     try {
-      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch(err => {
+      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch((err): null => {
         console.error('Error refreshing all seasons matches:', err);
         return null;
       });
@@ -331,26 +331,26 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     try {
       // Load rankings and stats for all seasons (using league stats)
       const [rankings, playerStats, partnershipOpponentStats] = await Promise.all([
-        getRankings({ league_id: leagueId }).catch(err => {
+        getRankings({ league_id: leagueId }).catch((err): any[] => {
           console.error('Error loading all seasons rankings:', err);
           return [];
         }),
-        getAllPlayerStats({ league_id: leagueId }).catch(err => {
+        getAllPlayerStats({ league_id: leagueId }).catch((err): null => {
           console.error('Error loading all seasons player stats:', err);
           return null;
         }),
-        getAllPartnershipOpponentStats({ league_id: leagueId }).catch(err => {
+        getAllPartnershipOpponentStats({ league_id: leagueId }).catch((err): null => {
           console.error('Error loading all seasons partnership/opponent stats:', err);
           return null;
         })
       ]);
 
       // Load all league matches directly (consistent with league stats)
-      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch(err => {
+      const allMatches = await getMatchesWithElo({ league_id: leagueId }).catch((err): any[] => {
         console.error('Error loading all seasons matches:', err);
         // Fallback: combine matches from already loaded season data (use ref to avoid stale closure)
         const currentData = dataRef.current;
-        const fallbackMatches = [];
+        const fallbackMatches: any[] = [];
         Object.keys(currentData).forEach(key => {
           if (key !== allSeasonsKey && currentData[key]?.matches) {
             fallbackMatches.push(...currentData[key].matches);
@@ -387,7 +387,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
 
       // Combine matches from all seasons that are already loaded (use ref for current data)
       const currentData = dataRef.current;
-      const allMatches = [];
+      const allMatches: any[] = [];
       Object.keys(currentData).forEach(key => {
         if (key !== allSeasonsKey && currentData[key]?.matches) {
           allMatches.push(...currentData[key].matches);
@@ -401,7 +401,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
         return dateB.getTime() - dateA.getTime();
       });
 
-      const fallbackResult = {
+      const fallbackResult: SeasonDataEntry = {
         rankings: [],
         matches: allMatches,
         player_season_stats: {},

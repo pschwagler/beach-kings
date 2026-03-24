@@ -30,16 +30,16 @@ export function useLocationAutoSelect(
       const locationsWithDistances = await getLocationDistances(cityData.lat, cityData.lon);
       
       // Store distances in a map for easy lookup
-      const distancesMap = {};
-      locationsWithDistances.forEach(loc => {
-        distancesMap[loc.id] = loc.distance_miles;
+      const distancesMap: Record<string, number> = {};
+      locationsWithDistances.forEach((loc: any) => {
+        distancesMap[loc.id as string] = loc.distance_miles;
       });
       setLocationDistances(distancesMap);
 
       // Update locations list with distances for display
       // Merge the API response (which has distances) with the full location data
-      const locationsWithDistancesForDisplay = currentLocations.map(loc => {
-        const distanceInfo = locationsWithDistances.find(l => l.id === loc.id);
+      const locationsWithDistancesForDisplay = currentLocations.map((loc: any) => {
+        const distanceInfo = locationsWithDistances.find((l: any) => l.id === loc.id);
         return {
           ...loc,
           distance_miles: distanceInfo ? distanceInfo.distance_miles : undefined

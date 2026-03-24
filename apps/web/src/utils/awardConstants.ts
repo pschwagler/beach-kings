@@ -5,7 +5,9 @@
  * Consumers map iconName → actual component at import time.
  */
 
-export const AWARD_CONFIG = {
+export type AwardConfig = { label: string; subtitle?: string; iconName: string; colorClass: string };
+
+export const AWARD_CONFIG: Record<string, AwardConfig> = {
   gold: { label: '1st Place', iconName: 'Trophy', colorClass: 'gold' },
   silver: { label: '2nd Place', iconName: 'Trophy', colorClass: 'silver' },
   bronze: { label: '3rd Place', iconName: 'Trophy', colorClass: 'bronze' },
