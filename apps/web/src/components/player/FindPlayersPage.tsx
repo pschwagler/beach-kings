@@ -23,7 +23,7 @@ import './FindPlayersPage.css';
 const PAGE_SIZE = 25;
 
 /** Natural default sort direction per field. */
-const DEFAULT_SORT_DIR = { name: 'asc', games: 'desc', rating: 'desc' };
+const DEFAULT_SORT_DIR: Record<string, string> = { name: 'asc', games: 'desc', rating: 'desc' };
 
 /** Sortable column definitions (key → API sort_by value). */
 const SORTABLE_COLUMNS = { name: 'name', games: 'games', rating: 'rating' };
@@ -143,7 +143,7 @@ export default function FindPlayersPage() {
   // Close filter panel on outside click
   useEffect(() => {
     if (!isFilterOpen) return;
-    const handleClickOutside = (e) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
         setIsFilterOpen(false);
       }
@@ -240,12 +240,12 @@ export default function FindPlayersPage() {
     }
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'view-league' && leagueId) {
       router.push(`/league/${leagueId}`);
     } else if (action === 'create-league') {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSubmit: async (leagueData) => {
+        onSubmit: async (leagueData: any) => {
           const newLeague = await createLeague(leagueData);
           const leagues = await getUserLeagues();
           setUserLeagues(leagues);
@@ -255,7 +255,7 @@ export default function FindPlayersPage() {
     }
   };
 
-  const handleFilterChange = useCallback((key, value) => {
+  const handleFilterChange = useCallback((key: string, value: unknown) => {
     setPage(1);
     setFilters((prev) => {
       if (!value) {
@@ -280,7 +280,7 @@ export default function FindPlayersPage() {
   }, []);
 
   /** Handle sortable column header click. */
-  const handleSort = useCallback((columnKey) => {
+  const handleSort = useCallback((columnKey: string) => {
     setPage(1);
     if (columnKey === sortBy) {
       // Same column — flip direction
@@ -293,7 +293,7 @@ export default function FindPlayersPage() {
   }, [sortBy]);
 
   /** Remove a single filter pill. */
-  const removeFilter = useCallback((key) => {
+  const removeFilter = useCallback((key: string) => {
     setPage(1);
     if (key === 'location') {
       setLocationIds([]);

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
+import type { Match } from '../../types';
 import MatchCard from './MatchCard';
 import SessionMatchesClipboardTable from './SessionMatchesClipboardTable';
 
@@ -45,7 +46,16 @@ import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { calculateWinner } from '../league/utils/matchUtils';
 
-function createSessionGroup(sessionId, sessionName, sessionStatus, sessionCreatedAt, sessionUpdatedAt, sessionCreatedBy, sessionUpdatedBy, sessionDate) {
+function createSessionGroup(
+  sessionId: number | string,
+  sessionName: string,
+  sessionStatus: string,
+  sessionCreatedAt: string | null,
+  sessionUpdatedAt: string | null,
+  sessionCreatedBy: string | null,
+  sessionUpdatedBy: string | null,
+  sessionDate: string | null
+) {
   return {
     type: 'session',
     id: sessionId,
@@ -58,7 +68,7 @@ function createSessionGroup(sessionId, sessionName, sessionStatus, sessionCreate
     createdBy: sessionCreatedBy,
     updatedBy: sessionUpdatedBy,
     lastUpdated: sessionUpdatedAt || sessionCreatedAt,
-    matches: []
+    matches: [] as Match[],
   };
 }
 
@@ -103,7 +113,7 @@ export default function MatchesTable({
   const [photoJobId, setPhotoJobId] = useState(null);
   const [photoSessionId, setPhotoSessionId] = useState(null);
   
-  const handlePhotoMatchesCreated = useCallback(async (matchIds, photoSeasonId) => {
+  const handlePhotoMatchesCreated = useCallback(async (matchIds: number[], photoSeasonId: number | null) => {
     setPhotoJobId(null);
     setPhotoSessionId(null);
     closeModal();
@@ -123,7 +133,7 @@ export default function MatchesTable({
     }
   }, [closeModal, onRefreshData, onSeasonChange, selectedSeasonId]);
   
-  const handleProceedToPhotoReview = useCallback((jobId, sessionId, uploadedImageUrl = null) => {
+  const handleProceedToPhotoReview = useCallback((jobId: string, sessionId: number | null, uploadedImageUrl: string | null = null) => {
     setPhotoJobId(jobId);
     setPhotoSessionId(sessionId);
     openModal(MODAL_TYPES.REVIEW_PHOTO_MATCHES, {
@@ -148,7 +158,7 @@ export default function MatchesTable({
         updatedMatches = updatedMatches.filter(m => !sessionChanges.deletions.includes(m.id));
       }
       
-      sessionChanges.updates.forEach((updatedData, matchId) => {
+      sessionChanges.updates.forEach((updatedData: Record<string, unknown>, matchId: number) => {
         const matchIndex = updatedMatches.findIndex(m => m.id === matchId);
         if (matchIndex !== -1) {
           const match = updatedMatches[matchIndex];
@@ -168,13 +178,13 @@ export default function MatchesTable({
         }
       });
 
-      sessionChanges.additions.forEach((newMatchData, index) => {
+      sessionChanges.additions.forEach((newMatchData: Record<string, unknown>, index: number) => {
         const sessionMatch = updatedMatches.find(m => m['Session ID'] === sessionId);
         const sessionName = sessionMatch?.['Session Name'] || 'New Session';
         
         // Convert player IDs to names using the reverse map
         // Match data has team1_player1_id, team1_player2_id, etc.
-        const getPlayerName = (playerId) => {
+        const getPlayerName = (playerId: string | number | null | undefined) => {
           if (!playerId) return '';
           // Handle both ID format (number) and name format (string) for backwards compatibility
           if (typeof playerId === 'string' && !/^\d+$/.test(playerId)) {
@@ -190,13 +200,13 @@ export default function MatchesTable({
           'Session ID': sessionId,
           'Session Name': sessionName,
           'Session Status': 'ACTIVE',
-          'Team 1 Player 1': getPlayerName(newMatchData.team1_player1_id || newMatchData.team1_player1),
-          'Team 1 Player 2': getPlayerName(newMatchData.team1_player2_id || newMatchData.team1_player2),
-          'Team 2 Player 1': getPlayerName(newMatchData.team2_player1_id || newMatchData.team2_player1),
-          'Team 2 Player 2': getPlayerName(newMatchData.team2_player2_id || newMatchData.team2_player2),
+          'Team 1 Player 1': getPlayerName((newMatchData.team1_player1_id || newMatchData.team1_player1) as string | number | null | undefined),
+          'Team 1 Player 2': getPlayerName((newMatchData.team1_player2_id || newMatchData.team1_player2) as string | number | null | undefined),
+          'Team 2 Player 1': getPlayerName((newMatchData.team2_player1_id || newMatchData.team2_player1) as string | number | null | undefined),
+          'Team 2 Player 2': getPlayerName((newMatchData.team2_player2_id || newMatchData.team2_player2) as string | number | null | undefined),
           'Team 1 Score': newMatchData.team1_score,
           'Team 2 Score': newMatchData.team2_score,
-          Winner: calculateWinner(newMatchData.team1_score, newMatchData.team2_score),
+          Winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
           'Team 1 ELO Change': 0,
           'Team 2 ELO Change': 0,
         };
@@ -419,7 +429,7 @@ export default function MatchesTable({
     }
   });
 
-  const handleAddMatch = async (matchData, matchId) => {
+  const handleAddMatch = async (matchData: Record<string, unknown>, matchId?: number | string) => {
     if (matchId) {
       const match = matchesWithPendingChanges.find(m => m.id === matchId);
       const sessionId = match?.['Session ID'];
@@ -453,7 +463,7 @@ export default function MatchesTable({
     }
   };
 
-  const handleEditMatch = (match) => {
+  const handleEditMatch = (match: Match) => {
     openModal(MODAL_TYPES.ADD_MATCH, {
       editMatch: match,
       onSubmit: handleAddMatch,
@@ -463,13 +473,13 @@ export default function MatchesTable({
       defaultLeagueId: leagueId,
       members,
       league,
-      sessionSeasonId: match['Session Season ID'] ?? null,
+      sessionSeasonId: (match as unknown as Record<string, unknown>)['Session Season ID'] as number ?? null,
       defaultSeasonId: selectedSeasonId,
       onSeasonChange: onSeasonChange
     });
   };
 
-  const handleLockInSession = async (sessionId) => {
+  const handleLockInSession = async (sessionId: number | string) => {
     if (sessionId) {
       await onEndSession(sessionId);
     }
@@ -681,7 +691,7 @@ export default function MatchesTable({
 
                   const sessionGameCount = group.matches?.length || 0;
                   const sessionPlayers = new Set();
-                  group.matches?.forEach(match => {
+                  group.matches?.forEach((match: Record<string, unknown>) => {
                     if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
                     if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
                     if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
@@ -709,7 +719,7 @@ export default function MatchesTable({
           // Calculate stats for this session group
           const sessionGameCount = group.matches?.length || 0;
           const sessionPlayers = new Set();
-          group.matches?.forEach(match => {
+          group.matches?.forEach((match: Record<string, unknown>) => {
             if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
             if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
             if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
@@ -778,7 +788,7 @@ export default function MatchesTable({
                 />
               ) : (
                 <div className="match-cards">
-                  {group.matches.map((match, idx) => (
+                  {group.matches.map((match: Match, idx: number) => (
                     <MatchCard
                       key={idx}
                       match={match}

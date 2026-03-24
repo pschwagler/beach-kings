@@ -16,11 +16,11 @@ export default function DirectorControls({ tournament, onAdvance, onDropPlayer, 
   const [expanded, setExpanded] = useState(false);
   const [selectedDropPlayer, setSelectedDropPlayer] = useState(null);
 
-  const activePlayers = tournament.players?.filter((p) => !p.is_dropped) || [];
+  const activePlayers = tournament.players?.filter((p: any) => !p.is_dropped) || [];
 
   const handleDrop = async () => {
     if (!selectedDropPlayer) return;
-    if (!confirm(`Drop ${activePlayers.find((p) => p.player_id === selectedDropPlayer)?.player_name}? Their future matches will become forfeits.`)) return;
+    if (!confirm(`Drop ${activePlayers.find((p: any) => p.player_id === selectedDropPlayer)?.player_name}? Their future matches will become forfeits.`)) return;
     await onDropPlayer(selectedDropPlayer);
     setSelectedDropPlayer(null);
   };
@@ -57,7 +57,7 @@ export default function DirectorControls({ tournament, onAdvance, onDropPlayer, 
                 onChange={(e) => setSelectedDropPlayer(e.target.value ? parseInt(e.target.value) : null)}
               >
                 <option value="">Select player...</option>
-                {activePlayers.map((p) => (
+                {activePlayers.map((p: any) => (
                   <option key={p.player_id} value={p.player_id}>
                     {p.player_name || `Player ${p.player_id}`}
                   </option>

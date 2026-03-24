@@ -32,7 +32,7 @@ export default function ShareInviteIcon({ playerId, playerName }: ShareInviteIco
     return () => { cancelled = true; };
   }, [playerId]);
 
-  const handleClick = useCallback((e) => {
+  const handleClick = useCallback((e: { stopPropagation: () => void; preventDefault: () => void }) => {
     e.stopPropagation();
     e.preventDefault();
     if (!inviteUrl) return;

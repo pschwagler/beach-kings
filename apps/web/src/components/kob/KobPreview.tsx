@@ -89,7 +89,7 @@ function MatchCell({ match }: { match: KobMatch | null }) {
  * so one row per round.
  */
 function NonPoolTable({ rounds, numCourts, roundClocks }: { rounds: KobRound[]; numCourts: number; roundClocks: Record<number, number> }) {
-  const courtNums = [];
+  const courtNums: number[] = [];
   for (let c = 1; c <= numCourts; c++) courtNums.push(c);
 
   return (
@@ -141,11 +141,11 @@ function NonPoolTable({ rounds, numCourts, roundClocks }: { rounds: KobRound[]; 
 function PoolTable({ rounds, poolIds, poolCourts, poolGameTo, roundClocks }: { rounds: KobRound[]; poolIds: number[]; poolCourts?: Record<string, number>; poolGameTo?: Record<string, number>; roundClocks: Record<number, number> }) {
   // Build rows: each round becomes a group of sub-rows.
   // For each round, find matches per pool, then zip them into rows.
-  const rows = [];
+  const rows: Array<{ roundNum: number | null; time: string | null; cells: Array<KobMatch | null> }> = [];
 
   for (const rnd of rounds) {
     // Group matches by pool_id
-    const matchesByPool = {};
+    const matchesByPool: Record<number, KobMatch[]> = {};
     for (const pid of poolIds) matchesByPool[pid] = [];
     for (const m of rnd.matches) {
       const pid = m.pool_id;
@@ -235,8 +235,8 @@ function PlayoffSection({ rounds, numCourts, roundClocks }: { rounds: KobRound[]
 
   if (isDraft) {
     /** Render a draft bracket match: "#3 + pick  v  #6 + pick" */
-    const DraftMatch = ({ match }) => {
-      const seed = (team) => team.find((p) => p > 0);
+    const DraftMatch = ({ match }: { match: KobMatch }) => {
+      const seed = (team: number[]) => team.find((p) => p > 0);
       const s1 = seed(match.team1);
       const s2 = seed(match.team2);
       // Top 4 final: 1st picks, remaining 2 auto-paired
@@ -340,8 +340,8 @@ export default function KobPreview({ recommendation, loading }: KobPreviewProps)
 
   // Build cumulative clock: round_num → elapsed minutes at start of that round
   const roundClocks = useMemo(() => {
-    if (!preview_rounds) return {};
-    const clocks = {};
+    if (!preview_rounds) return {} as Record<number, number>;
+    const clocks: Record<number, number> = {};
     let elapsed = 0;
     for (const rnd of preview_rounds) {
       clocks[rnd.round_num] = elapsed;

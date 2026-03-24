@@ -15,7 +15,7 @@ interface PhotoMatchReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   leagueId?: number | null;
-  jobId?: string | null;
+  jobId?: number | null;
   sessionId?: number | null;
   seasonId?: number | null;
   seasons?: any[];

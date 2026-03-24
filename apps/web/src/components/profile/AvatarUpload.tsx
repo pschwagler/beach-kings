@@ -108,7 +108,7 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
   };
 
   /** Called by react-easy-crop when the crop area changes. */
-  const onCropComplete = useCallback((_croppedArea, croppedAreaPx) => {
+  const onCropComplete = useCallback((_croppedArea: unknown, croppedAreaPx: { x: number; y: number; width: number; height: number }) => {
     setCroppedAreaPixels(croppedAreaPx);
   }, []);
 

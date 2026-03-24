@@ -55,7 +55,7 @@ export default function PlayerPopover({
         if (status === 'pending_incoming') {
           const requests = await getFriendRequests('received');
           if (cancelled) return;
-          const match = requests.find((r) => r.sender_player_id === playerId && r.status === 'pending');
+          const match = requests.find((r: any) => r.sender_player_id === playerId && r.status === 'pending');
           if (match) setIncomingRequestId(match.id);
         }
       } catch {

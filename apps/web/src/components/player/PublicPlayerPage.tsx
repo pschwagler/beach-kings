@@ -82,7 +82,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
         // If incoming, find the request ID
         if (status === 'pending_incoming') {
           const requests = await getFriendRequests('incoming');
-          const match = requests.find((r) => r.sender_player_id === player.id);
+          const match = requests.find((r: any) => r.sender_player_id === player.id);
           if (match) setIncomingRequestId(match.id);
         }
 
@@ -384,7 +384,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
         <section className="public-player__section">
           <h2 className="public-player__section-title">Leagues</h2>
           <div className="public-player__leagues">
-            {player.league_memberships.map((league) => (
+            {player.league_memberships.map((league: any) => (
               <Link
                 key={league.league_id}
                 href={`/league/${league.league_id}`}

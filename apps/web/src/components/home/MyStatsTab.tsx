@@ -738,7 +738,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
           <StatCard
             icon={Target}
             label="Peak Rating"
-            value={overview.peak != null ? Math.round(overview.peak).toLocaleString() : '\u2014'}
+            value={overview.peak != null ? Math.round(overview.peak as number).toLocaleString() : '\u2014'}
           />
           <StatCard
             icon={Percent}

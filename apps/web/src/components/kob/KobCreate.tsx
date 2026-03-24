@@ -218,7 +218,7 @@ export default function KobCreate() {
         setPills(result);
         // Auto-select recommended pill when user hasn't manually picked format
         if (!userPickedFormatRef.current) {
-          const recIdx = result.findIndex((p) => p.is_recommended);
+          const recIdx = result.findIndex((p: any) => p.is_recommended);
           setActivePillIdx(recIdx >= 0 ? recIdx : null);
         } else {
           setActivePillIdx(null);
@@ -238,11 +238,11 @@ export default function KobCreate() {
   }, [numPlayers, format]);
 
   // Stepper helpers
-  const stepPlayers = (delta) => setNumPlayers((prev) => Math.max(4, Math.min(36, prev + delta)));
-  const stepCourts = (delta) => setNumCourts((prev) => Math.max(1, Math.min(6, prev + delta)));
+  const stepPlayers = (delta: number) => setNumPlayers((prev) => Math.max(4, Math.min(36, prev + delta)));
+  const stepCourts = (delta: number) => setNumCourts((prev) => Math.max(1, Math.min(6, prev + delta)));
   const maxPools = Math.min(6, Math.floor(numPlayers / 4));
-  const stepPools = (delta) => { markOverride(); setNumPools((prev) => Math.max(2, Math.min(maxPools, (prev || 2) + delta))); };
-  const stepMaxRounds = (delta) => { markOverride(); setMaxRounds((prev) => Math.max(3, Math.min(20, (prev || 5) + delta))); };
+  const stepPools = (delta: number) => { markOverride(); setNumPools((prev: number | null) => Math.max(2, Math.min(maxPools, (prev || 2) + delta))); };
+  const stepMaxRounds = (delta: number) => { markOverride(); setMaxRounds((prev: number | null) => Math.max(3, Math.min(20, (prev || 5) + delta))); };
 
   /** Mark that the user has manually changed a setting. */
   const markOverride = () => {
@@ -267,7 +267,7 @@ export default function KobCreate() {
   };
 
   // Format selection handler
-  const handleFormatSelect = (f) => {
+  const handleFormatSelect = (f: string) => {
     setFormat(f);
     markOverride();
 
@@ -278,7 +278,7 @@ export default function KobCreate() {
   };
 
   // Pill click handler — populate form from pill config
-  const handlePillClick = (pill, idx) => {
+  const handlePillClick = (pill: any, idx: number) => {
     setActivePillIdx(idx);
     setFormat(pill.format);
     setNumPools(pill.num_pools);

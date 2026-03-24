@@ -7,7 +7,18 @@ import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import PlayerProfileFields from './PlayerProfileFields';
 import type { Player, Location } from '../../types';
 
-const defaultFormState = {
+const defaultFormState: {
+  nickname: string;
+  gender: string;
+  level: string;
+  date_of_birth: string;
+  city: string;
+  state: string;
+  city_latitude: number | null;
+  city_longitude: number | null;
+  location_id: string;
+  distance_to_location: number | null;
+} = {
   nickname: '',
   gender: '',
   level: '',
