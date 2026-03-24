@@ -5,7 +5,7 @@ import {
   validateScoreFormat,
   validateScores,
   validateFormFields,
-} from '../matchValidation.js';
+} from '../matchValidation';
 
 describe('formatScore', () => {
   it('formats single-digit number with leading zero', () => {

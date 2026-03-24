@@ -14,7 +14,7 @@ const FIELD_NAVIGATION = {
  * @param {string} currentField - The field that was just filled
  * @param {Object} refs - Object containing refs for all fields
  */
-export function autoAdvanceToNextField(currentField, refs) {
+export function autoAdvanceToNextField(currentField: string, refs: Record<string, { current: HTMLElement | null } | undefined>): void {
   const nextField = FIELD_NAVIGATION[currentField];
   if (!nextField) return;
   

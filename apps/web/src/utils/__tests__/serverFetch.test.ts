@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchBackend, BACKEND_URL } from '../server-fetch.js';
+import { fetchBackend, BACKEND_URL } from '../server-fetch';
 
 describe('BACKEND_URL', () => {
   it('defaults to http://localhost:8000 when BACKEND_INTERNAL_URL is not set', () => {

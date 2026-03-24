@@ -8,7 +8,14 @@
  * @param {number} [outputSize=512] - Output image dimension (square)
  * @returns {Promise<Blob>} - JPEG blob of the cropped image
  */
-export default function cropImage(imageSrc, pixelCrop, outputSize = 512) {
+interface PixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export default function cropImage(imageSrc: string, pixelCrop: PixelCrop, outputSize = 512): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.crossOrigin = 'anonymous';
@@ -16,7 +23,8 @@ export default function cropImage(imageSrc, pixelCrop, outputSize = 512) {
       const canvas = document.createElement('canvas');
       canvas.width = outputSize;
       canvas.height = outputSize;
-      const ctx = canvas.getContext('2d');
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const ctx = canvas.getContext('2d')!;
 
       ctx.drawImage(
         image,

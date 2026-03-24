@@ -7,7 +7,7 @@ import {
   GENDER_OPTIONS,
   SKILL_LEVEL_OPTIONS,
   PLAYER_LEVEL_FILTER_OPTIONS,
-} from '../playerFilterOptions.js';
+} from '../playerFilterOptions';
 
 /** Assert every item in an array has string `value` and `label` properties. */
 function expectWellFormedOptions(options) {

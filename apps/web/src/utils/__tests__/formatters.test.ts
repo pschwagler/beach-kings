@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatGender } from '../formatters.js';
+import { formatGender } from '../formatters';
 
 describe('formatGender', () => {
   // ─── Known mappings ─────────────────────────────────────────────────────────

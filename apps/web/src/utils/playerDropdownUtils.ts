@@ -2,17 +2,22 @@
  * Utility functions for PlayerDropdown component
  */
 
+export interface PlayerOption {
+  value: any;
+  label: string;
+}
+
 /**
  * Check if an item is an object with value/label
  */
-export function isPlayerOption(item) {
+export function isPlayerOption(item: any): item is PlayerOption {
   return !!(item && typeof item === 'object' && 'value' in item && 'label' in item);
 }
 
 /**
  * Get display value from either string or object
  */
-export function getDisplayValue(item) {
+export function getDisplayValue(item: PlayerOption | string | null | undefined): string {
   if (!item) return '';
   return isPlayerOption(item) ? item.label : item;
 }
@@ -20,7 +25,7 @@ export function getDisplayValue(item) {
 /**
  * Get the value (ID) from either string or object
  */
-export function getValue(item) {
+export function getValue(item: PlayerOption | string | null | undefined): any {
   if (!item) return '';
   return isPlayerOption(item) ? item.value : item;
 }
@@ -28,7 +33,7 @@ export function getValue(item) {
 /**
  * Normalize player names to array of objects with value/label
  */
-export function normalizePlayerNames(allPlayerNames) {
+export function normalizePlayerNames(allPlayerNames: any): PlayerOption[] {
   if (!Array.isArray(allPlayerNames) || allPlayerNames.length === 0) {
     return [];
   }
@@ -44,7 +49,7 @@ export function normalizePlayerNames(allPlayerNames) {
 /**
  * Check if a player is excluded
  */
-export function isPlayerExcluded(player, excludePlayers) {
+export function isPlayerExcluded(player: PlayerOption, excludePlayers: Array<PlayerOption | string>): boolean {
   return excludePlayers.some(excluded => {
     if (isPlayerOption(excluded)) {
       return excluded.value === player.value;
@@ -59,7 +64,7 @@ export function isPlayerExcluded(player, excludePlayers) {
  * @param {string} searchTerm - Trimmed search input
  * @returns {boolean} True if an exact match exists
  */
-export function hasExactMatch(filteredPlayers, searchTerm) {
+export function hasExactMatch(filteredPlayers: PlayerOption[], searchTerm: string | null | undefined): boolean {
   if (!searchTerm) return false;
   const lower = searchTerm.toLowerCase();
   return filteredPlayers.some(p => p.label.toLowerCase() === lower);
@@ -68,7 +73,7 @@ export function hasExactMatch(filteredPlayers, searchTerm) {
 /**
  * Filter players based on search term and exclusions
  */
-export function filterPlayers(normalizedPlayers, excludePlayers, searchTerm) {
+export function filterPlayers(normalizedPlayers: PlayerOption[], excludePlayers: Array<PlayerOption | string>, searchTerm: string): PlayerOption[] {
   return normalizedPlayers.filter(player => {
     // Check if excluded
     if (isPlayerExcluded(player, excludePlayers)) {

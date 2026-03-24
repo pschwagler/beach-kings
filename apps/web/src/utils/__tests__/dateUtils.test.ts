@@ -6,7 +6,7 @@ import {
   utcTimeToLocal,
   utcTimeToLocalWithTimezone,
   formatRelativeTime,
-} from '../dateUtils.js';
+} from '../dateUtils';
 
 // ─── formatDateTimeWithTimezone ───────────────────────────────────────────────
 

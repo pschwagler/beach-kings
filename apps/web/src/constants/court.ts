@@ -17,7 +17,7 @@ export const SURFACE_OPTIONS = Object.entries(SURFACE_LABELS).map(
 );
 
 /** Get human-readable label for a surface type string. */
-export const getSurfaceLabel = (type) => SURFACE_LABELS[type] || type;
+export const getSurfaceLabel = (type: string): string => (SURFACE_LABELS as Record<string, string>)[type] || type;
 
 /** Max photos allowed per court review (must match backend MAX_PHOTOS_PER_REVIEW). */
 export const MAX_PHOTOS_PER_REVIEW = 3;

@@ -5,6 +5,7 @@
  * ~20 duplicated magic numbers across the three files.
  */
 
+import React from 'react';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -62,7 +63,7 @@ export const OG_CACHE_HEADERS = {
  *
  * @returns {Promise<string>} data:image/png;base64,... string
  */
-export async function loadLogoDataUri() {
+export async function loadLogoDataUri(): Promise<string> {
   const buffer = await readFile(join(process.cwd(), 'public', LOGO_FILE));
   return `data:image/png;base64,${buffer.toString('base64')}`;
 }
@@ -74,7 +75,7 @@ export async function loadLogoDataUri() {
  * @param {number} [maxLen=45] - Maximum length before truncation
  * @returns {string} Truncated text with "..." suffix if needed
  */
-export function truncateForOg(text, maxLen = 45) {
+export function truncateForOg(text: string | null | undefined, maxLen = 45): string | null | undefined {
   if (!text || text.length <= maxLen) return text;
   return text.slice(0, maxLen - 3) + '...';
 }
@@ -86,7 +87,11 @@ export function truncateForOg(text, maxLen = 45) {
  * @param {string} logoSrc - base64 data URI for the logo
  * @returns {JSX.Element}
  */
-export function FallbackImage({ logoSrc }) {
+interface FallbackImageProps {
+  logoSrc: string;
+}
+
+export function FallbackImage({ logoSrc }: FallbackImageProps): JSX.Element {
   return (
     <div
       style={{
@@ -113,7 +118,7 @@ export function FallbackImage({ logoSrc }) {
  *
  * @returns {Object} CSS style object
  */
-export function outerStyle() {
+export function outerStyle(): React.CSSProperties {
   return {
     display: 'flex',
     flexDirection: 'column',

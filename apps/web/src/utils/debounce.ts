@@ -8,15 +8,15 @@ import { useRef, useEffect, useCallback } from 'react';
  * @param {number} wait - The number of milliseconds to delay
  * @returns {Function} The debounced function
  */
-export function debounce(func, wait) {
-  let timeout;
-  
-  return function executedFunction(...args) {
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return function executedFunction(...args: Parameters<T>) {
     const later = () => {
       clearTimeout(timeout);
       func(...args);
     };
-    
+
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
@@ -30,9 +30,9 @@ export function debounce(func, wait) {
  * @param {number} delay - The number of milliseconds to delay
  * @returns {Function} The debounced callback
  */
-export function useDebounce(callback, delay) {
-  const timeoutRef = useRef(null);
-  const callbackRef = useRef(callback);
+export function useDebounce<T extends (...args: any[]) => void>(callback: T, delay: number): (...args: Parameters<T>) => void {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callbackRef = useRef<T>(callback);
   
   // Keep callback ref up to date
   useEffect(() => {
@@ -48,7 +48,7 @@ export function useDebounce(callback, delay) {
     };
   }, []);
   
-  return useCallback((...args) => {
+  return useCallback((...args: Parameters<T>) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }

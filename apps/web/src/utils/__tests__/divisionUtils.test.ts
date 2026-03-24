@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDivisionLabel } from '../divisionUtils.js';
+import { formatDivisionLabel } from '../divisionUtils';
 
 describe('formatDivisionLabel', () => {
   // ─── Both gender and level provided ────────────────────────────────────────

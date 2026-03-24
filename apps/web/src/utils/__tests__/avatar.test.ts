@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isImageUrl } from '../avatar.js';
+import { isImageUrl } from '../avatar';
 
 describe('isImageUrl', () => {
   // ─── Falsy / empty inputs ───────────────────────────────────────────────────

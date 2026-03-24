@@ -2,10 +2,26 @@
  * Validation utilities for match forms
  */
 
+interface MatchFormData {
+  team1Player1?: any;
+  team1Player2?: any;
+  team2Player1?: any;
+  team2Player2?: any;
+  team1Score?: any;
+  team2Score?: any;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  errorMessage: string | null;
+  score1?: number;
+  score2?: number;
+}
+
 /**
  * Format score as 2-digit string
  */
-export function formatScore(score) {
+export function formatScore(score: any): string {
   if (!score && score !== 0) return '00';
   const num = parseInt(score);
   if (isNaN(num)) return '00';
@@ -17,7 +33,7 @@ export function formatScore(score) {
 /**
  * Validate that all player fields are filled
  */
-export function validatePlayers(formData) {
+export function validatePlayers(formData: MatchFormData): ValidationResult {
   if (!formData.team1Player1 || !formData.team1Player2 || 
       !formData.team2Player1 || !formData.team2Player2) {
     return { isValid: false, errorMessage: 'Please fill in all player fields' };
@@ -28,7 +44,7 @@ export function validatePlayers(formData) {
 /**
  * Validate that scores are valid numbers
  */
-export function validateScoreFormat(formData) {
+export function validateScoreFormat(formData: MatchFormData): ValidationResult {
   const score1 = parseInt(formData.team1Score);
   const score2 = parseInt(formData.team2Score);
   
@@ -42,7 +58,7 @@ export function validateScoreFormat(formData) {
 /**
  * Validate scores according to game rules
  */
-export function validateScores(formData) {
+export function validateScores(formData: MatchFormData): ValidationResult {
   const score1 = parseInt(formData.team1Score);
   const score2 = parseInt(formData.team2Score);
   
@@ -64,7 +80,7 @@ export function validateScores(formData) {
 /**
  * Validate all form fields
  */
-export function validateFormFields(formData) {
+export function validateFormFields(formData: MatchFormData): ValidationResult {
   // Check players
   const playersValidation = validatePlayers(formData);
   if (!playersValidation.isValid) return playersValidation;

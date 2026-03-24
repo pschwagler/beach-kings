@@ -8,7 +8,7 @@
  * @param {boolean} showYear - Whether to show the year (default: true)
  * @returns {string} Formatted datetime string with timezone
  */
-export function formatDateTimeWithTimezone(isoString, showYear = true) {
+export function formatDateTimeWithTimezone(isoString: string | null | undefined, showYear = true): string {
   if (!isoString) return '';
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -34,7 +34,7 @@ export function formatDateTimeWithTimezone(isoString, showYear = true) {
  * @param {string} isoString - ISO date string
  * @returns {string} Formatted date string
  */
-export function formatDate(isoString) {
+export function formatDate(isoString: string | null | undefined): string {
   if (!isoString) return '';
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -51,7 +51,7 @@ export function formatDate(isoString) {
  * @param {string} isoString - ISO date string
  * @returns {string} Formatted time string with timezone
  */
-export function formatTime(isoString) {
+export function formatTime(isoString: string | null | undefined): string {
   if (!isoString) return '';
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -69,7 +69,7 @@ export function formatTime(isoString) {
  * @param {string} utcTimeStr - UTC time string in HH:MM format
  * @returns {string} Local time string in HH:MM format
  */
-export function utcTimeToLocal(utcTimeStr) {
+export function utcTimeToLocal(utcTimeStr: string | null | undefined): string | null | undefined {
   if (!utcTimeStr) return utcTimeStr;
   const [hours, minutes] = utcTimeStr.split(':').map(Number);
   // Use today as reference date to handle DST correctly
@@ -86,7 +86,7 @@ export function utcTimeToLocal(utcTimeStr) {
  * @param {string} utcTimeStr - UTC time string in HH:MM format
  * @returns {string} Local time string with timezone (e.g., "2:00 PM PST")
  */
-export function utcTimeToLocalWithTimezone(utcTimeStr) {
+export function utcTimeToLocalWithTimezone(utcTimeStr: string | null | undefined): string | null | undefined {
   if (!utcTimeStr) return utcTimeStr;
   const [hours, minutes] = utcTimeStr.split(':').map(Number);
   // Use today as reference date to handle DST correctly
@@ -109,7 +109,7 @@ export function utcTimeToLocalWithTimezone(utcTimeStr) {
  * @param {string|Date} timestamp - ISO date string or Date object
  * @returns {string|null} Relative time string or formatted date, or null if timestamp is invalid
  */
-export function formatRelativeTime(timestamp) {
+export function formatRelativeTime(timestamp: string | Date | null | undefined): string | null {
   if (!timestamp) return null;
   
   const date = new Date(timestamp);
@@ -117,7 +117,7 @@ export function formatRelativeTime(timestamp) {
   if (isNaN(date.getTime())) return null;
   
   const now = new Date();
-  const diffMs = now - date;
+  const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
   if (diffDays === 0) {

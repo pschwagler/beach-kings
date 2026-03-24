@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify } from '../slugify.js';
+import { slugify } from '../slugify';
 
 describe('slugify', () => {
   // ─── Falsy / empty inputs ───────────────────────────────────────────────────

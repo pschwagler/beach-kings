@@ -21,7 +21,12 @@ const DEFAULT_REVALIDATE = 300; // 5 minutes
  * @returns {Promise<any>} Parsed JSON response
  * @throws {Error} On non-OK HTTP responses
  */
-export async function fetchBackend(path, options = {}) {
+interface FetchBackendOptions extends Omit<RequestInit, 'headers'> {
+  revalidate?: number;
+  headers?: Record<string, string>;
+}
+
+export async function fetchBackend(path: string, options: FetchBackendOptions = {}): Promise<any> {
   const { revalidate = DEFAULT_REVALIDATE, headers, ...rest } = options;
 
   const url = `${BACKEND_URL}${path}`;
@@ -38,7 +43,8 @@ export async function fetchBackend(path, options = {}) {
       ...rest,
     });
   } catch (error) {
-    console.error(`[fetchBackend] Network error for ${path}:`, error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[fetchBackend] Network error for ${path}:`, message);
     throw error;
   }
 

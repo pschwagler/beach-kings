@@ -2,10 +2,23 @@
  * Utility functions for working with player objects
  */
 
+interface PlayerOptionLike {
+  value: any;
+  label?: string;
+}
+
+interface RankedPlayer {
+  Points: number;
+  'Avg Pt Diff': number;
+  'Win Rate': number;
+  ELO: number;
+  [key: string]: any;
+}
+
 /**
  * Get the value (ID) from a player object or string
  */
-export function getPlayerValue(player) {
+export function getPlayerValue(player: PlayerOptionLike | string | null | undefined): any {
   if (!player) return null;
   return player?.value ?? player;
 }
@@ -13,7 +26,7 @@ export function getPlayerValue(player) {
 /**
  * Check if two players are equal
  */
-export function arePlayersEqual(a, b) {
+export function arePlayersEqual(a: any, b: any): boolean {
   if (!a || !b) return a === b;
   return getPlayerValue(a) === getPlayerValue(b);
 }
@@ -22,7 +35,7 @@ export function arePlayersEqual(a, b) {
  * Remove duplicate player selections from form data
  * If the new player is already selected in another field, clear that field
  */
-export function removeDuplicatePlayer(formData, currentField, newPlayer) {
+export function removeDuplicatePlayer(formData: Record<string, any>, currentField: string, newPlayer: any): Record<string, any> {
   const updated = { ...formData, [currentField]: newPlayer };
   const newPlayerValue = getPlayerValue(newPlayer);
   
@@ -42,7 +55,7 @@ export function removeDuplicatePlayer(formData, currentField, newPlayer) {
 /**
  * Convert player name to player option object
  */
-export function nameToPlayerOption(name, nameToIdMap) {
+export function nameToPlayerOption(name: string | null | undefined, nameToIdMap: Map<string, any>): PlayerOptionLike | string {
   if (!name) return '';
   const playerId = nameToIdMap.get(name);
   if (playerId) {
@@ -55,7 +68,7 @@ export function nameToPlayerOption(name, nameToIdMap) {
 /**
  * Default player sorting with tie-breakers: Points → Avg Pt Diff → Win Rate → ELO
  */
-export const sortPlayersDefault = (a, b) => {
+export const sortPlayersDefault = (a: RankedPlayer, b: RankedPlayer): number => {
   if (a.Points !== b.Points) return b.Points - a.Points;
   if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
   if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
@@ -67,7 +80,7 @@ export const sortPlayersDefault = (a, b) => {
  * @param {Array} rankings - Array of player ranking objects
  * @returns {Object|null} - First place player or null if no rankings
  */
-export const getFirstPlacePlayer = (rankings) => {
+export const getFirstPlacePlayer = (rankings: RankedPlayer[] | null | undefined): RankedPlayer | null => {
   if (!rankings || rankings.length === 0) return null;
   return [...rankings].sort(sortPlayersDefault)[0];
 };
@@ -82,7 +95,7 @@ export const getFirstPlacePlayer = (rankings) => {
  * @param {Object} player - The player object to check
  * @returns {boolean} True if profile is incomplete, false otherwise
  */
-export function isProfileIncomplete(player) {
+export function isProfileIncomplete(player: any): boolean {
   if (!player) {
     return true;
   }

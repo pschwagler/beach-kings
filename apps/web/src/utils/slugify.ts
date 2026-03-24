@@ -3,7 +3,7 @@
  * @param {string} text - Text to slugify (e.g. "John Doe")
  * @returns {string} Slugified text (e.g. "john-doe")
  */
-export function slugify(text) {
+export function slugify(text: any): string {
   if (!text) return '';
   return text
     .toLowerCase()

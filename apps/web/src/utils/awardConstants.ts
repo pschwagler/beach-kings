@@ -22,7 +22,7 @@ export const AWARD_CONFIG = {
  * @param {number|null} value - The raw stat value
  * @returns {string} Human-readable value string
  */
-export function formatAwardValue(awardKey, value) {
+export function formatAwardValue(awardKey: string, value: number | null | undefined): string {
   if (value == null) return '';
   switch (awardKey) {
     case 'gold':

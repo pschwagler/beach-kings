@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AWARD_CONFIG, formatAwardValue } from '../awardConstants.js';
+import { AWARD_CONFIG, formatAwardValue } from '../awardConstants';
 
 // ─── AWARD_CONFIG ────────────────────────────────────────────────────────────
 

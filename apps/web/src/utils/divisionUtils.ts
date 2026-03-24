@@ -8,7 +8,7 @@
  * @param {string} [level] - e.g. 'open', 'advanced', 'beginner'
  * @returns {string|null} - Combined label or null if both missing
  */
-export function formatDivisionLabel(gender, level) {
+export function formatDivisionLabel(gender?: string | null, level?: string | null): string | null {
   const g = (gender || '').toLowerCase();
   const l = (level || '').trim();
   const genderLabel = g === 'male' ? 'Mens' : g === 'female' ? 'Womens' : null;
