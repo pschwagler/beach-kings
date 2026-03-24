@@ -20,7 +20,8 @@ interface RankedPlayer {
  */
 export function getPlayerValue(player: PlayerOptionLike | string | null | undefined): any {
   if (!player) return null;
-  return player?.value ?? player;
+  if (typeof player === 'string') return player;
+  return player.value;
 }
 
 /**

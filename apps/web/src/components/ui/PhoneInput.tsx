@@ -162,7 +162,7 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
             placeholder={placeholder}
             className={`phone-input__input ${hasError ? 'phone-input__input--error' : ''}`}
             required={required}
-            aria-invalid={hasError}
+            aria-invalid={!!hasError}
             aria-describedby={hasError ? 'phone-input-error' : undefined}
           />
           {hasError && (

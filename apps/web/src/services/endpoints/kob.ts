@@ -137,7 +137,7 @@ export const getKobFormatRecommendation = async ({
   gamesPerMatch, numRrCycles, gameTo, durationMinutes,
   playoffFormat, playoffGameTo, playoffGamesPerMatch,
 }) => {
-  const params = { num_players: numPlayers, num_courts: numCourts };
+  const params: Record<string, any> = { num_players: numPlayers, num_courts: numCourts };
   if (format) params.format = format;
   if (numPools) params.num_pools = numPools;
   if (playoffSize != null) params.playoff_size = playoffSize;
@@ -162,7 +162,7 @@ export const getKobFormatRecommendation = async ({
  * @returns {Promise<Array>} Array of pill recommendation objects.
  */
 export const getKobFormatPills = async ({ numPlayers, numCourts, durationMinutes }) => {
-  const params = { num_players: numPlayers, num_courts: numCourts };
+  const params: Record<string, any> = { num_players: numPlayers, num_courts: numCourts };
   if (durationMinutes) params.duration_minutes = durationMinutes;
   const response = await api.get('/api/kob/recommend/pills', { params });
   return response.data;

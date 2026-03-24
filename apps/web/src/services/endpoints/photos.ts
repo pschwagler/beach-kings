@@ -63,7 +63,7 @@ export const getPhotoJobStreamUrl = (leagueId, jobId) => {
 export const subscribePhotoJobStream = (leagueId, jobId, callbacks) => {
   const url = getPhotoJobStreamUrl(leagueId, jobId);
   const { accessToken } = getStoredTokens();
-  const headers = {};
+  const headers: any = {};
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
@@ -136,7 +136,7 @@ export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
  * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
  */
 export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate, playerOverrides = null) => {
-  const body = { season_id: seasonId, match_date: matchDate };
+  const body: Record<string, any> = { season_id: seasonId, match_date: matchDate };
   if (playerOverrides?.length) {
     body.player_overrides = playerOverrides;
   }

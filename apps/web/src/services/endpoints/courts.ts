@@ -37,7 +37,7 @@ export const getCourtTags = async () => {
 
 /** Get nearby courts by lat/lng. */
 export const getNearbyCourts = async (lat, lng, radius = 25, excludeId = null) => {
-  const params = { lat, lng, radius };
+  const params: Record<string, any> = { lat, lng, radius };
   if (excludeId) params.exclude = excludeId;
   const response = await api.get('/api/public/courts/nearby', { params });
   return response.data;

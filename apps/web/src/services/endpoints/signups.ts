@@ -55,7 +55,7 @@ export const createSignup = async (seasonId, signupData) => {
 /**
  * Get signups for a season
  */
-export const getSignups = async (seasonId, options = {}) => {
+export const getSignups = async (seasonId, options: { upcoming_only?: boolean; past_only?: boolean; include_players?: boolean } = {}) => {
   const params = new URLSearchParams();
   if (options.upcoming_only) params.append('upcoming_only', 'true');
   if (options.past_only) params.append('past_only', 'true');

@@ -91,7 +91,7 @@ interface FallbackImageProps {
   logoSrc: string;
 }
 
-export function FallbackImage({ logoSrc }: FallbackImageProps): JSX.Element {
+export function FallbackImage({ logoSrc }: FallbackImageProps): React.JSX.Element {
   return (
     <div
       style={{

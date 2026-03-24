@@ -7,7 +7,7 @@ import api from '../api-client';
 /**
  * Get user notifications with pagination
  */
-export const getNotifications = async (params = {}) => {
+export const getNotifications = async (params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}) => {
   const { limit = 50, offset = 0, unreadOnly = false } = params;
   const response = await api.get('/api/notifications', {
     params: { limit, offset, unread_only: unreadOnly }

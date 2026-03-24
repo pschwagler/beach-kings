@@ -89,7 +89,7 @@ export function useToasts() {
   const [toasts, setToasts] = useState([]);
   const nextIdRef = useRef(0);
 
-  const addToast = useCallback((message, { action, duration } = {}) => {
+  const addToast = useCallback((message: string, { action, duration }: { action?: any; duration?: number } = {}) => {
     const id = Date.now() + nextIdRef.current++;
     setToasts((prev) => [...prev, { id, message, action, duration }]);
     return id;

@@ -17,7 +17,7 @@ export const getRankings = async (queryParams = {}) => {
  * @param {Object} params - q, location_id (string or string[]), league_id (number or number[]),
  *   gender (string or string[]), level (string or string[]), limit, offset
  */
-export const getPlayers = async (params = {}, { signal } = {}) => {
+export const getPlayers = async (params: Record<string, any> = {}, { signal }: { signal?: AbortSignal } = {}) => {
   const {
     q,
     location_id,
@@ -59,7 +59,7 @@ export const createPlayer = async (name) => {
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerStats = async (playerId, { signal } = {}) => {
+export const getPlayerStats = async (playerId, { signal }: { signal?: AbortSignal } = {}) => {
   const response = await api.get(`/api/players/${playerId}/stats`, { signal });
   return response.data;
 };
@@ -156,7 +156,7 @@ export const getEloTimeline = async () => {
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerMatchHistory = async (playerId, { signal } = {}) => {
+export const getPlayerMatchHistory = async (playerId, { signal }: { signal?: AbortSignal } = {}) => {
   const response = await api.get(`/api/players/${playerId}/matches`, { signal });
   return response.data;
 };

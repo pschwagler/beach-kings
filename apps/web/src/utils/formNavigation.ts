@@ -27,7 +27,7 @@ export function autoAdvanceToNextField(currentField: string, refs: Record<string
     // Check if the NEXT field is a player field (not the current field)
     if (nextField.includes('Player')) {
       // For player fields, find the input inside the dropdown
-      const input = ref.current.querySelector('.player-dropdown-input');
+      const input = ref.current.querySelector('.player-dropdown-input') as HTMLElement | null;
       if (input) {
         input.focus();
       }

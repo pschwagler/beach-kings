@@ -2,7 +2,9 @@
  * API client for Beach Volleyball ELO backend
  */
 
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+
+type RetryableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
 
 // In development we use relative /api (empty base) so Next.js proxy decides the backend;
 // no compile-time URL is inlined, avoiding .next cache poisoning between dev and E2E.
@@ -226,7 +228,7 @@ api.interceptors.request.use(
     }
 
     if (token) {
-      config.headers = config.headers || {};
+      config.headers = config.headers ?? ({} as any);
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -237,7 +239,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config || {};
+    const originalRequest: RetryableRequest = error.config || {};
     const isUnauthorized = error.response?.status === 401;
     const isForbidden = error.response?.status === 403;
     const url = originalRequest.url || '';
@@ -264,7 +266,7 @@ api.interceptors.response.use(
 
       try {
         const newAccessToken = await refreshAccessToken();
-        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers = originalRequest.headers ?? ({} as any);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
