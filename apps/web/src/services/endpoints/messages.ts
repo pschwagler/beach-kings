@@ -9,7 +9,7 @@ import api from '../api-client';
  * @param {number} [page=1] - Page number
  * @param {number} [pageSize=50] - Items per page
  */
-export const getConversations = async (page = 1, pageSize = 50) => {
+export const getConversations = async (page: number = 1, pageSize: number = 50) => {
   const response = await api.get('/api/messages/conversations', {
     params: { page, page_size: pageSize },
   });
@@ -22,7 +22,7 @@ export const getConversations = async (page = 1, pageSize = 50) => {
  * @param {number} [page=1] - Page number
  * @param {number} [pageSize=50] - Items per page
  */
-export const getThread = async (playerId, page = 1, pageSize = 50) => {
+export const getThread = async (playerId: number, page: number = 1, pageSize: number = 50) => {
   const response = await api.get(`/api/messages/conversations/${playerId}`, {
     params: { page, page_size: pageSize },
   });
@@ -34,7 +34,7 @@ export const getThread = async (playerId, page = 1, pageSize = 50) => {
  * @param {number} receiverPlayerId - Recipient player ID
  * @param {string} messageText - Message content (1-500 chars)
  */
-export const sendMessage = async (receiverPlayerId, messageText) => {
+export const sendMessage = async (receiverPlayerId: number, messageText: string) => {
   const response = await api.post('/api/messages/send', {
     receiver_player_id: receiverPlayerId,
     message_text: messageText,
@@ -46,7 +46,7 @@ export const sendMessage = async (receiverPlayerId, messageText) => {
  * Mark all messages from a specific player as read.
  * @param {number} playerId - Player whose messages to mark read
  */
-export const markThreadRead = async (playerId) => {
+export const markThreadRead = async (playerId: number) => {
   const response = await api.put(`/api/messages/conversations/${playerId}/read`);
   return response.data;
 };

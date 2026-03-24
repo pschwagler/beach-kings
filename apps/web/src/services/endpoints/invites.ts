@@ -9,7 +9,7 @@ import api from '../api-client';
  * @param {Object} data - { name: string, phone_number?: string, league_id?: number }
  * @returns {Promise<{ player_id: number, name: string, invite_token: string, invite_url: string }>}
  */
-export const createPlaceholderPlayer = async (data) => {
+export const createPlaceholderPlayer = async (data: Record<string, any>) => {
   const response = await api.post('/api/players/placeholder', data);
   return response.data;
 };
@@ -28,7 +28,7 @@ export const listPlaceholderPlayers = async () => {
  * @param {number} playerId - Placeholder player ID
  * @returns {Promise<{ affected_matches: number }>}
  */
-export const deletePlaceholderPlayer = async (playerId) => {
+export const deletePlaceholderPlayer = async (playerId: number) => {
   const response = await api.delete(`/api/players/placeholder/${playerId}`);
   return response.data;
 };
@@ -38,7 +38,7 @@ export const deletePlaceholderPlayer = async (playerId) => {
  * @param {number} playerId - Placeholder player ID
  * @returns {Promise<{ invite_url: string }>}
  */
-export const getPlayerInviteUrl = async (playerId) => {
+export const getPlayerInviteUrl = async (playerId: number) => {
   const response = await api.get(`/api/players/${playerId}/invite-url`);
   return response.data;
 };
@@ -48,7 +48,7 @@ export const getPlayerInviteUrl = async (playerId) => {
  * @param {string} token - Invite token
  * @returns {Promise<{ inviter_name, placeholder_name, match_count, league_names, status }>}
  */
-export const getInviteDetails = async (token) => {
+export const getInviteDetails = async (token: string) => {
   const response = await api.get(`/api/invites/${encodeURIComponent(token)}`);
   return response.data;
 };
@@ -58,7 +58,7 @@ export const getInviteDetails = async (token) => {
  * @param {string} token - Invite token
  * @returns {Promise<{ success, message, player_id, warnings, redirect_url }>}
  */
-export const claimInvite = async (token) => {
+export const claimInvite = async (token: string) => {
   const response = await api.post(`/api/invites/${encodeURIComponent(token)}/claim`);
   return response.data;
 };

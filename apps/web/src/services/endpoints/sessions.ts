@@ -9,7 +9,7 @@ import api from '../api-client';
  * @param {number} leagueId - ID of the league
  * @returns {Promise<Array>} Array of session objects
  */
-export const getSessions = async (leagueId) => {
+export const getSessions = async (leagueId: number) => {
   if (!leagueId) {
     throw new Error('leagueId is required');
   }
@@ -22,7 +22,7 @@ export const getSessions = async (leagueId) => {
  * @param {number} leagueId - ID of the league
  * @returns {Promise<Object|null>} Active session object or null if none found
  */
-export const getActiveSession = async (leagueId) => {
+export const getActiveSession = async (leagueId: number) => {
   if (!leagueId) {
     return null;
   }
@@ -49,7 +49,7 @@ export const getOpenSessions = async ({ includeAll = false } = {}) => {
  * @param {string} code - Session code
  * @returns {Promise<Object>} Session object
  */
-export const getSessionByCode = async (code) => {
+export const getSessionByCode = async (code: string) => {
   const response = await api.get(`/api/sessions/by-code/${encodeURIComponent(code)}`);
   return response.data;
 };
@@ -59,7 +59,7 @@ export const getSessionByCode = async (code) => {
  * @param {number} sessionId - Session ID
  * @returns {Promise<Array>} Array of match objects
  */
-export const getSessionMatches = async (sessionId) => {
+export const getSessionMatches = async (sessionId: number) => {
   const response = await api.get(`/api/sessions/${sessionId}/matches`);
   return response.data;
 };
@@ -67,7 +67,7 @@ export const getSessionMatches = async (sessionId) => {
 /**
  * Get list of players in a session (participants + players who have matches).
  */
-export const getSessionParticipants = async (sessionId) => {
+export const getSessionParticipants = async (sessionId: number) => {
   const response = await api.get(`/api/sessions/${sessionId}/participants`);
   return response.data;
 };
@@ -75,7 +75,7 @@ export const getSessionParticipants = async (sessionId) => {
 /**
  * Remove a player from session participants. Fails if player has matches in this session.
  */
-export const removeSessionParticipant = async (sessionId, playerId) => {
+export const removeSessionParticipant = async (sessionId: number, playerId: number) => {
   const response = await api.delete(`/api/sessions/${sessionId}/participants/${playerId}`);
   return response.data;
 };
@@ -85,7 +85,7 @@ export const removeSessionParticipant = async (sessionId, playerId) => {
  * @param {string} code - Session code
  * @returns {Promise<Object>} { status, message, session }
  */
-export const joinSessionByCode = async (code) => {
+export const joinSessionByCode = async (code: string) => {
   const response = await api.post('/api/sessions/join', { code: code.trim().toUpperCase() });
   return response.data;
 };
@@ -96,7 +96,7 @@ export const joinSessionByCode = async (code) => {
  * @param {number} playerId - Player ID to invite
  * @returns {Promise<Object>} { status, message }
  */
-export const inviteToSession = async (sessionId, playerId) => {
+export const inviteToSession = async (sessionId: number, playerId: number) => {
   const response = await api.post(`/api/sessions/${sessionId}/invite`, { player_id: playerId });
   return response.data;
 };
@@ -107,7 +107,7 @@ export const inviteToSession = async (sessionId, playerId) => {
  * @param {number[]} playerIds - Player IDs to invite
  * @returns {Promise<{ added: number[], failed: { player_id: number, error: string }[] }>}
  */
-export const inviteToSessionBatch = async (sessionId, playerIds) => {
+export const inviteToSessionBatch = async (sessionId: number, playerIds: number[]) => {
   const response = await api.post(`/api/sessions/${sessionId}/invite_batch`, {
     player_ids: Array.isArray(playerIds) ? playerIds : [],
   });
@@ -119,7 +119,7 @@ export const inviteToSessionBatch = async (sessionId, playerIds) => {
  * @param {Object} payload - { date?, name?, court_id? } – pass { date: '...' } for a specific date
  * @returns {Promise<Object>} { status, message, session } with session.code
  */
-export const createSession = async (payload = {}) => {
+export const createSession = async (payload: Record<string, any> = {}) => {
   const response = await api.post('/api/sessions', { ...payload });
   return response.data;
 };
@@ -127,7 +127,7 @@ export const createSession = async (payload = {}) => {
 /**
  * Lock in a session (submit session)
  */
-export const lockInSession = async (sessionId) => {
+export const lockInSession = async (sessionId: number) => {
   const response = await api.patch(`/api/sessions/${sessionId}`, { submit: true });
   return response.data;
 };
@@ -135,7 +135,7 @@ export const lockInSession = async (sessionId) => {
 /**
  * Lock in a league session (submit session)
  */
-export const lockInLeagueSession = async (leagueId, sessionId) => {
+export const lockInLeagueSession = async (leagueId: number, sessionId: number) => {
   const response = await api.patch(`/api/leagues/${leagueId}/sessions/${sessionId}`, { submit: true });
   return response.data;
 };
@@ -143,7 +143,7 @@ export const lockInLeagueSession = async (leagueId, sessionId) => {
 /**
  * Delete a session
  */
-export const deleteSession = async (sessionId) => {
+export const deleteSession = async (sessionId: number) => {
   const response = await api.delete(`/api/sessions/${sessionId}`);
   return response.data;
 };
@@ -154,7 +154,7 @@ export const deleteSession = async (sessionId) => {
  * @param {Object} updates - Object with optional fields: name, date, season_id
  * @returns {Promise} Updated session data
  */
-export const updateSession = async (sessionId, updates) => {
+export const updateSession = async (sessionId: number, updates: Record<string, any>) => {
   const response = await api.patch(`/api/sessions/${sessionId}`, updates);
   return response.data;
 };
@@ -165,6 +165,6 @@ export const updateSession = async (sessionId, updates) => {
  * @param {number|null} seasonId - New season_id (can be null to remove season)
  * @returns {Promise} Updated session data
  */
-export const updateSessionSeason = async (sessionId, seasonId) => {
+export const updateSessionSeason = async (sessionId: number, seasonId: number | null) => {
   return updateSession(sessionId, { season_id: seasonId });
 };

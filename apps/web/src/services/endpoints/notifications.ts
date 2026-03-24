@@ -26,7 +26,7 @@ export const getUnreadCount = async () => {
 /**
  * Mark a single notification as read
  */
-export const markNotificationAsRead = async (notificationId) => {
+export const markNotificationAsRead = async (notificationId: number) => {
   const response = await api.put(`/api/notifications/${notificationId}/read`);
   return response.data;
 };

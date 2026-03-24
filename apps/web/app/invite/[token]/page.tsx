@@ -48,7 +48,7 @@ export default function InviteLandingPage() {
     }
     try {
       setPageState('loading');
-      const data = await getInviteDetails(token);
+      const data = await getInviteDetails(Array.isArray(token) ? token[0] : token);
       setInvite(data);
       setPageState('loaded');
     } catch (err) {
@@ -101,7 +101,7 @@ export default function InviteLandingPage() {
     try {
       setClaimState('claiming');
       setClaimError('');
-      const result = await claimInvite(token);
+      const result = await claimInvite(Array.isArray(token) ? token[0] : token);
       setClaimResult(result);
       setClaimState('success');
     } catch (err) {

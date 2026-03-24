@@ -36,7 +36,7 @@ const authTokens = {
   refreshToken: isBrowser ? window.localStorage.getItem(REFRESH_TOKEN_KEY) : null,
 };
 
-export const setAuthTokens = (accessToken, refreshToken = authTokens.refreshToken) => {
+export const setAuthTokens = (accessToken: string | null, refreshToken: string | null = authTokens.refreshToken) => {
   authTokens.accessToken = accessToken;
   if (isBrowser) {
     if (accessToken) {
@@ -94,7 +94,7 @@ if (isBrowser) {
  * Decode JWT expiration timestamp without verification (client-side only).
  * Returns epoch seconds or null if token is malformed.
  */
-const getTokenExp = (token) => {
+const getTokenExp = (token: string): number | null => {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     return payload.exp || null;
@@ -113,7 +113,7 @@ const PROACTIVE_REFRESH_THRESHOLD_SECS = 120;
 let isRefreshing = false;
 let failedQueue = [];
 
-const processQueue = (error, token = null) => {
+const processQueue = (error: any, token: string | null = null): void => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);
@@ -193,7 +193,7 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/api/auth/google'
 ];
 
-const isPublicAuthEndpoint = (url) => {
+const isPublicAuthEndpoint = (url: string | undefined): boolean => {
   if (!url) return false;
   return PUBLIC_AUTH_ENDPOINTS.some(endpoint => url.includes(endpoint));
 };

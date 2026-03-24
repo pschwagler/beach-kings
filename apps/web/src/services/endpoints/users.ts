@@ -15,7 +15,7 @@ export const getCurrentUserPlayer = async () => {
 /**
  * Update the current user's player profile
  */
-export const updatePlayerProfile = async (playerData) => {
+export const updatePlayerProfile = async (playerData: Record<string, any>) => {
   const response = await api.put('/api/users/me/player', playerData);
   return response.data;
 };
@@ -23,7 +23,7 @@ export const updatePlayerProfile = async (playerData) => {
 /**
  * Update the current user's account information (name, email)
  */
-export const updateUserProfile = async (userData) => {
+export const updateUserProfile = async (userData: Record<string, any>) => {
   const response = await api.put('/api/users/me', userData);
   return response.data;
 };
@@ -55,7 +55,7 @@ export const getLocations = async () => {
 /**
  * Get all locations with distances from given coordinates, sorted by closest first
  */
-export const getLocationDistances = async (lat, lon) => {
+export const getLocationDistances = async (lat: number, lon: number) => {
   const response = await api.get('/api/locations/distances', {
     params: { lat, lon }
   });
@@ -65,7 +65,7 @@ export const getLocationDistances = async (lat, lon) => {
 /**
  * Get city autocomplete suggestions from Geoapify (proxied through backend)
  */
-export const getCityAutocomplete = async (text) => {
+export const getCityAutocomplete = async (text: string) => {
   const response = await api.get('/api/geocode/autocomplete', {
     params: { text }
   });
@@ -94,7 +94,7 @@ export const getPublicLocations = async () => {
  * @param {File|Blob} file - Image file or blob to upload
  * @returns {Promise<{ profile_picture_url: string }>}
  */
-export const uploadAvatar = async (file) => {
+export const uploadAvatar = async (file: File | Blob) => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post('/api/users/me/avatar', formData, {

@@ -7,7 +7,7 @@ import api from '../api-client';
 /**
  * Create a new league
  */
-export const createLeague = async (leagueData) => {
+export const createLeague = async (leagueData: Record<string, any>) => {
   const response = await api.post('/api/leagues', leagueData);
   return response.data;
 };
@@ -23,7 +23,7 @@ export const listLeagues = async () => {
 /**
  * Query leagues with filters, ordering, and limit
  */
-export const queryLeagues = async (filters = {}, options = {}) => {
+export const queryLeagues = async (filters: Record<string, any> = {}, options: Record<string, any> = {}) => {
   const response = await api.post('/api/leagues/query', filters, options);
   return response.data;
 };
@@ -34,7 +34,7 @@ export const queryLeagues = async (filters = {}, options = {}) => {
 /**
  * Join a public league
  */
-export const joinLeague = async (leagueId) => {
+export const joinLeague = async (leagueId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/join`);
   return response.data;
 };
@@ -42,7 +42,7 @@ export const joinLeague = async (leagueId) => {
 /**
  * Request to join an invite-only league
  */
-export const requestToJoinLeague = async (leagueId) => {
+export const requestToJoinLeague = async (leagueId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/request-join`);
   return response.data;
 };
@@ -50,7 +50,7 @@ export const requestToJoinLeague = async (leagueId) => {
 /**
  * Cancel a pending join request for an invite-only league
  */
-export const cancelJoinRequest = async (leagueId) => {
+export const cancelJoinRequest = async (leagueId: number) => {
   const response = await api.delete(`/api/leagues/${leagueId}/join-request`);
   return response.data;
 };
@@ -59,7 +59,7 @@ export const cancelJoinRequest = async (leagueId) => {
  * Get pending and rejected join requests for a league (admin only).
  * @returns {Promise<{ pending: Array<{ id: number, player_name: string, created_at: string }>, rejected: Array<...> }>}
  */
-export const getLeagueJoinRequests = async (leagueId) => {
+export const getLeagueJoinRequests = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/join-requests`);
   const data = response.data;
   return {
@@ -71,7 +71,7 @@ export const getLeagueJoinRequests = async (leagueId) => {
 /**
  * Approve a league join request (admin only)
  */
-export const approveLeagueJoinRequest = async (leagueId, requestId) => {
+export const approveLeagueJoinRequest = async (leagueId: number, requestId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/approve`);
   return response.data;
 };
@@ -79,7 +79,7 @@ export const approveLeagueJoinRequest = async (leagueId, requestId) => {
 /**
  * Reject a league join request (admin only)
  */
-export const rejectLeagueJoinRequest = async (leagueId, requestId) => {
+export const rejectLeagueJoinRequest = async (leagueId: number, requestId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/join-requests/${requestId}/reject`);
   return response.data;
 };
@@ -87,7 +87,7 @@ export const rejectLeagueJoinRequest = async (leagueId, requestId) => {
 /**
  * Get a specific league
  */
-export const getLeague = async (leagueId) => {
+export const getLeague = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}`);
   return response.data;
 };
@@ -95,7 +95,7 @@ export const getLeague = async (leagueId) => {
 /**
  * Get seasons for a league
  */
-export const getLeagueSeasons = async (leagueId) => {
+export const getLeagueSeasons = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/seasons`);
   return response.data;
 };
@@ -103,7 +103,7 @@ export const getLeagueSeasons = async (leagueId) => {
 /**
  * Get members of a league
  */
-export const getLeagueMembers = async (leagueId) => {
+export const getLeagueMembers = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/members`);
   return response.data;
 };
@@ -119,7 +119,7 @@ export const getUserLeagues = async () => {
 /**
  * Add a player to a league
  */
-export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
+export const addLeagueMember = async (leagueId: number, playerId: number, role: string = 'member') => {
   const response = await api.post(`/api/leagues/${leagueId}/members`, {
     player_id: playerId,
     role
@@ -133,7 +133,7 @@ export const addLeagueMember = async (leagueId, playerId, role = 'member') => {
  * @param {Array<{ player_id: number, role?: string }>} members - List of { player_id, role } (role defaults to 'member')
  * @returns {Promise<{ added: Array, failed: Array<{ player_id: number, error: string }> }>}
  */
-export const addLeagueMembersBatch = async (leagueId, members) => {
+export const addLeagueMembersBatch = async (leagueId: number, members: Array<{ player_id: number; role?: string }>) => {
   const response = await api.post(`/api/leagues/${leagueId}/members_batch`, {
     members: Array.isArray(members) ? members : [],
   });
@@ -143,7 +143,7 @@ export const addLeagueMembersBatch = async (leagueId, members) => {
 /**
  * Remove a member from a league
  */
-export const removeLeagueMember = async (leagueId, memberId) => {
+export const removeLeagueMember = async (leagueId: number, memberId: number) => {
   const response = await api.delete(`/api/leagues/${leagueId}/members/${memberId}`);
   return response.data;
 };
@@ -151,7 +151,7 @@ export const removeLeagueMember = async (leagueId, memberId) => {
 /**
  * Leave a league
  */
-export const leaveLeague = async (leagueId) => {
+export const leaveLeague = async (leagueId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/leave`);
   return response.data;
 };
@@ -159,7 +159,7 @@ export const leaveLeague = async (leagueId) => {
 /**
  * Update a league member's role
  */
-export const updateLeagueMember = async (leagueId, memberId, role) => {
+export const updateLeagueMember = async (leagueId: number, memberId: number, role: string) => {
   const response = await api.put(`/api/leagues/${leagueId}/members/${memberId}`, {
     role
   });
@@ -169,7 +169,7 @@ export const updateLeagueMember = async (leagueId, memberId, role) => {
 /**
  * Create a season for a league
  */
-export const createLeagueSeason = async (leagueId, seasonData) => {
+export const createLeagueSeason = async (leagueId: number, seasonData: Record<string, any>) => {
   const response = await api.post(`/api/leagues/${leagueId}/seasons`, seasonData);
   return response.data;
 };
@@ -177,7 +177,7 @@ export const createLeagueSeason = async (leagueId, seasonData) => {
 /**
  * Update a season
  */
-export const updateSeason = async (seasonId, seasonData) => {
+export const updateSeason = async (seasonId: number, seasonData: Record<string, any>) => {
   const response = await api.put(`/api/seasons/${seasonId}`, seasonData);
   return response.data;
 };
@@ -185,7 +185,7 @@ export const updateSeason = async (seasonId, seasonData) => {
 /**
  * Update a league
  */
-export const updateLeague = async (leagueId, leagueData) => {
+export const updateLeague = async (leagueId: number, leagueData: Record<string, any>) => {
   const response = await api.put(`/api/leagues/${leagueId}`, leagueData);
   return response.data;
 };
@@ -195,31 +195,31 @@ export const updateLeague = async (leagueId, leagueData) => {
  */
 
 /** List home courts for a league. */
-export const getLeagueHomeCourts = async (leagueId) => {
+export const getLeagueHomeCourts = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/home-courts`);
   return response.data;
 };
 
 /** Add a home court to a league. */
-export const addLeagueHomeCourt = async (leagueId, courtId) => {
+export const addLeagueHomeCourt = async (leagueId: number, courtId: number) => {
   const response = await api.post(`/api/leagues/${leagueId}/home-courts`, { court_id: courtId });
   return response.data;
 };
 
 /** Remove a home court from a league. */
-export const removeLeagueHomeCourt = async (leagueId, courtId) => {
+export const removeLeagueHomeCourt = async (leagueId: number, courtId: number) => {
   const response = await api.delete(`/api/leagues/${leagueId}/home-courts/${courtId}`);
   return response.data;
 };
 
 /** Reorder home courts for a league. */
-export const reorderLeagueHomeCourts = async (leagueId, courtPositions) => {
+export const reorderLeagueHomeCourts = async (leagueId: number, courtPositions: Record<string, any>) => {
   const response = await api.put(`/api/leagues/${leagueId}/home-courts/reorder`, { court_positions: courtPositions });
   return response.data;
 };
 
 /** Set all home courts for a league (replaces existing). */
-export const setLeagueHomeCourts = async (leagueId, courtIds) => {
+export const setLeagueHomeCourts = async (leagueId: number, courtIds: number[]) => {
   const response = await api.put(`/api/leagues/${leagueId}/home-courts`, { court_ids: courtIds });
   return response.data;
 };
@@ -227,7 +227,7 @@ export const setLeagueHomeCourts = async (leagueId, courtIds) => {
 /**
  * Get league messages
  */
-export const getLeagueMessages = async (leagueId) => {
+export const getLeagueMessages = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/messages`);
   return response.data;
 };
@@ -235,7 +235,7 @@ export const getLeagueMessages = async (leagueId) => {
 /**
  * Create a league message
  */
-export const createLeagueMessage = async (leagueId, message) => {
+export const createLeagueMessage = async (leagueId: number, message: string) => {
   const response = await api.post(`/api/leagues/${leagueId}/messages`, { message });
   return response.data;
 };

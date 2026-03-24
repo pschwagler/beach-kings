@@ -49,7 +49,7 @@ export function useSessionPlayersModal({
   const [locations, setLocations] = useState([]);
   const [leagues, setLeagues] = useState([]);
   const [removingId, setRemovingId] = useState(null);
-  const [pendingAddIds, setPendingAddIds] = useState(new Set());
+  const [pendingAddIds, setPendingAddIds] = useState(new Set<number>());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerView, setDrawerView] = useState('add-player');
   const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);

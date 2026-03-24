@@ -7,7 +7,7 @@ import api from '../api-client';
 /**
  * Query rankings with filters (e.g., by season_id)
  */
-export const getRankings = async (queryParams = {}) => {
+export const getRankings = async (queryParams: Record<string, any> = {}) => {
   const response = await api.post('/api/rankings', queryParams);
   return response.data;
 };
@@ -48,7 +48,7 @@ export const getPlayers = async (params: Record<string, any> = {}, { signal }: {
 /**
  * Create a new player
  */
-export const createPlayer = async (name) => {
+export const createPlayer = async (name: string) => {
   const response = await api.post('/api/players', { name });
   return response.data;
 };
@@ -67,7 +67,7 @@ export const getPlayerStats = async (playerId, { signal }: { signal?: AbortSigna
 /**
  * Get player stats for a specific season
  */
-export const getPlayerSeasonStats = async (playerId, seasonId) => {
+export const getPlayerSeasonStats = async (playerId: number, seasonId: number) => {
   const response = await api.get(`/api/players/${playerId}/season/${seasonId}/stats`);
   return response.data;
 };
@@ -76,7 +76,7 @@ export const getPlayerSeasonStats = async (playerId, seasonId) => {
  * Get all player stats for a season or league
  * @param {Object} params - {season_id?: number, league_id?: number}
  */
-export const getAllPlayerStats = async (params) => {
+export const getAllPlayerStats = async (params: { season_id?: number; league_id?: number }) => {
   const response = await api.post('/api/player-stats', params);
   return response.data;
 };
@@ -84,14 +84,14 @@ export const getAllPlayerStats = async (params) => {
 /**
  * Get all player season stats for a season (backward compatibility)
  */
-export const getAllPlayerSeasonStats = async (seasonId) => {
+export const getAllPlayerSeasonStats = async (seasonId: number) => {
   return getAllPlayerStats({ season_id: seasonId });
 };
 
 /**
  * Get partnership and opponent stats for a player in a season
  */
-export const getPlayerSeasonPartnershipOpponentStats = async (playerId, seasonId) => {
+export const getPlayerSeasonPartnershipOpponentStats = async (playerId: number, seasonId: number) => {
   const response = await api.get(`/api/players/${playerId}/season/${seasonId}/partnership-opponent-stats`);
   return response.data;
 };
@@ -100,7 +100,7 @@ export const getPlayerSeasonPartnershipOpponentStats = async (playerId, seasonId
  * Get all partnership and opponent stats for all players in a season or league
  * @param {Object} params - {season_id?: number, league_id?: number}
  */
-export const getAllPartnershipOpponentStats = async (params) => {
+export const getAllPartnershipOpponentStats = async (params: { season_id?: number; league_id?: number }) => {
   const response = await api.post('/api/partnership-opponent-stats', params);
   return response.data;
 };
@@ -108,14 +108,14 @@ export const getAllPartnershipOpponentStats = async (params) => {
 /**
  * Get all partnership and opponent stats for all players in a season (backward compatibility)
  */
-export const getAllSeasonPartnershipOpponentStats = async (seasonId) => {
+export const getAllSeasonPartnershipOpponentStats = async (seasonId: number) => {
   return getAllPartnershipOpponentStats({ season_id: seasonId });
 };
 
 /**
  * Get player stats for a specific league
  */
-export const getPlayerLeagueStats = async (playerId, leagueId) => {
+export const getPlayerLeagueStats = async (playerId: number, leagueId: number) => {
   const response = await api.get(`/api/players/${playerId}/league/${leagueId}/stats`);
   return response.data;
 };
@@ -123,14 +123,14 @@ export const getPlayerLeagueStats = async (playerId, leagueId) => {
 /**
  * Get all player league stats for a league (backward compatibility)
  */
-export const getAllPlayerLeagueStats = async (leagueId) => {
+export const getAllPlayerLeagueStats = async (leagueId: number) => {
   return getAllPlayerStats({ league_id: leagueId });
 };
 
 /**
  * Get partnership and opponent stats for a player in a league
  */
-export const getPlayerLeaguePartnershipOpponentStats = async (playerId, leagueId) => {
+export const getPlayerLeaguePartnershipOpponentStats = async (playerId: number, leagueId: number) => {
   const response = await api.get(`/api/players/${playerId}/league/${leagueId}/partnership-opponent-stats`);
   return response.data;
 };
@@ -138,7 +138,7 @@ export const getPlayerLeaguePartnershipOpponentStats = async (playerId, leagueId
 /**
  * Get all partnership and opponent stats for all players in a league (backward compatibility)
  */
-export const getAllLeaguePartnershipOpponentStats = async (leagueId) => {
+export const getAllLeaguePartnershipOpponentStats = async (leagueId: number) => {
   return getAllPartnershipOpponentStats({ league_id: leagueId });
 };
 
@@ -173,7 +173,7 @@ export const getPlayerMatchHistory = async (playerId, { signal }: { signal?: Abo
  * @param {number} [params.page_size] - Items per page
  * @returns {Promise<{items: Array, total_count: number}>}
  */
-export const getPublicPlayers = async (params = {}, options = {}) => {
+export const getPublicPlayers = async (params: Record<string, any> = {}, options: Record<string, any> = {}) => {
   const response = await api.get('/api/public/players', { params, ...options });
   return response.data;
 };
@@ -183,31 +183,31 @@ export const getPublicPlayers = async (params = {}, options = {}) => {
  */
 
 /** List home courts for a player. */
-export const getPlayerHomeCourts = async (playerId) => {
+export const getPlayerHomeCourts = async (playerId: number) => {
   const response = await api.get(`/api/players/${playerId}/home-courts`);
   return response.data;
 };
 
 /** Add a home court to a player. */
-export const addPlayerHomeCourt = async (playerId, courtId) => {
+export const addPlayerHomeCourt = async (playerId: number, courtId: number) => {
   const response = await api.post(`/api/players/${playerId}/home-courts`, { court_id: courtId });
   return response.data;
 };
 
 /** Remove a home court from a player. */
-export const removePlayerHomeCourt = async (playerId, courtId) => {
+export const removePlayerHomeCourt = async (playerId: number, courtId: number) => {
   const response = await api.delete(`/api/players/${playerId}/home-courts/${courtId}`);
   return response.data;
 };
 
 /** Reorder home courts for a player. */
-export const reorderPlayerHomeCourts = async (playerId, courtPositions) => {
+export const reorderPlayerHomeCourts = async (playerId: number, courtPositions: Record<string, any>) => {
   const response = await api.put(`/api/players/${playerId}/home-courts/reorder`, { court_positions: courtPositions });
   return response.data;
 };
 
 /** Set all home courts for a player (replaces existing). */
-export const setPlayerHomeCourts = async (playerId, courtIds) => {
+export const setPlayerHomeCourts = async (playerId: number, courtIds: number[]) => {
   const response = await api.put(`/api/players/${playerId}/home-courts`, { court_ids: courtIds });
   return response.data;
 };

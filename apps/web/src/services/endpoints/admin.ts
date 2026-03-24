@@ -29,7 +29,7 @@ export const getAdminStats = async () => {
 };
 
 /** Admin: get recently created players. */
-export const getAdminRecentPlayers = async (limit = 50) => {
+export const getAdminRecentPlayers = async (limit: number = 50) => {
   const response = await api.get('/api/admin-view/players/recent', { params: { limit } });
   return response.data;
 };
@@ -45,7 +45,7 @@ export const getAdminConfig = async () => {
 /**
  * Update admin configuration settings
  */
-export const updateAdminConfig = async (config) => {
+export const updateAdminConfig = async (config: Record<string, any>) => {
   const response = await api.put('/api/admin-view/config', config);
   return response.data;
 };
@@ -61,7 +61,7 @@ export const getAdminFeedback = async () => {
 /**
  * Update feedback resolution status (admin only)
  */
-export const updateFeedbackResolution = async (feedbackId, isResolved) => {
+export const updateFeedbackResolution = async (feedbackId: number, isResolved: boolean) => {
   const response = await api.patch(`/api/admin-view/feedback/${feedbackId}/resolve`, {
     is_resolved: isResolved
   });
@@ -71,7 +71,7 @@ export const updateFeedbackResolution = async (feedbackId, isResolved) => {
 /**
  * Submit feedback (works for both authenticated and anonymous users)
  */
-export const submitFeedback = async ({ feedback, email }) => {
+export const submitFeedback = async ({ feedback, email }: { feedback: string; email?: string }) => {
   const response = await api.post('/api/feedback', {
     feedback_text: feedback,
     email: email || undefined

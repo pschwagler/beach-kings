@@ -8,7 +8,7 @@ import api, { API_BASE_URL } from '../api-client';
  * Create a new KOB tournament.
  * @param {Object} data - Tournament config
  */
-export const createKobTournament = async (data) => {
+export const createKobTournament = async (data: Record<string, any>) => {
   const response = await api.post('/api/kob/tournaments', data);
   return response.data;
 };
@@ -25,7 +25,7 @@ export const getMyKobTournaments = async () => {
  * Get tournament detail by ID (director view).
  * @param {number} tournamentId
  */
-export const getKobTournament = async (tournamentId) => {
+export const getKobTournament = async (tournamentId: number) => {
   const response = await api.get(`/api/kob/tournaments/${tournamentId}`);
   return response.data;
 };
@@ -35,7 +35,7 @@ export const getKobTournament = async (tournamentId) => {
  * @param {number} tournamentId
  * @param {Object} data
  */
-export const updateKobTournament = async (tournamentId, data) => {
+export const updateKobTournament = async (tournamentId: number, data: Record<string, any>) => {
   const response = await api.patch(`/api/kob/tournaments/${tournamentId}`, data);
   return response.data;
 };
@@ -44,7 +44,7 @@ export const updateKobTournament = async (tournamentId, data) => {
  * Delete a KOB tournament.
  * @param {number} tournamentId
  */
-export const deleteKobTournament = async (tournamentId) => {
+export const deleteKobTournament = async (tournamentId: number) => {
   await api.delete(`/api/kob/tournaments/${tournamentId}`);
 };
 
@@ -53,7 +53,7 @@ export const deleteKobTournament = async (tournamentId) => {
  * @param {number} tournamentId
  * @param {Object} data - { player_id, seed? }
  */
-export const addKobPlayer = async (tournamentId, data) => {
+export const addKobPlayer = async (tournamentId: number, data: Record<string, any>) => {
   const response = await api.post(`/api/kob/tournaments/${tournamentId}/players`, data);
   return response.data;
 };
@@ -63,7 +63,7 @@ export const addKobPlayer = async (tournamentId, data) => {
  * @param {number} tournamentId
  * @param {number} playerId
  */
-export const removeKobPlayer = async (tournamentId, playerId) => {
+export const removeKobPlayer = async (tournamentId: number, playerId: number) => {
   const response = await api.delete(`/api/kob/tournaments/${tournamentId}/players/${playerId}`);
   return response.data;
 };
@@ -73,7 +73,7 @@ export const removeKobPlayer = async (tournamentId, playerId) => {
  * @param {number} tournamentId
  * @param {number[]} playerIds - Ordered list (position = seed)
  */
-export const reorderKobSeeds = async (tournamentId, playerIds) => {
+export const reorderKobSeeds = async (tournamentId: number, playerIds: number[]) => {
   const response = await api.put(`/api/kob/tournaments/${tournamentId}/seeds`, { player_ids: playerIds });
   return response.data;
 };
@@ -82,7 +82,7 @@ export const reorderKobSeeds = async (tournamentId, playerIds) => {
  * Start a KOB tournament (lock roster, generate schedule).
  * @param {number} tournamentId
  */
-export const startKobTournament = async (tournamentId) => {
+export const startKobTournament = async (tournamentId: number) => {
   const response = await api.post(`/api/kob/tournaments/${tournamentId}/start`);
   return response.data;
 };
@@ -91,7 +91,7 @@ export const startKobTournament = async (tournamentId) => {
  * Manually advance to the next round.
  * @param {number} tournamentId
  */
-export const advanceKobRound = async (tournamentId) => {
+export const advanceKobRound = async (tournamentId: number) => {
   const response = await api.post(`/api/kob/tournaments/${tournamentId}/advance`);
   return response.data;
 };
@@ -101,7 +101,7 @@ export const advanceKobRound = async (tournamentId) => {
  * @param {number} tournamentId
  * @param {number} playerId
  */
-export const dropKobPlayer = async (tournamentId, playerId) => {
+export const dropKobPlayer = async (tournamentId: number, playerId: number) => {
   const response = await api.post(`/api/kob/tournaments/${tournamentId}/drop-player`, { player_id: playerId });
   return response.data;
 };
@@ -112,7 +112,7 @@ export const dropKobPlayer = async (tournamentId, playerId) => {
  * @param {string} matchupId
  * @param {Object} data - { team1_score, team2_score }
  */
-export const editKobScore = async (tournamentId, matchupId, data) => {
+export const editKobScore = async (tournamentId: number, matchupId: string, data: Record<string, any>) => {
   const response = await api.patch(`/api/kob/tournaments/${tournamentId}/matches/${matchupId}`, data);
   return response.data;
 };
@@ -121,7 +121,7 @@ export const editKobScore = async (tournamentId, matchupId, data) => {
  * Manually complete a tournament.
  * @param {number} tournamentId
  */
-export const completeKobTournament = async (tournamentId) => {
+export const completeKobTournament = async (tournamentId: number) => {
   const response = await api.post(`/api/kob/tournaments/${tournamentId}/complete`);
   return response.data;
 };
@@ -136,6 +136,20 @@ export const getKobFormatRecommendation = async ({
   numPlayers, numCourts, format, numPools, playoffSize, maxRounds,
   gamesPerMatch, numRrCycles, gameTo, durationMinutes,
   playoffFormat, playoffGameTo, playoffGamesPerMatch,
+}: {
+  numPlayers: number;
+  numCourts: number;
+  format?: string;
+  numPools?: number;
+  playoffSize?: number | null;
+  maxRounds?: number;
+  gamesPerMatch?: number;
+  numRrCycles?: number;
+  gameTo?: number;
+  durationMinutes?: number;
+  playoffFormat?: string;
+  playoffGameTo?: number;
+  playoffGamesPerMatch?: number;
 }) => {
   const params: Record<string, any> = { num_players: numPlayers, num_courts: numCourts };
   if (format) params.format = format;
@@ -161,7 +175,7 @@ export const getKobFormatRecommendation = async ({
  * @param {number} [params.durationMinutes]
  * @returns {Promise<Array>} Array of pill recommendation objects.
  */
-export const getKobFormatPills = async ({ numPlayers, numCourts, durationMinutes }) => {
+export const getKobFormatPills = async ({ numPlayers, numCourts, durationMinutes }: { numPlayers: number; numCourts: number; durationMinutes?: number }) => {
   const params: Record<string, any> = { num_players: numPlayers, num_courts: numCourts };
   if (durationMinutes) params.duration_minutes = durationMinutes;
   const response = await api.get('/api/kob/recommend/pills', { params });
@@ -175,7 +189,7 @@ export const getKobFormatPills = async ({ numPlayers, numCourts, durationMinutes
  * @param {number[]} team1 - [player_id, player_id]
  * @param {number[]} team2 - [player_id, player_id]
  */
-export const updateKobBracketMatch = async (tournamentId, matchId, team1, team2) => {
+export const updateKobBracketMatch = async (tournamentId: number, matchId: number, team1: number[], team2: number[]) => {
   const response = await api.patch(`/api/kob/tournaments/${tournamentId}/bracket`, {
     match_id: matchId,
     team1,
@@ -191,7 +205,7 @@ export const updateKobBracketMatch = async (tournamentId, matchId, team1, team2)
  * Uses raw fetch to avoid auth interceptors.
  * @param {string} code - Tournament code (e.g. "KOB-A3X9R2")
  */
-export const getKobTournamentByCode = async (code) => {
+export const getKobTournamentByCode = async (code: string) => {
   const baseUrl = API_BASE_URL || '';
   const res = await fetch(`${baseUrl}/api/kob/${code}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -209,7 +223,7 @@ export const getKobTournamentByCode = async (code) => {
  * @param {string} matchupId - Match identifier
  * @param {Object} data - { team1_score, team2_score, game_index? }
  */
-export const submitKobScorePublic = async (code, matchupId, data) => {
+export const submitKobScorePublic = async (code: string, matchupId: string, data: Record<string, any>) => {
   const baseUrl = API_BASE_URL || '';
   const res = await fetch(`${baseUrl}/api/kob/${code}/score?matchup_id=${matchupId}`, {
     method: 'POST',

@@ -8,7 +8,7 @@ import api from '../api-client';
  * Get all matches for a season or league with ELO changes
  * @param {Object} params - {season_id?: number, league_id?: number}
  */
-export const getMatchesWithElo = async (params) => {
+export const getMatchesWithElo = async (params: { season_id?: number; league_id?: number }) => {
   const response = await api.post('/api/matches/elo', params);
   return response.data;
 };
@@ -16,7 +16,7 @@ export const getMatchesWithElo = async (params) => {
 /**
  * Get all matches for a season with ELO changes (backward compatibility)
  */
-export const getSeasonMatches = async (seasonId) => {
+export const getSeasonMatches = async (seasonId: number) => {
   return getMatchesWithElo({ season_id: seasonId });
 };
 
@@ -31,7 +31,7 @@ export const getMatches = async () => {
 /**
  * Query matches with filters (e.g., by league_id, season_id)
  */
-export const queryMatches = async (queryParams) => {
+export const queryMatches = async (queryParams: Record<string, any>) => {
   const response = await api.post('/api/matches/search', queryParams);
   return response.data;
 };
@@ -39,7 +39,7 @@ export const queryMatches = async (queryParams) => {
 /**
  * Create a new match
  */
-export const createMatch = async (matchData) => {
+export const createMatch = async (matchData: Record<string, any>) => {
   const response = await api.post('/api/matches', matchData);
   return response.data;
 };
@@ -47,13 +47,13 @@ export const createMatch = async (matchData) => {
 /**
  * Update an existing match
  */
-export const updateMatch = async (matchId, matchData) => {
+export const updateMatch = async (matchId: number, matchData: Record<string, any>) => {
   const response = await api.put(`/api/matches/${matchId}`, matchData);
   return response.data;
 };
 
 // Delete an existing match
-export const deleteMatch = async (matchId) => {
+export const deleteMatch = async (matchId: number) => {
   const response = await api.delete(`/api/matches/${matchId}`);
   return response.data;
 };

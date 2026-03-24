@@ -12,14 +12,14 @@ import { createParser } from 'eventsource-parser';
  * @param {string} userPrompt - Optional context/instructions
  * @param {number} seasonId - Optional season ID
  */
-export const uploadMatchPhoto = async (leagueId, file, userPrompt = null, seasonId = null) => {
+export const uploadMatchPhoto = async (leagueId: number, file: File, userPrompt: string | null = null, seasonId: number | null = null) => {
   const formData = new FormData();
   formData.append('file', file);
   if (userPrompt) {
     formData.append('user_prompt', userPrompt);
   }
   if (seasonId) {
-    formData.append('season_id', seasonId);
+    formData.append('season_id', String(seasonId));
   }
 
   const response = await api.post(`/api/leagues/${leagueId}/matches/upload-photo`, formData, {
@@ -35,7 +35,7 @@ export const uploadMatchPhoto = async (leagueId, file, userPrompt = null, season
  * @param {number} leagueId - League ID
  * @param {number} jobId - Job ID
  */
-export const getPhotoJobStatus = async (leagueId, jobId) => {
+export const getPhotoJobStatus = async (leagueId: number, jobId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/matches/photo-jobs/${jobId}`);
   return response.data;
 };
@@ -46,7 +46,7 @@ export const getPhotoJobStatus = async (leagueId, jobId) => {
  * @param {number} jobId - Job ID
  * @returns {string} Full URL for GET .../photo-jobs/{jobId}/stream
  */
-export const getPhotoJobStreamUrl = (leagueId, jobId) => {
+export const getPhotoJobStreamUrl = (leagueId: number, jobId: number) => {
   const isBrowser = typeof window !== 'undefined';
   const base = API_BASE_URL || (isBrowser ? '' : '');
   return `${base}/api/leagues/${leagueId}/matches/photo-jobs/${jobId}/stream`;
@@ -60,7 +60,7 @@ export const getPhotoJobStreamUrl = (leagueId, jobId) => {
  * @param {{ onPartial: (data: { partial_matches: unknown[] }) => void, onDone: (data: { status: string, result?: unknown }) => void, onError: (data: { message: string }) => void }} callbacks
  * @returns {() => void} Abort function to close the stream
  */
-export const subscribePhotoJobStream = (leagueId, jobId, callbacks) => {
+export const subscribePhotoJobStream = (leagueId: number, jobId: number, callbacks: { onPartial: (data: { partial_matches: any[] }) => void; onDone: (data: { status: string; result?: any }) => void; onError: (data: { message: string }) => void }) => {
   const url = getPhotoJobStreamUrl(leagueId, jobId);
   const { accessToken } = getStoredTokens();
   const headers: any = {};
@@ -120,7 +120,7 @@ export const subscribePhotoJobStream = (leagueId, jobId, callbacks) => {
  * @param {string} sessionId - Photo session ID
  * @param {string} editPrompt - Edit/clarification prompt
  */
-export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
+export const editPhotoResults = async (leagueId: number, sessionId: string, editPrompt: string) => {
   const response = await api.post(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}/edit`,
     { edit_prompt: editPrompt }
@@ -135,7 +135,7 @@ export const editPhotoResults = async (leagueId, sessionId, editPrompt) => {
  * @param {number} seasonId - Season to create matches in
  * @param {string} matchDate - Date for the matches (YYYY-MM-DD)
  */
-export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDate, playerOverrides = null) => {
+export const confirmPhotoMatches = async (leagueId: number, sessionId: string, seasonId: number, matchDate: string, playerOverrides: Record<string, any>[] | null = null) => {
   const body: Record<string, any> = { season_id: seasonId, match_date: matchDate };
   if (playerOverrides?.length) {
     body.player_overrides = playerOverrides;
@@ -152,7 +152,7 @@ export const confirmPhotoMatches = async (leagueId, sessionId, seasonId, matchDa
  * @param {number} leagueId - League ID
  * @param {string} sessionId - Photo session ID
  */
-export const cancelPhotoSession = async (leagueId, sessionId) => {
+export const cancelPhotoSession = async (leagueId: number, sessionId: string) => {
   const response = await api.delete(
     `/api/leagues/${leagueId}/matches/photo-sessions/${sessionId}`
   );

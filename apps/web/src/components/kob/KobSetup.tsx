@@ -25,7 +25,8 @@ interface KobSetupProps {
   tournamentId: number | string;
 }
 
-export default function KobSetup({ tournamentId }: KobSetupProps) {
+export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupProps) {
+  const tournamentId = Number(tournamentIdProp);
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

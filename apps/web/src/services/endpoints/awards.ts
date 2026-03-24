@@ -8,7 +8,7 @@ import api from '../api-client';
  * Get awards for a season (lazy-computes if season has ended).
  * @param {number} seasonId
  */
-export const getSeasonAwards = async (seasonId) => {
+export const getSeasonAwards = async (seasonId: number) => {
   const response = await api.get(`/api/seasons/${seasonId}/awards`);
   return response.data;
 };
@@ -17,7 +17,7 @@ export const getSeasonAwards = async (seasonId) => {
  * Get all awards across all seasons in a league.
  * @param {number} leagueId
  */
-export const getLeagueAwards = async (leagueId) => {
+export const getLeagueAwards = async (leagueId: number) => {
   const response = await api.get(`/api/leagues/${leagueId}/awards`);
   return response.data;
 };
@@ -26,7 +26,7 @@ export const getLeagueAwards = async (leagueId) => {
  * Get all awards for a player across leagues.
  * @param {number} playerId
  */
-export const getPlayerAwards = async (playerId) => {
+export const getPlayerAwards = async (playerId: number) => {
   const response = await api.get(`/api/players/${playerId}/awards`);
   return response.data;
 };
