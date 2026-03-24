@@ -52,7 +52,7 @@ function FriendBadge({ friendStatuses, playerId }: FriendBadgeProps) {
  */
 function parseInitialFilters(searchParams: any) {
   const keys = ['gender', 'level'];
-  const filters = {};
+  const filters: Record<string, any> = {};
   for (const key of keys) {
     const value = searchParams.get(key);
     if (value) filters[key] = value;
@@ -185,7 +185,7 @@ export default function FindPlayersPage() {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
-        const params = {
+        const params: Record<string, any> = {
           ...filters,
           page,
           page_size: PAGE_SIZE,

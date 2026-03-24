@@ -4,7 +4,7 @@ import { Button } from '../ui/UI';
 
 // Helper function to calculate player statistics from matches
 function calculatePlayerStats(matches) {
-  const playerStats = {};
+  const playerStats: Record<string, { name: string; wins: number; losses: number; pointDifferential: number }> = {};
   
   matches.forEach(match => {
     const team1Players = [match['Team 1 Player 1'], match['Team 1 Player 2']].filter(Boolean);

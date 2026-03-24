@@ -30,7 +30,7 @@ function getDeletionDaysRemaining(deletionScheduledAt) {
   if (!deletionScheduledAt) return null;
   const scheduledDate = new Date(deletionScheduledAt);
   const now = new Date();
-  const diffMs = scheduledDate - now;
+  const diffMs = scheduledDate.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diffMs / MS_PER_DAY));
 }
 
@@ -248,7 +248,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       }
 
       // 2. Update Player Profile
-      const playerPayload = {
+      const playerPayload: Record<string, any> = {
         full_name: formData.full_name.trim(),
         gender: formData.gender,
         level: formData.level,

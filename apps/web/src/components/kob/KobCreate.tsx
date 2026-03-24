@@ -139,7 +139,7 @@ export default function KobCreate() {
     }
     setLoadingRec(true);
     try {
-      const params = {
+      const params: Record<string, any> = {
         numPlayers,
         numCourts,
         gameTo,
@@ -164,7 +164,7 @@ export default function KobCreate() {
       const ps = (format === "POOLS_PLAYOFFS" || isPools) ? Math.max(effectivePlayoffSize, 4) : effectivePlayoffSize;
       if (ps > 0) params.playoffSize = ps;
 
-      const rec = await getKobFormatRecommendation(params);
+      const rec = await getKobFormatRecommendation(params as any);
       setRecommendation(rec);
 
       // Sync UI from backend defaults — use ref to avoid stale closure

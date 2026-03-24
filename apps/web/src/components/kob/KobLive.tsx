@@ -23,7 +23,11 @@ import "./KobLive.css";
 
 const POLL_INTERVAL_MS = 5000;
 
-export default function KobLive({ code }) {
+interface KobLiveProps {
+  code: string;
+}
+
+export default function KobLive({ code }: KobLiveProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

@@ -35,7 +35,7 @@ export default function PendingInvitesTab() {
       // Show only pending placeholders, sorted newest-first
       const pending = (data.placeholders || [])
         .filter((p) => p.status === 'pending')
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setPlaceholders(pending);
     } catch (err) {
       if (signal?.aborted) return;
@@ -109,7 +109,7 @@ export default function PendingInvitesTab() {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.floor((now - date) / 86400000);
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
     if (diffDays < 1) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;

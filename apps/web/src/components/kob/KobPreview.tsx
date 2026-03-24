@@ -274,7 +274,12 @@ function PlayoffSection({ rounds, numCourts, roundClocks }) {
   return <NonPoolTable rounds={rounds} numCourts={numCourts} roundClocks={roundClocks} />;
 }
 
-export default function KobPreview({ recommendation, loading }) {
+interface KobPreviewProps {
+  recommendation: any;
+  loading?: boolean;
+}
+
+export default function KobPreview({ recommendation, loading }: KobPreviewProps) {
   const preview_rounds = recommendation?.preview_rounds;
 
   // Derive numCourts from matches

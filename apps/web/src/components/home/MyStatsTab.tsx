@@ -182,7 +182,7 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
   // Sort once, oldest-first, for reuse below
   const sortedAsc = [...allCompleted]
     .filter(m => m[F.ELO_AFTER] != null && m[F.DATE])
-    .sort((a, b) => new Date(a[F.DATE]) - new Date(b[F.DATE]));
+    .sort((a, b) => new Date(a[F.DATE]).getTime() - new Date(b[F.DATE]).getTime());
 
   if (sortedAsc.length === 0) return {};
 
@@ -252,7 +252,7 @@ function formatDelta(value, suffix = '', decimals = 0) {
   const formatted = Math.abs(value) < 10 && decimals > 0
     ? value.toFixed(decimals)
     : String(Math.round(value));
-  const direction = value > 0 ? 'up' : value < 0 ? 'down' : 'neutral';
+  const direction = (value > 0 ? 'up' : value < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral';
   const sign = value > 0 ? '+' : '';
   return { label: `${sign}${formatted}${suffix}`, direction };
 }
@@ -265,7 +265,7 @@ function formatDelta(value, suffix = '', decimals = 0) {
  * @param {Function} extractor - Returns [{id, name}] pairs from a match
  */
 function groupByPlayer(matches, extractor) {
-  const map = {};
+  const map: Record<string, any> = {};
   for (const m of matches) {
     const players = extractor(m).filter(p => p.id != null);
     for (const { id, name } of players) {
@@ -352,7 +352,7 @@ function buildLeagueSeasonOptions(allCompleted) {
  * Build unique partner names sorted by total games played (descending).
  */
 function buildPartnerOptions(allCompleted) {
-  const counts = {};
+  const counts: Record<string, number> = {};
   for (const m of allCompleted) {
     const name = m[F.PARTNER];
     if (name) counts[name] = (counts[name] || 0) + 1;

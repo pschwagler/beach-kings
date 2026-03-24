@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getAdminAllSuggestions } from '../../../services/api';
 import { formatDate } from '../adminUtils';
@@ -133,7 +133,7 @@ interface SuggestionRowsProps {
   isExpanded: boolean;
   onRowClick: () => void;
   onResolved: (id: any) => void;
-  renderChanges: (changes: any) => JSX.Element | string;
+  renderChanges: (changes: any) => React.ReactElement | string;
 }
 
 function SuggestionRows({ suggestion, isExpanded, onRowClick, onResolved, renderChanges }: SuggestionRowsProps) {

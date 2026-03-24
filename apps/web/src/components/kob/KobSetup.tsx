@@ -21,7 +21,11 @@ import "./KobSetup.css";
 
 const PLAYER_PAGE_SIZE = 25;
 
-export default function KobSetup({ tournamentId }) {
+interface KobSetupProps {
+  tournamentId: number | string;
+}
+
+export default function KobSetup({ tournamentId }: KobSetupProps) {
   const router = useRouter();
   const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();

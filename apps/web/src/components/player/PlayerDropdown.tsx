@@ -415,7 +415,7 @@ export default function PlayerDropdown({
                 id={`player-option-${index}`}
                 role="option"
                 aria-selected={highlightedIndex === index}
-                ref={el => optionRefs.current[index] = el}
+                ref={el => { optionRefs.current[index] = el; }}
                 className={`player-dropdown-option ${highlightedIndex === index ? 'highlighted' : ''}`}
                 onClick={() => handleSelectPlayer(player)}
                 onTouchStart={handleTouchStart}
@@ -438,7 +438,7 @@ export default function PlayerDropdown({
               id={`player-option-${addUnregisteredIndex}`}
               role="option"
               aria-selected={highlightedIndex === addUnregisteredIndex}
-              ref={el => optionRefs.current[addUnregisteredIndex] = el}
+              ref={el => { optionRefs.current[addUnregisteredIndex] = el; }}
               className={`player-dropdown-option create-placeholder add-unregistered ${highlightedIndex === addUnregisteredIndex ? 'highlighted' : ''}`}
               onClick={enterCreateMode}
               onMouseEnter={() => setHighlightedIndex(addUnregisteredIndex)}

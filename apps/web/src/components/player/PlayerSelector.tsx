@@ -153,7 +153,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
                 normalizedPlayers.map((player, index) => (
                   <div
                     key={player.id}
-                    ref={el => optionsRefs.current[index] = el}
+                    ref={el => { optionsRefs.current[index] = el; }}
                     className={`player-selector-option ${player.name === playerName ? 'selected' : ''} ${highlightedIndex === index ? 'highlighted' : ''}`}
                     onClick={() => handlePlayerSelect(player)}
                     onMouseEnter={() => setHighlightedIndex(index)}

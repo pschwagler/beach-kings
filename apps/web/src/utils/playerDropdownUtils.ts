@@ -5,6 +5,9 @@
 export interface PlayerOption {
   value: any;
   label: string;
+  id?: any;
+  isPlaceholder?: boolean;
+  [key: string]: any;
 }
 
 /**

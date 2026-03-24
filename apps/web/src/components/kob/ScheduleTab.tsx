@@ -4,7 +4,13 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import "./KobLive.css";
 
-export default function ScheduleTab({ matches, scheduleData, currentRound }) {
+interface ScheduleTabProps {
+  matches: any[];
+  scheduleData?: any;
+  currentRound?: number;
+}
+
+export default function ScheduleTab({ matches, scheduleData, currentRound }: ScheduleTabProps) {
   const [expandedRound, setExpandedRound] = useState(currentRound);
 
   // Keep expandedRound in sync when the current round advances (e.g. after polling).

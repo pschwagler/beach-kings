@@ -5,6 +5,17 @@ import { Button } from "../ui/UI";
 import { Loader2, Check, Edit2 } from "lucide-react";
 import "./KobLive.css";
 
+interface ScoreEntryCardProps {
+  match: any;
+  gameTo: number;
+  winBy: number;
+  gamesPerMatch?: number;
+  onSubmit: (matchupId: any, team1Score: any, team2Score: any) => void;
+  isScored?: boolean;
+  isDirector?: boolean;
+  onEditScore?: (matchupId: any, team1Score: any, team2Score: any) => void;
+}
+
 export default function ScoreEntryCard({
   match,
   gameTo,
@@ -14,7 +25,7 @@ export default function ScoreEntryCard({
   isScored = false,
   isDirector = false,
   onEditScore,
-}) {
+}: ScoreEntryCardProps) {
   const isBo3 = gamesPerMatch >= 3;
   const gameScores = match.game_scores || [];
 

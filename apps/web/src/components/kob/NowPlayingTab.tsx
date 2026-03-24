@@ -25,7 +25,15 @@ function getEffectiveGamesPerMatch(tournament, match) {
   return tournament.games_per_match || 1;
 }
 
-export default function NowPlayingTab({ matches, tournament, onScoreSubmit, isDirector, onEditScore }) {
+interface NowPlayingTabProps {
+  matches: any[];
+  tournament: any;
+  onScoreSubmit: (matchupId: any, team1Score: any, team2Score: any) => void;
+  isDirector: boolean;
+  onEditScore?: (matchupId: any, team1Score: any, team2Score: any) => void;
+}
+
+export default function NowPlayingTab({ matches, tournament, onScoreSubmit, isDirector, onEditScore }: NowPlayingTabProps) {
   if (!matches || matches.length === 0) {
     return (
       <div className="kob-now__empty">

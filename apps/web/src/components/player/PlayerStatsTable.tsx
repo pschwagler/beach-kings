@@ -84,11 +84,11 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }: Player
 
             const rowKey = row['Player ID'] != null ? `${row['Player ID']}-${idx}` : idx;
             if (isEmpty) {
-              acc.rows.push(<tr key={`spacer-${idx}`}><td colSpan="6" className="spacer-row"></td></tr>);
+              acc.rows.push(<tr key={`spacer-${idx}`}><td colSpan={6} className="spacer-row"></td></tr>);
             } else if (isSectionHeader) {
               acc.rows.push(
                 <tr key={`header-${idx}`} className="section-header">
-                  <td colSpan="6" style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
+                  <td colSpan={6} style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
                 </tr>
               );
             } else {

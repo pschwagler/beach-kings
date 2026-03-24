@@ -5,7 +5,14 @@ import { Button } from "../ui/UI";
 import { ChevronUp, ChevronDown, SkipForward, UserMinus, Flag } from "lucide-react";
 import "./KobLive.css";
 
-export default function DirectorControls({ tournament, onAdvance, onDropPlayer, onComplete }) {
+interface DirectorControlsProps {
+  tournament: any;
+  onAdvance: () => void;
+  onDropPlayer: (playerId: number) => void;
+  onComplete: () => void;
+}
+
+export default function DirectorControls({ tournament, onAdvance, onDropPlayer, onComplete }: DirectorControlsProps) {
   const [expanded, setExpanded] = useState(false);
   const [selectedDropPlayer, setSelectedDropPlayer] = useState(null);
 

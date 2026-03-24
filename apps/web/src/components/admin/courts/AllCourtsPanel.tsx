@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { RefreshCw, ChevronUp, ChevronDown, Camera } from 'lucide-react';
 import { getAdminAllCourts, getCourtDetailById } from '../../../services/api';
 import { useApp } from '../../../contexts/AppContext';
@@ -280,7 +280,7 @@ interface CourtRowsProps {
   isExpanded: boolean;
   onRowClick: (id: number) => void;
   onCourtUpdated: (court: any) => void;
-  statusBadge: (status: any) => JSX.Element;
+  statusBadge: (status: any) => React.ReactElement;
   courtDetail: any;
   detailLoading: boolean;
 }

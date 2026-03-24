@@ -45,7 +45,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
   useEffect(() => {
     if (!locationId && !userPos) return;
 
-    const courtParams = { page_size: 4 };
+    const courtParams: Record<string, any> = { page_size: 4 };
     if (posSource === 'geolocation' && userPos) {
       // User is somewhere specific — show courts near their actual position
       courtParams.user_lat = userPos.latitude;
@@ -80,7 +80,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
     if (!locationId) return;
     setLoadingPlayers(true);
     try {
-      const params = {
+      const params: Record<string, any> = {
         location_id: locationId,
         sort_by: 'rating',
         sort_dir: 'desc',
