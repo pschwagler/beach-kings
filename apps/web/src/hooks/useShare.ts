@@ -29,7 +29,7 @@ import { useModal, MODAL_TYPES } from '../contexts/ModalContext';
 export const SHARE_TITLE = 'Beach League Invite';
 
 /** Build the share text for a given player name. */
-export const getShareText = (name) => `${name} — claim your matches on Beach League`;
+export const getShareText = (name: string): string => `${name} — claim your matches on Beach League`;
 
 /**
  * Detect if the device is mobile/touch-based.
@@ -51,7 +51,7 @@ function isMobileDevice() {
 export default function useShare() {
   const { openModal } = useModal();
 
-  const shareInvite = useCallback(async ({ name, url }) => {
+  const shareInvite = useCallback(async ({ name, url }: { name: string; url: string }) => {
     const text = getShareText(name);
 
     // Use native share on mobile only
@@ -59,7 +59,7 @@ export default function useShare() {
       try {
         await navigator.share({ title: SHARE_TITLE, text, url });
         return;
-      } catch (err) {
+      } catch (err: any) {
         // User cancelled — do nothing
         if (err.name === 'AbortError') return;
         // Other error (e.g. expired activation) — fall through to modal

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
 
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 
@@ -46,6 +46,15 @@ async function getBackendHostForWebSocket() {
  * @param {React.MutableRefObject<Function>} options.fetchDmUnreadCountRef - ref to fetchDmUnreadCount
  * @returns {{ wsConnected, connectWebSocket, disconnectWebSocket, onDirectMessageRef }}
  */
+interface UseNotificationWebSocketOptions {
+  isAuthenticated: boolean;
+  user: any;
+  onNotification: (notification: any) => void;
+  onNotificationUpdated: (notification: any) => void;
+  fetchUnreadCountRef: MutableRefObject<() => void>;
+  fetchDmUnreadCountRef: MutableRefObject<() => void>;
+}
+
 export function useNotificationWebSocket({
   isAuthenticated,
   user,
@@ -53,7 +62,7 @@ export function useNotificationWebSocket({
   onNotificationUpdated,
   fetchUnreadCountRef,
   fetchDmUnreadCountRef,
-}) {
+}: UseNotificationWebSocketOptions) {
   const [wsConnected, setWsConnected] = useState(false);
 
   const onDirectMessageRef = useRef(null);

@@ -22,7 +22,7 @@ export function useMatchPayload({
     const team2_p2_id = getPlayerId(formData.team2Player2);
 
     // Build base payload
-    const matchPayload = {
+    const matchPayload: Record<string, any> = {
       team1_player1_id: team1_p1_id,
       team1_player2_id: team1_p2_id,
       team2_player1_id: team2_p1_id,

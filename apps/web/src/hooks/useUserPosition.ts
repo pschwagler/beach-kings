@@ -14,7 +14,20 @@ import { useState, useEffect, useRef } from 'react';
  * @param {boolean} [options.skipGeolocation=false] - Skip browser geolocation (use profile only)
  * @param {number} [options.timeout=5000] - Geolocation timeout in ms
  */
-export function useUserPosition(profileCoords = null, options = {}) {
+interface Coords {
+  latitude: number;
+  longitude: number;
+}
+
+interface UseUserPositionOptions {
+  skipGeolocation?: boolean;
+  timeout?: number;
+}
+
+export function useUserPosition(
+  profileCoords: Coords | null = null,
+  options: UseUserPositionOptions = {},
+) {
   const { skipGeolocation = false, timeout = 5000 } = options;
   const geoAttempted = useRef(false);
 

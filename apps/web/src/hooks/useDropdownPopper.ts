@@ -1,15 +1,19 @@
-import { useEffect, useRef } from 'react';
-import { createPopper } from '@popperjs/core';
+import { useEffect, useRef, RefObject, MutableRefObject } from 'react';
+import { createPopper, Instance as PopperInstance } from '@popperjs/core';
 
 /**
  * Custom hook to manage Popper.js instance for dropdown positioning
- * @param {boolean} isOpen - Whether the dropdown is open
- * @param {React.RefObject} referenceRef - Ref to the reference element (input)
- * @param {React.RefObject} popperRef - Ref to the popper element (dropdown)
- * @returns {React.RefObject} - Ref to the Popper instance
+ * @param isOpen - Whether the dropdown is open
+ * @param referenceRef - Ref to the reference element (input)
+ * @param popperRef - Ref to the popper element (dropdown)
+ * @returns Ref to the Popper instance
  */
-export function useDropdownPopper(isOpen, referenceRef, popperRef) {
-  const popperInstanceRef = useRef(null);
+export function useDropdownPopper(
+  isOpen: boolean,
+  referenceRef: RefObject<HTMLElement | null>,
+  popperRef: RefObject<HTMLElement | null>,
+): MutableRefObject<PopperInstance | null> {
+  const popperInstanceRef = useRef<PopperInstance | null>(null);
 
   useEffect(() => {
     if (!isOpen || !referenceRef.current || !popperRef.current) {

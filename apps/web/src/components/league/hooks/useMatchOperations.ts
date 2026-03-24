@@ -53,7 +53,7 @@ export function useMatchOperations({
    * @param {Object} options - Optional configuration
    * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const createMatchAPI = useCallback(async (matchData, options = {}) => {
+  const createMatchAPI = useCallback(async (matchData: any, options: { skipRefresh?: boolean } = {}) => {
     // Match data should already contain player IDs from AddMatchModal
     // But normalize just in case
     const normalized = normalizeMatchData(matchData);
@@ -94,7 +94,7 @@ export function useMatchOperations({
    * @param {Object} options - Optional configuration
    * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const updateMatchAPI = useCallback(async (matchId, matchData, options = {}) => {
+  const updateMatchAPI = useCallback(async (matchId: any, matchData: any, options: { skipRefresh?: boolean } = {}) => {
     const normalized = normalizeMatchData(matchData);
     
     // Validate all player IDs are provided
@@ -125,7 +125,7 @@ export function useMatchOperations({
    * @param {Object} options - Optional configuration
    * @param {boolean} options.skipRefresh - If true, skip data refresh (useful for batch operations)
    */
-  const deleteMatchAPI = useCallback(async (matchId, options = {}) => {
+  const deleteMatchAPI = useCallback(async (matchId: any, options: { skipRefresh?: boolean } = {}) => {
     await deleteMatch(matchId);
     
     // Skip refresh if requested (e.g., when called from saveEditedSession)

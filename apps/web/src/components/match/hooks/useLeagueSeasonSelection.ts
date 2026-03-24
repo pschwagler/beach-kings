@@ -40,17 +40,17 @@ export function useLeagueSeasonSelection({
    * Pick the best default season from a list: most recent active season,
    * falling back to the season with the latest start_date.
    */
-  const pickDefaultSeason = useCallback((seasons) => {
+  const pickDefaultSeason = useCallback((seasons: any[]) => {
     const activeSeasons = seasons.filter(isSeasonActive);
     if (activeSeasons.length > 0) {
       // Most recent active season by start_date
       return [...activeSeasons].sort(
-        (a, b) => new Date(b.start_date) - new Date(a.start_date)
+        (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
       )[0];
     }
     // No active seasons — fall back to most recent by start_date
     return [...seasons].sort(
-      (a, b) => new Date(b.start_date) - new Date(a.start_date)
+      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     )[0] ?? null;
   }, [isSeasonActive]);
 

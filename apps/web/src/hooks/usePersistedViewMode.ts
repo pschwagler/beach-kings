@@ -6,22 +6,25 @@ const VALID_MODES = ['cards', 'clipboard'];
 
 /**
  * Persists view mode (cards | clipboard) in localStorage.
- * @param {string} storageKey - localStorage key
- * @param {string} defaultMode - default when no stored value or invalid
- * @returns {[string, function]} [viewMode, setViewMode]
+ * @param storageKey - localStorage key
+ * @param defaultMode - default when no stored value or invalid
+ * @returns [viewMode, setViewMode]
  */
-export function usePersistedViewMode(storageKey, defaultMode = 'cards') {
-  const [viewMode, setViewModeState] = useState(() => {
+export function usePersistedViewMode(
+  storageKey: string,
+  defaultMode: string = 'cards',
+): [string, (mode: string) => void] {
+  const [viewMode, setViewModeState] = useState<string>(() => {
     if (typeof window === 'undefined') return defaultMode;
     try {
       const stored = localStorage.getItem(storageKey);
-      if (VALID_MODES.includes(stored)) return stored;
+      if (stored && VALID_MODES.includes(stored)) return stored;
     } catch (_) {}
     return defaultMode;
   });
 
   const setViewMode = useCallback(
-    (mode) => {
+    (mode: string) => {
       if (!VALID_MODES.includes(mode)) return;
       setViewModeState(mode);
       try {

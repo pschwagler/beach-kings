@@ -36,7 +36,7 @@ export function usePlayerSearch({ leagueId = null, limit = 10 } = {}) {
 
     setIsLoading(true);
     try {
-      const params = { q: q.trim(), limit };
+      const params: Record<string, any> = { q: q.trim(), limit };
       if (leagueId) {
         params.league_id = leagueId;
       }

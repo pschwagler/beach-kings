@@ -5,14 +5,17 @@ import { getLocationDistances } from '../services/api';
  * Custom hook for automatically selecting the closest location when a city is selected.
  * Returns state and handlers for managing location distances and auto-selection.
  */
-export function useLocationAutoSelect(setFormData, setErrorMessage) {
-  const [locationDistances, setLocationDistances] = useState({}); // Map of location_id -> distance
-  const [locations, setLocations] = useState([]);
+export function useLocationAutoSelect(
+  setFormData: (updater: (prev: any) => any) => void,
+  setErrorMessage: ((msg: string) => void) | null,
+) {
+  const [locationDistances, setLocationDistances] = useState<Record<string, number>>({}); // Map of location_id -> distance
+  const [locations, setLocations] = useState<any[]>([]);
 
   /**
    * Handle city selection - automatically find and select the closest location
    */
-  const handleCitySelect = async (cityData, currentLocations) => {
+  const handleCitySelect = async (cityData: any, currentLocations: any[]) => {
     // Store city data
     setFormData((prev) => ({
       ...prev,
@@ -64,7 +67,7 @@ export function useLocationAutoSelect(setFormData, setErrorMessage) {
   /**
    * Handle location change - update distance from stored distances map
    */
-  const handleLocationChange = (locationId) => {
+  const handleLocationChange = (locationId: string) => {
     const distance = locationDistances[locationId];
     setFormData((prev) => ({
       ...prev,
@@ -77,7 +80,7 @@ export function useLocationAutoSelect(setFormData, setErrorMessage) {
    * Update locations list (for when locations are loaded separately)
    * This should be called when locations are initially loaded
    */
-  const updateLocationsWithDistances = useCallback((newLocations) => {
+  const updateLocationsWithDistances = useCallback((newLocations: any[]) => {
     setLocations(newLocations);
   }, []);
 

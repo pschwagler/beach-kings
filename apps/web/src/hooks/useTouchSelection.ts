@@ -1,27 +1,30 @@
 import { useRef } from 'react';
+import React from 'react';
 
 /**
  * Custom hook to handle touch selection with scroll detection
  * Distinguishes between taps and scrolls to prevent accidental selections
- * @param {Function} onSelect - Callback function to execute on valid tap
- * @returns {Object} - Object with handleTouchStart and handleTouchEnd functions
+ * @param onSelect - Callback function to execute on valid tap
+ * @returns Object with handleTouchStart and handleTouchEnd functions
  */
-export function useTouchSelection(onSelect) {
-  const touchStartPos = useRef(null);
+export function useTouchSelection<T = any>(onSelect: (item: T) => void) {
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
-  const handleTouchStart = (e) => {
+  const handleTouchStart = (e: React.TouchEvent | TouchEvent) => {
+    const touch = (e as TouchEvent).touches[0];
     touchStartPos.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY
+      x: touch.clientX,
+      y: touch.clientY,
     };
   };
 
-  const handleTouchEnd = (e, item) => {
+  const handleTouchEnd = (e: React.TouchEvent | TouchEvent, item: T) => {
     if (!touchStartPos.current) return;
     
+    const changedTouch = (e as TouchEvent).changedTouches[0];
     const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY
+      x: changedTouch.clientX,
+      y: changedTouch.clientY,
     };
     
     // Calculate distance moved

@@ -23,7 +23,13 @@ export function useDataRefresh({
    * @param {number|null} options.seasonId - Specific season ID to refresh (default: uses getSeasonIdForRefresh)
    * @param {boolean} options.forceClear - Force clear cache before refresh (default: false)
    */
-  const refreshData = useCallback(async (options = {}) => {
+  const refreshData = useCallback(async (options: {
+    sessions?: boolean;
+    season?: boolean;
+    matches?: boolean;
+    seasonId?: number | null;
+    forceClear?: boolean;
+  } = {}) => {
     const {
       sessions = true,
       season = false,

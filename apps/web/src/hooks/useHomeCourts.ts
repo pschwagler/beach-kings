@@ -15,7 +15,26 @@ import { useToast } from '../contexts/ToastContext';
  *   - set(entityId, courtIds) → court[] — replace all courts with ordered list
  * @returns {{ homeCourts, handleSet, handleRemove, handleSetPrimary }}
  */
-export default function useHomeCourts({ entityId, initialCourts, api }) {
+interface Court {
+  id: string | number;
+  name?: string;
+  address?: string;
+  position?: number;
+  [key: string]: any;
+}
+
+interface HomeCourtsApi {
+  get?: (entityId: string | number) => Promise<Court[]>;
+  set: (entityId: string | number, courtIds: (string | number)[]) => Promise<any>;
+}
+
+interface UseHomeCourtsOptions {
+  entityId: string | number | null;
+  initialCourts?: Court[];
+  api: HomeCourtsApi;
+}
+
+export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeCourtsOptions) {
   const { showToast } = useToast();
   const [homeCourts, setHomeCourts] = useState(initialCourts || []);
 
@@ -54,13 +73,13 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
    * Replace the entire home courts list with a new ordered array.
    * Optimistically updates UI, then calls the set API.
    */
-  const handleSet = useCallback(async (newCourts) => {
+  const handleSet = useCallback(async (newCourts: Court[]) => {
     const prev = homeCourts;
     const courtsWithPosition = newCourts.map((c, i) => ({ ...c, position: i }));
     setHomeCourts(courtsWithPosition);
     try {
       await apiRef.current.set(entityId, newCourts.map((c) => c.id));
-    } catch (err) {
+    } catch (err: any) {
       showToast(err.response?.data?.detail || 'Failed to update home courts', 'error');
       if (apiRef.current.get) {
         await refetch();
@@ -73,12 +92,12 @@ export default function useHomeCourts({ entityId, initialCourts, api }) {
   }, [homeCourts, entityId, initialCourts, showToast, refetch]);
 
   /** Remove a single home court. */
-  const handleRemove = useCallback(async (courtId) => {
+  const handleRemove = useCallback(async (courtId: string | number) => {
     await handleSet(homeCourts.filter((c) => c.id !== courtId));
   }, [homeCourts, handleSet]);
 
   /** Set a court as primary by moving it to position 0. */
-  const handleSetPrimary = useCallback(async (courtId) => {
+  const handleSetPrimary = useCallback(async (courtId: string | number) => {
     const court = homeCourts.find((c) => c.id === courtId);
     if (!court || homeCourts[0]?.id === courtId) return;
     await handleSet([court, ...homeCourts.filter((c) => c.id !== courtId)]);

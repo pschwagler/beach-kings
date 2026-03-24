@@ -19,7 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
  * @returns {Object} session, matches, participants, loading, error, refresh, userLeagues,
  *   isCreator, hasLessThanFourPlayers, membersForModal, transformedMatches
  */
-export function usePickupSession(code) {
+export function usePickupSession(code: string | undefined) {
   const router = useRouter();
   const { currentUserPlayer, isAuthenticated } = useAuth();
   const [session, setSession] = useState(null);
@@ -60,7 +60,7 @@ export function usePickupSession(code) {
       ]);
       setMatches(Array.isArray(list) ? list : []);
       setParticipants(Array.isArray(partList) ? partList : []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading session:', err);
       setError(err.response?.data?.detail || err.message || 'Failed to load session');
       setSession(null);
