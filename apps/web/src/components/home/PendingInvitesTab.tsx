@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Trash2, Share2 } from 'lucide-react';
 import { listPlaceholderPlayers, deletePlaceholderPlayer } from '../../services/api';
 import { Button } from '../ui/UI';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { useToast } from '../../contexts/ToastContext';
 import useShare from '../../hooks/useShare';
+
+interface PlaceholderPlayer {
+  player_id: number;
+  name?: string | null;
+  phone_number?: string | null;
+  invite_url?: string | null;
+  status?: string | null;
+  match_count?: number;
+  created_at?: string | null;
+}
 
 /**
  * PendingInvitesTab — manages placeholder players created by the current user.
@@ -16,28 +26,28 @@ import useShare from '../../hooks/useShare';
  * sidebar / More menu as its own tab.
  */
 export default function PendingInvitesTab() {
-  const [placeholders, setPlaceholders] = useState([]);
+  const [placeholders, setPlaceholders] = useState<PlaceholderPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Delete confirmation state
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<PlaceholderPlayer | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const { showToast } = useToast();
   const { shareInvite } = useShare();
 
-  const fetchPlaceholders = useCallback(async (signal) => {
+  const fetchPlaceholders = useCallback(async (signal: AbortSignal) => {
     try {
       setError(null);
       const data = await listPlaceholderPlayers();
       if (signal?.aborted) return;
       // Show only pending placeholders, sorted newest-first
-      const pending = (data.placeholders || [])
+      const pending = ((data.placeholders || []) as PlaceholderPlayer[])
         .filter((p) => p.status === 'pending')
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
       setPlaceholders(pending);
-    } catch (err) {
+    } catch (err: unknown) {
       if (signal?.aborted) return;
       console.error('Error loading placeholders:', err);
       setError('Failed to load pending invites');
@@ -55,14 +65,14 @@ export default function PendingInvitesTab() {
   /**
    * Share invite URL via centralized share hook.
    */
-  const handleShare = (placeholder) => {
-    shareInvite({ name: placeholder.name, url: placeholder.invite_url });
+  const handleShare = (placeholder: PlaceholderPlayer) => {
+    shareInvite({ name: placeholder.name ?? '', url: placeholder.invite_url ?? '' });
   };
 
   /**
    * Open delete confirmation modal.
    */
-  const handleDeleteClick = (placeholder) => {
+  const handleDeleteClick = (placeholder: PlaceholderPlayer) => {
     setDeleteTarget(placeholder);
     setShowDeleteModal(true);
   };
@@ -75,14 +85,15 @@ export default function PendingInvitesTab() {
     try {
       const result = await deletePlaceholderPlayer(deleteTarget.player_id);
       showToast(
-        `Removed ${deleteTarget.name}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`,
+        `Removed ${deleteTarget.name ?? 'player'}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`,
         'success'
       );
       setPlaceholders((prev) =>
         prev.filter((p) => p.player_id !== deleteTarget.player_id)
       );
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to delete placeholder', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to delete placeholder', 'error');
     } finally {
       setShowDeleteModal(false);
       setDeleteTarget(null);
@@ -90,9 +101,9 @@ export default function PendingInvitesTab() {
   };
 
   /**
-   * Build initials from a name string (e.g. "John Smith" → "JS").
+   * Build initials from a name string (e.g. "John Smith" -> "JS").
    */
-  const getInitials = (name) => {
+  const getInitials = (name: string | null | undefined): string => {
     if (!name) return '?';
     return name
       .split(' ')
@@ -105,7 +116,7 @@ export default function PendingInvitesTab() {
   /**
    * Format a UTC timestamp into a short relative or absolute date.
    */
-  const formatDate = (timestamp) => {
+  const formatDate = (timestamp: string | null | undefined): string => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const now = new Date();

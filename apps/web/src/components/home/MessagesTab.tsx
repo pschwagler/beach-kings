@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MessageCircle, ArrowLeft, Send, Loader2, PenSquare, Search } from 'lucide-react';
 import { Button } from '../ui/UI';
@@ -22,7 +22,7 @@ const MAX_CHARS = 500;
 /**
  * Format a timestamp into a relative time string for conversation list.
  */
-function formatRelativeTime(timestamp) {
+function formatRelativeTime(timestamp: string | null | undefined): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const now = new Date();
@@ -40,7 +40,7 @@ function formatRelativeTime(timestamp) {
 /**
  * Format time for message bubbles (e.g. "2:30 PM").
  */
-function formatMessageTime(timestamp) {
+function formatMessageTime(timestamp: string | null | undefined): string {
   if (!timestamp) return '';
   return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
@@ -48,7 +48,7 @@ function formatMessageTime(timestamp) {
 /**
  * Get a date label for date separators.
  */
-function getDateLabel(timestamp) {
+function getDateLabel(timestamp: string | null | undefined): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const today = new Date();
@@ -63,17 +63,22 @@ function getDateLabel(timestamp) {
 /**
  * Build two-letter initials from a full name (e.g. "Colan Gulla" → "CG").
  */
-function getInitials(name) {
+function getInitials(name: string | null | undefined): string {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
+interface AvatarProps {
+  avatar: string | null | undefined;
+  name: string | null | undefined;
+}
+
 /**
  * Avatar helper: renders image or initials.
  */
-function Avatar({ avatar, name }) {
+function Avatar({ avatar, name }: AvatarProps) {
   if (isImageUrl(avatar)) {
     return (
       <div className="messages-tab__avatar">
@@ -88,12 +93,39 @@ function Avatar({ avatar, name }) {
   );
 }
 
+interface ConversationItem {
+  player_id: number;
+  full_name: string;
+  avatar?: string | null;
+  is_friend?: boolean;
+  unread_count: number;
+  last_message_text?: string | null;
+  last_message_at?: string | null;
+}
+
+interface FriendItem {
+  player_id: number;
+  full_name: string;
+  avatar?: string | null;
+}
+
+interface ThreadInfo {
+  playerId: number;
+  name: string;
+  avatar: string | null;
+  isFriend: boolean;
+}
+
+interface ConversationListProps {
+  onOpenThread: (playerId: number, name: string, avatar: string | null | undefined, isFriend: boolean | undefined) => void;
+}
+
 // ============================================================================
 // ConversationList
 // ============================================================================
 
-function ConversationList({ onOpenThread }) {
-  const [conversations, setConversations] = useState([]);
+function ConversationList({ onOpenThread }: ConversationListProps) {
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPicker, setShowPicker] = useState(false);
 
@@ -103,7 +135,7 @@ function ConversationList({ onOpenThread }) {
       try {
         const data = await getConversations();
         if (!cancelled) setConversations(data.conversations || []);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error loading conversations:', err);
       } finally {
         if (!cancelled) setLoading(false);
@@ -192,12 +224,18 @@ function ConversationList({ onOpenThread }) {
   );
 }
 
+interface FriendPickerProps {
+  onSelect: (friend: FriendItem) => void;
+  onBack: () => void;
+  existingConversationIds: number[];
+}
+
 // ============================================================================
 // FriendPicker — select a friend to start a new conversation
 // ============================================================================
 
-function FriendPicker({ onSelect, onBack, existingConversationIds }) {
-  const [friends, setFriends] = useState([]);
+function FriendPicker({ onSelect, onBack, existingConversationIds }: FriendPickerProps) {
+  const [friends, setFriends] = useState<FriendItem[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -207,7 +245,7 @@ function FriendPicker({ onSelect, onBack, existingConversationIds }) {
       try {
         const data = await getFriends(1, 100);
         if (!cancelled) setFriends(data.items || []);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error loading friends:', err);
       } finally {
         if (!cancelled) setLoading(false);
@@ -274,24 +312,39 @@ function FriendPicker({ onSelect, onBack, existingConversationIds }) {
   );
 }
 
+interface MessageItem {
+  id?: number | null;
+  sender_player_id: number;
+  message_text: string;
+  created_at: string;
+}
+
+interface ThreadViewProps {
+  otherPlayerId: number;
+  otherPlayerName: string;
+  otherPlayerAvatar: string | null | undefined;
+  isFriend: boolean | undefined;
+  onBack: () => void;
+}
+
 // ============================================================================
 // ThreadView
 // ============================================================================
 
-function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFriend: initialIsFriend, onBack }) {
+function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFriend: initialIsFriend, onBack }: ThreadViewProps) {
   const { currentUserPlayer } = useAuth();
   const { onDirectMessageRef, fetchDmUnreadCount } = useNotifications();
 
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [isFriend, setIsFriend] = useState(initialIsFriend !== false);
 
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const myPlayerId = currentUserPlayer?.id;
 
   // Scroll page to top when thread opens
@@ -326,7 +379,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         await markThreadRead(otherPlayerId);
         // Refresh the DM badge count
         fetchDmUnreadCount();
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error marking thread read:', err);
       }
     })();
@@ -334,7 +387,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
 
   // Subscribe to real-time incoming messages
   useEffect(() => {
-    const handler = (msg) => {
+    const handler = (msg: MessageItem) => {
       // Only accept messages from this thread's other player
       if (msg.sender_player_id === otherPlayerId) {
         setMessages((prev) => [...prev, msg]);
@@ -366,7 +419,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
       setMessages((prev) => [...older, ...prev]);
       setHasMore(data.has_more);
       setPage(nextPage);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error loading more messages:', err);
     }
   };
@@ -382,7 +435,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
       const newMsg = await sendMessage(otherPlayerId, trimmed);
       setMessages((prev) => [...prev, newMsg]);
       setText('');
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error sending message:', err);
       setSendError('Message failed to send. Please try again.');
     } finally {
@@ -390,7 +443,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -509,7 +562,7 @@ export default function MessagesTab() {
 
   // thread param from URL (e.g. ?tab=messages&thread=123)
   const threadPlayerId = searchParams?.get('thread');
-  const [threadInfo, setThreadInfo] = useState(null);
+  const [threadInfo, setThreadInfo] = useState<ThreadInfo | null>(null);
 
   // Sync threadInfo with URL: clear when thread param is removed
   useEffect(() => {
@@ -559,14 +612,14 @@ export default function MessagesTab() {
               });
             }
           }
-        } catch (err) {
+        } catch (err: unknown) {
           console.error('Error resolving thread player:', err);
         }
       })();
     }
   }, [threadPlayerId, threadInfo]);
 
-  const openThread = useCallback((playerId, name, avatar, isFriend) => {
+  const openThread = useCallback((playerId: number, name: string, avatar: string | null | undefined, isFriend: boolean | undefined) => {
     setThreadInfo({ playerId, name, avatar, isFriend });
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');

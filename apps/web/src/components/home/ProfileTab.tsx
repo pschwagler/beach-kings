@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { updateUserProfile, updatePlayerProfile, getLocations, scheduleAccountDeletion, getPlayerHomeCourts, setPlayerHomeCourts } from '../../services/api';
 import { AlertCircle, Save, MapPin } from 'lucide-react';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
@@ -12,6 +12,7 @@ import ConfirmLeaveModal from '../ui/ConfirmLeaveModal';
 import AvatarUpload from '../profile/AvatarUpload';
 import CourtSelector from '../court/CourtSelector';
 import { Button } from '../ui/UI';
+import type { User, Player } from '../../types';
 
 const PREFERRED_SIDE_OPTIONS = [
   { value: 'left', label: 'Left' },
@@ -19,14 +20,17 @@ const PREFERRED_SIDE_OPTIONS = [
   { value: 'none', label: 'No Preference' },
 ];
 
-const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
+const getErrorMessage = (error: unknown): string => {
+  const e = error as { response?: { data?: { detail?: string } }; message?: string };
+  return e.response?.data?.detail || e.message || 'Something went wrong';
+};
 
 /**
  * Compute days remaining until account deletion, or null if no deletion is scheduled.
  */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-function getDeletionDaysRemaining(deletionScheduledAt) {
+function getDeletionDaysRemaining(deletionScheduledAt: string | null | undefined): number | null {
   if (!deletionScheduledAt) return null;
   const scheduledDate = new Date(deletionScheduledAt);
   const now = new Date();
@@ -35,8 +39,8 @@ function getDeletionDaysRemaining(deletionScheduledAt) {
 }
 
 interface ProfileTabProps {
-  user: any;
-  currentUserPlayer: any;
+  user: User | null;
+  currentUserPlayer: Player | null;
   fetchCurrentUser: () => Promise<void>;
 }
 
@@ -161,7 +165,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       const locationsData = await getLocations();
       setAllLocations(locationsData || []);
       updateLocationsWithDistances(locationsData || []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading locations:', error);
     } finally {
       setIsLoadingLocations(false);
@@ -172,7 +176,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     loadLocations();
   }, [loadLocations]);
 
-  const handleInputChange = (event) => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,
@@ -215,7 +219,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
   // Handle browser refresh/close (beforeunload) - useBlocker doesn't handle this
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChangesRef.current) {
         e.preventDefault();
         e.returnValue = ''; // Chrome requires returnValue to be set
@@ -229,7 +233,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     };
   }, []);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage('');
 
@@ -248,7 +252,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       }
 
       // 2. Update Player Profile
-      const playerPayload: Record<string, any> = {
+      const playerPayload: Record<string, unknown> = {
         full_name: formData.full_name.trim(),
         gender: formData.gender,
         level: formData.level,
@@ -308,7 +312,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       hasUnsavedChangesRef.current = false;
 
       showToast('Profile saved', 'success');
-    } catch (error) {
+    } catch (error: unknown) {
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -326,7 +330,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
       // Logout will unmount this component, so skip further setState
       await logout();
       return;
-    } catch (error) {
+    } catch (error: unknown) {
       showToast(getErrorMessage(error), 'error');
       setIsDeletionPending(false);
     }
@@ -337,7 +341,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     try {
       await cancelAccountDeletion();
       showToast('Account deletion cancelled', 'success');
-    } catch (error) {
+    } catch (error: unknown) {
       showToast(getErrorMessage(error), 'error');
     } finally {
       setIsDeletionPending(false);
@@ -500,7 +504,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         )}
         <CourtSelector
           mode="multi"
-          selectedCourts={homeCourts}
+          selectedCourts={homeCourts as Array<{ id: number | string; name: string; address?: string }>}
           onSet={handleSetHomeCourts}
           onRemove={handleRemoveHomeCourt}
           onSetPrimary={handleSetPrimary}

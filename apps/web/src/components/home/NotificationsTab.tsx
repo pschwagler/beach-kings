@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
+import type { Notification, NotificationAction } from '../../contexts/NotificationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Bell, Check, Filter } from 'lucide-react';
 import {
@@ -26,7 +27,7 @@ export default function NotificationsTab() {
   } = useNotifications();
   
   const [showReadNotifications, setShowReadNotifications] = useState(false);
-  const [filteredNotifications, setFilteredNotifications] = useState([]);
+  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
 
   // Fetch notifications when component mounts or filter changes
   useEffect(() => {
@@ -53,7 +54,7 @@ export default function NotificationsTab() {
     }
   }, [notifications, showReadNotifications]);
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if not already read
     if (!notification.is_read) {
       try {
@@ -70,7 +71,7 @@ export default function NotificationsTab() {
     }
   };
 
-  const handleMarkAsRead = async (e, notificationId) => {
+  const handleMarkAsRead = async (e: React.MouseEvent, notificationId: number) => {
     e.stopPropagation();
     try {
       await markAsRead(notificationId);
@@ -89,13 +90,13 @@ export default function NotificationsTab() {
     }
   };
 
-  const handleNotificationAction = async (e, notification, action) => {
+  const handleNotificationAction = async (e: React.MouseEvent, notification: Notification, action: NotificationAction) => {
     e.stopPropagation();
 
     try {
       // Friend request actions
       if (action.action === 'accept_friend' || action.action === 'decline_friend') {
-        const { friend_request_id } = notification.data || {};
+        const friend_request_id = notification.data?.friend_request_id;
         if (!friend_request_id) {
           console.error('Missing friend_request_id in notification data');
           return;
@@ -107,7 +108,8 @@ export default function NotificationsTab() {
         }
       } else {
         // League actions (approve/reject)
-        const { league_id, request_id } = notification.data || {};
+        const league_id = notification.data?.league_id as number | undefined;
+        const request_id = notification.data?.request_id as number | undefined;
         if (!league_id || !request_id) {
           console.error('Missing league_id or request_id in notification data');
           return;
@@ -123,13 +125,14 @@ export default function NotificationsTab() {
       await markAsRead(notification.id);
       await fetchNotifications(50, 0, !showReadNotifications);
       await fetchUnreadCount();
-    } catch (error) {
-      console.error(`Error performing ${action.action} action:`, error);
-      showToast(error.response?.data?.detail || `Failed to ${action.action} request`, 'error');
+    } catch (err: unknown) {
+      const e2 = err as { response?: { data?: { detail?: string } } };
+      console.error(`Error performing ${String(action.action)} action:`, err);
+      showToast(e2.response?.data?.detail || `Failed to ${String(action.action)} request`, 'error');
     }
   };
 
-  const formatTimestamp = (timestamp) => {
+  const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return '';
     
     const date = new Date(timestamp);

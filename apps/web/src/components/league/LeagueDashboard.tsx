@@ -11,8 +11,9 @@ import LeagueSignUpsTab from './LeagueSignUpsTab';
 import LeagueMessagesTab from './LeagueMessagesTab';
 import LeagueAwardsTab from './LeagueAwardsTab';
 import LeagueMenuBar from './LeagueMenuBar';
-import PublicLeaguePage from './PublicLeaguePage';
+import PublicLeaguePage, { type PublicLeagueData } from './PublicLeaguePage';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
+import type { League } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
@@ -23,7 +24,7 @@ import './LeagueDashboard.css';
 
 interface LeagueDashboardContentProps {
   leagueId: number;
-  publicLeagueData?: any;
+  publicLeagueData?: PublicLeagueData | null;
   initialTab?: string;
 }
 
@@ -37,7 +38,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   const { showToast } = useToast();
   // Use server-provided initialTab, then sync with URL params for client-side navigation
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [userLeagues, setUserLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<League[]>([]);
   
   // League name editing
   const [isEditingName, setIsEditingName] = useState(false);
@@ -47,7 +48,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   const { isLeagueAdmin, isLeagueMember } = useLeague();
 
   // Client-side fallback for publicLeagueData (in case SSR fetch failed)
-  const [clientPublicData, setClientPublicData] = useState(publicLeagueData);
+  const [clientPublicData, setClientPublicData] = useState<PublicLeagueData | null | undefined>(publicLeagueData);
   useEffect(() => {
     if (publicLeagueData) {
       setClientPublicData(publicLeagueData);
@@ -100,7 +101,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
     router.push('/');
   };
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     // Update URL with Next.js router
     const params = new URLSearchParams(searchParams?.toString() || '');
@@ -131,19 +132,20 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
       updateLeagueInContext(updatedLeague);
       setIsEditingName(false);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update league name', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update league name', 'error');
       setLeagueName(league?.name || '');
       setIsEditingName(false);
     }
   };
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     try {
       const { initial_court_id, ...payload } = leagueData;
       const newLeague = await createLeague(payload);
       if (initial_court_id && newLeague?.id) {
-        try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+        try { await addLeagueHomeCourt(newLeague.id as number, initial_court_id as number); } catch {}
       }
       const leagues = await getUserLeagues();
       setUserLeagues(leagues);
@@ -154,7 +156,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
     }
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'create-league') {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: handleCreateLeague
@@ -193,8 +195,9 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
         await requestToJoinLeague(leagueId);
         showToast(`Join request submitted for ${league.name}. League admins will be notified.`, 'success');
       }
-    } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Failed to join league';
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      const errorMsg = e.response?.data?.detail || 'Failed to join league';
       showToast(errorMsg, 'error');
     }
   };
@@ -301,7 +304,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
             />
             <main className="league-content">
               <PublicLeaguePage
-                league={clientPublicData}
+                league={clientPublicData as unknown as PublicLeagueData}
                 leagueId={leagueId}
                 onJoinLeague={handleJoinLeague}
                 isOpen={league.is_open}
@@ -430,7 +433,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
 interface LeagueDashboardProps {
   leagueId: number;
-  publicLeagueData?: any;
+  publicLeagueData?: PublicLeagueData | null;
   initialTab?: string;
 }
 

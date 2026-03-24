@@ -6,14 +6,32 @@ import { Calendar, Trophy, UserPlus, User, MapPin } from 'lucide-react';
 import { getOpenSessions } from '../../services/api';
 import { formatDate } from '../../utils/dateUtils';
 
+interface SessionItem {
+  id: number;
+  name?: string | null;
+  date?: string | null;
+  status?: string | null;
+  code?: string | null;
+  league_id?: number | null;
+  league_name?: string | null;
+  season_id?: number | null;
+  court_name?: string | null;
+  court_slug?: string | null;
+  created_by?: number | null;
+  created_by_name?: string | null;
+  participation?: string | null;
+  match_count?: number;
+  user_match_count?: number;
+}
+
 /**
  * Displays user's sessions (creator, has match, or invited).
  * variant="widget" (default): dashboard card with 5-item limit, scroll-expand, widget chrome.
  * variant="full": bare list — no card wrapper, no limit, all items flow on page.
  */
 interface MySessionsWidgetProps {
-  onSessionClick?: (session: any) => void;
-  refreshTrigger?: any;
+  onSessionClick?: (session: SessionItem) => void;
+  refreshTrigger?: unknown;
   currentUserPlayerId?: number;
   onViewAll?: () => void;
   variant?: 'widget' | 'full';
@@ -21,22 +39,22 @@ interface MySessionsWidgetProps {
 
 export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPlayerId, onViewAll, variant = 'widget' }: MySessionsWidgetProps) {
   const router = useRouter();
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const isFull = variant === 'full';
 
-  const load = async (includeAll) => {
+  const load = async (includeAll: boolean) => {
     setLoading(true);
     setError(null);
     try {
       const data = await getOpenSessions({ includeAll });
       setSessions(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error loading sessions:', err);
-      setError(err.message || 'Failed to load sessions');
+      setError((err as { message?: string }).message || 'Failed to load sessions');
       setSessions([]);
     } finally {
       setLoading(false);

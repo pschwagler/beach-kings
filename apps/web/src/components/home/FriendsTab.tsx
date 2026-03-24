@@ -26,10 +26,35 @@ const SUGGESTIONS_DISPLAY_COUNT = 6;
 const SUGGESTIONS_FETCH_COUNT = 20;
 const SUGGESTIONS_REFETCH_THRESHOLD = 3;
 
+interface FriendRequest {
+  id: number;
+  sender_name?: string;
+  sender_avatar?: string | null;
+  receiver_name?: string;
+  receiver_avatar?: string | null;
+  created_at?: string;
+}
+
+interface Friend {
+  player_id: number;
+  full_name?: string;
+  avatar?: string | null;
+  location_name?: string | null;
+  level?: string | null;
+}
+
+interface FriendSuggestion {
+  player_id: number;
+  full_name?: string;
+  avatar?: string | null;
+  location_name?: string | null;
+  shared_league_count?: number;
+}
+
 /**
  * Format a timestamp into a relative time string.
  */
-function formatRelativeTime(timestamp) {
+function formatRelativeTime(timestamp: string): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const now = new Date();
@@ -47,7 +72,13 @@ function formatRelativeTime(timestamp) {
 /**
  * Avatar helper: renders image or initials.
  */
-function Avatar({ avatar, name, className }) {
+interface AvatarProps {
+  avatar?: string | null;
+  name?: string | null;
+  className?: string;
+}
+
+function Avatar({ avatar, name, className }: AvatarProps) {
   if (isImageUrl(avatar)) {
     return (
       <div className={className}>
@@ -69,16 +100,16 @@ function Avatar({ avatar, name, className }) {
 export default function FriendsTab() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [friends, setFriends] = useState([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsTotalCount, setFriendsTotalCount] = useState(0);
-  const [incomingRequests, setIncomingRequests] = useState([]);
-  const [outgoingRequests, setOutgoingRequests] = useState([]);
-  const [suggestionBuffer, setSuggestionBuffer] = useState([]);
-  const [dismissedIds, setDismissedIds] = useState(new Set());
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
+  const [suggestionBuffer, setSuggestionBuffer] = useState<FriendSuggestion[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionLoading, setActionLoading] = useState({});
-  const [openMenu, setOpenMenu] = useState(null);
-  const [confirmUnfriend, setConfirmUnfriend] = useState(null);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [confirmUnfriend, setConfirmUnfriend] = useState<number | null>(null);
   const { showToast } = useToast();
   const { notifications, markAsRead, fetchUnreadCount } = useNotifications();
   const menuRef = useRef(null);
@@ -100,8 +131,8 @@ export default function FriendsTab() {
   // Close menu on click outside
   useEffect(() => {
     if (!openMenu) return;
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !(menuRef.current as Node).contains(e.target as Node)) {
         setOpenMenu(null);
       }
     };
@@ -112,7 +143,7 @@ export default function FriendsTab() {
   /**
    * Dismiss the notification matching a friend request ID.
    */
-  const dismissFriendNotification = useCallback(async (requestId) => {
+  const dismissFriendNotification = useCallback(async (requestId: number) => {
     const match = notifications.find(
       (n) => n.data?.friend_request_id === requestId && !n.is_read
     );
@@ -150,7 +181,7 @@ export default function FriendsTab() {
     load();
   }, []);
 
-  const setActionLoadingFor = (key, value) => {
+  const setActionLoadingFor = (key: string, value: boolean) => {
     setActionLoading((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -186,18 +217,19 @@ export default function FriendsTab() {
    * Remove a suggestion from the buffer (after send request or dismiss).
    * Triggers background refetch if buffer is getting low.
    */
-  const removeSuggestion = useCallback((playerId) => {
+  const removeSuggestion = useCallback((playerId: number) => {
     setSuggestionBuffer((prev) => prev.filter((s) => s.player_id !== playerId));
   }, []);
 
-  const handleAccept = useCallback(async (requestId) => {
+  const handleAccept = useCallback(async (requestId: number) => {
     setActionLoadingFor(`accept-${requestId}`, true);
     try {
       await acceptFriendRequest(requestId);
       await dismissFriendNotification(requestId);
       showToast('Friend request accepted!', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to accept friend request', 'error');
       return;
     } finally {
       setActionLoadingFor(`accept-${requestId}`, false);
@@ -214,40 +246,43 @@ export default function FriendsTab() {
     if (results[1].status === 'fulfilled') setIncomingRequests(results[1].value || []);
   }, [dismissFriendNotification, showToast]);
 
-  const handleDecline = useCallback(async (requestId) => {
+  const handleDecline = useCallback(async (requestId: number) => {
     setActionLoadingFor(`decline-${requestId}`, true);
     try {
       await declineFriendRequest(requestId);
       await dismissFriendNotification(requestId);
       setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId));
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to decline friend request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to decline friend request', 'error');
     } finally {
       setActionLoadingFor(`decline-${requestId}`, false);
     }
   }, [dismissFriendNotification, showToast]);
 
-  const handleCancelOutgoing = useCallback(async (requestId) => {
+  const handleCancelOutgoing = useCallback(async (requestId: number) => {
     setActionLoadingFor(`cancel-${requestId}`, true);
     try {
       await cancelFriendRequest(requestId);
       setOutgoingRequests((prev) => prev.filter((r) => r.id !== requestId));
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to cancel friend request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to cancel friend request', 'error');
     } finally {
       setActionLoadingFor(`cancel-${requestId}`, false);
     }
   }, [showToast]);
 
-  const handleUnfriend = useCallback(async (playerId) => {
+  const handleUnfriend = useCallback(async (playerId: number) => {
     setActionLoadingFor(`unfriend-${playerId}`, true);
     try {
       await removeFriend(playerId);
       setFriends((prev) => prev.filter((f) => f.player_id !== playerId));
       setFriendsTotalCount((prev) => prev - 1);
       setConfirmUnfriend(null);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to remove friend', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to remove friend', 'error');
       return;
     } finally {
       setActionLoadingFor(`unfriend-${playerId}`, false);
@@ -256,13 +291,14 @@ export default function FriendsTab() {
     refetchSuggestionsIfNeeded();
   }, [refetchSuggestionsIfNeeded, showToast]);
 
-  const handleSendRequest = useCallback(async (playerId) => {
+  const handleSendRequest = useCallback(async (playerId: number) => {
     setActionLoadingFor(`send-${playerId}`, true);
     try {
       await sendFriendRequest(playerId);
       removeSuggestion(playerId);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to send friend request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to send friend request', 'error');
       return;
     } finally {
       setActionLoadingFor(`send-${playerId}`, false);
@@ -277,7 +313,7 @@ export default function FriendsTab() {
   }, [removeSuggestion, showToast]);
 
   /** Dismiss a suggestion (client-side only, not persisted). */
-  const handleDismissSuggestion = useCallback((playerId) => {
+  const handleDismissSuggestion = useCallback((playerId: number) => {
     setDismissedIds((prev) => new Set([...prev, playerId]));
   }, []);
 

@@ -1,7 +1,29 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import type { Player } from '../../types';
 import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 import ShareInviteIcon from '../player/ShareInviteIcon';
+
+/** Shape of one match history record returned by the player match history API. */
+interface MatchRecord {
+  Result?: string;
+  Score?: string;
+  Date?: string;
+  Partner?: string;
+  'Partner ID'?: number | null;
+  'Partner IsPlaceholder'?: boolean;
+  'Opponent 1'?: string;
+  'Opponent 1 ID'?: number | null;
+  'Opponent 1 IsPlaceholder'?: boolean;
+  'Opponent 2'?: string;
+  'Opponent 2 ID'?: number | null;
+  'Opponent 2 IsPlaceholder'?: boolean;
+  'League Name'?: string;
+  'League ID'?: number | string | null;
+  'Court Name'?: string;
+  'Session Code'?: string | null;
+  'Session Status'?: string;
+}
 
 /**
  * Displays user's match history.
@@ -9,9 +31,9 @@ import ShareInviteIcon from '../player/ShareInviteIcon';
  * variant="full": bare list — no card wrapper, no limit, all items flow on page.
  */
 interface MyMatchesWidgetProps {
-  matches: any[] | null;
-  currentUserPlayer?: any;
-  onMatchClick?: (match: any) => void;
+  matches: MatchRecord[] | null;
+  currentUserPlayer?: Player | null;
+  onMatchClick?: (match: MatchRecord) => void;
   onViewAll?: () => void;
   variant?: 'widget' | 'full';
 }
@@ -34,7 +56,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
     <h3 className={isFull ? 'my-games-tab-section-title' : 'dashboard-widget-title'}>My Games</h3>
   );
 
-  const getMatchResult = (match) => {
+  const getMatchResult = (match: MatchRecord) => {
     const won = match.Result === 'W';
     const score = match.Score || '0-0';
 
@@ -77,7 +99,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
           }
         };
 
-        const handleKeyDown = (e) => {
+        const handleKeyDown = (e: React.KeyboardEvent) => {
           if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             onMatchClick(match);
@@ -102,15 +124,15 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
                 <span className="dashboard-match-score">{result.score}</span>
                 <span className="dashboard-match-partner">
                   w/ {result.partner}
-                  {result.partnerIsPlaceholder && <ShareInviteIcon playerId={result.partnerId} playerName={result.partner} />}
+                  {result.partnerIsPlaceholder && <ShareInviteIcon playerId={Number(result.partnerId)} playerName={result.partner} />}
                 </span>
                 <span className="dashboard-match-opponent">
                   vs {result.opponent1}
-                  {result.opponent1IsPlaceholder && <ShareInviteIcon playerId={result.opponent1Id} playerName={result.opponent1} />}
+                  {result.opponent1IsPlaceholder && <ShareInviteIcon playerId={Number(result.opponent1Id)} playerName={result.opponent1} />}
                   {result.opponent2 && (
                     <>
                       {' & '}{result.opponent2}
-                      {result.opponent2IsPlaceholder && <ShareInviteIcon playerId={result.opponent2Id} playerName={result.opponent2} />}
+                      {result.opponent2IsPlaceholder && <ShareInviteIcon playerId={Number(result.opponent2Id)} playerName={result.opponent2} />}
                     </>
                   )}
                 </span>

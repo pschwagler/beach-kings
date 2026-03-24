@@ -12,16 +12,18 @@ import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
  * My Games tab: sessions and match history side-by-side on desktop, stacked on mobile.
  * Both lists render in "full" mode — no widget chrome, all items visible, natural page flow.
  */
+import type { Player } from '../../types';
+
 interface MyGamesTabProps {
-  currentUserPlayer: any;
+  currentUserPlayer: Player | null;
   onTabChange: (tab: string) => void;
-  onMatchClick: (match: any) => void;
+  onMatchClick: (match: Record<string, unknown>) => void;
 }
 
 export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClick }: MyGamesTabProps) {
   const { openModal } = useModal();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [userMatches, setUserMatches] = useState([]);
+  const [userMatches, setUserMatches] = useState<Record<string, unknown>[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
   useEffect(() => {

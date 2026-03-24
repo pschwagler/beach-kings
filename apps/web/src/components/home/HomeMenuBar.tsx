@@ -25,9 +25,9 @@ export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
   const moreMenuPortalRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      const clickedInsideButton = moreMenuRef.current?.contains(event.target);
-      const clickedInsidePortal = moreMenuPortalRef.current?.contains(event.target);
+    const handleClickOutside = (event: MouseEvent) => {
+      const clickedInsideButton = moreMenuRef.current?.contains(event.target as Node);
+      const clickedInsidePortal = moreMenuPortalRef.current?.contains(event.target as Node);
 
       if (!clickedInsideButton && !clickedInsidePortal) {
         setMoreMenuExpanded(false);
@@ -40,7 +40,7 @@ export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
     }
   }, [moreMenuExpanded]);
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = (tab: string) => {
     const params = new URLSearchParams(window.location.search || '');
     params.set('tab', tab);
     router.push(`/home?${params.toString()}`);

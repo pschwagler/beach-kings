@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Trophy, Users, ChevronRight, AlertCircle, CheckCircle, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { leaveLeague, createLeague, addLeagueHomeCourt } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import ConfirmationModal from '../modal/ConfirmationModal';
+import type { League } from '../../types';
 
-const getErrorMessage = (error) => error.response?.data?.detail || error.message || 'Something went wrong';
+const getErrorMessage = (error: unknown): string => {
+  const e = error as { response?: { data?: { detail?: string } }; message?: string };
+  return e.response?.data?.detail || e.message || 'Something went wrong';
+};
 
 interface LeaguesTabProps {
-  userLeagues: any[];
+  userLeagues: League[];
   onLeagueClick: (action: string, id: number) => void;
   onLeaguesUpdate: () => Promise<void>;
 }
@@ -17,11 +21,11 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
   const { openModal } = useModal();
   const router = useRouter();
   const [showLeaveLeagueModal, setShowLeaveLeagueModal] = useState(false);
-  const [leagueToLeave, setLeagueToLeave] = useState(null);
+  const [leagueToLeave, setLeagueToLeave] = useState<{ id: number; name: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleLeaveLeague = (e, leagueId, leagueName) => {
+  const handleLeaveLeague = (e: React.MouseEvent, leagueId: number, leagueName: string) => {
     e.stopPropagation();
     setLeagueToLeave({ id: leagueId, name: leagueName });
     setShowLeaveLeagueModal(true);
@@ -47,13 +51,13 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
     }
   };
 
-  const handleLeagueCardClick = (leagueId) => {
+  const handleLeagueCardClick = (leagueId: number) => {
     if (onLeagueClick) {
       onLeagueClick('view-league', leagueId);
     }
   };
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     try {
       const { initial_court_id, ...payload } = leagueData;
       const newLeague = await createLeague(payload);
@@ -61,7 +65,7 @@ export default function LeaguesTab({ userLeagues, onLeagueClick, onLeaguesUpdate
       // Add initial home court if selected
       if (initial_court_id && newLeague?.id) {
         try {
-          await addLeagueHomeCourt(newLeague.id, initial_court_id);
+          await addLeagueHomeCourt(newLeague.id, initial_court_id as number);
         } catch {
           // Non-critical — league was created successfully
         }

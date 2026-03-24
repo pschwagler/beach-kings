@@ -4,13 +4,14 @@ import { Trophy, Users, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { createLeague, addLeagueHomeCourt } from '../../services/api';
+import type { League } from '../../types';
 
 /**
  * Full-width horizontal leagues bar for the home tab.
  * Shows leagues as horizontally scrollable compact cards.
  */
 interface MyLeaguesBarProps {
-  leagues: any[];
+  leagues: League[];
   onLeagueClick?: (leagueId: number) => void;
   onLeaguesUpdate?: () => void | Promise<void>;
   onViewAll?: () => void;
@@ -20,7 +21,7 @@ export default function MyLeaguesBar({ leagues, onLeagueClick, onLeaguesUpdate, 
   const router = useRouter();
   const { openModal } = useModal();
 
-  const handleLeagueClick = (leagueId) => {
+  const handleLeagueClick = (leagueId: number) => {
     if (onLeagueClick) {
       onLeagueClick(leagueId);
     } else {
@@ -28,19 +29,19 @@ export default function MyLeaguesBar({ leagues, onLeagueClick, onLeaguesUpdate, 
     }
   };
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     try {
       const { initial_court_id, ...payload } = leagueData;
       const newLeague = await createLeague(payload);
       if (initial_court_id && newLeague?.id) {
-        try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+        try { await addLeagueHomeCourt(newLeague.id, initial_court_id as number); } catch {}
       }
       if (onLeaguesUpdate) {
         await onLeaguesUpdate();
       }
       router.push(`/league/${newLeague.id}?tab=details`);
       return newLeague;
-    } catch (error) {
+    } catch (error: unknown) {
       throw error;
     }
   };

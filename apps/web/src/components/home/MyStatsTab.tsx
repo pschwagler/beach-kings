@@ -1,11 +1,39 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import type { Player } from '../../types';
 import { Loader2, TrendingUp, Trophy, Target, Percent, Flame, Diff } from 'lucide-react';
 import StatCard from '../ui/StatCard';
 import RatingChart from './RatingChart';
 import PlayerTrophies from '../player/PlayerTrophies';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
+
+/** Shape of one match history record returned by the API. */
+interface MatchRecord {
+  'Session Status'?: string | null;
+  'ELO After'?: number | null;
+  'ELO Before'?: number | null;
+  Partner?: string | null;
+  'Partner ID'?: number | null;
+  'Opponent 1'?: string | null;
+  'Opponent 1 ID'?: number | null;
+  'Opponent 2'?: string | null;
+  'Opponent 2 ID'?: number | null;
+  Result?: string | null;
+  Score?: string | null;
+  Date?: string | null;
+  'Is Ranked'?: boolean | null;
+  'League ID'?: number | null;
+  'League Name'?: string | null;
+  'Season ID'?: number | null;
+  'Season Name'?: string | null;
+}
+
+/** Shape of global player stats returned by getPlayerStats. */
+interface GlobalStats {
+  current_elo?: number | null;
+  [key: string]: unknown;
+}
 
 /** API field names from match history response. */
 const F = {
@@ -39,7 +67,7 @@ const TIME_RANGES = [
  * Filter matches through the full pipeline:
  * session status → time range → ranked → league/season → partner.
  */
-function filterMatches(matches, timeRangeKey, rankedFilter, leagueSeasonFilter, partnerFilter) {
+function filterMatches(matches: MatchRecord[], timeRangeKey: string, rankedFilter: string, leagueSeasonFilter: string, partnerFilter: string): MatchRecord[] {
   let result = matches.filter(m => m[F.SESSION_STATUS] !== 'ACTIVE');
 
   // Time range
@@ -48,7 +76,7 @@ function filterMatches(matches, timeRangeKey, rankedFilter, leagueSeasonFilter, 
     if (range?.days) {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - range.days);
-      result = result.filter(m => m[F.DATE] && new Date(m[F.DATE]) >= cutoff);
+      result = result.filter(m => m[F.DATE] && new Date(m[F.DATE] as string) >= cutoff);
     }
   }
 
@@ -80,7 +108,7 @@ function filterMatches(matches, timeRangeKey, rankedFilter, leagueSeasonFilter, 
  * Get matches from the previous equivalent time period (for delta comparison).
  * Returns null for "all" time range.
  */
-function getPreviousPeriodMatches(allCompleted, timeRangeKey) {
+function getPreviousPeriodMatches(allCompleted: MatchRecord[], timeRangeKey: string): MatchRecord[] | null {
   if (timeRangeKey === 'all') return null;
 
   const range = TIME_RANGES.find(r => r.key === timeRangeKey);
@@ -94,7 +122,7 @@ function getPreviousPeriodMatches(allCompleted, timeRangeKey) {
 
   return allCompleted.filter(m => {
     if (!m[F.DATE]) return false;
-    const d = new Date(m[F.DATE]);
+    const d = new Date(m[F.DATE] as string);
     return d >= prevStart && d < periodStart;
   });
 }
@@ -103,7 +131,7 @@ function getPreviousPeriodMatches(allCompleted, timeRangeKey) {
  * Parse a score string like "21-15" into [playerScore, opponentScore].
  * Returns [0, 0] for malformed or missing scores.
  */
-function parseScore(score) {
+function parseScore(score: unknown): [number, number] {
   if (!score) return [0, 0];
   const match = String(score).match(/^(\d+)-(\d+)$/);
   if (!match) return [0, 0];
@@ -113,7 +141,7 @@ function parseScore(score) {
 /**
  * Compute average point differential for a set of matches.
  */
-function computeAvgDiff(matches) {
+function computeAvgDiff(matches: MatchRecord[]): number | null {
   let total = 0;
   let count = 0;
   for (const m of matches) {
@@ -129,7 +157,7 @@ function computeAvgDiff(matches) {
 /**
  * Compute overview stats from filtered matches.
  */
-function computeOverview(filtered, currentElo) {
+function computeOverview(filtered: MatchRecord[], currentElo: number | null | undefined) {
   const games = filtered.length;
   const wins = filtered.filter(m => m[F.RESULT] === 'W').length;
   const losses = games - wins;
@@ -149,8 +177,8 @@ function computeOverview(filtered, currentElo) {
   let streak = '';
   if (filtered.length > 0) {
     const sorted = [...filtered].sort((a, b) => {
-      const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
-      const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
+      const da = a[F.DATE] ? new Date(a[F.DATE] as string).getTime() : 0;
+      const db = b[F.DATE] ? new Date(b[F.DATE] as string).getTime() : 0;
       return db - da;
     });
     const firstResult = sorted[0][F.RESULT];
@@ -176,13 +204,13 @@ function computeOverview(filtered, currentElo) {
  *
  * For "all" time, rating delta compares current ELO to the very first game.
  */
-function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
+function computeDeltas(allCompleted: MatchRecord[], filtered: MatchRecord[], timeRangeKey: string, currentElo: number | null | undefined) {
   if (allCompleted.length === 0 || currentElo == null) return {};
 
   // Sort once, oldest-first, for reuse below
   const sortedAsc = [...allCompleted]
     .filter(m => m[F.ELO_AFTER] != null && m[F.DATE])
-    .sort((a, b) => new Date(a[F.DATE]).getTime() - new Date(b[F.DATE]).getTime());
+    .sort((a, b) => new Date(a[F.DATE] as string).getTime() - new Date(b[F.DATE] as string).getTime());
 
   if (sortedAsc.length === 0) return {};
 
@@ -191,7 +219,7 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
   if (timeRangeKey === 'all') {
     // Compare current to very first recorded ELO
-    ratingDelta = currentElo - sortedAsc[0][F.ELO_AFTER];
+    ratingDelta = currentElo - (sortedAsc[0][F.ELO_AFTER] as number);
   } else {
     const range = TIME_RANGES.find(r => r.key === timeRangeKey);
     if (!range?.days) return {};
@@ -201,13 +229,13 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
 
     // Prefer: last ELO before the period start
     const beforePeriod = sortedAsc
-      .filter(m => new Date(m[F.DATE]) < periodStart);
+      .filter(m => new Date(m[F.DATE] as string) < periodStart);
 
     if (beforePeriod.length > 0) {
-      ratingDelta = currentElo - beforePeriod[beforePeriod.length - 1][F.ELO_AFTER];
+      ratingDelta = currentElo - (beforePeriod[beforePeriod.length - 1][F.ELO_AFTER] as number);
     } else {
       // No matches before period — fall back to earliest ELO ever
-      ratingDelta = currentElo - sortedAsc[0][F.ELO_AFTER];
+      ratingDelta = currentElo - (sortedAsc[0][F.ELO_AFTER] as number);
     }
   }
 
@@ -244,7 +272,7 @@ function computeDeltas(allCompleted, filtered, timeRangeKey, currentElo) {
  * @param {string} [suffix=''] - Suffix to append (e.g. '%')
  * @param {number} [decimals=0] - Decimal places for values < 10
  */
-function formatDelta(value, suffix = '', decimals = 0) {
+function formatDelta(value: number | null | undefined, suffix = '', decimals = 0): { label: string; direction: 'up' | 'down' | 'neutral' } | null {
   if (value == null || !isFinite(value)) return null;
   // Round very small deltas to zero
   if (Math.abs(value) < 0.05) return null;
@@ -252,7 +280,7 @@ function formatDelta(value, suffix = '', decimals = 0) {
   const formatted = Math.abs(value) < 10 && decimals > 0
     ? value.toFixed(decimals)
     : String(Math.round(value));
-  const direction = (value > 0 ? 'up' : value < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral';
+  const direction: 'up' | 'down' | 'neutral' = value > 0 ? 'up' : value < 0 ? 'down' : 'neutral';
   const sign = value > 0 ? '+' : '';
   return { label: `${sign}${formatted}${suffix}`, direction };
 }
@@ -264,20 +292,32 @@ function formatDelta(value, suffix = '', decimals = 0) {
  * @param {Array} matches - Filtered match array
  * @param {Function} extractor - Returns [{id, name}] pairs from a match
  */
-function groupByPlayer(matches, extractor) {
-  const map: Record<string, any> = {};
+interface PlayerEntry {
+  name: string | null;
+  games: number;
+  wins: number;
+  totalDiff: number;
+  diffCount: number;
+}
+
+function groupByPlayer(
+  matches: MatchRecord[],
+  extractor: (m: MatchRecord) => Array<{ id: number | string | null; name: string | null }>
+) {
+  const map: Record<string, PlayerEntry> = {};
   for (const m of matches) {
     const players = extractor(m).filter(p => p.id != null);
     for (const { id, name } of players) {
-      if (!map[id]) map[id] = { name, games: 0, wins: 0, totalDiff: 0, diffCount: 0 };
+      const key = String(id);
+      if (!map[key]) map[key] = { name, games: 0, wins: 0, totalDiff: 0, diffCount: 0 };
       // Keep the latest name seen for this ID (handles renames)
-      if (name) map[id].name = name;
-      map[id].games++;
-      if (m[F.RESULT] === 'W') map[id].wins++;
+      if (name) map[key].name = name;
+      map[key].games++;
+      if (m[F.RESULT] === 'W') map[key].wins++;
       const [ps, os] = parseScore(m[F.SCORE]);
       if (ps || os) {
-        map[id].totalDiff += ps - os;
-        map[id].diffCount++;
+        map[key].totalDiff += ps - os;
+        map[key].diffCount++;
       }
     }
   }
@@ -297,7 +337,7 @@ function groupByPlayer(matches, extractor) {
 /**
  * Format avgDiff for display: "+3.2", "-1.5", or "\u2014" for null.
  */
-function formatAvgDiff(avgDiff) {
+function formatAvgDiff(avgDiff: string | null): string {
   if (avgDiff == null) return '\u2014';
   const n = Number(avgDiff);
   if (n > 0) return `+${avgDiff}`;
@@ -307,7 +347,7 @@ function formatAvgDiff(avgDiff) {
 /**
  * Get CSS modifier class for a +/- value.
  */
-function diffClass(avgDiff) {
+function diffClass(avgDiff: string | null): string {
   if (avgDiff == null) return '';
   const n = Number(avgDiff);
   if (n > 0) return 'my-stats-tab__diff--positive';
@@ -319,7 +359,7 @@ function diffClass(avgDiff) {
  * Build grouped league/season options from match data.
  * Returns { leagues: [{id, name}], seasons: [{id, name, leagueName, leagueId}] }.
  */
-function buildLeagueSeasonOptions(allCompleted) {
+function buildLeagueSeasonOptions(allCompleted: MatchRecord[]) {
   const leagueMap = new Map();
   const seasonMap = new Map();
 
@@ -351,7 +391,7 @@ function buildLeagueSeasonOptions(allCompleted) {
 /**
  * Build unique partner names sorted by total games played (descending).
  */
-function buildPartnerOptions(allCompleted) {
+function buildPartnerOptions(allCompleted: MatchRecord[]): string[] {
   const counts: Record<string, number> = {};
   for (const m of allCompleted) {
     const name = m[F.PARTNER];
@@ -369,7 +409,7 @@ function buildPartnerOptions(allCompleted) {
  * @param {Object} currentUserPlayer - Current authenticated player
  */
 interface MyStatsTabProps {
-  currentUserPlayer: any;
+  currentUserPlayer: Player | null;
 }
 
 export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
@@ -378,10 +418,10 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
   const [leagueSeasonFilter, setLeagueSeasonFilter] = useState('all');
   const [partnerFilter, setPartnerFilter] = useState('all');
   const [tableView, setTableView] = useState('partners');
-  const [matchHistory, setMatchHistory] = useState([]);
-  const [globalStats, setGlobalStats] = useState(null);
+  const [matchHistory, setMatchHistory] = useState<MatchRecord[]>([]);
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch player stats + match history on mount
   useEffect(() => {
@@ -414,13 +454,13 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
         if (statsRes.status === 'fulfilled') setGlobalStats(statsRes.value);
         if (matchRes.status === 'fulfilled') {
           const sorted = (matchRes.value || []).sort((a, b) => {
-            const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
-            const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
+            const da = a[F.DATE] ? new Date(a[F.DATE] as string).getTime() : 0;
+            const db = b[F.DATE] ? new Date(b[F.DATE] as string).getTime() : 0;
             return db - da;
           });
           setMatchHistory(sorted);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (!signal.aborted) {
           setError('Failed to load stats. Please try again.');
           console.error('MyStatsTab load error:', err);
@@ -476,8 +516,8 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
     );
     // Sort oldest-first, then by match order (id implied by array position)
     const sorted = [...completed].sort((a, b) => {
-      const da = a[F.DATE] ? new Date(a[F.DATE]).getTime() : 0;
-      const db = b[F.DATE] ? new Date(b[F.DATE]).getTime() : 0;
+      const da = a[F.DATE] ? new Date(a[F.DATE] as string).getTime() : 0;
+      const db = b[F.DATE] ? new Date(b[F.DATE] as string).getTime() : 0;
       return da - db;
     });
 

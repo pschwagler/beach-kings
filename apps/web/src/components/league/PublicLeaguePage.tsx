@@ -8,6 +8,7 @@ import LevelBadge from '../ui/LevelBadge';
 import { formatGender } from '../../utils/formatters';
 import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
+import { League } from '../../types';
 import './PublicLeaguePage.css';
 
 /** Max matches shown before "Show more" is required. */
@@ -24,8 +25,27 @@ const INITIAL_MATCH_LIMIT = 10;
  * @param {Function} [props.onJoinLeague] - If provided, renders join button instead of login/signup CTAs (authenticated non-member mode)
  * @param {boolean} [props.isOpen] - Whether the league is open-join; controls "Join League" vs "Request to Join" label
  */
+interface PublicLeagueLocation {
+  id: string | number;
+  city?: string;
+  state?: string;
+  name?: string;
+}
+
+interface PublicLeagueMember {
+  player_id: number;
+  full_name?: string | null;
+  avatar?: string | null;
+  level?: string | null;
+}
+
+export interface PublicLeagueData extends League {
+  location?: PublicLeagueLocation | null;
+  is_public?: boolean | null;
+}
+
 interface PublicLeaguePageProps {
-  league: any;
+  league: PublicLeagueData;
   leagueId: number;
   onJoinLeague?: () => void;
   isOpen?: boolean;
@@ -49,7 +69,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
   const locationLabel = league.location?.name || null;
 
   /** Renders either a join button (authed non-member) or login/signup CTAs (unauthenticated). */
-  const renderCta = (promptText) => {
+  const renderCta = (promptText: string | null) => {
     if (onJoinLeague) {
       return (
         <div className="public-league__cta-buttons">
@@ -122,14 +142,14 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
           <h2 className="public-league__section-title">
             {league.current_season?.name || 'Current Season'} Standings
           </h2>
-          <StandingsTable standings={league.standings} />
+          <StandingsTable standings={league.standings as StandingRow[]} />
         </section>
       )}
 
       {league.recent_matches?.length > 0 && (
         <section className="public-league__section">
           <h2 className="public-league__section-title">Recent Matches</h2>
-          <MatchList matches={league.recent_matches} />
+          <MatchList matches={league.recent_matches as PublicMatch[]} />
         </section>
       )}
 
@@ -138,7 +158,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
           <h2 className="public-league__section-title">
             Members ({league.member_count})
           </h2>
-          <MemberGrid members={league.members} />
+          <MemberGrid members={league.members as PublicLeagueMember[]} />
         </section>
       )}
 
@@ -152,7 +172,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
 /**
  * League metadata line: location, gender, level badges.
  */
-function LeagueMeta({ league }) {
+function LeagueMeta({ league }: { league: PublicLeagueData }) {
   return (
     <div className="public-league__meta">
       {league.location && (
@@ -173,10 +193,20 @@ function LeagueMeta({ league }) {
   );
 }
 
+interface StandingRow {
+  player_id: number;
+  full_name?: string | null;
+  rank?: number;
+  wins?: number;
+  games?: number;
+  points?: number;
+  win_rate?: number | null;
+}
+
 /**
  * Standings table showing rank, name, record, points, win rate.
  */
-function StandingsTable({ standings }) {
+function StandingsTable({ standings }: { standings: StandingRow[] }) {
   return (
     <div className="public-league__table-wrapper">
       <table className="public-league__table">
@@ -214,16 +244,32 @@ function StandingsTable({ standings }) {
 /**
  * Formats an ISO date string into a readable label (e.g. "Feb 10, 2026").
  */
-function formatMatchDate(dateStr) {
+function formatMatchDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+interface PublicMatch {
+  id: number;
+  date?: string | null;
+  team1_player1?: string | null;
+  team1_player1_id?: number | null;
+  team1_player2?: string | null;
+  team1_player2_id?: number | null;
+  team2_player1?: string | null;
+  team2_player1_id?: number | null;
+  team2_player2?: string | null;
+  team2_player2_id?: number | null;
+  team1_score?: number | null;
+  team2_score?: number | null;
+  winner?: string | null;
+}
+
 /**
  * Groups matches by date and returns an array of { date, label, matches } objects.
  */
-function groupMatchesByDate(matches) {
+function groupMatchesByDate(matches: PublicMatch[]): Array<{ date: string; label: string | null; matches: PublicMatch[] }> {
   const groups = [];
   let currentDate = null;
   for (const match of matches) {
@@ -240,7 +286,7 @@ function groupMatchesByDate(matches) {
 /**
  * Renders a player name as a link to their profile when an ID is available.
  */
-function PlayerLink({ name, playerId }) {
+function PlayerLink({ name, playerId }: { name?: string | null; playerId?: number | null }) {
   if (!name) return null;
   if (!playerId) return name;
   return (
@@ -253,7 +299,7 @@ function PlayerLink({ name, playerId }) {
 /**
  * List of recent match results, grouped by date with a "Show more" toggle.
  */
-function MatchList({ matches }) {
+function MatchList({ matches }: { matches: PublicMatch[] }) {
   const [expanded, setExpanded] = useState(false);
   const visibleMatches = expanded ? matches : matches.slice(0, INITIAL_MATCH_LIMIT);
   const hasMore = matches.length > INITIAL_MATCH_LIMIT;
@@ -304,7 +350,7 @@ function MatchList({ matches }) {
 /**
  * Grid of member avatars and names.
  */
-function MemberGrid({ members }) {
+function MemberGrid({ members }: { members: PublicLeagueMember[] }) {
   return (
     <div className="public-league__members">
       {members.map((member) => (
