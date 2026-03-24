@@ -1,26 +1,43 @@
 /**
  * Lightweight domain interfaces for Beach Kings.
- * These are intentionally minimal — use `any` for fields that vary by endpoint.
- * Do not import backend schema types here; keep this file self-contained.
+ * These define the minimal known shape of each domain object.
+ * Do not add index signatures — consumers that need extra fields should use
+ * type assertions or extend the interface.
  */
 
 export interface User {
   id: number;
   phone: string;
   created_at?: string;
+  deletion_scheduled_at?: string | null;
   player?: Player;
 }
 
 export interface Player {
   id: number;
   name: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  nickname?: string | null;
   gender?: string | null;
   level?: string | null;
   city?: string | null;
   state?: string | null;
   avatar?: string | null;
+  profile_picture_url?: string | null;
   location_id?: string | null;
-  [key: string]: any;
+  location_name?: string | null;
+  player_id?: number | null;
+  is_placeholder?: boolean | null;
+  league_memberships?: unknown[] | null;
+  season_rank?: number | null;
+  current_rating?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  total_games?: number | null;
+  total_wins?: number | null;
+  signed_up_at?: string | null;
+  stats?: Record<string, number | null | undefined>;
 }
 
 export interface League {
@@ -29,8 +46,18 @@ export interface League {
   gender?: string | null;
   level?: string | null;
   location_id?: string | null;
+  location_name?: string | null;
+  region_name?: string | null;
+  description?: string | null;
+  is_open?: boolean | null;
+  is_public?: boolean | null;
+  member_count?: number | null;
+  games_played?: number | null;
   created_at?: string;
-  [key: string]: any;
+  standings?: unknown[] | null;
+  recent_matches?: unknown[] | null;
+  members?: unknown[] | null;
+  current_season?: { name?: string | null } | null;
 }
 
 export interface Season {
@@ -40,7 +67,8 @@ export interface Season {
   status?: string | null;
   start_date?: string | null;
   end_date?: string | null;
-  [key: string]: any;
+  signup_deadline?: string | null;
+  is_active?: boolean | null;
 }
 
 export interface Session {
@@ -48,7 +76,16 @@ export interface Session {
   season_id: number;
   date?: string | null;
   status?: string | null;
-  [key: string]: any;
+  code?: string | null;
+  league_id?: number | null;
+  league_name?: string | null;
+  court_name?: string | null;
+  court_slug?: string | null;
+  match_count?: number | null;
+  created_by?: number | null;
+  created_by_name?: string | null;
+  participation?: string | null;
+  name?: string | null;
 }
 
 export interface Match {
@@ -56,16 +93,65 @@ export interface Match {
   session_id: number;
   team1_score?: number | null;
   team2_score?: number | null;
-  [key: string]: any;
+  winner?: number | null;
+  team1_player1_id?: number | null;
+  team1_player2_id?: number | null;
+  team2_player1_id?: number | null;
+  team2_player2_id?: number | null;
+  team1_player1_name?: string | null;
+  team1_player2_name?: string | null;
+  team2_player1_name?: string | null;
+  team2_player2_name?: string | null;
+  team1_player1?: string | null;
+  team1_player2?: string | null;
+  team2_player1?: string | null;
+  team2_player2?: string | null;
+  date?: string | null;
+  elo_changes?: unknown | null;
+  matchup_id?: number | null;
+  court_num?: number | null;
+  round_num?: number | null;
+  ranked_intent?: string | null;
+  phase?: string | null;
+  is_ranked?: boolean | null;
+  is_bye?: boolean | null;
+  bracket_position?: number | null;
+  game_scores?: unknown | null;
 }
 
 export interface Court {
-  id: number;
+  id: number | string;
   name: string;
   surface?: string | null;
+  surface_type?: string | null;
   city?: string | null;
   state?: string | null;
-  [key: string]: any;
+  address?: string | null;
+  slug?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  average_rating?: number | null;
+  avg_rating?: number | null;
+  review_count?: number | null;
+  court_count?: number | null;
+  photo_count?: number | null;
+  is_free?: boolean | null;
+  has_lights?: boolean | null;
+  has_restrooms?: boolean | null;
+  has_parking?: boolean | null;
+  nets_provided?: boolean | null;
+  website?: string | null;
+  phone?: string | null;
+  parking_info?: string | null;
+  hours?: string | null;
+  cost_info?: string | null;
+  description?: string | null;
+  is_active?: boolean | null;
+  distance_miles?: number | null;
+  created_at?: string;
+  reviews?: unknown[] | null;
+  location_id?: string | null;
+  position?: number;
 }
 
 export interface Location {
@@ -73,5 +159,7 @@ export interface Location {
   city: string;
   state: string;
   region?: string | null;
-  [key: string]: any;
+  name?: string | null;
+  slug?: string | null;
+  distance_miles?: number | null;
 }
