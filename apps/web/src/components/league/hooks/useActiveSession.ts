@@ -11,8 +11,8 @@ export function useActiveSession({
   selectedSeasonId,
   refreshMatchData
 }) {
-  const [activeSession, setActiveSession] = useState(null);
-  const [allSessions, setAllSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState<any | null>(null);
+  const [allSessions, setAllSessions] = useState<any[]>([]);
 
   /**
    * Load the active session

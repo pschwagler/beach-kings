@@ -10,6 +10,7 @@ import {
 } from '../services/api';
 import { sessionMatchToDisplayFormat, buildPlaceholderIdSet } from '../components/league/utils/matchUtils';
 import { useAuth } from '../contexts/AuthContext';
+import type { Session, Match, League } from '../types';
 
 /**
  * Loads and exposes session-by-code data for the pickup session page.
@@ -22,13 +23,13 @@ import { useAuth } from '../contexts/AuthContext';
 export function usePickupSession(code: string | undefined) {
   const router = useRouter();
   const { currentUserPlayer, isAuthenticated } = useAuth();
-  const [session, setSession] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [participants, setParticipants] = useState([]);
+  const [session, setSession] = useState<Session | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [userLeagues, setUserLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<League[]>([]);
 
   const load = useCallback(async () => {
     if (!code) {

@@ -165,12 +165,12 @@ export function usePlayerDetailsDrawer({
   }, [seasonData, getPlayerMatchHistory, precomputedMatchHistory]);
 
   // Stable ref for handlePlayerClick to break circular dependency with openPlayerDrawer
-  const handlePlayerClickRef = useRef(null);
+  const handlePlayerClickRef = useRef<((...args: any[]) => void) | null>(null);
 
   // Refs for selected player so the auto-update effect doesn't fire on player changes
   // (handlePlayerClick already calls openPlayerDrawer directly)
-  const selectedPlayerIdRef = useRef(selectedPlayerId);
-  const selectedPlayerNameRef = useRef(selectedPlayerName);
+  const selectedPlayerIdRef = useRef<any>(selectedPlayerId);
+  const selectedPlayerNameRef = useRef<any>(selectedPlayerName);
   useEffect(() => {
     selectedPlayerIdRef.current = selectedPlayerId;
     selectedPlayerNameRef.current = selectedPlayerName;

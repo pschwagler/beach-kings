@@ -6,8 +6,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * Preserves sort order when members are updated (e.g., role changes).
  */
 export function useSortedMembers(members, currentUserPlayer) {
-  const [sortedMembers, setSortedMembers] = useState([]);
-  const lastMembersLengthRef = useRef(0);
+  const [sortedMembers, setSortedMembers] = useState<any[]>([]);
+  const lastMembersLengthRef = useRef<number>(0);
 
   const sortMembers = useCallback((membersToSort) => {
     if (!membersToSort.length) return [];

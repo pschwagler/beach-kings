@@ -16,10 +16,10 @@ export function useLeagueSeasonSelection({
 }) {
   const [matchType, setMatchType] = useState(leagueMatchOnly ? 'league' : 'non-league');
   const [selectedLeagueId, setSelectedLeagueId] = useState(defaultLeagueId);
-  const [availableLeagues, setAvailableLeagues] = useState([]);
-  const [activeSeason, setActiveSeason] = useState(null);
-  const [allSeasons, setAllSeasons] = useState([]);
-  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+  const [availableLeagues, setAvailableLeagues] = useState<any[]>([]);
+  const [activeSeason, setActiveSeason] = useState<any | null>(null);
+  const [allSeasons, setAllSeasons] = useState<any[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [isSeasonDisabled, setIsSeasonDisabled] = useState(false);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingSeason, setLoadingSeason] = useState(false);

@@ -38,19 +38,22 @@ export function usePhotoMatchReview({
   onClose,
   onSuccess,
 }) {
-  const [jobId, setJobId] = useState(initialJobId);
-  const [status, setStatus] = useState(JOB_STATUS.PENDING);
-  const [result, setResult] = useState(null);
-  const [partialMatches, setPartialMatches] = useState(null);
-  const [error, setError] = useState(null);
+  const [jobId, setJobId] = useState<number | null>(initialJobId);
+  const [status, setStatus] = useState<string>(JOB_STATUS.PENDING);
+  // result holds the AI photo extraction result — shape is opaque to the frontend
+  const [result, setResult] = useState<any | null>(null);
+  // partialMatches holds incremental streaming results before the job completes
+  const [partialMatches, setPartialMatches] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
-  const [conversationHistory, setConversationHistory] = useState([]);
-  const [selectedSeasonId, setSelectedSeasonId] = useState(seasonId);
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string; timestamp: string }>>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(seasonId);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
-  const [playerOverrides, setPlayerOverrides] = useState([]);
+  // playerOverrides: manual player resolutions for unrecognized names from the AI result
+  const [playerOverrides, setPlayerOverrides] = useState<Array<{ raw_name: string; player_id: number; player_name: string }>>([]);
 
-  const streamAbortRef = useRef(null);
+  const streamAbortRef = useRef<(() => void) | null>(null);
 
 
   useEffect(() => {

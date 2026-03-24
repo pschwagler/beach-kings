@@ -36,7 +36,7 @@ interface UseHomeCourtsOptions {
 
 export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeCourtsOptions) {
   const { showToast } = useToast();
-  const [homeCourts, setHomeCourts] = useState(initialCourts || []);
+  const [homeCourts, setHomeCourts] = useState<Court[]>(initialCourts || []);
 
   // Keep api in a ref so callbacks don't depend on its object identity
   const apiRef = useRef(api);

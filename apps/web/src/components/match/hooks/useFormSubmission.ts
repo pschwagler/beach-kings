@@ -6,7 +6,7 @@ import { useState } from 'react';
  */
 export function useFormSubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return {

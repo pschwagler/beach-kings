@@ -65,10 +65,10 @@ export function useNotificationWebSocket({
 }: UseNotificationWebSocketOptions) {
   const [wsConnected, setWsConnected] = useState(false);
 
-  const onDirectMessageRef = useRef(null);
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const pingIntervalRef = useRef(null);
+  const onDirectMessageRef = useRef<((msg: any) => void) | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const intentionalCloseRef = useRef(false);
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -79,8 +79,8 @@ export function useNotificationWebSocket({
   userRef.current = user;
 
   // Keep callback refs stable to avoid recreating connectWebSocket
-  const onNotificationRef = useRef(onNotification);
-  const onNotificationUpdatedRef = useRef(onNotificationUpdated);
+  const onNotificationRef = useRef<(notification: any) => void>(onNotification);
+  const onNotificationUpdatedRef = useRef<(notification: any) => void>(onNotificationUpdated);
   useEffect(() => { onNotificationRef.current = onNotification; }, [onNotification]);
   useEffect(() => { onNotificationUpdatedRef.current = onNotificationUpdated; }, [onNotificationUpdated]);
 

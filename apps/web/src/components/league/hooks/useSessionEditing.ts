@@ -14,9 +14,9 @@ export function useSessionEditing({
   getSeasonIdForRefresh,
 }) {
   const { showToast } = useToast();
-  const [editingSessions, setEditingSessions] = useState(new Set());
-  const [pendingMatchChanges, setPendingMatchChanges] = useState(new Map());
-  const [editingSessionMetadata, setEditingSessionMetadata] = useState(new Map());
+  const [editingSessions, setEditingSessions] = useState<Set<number>>(new Set());
+  const [pendingMatchChanges, setPendingMatchChanges] = useState<Map<number, { updates: Map<any, any>; additions: any[]; deletions: any[] }>>(new Map());
+  const [editingSessionMetadata, setEditingSessionMetadata] = useState<Map<number, any>>(new Map());
 
   /**
    * Check if a session is currently being edited

@@ -15,10 +15,10 @@ const DEBOUNCE_MS = 300;
  */
 export function usePlayerSearch({ leagueId = null, limit = 10 } = {}) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const timerRef = useRef(null);
-  const abortRef = useRef(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const search = useCallback(async (q) => {
     if (!q || q.trim().length < 2) {

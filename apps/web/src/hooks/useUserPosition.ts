@@ -31,8 +31,8 @@ export function useUserPosition(
   const { skipGeolocation = false, timeout = 5000 } = options;
   const geoAttempted = useRef(false);
 
-  const [position, setPosition] = useState(profileCoords || null);
-  const [source, setSource] = useState(profileCoords ? 'profile' : null);
+  const [position, setPosition] = useState<Coords | null>(profileCoords || null);
+  const [source, setSource] = useState<'geolocation' | 'profile' | null>(profileCoords ? 'profile' : null);
 
   // Attempt browser geolocation once
   useEffect(() => {

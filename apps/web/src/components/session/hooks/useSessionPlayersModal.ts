@@ -34,30 +34,30 @@ export function useSessionPlayersModal({
     [currentUserPlayer]
   );
 
-  const [localParticipants, setLocalParticipants] = useState([]);
-  const [items, setItems] = useState([]);
+  const [localParticipants, setLocalParticipants] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
-  const [locationIds, setLocationIds] = useState([]);
-  const [leagueIds, setLeagueIds] = useState([]);
-  const [genderFilters, setGenderFilters] = useState([]);
-  const [levelFilters, setLevelFilters] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [leagues, setLeagues] = useState([]);
-  const [removingId, setRemovingId] = useState(null);
+  const [locationIds, setLocationIds] = useState<string[]>([]);
+  const [leagueIds, setLeagueIds] = useState<number[]>([]);
+  const [genderFilters, setGenderFilters] = useState<string[]>([]);
+  const [levelFilters, setLevelFilters] = useState<string[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [removingId, setRemovingId] = useState<number | null>(null);
   const [pendingAddIds, setPendingAddIds] = useState(new Set<number>());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerView, setDrawerView] = useState('add-player');
   const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);
-  const debounceRef = useRef(null);
-  const prevOpenRef = useRef(false);
-  const hasMutatedRef = useRef(false);
-  const filterButtonRef = useRef(null);
-  const filterPopoverRef = useRef(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevOpenRef = useRef<boolean>(false);
+  const hasMutatedRef = useRef<boolean>(false);
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filterPopoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isOpen) setDrawerView('add-player');
