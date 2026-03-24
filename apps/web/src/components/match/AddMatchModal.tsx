@@ -165,7 +165,7 @@ export default function AddMatchModal({
    * @param {Object} [extras] - Optional gender/level
    * @returns {Object} Player option for immediate selection
    */
-  const handleCreatePlaceholder = useCallback(async (name, extras = {}) => {
+  const handleCreatePlaceholder = useCallback(async (name, extras: any = {}) => {
     const leagueId = (matchType === 'league' && selectedLeagueId) ? selectedLeagueId : undefined;
     const response = await createPlaceholderPlayer({
       name,

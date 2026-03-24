@@ -73,7 +73,7 @@ function applyPlaceholderFlags(displayMatch, rawMatch, placeholderPlayerIds) {
  * @returns {Set<number>} Set of placeholder player IDs
  */
 export function buildPlaceholderIdSet(members) {
-  const ids = new Set();
+  const ids = new Set<number>();
   if (!members) return ids;
   for (const m of members) {
     if (m.is_placeholder) {

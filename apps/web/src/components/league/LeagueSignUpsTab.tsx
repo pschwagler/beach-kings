@@ -76,7 +76,7 @@ export default function LeagueSignUpsTab() {
       allSignups.sort((a, b) => {
         const dateA = new Date(a.date || 0);
         const dateB = new Date(b.date || 0);
-        return dateB - dateA;
+        return dateB.getTime() - dateA.getTime();
       });
 
       setSignups(allSignups);

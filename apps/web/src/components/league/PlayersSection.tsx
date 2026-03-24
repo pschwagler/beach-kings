@@ -9,7 +9,7 @@ interface PlayersSectionProps {
   currentUserPlayer?: any;
   onAddPlayers?: () => void;
   onRoleChange?: (memberId: number, role: string) => void;
-  onRemoveMember?: (memberId: number) => void;
+  onRemoveMember?: (memberId: number, playerName?: string) => void;
 }
 
 export default function PlayersSection({

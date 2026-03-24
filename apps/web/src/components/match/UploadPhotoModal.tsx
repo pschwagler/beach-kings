@@ -210,8 +210,8 @@ export default function UploadPhotoModal({
     setError(null);
 
     try {
-      const result = await uploadMatchPhoto(leagueId, selectedFile, userPrompt || null, seasonId || null);
-      const thumbnailDataUrl = await createThumbnailDataUrl(selectedFile);
+      const result: any = await uploadMatchPhoto(leagueId, selectedFile, userPrompt || null, seasonId || null);
+      const thumbnailDataUrl = await createThumbnailDataUrl(selectedFile) as string | null;
       onProceedToReview(result.job_id, result.session_id, thumbnailDataUrl);
     } catch (err) {
       console.error('[UploadPhotoModal] Upload error:', err);
@@ -340,6 +340,7 @@ export default function UploadPhotoModal({
         </div>
       </div>
 
+      {/* @ts-ignore styled-jsx */}
       <style jsx>{`
         .upload-photo-modal {
           max-width: 500px;

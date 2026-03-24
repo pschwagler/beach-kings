@@ -29,8 +29,8 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  */
 export function usePlayerDetailsDrawer({
   seasonData,
-  getPlayerStats,
-  getPlayerMatchHistory,
+  getPlayerStats = null,
+  getPlayerMatchHistory = null,
   allPlayers,
   leagueName,
   seasonName,

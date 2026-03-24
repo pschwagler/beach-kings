@@ -42,6 +42,7 @@ export default function UnrecognizedPlayersSection({ unmatchedNames, onResolve }
         ))}
       </div>
 
+      {/* @ts-ignore styled-jsx */}
       <style jsx>{`
         .unrecognized-players {
           margin-top: 16px;

@@ -353,8 +353,8 @@ export default function MatchesTable({
     return players.size;
   }, [activeSessionMatches]);
 
-  const sessionGroups = useMemo(() => {
-    return Object.entries(matchesBySession).sort(([keyA, groupA], [keyB, groupB]) => {
+  const sessionGroups: [string, any][] = useMemo(() => {
+    return Object.entries(matchesBySession).sort(([keyA, groupA]: [string, any], [keyB, groupB]: [string, any]) => {
       // Primary sort: session date descending (matches backend ORDER BY date DESC)
       // Session date is a YYYY-MM-DD string — lexicographic comparison works correctly
       const sessionDateA = groupA.date || groupA.name;
@@ -370,7 +370,7 @@ export default function MatchesTable({
       const createdB = groupB.createdAt;
 
       if (createdA && createdB) {
-        const timeDiff = new Date(createdB) - new Date(createdA);
+        const timeDiff = new Date(createdB).getTime() - new Date(createdA).getTime();
         if (timeDiff !== 0) return timeDiff;
       }
 
@@ -413,9 +413,9 @@ export default function MatchesTable({
     );
   }
 
-  Object.values(matchesBySession).forEach(group => {
+  (Object.values(matchesBySession) as any[]).forEach(group => {
     if (group.matches?.length > 0) {
-      group.matches.sort((a, b) => (b.id || 0) - (a.id || 0));
+      group.matches.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
     }
   });
 
