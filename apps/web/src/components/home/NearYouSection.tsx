@@ -11,6 +11,7 @@ import { Button } from '../ui/UI';
 import StarRating from '../ui/StarRating';
 import LevelBadge from '../ui/LevelBadge';
 import './NearYouSection.css';
+import type { Player } from '../../types';
 
 /**
  * "Near You" discovery section for the home page.
@@ -20,7 +21,6 @@ import './NearYouSection.css';
  * @param {Object} props.currentUserPlayer - Player profile with location_id, location_slug, city, state
  * @param {function} props.onTabChange - Callback to switch home tabs (e.g., 'profile')
  */
-import type { Player } from '../../types';
 
 interface NearYouSectionProps {
   currentUserPlayer: Player | null;
@@ -47,7 +47,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
   useEffect(() => {
     if (!locationId && !userPos) return;
 
-    const courtParams: Record<string, any> = { page_size: 4 };
+    const courtParams: Record<string, unknown> = { page_size: 4 };
     if (posSource === 'geolocation' && userPos) {
       // User is somewhere specific — show courts near their actual position
       courtParams.user_lat = userPos.latitude;
@@ -82,7 +82,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
     if (!locationId) return;
     setLoadingPlayers(true);
     try {
-      const params: Record<string, any> = {
+      const params: Record<string, unknown> = {
         location_id: locationId,
         sort_by: 'rating',
         sort_dir: 'desc',

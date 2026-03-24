@@ -31,6 +31,7 @@ export interface Player {
   profile_picture_url?: string | null;
   location_id?: string | null;
   location_name?: string | null;
+  location_slug?: string | null;
   player_id?: number | null;
   is_placeholder?: boolean | null;
   league_memberships?: unknown[] | null;

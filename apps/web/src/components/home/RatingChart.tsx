@@ -14,15 +14,27 @@ import {
  * Custom tooltip for the rating chart.
  * Shows date, end-of-day rating, day delta, games played, and max rating.
  */
+interface RatingDataPoint {
+  date: string;
+  rating: number;
+  maxRating?: number | null;
+  games: number;
+  dayDelta?: number | null;
+}
+
+interface TooltipPayloadEntry {
+  payload: RatingDataPoint;
+}
+
 interface ChartTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: TooltipPayloadEntry[];
 }
 
 function ChartTooltip({ active, payload }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
 
-  const { date, rating, maxRating, games, dayDelta } = payload[0].payload;
+  const { date, rating, maxRating, games, dayDelta } = payload[0].payload as RatingDataPoint;
   return (
     <div className="my-stats-tab__chart-tooltip">
       <div className="my-stats-tab__chart-tooltip-date">{date}</div>
@@ -46,7 +58,7 @@ function ChartTooltip({ active, payload }: ChartTooltipProps) {
  * Formats a date string for the X-axis label.
  * Shows "MMM 'YY" (e.g., "Jan '24").
  */
-function formatDateLabel(dateStr) {
+function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -59,7 +71,7 @@ function formatDateLabel(dateStr) {
  * @param {Array<{date: string, rating: number, maxRating: number, games: number, dayDelta: number|null}>} data
  */
 interface RatingChartProps {
-  data: any[];
+  data: RatingDataPoint[];
 }
 
 export default function RatingChart({ data }: RatingChartProps) {
