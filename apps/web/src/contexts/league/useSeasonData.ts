@@ -262,7 +262,7 @@ export function useSeasonData(leagueId, seasons) {
       if (allMatches === null) return;
 
       const sortedMatches = [...allMatches].sort((a, b) =>
-        new Date(b.date || 0) - new Date(a.date || 0)
+        new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
       );
 
       setSeasonData(prev => {
@@ -342,7 +342,7 @@ export function useSeasonData(leagueId, seasons) {
       sortedMatches.sort((a, b) => {
         const dateA = new Date(a.date || 0);
         const dateB = new Date(b.date || 0);
-        return dateB - dateA;
+        return dateB.getTime() - dateA.getTime();
       });
 
       const allSeasonsResult = {
@@ -376,7 +376,7 @@ export function useSeasonData(leagueId, seasons) {
       allMatches.sort((a, b) => {
         const dateA = new Date(a.date || 0);
         const dateB = new Date(b.date || 0);
-        return dateB - dateA;
+        return dateB.getTime() - dateA.getTime();
       });
 
       const fallbackResult = {
