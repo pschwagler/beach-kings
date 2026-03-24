@@ -26,7 +26,7 @@ import { vi } from 'vitest';
  * expect(screen.getByTestId('isOpen').textContent).toBe('false');
  */
 export function createConsumer(useHook, fields) {
-  return function Consumer({ onContext } = {}) {
+  return function Consumer({ onContext }: { onContext?: (ctx: any) => void } = {}) {
     const ctx = useHook();
     React.useEffect(() => {
       if (onContext) onContext(ctx);
@@ -99,7 +99,7 @@ export function mockNextNavigation() {
  * vi.mock('../../services/api', () => apiMock);
  */
 export function mockApi(functionNames) {
-  const mocks = {};
+  const mocks: Record<string, any> = {};
   for (const name of functionNames) {
     mocks[name] = vi.fn();
   }
