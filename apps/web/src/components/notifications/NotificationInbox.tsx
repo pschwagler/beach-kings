@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
+import type { Notification, NotificationAction } from '../../contexts/NotificationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { approveLeagueJoinRequest, rejectLeagueJoinRequest, acceptFriendRequest, declineFriendRequest } from '../../services/api';
 import './NotificationInbox.css';
@@ -29,7 +30,7 @@ export default function NotificationInbox({ onClose }: NotificationInboxProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount - fetchNotifications is stable from context
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if not already read
     if (!notification.is_read) {
       try {
@@ -54,7 +55,7 @@ export default function NotificationInbox({ onClose }: NotificationInboxProps) {
     }
   };
 
-  const handleNotificationAction = async (e: React.MouseEvent, notification: any, action: any) => {
+  const handleNotificationAction = async (e: React.MouseEvent, notification: Notification, action: NotificationAction) => {
     e.stopPropagation();
 
     try {
@@ -78,9 +79,9 @@ export default function NotificationInbox({ onClose }: NotificationInboxProps) {
           return;
         }
         if (action.action === 'approve') {
-          await approveLeagueJoinRequest(league_id, request_id);
+          await approveLeagueJoinRequest(league_id as number, request_id as number);
         } else if (action.action === 'reject') {
-          await rejectLeagueJoinRequest(league_id, request_id);
+          await rejectLeagueJoinRequest(league_id as number, request_id as number);
         }
       }
 
@@ -89,7 +90,8 @@ export default function NotificationInbox({ onClose }: NotificationInboxProps) {
       await fetchNotifications(10, 0, false); // Refresh recent notifications
     } catch (error) {
       console.error(`Error performing ${action.action} action:`, error);
-      showToast(error.response?.data?.detail || `Failed to ${action.action} request`, 'error');
+      const e = error as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || `Failed to ${action.action} request`, 'error');
     }
   };
 

@@ -1,31 +1,48 @@
 import { Trophy, Users, ChevronDown, MapPin } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
+import type { Match, Season } from '../../types';
+
+interface Court {
+  id: number;
+  name: string;
+  slug?: string | null;
+}
+
+export interface ActiveSession {
+  id: number;
+  name?: string | null;
+  status?: string | null;
+  season_id?: number | null;
+  court_id?: number | null;
+  court_name?: string | null;
+  court_slug?: string | null;
+}
 
 interface ActiveSessionPanelProps {
-  activeSession: any;
-  activeSessionMatches: any[];
-  onPlayerClick?: (playerId: any, playerName: string, e: React.MouseEvent) => void;
+  activeSession: ActiveSession;
+  activeSessionMatches: Match[];
+  onPlayerClick?: (playerId: number | null, playerName: string, e: React.MouseEvent) => void;
   onAddMatchClick?: () => void;
-  onEditMatch?: (match: any) => void;
+  onEditMatch?: (match: Match) => void;
   onSubmitClick?: () => void;
   onSaveClick?: () => void;
   onCancelClick?: () => void;
-  onDeleteSession?: (...args: any[]) => void;
+  onDeleteSession?: () => void;
   onRequestDeleteSession?: () => void;
   onRequestLeaveSession?: () => void;
-  onUpdateSessionSeason?: ((...args: any[]) => void) | null;
-  onUpdateSessionCourt?: ((...args: any[]) => void) | null;
+  onUpdateSessionSeason?: ((sessionId: number, seasonId: number) => void) | null;
+  onUpdateSessionCourt?: ((sessionId: number, courtId: number | null) => void) | null;
   onStatsClick?: () => void;
   isEditing?: boolean;
-  seasons?: any[];
+  seasons?: Season[];
   selectedSeasonId?: number | null;
   contentVariant?: string;
   isAdmin?: boolean;
   variant?: 'league' | 'non-league' | null;
   isSubmitted?: boolean;
   submittedTimestampText?: string | null;
-  onEditSessionClick?: ((...args: any[]) => void) | null;
-  leagueHomeCourts?: any[];
+  onEditSessionClick?: (() => void) | null;
+  leagueHomeCourts?: Court[];
   leagueLocationId?: string | null;
 }
 import Link from 'next/link';
@@ -69,7 +86,7 @@ export default function ActiveSessionPanel({
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
   const [isSeasonDropdownOpen, setIsSeasonDropdownOpen] = useState(false);
-  const seasonDropdownRef = useRef(null);
+  const seasonDropdownRef = useRef<HTMLDivElement>(null);
 
   // Get the season for this session (league only; non-league has no season_id)
   const sessionSeasonId = activeSession?.season_id ?? null;

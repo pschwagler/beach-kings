@@ -3,12 +3,21 @@
 import { X, MapPin } from 'lucide-react';
 import { formatDivisionLabel } from '../../utils/divisionUtils';
 
+interface Participant {
+  player_id: number;
+  full_name?: string | null;
+  player_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+  location_name?: string | null;
+}
+
 /**
  * Presentational panel showing the list of players currently in the session.
  * Renders name, division label, location pill, and Remove (or Creator badge).
  */
 interface SessionPlayersInSessionPanelProps {
-  participants?: any[];
+  participants?: Participant[];
   sessionCreatedByPlayerId?: number | null;
   currentUserPlayerId?: number | null;
   onRemove: (playerId: number) => void;

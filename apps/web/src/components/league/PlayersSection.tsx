@@ -4,9 +4,18 @@ import { ROLE_OPTIONS } from './utils/leagueUtils';
 import { useLeague } from '../../contexts/LeagueContext';
 import { formatRelativeTime } from '../../utils/dateUtils';
 
+interface Member {
+  id: number;
+  player_id: number;
+  player_name?: string | null;
+  player_avatar?: string | null;
+  role?: string | null;
+  joined_at?: string | null;
+}
+
 interface PlayersSectionProps {
-  sortedMembers: any[];
-  currentUserPlayer?: any;
+  sortedMembers: Member[];
+  currentUserPlayer?: { id: number } | null;
   onAddPlayers?: () => void;
   onRoleChange?: (memberId: number, role: string) => void;
   onRemoveMember?: (memberId: number, playerName?: string) => void;
@@ -21,18 +30,18 @@ export default function PlayersSection({
 }: PlayersSectionProps) {
   const { isLeagueAdmin } = useLeague();
 
-  const formatJoinDate = (dateString) => {
+  const formatJoinDate = (dateString: string) => {
     if (!dateString) return 'Unknown';
     const relative = formatRelativeTime(dateString);
     return relative || 'Unknown';
   };
 
-  const isImageUrl = (avatar) => {
+  const isImageUrl = (avatar: string | null | undefined): boolean => {
     if (!avatar) return false;
     return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
   };
 
-  const getAvatarInitial = (playerName) => {
+  const getAvatarInitial = (playerName: string | null | undefined): string => {
     if (!playerName) return '?';
     return playerName.trim().charAt(0).toUpperCase();
   };

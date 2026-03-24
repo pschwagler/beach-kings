@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import StarRating from '../ui/StarRating';
+import { Court } from '../../types';
 
 /**
  * Horizontal scrollable list of nearby courts at the bottom of court detail page.
  */
 interface NearbyCourtsList_Props {
-  courts?: any[];
+  courts?: Court[];
 }
 
 export default function NearbyCourtsList({ courts }: NearbyCourtsList_Props) {

@@ -2,17 +2,17 @@ import { useState, useRef, useEffect, ReactNode, CSSProperties } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
 import './Button.css';
 
-interface ButtonProps {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'size'> {
   children?: ReactNode;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   variant?: 'default' | 'success' | 'danger' | 'tab' | 'close' | 'ghost' | 'outline';
+  size?: 'sm' | 'small' | 'default';
   className?: string;
   active?: boolean;
   type?: 'button' | 'submit' | 'reset';
   style?: CSSProperties;
   form?: string;
-  [key: string]: any;
 }
 
 // Button Component - handles all button variants
@@ -60,7 +60,7 @@ export function Button({
 }
 
 interface AlertProps {
-  type?: string;
+  type?: 'error' | 'success' | 'info' | 'warning' | string;
   children?: ReactNode;
   className?: string;
 }
@@ -89,7 +89,7 @@ export function Tooltip({ children, text, multiline = false }: TooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);
   
-  const handleMouseEnter = (e) => {
+  const handleMouseEnter = (e: React.MouseEvent<HTMLSpanElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     // Set initial position and show the tooltip
     setPosition({

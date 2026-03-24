@@ -4,15 +4,27 @@ import { useState } from "react";
 import { Trophy } from "lucide-react";
 import "./KobLive.css";
 
+interface KobStandingEntry {
+  player_id: number;
+  player_name?: string;
+  rank: number;
+  wins: number;
+  losses: number;
+  points_for: number;
+  points_against: number;
+  point_diff: number;
+  pool_id?: number;
+}
+
 interface StandingsTabProps {
-  standings: any[];
-  pools: any;
-  players?: any;
+  standings: KobStandingEntry[];
+  pools: Record<string, unknown> | null | undefined;
+  players?: unknown;
   status?: string;
 }
 
 export default function StandingsTab({ standings, pools, players, status }: StandingsTabProps) {
-  const [selectedPool, setSelectedPool] = useState(null);
+  const [selectedPool, setSelectedPool] = useState<number | null>(null);
 
   const hasPools = pools && Object.keys(pools).length > 0;
 

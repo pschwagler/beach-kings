@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, ChevronDown } from 'lucide-react';
+
+interface PlayerOption {
+  id: number | string;
+  name: string;
+}
 
 interface PlayerSelectorProps {
   playerName: string;
-  allPlayers: any[] | null;
-  onPlayerChange: (id: any) => void;
+  allPlayers: Array<{ id: number | string; name: string }> | null;
+  onPlayerChange: (id: number | string) => void;
   isPlaceholder?: boolean;
 }
 
@@ -14,8 +19,8 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef(null);
-  const optionsRefs = useRef([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const optionsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Reset search when player changes
   useEffect(() => {
@@ -27,8 +32,8 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
         setSearchTerm('');
         setHighlightedIndex(-1);
@@ -42,7 +47,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
   }, [isDropdownOpen]);
 
   // Support both {id, name} objects and plain strings for backwards compatibility
-  const normalizedPlayers = useMemo(() => {
+  const normalizedPlayers = useMemo((): PlayerOption[] => {
     if (!allPlayers) return [];
     return allPlayers
       .map(p => typeof p === 'string' ? { id: p, name: p } : p)
@@ -50,7 +55,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allPlayers, searchTerm]);
 
-  const handlePlayerSelect = (player) => {
+  const handlePlayerSelect = (player: PlayerOption): void => {
     if (onPlayerChange) {
       onPlayerChange(player.id);
     }
@@ -60,7 +65,7 @@ export default function PlayerSelector({ playerName, allPlayers, onPlayerChange,
   };
 
   // Handle keyboard navigation
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>): void => {
     if (!isDropdownOpen) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();

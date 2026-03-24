@@ -3,17 +3,23 @@ import { formatDateRange } from './utils/leagueUtils';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useState } from 'react';
 import EditSeasonModal from './EditSeasonModal';
+import { Season } from '../../types';
+
+type ExtendedSeason = Season & {
+  scoring_system?: string | null;
+  point_system?: string | null;
+};
 
 interface SeasonsSectionProps {
-  seasons: any[];
+  seasons: ExtendedSeason[];
   onCreateSeason?: () => void;
 }
 
 export default function SeasonsSection({ seasons, onCreateSeason }: SeasonsSectionProps) {
   const { isLeagueAdmin, isSeasonActive, isSeasonPast, refreshSeasons } = useLeague();
-  const [editingSeason, setEditingSeason] = useState(null);
+  const [editingSeason, setEditingSeason] = useState<ExtendedSeason | null>(null);
 
-  const handleEditSeason = (season) => {
+  const handleEditSeason = (season: ExtendedSeason) => {
     setEditingSeason(season);
   };
 

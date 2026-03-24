@@ -4,7 +4,7 @@ import Link from 'next/link';
 import PlayerSelector from './PlayerSelector';
 import PlayerOverview from './PlayerOverview';
 import MatchHistoryTable from '../match/MatchHistoryTable';
-import PlayerStatsTable from './PlayerStatsTable';
+import PlayerStatsTable, { type PlayerStatsRow } from './PlayerStatsTable';
 import { slugify } from '../../utils/slugify';
 import { useAuth } from '../../contexts/AuthContext';
 import { batchFriendStatus, sendFriendRequest, getPlayerInviteUrl } from '../../services/api';
@@ -13,11 +13,11 @@ import useShare from '../../hooks/useShare';
 interface PlayerDetailsProps {
   playerId: number | null;
   playerName: string;
-  stats: any;
-  matchHistory: any[] | null;
+  stats: Record<string, unknown> | null | undefined;
+  matchHistory: Record<string, unknown>[] | null;
   onClose: () => void;
-  allPlayers: any[];
-  onPlayerChange: (id: any) => void;
+  allPlayers: Array<{ id: number | string; name: string }>;
+  onPlayerChange: (id: number | string) => void;
   leagueName?: string;
   seasonName?: string;
   isPlaceholder?: boolean;
@@ -25,7 +25,7 @@ interface PlayerDetailsProps {
 
 export default function PlayerDetails({ playerId, playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange, leagueName, seasonName, isPlaceholder = false }: PlayerDetailsProps) {
   const { isAuthenticated, currentUserPlayer } = useAuth();
-  const [friendStatus, setFriendStatus] = useState(null);
+  const [friendStatus, setFriendStatus] = useState<string | null>(null);
   const [friendLoading, setFriendLoading] = useState(false);
   const [showFriendSentBubble, setShowFriendSentBubble] = useState(false);
   const isSelf = currentUserPlayer?.id === playerId;
@@ -65,7 +65,7 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
   }, [playerId]);
 
   const { shareInvite } = useShare();
-  const [inviteUrl, setInviteUrl] = useState(null);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   // Pre-fetch invite URL when drawer opens for a placeholder player
   useEffect(() => {
@@ -94,14 +94,14 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
     shareInvite({ name: playerName, url: inviteUrl });
   }, [playerName, inviteUrl, shareInvite]);
 
-  const overview = stats?.overview || {};
-  const playerStats = stats?.stats || [];
+  const overview = (stats?.overview || {}) as Record<string, unknown>;
+  const playerStats = (stats?.stats || []) as PlayerStatsRow[];
   const hasStats = playerStats.length > 0;
   // Determine if this is a season view (has seasonName) or league view (All Seasons)
   const isSeason = !!seasonName;
   // For season: check for ranking/points. For league: check for games/win_rate
   const hasOverview = overview && (
-    isSeason 
+    isSeason
       ? (overview.ranking !== undefined || overview.points !== undefined || overview.rating !== undefined)
       : (overview.games !== undefined || overview.win_rate !== undefined || overview.rating !== undefined)
   );

@@ -4,15 +4,16 @@ import { forwardRef, useMemo } from 'react';
 import { Check, Square } from 'lucide-react';
 import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
 import SearchableMultiSelect from '../ui/SearchableMultiSelect';
+import type { Location, League } from '../../types';
 
 interface PlayerFilterPopoverProps {
   locationIds?: string[];
   leagueIds?: (string | number)[];
   genderFilters?: string[];
   levelFilters?: string[];
-  locations?: any[];
-  leagues?: any[];
-  onToggleFilter: (filterType: string, value: any) => void;
+  locations?: Location[];
+  leagues?: League[];
+  onToggleFilter: (filterType: string, value: string | number) => void;
   userLocationId?: string | null;
 }
 

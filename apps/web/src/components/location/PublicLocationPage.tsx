@@ -10,6 +10,51 @@ import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
 import './PublicLocationPage.css';
 
+interface PublicLocationStats {
+  total_leagues?: number;
+  total_players?: number;
+  total_matches?: number;
+  total_courts?: number;
+}
+
+interface PublicLocationLeague {
+  id: number;
+  name: string;
+  gender?: string;
+  level?: string;
+  member_count: number;
+}
+
+interface PublicLocationPlayer {
+  id: number;
+  full_name: string;
+  avatar?: string;
+  level?: string;
+  current_rating: number;
+  total_wins: number;
+  total_games: number;
+}
+
+interface PublicLocationCourt {
+  id: number | string;
+  name: string;
+  slug?: string;
+  address?: string;
+  review_count: number;
+  average_rating?: number;
+}
+
+interface PublicLocation {
+  id: string;
+  city: string;
+  state: string;
+  stats?: PublicLocationStats;
+  leagues?: PublicLocationLeague[];
+  top_players?: PublicLocationPlayer[];
+  courts?: PublicLocationCourt[];
+  region?: { name: string };
+}
+
 /**
  * Public location landing page for SEO and unauthenticated visitors.
  * Shows location info, leagues, top players, courts, and aggregate stats.
@@ -19,7 +64,7 @@ import './PublicLocationPage.css';
  * @param {boolean} props.isAuthenticated - Whether the current user is logged in
  */
 interface PublicLocationPageProps {
-  location: any;
+  location: PublicLocation | null;
   isAuthenticated: boolean;
 }
 

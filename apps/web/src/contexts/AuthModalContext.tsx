@@ -3,10 +3,19 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
+export type AuthMode =
+  | 'sign-in'
+  | 'sign-up'
+  | 'sms-login'
+  | 'verify'
+  | 'reset-password'
+  | 'reset-password-code'
+  | 'reset-password-new';
+
 interface AuthModalContextValue {
   isAuthModalOpen: boolean;
-  authModalMode: string;
-  openAuthModal: (mode?: string, onVerifySuccess?: (() => void) | null) => void;
+  authModalMode: AuthMode;
+  openAuthModal: (mode?: AuthMode, onVerifySuccess?: (() => void) | null) => void;
   closeAuthModal: () => void;
   handleVerifySuccess: () => void;
 }
@@ -15,10 +24,10 @@ const AuthModalContext = createContext<AuthModalContextValue | null>(null);
 
 export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<string>('sign-in');
+  const [authModalMode, setAuthModalMode] = useState<AuthMode>('sign-in');
   const [onVerifySuccessCallback, setOnVerifySuccessCallback] = useState<(() => void) | null>(null);
 
-  const openAuthModal = useCallback((mode = 'sign-in', onVerifySuccess = null) => {
+  const openAuthModal = useCallback((mode: AuthMode = 'sign-in', onVerifySuccess: (() => void) | null = null) => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
     setOnVerifySuccessCallback(() => onVerifySuccess);

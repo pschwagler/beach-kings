@@ -5,6 +5,20 @@ import { getCityAutocomplete } from '../../services/api';
 import { useDebounce } from '../../utils/debounce';
 import './CityAutocomplete.css';
 
+interface GeoFeatureProperties {
+  city?: string;
+  name?: string;
+  district?: string;
+  suburb?: string;
+  state?: string;
+  state_code?: string;
+}
+
+interface GeoFeature {
+  properties: GeoFeatureProperties;
+  geometry: { coordinates: [number, number] };
+}
+
 interface CitySuggestion {
   city: string;
   state: string;
@@ -53,8 +67,8 @@ export default function CityAutocomplete({
 
   // Close suggestions when clicking outside
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
     }
@@ -65,7 +79,7 @@ export default function CityAutocomplete({
     };
   }, []);
 
-  const fetchSuggestions = useCallback(async (searchText) => {
+  const fetchSuggestions = useCallback(async (searchText: string) => {
     if (!searchText || searchText.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -76,7 +90,7 @@ export default function CityAutocomplete({
     try {
       const data = await getCityAutocomplete(searchText);
       if (data.features && data.features.length > 0) {
-        const formattedSuggestions = data.features.map((feature) => {
+        const formattedSuggestions = (data.features as GeoFeature[]).map((feature) => {
           const props = feature.properties;
           const coords = feature.geometry.coordinates;
           
@@ -130,7 +144,7 @@ export default function CityAutocomplete({
   // Debounced version of fetchSuggestions
   const debouncedFetchSuggestions = useDebounce(fetchSuggestions, 300);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
     setSelectedCity(null);
@@ -145,7 +159,7 @@ export default function CityAutocomplete({
     }
   };
 
-  const handleSuggestionClick = (suggestion) => {
+  const handleSuggestionClick = (suggestion: CitySuggestion) => {
     setInputValue(suggestion.formatted);
     setSelectedCity(suggestion);
     setShowSuggestions(false);

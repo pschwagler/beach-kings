@@ -5,6 +5,7 @@ import { X, Trophy, Users, ArrowLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getUserLeagues, createSession } from '../../services/api';
 import './CreateGameModal.css';
+import type { League } from '../../types';
 
 /**
  * CreateGameModal — unified entry point for creating a game.
@@ -20,11 +21,11 @@ interface CreateGameModalProps {
 export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [leagues, setLeagues] = useState([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [loadingLeagues, setLoadingLeagues] = useState(true);
   const [leagueLoadError, setLeagueLoadError] = useState(false);
   const [creatingPickup, setCreatingPickup] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch user leagues on modal open
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
       try {
         const data = await getUserLeagues();
         if (!cancelled) setLeagues(data || []);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error fetching user leagues:', err);
         if (!cancelled) {
           setLeagues([]);
@@ -57,7 +58,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
   /** Close modal on Escape key. */
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -65,7 +66,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
   }, [isOpen, onClose]);
 
   /** Navigate to league page with autoAddMatch flag. */
-  const selectLeague = useCallback((leagueId) => {
+  const selectLeague = useCallback((leagueId: number) => {
     onClose();
     router.push(`/league/${leagueId}?tab=matches&autoAddMatch=true`);
   }, [onClose, router]);
@@ -95,9 +96,13 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
       } else {
         setError('Session created but no share link available. Please try again.');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error creating pickup session:', err);
-      setError(err.response?.data?.detail || err.message || 'Failed to create session');
+      const e = err as Record<string, unknown>;
+      const detail = (e?.response as Record<string, unknown> | undefined)?.data
+        ? ((e.response as Record<string, unknown>).data as Record<string, unknown>)?.detail as string | undefined
+        : undefined;
+      setError(detail || (e?.message as string | undefined) || 'Failed to create session');
     } finally {
       setCreatingPickup(false);
     }

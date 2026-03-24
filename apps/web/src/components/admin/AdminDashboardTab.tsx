@@ -5,14 +5,33 @@ import { RefreshCw, User, UserX } from 'lucide-react';
 import { getAdminStats, getAdminRecentPlayers } from '../../services/api';
 import { formatDate } from './adminUtils';
 
+interface AdminStatEntry {
+  label: string;
+  total: number;
+  last_30_days: number;
+}
+
+interface AdminStats {
+  stats: AdminStatEntry[];
+  generated_at: string;
+}
+
+interface AdminPlayer {
+  id: number;
+  full_name: string;
+  has_user: boolean;
+  auth_provider?: string | null;
+  created_at: string;
+}
+
 /**
  * Platform stats dashboard tab — shows key metrics with 30-day trends
  * and a table of recently created players.
  */
 export default function AdminDashboardTab() {
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [playersLoading, setPlayersLoading] = useState(false);
 
   const loadStats = async () => {

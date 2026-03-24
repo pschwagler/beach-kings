@@ -6,7 +6,7 @@ import { AlertCircle } from 'lucide-react';
 /**
  * Formats phone number to (XXX) XXX-XXXX
  */
-const formatPhone = (digits) => {
+const formatPhone = (digits: string): string => {
   if (digits.length === 0) return '';
   if (digits.length <= 3) return `(${digits}`;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
@@ -16,7 +16,7 @@ const formatPhone = (digits) => {
 /**
  * Extracts digits from phone input, handling country code
  */
-const getDigits = (text) => {
+const getDigits = (text: string): string => {
   // Remove all non-digits
   const allDigits = text.replace(/\D/g, '');
   
@@ -41,7 +41,7 @@ const getDigits = (text) => {
 /**
  * Converts to E.164 format (+15551234567)
  */
-const toE164 = (digits) => {
+const toE164 = (digits: string): string => {
   if (digits.length === 10) {
     return `+1${digits}`;
   }
@@ -51,7 +51,7 @@ const toE164 = (digits) => {
 /**
  * Validates if a phone number is complete and valid
  */
-const isValidPhoneNumber = (digits) => {
+const isValidPhoneNumber = (digits: string): boolean => {
   return digits.length === 10;
 };
 
@@ -127,7 +127,7 @@ export default function PhoneInput({ value, onChange, onValidationChange, classN
     }
   }, [displayValue, isTouched, required, placeholder]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     const digits = getDigits(inputValue);
     const formatted = formatPhone(digits);

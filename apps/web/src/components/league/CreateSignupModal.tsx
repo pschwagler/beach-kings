@@ -7,7 +7,7 @@ import CourtSelector from '../court/CourtSelector';
 /**
  * Helper to convert local datetime to UTC ISO string.
  */
-function localToUTCISOString(dateStr, timeStr) {
+function localToUTCISOString(dateStr: string, timeStr: string): string | null {
   if (!dateStr || !timeStr) return null;
   const localDate = new Date(`${dateStr}T${timeStr}`);
   return localDate.toISOString();
@@ -58,7 +58,7 @@ function getNextHour() {
 interface CreateSignupModalProps {
   seasonId: number;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function CreateSignupModal({ seasonId, onClose, onSubmit }: CreateSignupModalProps) {
@@ -91,7 +91,7 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }: Creat
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
         court_id: formData.court_id || null,
       });
-    } catch (err) {
+    } catch (_err) {
       // Error handling is done in parent
     }
   };
@@ -150,7 +150,7 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }: Creat
             <CourtSelector
               value={formData.court_id}
               onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
-              homeCourts={homeCourts}
+              homeCourts={homeCourts as Array<{ id: number | string; name: string; address?: string }>}
               preFilterLocationId={league?.location_id}
               label="Court"
             />

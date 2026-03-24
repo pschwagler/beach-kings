@@ -1,3 +1,4 @@
+import type { League } from '../../types';
 import { LEVEL_OPTIONS } from './utils/leagueUtils';
 import { updateLeague, setLeagueHomeCourts } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
@@ -15,11 +16,11 @@ import CourtSelector from '../court/CourtSelector';
  *
  * @param {Object} props
  * @param {Object} props.league - League data
- * @param {(league: Object) => void} [props.onUpdate] - Called after league update
+ * @param {(league: League) => void} [props.onUpdate] - Called after league update
  */
 interface LeagueInfoSectionProps {
-  league: any;
-  onUpdate?: (updatedLeague: any) => void;
+  league: League;
+  onUpdate?: (updatedLeague: League) => void;
 }
 
 export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectionProps) {
@@ -38,7 +39,7 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
     api: { set: setLeagueHomeCourts },
   });
 
-  const handleLevelChange = async (e) => {
+  const handleLevelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLevel = e.target.value || null;
     try {
       const updatedLeague = await updateLeague(leagueId, {
@@ -50,13 +51,14 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
         gender: league?.gender || null,
       });
       onUpdate?.(updatedLeague);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update skill level', 'error');
+    } catch (err: unknown) {
+      const e2 = err as { response?: { data?: { detail?: string } } };
+      showToast(e2.response?.data?.detail || 'Failed to update skill level', 'error');
       e.target.value = league?.level || '';
     }
   };
 
-  const handleLocationChange = async (e) => {
+  const handleLocationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLocationId = e.target.value || null;
     try {
       const updatedLeague = await updateLeague(leagueId, {
@@ -68,13 +70,14 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
         gender: league?.gender || null,
       });
       onUpdate?.(updatedLeague);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update location', 'error');
+    } catch (err: unknown) {
+      const e2 = err as { response?: { data?: { detail?: string } } };
+      showToast(e2.response?.data?.detail || 'Failed to update location', 'error');
       e.target.value = league?.location_id ? String(league.location_id) : '';
     }
   };
 
-  const handleAccessChange = async (e) => {
+  const handleAccessChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const isOpen = e.target.value === 'open';
     try {
       const updatedLeague = await updateLeague(leagueId, {
@@ -86,8 +89,9 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
         gender: league?.gender || null,
       });
       onUpdate?.(updatedLeague);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update access', 'error');
+    } catch (err: unknown) {
+      const e2 = err as { response?: { data?: { detail?: string } } };
+      showToast(e2.response?.data?.detail || 'Failed to update access', 'error');
       e.target.value = league?.is_open ? 'open' : 'invite-only';
     }
   };

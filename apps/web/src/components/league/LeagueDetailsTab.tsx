@@ -54,9 +54,10 @@ export default function LeagueDetailsTab() {
     try {
       const data = await getLeagueJoinRequests(leagueId);
       setJoinRequests({ pending: data.pending ?? [], rejected: data.rejected ?? [] });
-    } catch (err) {
+    } catch (err: unknown) {
       setJoinRequests({ pending: [], rejected: [] });
-      const message = err.response?.data?.detail ?? err.message ?? 'Failed to load join requests';
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      const message = e.response?.data?.detail ?? e.message ?? 'Failed to load join requests';
       showToast(message, 'error');
     }
   }, [leagueId, isLeagueAdmin, showToast]);
@@ -71,17 +72,18 @@ export default function LeagueDetailsTab() {
     await refreshMembers();
   }, [fetchJoinRequests, refreshMembers]);
 
-  const handleRoleChange = async (memberId, newRole) => {
+  const handleRoleChange = async (memberId: number, newRole: string) => {
     try {
       await updateLeagueMember(leagueId, memberId, newRole);
       // Update the member in place without refreshing (to preserve sort order)
       updateMember(memberId, { role: newRole });
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update role', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update role', 'error');
     }
   };
 
-  const handleRemoveMemberClick = (memberId, playerName) => {
+  const handleRemoveMemberClick = (memberId: number, playerName: string) => {
     setMemberToRemove({ memberId, playerName });
   };
 
@@ -91,8 +93,9 @@ export default function LeagueDetailsTab() {
       await removeLeagueMember(leagueId, memberToRemove.memberId);
       await refreshMembers();
       setMemberToRemove(null);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to remove player', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to remove player', 'error');
       setMemberToRemove(null);
     }
   };

@@ -9,6 +9,16 @@ import LevelBadge from '../ui/LevelBadge';
 import ShareInviteIcon from '../player/ShareInviteIcon';
 import { isImageUrl } from '../../utils/avatar';
 
+interface LeagueMember {
+  id: number;
+  player_id?: number | null;
+  player_name?: string | null;
+  player_avatar?: string | null;
+  player_level?: string | null;
+  is_placeholder?: boolean | null;
+  joined_at?: string | null;
+}
+
 interface LeagueMembersModalProps {
   leagueId: number;
   leagueName: string;
@@ -34,14 +44,14 @@ export default function LeagueMembersModal({
   onJoin,
   onClose
 }: LeagueMembersModalProps) {
-  const [members, setMembers] = useState(null);
+  const [members, setMembers] = useState<LeagueMember[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   // Close on Escape key
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -55,8 +65,9 @@ export default function LeagueMembersModal({
         setError(null);
         const data = await getLeagueMembers(leagueId);
         setMembers(data);
-      } catch (err) {
-        setError(err.response?.data?.detail || 'Failed to load league members');
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { detail?: string } } };
+        setError(e.response?.data?.detail || 'Failed to load league members');
       } finally {
         setLoading(false);
       }
@@ -67,13 +78,13 @@ export default function LeagueMembersModal({
     }
   }, [leagueId]);
 
-  const formatJoinDate = (dateString) => {
+  const formatJoinDate = (dateString: string): string => {
     if (!dateString) return 'Unknown';
     const relative = formatRelativeTime(dateString);
     return relative || 'Unknown';
   };
 
-  const getAvatarInitial = (playerName) => {
+  const getAvatarInitial = (playerName: string): string => {
     if (!playerName) return '?';
     return playerName.trim().charAt(0).toUpperCase();
   };

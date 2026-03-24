@@ -21,6 +21,30 @@ import "./KobSetup.css";
 
 const PLAYER_PAGE_SIZE = 25;
 
+interface KobTournamentPlayer {
+  player_id: number;
+  player_name?: string;
+}
+
+interface KobTournament {
+  id: number;
+  code: string;
+  name: string;
+  status: string;
+  gender?: string;
+  format?: string;
+  game_to?: number;
+  players: KobTournamentPlayer[];
+}
+
+interface PlayerSearchResult {
+  id: number;
+  full_name: string;
+  gender?: string;
+  level?: string;
+  location_name?: string;
+}
+
 interface KobSetupProps {
   tournamentId: number | string;
 }
@@ -31,20 +55,20 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
   const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
 
-  const [tournament, setTournament] = useState(null);
+  const [tournament, setTournament] = useState<KobTournament | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Player search
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [playerOffset, setPlayerOffset] = useState(0);
   const [playerTotal, setPlayerTotal] = useState(0);
 
-  const searchDebounceRef = useRef(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Actions
   const [starting, setStarting] = useState(false);
@@ -79,7 +103,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
    * @param {number} offset - Pagination offset
    * @param {boolean} append - Append to existing results or replace
    */
-  const fetchPlayers = useCallback(async (query, offset, append = false) => {
+  const fetchPlayers = useCallback(async (query: string, offset: number, append = false) => {
     if (append) setLoadingMore(true);
     else setLoadingPlayers(true);
     try {
@@ -116,7 +140,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
 
   const hasMorePlayers = searchResults.length < playerTotal;
 
-  const handleAddPlayer = async (playerId) => {
+  const handleAddPlayer = async (playerId: number) => {
     try {
       const updated = await addKobPlayer(tournamentId, { player_id: playerId });
       setTournament(updated);
@@ -127,7 +151,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
     }
   };
 
-  const handleRemovePlayer = async (playerId) => {
+  const handleRemovePlayer = async (playerId: number) => {
     try {
       const updated = await removeKobPlayer(tournamentId, playerId);
       setTournament(updated);
@@ -136,7 +160,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
     }
   };
 
-  const handleMovePlayer = async (index, direction) => {
+  const handleMovePlayer = async (index: number, direction: number) => {
     const players = [...tournament.players];
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= players.length) return;

@@ -3,12 +3,13 @@
 import { MapPin, Pencil } from 'lucide-react';
 import StarRating from '../ui/StarRating';
 import { getSurfaceLabel } from '../../constants/court';
+import { Court } from '../../types';
 
 /**
  * Court detail page header: name, rating, address, badges, action icons.
  */
 interface CourtDetailHeaderProps {
-  court: any;
+  court: Court;
   onSuggestEdit?: () => void;
 }
 

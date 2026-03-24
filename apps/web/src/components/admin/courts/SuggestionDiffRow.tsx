@@ -18,14 +18,14 @@ const SURFACE_OPTIONS = [
 /**
  * Humanize a snake_case field name into a label.
  */
-function labelFor(key) {
+function labelFor(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
  * Format a value for display (current column).
  */
-function displayValue(val) {
+function displayValue(val: unknown) {
   if (val === null || val === undefined || val === '') return '\u2014';
   if (typeof val === 'boolean') return val ? 'Yes' : 'No';
   return String(val);
@@ -37,9 +37,18 @@ function displayValue(val) {
  * Shows current vs proposed values per changed field. Admin can cherry-pick
  * fields, edit proposed values, then apply selected or reject all.
  */
+interface Suggestion {
+  id: number;
+  court_id: number;
+  changes?: Record<string, unknown>;
+  current?: Record<string, unknown>;
+  suggester_name?: string;
+  created_at?: string;
+}
+
 interface SuggestionDiffRowProps {
-  suggestion: any;
-  onResolved?: (id: any) => void;
+  suggestion: Suggestion;
+  onResolved?: (id: number) => void;
 }
 
 export default function SuggestionDiffRow({ suggestion, onResolved }: SuggestionDiffRowProps) {
@@ -57,13 +66,13 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
   );
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggleField = (key) => {
+  const toggleField = (key: string) => {
     setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const updateProposed = (key, value) => {
+  const updateProposed = (key: string, value: unknown) => {
     setProposed((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -125,7 +134,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
   };
 
   /** Render the input control for a proposed value. */
-  const renderInput = (key, value, disabled) => {
+  const renderInput = (key: string, value: unknown, disabled: boolean) => {
     if (BOOL_FIELDS.has(key)) {
       return (
         <input
@@ -140,7 +149,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
     if (key === 'surface_type') {
       return (
         <select
-          value={value || ''}
+          value={(value as string) || ''}
           disabled={disabled}
           onChange={(e) => updateProposed(key, e.target.value)}
           className="suggestion-diff__select"
@@ -155,7 +164,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
       return (
         <input
           type="number"
-          value={value ?? ''}
+          value={(value as number | string | undefined) ?? ''}
           disabled={disabled}
           onChange={(e) => updateProposed(key, e.target.value === '' ? null : Number(e.target.value))}
           className="suggestion-diff__input"
@@ -166,7 +175,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
     return (
       <input
         type="text"
-        value={value ?? ''}
+        value={(value as string) ?? ''}
         disabled={disabled}
         onChange={(e) => updateProposed(key, e.target.value)}
         className="suggestion-diff__input"

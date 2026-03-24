@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
 import { getUserLeagues, createLeague, addLeagueHomeCourt } from "../services/api";
+import type { League } from "../types";
 import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
@@ -34,7 +35,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
 
   // Use searchParams for client-side navigation, fall back to server-provided initialTab
   const activeTab = searchParams?.get("tab") || initialTab;
-  const [userLeagues, setUserLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<League[]>([]);
 
   // Redirect if not authenticated (wait for auth to finish initializing).
   // Skip redirect when session expired — show the expired message instead.
@@ -100,7 +101,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     }
   };
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = (tab: string) => {
     // Update URL with new tab using Next.js router
     const newSearchParams = new URLSearchParams(searchParams?.toString() || "");
     newSearchParams.set("tab", tab);
@@ -112,11 +113,11 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     }
   };
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     const { initial_court_id, ...payload } = leagueData;
     const newLeague = await createLeague(payload);
     if (initial_court_id && newLeague?.id) {
-      try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+      try { await addLeagueHomeCourt(newLeague.id, initial_court_id as number); } catch {}
     }
     const leagues = await getUserLeagues();
     setUserLeagues(leagues);
@@ -124,7 +125,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     return newLeague;
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: string | number | null = null) => {
     if (action === "create-league") {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: handleCreateLeague,

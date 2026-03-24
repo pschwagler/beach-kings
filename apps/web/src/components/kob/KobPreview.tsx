@@ -5,7 +5,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import "./KobPreview.css";
 
 /** Map 1-based placeholder IDs to letters: 1→A, 2→B, ..., 26→Z, 27→AA */
-function playerLabel(id) {
+function playerLabel(id: number) {
   if (id <= 0) return "?";
   let label = "";
   let n = id;
@@ -18,7 +18,7 @@ function playerLabel(id) {
 }
 
 /** Format minutes as "Xh Ym" */
-function formatTime(minutes) {
+function formatTime(minutes: number) {
   if (!minutes || minutes <= 0) return "0m";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -28,14 +28,32 @@ function formatTime(minutes) {
 }
 
 /** Format minutes as clock-style "H:MM", e.g. 0 → "0:00", 90 → "1:30" */
-function formatClock(minutes) {
+function formatClock(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   return `${h}:${String(m).padStart(2, "0")}`;
 }
 
+interface KobMatch {
+  team1: number[];
+  team2: number[];
+  court_num?: number;
+  pool_id?: number;
+  matchup_id?: number;
+  bracket_position?: string;
+}
+
+interface KobRound {
+  round_num: number;
+  matches: KobMatch[];
+  phase?: string;
+  time_minutes?: number;
+  label?: string;
+  bracket_position?: string;
+}
+
 /** Compact inline match cell: two player circles, "v", two player circles */
-function MatchCell({ match }) {
+function MatchCell({ match }: { match: KobMatch | null }) {
   if (!match) {
     return <span className="kob-preview__empty-cell">&ndash;</span>;
   }
@@ -70,7 +88,7 @@ function MatchCell({ match }) {
  * Backend guarantees each round has ≤ num_courts matches,
  * so one row per round.
  */
-function NonPoolTable({ rounds, numCourts, roundClocks }) {
+function NonPoolTable({ rounds, numCourts, roundClocks }: { rounds: KobRound[]; numCourts: number; roundClocks: Record<number, number> }) {
   const courtNums = [];
   for (let c = 1; c <= numCourts; c++) courtNums.push(c);
 
@@ -120,7 +138,7 @@ function NonPoolTable({ rounds, numCourts, roundClocks }) {
  * Pool play table: columns = pools (with court + game_to in header),
  * rows = time slots. Uneven pools → "–" for the pool with fewer matches.
  */
-function PoolTable({ rounds, poolIds, poolCourts, poolGameTo, roundClocks }) {
+function PoolTable({ rounds, poolIds, poolCourts, poolGameTo, roundClocks }: { rounds: KobRound[]; poolIds: number[]; poolCourts?: Record<string, number>; poolGameTo?: Record<string, number>; roundClocks: Record<number, number> }) {
   // Build rows: each round becomes a group of sub-rows.
   // For each round, find matches per pool, then zip them into rows.
   const rows = [];
@@ -209,7 +227,7 @@ function PoolTable({ rounds, poolIds, poolCourts, poolGameTo, roundClocks }) {
 /**
  * Playoff display: RR playoffs use NonPoolTable, draft playoffs use a bracket list.
  */
-function PlayoffSection({ rounds, numCourts, roundClocks }) {
+function PlayoffSection({ rounds, numCourts, roundClocks }: { rounds: KobRound[]; numCourts: number; roundClocks: Record<number, number> }) {
   if (!rounds.length) return null;
 
   // Check if this is a draft bracket (has bracket_position)
@@ -274,8 +292,24 @@ function PlayoffSection({ rounds, numCourts, roundClocks }) {
   return <NonPoolTable rounds={rounds} numCourts={numCourts} roundClocks={roundClocks} />;
 }
 
+interface KobRecommendation {
+  preview_rounds?: KobRound[];
+  total_time_minutes?: number;
+  min_games_per_player?: number;
+  max_games_per_player?: number;
+  games_per_court?: number;
+  playoff_rounds?: number;
+  playoff_size?: number;
+  preview_pools?: Record<string, number[]>;
+  pool_game_to?: Record<string, number>;
+  pool_courts?: Record<string, number>;
+  playoff_format?: string;
+  explanation?: string;
+  suggestion?: string;
+}
+
 interface KobPreviewProps {
-  recommendation: any;
+  recommendation: KobRecommendation | null;
   loading?: boolean;
 }
 

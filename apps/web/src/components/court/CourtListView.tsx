@@ -8,6 +8,7 @@ import SearchableMultiSelect from '../ui/SearchableMultiSelect';
 import CourtCard from './CourtCard';
 import { Button } from '../ui/UI';
 import { SURFACE_OPTIONS } from '../../constants/court';
+import { Court } from '../../types';
 import './CourtListView.css';
 
 const SURFACE_FILTER_OPTIONS = [
@@ -30,25 +31,25 @@ const SURFACE_FILTER_OPTIONS = [
  * @param {Object} [props.userLocation] - { latitude, longitude } fallback from player profile
  */
 interface CourtListViewProps {
-  initialCourts?: any;
+  initialCourts?: { items: Court[]; total_count: number };
   initialTotal?: number;
   locationId?: string;
   userLocationId?: string;
-  userLocation?: any;
+  userLocation?: { latitude: number; longitude: number };
 }
 
 export default function CourtListView({ initialCourts, initialTotal, locationId, userLocationId, userLocation }: CourtListViewProps) {
   const { position: userPos } = useUserPosition(userLocation);
 
-  const [courts, setCourts] = useState(initialCourts?.items || []);
+  const [courts, setCourts] = useState<Court[]>(initialCourts?.items || []);
   const [totalCount, setTotalCount] = useState(initialTotal || initialCourts?.total_count || 0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Region + location options for dropdowns
-  const [regions, setRegions] = useState([]);
-  const [locations, setLocations] = useState([]);
+  const [regions, setRegions] = useState<Array<{ id: string; name: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; regionId: string; label: string }>>([]);
   const [selectedRegionId, setSelectedRegionId] = useState('');
   const [locationIds, setLocationIds] = useState(() =>
     locationId ? [locationId] : []
@@ -57,8 +58,8 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
   // Filters
   const [search, setSearch] = useState('');
   const [surfaceType, setSurfaceType] = useState('');
-  const [isFree, setIsFree] = useState(null);
-  const [minRating, setMinRating] = useState(null);
+  const [isFree, setIsFree] = useState<boolean | null>(null);
+  const [minRating, setMinRating] = useState<number | null>(null);
 
   const PAGE_SIZE = 20;
 
@@ -100,7 +101,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
   const fetchCourts = useCallback(async (pageNum = 1, resetList = true) => {
     setLoading(true);
     try {
-      const filters: Record<string, any> = { page: pageNum, page_size: PAGE_SIZE };
+      const filters: Record<string, string | number | boolean> = { page: pageNum, page_size: PAGE_SIZE };
       if (selectedRegionId) filters.region_id = selectedRegionId;
       if (locationIds.length > 0) filters.location_id = locationIds.join(',');
       if (search.trim()) filters.search = search.trim();
@@ -144,7 +145,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
     setMinRating(null);
   };
 
-  const handleRegionChange = (regionId) => {
+  const handleRegionChange = (regionId: string) => {
     setSelectedRegionId(regionId);
     // Clear location selections that don't belong to the new region
     if (regionId) {
@@ -153,7 +154,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
     }
   };
 
-  const handleToggleLocation = (id) => {
+  const handleToggleLocation = (id: string) => {
     setLocationIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );

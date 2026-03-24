@@ -54,17 +54,54 @@ const TOGGLE_FIELDS = [
   { key: 'is_active', label: 'Active' },
 ];
 
+export interface CourtPhoto {
+  id: number;
+  url: string;
+}
+
+interface CourtReviewAuthor {
+  full_name?: string;
+}
+
+export interface CourtReview {
+  id: number;
+  rating: number;
+  review_text?: string;
+  author?: CourtReviewAuthor;
+}
+
+interface AdminCourt {
+  id: number | string;
+  name?: string;
+  address?: string;
+  description?: string;
+  hours?: string;
+  phone?: string;
+  website?: string;
+  cost_info?: string;
+  parking_info?: string;
+  surface_type?: string;
+  court_count?: number | string;
+  status?: string;
+  is_free?: boolean;
+  has_lights?: boolean;
+  has_restrooms?: boolean;
+  has_parking?: boolean;
+  nets_provided?: boolean;
+  is_active?: boolean;
+}
+
 /**
  * Expandable accordion form for inline court editing.
  * Includes Photos and Reviews sections with admin delete capabilities.
  * Only sends changed fields to the API.
  */
 interface CourtEditRowProps {
-  court: any;
-  onSave: (court: any) => void;
+  court: AdminCourt;
+  onSave: (court: AdminCourt) => void;
   onCancel: () => void;
-  photos?: any[];
-  reviews?: any[];
+  photos?: CourtPhoto[];
+  reviews?: CourtReview[];
   detailLoading?: boolean;
 }
 
@@ -89,23 +126,23 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
     is_active: court.is_active ?? true,
   }));
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Local state for optimistic photo/review removal
-  const [localPhotos, setLocalPhotos] = useState(photos);
-  const [localReviews, setLocalReviews] = useState(reviews);
+  const [localPhotos, setLocalPhotos] = useState<CourtPhoto[]>(photos);
+  const [localReviews, setLocalReviews] = useState<CourtReview[]>(reviews);
 
   // Keep local state in sync when props update (detail loads)
   useEffect(() => { setLocalPhotos(photos); }, [photos]);
   useEffect(() => { setLocalReviews(reviews); }, [reviews]);
 
-  const handleChange = (key, value) => {
+  const handleChange = (key: string, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   /** Compute only the fields that differ from the original court. */
   const getChangedFields = () => {
-    const changed = {};
+    const changed: Record<string, string | number | boolean> = {};
     for (const key of Object.keys(form)) {
       let original = court[key];
       let current = form[key];
@@ -135,7 +172,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
     try {
       setSaving(true);
       setError(null);
-      await updateCourtDiscovery(court.id, changed);
+      await updateCourtDiscovery(court.id as number, changed);
       // Merge changed fields back for optimistic update
       onSave({ ...court, ...changed });
     } catch (err) {
@@ -235,30 +272,30 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
  * First photo is the cover photo.
  */
 interface PhotosSectionProps {
-  courtId: number;
-  photos: any[];
-  onPhotoDeleted: (id: any) => void;
-  onPhotoAdded: (photo: any) => void;
-  onPhotosReordered: (photos: any[]) => void;
+  courtId: number | string;
+  photos: CourtPhoto[];
+  onPhotoDeleted: (id: number) => void;
+  onPhotoAdded: (photo: CourtPhoto) => void;
+  onPhotosReordered: (photos: CourtPhoto[]) => void;
   detailLoading: boolean;
 }
 
 function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotosReordered, detailLoading }: PhotosSectionProps) {
-  const [confirmId, setConfirmId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
-  const [lightboxIndex, setLightboxIndex] = useState(null);
-  const [dragIdx, setDragIdx] = useState(null);
-  const [overIdx, setOverIdx] = useState(null);
-  const timerRef = useRef(null);
-  const confirmIdRef = useRef(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmIdRef = useRef<number | null>(null);
 
   // Upload state
-  const fileInputRef = useRef(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Keep ref in sync with state so click handler always reads the latest value
   confirmIdRef.current = confirmId;
@@ -270,7 +307,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
   }, [previewUrl]);
 
   /** Handle file selection for upload preview. */
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
@@ -293,7 +330,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
     setUploading(true);
     setUploadError(null);
     try {
-      const newPhoto = await uploadCourtPhoto(courtId, selectedFile);
+      const newPhoto = await uploadCourtPhoto(courtId as number, selectedFile);
       onPhotoAdded(newPhoto);
       handleCancelPreview();
     } catch (err) {
@@ -304,7 +341,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
   };
 
   /** Execute the delete API call and remove photo from local state. */
-  const doDelete = async (photoId) => {
+  const doDelete = async (photoId: number) => {
     try {
       setDeleteError(null);
       setDeletingId(photoId);
@@ -322,7 +359,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
    * Two-click delete: first click arms confirmation, second click fires delete.
    * Uses a ref for confirmId to avoid stale closure issues with useCallback.
    */
-  const handleDeleteClick = (photoId) => {
+  const handleDeleteClick = (photoId: number) => {
     if (confirmIdRef.current === photoId) {
       clearTimeout(timerRef.current);
       setConfirmId(null);
@@ -335,7 +372,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
   };
 
   /** Reorder on drop: optimistic update, revert on API failure. */
-  const handleDrop = async (e, targetIdx) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetIdx: number) => {
     e.preventDefault();
     if (dragIdx === null || dragIdx === targetIdx) {
       setDragIdx(null);
@@ -353,7 +390,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
     setOverIdx(null);
 
     try {
-      await adminReorderCourtPhotos(courtId, reordered.map((p) => p.id));
+      await adminReorderCourtPhotos(courtId as number, reordered.map((p) => p.id));
     } catch (err) {
       console.error('Error reordering photos:', err);
       onPhotosReordered(prev);
@@ -479,15 +516,15 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
  * Compact list of reviews with inline-confirm delete.
  */
 interface ReviewsSectionProps {
-  reviews: any[];
-  onReviewDeleted: (id: any) => void;
+  reviews: CourtReview[];
+  onReviewDeleted: (id: number) => void;
   detailLoading: boolean;
 }
 
 function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSectionProps) {
-  const [confirmId, setConfirmId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
-  const timerRef = useRef(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up confirm timer on unmount
   useEffect(() => () => clearTimeout(timerRef.current), []);
@@ -516,7 +553,7 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSect
   }, [confirmId, doDelete]);
 
   /** Render star icons for a rating. */
-  const renderStars = (rating) => {
+  const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}

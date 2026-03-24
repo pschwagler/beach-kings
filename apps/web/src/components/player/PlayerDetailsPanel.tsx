@@ -4,11 +4,11 @@ import PlayerDetails from './PlayerDetails';
 interface PlayerDetailsPanelProps {
   playerId: number | null;
   playerName: string;
-  playerStats: any;
-  playerMatchHistory: any[] | null;
+  playerStats: Record<string, unknown> | null | undefined;
+  playerMatchHistory: Record<string, unknown>[] | null;
   isPanelOpen: boolean;
-  allPlayerNames: any[];
-  onPlayerChange: (id: any) => void;
+  allPlayerNames: Array<{ id: number | string; name: string }>;
+  onPlayerChange: (id: number | string) => void;
   onClose: () => void;
   leagueName?: string;
   seasonName?: string;

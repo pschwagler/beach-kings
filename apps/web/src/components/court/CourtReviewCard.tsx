@@ -10,18 +10,38 @@ import ImageLightbox from '../ui/ImageLightbox';
  * Single review card in the reviews list.
  * Shows stars, text, tags, photos, author info, and edit/delete for own reviews.
  */
+interface ReviewTag {
+  id: number;
+  name: string;
+}
+
+interface ReviewPhoto {
+  id: number;
+  url: string;
+}
+
+interface Review {
+  id: number;
+  rating: number;
+  review_text?: string | null;
+  created_at?: string | null;
+  author?: { player_id?: number | null; full_name?: string | null } | null;
+  tags?: ReviewTag[] | null;
+  photos?: ReviewPhoto[] | null;
+}
+
 interface CourtReviewCardProps {
-  review: any;
+  review: Review;
   isOwn: boolean;
   onEdit: () => void;
-  onDeleted?: (result: any) => void;
+  onDeleted?: (result: unknown) => void;
   courtId: number;
 }
 
 export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, courtId }: CourtReviewCardProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const handleDelete = async () => {
     setDeleting(true);

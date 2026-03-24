@@ -5,11 +5,21 @@ import { RefreshCw } from 'lucide-react';
 import { getAdminFeedback, updateFeedbackResolution } from '../../services/api';
 import { formatDate } from './adminUtils';
 
+interface FeedbackItem {
+  id: number;
+  feedback_text: string;
+  is_resolved: boolean;
+  created_at: string;
+  user_name?: string | null;
+  user_id?: number | null;
+  email?: string | null;
+}
+
 /**
  * Admin feedback tab — searchable table with resolve toggles.
  */
 export default function AdminFeedbackTab() {
-  const [feedback, setFeedback] = useState([]);
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
@@ -30,7 +40,7 @@ export default function AdminFeedbackTab() {
     loadFeedback();
   }, []);
 
-  const handleToggleResolved = async (feedbackId, currentStatus) => {
+  const handleToggleResolved = async (feedbackId: number, currentStatus: boolean) => {
     try {
       const updated = await updateFeedbackResolution(feedbackId, !currentStatus);
       setFeedback((prev) => prev.map((item) => (item.id === feedbackId ? updated : item)));

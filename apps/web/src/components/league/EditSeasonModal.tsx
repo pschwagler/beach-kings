@@ -3,12 +3,18 @@ import { X } from "lucide-react";
 import { updateSeason } from "../../services/api";
 import { useToast } from '../../contexts/ToastContext';
 import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
+import type { Season } from '../../types';
+
+interface SeasonWithScoring extends Season {
+  scoring_system?: string | null;
+  point_system?: string | null;
+}
 
 interface EditSeasonModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  season: any;
+  season: SeasonWithScoring;
 }
 
 export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }: EditSeasonModalProps) {
@@ -81,7 +87,7 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }: 
     }
 
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         name: formData.name || undefined,
         start_date: formData.start_date,
         end_date: formData.end_date,
@@ -96,9 +102,10 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }: 
       await updateSeason(season.id, payload);
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
       showToast(
-        err.response?.data?.detail || "Failed to update season",
+        e.response?.data?.detail || "Failed to update season",
         "error"
       );
     }

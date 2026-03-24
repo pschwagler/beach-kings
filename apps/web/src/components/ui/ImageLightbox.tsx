@@ -40,7 +40,7 @@ export default function ImageLightbox({ photos, startIndex = 0, onClose }: Image
 
   /* Keyboard navigation */
   useEffect(() => {
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowLeft') goPrev();
       else if (e.key === 'ArrowRight') goNext();
@@ -57,11 +57,11 @@ export default function ImageLightbox({ photos, startIndex = 0, onClose }: Image
   }, []);
 
   /* Swipe detection */
-  const handleTouchStart = (e) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const SWIPE_THRESHOLD = 50;
@@ -71,7 +71,7 @@ export default function ImageLightbox({ photos, startIndex = 0, onClose }: Image
   };
 
   /* Close on backdrop click (not on image/buttons) */
-  const handleOverlayClick = (e) => {
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) onClose();
   };
 

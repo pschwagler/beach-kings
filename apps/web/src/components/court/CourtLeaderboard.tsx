@@ -3,6 +3,15 @@
 import { useState, useEffect } from 'react';
 import { getCourtLeaderboard } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
+
+interface LeaderboardEntry {
+  player_id: number;
+  rank: number;
+  player_name: string;
+  avatar?: string | null;
+  match_count: number;
+  win_rate: number;
+}
 import './CourtLeaderboard.css';
 
 /**
@@ -14,7 +23,7 @@ interface CourtLeaderboardProps {
 }
 
 export default function CourtLeaderboard({ slug }: CourtLeaderboardProps) {
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

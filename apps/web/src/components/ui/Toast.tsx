@@ -86,18 +86,18 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
  * Returns [toasts, addToast, dismissToast].
  */
 export function useToasts() {
-  const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextIdRef = useRef(0);
 
-  const addToast = useCallback((message: string, { action, duration }: { action?: any; duration?: number } = {}) => {
+  const addToast = useCallback((message: string, { action, duration }: { action?: ReactNode; duration?: number } = {}) => {
     const id = Date.now() + nextIdRef.current++;
     setToasts((prev) => [...prev, { id, message, action, duration }]);
     return id;
   }, []);
 
-  const dismissToast = useCallback((id) => {
+  const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return [toasts, addToast, dismissToast];
+  return [toasts, addToast, dismissToast] as const;
 }

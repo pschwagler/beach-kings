@@ -5,12 +5,13 @@ import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut } from '
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
+import type { User as UserType, Player } from '../../../types';
 
 /**
  * Gets the avatar image URL and fallback initial for the navbar.
  * Prefers player avatar (backend-provided initials or URL), then email initial.
  */
-const getAvatarData = (user: any, currentUserPlayer: any) => {
+const getAvatarData = (user: UserType | null | undefined, currentUserPlayer: Player | null | undefined) => {
   // Prefer avatar coming from player API (can be URL or initials string)
   if (currentUserPlayer?.avatar) {
     // If it looks like a URL or path, treat as image, otherwise as initials
@@ -42,8 +43,8 @@ const getAvatarData = (user: any, currentUserPlayer: any) => {
 
 interface UserMenuProps {
   isLoggedIn?: boolean;
-  user?: any;
-  currentUserPlayer?: any;
+  user?: UserType | null;
+  currentUserPlayer?: Player | null;
   onMenuClick?: (action: string) => void;
   onSignIn?: () => void;
   onSignUp?: () => void;
@@ -75,7 +76,7 @@ export default function UserMenu({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleItemClick = (action) => {
+  const handleItemClick = (action: string) => {
     setIsOpen(false);
     switch (action) {
       case 'sign-in':

@@ -4,9 +4,25 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import "./KobLive.css";
 
+interface KobScheduleMatch {
+  matchup_id: number;
+  round_num: number;
+  phase?: string;
+  bracket_position?: string;
+  team1_score: number | null;
+  team2_score: number | null;
+  is_bye?: boolean;
+  winner?: number | null;
+  court_num?: number;
+  team1_player1_name?: string;
+  team1_player2_name?: string;
+  team2_player1_name?: string;
+  team2_player2_name?: string;
+}
+
 interface ScheduleTabProps {
-  matches: any[];
-  scheduleData?: any;
+  matches: KobScheduleMatch[];
+  scheduleData?: unknown;
   currentRound?: number;
 }
 
@@ -27,7 +43,7 @@ export default function ScheduleTab({ matches, scheduleData, currentRound }: Sch
   }
 
   // Group matches by round
-  const rounds = {};
+  const rounds: Record<number, KobScheduleMatch[]> = {};
   for (const match of matches) {
     if (!rounds[match.round_num]) {
       rounds[match.round_num] = [];
@@ -43,7 +59,7 @@ export default function ScheduleTab({ matches, scheduleData, currentRound }: Sch
   const poolPlayNums = roundNums.filter((rn) => rounds[rn][0]?.phase === "pool_play");
   const playoffNums = roundNums.filter((rn) => rounds[rn][0]?.phase !== "pool_play");
 
-  const toggleRound = (roundNum) => {
+  const toggleRound = (roundNum: number) => {
     setExpandedRound(expandedRound === roundNum ? null : roundNum);
   };
 

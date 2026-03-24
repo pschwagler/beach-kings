@@ -7,6 +7,7 @@ import {
   Network,
   CircleCheck,
 } from 'lucide-react';
+import { Court } from '../../types';
 
 const AMENITY_CONFIG = [
   { key: 'has_lights', label: 'Lights', icon: Lightbulb },
@@ -20,7 +21,7 @@ const AMENITY_CONFIG = [
  * Amenities icon grid for court detail page.
  */
 interface CourtAmenitiesProps {
-  court: any;
+  court: Court;
 }
 
 export default function CourtAmenities({ court }: CourtAmenitiesProps) {

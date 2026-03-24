@@ -17,7 +17,7 @@ const DAYS_OF_WEEK = [
 interface CreateWeeklyScheduleModalProps {
   seasonId: number;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit }: CreateWeeklyScheduleModalProps) {
@@ -70,7 +70,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
 
     // Convert local time to UTC for start_time
     // We use a reference date to properly handle DST
-    const convertLocalTimeToUTC = (localTimeStr) => {
+    const convertLocalTimeToUTC = (localTimeStr: string): string => {
       if (!localTimeStr) return localTimeStr;
       const [hours, minutes] = localTimeStr.split(':').map(Number);
       // Use today as reference date to handle DST correctly
@@ -99,7 +99,7 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
         end_date: formData.end_date
       });
       onClose();
-    } catch (err) {
+    } catch (_err) {
       // Error handling is done in parent
     }
   };

@@ -65,7 +65,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
     load(showAll);
   }, [refreshTrigger, showAll]);
 
-  const handleSessionClick = (session) => {
+  const handleSessionClick = (session: SessionItem) => {
     if (onSessionClick) {
       onSessionClick(session);
       return;
@@ -80,7 +80,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
     }
   };
 
-  const participationLabel = (session) => {
+  const participationLabel = (session: SessionItem) => {
     if (session.participation === 'creator') {
       if (currentUserPlayerId && session.created_by === currentUserPlayerId) {
         return 'Created by you';
@@ -93,7 +93,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
     return 'Playing';
   };
 
-  const gameCountLabel = (count) => {
+  const gameCountLabel = (count: number) => {
     if (count === 0) return 'No games';
     if (count === 1) return '1 game';
     return `${count} games`;
@@ -109,7 +109,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
     </button>
   );
 
-  const renderSessionCards = (list) => (
+  const renderSessionCards = (list: SessionItem[]) => (
     <div className="open-sessions-list-ul">
       {list.map((session) => {
         const isActive = session.status === 'ACTIVE';

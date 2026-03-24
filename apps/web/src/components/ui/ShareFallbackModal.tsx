@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Check, Mail } from 'lucide-react';
 import { getShareText } from '../../hooks/useShare';
@@ -49,7 +49,7 @@ export default function ShareFallbackModal({ isOpen, onClose, name, url, text }:
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }, [shareText, url]);
 
-  const handleOverlayClick = useCallback((e) => {
+  const handleOverlayClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   }, [onClose]);
 

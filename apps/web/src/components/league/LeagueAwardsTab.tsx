@@ -11,7 +11,7 @@ import './LeagueAwardsTab.css';
 /** Map iconName strings from AWARD_CONFIG to actual Lucide components. */
 const ICONS = { Trophy, Award, TrendingUp, Target, Flame, Zap };
 
-function getIcon(config) {
+function getIcon(config: { iconName?: string } | undefined) {
   return ICONS[config?.iconName] || Trophy;
 }
 
@@ -27,6 +27,24 @@ function AwardsHeader() {
   );
 }
 
+interface LeagueAward {
+  id: number;
+  season_id: number;
+  season_name?: string;
+  award_type: string;
+  award_key: string;
+  player_id: number;
+  player_name: string;
+  value?: number | null;
+  rank?: number | null;
+}
+
+interface SeasonGroup {
+  season_id: number;
+  season_name?: string;
+  awards: LeagueAward[];
+}
+
 /**
  * LeagueAwardsTab — displays season awards grouped by season.
  */
@@ -36,9 +54,9 @@ interface LeagueAwardsTabProps {
 
 export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
   const router = useRouter();
-  const [awards, setAwards] = useState([]);
+  const [awards, setAwards] = useState<LeagueAward[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +69,8 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.detail || 'Failed to load awards');
+          const e = err as { response?: { data?: { detail?: string } } };
+          setError(e.response?.data?.detail || 'Failed to load awards');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -61,7 +80,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
     return () => { cancelled = true; };
   }, [leagueId]);
 
-  const handlePlayerClick = (playerId, playerName) => {
+  const handlePlayerClick = (playerId: number, playerName: string) => {
     router.push(`/player/${playerId}/${slugify(playerName)}`);
   };
 
@@ -87,8 +106,8 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
   }
 
   // Group awards by season_id, preserving API order (newest first)
-  const seasonOrder = [];
-  const seasonMap = {};
+  const seasonOrder: number[] = [];
+  const seasonMap: Record<number, SeasonGroup> = {};
   awards.forEach((award) => {
     if (!seasonMap[award.season_id]) {
       seasonMap[award.season_id] = {
@@ -101,7 +120,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
     seasonMap[award.season_id].awards.push(award);
   });
 
-  const seasons = seasonOrder.map((id) => seasonMap[id]);
+  const seasons: SeasonGroup[] = seasonOrder.map((id) => seasonMap[id]);
 
   if (seasons.length === 0) {
     return (
@@ -149,7 +168,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
                       </div>
                       <span className="awards-tab__podium-label">{config.label}</span>
                       <span className="awards-tab__podium-player">{award.player_name}</span>
-                      <span className="awards-tab__podium-value">{formatAwardValue(award.award_key, award.value)}</span>
+                      <span className="awards-tab__podium-value">{formatAwardValue(award.award_key, award.value as number | null)}</span>
                     </button>
                   );
                 })}
@@ -177,7 +196,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
                       </div>
                       <div className="awards-tab__stat-right">
                         <span className="awards-tab__stat-player">{award.player_name}</span>
-                        <span className="awards-tab__stat-value">{formatAwardValue(award.award_key, award.value)}</span>
+                        <span className="awards-tab__stat-value">{formatAwardValue(award.award_key, award.value as number | null)}</span>
                       </div>
                     </button>
                   );

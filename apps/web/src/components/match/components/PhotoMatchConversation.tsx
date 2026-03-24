@@ -1,13 +1,19 @@
 'use client';
 
+import React from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import { Button } from '../../ui/UI';
+
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 /**
  * Conversation history and edit/clarify input for photo match review.
  */
 interface PhotoMatchConversationProps {
-  conversationHistory: any[];
+  conversationHistory: ConversationMessage[];
   editPrompt: string;
   onEditPromptChange: (value: string) => void;
   onSendEdit: () => void;
@@ -31,7 +37,7 @@ export default function PhotoMatchConversation({
   isSubmitting,
   conversationEndRef,
 }: PhotoMatchConversationProps) {
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSendEdit();

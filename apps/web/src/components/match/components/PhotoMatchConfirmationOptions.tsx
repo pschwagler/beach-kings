@@ -1,5 +1,7 @@
 'use client';
 
+import type { Season } from '../../../types';
+
 /**
  * Season and match date selection for photo match confirmation.
  */
@@ -8,7 +10,7 @@ interface PhotoMatchConfirmationOptionsProps {
   onSelectedSeasonIdChange: (id: number | null) => void;
   matchDate: string;
   onMatchDateChange: (date: string) => void;
-  seasons?: any[];
+  seasons?: Season[];
   disabled?: boolean;
 }
 

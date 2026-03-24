@@ -5,6 +5,15 @@ import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { getAdminPendingCourts, adminApproveCourt, adminRejectCourt } from '../../../services/api';
 import { formatDate } from '../adminUtils';
 
+interface PendingCourt {
+  id: number;
+  name?: string;
+  address?: string;
+  created_at?: string;
+  surface_type?: string;
+  court_count?: number;
+}
+
 /**
  * Panel showing pending court submissions with approve/reject actions.
  * Extracted from the original AdminView court submissions section.
@@ -14,9 +23,9 @@ interface PendingCourtsPanelProps {
 }
 
 export default function PendingCourtsPanel({ onCountChange }: PendingCourtsPanelProps) {
-  const [courts, setCourts] = useState([]);
+  const [courts, setCourts] = useState<PendingCourt[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionId, setActionId] = useState(null);
+  const [actionId, setActionId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +44,7 @@ export default function PendingCourtsPanel({ onCountChange }: PendingCourtsPanel
     load();
   }, [load]);
 
-  const handleAction = async (courtId, action) => {
+  const handleAction = async (courtId: number, action: 'approve' | 'reject') => {
     setActionId(courtId);
     try {
       if (action === 'approve') {

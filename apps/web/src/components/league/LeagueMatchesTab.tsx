@@ -228,7 +228,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   });
   const { handleUpdateSessionSeason } = sessionSeasonUpdate;
 
-  const handleUpdateSessionCourt = async (sessionId, courtId) => {
+  const handleUpdateSessionCourt = async (sessionId: number, courtId: number | null) => {
     try {
       await updateSession(sessionId, { court_id: courtId });
       await refreshSession();
@@ -242,10 +242,10 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     await refreshSession();
   };
 
-  const handleEndSession = async (sessionId) => {
+  const handleEndSession = async (sessionId: number) => {
     try {
       await lockInLeagueSession(leagueId, sessionId);
-      
+
       // Schedule delayed stats refresh after backend has time to recalculate
       // This allows the async stat calculation job to complete
       if (refreshSeasonData && getSeasonIdForRefresh) {
@@ -261,66 +261,71 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
           }, 2000);
         }
       }
-      
+
       await refreshData({ sessions: true, season: true, matches: true });
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to submit scores', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to submit scores', 'error');
       throw err;
     }
   };
 
-  const handleDeleteSession = async (sessionId) => {
+  const handleDeleteSession = async (sessionId: number) => {
     try {
       await deleteSession(sessionId);
       await refreshData({ sessions: true, season: true, matches: true });
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to delete session', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to delete session', 'error');
       throw err;
     }
   };
 
   // Match handlers - use session editing routing
-  const handleCreateMatch = async (matchData, sessionId = null) => {
+  const handleCreateMatch = async (matchData: Record<string, unknown>, sessionId: number | null = null) => {
     try {
       await sessionEditingCreateMatch(matchData, sessionId, matchOperations);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to create game', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to create game', 'error');
       throw err;
     }
   };
 
-  const handleUpdateMatch = async (matchId, matchData, sessionId = null) => {
+  const handleUpdateMatch = async (matchId: number, matchData: Record<string, unknown>, sessionId: number | null = null) => {
     try {
       await sessionEditingUpdateMatch(matchId, matchData, sessionId, matchOperations, matches);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update game', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update game', 'error');
       throw err;
     }
   };
 
-  const handleDeleteMatch = async (matchId) => {
+  const handleDeleteMatch = async (matchId: number) => {
     try {
       await sessionEditingDeleteMatch(matchId, matchOperations, matches);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to delete game', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to delete game', 'error');
       throw err;
     }
   };
 
   // Session editing handlers
-  const handleEnterEditMode = (sessionId) => {
+  const handleEnterEditMode = (sessionId: number) => {
     enterEditMode(sessionId, matches);
   };
 
-  const handleSaveEditedSession = async (sessionId) => {
+  const handleSaveEditedSession = async (sessionId: number) => {
     try {
       await saveEditedSession(sessionId, matchOperations);
-    } catch (err) {
+    } catch (_err) {
       // Error already handled in hook
     }
   };
 
-  const handleCancelEdit = (sessionId) => {
+  const handleCancelEdit = (sessionId: number) => {
     cancelEdit(sessionId);
   };
 

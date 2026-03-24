@@ -10,8 +10,13 @@ import { Camera } from 'lucide-react';
  * Clicking navigates to the full photos page.
  * When no photos exist, renders an empty-state CTA linking to the photos page.
  */
+interface CourtPhoto {
+  url: string;
+  id?: number;
+}
+
 interface CourtPhotoGalleryProps {
-  photos?: any[];
+  photos?: CourtPhoto[];
   slug: string;
 }
 
@@ -38,7 +43,7 @@ export default function CourtPhotoGallery({ photos = [], slug }: CourtPhotoGalle
     );
   }
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleClick();

@@ -6,11 +6,21 @@ import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '../../utils/playerFilterOpt
 import useShare from '../../hooks/useShare';
 import './PlaceholderCreateModal.css';
 
+interface CreatedPlayer {
+  name: string;
+  inviteUrl?: string | null;
+  invite_url?: string | null;
+  label?: string;
+  id?: number;
+  player_id?: number;
+  value?: number;
+}
+
 interface PlaceholderCreateModalProps {
   isOpen: boolean;
   playerName: string;
-  onCreate: (name: string, extras: { gender?: string; level?: string }) => Promise<any>;
-  onClose: (createdPlayer: any) => void;
+  onCreate: (name: string, extras: { gender?: string; level?: string }) => Promise<CreatedPlayer>;
+  onClose: (createdPlayer: CreatedPlayer | null) => void;
   leagueGender?: string | null;
   leagueLevel?: string | null;
 }
@@ -33,7 +43,7 @@ export default function PlaceholderCreateModal({
   const [gender, setGender] = useState('');
   const [level, setLevel] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [createdPlayer, setCreatedPlayer] = useState(null);
+  const [createdPlayer, setCreatedPlayer] = useState<CreatedPlayer | null>(null);
   const [error, setError] = useState('');
   const { shareInvite } = useShare();
 
@@ -71,8 +81,8 @@ export default function PlaceholderCreateModal({
       } else {
         setError('Failed to create player');
       }
-    } catch (err) {
-      setError(err.message || 'Failed to create player');
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : null) || 'Failed to create player');
     } finally {
       setIsCreating(false);
     }
@@ -96,7 +106,7 @@ export default function PlaceholderCreateModal({
   /**
    * Close on overlay click (only if clicking the overlay itself, not the card).
    */
-  const handleOverlayClick = useCallback((e) => {
+  const handleOverlayClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       handleClose();
     }

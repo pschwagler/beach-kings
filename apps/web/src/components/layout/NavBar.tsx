@@ -10,16 +10,17 @@ import PlayersButton from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
 import NotificationBell from '../notifications/NotificationBell';
+import type { User, Player, League } from '../../types';
 
 interface NavBarProps {
   isLoggedIn?: boolean;
-  user?: any;
-  currentUserPlayer?: any;
+  user?: User | null;
+  currentUserPlayer?: Player | null;
   onSignOut?: () => void;
   onSignIn?: () => void;
   onSignUp?: () => void;
   onSmsLogin?: () => void;
-  userLeagues?: any[];
+  userLeagues?: League[];
   onLeaguesMenuClick?: (action: string, leagueId?: string | number | null) => void;
   onPlayersClick?: () => void;
 }

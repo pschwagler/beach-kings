@@ -1,5 +1,6 @@
 interface JsonLdProps {
-  data: Record<string, any>;
+  // schema.org JSON-LD objects are deeply heterogeneous; unknown preserves safety over any
+  data: Record<string, unknown>;
 }
 
 /**

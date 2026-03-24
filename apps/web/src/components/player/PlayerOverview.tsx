@@ -1,7 +1,15 @@
 import { Trophy, Target, TrendingUp, Swords, BarChart3 } from 'lucide-react';
 
+interface PlayerOverview {
+  ranking?: number | null;
+  points?: number | null;
+  games?: number | null;
+  win_rate?: number | null;
+  rating?: number | null;
+}
+
 interface PlayerOverviewProps {
-  overview: any;
+  overview: PlayerOverview;
   isSeason?: boolean;
 }
 
@@ -20,13 +28,13 @@ export default function PlayerOverview({ overview, isSeason = true }: PlayerOver
     return null;
   }
 
-  const formatWinRate = (winRate) => {
+  const formatWinRate = (winRate: number | null | undefined) => {
     if (winRate === null || winRate === undefined) return 'N/A';
     return `${(winRate * 100).toFixed(1)}%`;
   };
 
   /** Format a numeric overview value to the nearest 0.1. */
-  const roundToTenth = (value) => {
+  const roundToTenth = (value: number | null | undefined) => {
     if (value === null || value === undefined) return '—';
     const n = Number(value);
     if (Number.isNaN(n)) return '—';

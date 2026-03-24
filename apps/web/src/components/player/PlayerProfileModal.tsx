@@ -5,6 +5,7 @@ import { X, AlertCircle } from 'lucide-react';
 import { updatePlayerProfile, getLocations } from '../../services/api';
 import { useLocationAutoSelect } from '../../hooks/useLocationAutoSelect';
 import PlayerProfileFields from './PlayerProfileFields';
+import type { Player, Location } from '../../types';
 
 const defaultFormState = {
   nickname: '',
@@ -19,20 +20,31 @@ const defaultFormState = {
   distance_to_location: null,
 };
 
-const getErrorMessage = (error: any) => error.response?.data?.detail || error.message || 'Something went wrong';
+const getErrorMessage = (error: unknown): string => {
+  if (error && typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    const detail = (e.response as Record<string, unknown> | undefined)?.data;
+    if (detail && typeof detail === 'object') {
+      const d = detail as Record<string, unknown>;
+      if (typeof d.detail === 'string') return d.detail;
+    }
+    if (typeof e.message === 'string') return e.message;
+  }
+  return 'Something went wrong';
+};
 
 interface PlayerProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => Promise<void>;
-  currentUserPlayer?: any;
+  currentUserPlayer?: Player | null;
 }
 
 export default function PlayerProfileModal({ isOpen, onClose, onSuccess, currentUserPlayer }: PlayerProfileModalProps) {
   const [formData, setFormData] = useState(defaultFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [allLocations, setAllLocations] = useState([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   
   const {
@@ -98,7 +110,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
     };
   }, [isOpen]);
 
-  const handleInputChange = (event) => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,
@@ -107,7 +119,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
     setErrorMessage('');
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setErrorMessage('');
 

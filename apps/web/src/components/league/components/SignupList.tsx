@@ -4,19 +4,39 @@ import { formatDateTimeWithTimezone, formatDate, formatTime } from '../../../uti
 import { SignupListSkeleton } from '../../ui/Skeletons';
 import { useLeague } from '../../../contexts/LeagueContext';
 
+interface SignupPlayer {
+  player_id: number;
+  player_name?: string | null;
+  signed_up_at?: string | null;
+}
+
+export interface Signup {
+  id: number;
+  season_id?: number | null;
+  scheduled_datetime?: string | null;
+  duration_hours?: number | null;
+  court_name?: string | null;
+  court_slug?: string | null;
+  player_count?: number;
+  is_open?: boolean;
+  is_past?: boolean;
+  open_signups_at?: string | null;
+  players?: SignupPlayer[] | null;
+}
+
 /**
  * Component for rendering signup lists (upcoming and past)
  */
 interface SignupListProps {
-  signups: any[];
+  signups: Signup[];
   loading: boolean;
   isUpcoming?: boolean;
   isLeagueAdmin?: boolean;
-  currentUserPlayer?: any;
+  currentUserPlayer?: { id: number } | null;
   onSignup?: (signupId: number) => void;
   onDropout?: (signupId: number) => void;
-  onEdit?: (signup: any) => void;
-  onDelete?: (signup: any) => void;
+  onEdit?: (signup: Signup) => void;
+  onDelete?: (signupId: number) => void;
   showCreateButton?: boolean;
   onCreateClick?: () => void;
 }
@@ -35,10 +55,10 @@ export default function SignupList({
   onCreateClick,
 }: SignupListProps) {
   const { isLeagueMember } = useLeague();
-  const [collapsedSignups, setCollapsedSignups] = useState(new Set());
-  const [expandedPastSignups, setExpandedPastSignups] = useState(new Set());
+  const [collapsedSignups, setCollapsedSignups] = useState(new Set<number>());
+  const [expandedPastSignups, setExpandedPastSignups] = useState(new Set<number>());
 
-  const toggleSignupExpanded = (signupId) => {
+  const toggleSignupExpanded = (signupId: number) => {
     setCollapsedSignups(prev => {
       const newSet = new Set(prev);
       if (newSet.has(signupId)) {
@@ -50,7 +70,7 @@ export default function SignupList({
     });
   };
 
-  const togglePastSignupExpanded = (signupId) => {
+  const togglePastSignupExpanded = (signupId: number) => {
     setExpandedPastSignups(prev => {
       const newSet = new Set(prev);
       if (newSet.has(signupId)) {
@@ -62,12 +82,12 @@ export default function SignupList({
     });
   };
 
-  const isPlayerSignedUp = (signup) => {
+  const isPlayerSignedUp = (signup: Signup): boolean => {
     if (!currentUserPlayer || !signup.players) return false;
     return signup.players.some(p => p.player_id === currentUserPlayer.id);
   };
 
-  const getIsExpanded = (signup) => {
+  const getIsExpanded = (signup: Signup): boolean => {
     if (isUpcoming) {
       // Signups are expanded by default unless manually collapsed
       return signup.players && signup.players.length > 0 && !collapsedSignups.has(signup.id);
@@ -76,7 +96,7 @@ export default function SignupList({
     }
   };
 
-  const getToggleHandler = (signupId) => {
+  const getToggleHandler = (signupId: number): (() => void) => {
     return isUpcoming ? () => toggleSignupExpanded(signupId) : () => togglePastSignupExpanded(signupId);
   };
 

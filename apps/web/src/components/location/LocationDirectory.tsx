@@ -7,6 +7,23 @@ import { useAuthModal } from '../../contexts/AuthModalContext';
 import { Button } from '../ui/UI';
 import './LocationDirectory.css';
 
+interface DirectoryLocation {
+  id: string;
+  slug: string;
+  city: string;
+  state: string;
+  name?: string;
+  league_count: number;
+  player_count: number;
+  court_count: number;
+}
+
+interface DirectoryRegion {
+  id?: string | number;
+  name: string;
+  locations: DirectoryLocation[];
+}
+
 /**
  * Location directory page for SEO and unauthenticated visitors.
  * Shows all locations grouped by region with league/player/court counts.
@@ -17,7 +34,7 @@ import './LocationDirectory.css';
  * @param {boolean} props.isAuthenticated - Whether the current user is logged in
  */
 interface LocationDirectoryProps {
-  regions: any[];
+  regions: DirectoryRegion[];
   isAuthenticated: boolean;
 }
 

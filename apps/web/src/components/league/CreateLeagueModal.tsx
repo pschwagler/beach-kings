@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,14 +28,14 @@ const GENDER_OPTIONS: Array<{ value: string; label: string; disabled?: boolean }
 interface CreateLeagueModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function CreateLeagueModal({ isOpen, onClose, onSubmit }: CreateLeagueModalProps) {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState(null);
-  const [playerHomeCourts, setPlayerHomeCourts] = useState([]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [playerHomeCourts, setPlayerHomeCourts] = useState<Array<{ id: number | string; name: string; address?: string }>>([]);
   const { isAuthenticated, currentUserPlayer } = useAuth();
   const { locations } = useApp();
 
@@ -94,13 +94,13 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }: CreateL
     };
   }, [isOpen]);
 
-  const handleFieldChange = (field, value) => {
+  const handleFieldChange = (field: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (formError) setFormError(null);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | React.MouseEvent) => {
     if (e && e.preventDefault) {
       e.preventDefault();
     }

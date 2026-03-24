@@ -30,11 +30,11 @@ export default function PlayerPopover({
 }: PlayerPopoverProps) {
   const router = useRouter();
   const { isAuthenticated, currentUserPlayer } = useAuth();
-  const popoverRef = useRef(null);
-  const [friendStatus, setFriendStatus] = useState(friendStatusCache[playerId] || null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [friendStatus, setFriendStatus] = useState<string | null>(friendStatusCache[playerId] || null);
   const [loading, setLoading] = useState(!friendStatusCache[playerId] && isAuthenticated && playerId !== currentUserPlayer?.id);
   const [actionLoading, setActionLoading] = useState(false);
-  const [incomingRequestId, setIncomingRequestId] = useState(null);
+  const [incomingRequestId, setIncomingRequestId] = useState<number | null>(null);
 
   const isSelf = playerId === currentUserPlayer?.id;
 
@@ -69,7 +69,7 @@ export default function PlayerPopover({
 
   // Escape key to dismiss
   useEffect(() => {
-    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);

@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
 // Helper to convert UTC ISO string to local date/time
-function utcToLocalDateTime(isoString) {
+function utcToLocalDateTime(isoString: string | null | undefined): { date: string; time: string } {
   if (!isoString) return { date: '', time: '' };
   const date = new Date(isoString);
   const dateStr = date.toISOString().split('T')[0];
@@ -12,16 +12,23 @@ function utcToLocalDateTime(isoString) {
 }
 
 // Helper to convert local datetime to UTC ISO string
-function localToUTCISOString(dateStr, timeStr) {
+function localToUTCISOString(dateStr: string, timeStr: string): string | null {
   if (!dateStr || !timeStr) return null;
   const localDate = new Date(`${dateStr}T${timeStr}`);
   return localDate.toISOString();
 }
 
+interface ExistingSignup {
+  scheduled_datetime?: string | null;
+  duration_hours?: number | null;
+  court_id?: number | null;
+  open_signups_at?: string | null;
+}
+
 interface EditSignupModalProps {
-  signup: any;
+  signup: ExistingSignup;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function EditSignupModal({ signup, onClose, onSubmit }: EditSignupModalProps) {
@@ -64,7 +71,7 @@ export default function EditSignupModal({ signup, onClose, onSubmit }: EditSignu
         court_id: formData.court_id ? parseInt(formData.court_id) : null,
         open_signups_at
       });
-    } catch (err) {
+    } catch (_err) {
       // Error handling is done in parent
     }
   };

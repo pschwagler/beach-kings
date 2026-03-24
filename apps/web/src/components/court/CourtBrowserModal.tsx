@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Court } from '../../types';
 import { X, Search, SlidersHorizontal, List, MapIcon } from 'lucide-react';
 import { getPublicCourts, getPublicLocations } from '../../services/api';
 import { useUserPosition } from '../../hooks/useUserPosition';
@@ -33,13 +34,19 @@ const PAGE_SIZE = 20;
  * @param {string} [props.preFilterLocationId] - Pre-filter to a location
  * @param {string} [props.title] - Modal title override
  */
+interface SelectedCourt {
+  id: number | string;
+  name?: string;
+  address?: string;
+}
+
 interface CourtBrowserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (courts: any[]) => void;
+  onConfirm: (courts: SelectedCourt[]) => void;
   mode?: 'single' | 'multi';
   initialSelectedIds?: number[];
-  initialSelectedCourts?: any[];
+  initialSelectedCourts?: SelectedCourt[];
   preFilterLocationId?: string;
   title?: string;
 }
@@ -56,24 +63,24 @@ export default function CourtBrowserModal({
 }: CourtBrowserModalProps) {
   const { position: userPos } = useUserPosition();
 
-  const [courts, setCourts] = useState([]);
+  const [courts, setCourts] = useState<Court[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [selectedMap, setSelectedMap] = useState(() => new Map());
+  const [selectedMap, setSelectedMap] = useState<Map<number | string, SelectedCourt>>(() => new Map());
 
   // Filters
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [regions, setRegions] = useState([]);
-  const [locations, setLocations] = useState([]);
+  const [regions, setRegions] = useState<Array<{ id: string; name: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; regionId: string; label: string }>>([]);
   const [selectedRegionId, setSelectedRegionId] = useState('');
   const [locationIds, setLocationIds] = useState(() =>
     preFilterLocationId ? [preFilterLocationId] : []
   );
   const [surfaceType, setSurfaceType] = useState('');
-  const [isFree, setIsFree] = useState(null);
-  const [minRating, setMinRating] = useState(null);
+  const [isFree, setIsFree] = useState<boolean | null>(null);
+  const [minRating, setMinRating] = useState<number | null>(null);
 
   // Initialize selected map from initialSelectedCourts (or fallback to IDs) on open
   useEffect(() => {
@@ -128,7 +135,7 @@ export default function CourtBrowserModal({
     async (pageNum = 1, resetList = true) => {
       setLoading(true);
       try {
-        const filters: Record<string, any> = { page: pageNum, page_size: PAGE_SIZE };
+        const filters: Record<string, string | number | boolean> = { page: pageNum, page_size: PAGE_SIZE };
         if (selectedRegionId) filters.region_id = selectedRegionId;
         if (locationIds.length > 0) filters.location_id = locationIds.join(',');
         if (search.trim()) filters.search = search.trim();
@@ -179,7 +186,7 @@ export default function CourtBrowserModal({
   }, [fetchCourts, isOpen]);
 
   const handleSelect = useCallback(
-    (court) => {
+    (court: Court) => {
       if (mode === 'single') {
         // Single select: toggle or replace
         setSelectedMap((prev) => {
@@ -211,7 +218,7 @@ export default function CourtBrowserModal({
     onClose();
   }, [selectedMap, onConfirm, onClose]);
 
-  const handleRegionChange = (regionId) => {
+  const handleRegionChange = (regionId: string) => {
     setSelectedRegionId(regionId);
     if (regionId) {
       const regionLocIds = new Set(

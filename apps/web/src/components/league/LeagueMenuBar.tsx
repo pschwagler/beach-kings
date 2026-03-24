@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import type { League } from '../../types';
 import { Award, Calendar, Trophy, Settings, ChevronDown, Users, Swords, MessageSquare } from 'lucide-react';
 import MenuBar from '../navigation/MenuBar';
 import NavDropdown from '../layout/navbar/NavDropdown';
@@ -19,7 +20,7 @@ interface LeagueMenuBarProps {
   leagueName?: string;
   activeTab: string;
   onTabChange: (tab: string) => void;
-  userLeagues?: any[];
+  userLeagues?: League[];
   isAuthenticated?: boolean;
   loading?: boolean;
 }
@@ -37,8 +38,8 @@ export default function LeagueMenuBar({
   const leagueDropdownRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (leagueDropdownRef.current && !leagueDropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (leagueDropdownRef.current && !(leagueDropdownRef.current as Node).contains(event.target as Node)) {
         setIsLeagueDropdownOpen(false);
       }
     };
@@ -49,7 +50,7 @@ export default function LeagueMenuBar({
     }
   }, [isLeagueDropdownOpen]);
 
-  const handleLeagueSelect = (selectedLeagueId) => {
+  const handleLeagueSelect = (selectedLeagueId: number) => {
     if (!selectedLeagueId || selectedLeagueId === leagueId) return;
 
     // Full-page navigation to force data reload when switching leagues

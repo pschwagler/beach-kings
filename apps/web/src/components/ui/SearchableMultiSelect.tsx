@@ -43,8 +43,8 @@ export default function SearchableMultiSelect({
   // Close dropdown on outside click
   useEffect(() => {
     if (!isOpen) return;
-    const handleClick = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+    const handleClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -58,17 +58,17 @@ export default function SearchableMultiSelect({
 
   const selectedOptions = options.filter((o) => selectedIds.includes(o.id));
 
-  const handleToggle = (id) => {
+  const handleToggle = (id: string) => {
     onToggle(id);
   };
 
-  const handleRemovePill = (e, id) => {
+  const handleRemovePill = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
     e.stopPropagation();
     onToggle(id);
   };
 
   /** Handle keyboard navigation within the dropdown. */
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setIsOpen(false);
       setHighlightedIndex(-1);

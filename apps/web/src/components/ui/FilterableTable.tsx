@@ -17,12 +17,14 @@ interface Column {
 }
 
 interface FilterableTableProps {
+  // data and renderRow accept any[] / any because this table is intentionally
+  // generic — callers pass domain-specific row objects of varying shapes.
   data: any[];
   columns: Column[];
   searchPlaceholder?: string;
-  filters?: Record<string, any>;
+  filters?: Record<string, string>;
   filterOptions?: Record<string, FilterConfig>;
-  onFilterChange?: (filters: Record<string, any>) => void;
+  onFilterChange?: (filters: Record<string, string>) => void;
   loading?: boolean;
   renderRow: (item: any, idx: number) => ReactNode;
   emptyMessage?: string;
@@ -54,7 +56,7 @@ export default function FilterableTable({
 }: FilterableTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [localFilters, setLocalFilters] = useState<Record<string, string>>(filters);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
   // Update local filters when props change
@@ -64,8 +66,8 @@ export default function FilterableTable({
 
   // Close filter panel when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(event.target as Node)) {
         setIsFilterOpen(false);
       }
     };
@@ -87,7 +89,7 @@ export default function FilterableTable({
     );
   });
 
-  const handleFilterChange = (filterKey, value) => {
+  const handleFilterChange = (filterKey: string, value: string | null) => {
     const newFilters = { ...localFilters };
     if (value === '' || value === null || value === undefined) {
       delete newFilters[filterKey];
@@ -100,7 +102,7 @@ export default function FilterableTable({
     }
   };
 
-  const removeFilter = (filterKey) => {
+  const removeFilter = (filterKey: string) => {
     handleFilterChange(filterKey, null);
   };
 
@@ -114,7 +116,7 @@ export default function FilterableTable({
 
   const activeFilters = Object.keys(localFilters).filter(key => localFilters[key] != null && localFilters[key] !== '');
 
-  const getFilterLabel = (filterKey, value) => {
+  const getFilterLabel = (filterKey: string, value: string) => {
     const option = filterOptions[filterKey];
     if (option && option.options) {
       const optionItem = option.options.find(opt => opt.value === value);

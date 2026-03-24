@@ -6,6 +6,16 @@ import { getAdminAllSuggestions } from '../../../services/api';
 import { formatDate } from '../adminUtils';
 import SuggestionDiffRow from './SuggestionDiffRow';
 
+interface CourtSuggestion {
+  id: number;
+  court_id: number;
+  court_name?: string;
+  suggester_name?: string;
+  changes?: Record<string, unknown>;
+  current?: Record<string, unknown>;
+  created_at?: string;
+}
+
 /**
  * Panel showing all pending court edit suggestions across all courts.
  * Clicking a row expands an inline diff panel for cherry-pick review.
@@ -15,11 +25,11 @@ interface EditSuggestionsPanelProps {
 }
 
 export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsPanelProps) {
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<CourtSuggestion[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const pageSize = 25;
 
   const load = useCallback(async (p = page) => {
@@ -40,7 +50,7 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
     load();
   }, [load]);
 
-  const handleResolved = (suggestionId) => {
+  const handleResolved = (suggestionId: number) => {
     setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
     setTotal((prev) => {
       const next = prev - 1;
@@ -51,7 +61,7 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
   };
 
   /** Summarize changed fields as a list of chips. */
-  const renderChanges = (changes) => {
+  const renderChanges = (changes: Record<string, unknown> | null | undefined) => {
     if (!changes || typeof changes !== 'object') return 'N/A';
     const keys = Object.keys(changes);
     return (
@@ -129,11 +139,11 @@ export default function EditSuggestionsPanel({ onCountChange }: EditSuggestionsP
  * Renders a suggestion summary row + optional expanded SuggestionDiffRow below it.
  */
 interface SuggestionRowsProps {
-  suggestion: any;
+  suggestion: CourtSuggestion;
   isExpanded: boolean;
   onRowClick: () => void;
-  onResolved: (id: any) => void;
-  renderChanges: (changes: any) => React.ReactElement | string;
+  onResolved: (id: number) => void;
+  renderChanges: (changes: Record<string, unknown> | null | undefined) => React.ReactElement | string;
 }
 
 function SuggestionRows({ suggestion, isExpanded, onRowClick, onResolved, renderChanges }: SuggestionRowsProps) {

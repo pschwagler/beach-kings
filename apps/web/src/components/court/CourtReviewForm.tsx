@@ -11,10 +11,23 @@ import { MAX_PHOTOS_PER_REVIEW } from '../../constants/court';
  * Inline review form for creating/editing a court review.
  * Includes star input, text area, tag picker, and photo upload.
  */
+interface CourtTag {
+  id: number;
+  name: string;
+  category: string;
+}
+
+interface ExistingReview {
+  id: number;
+  rating: number;
+  review_text?: string | null;
+  tags?: Array<{ id: number }> | null;
+}
+
 interface CourtReviewFormProps {
   courtId: number;
-  existingReview?: any;
-  onSuccess?: (result: any) => void;
+  existingReview?: ExistingReview | null;
+  onSuccess?: (result: unknown) => void;
   onCancel?: () => void;
 }
 
@@ -24,12 +37,12 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
   const [selectedTagIds, setSelectedTagIds] = useState(
     existingReview?.tags?.map((t) => t.id) || []
   );
-  const [allTags, setAllTags] = useState([]);
-  const [photos, setPhotos] = useState([]);
-  const [photoUrls, setPhotoUrls] = useState([]);
+  const [allTags, setAllTags] = useState<CourtTag[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getCourtTags().then(setAllTags).catch(() => {});
@@ -42,23 +55,23 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [photos]);
 
-  const toggleTag = (tagId) => {
+  const toggleTag = (tagId: number) => {
     setSelectedTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
     );
   };
 
-  const handlePhotoSelect = (e) => {
-    const files = Array.from(e.target.files || []);
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from<File>(e.target.files || []);
     const maxNew = MAX_PHOTOS_PER_REVIEW - photos.length;
     setPhotos((prev) => [...prev, ...files.slice(0, maxNew)]);
   };
 
-  const removePhoto = (index) => {
+  const removePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (rating === 0) {
       setError('Please select a star rating');
@@ -105,7 +118,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
   };
 
   // Group tags by category
-  const tagsByCategory = allTags.reduce((acc: Record<string, any[]>, tag) => {
+  const tagsByCategory = allTags.reduce((acc: Record<string, CourtTag[]>, tag) => {
     if (!acc[tag.category]) acc[tag.category] = [];
     acc[tag.category].push(tag);
     return acc;
@@ -137,7 +150,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
       {Object.entries(tagsByCategory).length > 0 && (
         <div className="court-review-form__tags">
           <label>Tags</label>
-          {(Object.entries(tagsByCategory) as [string, any[]][]).map(([category, tags]) => (
+          {(Object.entries(tagsByCategory) as [string, CourtTag[]][]).map(([category, tags]) => (
             <div key={category} className="court-review-form__tag-group">
               <span className="court-review-form__tag-category">{category}</span>
               <div className="court-review-form__tag-chips">

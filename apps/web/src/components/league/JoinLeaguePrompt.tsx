@@ -13,8 +13,13 @@ import './JoinLeaguePrompt.css';
  * @param {Object} props.league - The league object containing name and is_open properties
  * @param {Function} props.onJoinLeague - Callback function to handle join/request to join action
  */
+interface LeagueBasic {
+  name: string;
+  is_open?: boolean | null;
+}
+
 interface JoinLeaguePromptProps {
-  league: any;
+  league: LeagueBasic;
   onJoinLeague: () => void;
 }
 

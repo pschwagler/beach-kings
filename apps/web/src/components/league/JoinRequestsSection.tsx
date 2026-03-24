@@ -15,9 +15,16 @@ import ConfirmationModal from '../modal/ConfirmationModal';
  * @param {Array<{ id: number, player_name: string, created_at: string }>} props.rejectedRequests - Declined join requests
  * @param {() => Promise<void>} props.onRequestProcessed - Callback after approve/reject to refresh the list
  */
+interface JoinRequest {
+  id: number;
+  player_id?: number;
+  player_name?: string | null;
+  created_at?: string | null;
+}
+
 interface JoinRequestsSectionProps {
-  pendingRequests?: any[];
-  rejectedRequests?: any[];
+  pendingRequests?: JoinRequest[];
+  rejectedRequests?: JoinRequest[];
   onRequestProcessed: () => Promise<void>;
 }
 
@@ -29,29 +36,30 @@ export default function JoinRequestsSection({
   const { leagueId } = useLeague();
   const { showToast } = useToast();
   const [declinedExpanded, setDeclinedExpanded] = useState(false);
-  const [pendingDecline, setPendingDecline] = useState(null);
-  const [processingId, setProcessingId] = useState(null);
+  const [pendingDecline, setPendingDecline] = useState<{ requestId: number; playerName: string } | null>(null);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-  const formatRequestDate = (dateString) => {
+  const formatRequestDate = (dateString: string): string => {
     if (!dateString) return '';
     return formatRelativeTime(dateString) || new Date(dateString).toLocaleDateString();
   };
 
-  const handleApprove = async (requestId) => {
+  const handleApprove = async (requestId: number) => {
     if (processingId != null) return;
     setProcessingId(requestId);
     try {
       await approveLeagueJoinRequest(leagueId, requestId);
       showToast('Join request approved', 'success');
       await onRequestProcessed?.();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to approve request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to approve request', 'error');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleReject = async (requestId) => {
+  const handleReject = async (requestId: number) => {
     if (processingId != null) return;
     setProcessingId(requestId);
     try {
@@ -59,8 +67,9 @@ export default function JoinRequestsSection({
       showToast('Join request declined', 'success');
       setPendingDecline(null);
       await onRequestProcessed?.();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to decline request', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to decline request', 'error');
       setPendingDecline(null);
     } finally {
       setProcessingId(null);

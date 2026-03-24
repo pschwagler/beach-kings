@@ -20,8 +20,10 @@ import './NearYouSection.css';
  * @param {Object} props.currentUserPlayer - Player profile with location_id, location_slug, city, state
  * @param {function} props.onTabChange - Callback to switch home tabs (e.g., 'profile')
  */
+import type { Player } from '../../types';
+
 interface NearYouSectionProps {
-  currentUserPlayer: any;
+  currentUserPlayer: Player | null;
   onTabChange: (tab: string) => void;
 }
 

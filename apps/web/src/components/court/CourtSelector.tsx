@@ -4,7 +4,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, ChevronDown, Search, Ban, Star, Plus } from 'lucide-react';
 import CourtBrowserModal from './CourtBrowserModal';
 import { getPlaceholderCourt } from '../../services/api';
+import { Court } from '../../types';
 import './CourtSelector.css';
+
+interface CourtOption {
+  id: number | string;
+  name?: string;
+  address?: string;
+}
 
 /**
  * Court selection dropdown for forms and home court management.
@@ -35,9 +42,9 @@ interface CourtSelectorProps {
   value?: number | null;
   valueName?: string | null;
   onChange?: (courtId: number | null) => void;
-  homeCourts?: any[];
-  selectedCourts?: any[];
-  onSet?: (courts: any[]) => void;
+  homeCourts?: CourtOption[];
+  selectedCourts?: CourtOption[];
+  onSet?: (courts: CourtOption[]) => void;
   onRemove?: (courtId: number) => void;
   onSetPrimary?: (courtId: number) => void;
   preFilterLocationId?: string;
@@ -65,13 +72,13 @@ export default function CourtSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
   // Track courts selected from browser that aren't home courts (single mode)
-  const [browsedCourt, setBrowsedCourt] = useState(null);
+  const [browsedCourt, setBrowsedCourt] = useState<CourtOption | null>(null);
   const [openUpward, setOpenUpward] = useState(false);
-  const wrapperRef = useRef(null);
-  const triggerRef = useRef(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Placeholder court for "Other / Private Court"
-  const [placeholderCourt, setPlaceholderCourt] = useState(null);
+  const [placeholderCourt, setPlaceholderCourt] = useState<Court | null>(null);
 
   // Fetch placeholder court when location context is available
   useEffect(() => {
@@ -86,8 +93,8 @@ export default function CourtSelector({
   // Close dropdown on outside click
   useEffect(() => {
     if (!isOpen) return;
-    const handleClick = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+    const handleClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -125,19 +132,19 @@ export default function CourtSelector({
     return `Court #${value}`;
   }, [value, valueName, homeCourts, browsedCourt, placeholderCourt]);
 
-  const handleSelect = (courtId) => {
-    onChange(courtId);
+  const handleSelect = (courtId: number | string) => {
+    onChange(courtId as number);
     setIsOpen(false);
   };
 
   const handleOther = () => {
     if (mode === 'single' && placeholderCourt) {
-      onChange(placeholderCourt.id);
+      onChange(placeholderCourt.id as number);
     }
     setIsOpen(false);
   };
 
-  const handleClear = (e) => {
+  const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(null);
     setBrowsedCourt(null);
@@ -147,7 +154,7 @@ export default function CourtSelector({
 
   const selectedIds = new Set(selectedCourts.map((c) => c.id));
 
-  const handleMultiAdd = (court) => {
+  const handleMultiAdd = (court: CourtOption) => {
     if (!selectedIds.has(court.id)) {
       onSet?.([...selectedCourts, court]);
     }
@@ -155,20 +162,20 @@ export default function CourtSelector({
   };
 
   const handleMultiAddOther = () => {
-    if (placeholderCourt && !selectedIds.has(placeholderCourt.id)) {
-      onSet?.([...selectedCourts, { id: placeholderCourt.id, name: placeholderCourt.name }]);
+    if (placeholderCourt && !selectedIds.has(placeholderCourt.id as number)) {
+      onSet?.([...selectedCourts, { id: placeholderCourt.id as number, name: placeholderCourt.name }]);
     }
     setIsOpen(false);
   };
 
   // ── Browser modal confirm ──
 
-  const handleBrowserConfirm = (selected) => {
+  const handleBrowserConfirm = (selected: CourtOption[]) => {
     if (mode === 'single') {
       if (selected.length > 0) {
         const court = selected[0];
         setBrowsedCourt(court);
-        onChange(court.id);
+        onChange(court.id as number);
       }
     } else {
       // Multi: merge browser selection with existing courts
@@ -203,7 +210,7 @@ export default function CourtSelector({
                 {onSetPrimary && selectedCourts.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => onSetPrimary(court.id)}
+                    onClick={() => onSetPrimary(court.id as number)}
                     className={`court-selector__pill-star${i === 0 ? ' court-selector__pill-star--active' : ''}`}
                     aria-label={i === 0 ? 'Primary court' : `Set ${court.name} as primary`}
                     title={i === 0 ? 'Primary court' : 'Set as primary'}
@@ -215,7 +222,7 @@ export default function CourtSelector({
                 <span className="court-selector__pill-name">{court.name}</span>
                 <button
                   type="button"
-                  onClick={() => onRemove?.(court.id)}
+                  onClick={() => onRemove?.(court.id as number)}
                   className="court-selector__pill-remove"
                   aria-label={`Remove ${court.name}`}
                 >
@@ -279,7 +286,7 @@ export default function CourtSelector({
               <span className="court-selector__arrow">&rarr;</span>
             </button>
 
-            {placeholderCourt && !selectedIds.has(placeholderCourt.id) && (
+            {placeholderCourt && !selectedIds.has(placeholderCourt.id as number) && (
               <>
                 <div className="court-selector__divider" />
                 <button

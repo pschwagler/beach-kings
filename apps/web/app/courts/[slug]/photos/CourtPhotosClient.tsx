@@ -136,7 +136,6 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
           </div>
           <Button
             variant="default"
-            size="small"
             onClick={() => {
               if (!isAuthenticated) {
                 openAuthModal('sign-in');
@@ -169,13 +168,12 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
             <div className="court-photos__upload-actions">
               <Button
                 variant="default"
-                size="small"
                 onClick={handleUpload}
                 disabled={uploading}
               >
                 {uploading ? 'Uploading...' : 'Upload Photo'}
               </Button>
-              <Button variant="ghost" size="small" onClick={handleCancelPreview}>
+              <Button variant="ghost" onClick={handleCancelPreview}>
                 Cancel
               </Button>
             </div>

@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { X, CheckCircle, AlertCircle, Check, X as XIcon } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../contexts/AuthContext';
+import type { AuthMode } from '../../contexts/AuthModalContext';
 import PhoneInput from '../ui/PhoneInput';
 import VerificationCodeInput from './VerificationCodeInput';
 
-const MODE_TITLES = {
+const MODE_TITLES: Record<AuthMode, string> = {
   'sign-in': 'Log In',
   'sign-up': 'Create Account',
   'sms-login': 'SMS Login',
@@ -26,11 +27,14 @@ const defaultFormState = {
   code: '',
 };
 
-const getErrorMessage = (error: any) => error.response?.data?.detail || error.message || 'Something went wrong';
+const getErrorMessage = (error: unknown): string => {
+  const e = error as { response?: { data?: { detail?: string } }; message?: string };
+  return e.response?.data?.detail || e.message || 'Something went wrong';
+};
 
 interface AuthModalProps {
   isOpen: boolean;
-  mode?: string;
+  mode?: AuthMode;
   onClose?: () => void;
   onVerifySuccess?: (profileComplete: boolean) => void;
 }
@@ -47,7 +51,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     verifyPasswordReset,
     confirmPasswordReset,
   } = useAuth();
-  const [activeMode, setActiveMode] = useState(mode);
+  const [activeMode, setActiveMode] = useState<AuthMode>(mode);
   const [formData, setFormData] = useState(defaultFormState);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -57,7 +61,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     minLength: false,
     hasNumber: false,
   });
-  const [resetToken, setResetToken] = useState(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const [isSignupFlow, setIsSignupFlow] = useState(false);
 
   useEffect(() => {
@@ -109,7 +113,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     onClose?.();
   };
 
-  const validatePassword = (password) => {
+  const validatePassword = (password: string) => {
     return {
       minLength: password.length >= 8,
       hasNumber: /\d/.test(password),
@@ -129,7 +133,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
     }
   };
 
-  const handleSwitchMode = (newMode: string) => {
+  const handleSwitchMode = (newMode: AuthMode) => {
     setActiveMode(newMode);
     setErrorMessage('');
     setStatusMessage('');

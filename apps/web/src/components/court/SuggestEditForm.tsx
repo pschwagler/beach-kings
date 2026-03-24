@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { suggestCourtEdit } from '../../services/api';
 import { Button } from '../ui/UI';
 import { SURFACE_OPTIONS } from '../../constants/court';
+import { Court } from '../../types';
 
 /**
  * Form for suggesting edits to an existing court.
@@ -15,7 +16,7 @@ import { SURFACE_OPTIONS } from '../../constants/court';
  * @param {Function} props.onSuccess - Success callback
  */
 interface SuggestEditFormProps {
-  court: any;
+  court: Court;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -33,15 +34,15 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     // Build changes object — only include fields that differ from current
-    const changes: Record<string, any> = {};
+    const changes: Record<string, string | number | null> = {};
     if (name !== (court.name || '')) changes.name = name;
     if (address !== (court.address || '')) changes.address = address;
     if (String(courtCount) !== String(court.court_count || '')) {
-      changes.court_count = courtCount ? parseInt(courtCount, 10) : null;
+      changes.court_count = courtCount ? parseInt(String(courtCount), 10) : null;
     }
     if (surfaceType !== (court.surface_type || 'sand')) changes.surface_type = surfaceType;
     if (hours !== (court.hours || '')) changes.hours = hours || null;
@@ -58,7 +59,7 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
     setSubmitting(true);
     setError('');
     try {
-      await suggestCourtEdit(court.id, changes);
+      await suggestCourtEdit(court.id as number, changes);
       onSuccess?.();
     } catch (err) {
       const detail = err.response?.data?.detail || 'Failed to submit suggestion.';

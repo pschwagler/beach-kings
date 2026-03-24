@@ -3,22 +3,28 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getAdminConfig, updateAdminConfig } from '../../services/api';
 
+interface AdminConfig {
+  enable_sms: boolean;
+  enable_email: boolean;
+  log_level: string;
+}
+
 /**
  * Admin settings tab — SMS/email toggles and log level.
  */
 export default function AdminSettingsTab() {
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState<AdminConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Form state
   const [enableSms, setEnableSms] = useState(false);
   const [enableEmail, setEnableEmail] = useState(false);
-  const [logLevel, setLogLevel] = useState(null);
+  const [logLevel, setLogLevel] = useState<string | null>(null);
 
-  const successTimerRef = useRef(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up success message timer on unmount
   useEffect(() => () => clearTimeout(successTimerRef.current), []);

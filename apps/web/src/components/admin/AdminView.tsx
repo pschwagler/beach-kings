@@ -11,6 +11,7 @@ import AdminDashboardTab from './AdminDashboardTab';
 import AdminSettingsTab from './AdminSettingsTab';
 import AdminCourtsTab from './AdminCourtsTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
+import { League } from '../../types';
 import './AdminView.css';
 
 const TABS = [
@@ -28,11 +29,11 @@ export default function AdminView() {
   const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const [userLeagues, setUserLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<League[]>([]);
 
   const activeTab = searchParams.get('tab') || 'dashboard';
 
-  const setActiveTab = (key) => {
+  const setActiveTab = (key: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', key);
     router.replace(`?${params.toString()}`, { scroll: false });
@@ -51,7 +52,7 @@ export default function AdminView() {
     router.push('/');
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'view-league' && leagueId) router.push(`/league/${leagueId}`);
   };
 

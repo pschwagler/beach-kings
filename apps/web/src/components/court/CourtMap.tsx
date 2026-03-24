@@ -5,6 +5,7 @@ import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import { MapPin, LocateFixed } from 'lucide-react';
 import { useUserPosition } from '../../hooks/useUserPosition';
 import StarRating from '../ui/StarRating';
+import { Court } from '../../types';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './CourtMap.css';
 
@@ -25,7 +26,7 @@ const AUTO_FIT_COUNT = 10;
 /**
  * Haversine distance in miles between two lat/lng points.
  */
-function distanceMiles(lat1, lng1, lat2, lng2) {
+function distanceMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d) => (d * Math.PI) / 180;
   const R = 3958.8; // Earth radius in miles
   const dLat = toRad(lat2 - lat1);
@@ -48,18 +49,19 @@ function distanceMiles(lat1, lng1, lat2, lng2) {
  * @param {string} [props.locationFilter] - Location ID filter; when set, map fits to filtered courts instead of user position
  */
 interface CourtMapProps {
-  courts: any[];
-  userLocation?: any;
+  courts: Court[];
+  userLocation?: { latitude: number; longitude: number };
   locationFilter?: string;
 }
 
 export default function CourtMap({ courts, userLocation, locationFilter }: CourtMapProps) {
   const { position: userPos, source: posSource } = useUserPosition(userLocation);
 
-  const [popupCourt, setPopupCourt] = useState(null);
+  const [popupCourt, setPopupCourt] = useState<Court | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
-  const mapRef = useRef(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = useRef<any>(null);
   const hasFittedWithGeo = useRef(false);
 
   // Filter to only courts with coordinates
@@ -122,7 +124,7 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
     );
   }, []);
 
-  const handleMarkerClick = useCallback((court) => {
+  const handleMarkerClick = useCallback((court: Court) => {
     setPopupCourt(court);
   }, []);
 

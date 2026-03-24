@@ -4,11 +4,35 @@ import { useState } from "react";
 import ScoreEntryCard from "./ScoreEntryCard";
 import "./KobLive.css";
 
+interface KobMatch {
+  matchup_id: number;
+  phase?: string;
+  team1_score: number | null;
+  team2_score: number | null;
+  is_bye?: boolean;
+  winner?: number | null;
+  court_num?: number;
+  bracket_position?: string;
+  team1_player1_name?: string;
+  team1_player2_name?: string;
+  team2_player1_name?: string;
+  team2_player2_name?: string;
+  game_scores?: Array<{ team1_score: number; team2_score: number }>;
+}
+
+interface KobTournament {
+  game_to: number;
+  win_by: number;
+  games_per_match?: number;
+  playoff_game_to?: number;
+  playoff_games_per_match?: number;
+}
+
 /**
  * Determine effective game_to for a match based on phase.
  * Playoff matches use playoff_game_to if set, otherwise fall back to game_to.
  */
-function getEffectiveGameTo(tournament, match) {
+function getEffectiveGameTo(tournament: KobTournament, match: KobMatch) {
   if (match.phase === "playoffs" && tournament.playoff_game_to) {
     return tournament.playoff_game_to;
   }
@@ -18,7 +42,7 @@ function getEffectiveGameTo(tournament, match) {
 /**
  * Determine effective games_per_match for a match based on phase.
  */
-function getEffectiveGamesPerMatch(tournament, match) {
+function getEffectiveGamesPerMatch(tournament: KobTournament, match: KobMatch) {
   if (match.phase === "playoffs" && tournament.playoff_games_per_match) {
     return tournament.playoff_games_per_match;
   }
@@ -26,11 +50,11 @@ function getEffectiveGamesPerMatch(tournament, match) {
 }
 
 interface NowPlayingTabProps {
-  matches: any[];
-  tournament: any;
-  onScoreSubmit: (matchupId: any, team1Score: any, team2Score: any) => void;
+  matches: KobMatch[];
+  tournament: KobTournament;
+  onScoreSubmit: (matchupId: number, team1Score: number, team2Score: number) => void;
   isDirector: boolean;
-  onEditScore?: (matchupId: any, team1Score: any, team2Score: any) => void;
+  onEditScore?: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
 
 export default function NowPlayingTab({ matches, tournament, onScoreSubmit, isDirector, onEditScore }: NowPlayingTabProps) {

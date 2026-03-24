@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { Court } from '../../types';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import StarRating from '../ui/StarRating';
@@ -23,10 +24,10 @@ import './CourtCard.css';
  * @param {(court: Object) => void} [props.onSelect] - Called when selectable card is clicked
  */
 interface CourtCardProps {
-  court: any;
+  court: Court;
   selectable?: boolean;
   selected?: boolean;
-  onSelect?: (court: any) => void;
+  onSelect?: (court: Court) => void;
 }
 
 export default function CourtCard({ court, selectable = false, selected = false, onSelect }: CourtCardProps) {

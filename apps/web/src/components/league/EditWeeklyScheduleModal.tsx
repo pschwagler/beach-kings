@@ -15,7 +15,7 @@ const DAYS_OF_WEEK = [
 ];
 
 // Helper to convert UTC time string to local time
-function utcTimeToLocal(utcTimeStr) {
+function utcTimeToLocal(utcTimeStr: string): string {
   if (!utcTimeStr) return utcTimeStr;
   const [hours, minutes] = utcTimeStr.split(':').map(Number);
   // Use today as reference date to handle DST correctly
@@ -28,7 +28,7 @@ function utcTimeToLocal(utcTimeStr) {
 }
 
 // Helper to convert local time string to UTC
-function localTimeToUTC(localTimeStr) {
+function localTimeToUTC(localTimeStr: string): string {
   if (!localTimeStr) return localTimeStr;
   const [hours, minutes] = localTimeStr.split(':').map(Number);
   // Use today as reference date to handle DST correctly
@@ -40,10 +40,23 @@ function localTimeToUTC(localTimeStr) {
   return `${utcHours}:${utcMinutes}`;
 }
 
+interface WeeklySchedule {
+  id?: number;
+  day_of_week?: number;
+  start_time?: string;
+  duration_hours?: number;
+  court_id?: number | null;
+  open_signups_mode?: string;
+  open_signups_day_of_week?: number | null;
+  open_signups_time?: string | null;
+  start_date?: string;
+  end_date?: string;
+}
+
 interface EditWeeklyScheduleModalProps {
-  schedule?: any;
+  schedule?: WeeklySchedule;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubmit }: EditWeeklyScheduleModalProps) {
@@ -127,7 +140,7 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
       });
       setShowConfirmation(false);
       onClose();
-    } catch (err) {
+    } catch (_err) {
       // Error handling is done in parent
       setShowConfirmation(false);
     }

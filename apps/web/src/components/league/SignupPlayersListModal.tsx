@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 
 // Helper function to format datetime with timezone
-function formatDateTimeWithTimezone(isoString) {
+function formatDateTimeWithTimezone(isoString: string | null | undefined): string {
   if (!isoString) return '';
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -22,8 +22,17 @@ function formatDateTimeWithTimezone(isoString) {
   return `${dateStr} at ${timeStr} ${timeZoneName}`;
 }
 
+interface SignupPlayer {
+  player_name?: string | null;
+  signed_up_at?: string | null;
+}
+
+interface SignupWithPlayers {
+  players?: SignupPlayer[] | null;
+}
+
 interface SignupPlayersListModalProps {
-  signup: any;
+  signup: SignupWithPlayers | null;
   onClose: () => void;
 }
 

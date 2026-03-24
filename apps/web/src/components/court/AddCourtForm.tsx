@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AddCourtFormProps {
   onClose: () => void;
@@ -41,7 +41,7 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
   });
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
-  const [locations, setLocations] = useState([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     getPublicLocations()
@@ -57,11 +57,11 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
       .catch(() => {});
   }, []);
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim() || !form.address.trim() || !form.location_id) {
       showToast('Name, address, and location are required.', 'error');
@@ -83,8 +83,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
       await submitCourt(payload);
       showToast('Court submitted for review!', 'success');
       setTimeout(() => onSuccess?.(), 1500);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to submit court.', 'error');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Failed to submit court.', 'error');
     } finally {
       setSubmitting(false);
     }

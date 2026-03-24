@@ -1,4 +1,4 @@
-const getLevelColor = (level) => {
+const getLevelColor = (level: string | null | undefined): string => {
   if (!level) return 'gray';
   const levelLower = level.toLowerCase();
   if (levelLower.includes('beginner') || levelLower.includes('recreational')) {
@@ -15,7 +15,7 @@ const getLevelColor = (level) => {
   return 'gray';
 };
 
-const toCapitalized = (str) => {
+const toCapitalized = (str: string | null | undefined): string => {
   if (!str) return '';
   return str
     .split(/[\s_-]+/)

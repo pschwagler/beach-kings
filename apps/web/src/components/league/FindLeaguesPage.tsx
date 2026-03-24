@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import type { Location } from "../../types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Users, MapPin, LogIn, UserRoundPlus, Plus, X } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
@@ -22,7 +23,7 @@ import HomeMenuBar from "../home/HomeMenuBar";
  * Reads recognized filter keys from URL search params and returns
  * an initial filters object (empty values are omitted).
  */
-function parseInitialFilters(searchParams) {
+function parseInitialFilters(searchParams: URLSearchParams | ReturnType<typeof useSearchParams>): Record<string, string> {
   const keys = ['location_id', 'region_id', 'gender', 'level'];
   const filters: Record<string, string> = {};
   for (const key of keys) {
@@ -32,23 +33,34 @@ function parseInitialFilters(searchParams) {
   return filters;
 }
 
+interface FindLeague {
+  id: number;
+  name: string;
+  is_open: boolean;
+  member_count?: number;
+  level?: string;
+  gender?: string;
+  location_name?: string;
+  region_name?: string;
+}
+
 export default function FindLeaguesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal, closeModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
-  const [leagues, setLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<FindLeague[]>([]);
+  const [leagues, setLeagues] = useState<FindLeague[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
-  const [message, setMessage] = useState(null);
-  const [locations, setLocations] = useState([]);
+  const [filters, setFilters] = useState<Record<string, string>>(() => parseInitialFilters(searchParams));
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
   const [showJoinedLeagues, setShowJoinedLeagues] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState(new Set());
+  const [pendingRequests, setPendingRequests] = useState(new Set<number>());
 
   // Load user leagues for navbar
   useEffect(() => {
@@ -88,7 +100,7 @@ export default function FindLeaguesPage() {
     }
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === "view-league" && leagueId) {
       router.push(`/league/${leagueId}`);
     } else if (action === "create-league") {
@@ -128,8 +140,9 @@ export default function FindLeaguesPage() {
           }
           return next;
         });
-      } catch (err) {
-        if (err.name === 'AbortError' || err.name === 'CanceledError') return;
+      } catch (err: unknown) {
+        const e = err as { name?: string; response?: { data?: { detail?: string } } };
+        if (e.name === 'AbortError' || e.name === 'CanceledError') return;
         console.error("Error fetching leagues:", err);
         setMessage({ type: "error", text: "Failed to load leagues" });
       } finally {
@@ -167,7 +180,7 @@ export default function FindLeaguesPage() {
             if (!currentRegionId) return true;
             return l.region_id === currentRegionId;
           })
-          .map((l) => ({ value: l.id, label: l.name }))
+          .map((l) => ({ value: l.id, label: l.name || '' }))
           .sort((a, b) => a.label.localeCompare(b.label)),
       },
       gender: {
@@ -195,7 +208,7 @@ export default function FindLeaguesPage() {
     };
   }, [locations, filters]);
 
-  const handleJoin = async (league) => {
+  const handleJoin = async (league: FindLeague) => {
     if (!isAuthenticated) {
       openAuthModal("sign-in");
       return;
@@ -228,13 +241,14 @@ export default function FindLeaguesPage() {
           text: `Join request submitted for ${league.name}. League admins will be notified.`,
         });
       }
-    } catch (err) {
-      const errorMsg = err.response?.data?.detail || "Failed to join league";
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      const errorMsg = e.response?.data?.detail || "Failed to join league";
       setMessage({ type: "error", text: errorMsg });
     }
   };
 
-  const handleCancelRequest = async (league) => {
+  const handleCancelRequest = async (league: FindLeague) => {
     try {
       await cancelJoinRequest(league.id);
       setPendingRequests(prev => {
@@ -246,18 +260,19 @@ export default function FindLeaguesPage() {
         type: "success",
         text: `Join request for ${league.name} cancelled.`,
       });
-    } catch (err) {
-      const errorMsg = err.response?.data?.detail || "Failed to cancel request";
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      const errorMsg = e.response?.data?.detail || "Failed to cancel request";
       setMessage({ type: "error", text: errorMsg });
     }
   };
 
   /** Navigate to the league detail page. */
-  const handleLeagueClick = (league) => {
+  const handleLeagueClick = (league: FindLeague) => {
     router.push(`/league/${league.id}`);
   };
 
-  const renderRow = (league, idx) => {
+  const renderRow = (league: FindLeague, idx: number) => {
     const locationText = league.location_name || "N/A";
     const regionText = league.region_name || "N/A";
     const isMember = Array.isArray(userLeagues) && userLeagues.some(
@@ -357,11 +372,11 @@ export default function FindLeaguesPage() {
     { label: "Action" },
   ];
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
-  const handlePageSizeChange = (newPageSize) => {
+  const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setPage(1);
   };

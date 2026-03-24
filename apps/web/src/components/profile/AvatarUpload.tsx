@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Camera, X, Loader } from 'lucide-react';
 import { heicTo, isHeic } from 'heic-to';
@@ -9,6 +9,14 @@ import { uploadAvatar, deleteAvatar } from '../../services/api';
 import cropImage from '../../utils/cropImage';
 import { isImageUrl } from '../../utils/avatar';
 import './AvatarUpload.css';
+import type { Player } from '../../types';
+
+interface PixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /**
  * Self-contained avatar upload component with crop modal.
@@ -16,25 +24,21 @@ import './AvatarUpload.css';
  * Shows the current avatar (image or initials), lets the user pick a photo,
  * crop it with a circular guide, and uploads immediately on confirm.
  * Does NOT participate in parent form's unsaved-changes tracking.
- *
- * @param {Object} props
- * @param {Object} props.currentUserPlayer - Player object with avatar, profile_picture_url, full_name
- * @param {Function} props.fetchCurrentUser - Callback to refresh user data after upload/delete
  */
 interface AvatarUploadProps {
-  currentUserPlayer: any;
+  currentUserPlayer: Player;
   fetchCurrentUser?: () => Promise<void>;
 }
 
 export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: AvatarUploadProps) {
   const [showCropModal, setShowCropModal] = useState(false);
-  const [imageSrc, setImageSrc] = useState(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const fileInputRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Revoke object URL on unmount to prevent memory leaks
   useEffect(() => {
@@ -60,7 +64,7 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
   };
 
   /** Handle file selection: validate, convert HEIC if needed, open crop modal. */
-  const handleFileSelect = async (e) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -121,9 +125,12 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
       setShowCropModal(false);
       cleanupImageSrc();
       if (fetchCurrentUser) await fetchCurrentUser();
-    } catch (err) {
-      const detail = err?.response?.data?.detail || err.message || 'Upload failed';
-      setError(detail);
+    } catch (err: unknown) {
+      const e = err as Record<string, unknown>;
+      const detail = (e?.response as Record<string, unknown> | undefined)?.data
+        ? ((e.response as Record<string, unknown>).data as Record<string, unknown>)?.detail as string | undefined
+        : undefined;
+      setError(detail || (e?.message as string | undefined) || 'Upload failed');
     } finally {
       setUploading(false);
     }
@@ -137,9 +144,12 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
     try {
       await deleteAvatar();
       if (fetchCurrentUser) await fetchCurrentUser();
-    } catch (err) {
-      const detail = err?.response?.data?.detail || err.message || 'Failed to remove avatar';
-      setError(detail);
+    } catch (err: unknown) {
+      const e = err as Record<string, unknown>;
+      const detail = (e?.response as Record<string, unknown> | undefined)?.data
+        ? ((e.response as Record<string, unknown>).data as Record<string, unknown>)?.detail as string | undefined
+        : undefined;
+      setError(detail || (e?.message as string | undefined) || 'Failed to remove avatar');
     } finally {
       setUploading(false);
     }

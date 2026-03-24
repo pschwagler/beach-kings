@@ -3,10 +3,11 @@ import { Edit2 } from 'lucide-react';
 import { updateLeague } from '../../services/api';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
+import type { League } from '../../types';
 
 interface DescriptionSectionProps {
-  league: any;
-  onUpdate?: (updatedLeague: any) => void;
+  league: League;
+  onUpdate?: (updatedLeague: League) => void;
 }
 
 export default function DescriptionSection({ league, onUpdate }: DescriptionSectionProps) {
@@ -45,8 +46,9 @@ export default function DescriptionSection({ league, onUpdate }: DescriptionSect
 
       onUpdate(updatedLeague);
       setIsEditing(false);
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update description', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update description', 'error');
     }
   };
 

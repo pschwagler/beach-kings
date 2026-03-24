@@ -35,7 +35,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }: Create
       endDate.setDate(endDate.getDate() + 70); // 10 weeks = 70 days
       
       // Format dates as YYYY-MM-DD for input[type="date"]
-      const formatDate = (date) => {
+      const formatDate = (date: Date): string => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
@@ -78,7 +78,7 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }: Create
     }
 
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         name: formData.name || undefined,
         start_date: formData.start_date,
         end_date: formData.end_date,
@@ -93,9 +93,10 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }: Create
       await createLeagueSeason(leagueId, payload);
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
       showToast(
-        err.response?.data?.detail || "Failed to create season",
+        e.response?.data?.detail || "Failed to create season",
         "error"
       );
     }

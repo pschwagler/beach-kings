@@ -11,7 +11,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [feedback, setFeedback] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState('idle'); // idle, success, error
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
@@ -37,9 +37,10 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         onClose();
         setStatus('idle');
       }, 2000);
-    } catch (error: any) {
-      console.error('Error submitting feedback:', error);
+    } catch (err: unknown) {
+      console.error('Error submitting feedback:', err);
       setStatus('error');
+      const error = err as { response?: { data?: { detail?: string } } };
       setErrorMessage(
         error.response?.data?.detail ||
         'Failed to submit feedback. Please try again.'

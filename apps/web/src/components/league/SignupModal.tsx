@@ -4,14 +4,14 @@ import { getCourts } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 
 // Helper to convert local datetime to UTC ISO string
-function localToUTCISOString(dateStr, timeStr) {
+function localToUTCISOString(dateStr: string, timeStr: string): string | null {
   if (!dateStr || !timeStr) return null;
   const localDate = new Date(`${dateStr}T${timeStr}`);
   return localDate.toISOString();
 }
 
 // Helper to convert UTC ISO string to local date/time
-function utcToLocalDateTime(isoString) {
+function utcToLocalDateTime(isoString: string): { date: string; time: string } {
   if (!isoString) return { date: '', time: '' };
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -51,17 +51,23 @@ function getNextHour() {
   return `${hours}:${minutes}`;
 }
 
+interface ExistingSignup {
+  scheduled_datetime?: string | null;
+  duration_hours?: number | null;
+  court_id?: number | null;
+}
+
 interface SignupModalProps {
-  signup?: any;
+  signup?: ExistingSignup | null;
   seasonId: number;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
 }
 
 export default function SignupModal({ signup, seasonId, onClose, onSubmit }: SignupModalProps) {
   const { showToast } = useToast();
   const isEditMode = !!signup;
-  const [courts, setCourts] = useState([]);
+  const [courts, setCourts] = useState<Array<{ id: number; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   
   // Initialize form data
@@ -109,7 +115,7 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
         duration_hours: parseFloat(formData.duration_hours) || 2.0,
         court_id: formData.court_id ? parseInt(formData.court_id) : null
       });
-    } catch (err) {
+    } catch (_err) {
       // Error handling is done in parent
     }
   };

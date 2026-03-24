@@ -5,6 +5,19 @@ import { getPublicCourtBySlug } from '../../services/api';
 import CourtReviewCard from './CourtReviewCard';
 import CourtReviewForm from './CourtReviewForm';
 import { Button } from '../ui/UI';
+import { Court } from '../../types';
+
+interface CourtReview {
+  id: number;
+  rating: number;
+  review_text?: string | null;
+  created_at?: string | null;
+  average_rating?: number;
+  review_count?: number;
+  author?: { player_id?: number | null; full_name?: string | null } | null;
+  tags?: Array<{ id: number; name: string }> | null;
+  photos?: Array<{ id: number; url: string }> | null;
+}
 
 /**
  * Reviews section on the court detail page.
@@ -13,18 +26,18 @@ import { Button } from '../ui/UI';
  * and the inline review form. Refetches on mount to override stale ISR cache.
  */
 interface CourtReviewSectionProps {
-  court: any;
+  court: Court;
   isAuthenticated: boolean;
   currentPlayerId?: number;
   onAuthRequired: () => void;
 }
 
 export default function CourtReviewSection({ court, isAuthenticated, currentPlayerId, onAuthRequired }: CourtReviewSectionProps) {
-  const [reviews, setReviews] = useState(court.reviews || []);
+  const [reviews, setReviews] = useState<CourtReview[]>((court.reviews as CourtReview[]) || []);
   const [avgRating, setAvgRating] = useState(court.average_rating);
   const [reviewCount, setReviewCount] = useState(court.review_count || 0);
   const [showForm, setShowForm] = useState(false);
-  const [editingReview, setEditingReview] = useState(null);
+  const [editingReview, setEditingReview] = useState<CourtReview | null>(null);
 
   // Find the current user's review
   const myReview = reviews.find(
@@ -48,7 +61,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
     refreshCourt();
   }, [refreshCourt]);
 
-  const handleReviewAction = (result) => {
+  const handleReviewAction = (result?: CourtReview) => {
     if (result) {
       setAvgRating(result.average_rating);
       setReviewCount(result.review_count);
@@ -69,7 +82,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
     setShowForm(true);
   };
 
-  const handleEditReview = (review) => {
+  const handleEditReview = (review: CourtReview) => {
     setEditingReview(review);
     setShowForm(true);
   };
@@ -80,14 +93,14 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
         <h2 className="court-detail__section-title">
           Reviews {reviewCount > 0 ? `(${reviewCount})` : ''}
         </h2>
-        <Button onClick={handleWriteReview} variant="default" size="small">
+        <Button onClick={handleWriteReview} variant="default">
           {myReview ? 'Edit Your Review' : 'Write a Review'}
         </Button>
       </div>
 
       {showForm && (
         <CourtReviewForm
-          courtId={court.id}
+          courtId={court.id as number}
           existingReview={editingReview}
           onSuccess={handleReviewAction}
           onCancel={() => { setShowForm(false); setEditingReview(null); }}
@@ -108,7 +121,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
             isOwn={review.author?.player_id != null && review.author.player_id === currentPlayerId}
             onEdit={() => handleEditReview(review)}
             onDeleted={handleReviewAction}
-            courtId={court.id}
+            courtId={court.id as number}
           />
         ))}
       </div>

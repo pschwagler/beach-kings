@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, Plus, Filter } from 'lucide-react';
+import type { Location, League } from '../../types';
 import {
   getPlayers,
   addLeagueMembersBatch,
@@ -26,9 +27,17 @@ const SEARCH_DEBOUNCE_MS = 300;
  * filters (Location, League, Gender, Level), and batch submit. Uses batch
  * API and shows added/failed counts on partial failure.
  */
+interface LeagueMember {
+  player_id: number;
+  player_name?: string | null;
+  player_avatar?: string | null;
+  role?: string;
+  joined_at?: string | null;
+}
+
 interface AddPlayersModalProps {
   isOpen: boolean;
-  members: any[];
+  members: LeagueMember[];
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -37,33 +46,33 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
   const { leagueId } = useLeague();
   const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
-  const [locationIds, setLocationIds] = useState([]);
-  const [leagueIds, setLeagueIds] = useState([]);
-  const [genderFilters, setGenderFilters] = useState([]);
-  const [levelFilters, setLevelFilters] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [leagues, setLeagues] = useState([]);
-  const [selectedPlayers, setSelectedPlayers] = useState([]); // [{ player_id, role }]
-  const [selectedPlayerDetails, setSelectedPlayerDetails] = useState({}); // { player_id: player }
+  const [locationIds, setLocationIds] = useState<string[]>([]);
+  const [leagueIds, setLeagueIds] = useState<number[]>([]);
+  const [genderFilters, setGenderFilters] = useState<string[]>([]);
+  const [levelFilters, setLevelFilters] = useState<string[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<Array<{ player_id: number; role: string }>>([]); // [{ player_id, role }]
+  const [selectedPlayerDetails, setSelectedPlayerDetails] = useState<Record<number, Record<string, unknown>>>({}); // { player_id: player }
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [createModalState, setCreateModalState] = useState(null);
+  const [createModalState, setCreateModalState] = useState<{ name: string } | null>(null);
   const [isCreatingPlaceholder, setIsCreatingPlaceholder] = useState(false);
-  const debounceRef = useRef(null);
-  const filterButtonRef = useRef(null);
-  const filterPopoverRef = useRef(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
 
   const memberIds = useMemo(() => new Set((members || []).map((m) => m.player_id)), [members]);
   const selectedIds = useMemo(() => new Set(selectedPlayers.map((sp) => sp.player_id)), [selectedPlayers]);
   const isPlayerDisabled = useCallback(
-    (playerId) => memberIds.has(playerId) || selectedIds.has(playerId),
+    (playerId: number) => memberIds.has(playerId) || selectedIds.has(playerId),
     [memberIds, selectedIds]
   );
 
@@ -163,10 +172,10 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
   // Close filters on click outside
   useEffect(() => {
     if (!filtersOpen) return;
-    const handleClickOutside = (e) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (
-        filterPopoverRef.current?.contains(e.target) ||
-        filterButtonRef.current?.contains(e.target)
+        filterPopoverRef.current?.contains(e.target as Node) ||
+        filterButtonRef.current?.contains(e.target as Node)
       )
         return;
       setFiltersOpen(false);
@@ -198,13 +207,13 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
     fetchPage(nextOffset, true);
   }, [offset, fetchPage]);
 
-  const handleAddPlayer = useCallback((player) => {
-    setSelectedPlayers((prev) => [...prev, { player_id: player.id, role: 'member' }]);
-    setSelectedPlayerDetails((prev) => ({ ...prev, [player.id]: player }));
+  const handleAddPlayer = useCallback((player: Record<string, unknown>) => {
+    setSelectedPlayers((prev) => [...prev, { player_id: player.id as number, role: 'member' }]);
+    setSelectedPlayerDetails((prev) => ({ ...prev, [player.id as number]: player }));
     setSearchTerm('');
   }, []);
 
-  const handleRemovePlayer = useCallback((playerId) => {
+  const handleRemovePlayer = useCallback((playerId: number) => {
     setSelectedPlayers((prev) => prev.filter((sp) => sp.player_id !== playerId));
     setSelectedPlayerDetails((prev) => {
       const next = { ...prev };
@@ -213,13 +222,13 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
     });
   }, []);
 
-  const handleChangeRole = useCallback((playerId, newRole) => {
+  const handleChangeRole = useCallback((playerId: number, newRole: string) => {
     setSelectedPlayers((prev) =>
       prev.map((sp) => (sp.player_id === playerId ? { ...sp, role: newRole } : sp))
     );
   }, []);
 
-  const handleRemoveFilter = useCallback((key, value) => {
+  const handleRemoveFilter = useCallback((key: string, value: string | number) => {
     if (key === 'location') setLocationIds((prev) => prev.filter((id) => id !== value));
     if (key === 'league') setLeagueIds((prev) => prev.filter((id) => id !== value));
     if (key === 'gender') setGenderFilters((prev) => prev.filter((g) => g !== value));
@@ -227,10 +236,11 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
     setOffset(0);
   }, []);
 
-  const handleToggleFilter = useCallback((key, value) => {
+  const handleToggleFilter = useCallback((key: string, value: string | number) => {
     if (key === 'location') {
+      const locId = value as string;
       setLocationIds((prev) =>
-        prev.includes(value) ? prev.filter((id) => id !== value) : [...prev, value]
+        prev.includes(locId) ? prev.filter((id) => id !== locId) : [...prev, locId]
       );
     }
     if (key === 'league') {
@@ -238,13 +248,15 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
       setLeagueIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
     }
     if (key === 'gender') {
+      const gender = value as string;
       setGenderFilters((prev) =>
-        prev.includes(value) ? prev.filter((g) => g !== value) : [...prev, value]
+        prev.includes(gender) ? prev.filter((g) => g !== gender) : [...prev, gender]
       );
     }
     if (key === 'level') {
+      const level = value as string;
       setLevelFilters((prev) =>
-        prev.includes(value) ? prev.filter((l) => l !== value) : [...prev, value]
+        prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
       );
     }
     setOffset(0);
@@ -263,7 +275,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
    * @param {Object} extras - Optional gender/level
    * @returns {Promise<Object|null>} Created player data for the modal success state
    */
-  const handleCreatePlaceholder = useCallback(async (name, extras: Record<string, any> = {}) => {
+  const handleCreatePlaceholder = useCallback(async (name: string, extras: Record<string, string> = {}) => {
     if (!name?.trim() || isCreatingPlaceholder) return null;
     setIsCreatingPlaceholder(true);
     try {
@@ -302,7 +314,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
    * Handle PlaceholderCreateModal close — reset on success.
    * @param {Object|null} result - Created player data or null if cancelled
    */
-  const handleCreateModalClose = useCallback((result) => {
+  const handleCreateModalClose = useCallback((result: unknown) => {
     setCreateModalState(null);
     if (result) {
       setSearchTerm('');
@@ -351,7 +363,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
   }, [selectedPlayers, selectedPlayerDetails, items]);
 
   const availableFromItems = useMemo(() => {
-    return items.filter((p) => !isPlayerDisabled(p.id)).map((player) => ({ player, isSelected: false }));
+    return items.filter((p) => !isPlayerDisabled(p.id as number)).map((player) => ({ player, isSelected: false }));
   }, [items, isPlayerDisabled]);
 
   const playersToDisplay = useMemo(() => {
@@ -433,7 +445,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                 const loc = locations.find((l) => l.id === id);
                 return (
                   <span key={`loc-${id}`} className="session-players-filter-pill">
-                    <span>{loc?.name || id}</span>
+                    <span>{(loc?.name as string) || id}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveFilter('location', id)}
@@ -449,7 +461,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                 const league = leagues.find((l) => l.id === id);
                 return (
                   <span key={`league-${id}`} className="session-players-filter-pill">
-                    <span>{league?.name || id}</span>
+                    <span>{(league?.name as string) || id}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveFilter('league', id)}
@@ -520,14 +532,15 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
               <>
                 <div className="add-players-table">
                   {playersToDisplay.map((item) => {
-                    const player = item.player;
+                    const typedItem = item as { player: Record<string, unknown>; isSelected: boolean; player_id?: number; role?: string };
+                    const player = typedItem.player;
                     const playerName = getPlayerDisplayName(player);
-                    const isSelected = item.isSelected;
-                    const division = formatDivisionLabel(player.gender, player.level);
+                    const isSelected = typedItem.isSelected;
+                    const division = formatDivisionLabel(player.gender as string, player.level as string);
 
                     return (
                       <div
-                        key={isSelected ? `sel-${item.player_id}` : `avail-${player.id}`}
+                        key={isSelected ? `sel-${typedItem.player_id}` : `avail-${player.id}`}
                         className={`add-players-table-row ${isSelected ? 'selected' : ''}`}
                         onClick={() => !isSelected && handleAddPlayer(player)}
                       >
@@ -543,9 +556,9 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                           {isSelected ? (
                             <>
                               <select
-                                value={item.role}
+                                value={typedItem.role}
                                 onChange={(e) =>
-                                  handleChangeRole(item.player_id, e.target.value)
+                                  handleChangeRole(typedItem.player_id, e.target.value)
                                 }
                                 className="league-role-select"
                                 onClick={(e) => e.stopPropagation()}
@@ -560,7 +573,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                                 className="add-players-table-remove"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRemovePlayer(item.player_id);
+                                  handleRemovePlayer(typedItem.player_id);
                                 }}
                                 title="Remove from selection"
                               >

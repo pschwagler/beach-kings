@@ -5,15 +5,31 @@ import { Button } from "../ui/UI";
 import { Loader2, Check, Edit2 } from "lucide-react";
 import "./KobLive.css";
 
+interface KobMatchForCard {
+  matchup_id: number;
+  phase?: string;
+  team1_score: number | null;
+  team2_score: number | null;
+  is_bye?: boolean;
+  winner?: number | null;
+  court_num?: number;
+  bracket_position?: string;
+  team1_player1_name?: string;
+  team1_player2_name?: string;
+  team2_player1_name?: string;
+  team2_player2_name?: string;
+  game_scores?: Array<{ team1_score: number; team2_score: number }>;
+}
+
 interface ScoreEntryCardProps {
-  match: any;
+  match: KobMatchForCard;
   gameTo: number;
   winBy: number;
   gamesPerMatch?: number;
-  onSubmit: (matchupId: any, team1Score: any, team2Score: any) => void;
+  onSubmit: (matchupId: number, team1Score: number, team2Score: number) => void;
   isScored?: boolean;
   isDirector?: boolean;
-  onEditScore?: (matchupId: any, team1Score: any, team2Score: any) => void;
+  onEditScore?: (matchupId: number, team1Score: number, team2Score: number) => void;
 }
 
 export default function ScoreEntryCard({
@@ -44,7 +60,7 @@ export default function ScoreEntryCard({
     isScored && !isBo3 ? String(match.team2_score) : ""
   );
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
   // Re-sync scores when the match prop changes (e.g. after a score is submitted
@@ -56,7 +72,7 @@ export default function ScoreEntryCard({
     }
   }, [match.matchup_id, match.team1_score, match.team2_score, isBo3]);
 
-  const validateScore = (s1, s2) => {
+  const validateScore = (s1: string, s2: string): string | null => {
     const a = parseInt(s1, 10);
     const b = parseInt(s2, 10);
     if (isNaN(a) || isNaN(b)) return "Enter both scores";
