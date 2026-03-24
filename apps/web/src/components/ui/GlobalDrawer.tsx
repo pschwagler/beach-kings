@@ -14,7 +14,7 @@ export default function GlobalDrawer() {
           <PlayerDetailsPanel
             isPanelOpen={isOpen}
             onClose={closeDrawer}
-            {...drawerProps}
+            {...(drawerProps as any)}
           />
         </ErrorBoundary>
       );

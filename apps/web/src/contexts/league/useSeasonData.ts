@@ -13,6 +13,19 @@ import {
 
 export const ALL_SEASONS_KEY = 'all-seasons';
 
+export interface RankingEntry {
+  player_id?: number;
+  Name?: string;
+  [key: string]: unknown;
+}
+
+export interface SeasonDataEntry {
+  rankings: RankingEntry[];
+  matches: unknown[] | null;
+  player_season_stats: Record<string, unknown> | null;
+  partnership_opponent_stats: Record<string, unknown> | null;
+}
+
 /**
  * Manages season-level data loading: rankings, matches, player stats, and partnership stats.
  * Handles both specific seasons and the "All Seasons" aggregate view.
@@ -21,18 +34,18 @@ export const ALL_SEASONS_KEY = 'all-seasons';
  * @param {Array} seasons - List of season objects from useLeagueCore.
  * @returns {object} Season data state and callbacks.
  */
-export function useSeasonData(leagueId, seasons) {
-  const [seasonData, setSeasonData] = useState({}); // Maps season_id to data
-  const [seasonDataLoading, setSeasonDataLoading] = useState({}); // Maps season_id to loading state
+export function useSeasonData(leagueId: number, seasons: unknown[]) {
+  const [seasonData, setSeasonData] = useState<Record<string | number, SeasonDataEntry>>({}); // Maps season_id to data
+  const [seasonDataLoading, setSeasonDataLoading] = useState<Record<string | number, boolean>>({}); // Maps season_id to loading state
 
   // Selected season state (shared across tabs)
   // null = "All Seasons", number = specific season ID
-  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
 
   // Refs mirror state for synchronous reads inside async callbacks.
   // Written at every mutation site — no sync effects needed.
-  const loadingRef = useRef({});
-  const dataRef = useRef({});
+  const loadingRef = useRef<Record<string | number, boolean>>({});
+  const dataRef = useRef<Record<string | number, SeasonDataEntry>>({});
 
   // Compute selectedSeasonData once for all tabs to use
   // This ensures consistency across RankingsTab and MatchesTab
@@ -176,7 +189,7 @@ export function useSeasonData(leagueId, seasons) {
       // If forceClear is true, clear the cached data to force a fresh fetch
       if (forceClear && dataRef.current[seasonId]) {
         const { matches: _removed, ...rest } = dataRef.current[seasonId];
-        dataRef.current[seasonId] = rest;
+        dataRef.current[seasonId] = rest as SeasonDataEntry;
       }
 
       // Only fetch matches - much faster than full season data refresh
@@ -218,11 +231,11 @@ export function useSeasonData(leagueId, seasons) {
         };
       });
 
-      // Update the ref immediately
+      // Update the ref immediately — cast needed because spread of empty fallback may lack required fields
       dataRef.current[seasonId] = {
         ...(dataRef.current[seasonId] || {}),
         matches: matches || []
-      };
+      } as SeasonDataEntry;
     } catch (err) {
       console.error('Error refreshing match data:', err);
     }

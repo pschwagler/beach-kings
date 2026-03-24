@@ -1,17 +1,50 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer, cancelAccountDeletion as cancelDeletionApi } from '../services/api';
+import type { User, Player } from '../types';
 
-const AuthContext = createContext(null);
+interface SignupResponse {
+  phone_number?: string;
+  [key: string]: unknown;
+}
+
+interface VerifyPasswordResetResponse {
+  reset_token?: string;
+  [key: string]: unknown;
+}
+
+interface AuthContextValue {
+  user: User | null;
+  currentUserPlayer: Player | null;
+  isAuthenticated: boolean;
+  isInitializing: boolean;
+  sessionExpired: boolean;
+  deletionScheduledAt: string | null | undefined;
+  fetchCurrentUser: () => Promise<void>;
+  loginWithGoogle: (credentialResponse: { credential?: string }) => Promise<{ profile_complete: boolean }>;
+  loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
+  loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
+  signup: (params: { phoneNumber: string; password: string; fullName: string; email?: string }) => Promise<SignupResponse>;
+  sendVerificationCode: (phoneNumber: string) => Promise<void>;
+  verifyPhone: (phoneNumber: string, code: string) => Promise<{ profile_complete: boolean }>;
+  resetPassword: (phoneNumber: string) => Promise<unknown>;
+  verifyPasswordReset: (phoneNumber: string, code: string) => Promise<VerifyPasswordResetResponse>;
+  confirmPasswordReset: (resetToken: string, newPassword: string) => Promise<unknown>;
+  cancelAccountDeletion: () => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 const normalizePhone = (phone) => phone?.trim();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [currentUserPlayer, setCurrentUserPlayer] = useState(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [sessionExpired, setSessionExpired] = useState(false);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [currentUserPlayer, setCurrentUserPlayer] = useState<Player | null>(null);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  const [sessionExpired, setSessionExpired] = useState<boolean>(false);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -57,7 +90,7 @@ export const AuthProvider = ({ children }) => {
   }, [fetchCurrentUser]);
 
   // Track user via ref so the storage listener doesn't re-register on every user change
-  const userRef = useRef(user);
+  const userRef = useRef<User | null>(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
   // Cross-tab auth state sync: detect login/logout from other tabs via localStorage changes.
@@ -95,7 +128,7 @@ export const AuthProvider = ({ children }) => {
   );
 
   const loginWithGoogle = useCallback(
-    async (credentialResponse) => {
+    async (credentialResponse: { credential?: string }) => {
       const response = await api.post('/api/auth/google', {
         id_token: credentialResponse.credential,
       });
@@ -225,7 +258,7 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');

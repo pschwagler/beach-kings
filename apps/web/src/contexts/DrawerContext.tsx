@@ -1,13 +1,22 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
-const DrawerContext = createContext(null);
+interface DrawerContextValue {
+  isOpen: boolean;
+  drawerType: string | null;
+  drawerProps: Record<string, unknown>;
+  openDrawer: (type: string, props?: Record<string, unknown>) => void;
+  closeDrawer: () => void;
+}
 
-export const DrawerProvider = ({ children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [drawerType, setDrawerType] = useState(null);
-  const [drawerProps, setDrawerProps] = useState({});
+const DrawerContext = createContext<DrawerContextValue | null>(null);
+
+export const DrawerProvider = ({ children }: { children: ReactNode }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [drawerType, setDrawerType] = useState<string | null>(null);
+  const [drawerProps, setDrawerProps] = useState<Record<string, unknown>>({});
 
   const openDrawer = useCallback((type, props = {}) => {
     setDrawerType(type);
@@ -40,7 +49,7 @@ export const DrawerProvider = ({ children }) => {
   return <DrawerContext.Provider value={value}>{children}</DrawerContext.Provider>;
 };
 
-export const useDrawer = () => {
+export const useDrawer = (): DrawerContextValue => {
   const context = useContext(DrawerContext);
   if (!context) {
     throw new Error('useDrawer must be used within a DrawerProvider');

@@ -47,7 +47,7 @@ export default function GlobalModal() {
 
   // Key on initialJobId so PhotoMatchReviewModal remounts (resetting hook state)
   // when a new job starts. Falls back to modalType for other modals.
-  const modalKey = modalProps?.initialJobId ?? modalType;
+  const modalKey = (modalProps?.initialJobId as string | number | undefined) ?? modalType;
 
   return (
     <ErrorBoundary onReset={closeModal}>
@@ -56,7 +56,7 @@ export default function GlobalModal() {
           key={modalKey}
           isOpen={isOpen}
           onClose={closeModal}
-          {...modalProps}
+          {...(modalProps as any)}
         />
       </Suspense>
     </ErrorBoundary>

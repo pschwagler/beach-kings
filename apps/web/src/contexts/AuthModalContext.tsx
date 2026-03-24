@@ -1,13 +1,22 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
-const AuthModalContext = createContext(null);
+interface AuthModalContextValue {
+  isAuthModalOpen: boolean;
+  authModalMode: string;
+  openAuthModal: (mode?: string, onVerifySuccess?: (() => void) | null) => void;
+  closeAuthModal: () => void;
+  handleVerifySuccess: () => void;
+}
 
-export const AuthModalProvider = ({ children }) => {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState('sign-in');
-  const [onVerifySuccessCallback, setOnVerifySuccessCallback] = useState(null);
+const AuthModalContext = createContext<AuthModalContextValue | null>(null);
+
+export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<string>('sign-in');
+  const [onVerifySuccessCallback, setOnVerifySuccessCallback] = useState<(() => void) | null>(null);
 
   const openAuthModal = useCallback((mode = 'sign-in', onVerifySuccess = null) => {
     setAuthModalMode(mode);
@@ -37,7 +46,7 @@ export const AuthModalProvider = ({ children }) => {
   return <AuthModalContext.Provider value={value}>{children}</AuthModalContext.Provider>;
 };
 
-export const useAuthModal = () => {
+export const useAuthModal = (): AuthModalContextValue => {
   const context = useContext(AuthModalContext);
   if (!context) {
     throw new Error('useAuthModal must be used within an AuthModalProvider');

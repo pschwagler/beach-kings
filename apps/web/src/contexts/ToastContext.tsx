@@ -1,10 +1,23 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import GlassToast from '../components/ui/GlassToast';
 
-const ToastContext = createContext(null);
+type ToastType = 'success' | 'error' | 'info';
+
+interface Toast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
+
+interface ToastContextValue {
+  showToast: (message: string, type?: ToastType) => number;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
 
 /** Maximum visible toasts at once. Oldest are auto-dismissed when exceeded. */
 const MAX_TOASTS = 3;
@@ -13,15 +26,15 @@ const MAX_TOASTS = 3;
  * Global toast provider. Renders a portal-based toast container.
  * Wrap your app with `<ToastProvider>` and use `useToast()` anywhere.
  */
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
-  const nextIdRef = useRef(0);
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const nextIdRef = useRef<number>(0);
 
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showToast = useCallback((message, type = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Date.now() + nextIdRef.current++;
     setToasts((prev) => {
       const next = [...prev, { id, message, type }];
@@ -49,7 +62,7 @@ export function ToastProvider({ children }) {
 /**
  * Container that renders active toasts.
  */
-function GlassToastContainer({ toasts, onDismiss }) {
+function GlassToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   if (toasts.length === 0) return null;
 
   return (
@@ -70,7 +83,7 @@ function GlassToastContainer({ toasts, onDismiss }) {
  * Hook to access the global toast system.
  * @returns {{ showToast: (message: string, type?: 'success'|'error'|'info') => number }}
  */
-export function useToast() {
+export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
   if (!context) {
     throw new Error('useToast must be used within a ToastProvider');

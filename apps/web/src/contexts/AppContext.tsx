@@ -1,14 +1,23 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { getLocations } from '../services/api';
+import type { Location } from '../types';
 
-const AppContext = createContext(null);
+interface AppContextValue {
+  locations: Location[];
+  locationsLoading: boolean;
+  locationsError: string | null;
+  refreshLocations: () => Promise<void>;
+}
 
-export const AppProvider = ({ children }) => {
-  const [locations, setLocations] = useState([]);
-  const [locationsLoading, setLocationsLoading] = useState(false);
-  const [locationsError, setLocationsError] = useState(null);
+const AppContext = createContext<AppContextValue | null>(null);
+
+export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState<boolean>(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
 
   const loadLocations = useCallback(async () => {
     setLocationsLoading(true);
@@ -38,7 +47,7 @@ export const AppProvider = ({ children }) => {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useApp = () => {
+export const useApp = (): AppContextValue => {
   const context = useContext(AppContext);
   if (!context) {
     throw new Error('useApp must be used within an AppProvider');

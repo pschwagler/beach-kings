@@ -2,6 +2,14 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { getLeague, getLeagueSeasons, getLeagueMembers } from '../../services/api';
+import type { League, Season } from '../../types';
+
+interface LeagueMember {
+  id: number;
+  player_id: number;
+  role?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Manages core league data: league info, seasons, members, and derived permission state.
@@ -11,12 +19,12 @@ import { getLeague, getLeagueSeasons, getLeagueMembers } from '../../services/ap
  * @param {object|null} currentUserPlayer - The currently authenticated player object.
  * @returns {object} Core league state and callbacks.
  */
-export function useLeagueCore(leagueId, isAuthInitializing, currentUserPlayer) {
-  const [league, setLeague] = useState(null);
-  const [seasons, setSeasons] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export function useLeagueCore(leagueId: number, isAuthInitializing: boolean, currentUserPlayer: import('../../types').Player | null) {
+  const [league, setLeague] = useState<League | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [members, setMembers] = useState<LeagueMember[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Helper function to check if a season is active based on dates
   const isSeasonActive = useCallback((season) => {

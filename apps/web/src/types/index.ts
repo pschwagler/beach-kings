@@ -23,6 +23,8 @@ export interface Player {
   level?: string | null;
   city?: string | null;
   state?: string | null;
+  city_latitude?: number | null;
+  city_longitude?: number | null;
   avatar?: string | null;
   profile_picture_url?: string | null;
   location_id?: string | null;
@@ -57,6 +59,7 @@ export interface League {
   standings?: unknown[] | null;
   recent_matches?: unknown[] | null;
   members?: unknown[] | null;
+  home_courts?: Array<{ id: number; name?: string; [key: string]: unknown }> | null;
   current_season?: { name?: string | null } | null;
 }
 
@@ -69,6 +72,7 @@ export interface Season {
   end_date?: string | null;
   signup_deadline?: string | null;
   is_active?: boolean | null;
+  awards_finalized_at?: string | null;
 }
 
 export interface Session {
@@ -79,11 +83,16 @@ export interface Session {
   code?: string | null;
   league_id?: number | null;
   league_name?: string | null;
+  court_id?: number | null;
   court_name?: string | null;
   court_slug?: string | null;
   match_count?: number | null;
   created_by?: number | null;
   created_by_name?: string | null;
+  updated_by?: number | null;
+  updated_by_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   participation?: string | null;
   name?: string | null;
 }
@@ -159,6 +168,8 @@ export interface Location {
   city: string;
   state: string;
   region?: string | null;
+  region_id?: string | null;
+  region_name?: string | null;
   name?: string | null;
   slug?: string | null;
   distance_miles?: number | null;

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { transformPlayerData } from '../../components/league/utils/playerDataUtils';
+import type { SeasonDataEntry } from './useSeasonData';
 
 /**
  * Manages the selected player state and derives their stats from the current season data.
@@ -10,11 +11,11 @@ import { transformPlayerData } from '../../components/league/utils/playerDataUti
  * @param {object|null} selectedSeasonData - The active season data from useSeasonData.
  * @returns {object} Selected player state and the setSelectedPlayer callback.
  */
-export function useSelectedPlayer(selectedSeasonData) {
-  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
-  const [selectedPlayerName, setSelectedPlayerName] = useState(null);
-  const [playerSeasonStats, setPlayerSeasonStats] = useState(null);
-  const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
+export function useSelectedPlayer(selectedSeasonData: SeasonDataEntry | null) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
+  const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
+  const [playerSeasonStats, setPlayerSeasonStats] = useState<Record<string, unknown> | null>(null);
+  const [playerMatchHistory, setPlayerMatchHistory] = useState<unknown[] | null>(null);
 
   // Helper to update player stats from active season data
   const updatePlayerStats = useCallback((seasonData, playerId) => {

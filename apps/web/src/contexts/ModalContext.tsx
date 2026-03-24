@@ -1,13 +1,22 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
-const ModalContext = createContext(null);
+interface ModalContextValue {
+  isOpen: boolean;
+  modalType: string | null;
+  modalProps: Record<string, unknown>;
+  openModal: (type: string, props?: Record<string, unknown>) => void;
+  closeModal: () => void;
+}
 
-export const ModalProvider = ({ children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [modalType, setModalType] = useState(null);
-  const [modalProps, setModalProps] = useState({});
+const ModalContext = createContext<ModalContextValue | null>(null);
+
+export const ModalProvider = ({ children }: { children: ReactNode }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [modalType, setModalType] = useState<string | null>(null);
+  const [modalProps, setModalProps] = useState<Record<string, unknown>>({});
 
   const openModal = useCallback((type, props = {}) => {
     setModalType(type);
@@ -40,7 +49,7 @@ export const ModalProvider = ({ children }) => {
   return <ModalContext.Provider value={value}>{children}</ModalContext.Provider>;
 };
 
-export const useModal = () => {
+export const useModal = (): ModalContextValue => {
   const context = useContext(ModalContext);
   if (!context) {
     throw new Error('useModal must be used within a ModalProvider');

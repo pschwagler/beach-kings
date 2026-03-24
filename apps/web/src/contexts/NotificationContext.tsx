@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import type { MutableRefObject, ReactNode } from 'react';
 import {
   getNotifications,
   getUnreadCount,
@@ -11,14 +12,53 @@ import {
 import { useAuth } from './AuthContext';
 import { useNotificationWebSocket } from '../hooks/useNotificationWebSocket';
 
-const NotificationContext = createContext(null);
+export interface NotificationAction {
+  label?: string;
+  url?: string;
+  style?: string;
+  [key: string]: unknown;
+}
 
-export const NotificationProvider = ({ children }) => {
+export interface Notification {
+  id: number;
+  is_read: boolean;
+  read_at?: string | null;
+  title?: string | null;
+  message?: string | null;
+  link_url?: string | null;
+  type?: string | null;
+  created_at?: string | null;
+  data?: {
+    actions?: NotificationAction[];
+    friend_request_id?: number;
+    [key: string]: unknown;
+  } | null;
+}
+
+interface NotificationContextValue {
+  notifications: Notification[];
+  unreadCount: number;
+  dmUnreadCount: number;
+  isLoading: boolean;
+  wsConnected: boolean;
+  fetchNotifications: (limit?: number, offset?: number, unreadOnly?: boolean) => Promise<unknown>;
+  fetchUnreadCount: () => Promise<number | undefined>;
+  fetchDmUnreadCount: () => Promise<number | undefined>;
+  markAsRead: (notificationId: number) => Promise<Notification | undefined>;
+  markAllAsRead: () => Promise<unknown>;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  onDirectMessageRef: MutableRefObject<((msg: unknown) => void) | null>;
+}
+
+const NotificationContext = createContext<NotificationContextValue | null>(null);
+
+export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [dmUnreadCount, setDmUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [dmUnreadCount, setDmUnreadCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   /**
    * Fetch notifications with pagination
@@ -122,8 +162,8 @@ export const NotificationProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   // Stable refs for callbacks passed to the WebSocket hook (avoids recreating WS on every render)
-  const fetchUnreadCountRef = useRef(fetchUnreadCount);
-  const fetchDmUnreadCountRef = useRef(fetchDmUnreadCount);
+  const fetchUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchUnreadCount);
+  const fetchDmUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchDmUnreadCount);
   useEffect(() => { fetchUnreadCountRef.current = fetchUnreadCount; }, [fetchUnreadCount]);
   useEffect(() => { fetchDmUnreadCountRef.current = fetchDmUnreadCount; }, [fetchDmUnreadCount]);
 
@@ -205,7 +245,7 @@ export const NotificationProvider = ({ children }) => {
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };
 
-export const useNotifications = () => {
+export const useNotifications = (): NotificationContextValue => {
   const context = useContext(NotificationContext);
   if (!context) {
     throw new Error('useNotifications must be used within a NotificationProvider');
