@@ -6,6 +6,25 @@ import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerF
 import { formatDivisionLabel } from '../../utils/divisionUtils';
 import PlayerFilterPopover from './PlayerFilterPopover';
 import PlaceholderCreateModal from '../player/PlaceholderCreateModal';
+import type { Location, League } from '../../types';
+import type { PlayerOption } from '../../utils/playerDropdownUtils';
+
+interface PlayerItem {
+  id: number;
+  name?: string | null;
+  full_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+  location_name?: string | null;
+}
+
+interface SearchResult {
+  id: number;
+  full_name: string;
+  location_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+}
 
 interface SessionPlayersAddPanelProps {
   searchTerm: string;
@@ -14,27 +33,27 @@ interface SessionPlayersAddPanelProps {
   leagueIds: (string | number)[];
   genderFilters: string[];
   levelFilters: string[];
-  locations: any[];
-  leagues: any[];
-  onToggleFilter: (filterType: string, value: any) => void;
-  onRemoveFilter: (filterType: string, value: any) => void;
-  items: any[];
-  participantIds: Set<any>;
+  locations: Location[];
+  leagues: League[];
+  onToggleFilter: (filterType: string, value: string | number) => void;
+  onRemoveFilter: (filterType: string, value: string | number) => void;
+  items: PlayerItem[];
+  participantIds: Set<number>;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
-  onAdd: (player: any) => void;
-  pendingAddIds: Set<any>;
+  onAdd: (player: PlayerItem | SearchResult) => void;
+  pendingAddIds: Set<number>;
   onLoadMore: () => void;
   filtersOpen: boolean;
   onFiltersOpenChange: (open: boolean | ((prev: boolean) => boolean)) => void;
-  filterButtonRef: React.RefObject<any>;
-  filterPopoverRef: React.RefObject<any>;
+  filterButtonRef: React.RefObject<HTMLDivElement>;
+  filterPopoverRef: React.RefObject<HTMLDivElement>;
   activeFilterCount: number;
   userLocationId?: string | null;
-  onCreatePlaceholder: (name: string, extras?: any) => Promise<any>;
+  onCreatePlaceholder: (name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption>;
   isCreatingPlaceholder: boolean;
-  onSearchPlayers?: ((query: string) => Promise<any>) | null;
+  onSearchPlayers?: ((query: string) => Promise<{ items: SearchResult[] }>) | null;
 }
 
 /**
@@ -72,11 +91,11 @@ export default function SessionPlayersAddPanel({
 }: SessionPlayersAddPanelProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
-  const [createModalState, setCreateModalState] = useState(null);
-  const [searchResults, setSearchResults] = useState([]);
+  const [createModalState, setCreateModalState] = useState<{ name: string } | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const createInputRef = useRef(null);
-  const searchDebounceRef = useRef(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (showCreateForm) {
@@ -124,7 +143,7 @@ export default function SessionPlayersAddPanel({
    * Handle modal close — reset create form on success.
    * @param {Object|null} result - Created player data or null if cancelled
    */
-  const handleModalClose = (result) => {
+  const handleModalClose = (result: PlayerOption | null) => {
     setCreateModalState(null);
     if (result) {
       setNewPlayerName('');
@@ -402,8 +421,11 @@ export default function SessionPlayersAddPanel({
       <PlaceholderCreateModal
         isOpen={!!createModalState}
         playerName={createModalState?.name || ''}
-        onCreate={onCreatePlaceholder}
-        onClose={handleModalClose}
+        onCreate={async (name, extras) => {
+          const result = await onCreatePlaceholder(name, extras);
+          return { name: result.label, id: result.value, ...result };
+        }}
+        onClose={(result) => handleModalClose(result ? (result as unknown as PlayerOption) : null)}
       />
     </section>
   );

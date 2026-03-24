@@ -1,16 +1,27 @@
 import { useMemo, useState } from 'react';
 import { X, Trophy, Users, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/UI';
+import type { Season } from '../../types';
+
+interface SessionMatch {
+  'Team 1 Player 1'?: string;
+  'Team 1 Player 2'?: string;
+  'Team 2 Player 1'?: string;
+  'Team 2 Player 2'?: string;
+  'Team 1 Score'?: string | number;
+  'Team 2 Score'?: string | number;
+  Winner?: string;
+}
 
 // Helper function to calculate player statistics from matches
-function calculatePlayerStats(matches) {
+function calculatePlayerStats(matches: SessionMatch[]) {
   const playerStats: Record<string, { name: string; wins: number; losses: number; pointDifferential: number }> = {};
   
   matches.forEach(match => {
     const team1Players = [match['Team 1 Player 1'], match['Team 1 Player 2']].filter(Boolean);
     const team2Players = [match['Team 2 Player 1'], match['Team 2 Player 2']].filter(Boolean);
-    const team1Score = parseInt(match['Team 1 Score']) || 0;
-    const team2Score = parseInt(match['Team 2 Score']) || 0;
+    const team1Score = parseInt(String(match['Team 1 Score'] ?? '')) || 0;
+    const team2Score = parseInt(String(match['Team 2 Score'] ?? '')) || 0;
     
     // Determine winner from scores if not explicitly set
     let winner = match.Winner;
@@ -75,8 +86,8 @@ interface ConfirmationModalProps {
   sessionName?: string;
   gameCount?: number;
   playerCount?: number;
-  matches?: any[];
-  season?: any;
+  matches?: SessionMatch[];
+  season?: Season | null;
 }
 
 export default function ConfirmationModal({

@@ -1,18 +1,29 @@
+import React from 'react';
 import { BarChart3 } from 'lucide-react';
 
+export interface PlayerStatsRow {
+  'Partner/Opponent': string;
+  'Player ID'?: number | null;
+  'Wins'?: number | string;
+  'Losses'?: number | string;
+  'Win Rate'?: number | null;
+  'Games'?: number | string;
+  'Avg Pt Diff'?: number | string | null;
+}
+
 interface PlayerStatsTableProps {
-  playerStats: any[] | null;
-  onPlayerChange: (id: any) => void;
+  playerStats: PlayerStatsRow[] | null;
+  onPlayerChange: (id: number | string) => void;
 }
 
 export default function PlayerStatsTable({ playerStats, onPlayerChange }: PlayerStatsTableProps) {
-  const formatPtDiff = (value) => {
+  const formatPtDiff = (value: number | string | null | undefined): string => {
     if (value === '' || value === null || value === undefined) return '';
-    return value >= 0 ? `+${value}` : `${value}`;
+    return Number(value) >= 0 ? `+${value}` : `${value}`;
   };
 
-  const formatWinRate = (value) => {
-    if (value === '' || value === null || value === undefined) return '';
+  const formatWinRate = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '';
     return `${(value * 100).toFixed(1)}%`;
   };
 
@@ -61,7 +72,7 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }: Player
           </tr>
         </thead>
         <tbody>
-          {playerStats.reduce((acc, row, idx) => {
+          {playerStats.reduce((acc: { rows: React.ReactNode[]; groupRowIndex: number }, row, idx) => {
             const isSectionHeader =
               row['Partner/Opponent'] === 'WITH PARTNERS' ||
               row['Partner/Opponent'] === 'VS OPPONENTS';

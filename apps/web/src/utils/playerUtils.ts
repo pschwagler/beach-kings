@@ -8,11 +8,12 @@ interface PlayerOptionLike {
 }
 
 interface RankedPlayer {
-  Points: number;
-  'Avg Pt Diff': number;
-  'Win Rate': number;
-  ELO: number;
-  [key: string]: any;
+  player_id?: number;
+  Points?: number | null;
+  'Avg Pt Diff'?: number | null;
+  'Win Rate'?: number | null;
+  ELO?: number | null;
+  season_rank?: number;
 }
 
 /**

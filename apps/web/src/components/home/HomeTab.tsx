@@ -9,8 +9,9 @@ import { MySessionsWidget } from './OpenSessionsList';
 import NearYouSection from './NearYouSection';
 import { getPlayerMatchHistory } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
+import type { Player, League } from '../../types';
 
-const getAvatarInitial = (currentUserPlayer) => {
+const getAvatarInitial = (currentUserPlayer: Player | null): string => {
   if (currentUserPlayer?.nickname) {
     return currentUserPlayer.nickname.trim().charAt(0).toUpperCase();
   }
@@ -20,16 +21,26 @@ const getAvatarInitial = (currentUserPlayer) => {
   return '?';
 };
 
+interface MatchHistoryRecord {
+  Date?: string;
+  Result?: string;
+  'Session Status'?: string;
+  'ELO After'?: number | null;
+  'League ID'?: number | string | null;
+  'Season ID'?: number | string | null;
+  'Session Code'?: string | null;
+}
+
 interface HomeTabProps {
-  currentUserPlayer: any;
-  userLeagues: any[];
+  currentUserPlayer: Player | null;
+  userLeagues: League[];
   onTabChange: (tab: string) => void;
   onLeaguesUpdate: () => void | Promise<void>;
 }
 
 export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, onLeaguesUpdate }: HomeTabProps) {
   const router = useRouter();
-  const [userMatches, setUserMatches] = useState([]);
+  const [userMatches, setUserMatches] = useState<MatchHistoryRecord[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [sessionsRefreshTrigger, setSessionsRefreshTrigger] = useState(0);
 
@@ -76,11 +87,11 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     loadUserMatches();
   }, [currentUserPlayer]);
 
-  const navigateToLeague = (leagueId) => {
+  const navigateToLeague = (leagueId: number) => {
     router.push(`/league/${leagueId}`);
   };
 
-  const handleMatchClick = (match) => {
+  const handleMatchClick = (match: MatchHistoryRecord) => {
     const sessionCode = match?.['Session Code'];
     if (sessionCode) {
       router.push(`/session/${sessionCode}`);

@@ -1,7 +1,7 @@
 'use client';
 
 import './PlayerSearchModal.css';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, Loader2, UserPlus } from 'lucide-react';
 import { usePlayerSearch } from '../hooks/usePlayerSearch';
@@ -19,11 +19,30 @@ import PlaceholderCreateModal from '../../player/PlaceholderCreateModal';
  * @param {function} props.onSelect - Called with (playerId, playerName) on resolution
  * @param {function} props.onClose - Called when modal is dismissed without selection
  */
+interface SearchedPlayer {
+  id: number;
+  name?: string | null;
+  location_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+}
+
+interface CreatedPlaceholder {
+  id?: number;
+  player_id?: number;
+  name: string;
+  label?: string;
+  inviteUrl?: string | null;
+  invite_url?: string | null;
+  inviteToken?: string | null;
+  invite_token?: string | null;
+}
+
 interface PlayerSearchModalProps {
   isOpen: boolean;
   rawName: string;
   leagueId?: number;
-  onSelect: (playerId: any, playerName: string) => void;
+  onSelect: (playerId: number, playerName: string) => void;
   onClose: () => void;
 }
 
@@ -39,12 +58,12 @@ export default function PlayerSearchModal({ isOpen, rawName, leagueId, onSelect,
     }
   }, [isOpen, rawName, setQuery]);
 
-  const handleSelect = useCallback((player) => {
+  const handleSelect = useCallback((player: SearchedPlayer) => {
     onSelect(player.id, player.name || '');
   }, [onSelect]);
 
-  const handleCreatePlaceholder = useCallback(async (name, extras) => {
-    const data = { name, ...extras };
+  const handleCreatePlaceholder = useCallback(async (name: string, extras: { gender?: string; level?: string } = {}): Promise<CreatedPlaceholder> => {
+    const data: Record<string, unknown> = { name, ...extras };
     if (leagueId) {
       data.league_id = leagueId;
     }
@@ -57,7 +76,7 @@ export default function PlayerSearchModal({ isOpen, rawName, leagueId, onSelect,
     };
   }, [leagueId]);
 
-  const handlePlaceholderClose = useCallback((createdPlayer) => {
+  const handlePlaceholderClose = useCallback((createdPlayer: CreatedPlaceholder | null) => {
     // Suppress the next overlay click to prevent the PlayerSearchModal from closing
     // when PlaceholderCreateModal's overlay dismiss causes a click-through
     suppressOverlayCloseRef.current = true;
@@ -69,7 +88,7 @@ export default function PlayerSearchModal({ isOpen, rawName, leagueId, onSelect,
     }
   }, [onSelect]);
 
-  const handleOverlayClick = useCallback((e) => {
+  const handleOverlayClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // Don't close if PlaceholderCreateModal is open, or if it just closed
     // (the same click that closes PlaceholderCreateModal can land on this overlay)
     if (e.target === e.currentTarget && !showCreateModal && !suppressOverlayCloseRef.current) {

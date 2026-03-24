@@ -56,7 +56,7 @@ export function useSessionPlayersModal({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOpenRef = useRef<boolean>(false);
   const hasMutatedRef = useRef<boolean>(false);
-  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const filterButtonRef = useRef<HTMLDivElement | null>(null);
   const filterPopoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

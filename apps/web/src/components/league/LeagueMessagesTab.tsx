@@ -1,11 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Send, RefreshCw } from 'lucide-react';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLeagueMessages, createLeagueMessage } from '../../services/api';
 
-function formatRelativeTime(dateString) {
+interface LeagueMessage {
+  id: number;
+  player_id: number;
+  player_name: string;
+  created_at: string;
+  message: string;
+}
+
+function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -29,7 +37,7 @@ export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) 
   const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<LeagueMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -51,7 +59,7 @@ export default function LeagueMessagesTab({ leagueId }: LeagueMessagesTabProps) 
     loadMessages();
   }, [loadMessages]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newMessage.trim() || sending) return;
 

@@ -10,21 +10,32 @@ import {
   normalizePlayerNames,
   filterPlayers,
   hasExactMatch,
+  PlayerOption,
 } from '../../utils/playerDropdownUtils';
 import ShareInviteIcon from './ShareInviteIcon';
 import PlaceholderCreateModal from './PlaceholderCreateModal';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+interface SearchResult {
+  id: number;
+  full_name: string;
+  location_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+  total_games?: number | null;
+  current_rating?: number | null;
+}
+
 interface PlayerDropdownProps {
-  value: any;
-  onChange: (player: any) => void;
-  allPlayerNames: any[];
+  value: PlayerOption | string | null;
+  onChange: (player: PlayerOption | string) => void;
+  allPlayerNames: Array<PlayerOption | string>;
   placeholder?: string;
-  excludePlayers?: any[];
+  excludePlayers?: Array<PlayerOption | string>;
   autoOpen?: boolean;
-  onCreatePlaceholder?: ((name: string, extras: any) => Promise<any>) | null;
-  onSearchPlayers?: ((query: string) => Promise<any>) | null;
+  onCreatePlaceholder?: ((name: string, extras: { gender?: string; level?: string }) => Promise<PlayerOption>) | null;
+  onSearchPlayers?: ((query: string) => Promise<{ items: SearchResult[] }>) | null;
   leagueMemberIds?: Set<number> | null;
   leagueGender?: string | null;
   leagueLevel?: string | null;
@@ -53,16 +64,16 @@ export default function PlayerDropdown({
   const [isCreating, setIsCreating] = useState(false);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const [createFormName, setCreateFormName] = useState('');
-  const [createModalState, setCreateModalState] = useState(null);
-  const [searchResults, setSearchResults] = useState([]);
+  const [createModalState, setCreateModalState] = useState<{ name: string } | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const createInputRef = useRef(null);
-  const searchDebounceRef = useRef(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const containerRef = useRef(null);
-  const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const optionRefs = useRef([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLUListElement>(null);
+  const optionRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   // Use custom hooks
   useDropdownPopper(isOpen, inputRef, dropdownRef);
@@ -156,9 +167,9 @@ export default function PlayerDropdown({
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e) => {
-      const clickedContainer = containerRef.current && containerRef.current.contains(e.target);
-      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const clickedContainer = containerRef.current && containerRef.current.contains(e.target as Node);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(e.target as Node);
 
       if (!clickedContainer && !clickedDropdown) {
         setIsOpen(false);
@@ -175,7 +186,7 @@ export default function PlayerDropdown({
     };
   }, [isOpen]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const newValue = e.target.value;
     setInputValue(newValue);
     if (!isOpen) {
@@ -196,7 +207,7 @@ export default function PlayerDropdown({
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (!isOpen || totalItems === 0) {
       if (e.key === 'ArrowDown' && !isOpen) {
         e.preventDefault();
@@ -243,7 +254,7 @@ export default function PlayerDropdown({
     }
   };
 
-  const handleSelectPlayer = useCallback((player) => {
+  const handleSelectPlayer = useCallback((player: PlayerOption | string) => {
     onChange(player);
     setInputValue(getDisplayValue(player));
     setIsOpen(false);
@@ -263,7 +274,7 @@ export default function PlayerDropdown({
    * Open the create modal for the given name, closing the dropdown create mode.
    * @param {string} [nameOverride] - Optional name to use instead of createFormName
    */
-  const openCreateModal = (nameOverride) => {
+  const openCreateModal = (nameOverride?: string): void => {
     const name = nameOverride || createFormName.trim();
     if (!onCreatePlaceholder || !name) return;
     setCreateModalState({ name });
@@ -275,7 +286,7 @@ export default function PlayerDropdown({
    * Handle modal close — select the created player if one was returned.
    * @param {Object|null} result - Created player data or null if cancelled
    */
-  const handleModalClose = (result) => {
+  const handleModalClose = (result: PlayerOption | null): void => {
     setCreateModalState(null);
     if (result) {
       handleSelectPlayer(result);
@@ -285,7 +296,7 @@ export default function PlayerDropdown({
   /**
    * Handle clicking a search result that is a league member — auto-select them.
    */
-  const handleSelectSearchResult = useCallback((result) => {
+  const handleSelectSearchResult = useCallback((result: SearchResult) => {
     const playerOption = {
       value: result.id,
       label: result.full_name,
@@ -415,7 +426,7 @@ export default function PlayerDropdown({
                 id={`player-option-${index}`}
                 role="option"
                 aria-selected={highlightedIndex === index}
-                ref={el => { optionRefs.current[index] = el; }}
+                ref={(el) => { optionRefs.current[index] = el; }}
                 className={`player-dropdown-option ${highlightedIndex === index ? 'highlighted' : ''}`}
                 onClick={() => handleSelectPlayer(player)}
                 onTouchStart={handleTouchStart}
@@ -438,7 +449,7 @@ export default function PlayerDropdown({
               id={`player-option-${addUnregisteredIndex}`}
               role="option"
               aria-selected={highlightedIndex === addUnregisteredIndex}
-              ref={el => { optionRefs.current[addUnregisteredIndex] = el; }}
+              ref={(el) => { optionRefs.current[addUnregisteredIndex] = el; }}
               className={`player-dropdown-option create-placeholder add-unregistered ${highlightedIndex === addUnregisteredIndex ? 'highlighted' : ''}`}
               onClick={enterCreateMode}
               onMouseEnter={() => setHighlightedIndex(addUnregisteredIndex)}
@@ -484,8 +495,11 @@ export default function PlayerDropdown({
       <PlaceholderCreateModal
         isOpen={!!createModalState}
         playerName={createModalState?.name || ''}
-        onCreate={onCreatePlaceholder}
-        onClose={handleModalClose}
+        onCreate={async (name, extras) => {
+          const result = await onCreatePlaceholder(name, extras);
+          return { name: result.label, id: result.value, ...result };
+        }}
+        onClose={(result) => handleModalClose(result ? (result as unknown as PlayerOption) : null)}
         leagueGender={leagueGender}
         leagueLevel={leagueLevel}
       />

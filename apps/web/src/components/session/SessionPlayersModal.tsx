@@ -8,22 +8,37 @@ import SessionPlayersAddPanel from './SessionPlayersAddPanel';
 import CourtSelector from '../court/CourtSelector';
 import { getPlayerHomeCourts, getNearbyCourts } from '../../services/api';
 import { useUserPosition } from '../../hooks/useUserPosition';
+import type { Player } from '../../types';
+
+interface Participant {
+  player_id: number;
+  full_name?: string | null;
+  player_name?: string | null;
+  gender?: string | null;
+  level?: string | null;
+  location_name?: string | null;
+}
+
+interface HomeCourt {
+  id: number;
+  name: string;
+}
 
 interface SessionPlayersModalProps {
   isOpen: boolean;
   sessionId: number | null;
-  participants?: any[];
+  participants?: Participant[];
   sessionCreatedByPlayerId?: number | null;
   currentUserPlayerId?: number | null;
-  currentUserPlayer?: any | null;
+  currentUserPlayer?: Player | null;
   onClose: () => void;
-  onSuccess?: ((...args: any[]) => void) | null;
+  onSuccess?: (() => void) | null;
   message?: string | null;
   sessionName?: string;
   sessionCourtId?: number | null;
   sessionCourtName?: string | null;
   sessionCourtSlug?: string | null;
-  onUpdateSession?: ((...args: any[]) => void) | null;
+  onUpdateSession?: ((update: Record<string, unknown>) => void) | null;
 }
 
 /**
@@ -47,11 +62,11 @@ export default function SessionPlayersModal({
   sessionCourtSlug = null,
   onUpdateSession,
 }: SessionPlayersModalProps) {
-  const drawerRef = useRef(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
   const [draftName, setDraftName] = useState(sessionName);
   const [courtId, setCourtId] = useState(sessionCourtId);
   const [courtName, setCourtName] = useState(sessionCourtName);
-  const [playerHomeCourts, setPlayerHomeCourts] = useState([]);
+  const [playerHomeCourts, setPlayerHomeCourts] = useState<HomeCourt[]>([]);
   const defaultAppliedRef = useRef(false);
 
   // Geo position for nearest-court fallback
@@ -132,13 +147,13 @@ export default function SessionPlayersModal({
     }
   }, [draftName, sessionName, onUpdateSession]);
 
-  const handleNameKeyDown = useCallback((e) => {
+  const handleNameKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.target.blur();
+      (e.target as HTMLInputElement).blur();
     }
   }, []);
 
-  const handleCourtChange = useCallback((newCourtId) => {
+  const handleCourtChange = useCallback((newCourtId: number | null) => {
     setCourtId(newCourtId);
     setCourtName(null); // CourtSelector manages display name internally after user interaction
     if (onUpdateSession) {
@@ -198,12 +213,12 @@ export default function SessionPlayersModal({
   useEffect(() => {
     if (!isOpen) return;
     const el = drawerRef.current?.querySelector('button[aria-label="Close"], .modal-close-button');
-    el?.focus();
+    (el as HTMLElement | null)?.focus();
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') handleClose();
     };
     document.addEventListener('keydown', handleKeyDown);

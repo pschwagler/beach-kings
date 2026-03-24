@@ -47,7 +47,7 @@ export function usePhotoMatchReview({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
-  const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string; timestamp: string }>>([]);
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(seasonId);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
   // playerOverrides: manual player resolutions for unrecognized names from the AI result

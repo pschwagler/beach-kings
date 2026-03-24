@@ -4,9 +4,10 @@ import { Trophy, ChevronRight, Users, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import { createLeague, addLeagueHomeCourt } from '../../services/api';
+import type { League } from '../../types';
 
 interface MyLeaguesWidgetProps {
-  leagues: any[];
+  leagues: League[];
   onLeagueClick?: (leagueId: number) => void;
   onLeaguesUpdate?: () => void | Promise<void>;
   onViewAll?: () => void;
@@ -16,7 +17,7 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
   const router = useRouter();
   const { openModal } = useModal();
 
-  const handleLeagueClick = (leagueId) => {
+  const handleLeagueClick = (leagueId: number) => {
     if (onLeagueClick) {
       onLeagueClick(leagueId);
     } else {
@@ -24,12 +25,12 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
     }
   };
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     try {
       const { initial_court_id, ...payload } = leagueData;
       const newLeague = await createLeague(payload);
       if (initial_court_id && newLeague?.id) {
-        try { await addLeagueHomeCourt(newLeague.id, initial_court_id); } catch {}
+        try { await addLeagueHomeCourt(newLeague.id, initial_court_id as number); } catch {}
       }
       // Refresh leagues list
       if (onLeaguesUpdate) {
@@ -38,7 +39,7 @@ export default function MyLeaguesWidget({ leagues, onLeagueClick, onLeaguesUpdat
       // Navigate to the newly created league details page
       router.push(`/league/${newLeague.id}?tab=details`);
       return newLeague;
-    } catch (error) {
+    } catch (error: unknown) {
       throw error;
     }
   };

@@ -3,14 +3,23 @@ import { formatDate, utcTimeToLocalWithTimezone } from '../../../utils/dateUtils
 
 const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+export interface WeeklySchedule {
+  id: number;
+  day_of_week: number;
+  start_time: string;
+  duration_hours: number;
+  end_date?: string | null;
+  open_signups_mode: string;
+}
+
 /**
  * Component for rendering weekly schedule list
  */
 interface ScheduleListProps {
-  schedules: any[];
+  schedules: WeeklySchedule[];
   isLeagueAdmin?: boolean;
-  onEdit?: (schedule: any) => void;
-  onDelete?: (schedule: any) => void;
+  onEdit?: (schedule: WeeklySchedule) => void;
+  onDelete?: (scheduleId: number) => void;
 }
 
 export default function ScheduleList({

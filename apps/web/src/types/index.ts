@@ -8,6 +8,8 @@
 export interface User {
   id: number;
   phone: string;
+  email?: string | null;
+  phone_number?: string | null;
   created_at?: string;
   deletion_scheduled_at?: string | null;
   player?: Player;
@@ -39,6 +41,10 @@ export interface Player {
   total_games?: number | null;
   total_wins?: number | null;
   signed_up_at?: string | null;
+  date_of_birth?: string | null;
+  height?: string | null;
+  preferred_side?: string | null;
+  distance_to_location?: number | null;
   stats?: Record<string, number | null | undefined>;
 }
 
@@ -159,7 +165,17 @@ export interface Court {
   distance_miles?: number | null;
   created_at?: string;
   reviews?: unknown[] | null;
+  court_photos?: unknown[] | null;
   location_id?: string | null;
+  location_name?: string | null;
+  location_slug?: string | null;
+  top_tags?: string[] | null;
+  photo_url?: string | null;
+  photos?: unknown[] | null;
+  tags?: unknown[] | null;
+  status?: string | null;
+  submitted_by?: number | null;
+  submitted_by_name?: string | null;
   position?: number;
 }
 

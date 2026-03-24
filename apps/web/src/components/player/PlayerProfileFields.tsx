@@ -4,12 +4,33 @@ import { Info } from "lucide-react";
 import { Tooltip } from "../ui/UI";
 import CityAutocomplete from "../ui/CityAutocomplete";
 import { GENDER_OPTIONS, SKILL_LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
+import type { Location } from '../../types';
+
+interface ProfileFormData {
+  gender: string;
+  city: string;
+  state: string;
+  city_latitude: number | null;
+  city_longitude: number | null;
+  location_id: string;
+  level: string;
+  nickname: string;
+  date_of_birth: string;
+  distance_to_location?: number | null;
+}
+
+interface CitySelectData {
+  city: string;
+  state: string;
+  city_latitude: number | null;
+  city_longitude: number | null;
+}
 
 interface PlayerProfileFieldsProps {
-  formData: any;
+  formData: ProfileFormData;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onCitySelect: (cityData: any) => void;
-  locations?: any[];
+  onCitySelect: (cityData: CitySelectData) => void;
+  locations?: Location[];
   isLoadingLocations?: boolean;
   showTooltips?: boolean;
   onLocationChange?: (value: string) => void;
@@ -65,7 +86,12 @@ export default function PlayerProfileFields({
         <CityAutocomplete
           value={formData.city}
           onChange={onInputChange}
-          onCitySelect={onCitySelect}
+          onCitySelect={(suggestion) => onCitySelect({
+            city: suggestion.city,
+            state: suggestion.state,
+            city_latitude: suggestion.lat,
+            city_longitude: suggestion.lon,
+          })}
           required={true}
           placeholder="Enter your city/zip"
         />

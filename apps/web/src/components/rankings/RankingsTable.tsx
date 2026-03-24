@@ -5,15 +5,16 @@ import { Tooltip } from '../ui/UI';
 import { getFirstPlacePlayer } from '../../utils/playerUtils';
 import { RankingsTableSkeleton } from '../ui/Skeletons';
 import ShareInviteIcon from '../player/ShareInviteIcon';
+import type { RankingEntry } from '../../contexts/league/useSeasonData';
 
 // Helper function to check if avatar is an image URL
-const isImageUrl = (avatar) => {
+const isImageUrl = (avatar: string | null | undefined): boolean => {
   if (!avatar) return false;
   return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
 };
 
 // Avatar component
-const PlayerAvatar = ({ avatar, playerName }: { avatar: any; playerName: string }) => {
+const PlayerAvatar = ({ avatar, playerName }: { avatar: string | null | undefined; playerName: string }) => {
   if (isImageUrl(avatar)) {
     return (
       <div className="player-avatar player-avatar-image">
@@ -31,13 +32,21 @@ const PlayerAvatar = ({ avatar, playerName }: { avatar: any; playerName: string 
 
 const MEDAL_ICONS = ['🥇', '🥈', '🥉'];
 
+
+interface RankingsSeason {
+  id: number;
+  name?: string | null;
+  scoring_system?: string;
+  point_system?: string | Record<string, unknown>;
+}
+
 interface RankingsTableProps {
-  rankings: any[] | null | undefined;
+  rankings: RankingEntry[] | null | undefined;
   onPlayerClick: (playerId: number, playerName: string) => void;
   loading?: boolean;
   isAllSeasons?: boolean;
   onNavigateToMatches?: () => void;
-  season?: any;
+  season?: RankingsSeason | null;
   placeholderPlayerIds?: Set<number> | null;
   awardsFinalized?: boolean;
 }
@@ -105,7 +114,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
     return <RankingsTableSkeleton />;
   }
 
-  const handleSort = (column) => {
+  const handleSort = (column: string) => {
     setSortConfig(prev => {
       if (prev.column === column) {
         // Toggle ascending/descending for same column
@@ -117,14 +126,14 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
     });
   };
 
-  const getSortArrow = (column) => {
+  const getSortArrow = (column: string) => {
     if (sortConfig.column === column) {
       return sortConfig.ascending ? ' ↑' : ' ↓';
     }
     return '';
   };
 
-  const formatPtDiff = (value) => {
+  const formatPtDiff = (value: number) => {
     return value >= 0 ? `+${value}` : `${value}`;
   };
 
@@ -132,7 +141,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
    * Format points to nearest 0.1, but show as integer if it's a whole number
    * Examples: 2.0000 -> "2", 2.5 -> "2.5", 2.45 -> "2.5", 2.44 -> "2.4"
    */
-  const formatPoints = (value) => {
+  const formatPoints = (value: number | null | undefined) => {
     if (value == null || value === undefined) return '-';
     
     // Round to nearest 0.1

@@ -16,8 +16,8 @@ import {
   deleteWeeklySchedule,
   getLocations
 } from '../../services/api';
-import SignupList from './components/SignupList';
-import ScheduleList from './components/ScheduleList';
+import SignupList, { type Signup } from './components/SignupList';
+import ScheduleList, { type WeeklySchedule } from './components/ScheduleList';
 
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
@@ -27,9 +27,9 @@ export default function LeagueSignUpsTab() {
   const { openModal, closeModal } = useModal();
   const { showToast } = useToast();
   
-  const [signups, setSignups] = useState([]);
-  const [weeklySchedules, setWeeklySchedules] = useState([]);
-  const [courts, setCourts] = useState([]);
+  const [signups, setSignups] = useState<Signup[]>([]);
+  const [weeklySchedules, setWeeklySchedules] = useState<WeeklySchedule[]>([]);
+  const [courts, setCourts] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   
   const loadCourts = async () => {
@@ -129,7 +129,7 @@ export default function LeagueSignUpsTab() {
     loadCourts();
   }, []);
   
-  const handleCreateSignup = async (signupData) => {
+  const handleCreateSignup = async (signupData: Record<string, unknown>) => {
     // Use selectedSeasonId or first season if none selected
     const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
     if (!seasonId) {
@@ -140,81 +140,87 @@ export default function LeagueSignUpsTab() {
       await createSignup(seasonId, signupData);
       closeModal();
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to create signup', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to create signup', 'error');
       throw err;
     }
   };
-  
-  const handleUpdateSignup = async (signupId, signupData) => {
+
+  const handleUpdateSignup = async (signupId: number, signupData: Record<string, unknown>) => {
     try {
       await updateSignup(signupId, signupData);
       closeModal();
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update signup', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update signup', 'error');
       throw err;
     }
   };
-  
-  const handleDeleteSignup = async (signupId) => {
+
+  const handleDeleteSignup = async (signupId: number) => {
     if (!confirm('Are you sure you want to delete this signup?')) return;
     try {
       await deleteSignup(signupId);
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to delete signup', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to delete signup', 'error');
     }
   };
-  
-  const handleSignup = async (signupId) => {
+
+  const handleSignup = async (signupId: number) => {
     try {
       await signupForSignup(signupId);
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to sign up', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to sign up', 'error');
     }
   };
-  
-  const handleDropout = async (signupId) => {
+
+  const handleDropout = async (signupId: number) => {
     try {
       await dropoutFromSignup(signupId);
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to drop out', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to drop out', 'error');
     }
   };
-  
-  const handleCreateSchedule = async (scheduleData) => {
+
+  const handleCreateSchedule = async (scheduleData: Record<string, unknown>) => {
     // Use selectedSeasonId or first season if none selected
     const seasonId = selectedSeasonId || (seasons && seasons.length > 0 ? seasons[0].id : null);
     if (!seasonId) {
       showToast('Please select a season to create a schedule', 'error');
       return;
     }
-    const season = seasons.find(s => s.id === seasonId);
     try {
       await createWeeklySchedule(seasonId, scheduleData);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as new ones may have been generated
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to create weekly schedule', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to create weekly schedule', 'error');
       throw err;
     }
   };
-  
-  const handleUpdateSchedule = async (scheduleId, scheduleData) => {
+
+  const handleUpdateSchedule = async (scheduleId: number, scheduleData: Record<string, unknown>) => {
     try {
       await updateWeeklySchedule(scheduleId, scheduleData);
       await loadWeeklySchedules();
       await loadSignups(); // Reload signups as they may have been regenerated
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to update weekly schedule', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to update weekly schedule', 'error');
       throw err;
     }
   };
-  
-  const handleDeleteSchedule = (scheduleId) => {
+
+  const handleDeleteSchedule = (scheduleId: number) => {
     openModal(MODAL_TYPES.CONFIRMATION, {
       title: "Delete Weekly Schedule",
       message: "Are you sure you want to delete this weekly schedule? All future scheduled sessions for this schedule will be deleted. Past sessions will be preserved.",
@@ -224,14 +230,15 @@ export default function LeagueSignUpsTab() {
     });
   };
 
-  const confirmDeleteSchedule = async (scheduleId) => {
+  const confirmDeleteSchedule = async (scheduleId: number) => {
     if (!scheduleId) return;
     try {
       await deleteWeeklySchedule(scheduleId);
       await loadWeeklySchedules();
       await loadSignups();
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to delete weekly schedule', 'error');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      showToast(e.response?.data?.detail || 'Failed to delete weekly schedule', 'error');
     }
   };
   
