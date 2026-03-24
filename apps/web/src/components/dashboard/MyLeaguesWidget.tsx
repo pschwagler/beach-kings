@@ -8,7 +8,7 @@ import { createLeague, addLeagueHomeCourt } from '../../services/api';
 interface MyLeaguesWidgetProps {
   leagues: any[];
   onLeagueClick?: (leagueId: number) => void;
-  onLeaguesUpdate?: () => Promise<void>;
+  onLeaguesUpdate?: () => void | Promise<void>;
   onViewAll?: () => void;
 }
 

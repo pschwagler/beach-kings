@@ -12,7 +12,7 @@ import { createLeague, addLeagueHomeCourt } from '../../services/api';
 interface MyLeaguesBarProps {
   leagues: any[];
   onLeagueClick?: (leagueId: number) => void;
-  onLeaguesUpdate?: () => Promise<void>;
+  onLeaguesUpdate?: () => void | Promise<void>;
   onViewAll?: () => void;
 }
 

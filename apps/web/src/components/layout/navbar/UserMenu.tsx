@@ -47,6 +47,7 @@ interface UserMenuProps {
   onMenuClick?: (action: string) => void;
   onSignIn?: () => void;
   onSignUp?: () => void;
+  onSmsLogin?: () => void;
   onSignOut?: () => void;
 }
 

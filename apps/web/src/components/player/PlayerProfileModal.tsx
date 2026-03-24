@@ -136,7 +136,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
 
     try {
       // Prepare payload - gender and level are required
-      const payload = {
+      const payload: Record<string, any> = {
         gender: formData.gender,
         level: formData.level,
       };

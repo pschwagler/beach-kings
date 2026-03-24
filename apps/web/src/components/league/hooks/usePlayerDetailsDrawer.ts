@@ -27,6 +27,25 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  *
  * @returns {Object} Object with handlePlayerClick function
  */
+interface UsePlayerDetailsDrawerConfig {
+  seasonData: any;
+  getPlayerStats?: any;
+  getPlayerMatchHistory?: any;
+  allPlayers: any;
+  leagueName: any;
+  seasonName: any;
+  selectedPlayerId: any;
+  selectedPlayerName: any;
+  setSelectedPlayer: any;
+  precomputedStats?: any;
+  precomputedMatchHistory?: any;
+  autoSelect?: boolean;
+  currentUserPlayer?: any;
+  rankings?: any;
+  members?: any;
+  selectedSeasonId?: any;
+}
+
 export function usePlayerDetailsDrawer({
   seasonData,
   getPlayerStats = null,
@@ -44,7 +63,7 @@ export function usePlayerDetailsDrawer({
   rankings = null,
   members = null,
   selectedSeasonId = null,
-}) {
+}: UsePlayerDetailsDrawerConfig) {
   const { openDrawer, isOpen, drawerType } = useDrawer();
 
   // Auto-select default player when data becomes available (if enabled)
