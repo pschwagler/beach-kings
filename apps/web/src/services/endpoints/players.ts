@@ -59,7 +59,7 @@ export const createPlayer = async (name: string) => {
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerStats = async (playerId, { signal }: { signal?: AbortSignal } = {}) => {
+export const getPlayerStats = async (playerId: number, { signal }: { signal?: AbortSignal } = {}) => {
   const response = await api.get(`/api/players/${playerId}/stats`, { signal });
   return response.data;
 };
@@ -156,7 +156,7 @@ export const getEloTimeline = async () => {
  * @param {Object} [options]
  * @param {AbortSignal} [options.signal] - Optional AbortSignal for cancellation
  */
-export const getPlayerMatchHistory = async (playerId, { signal }: { signal?: AbortSignal } = {}) => {
+export const getPlayerMatchHistory = async (playerId: number, { signal }: { signal?: AbortSignal } = {}) => {
   const response = await api.get(`/api/players/${playerId}/matches`, { signal });
   return response.data;
 };

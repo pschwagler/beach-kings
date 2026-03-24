@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
@@ -49,12 +49,12 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
     router.push('/');
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'view-league' && leagueId) {
       router.push(`/league/${leagueId}`);
     } else if (action === 'create-league') {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSubmit: async (leagueData) => {
+        onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
           setUserLeagues(await getUserLeagues());
           router.push(`/league/${newLeague.id}?tab=details`);
@@ -63,7 +63,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
     }
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
@@ -85,7 +85,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
     setUploadError('');
     try {
       const newPhoto = await uploadCourtPhoto(court.id, selectedFile);
-      setPhotos((prev) => [newPhoto, ...prev]);
+      setPhotos((prev: unknown[]) => [newPhoto, ...prev]);
       handleCancelPreview();
     } catch (err) {
       setUploadError(err.response?.data?.detail || 'Failed to upload photo. Please try again.');
@@ -192,7 +192,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
         {/* Photo grid */}
         {photos.length > 0 ? (
           <div className="court-photos__grid">
-            {photos.map((photo, idx) => (
+            {photos.map((photo: { url: string }, idx: number) => (
               <img
                 key={photo.url}
                 src={photo.url}

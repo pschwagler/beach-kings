@@ -4,6 +4,6 @@
  * @returns {string} Display label (e.g. "Men's", "Women's", "Co-ed")
  */
 export function formatGender(gender: string | null | undefined): string | null | undefined {
-  const map = { male: "Men's", female: "Women's", coed: 'Co-ed' };
-  return map[gender?.toLowerCase()] || gender;
+  const map: Record<string, string> = { male: "Men's", female: "Women's", coed: 'Co-ed' };
+  return map[gender?.toLowerCase() ?? ''] || gender;
 }

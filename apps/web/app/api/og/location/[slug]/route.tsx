@@ -15,7 +15,7 @@ import {
  * Dynamic OG image for location landing pages (1200x630).
  * Navy background with Beach League logo, city name, and stat badges.
  */
-export async function GET(request, { params }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   const logoSrc = await loadLogoDataUri();

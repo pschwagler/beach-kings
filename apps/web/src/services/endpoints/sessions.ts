@@ -28,7 +28,7 @@ export const getActiveSession = async (leagueId: number) => {
   }
   // Fetch all sessions and filter for active one on the frontend
   const sessions = await getSessions(leagueId);
-  const activeSession = sessions.find(session => session.status === 'ACTIVE');
+  const activeSession = sessions.find((session: { status?: string }) => session.status === 'ACTIVE');
   return activeSession || null;
 };
 

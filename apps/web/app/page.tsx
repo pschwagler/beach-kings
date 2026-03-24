@@ -43,7 +43,7 @@ export default function Page() {
     setJustSignedUp(true);
   }, []);
 
-  const navigateToLeague = useCallback((leagueId) => {
+  const navigateToLeague = useCallback((leagueId: number) => {
     router.push(`/league/${leagueId}`);
   }, [router]);
 
@@ -118,7 +118,7 @@ export default function Page() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    let scrollTimeout;
+    let scrollTimeout: ReturnType<typeof setTimeout>;
     const handleScroll = () => {
       if (typeof document !== 'undefined') {
         document.body.classList.add("scrolling");
@@ -139,7 +139,7 @@ export default function Page() {
     };
   }, []);
 
-  const handleCreateLeague = async (leagueData) => {
+  const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     const newLeague = await createLeague(leagueData);
     const leagues = await getUserLeagues();
     setUserLeagues(leagues);
@@ -147,7 +147,7 @@ export default function Page() {
     return newLeague;
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === "create-league") {
       if (!isAuthenticated) {
         setPendingAction({ type: "create-league" });

@@ -55,12 +55,12 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
     router.push('/');
   };
 
-  const handleLeaguesMenuClick = (action, leagueId = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'view-league' && leagueId) {
       router.push(`/league/${leagueId}`);
     } else if (action === 'create-league') {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSubmit: async (leagueData) => {
+        onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
           setUserLeagues(await getUserLeagues());
           router.push(`/league/${newLeague.id}?tab=details`);

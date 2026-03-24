@@ -15,7 +15,7 @@ import {
  * Dynamic OG image for player profile pages (1200x630).
  * Navy background with Beach League logo, player name, location, and stat badges.
  */
-export async function GET(request, { params }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const logoSrc = await loadLogoDataUri();

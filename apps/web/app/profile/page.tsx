@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 
-export default function ProfilePage() {
+export default function ProfilePage(): null {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 

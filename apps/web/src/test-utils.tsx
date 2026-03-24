@@ -25,8 +25,8 @@ import { vi } from 'vitest';
  * render(<ModalProvider><ModalConsumer /></ModalProvider>);
  * expect(screen.getByTestId('isOpen').textContent).toBe('false');
  */
-export function createConsumer(useHook, fields) {
-  return function Consumer({ onContext }: { onContext?: (ctx: any) => void } = {}) {
+export function createConsumer(useHook: () => Record<string, unknown>, fields: string[]) {
+  return function Consumer({ onContext }: { onContext?: (ctx: Record<string, unknown>) => void } = {}) {
     const ctx = useHook();
     React.useEffect(() => {
       if (onContext) onContext(ctx);
@@ -48,7 +48,7 @@ export function createConsumer(useHook, fields) {
  * @param {*} value
  * @returns {string}
  */
-function formatValue(value) {
+function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'null';
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'number') return String(value);
@@ -98,7 +98,7 @@ export function mockNextNavigation() {
  * const apiMock = mockApi(['getPlayers', 'createPlayer']);
  * vi.mock('../../services/api', () => apiMock);
  */
-export function mockApi(functionNames) {
+export function mockApi(functionNames: string[]) {
   const mocks: Record<string, any> = {};
   for (const name of functionNames) {
     mocks[name] = vi.fn();
@@ -127,11 +127,13 @@ export function mockApi(functionNames) {
  *   providers: [ToastProvider, ModalProvider],
  * });
  */
-export function renderWithProviders(ui, { providers = [], ...renderOptions } = {}) {
-  function Wrapper({ children }) {
-    return providers.reduceRight(
+type AnyProvider = React.ComponentType<{ children?: React.ReactNode }>;
+
+export function renderWithProviders(ui: React.ReactElement, { providers = [] as AnyProvider[], ...renderOptions } = {}) {
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return providers.reduceRight<React.ReactElement>(
       (acc, Provider) => <Provider>{acc}</Provider>,
-      children
+      <>{children}</>
     );
   }
   return render(ui, { wrapper: Wrapper, ...renderOptions });

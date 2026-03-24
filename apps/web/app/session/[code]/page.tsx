@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Copy, Calendar, LayoutList, ClipboardList, Plus, Share2, ChevronDown, Pencil, MapPin } from 'lucide-react';
@@ -17,6 +17,7 @@ import {
   inviteToSessionBatch,
 } from '../../../src/services/api';
 import { formatDate, formatRelativeTime } from '../../../src/utils/dateUtils';
+import type { Match } from '../../../src/types';
 import { useModal, MODAL_TYPES } from '../../../src/contexts/ModalContext';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import NavBar from '../../../src/components/layout/NavBar';
@@ -138,7 +139,7 @@ export default function SessionByCodePage() {
   // Navigation guard: warn before leaving page with unsaved edits
   useEffect(() => {
     if (!isDirty) return;
-    const handler = (e) => { e.preventDefault(); };
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
@@ -171,7 +172,7 @@ export default function SessionByCodePage() {
    * Unified match submit handler — routes to buffer or API based on edit mode.
    * Fixes previous bug where editMatchId (2nd arg from AddMatchModal) was ignored.
    */
-  const handleAddMatch = async (matchPayload, editMatchId) => {
+  const handleAddMatch = async (matchPayload: Record<string, unknown>, editMatchId: number | null) => {
     if (!session?.id) return;
     if (isEditing) {
       editMatchId != null ? bufferEdit(editMatchId, matchPayload) : bufferAdd(matchPayload);
@@ -191,7 +192,7 @@ export default function SessionByCodePage() {
   /**
    * Unified delete handler — routes to buffer or API based on edit mode.
    */
-  const handleDeleteMatch = async (matchId) => {
+  const handleDeleteMatch = async (matchId: number) => {
     if (isEditing) {
       bufferDelete(matchId);
       closeModal();
@@ -202,7 +203,7 @@ export default function SessionByCodePage() {
     closeModal();
   };
 
-  const handleEditMatch = (match) => {
+  const handleEditMatch = (match: Match) => {
     openModal(MODAL_TYPES.ADD_MATCH, {
       editMatch: match,
       sessionId: session.id,
@@ -301,7 +302,7 @@ export default function SessionByCodePage() {
   /**
    * Handle "My Games" back-link click — guard against unsaved edits.
    */
-  const handleBackClick = (e) => {
+  const handleBackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (isDirty) {
       e.preventDefault();
       openModal(MODAL_TYPES.CONFIRMATION, {
@@ -344,13 +345,14 @@ export default function SessionByCodePage() {
     }
   };
 
-  const handlePlayerClick = useCallback((playerId, playerName, event) => {
+  const handlePlayerClick = useCallback((playerId: number, playerName: string, event: React.MouseEvent) => {
     if (!playerId || !playerName) return;
-    const anchorRect = event?.target?.getBoundingClientRect?.();
+    const target = event?.target as Element | null;
+    const anchorRect = target?.getBoundingClientRect?.();
     setPopover({ playerId, playerName, anchorRect: anchorRect || null });
   }, []);
 
-  const handleLeaguesMenuClick = (action, leagueId) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'create-league') {
       router.push('/home');
       return;
@@ -788,7 +790,7 @@ export default function SessionByCodePage() {
           anchorRect={popover.anchorRect}
           onClose={() => setPopover(null)}
           friendStatusCache={friendStatusCacheRef.current}
-          onCacheUpdate={(id, status) => { friendStatusCacheRef.current[id] = status; }}
+          onCacheUpdate={(id: number, status: string) => { (friendStatusCacheRef.current as Record<number, string>)[id] = status; }}
         />
       )}
     </>

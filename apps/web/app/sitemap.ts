@@ -29,21 +29,21 @@ const STATIC_PAGES = [
  */
 export default async function sitemap() {
   const [leagues, players, locations, courts] = await Promise.all([
-    fetchBackend('/api/public/sitemap/leagues').catch((error) => {
+    fetchBackend('/api/public/sitemap/leagues').catch((error: Error) => {
       console.error('[sitemap] Failed to fetch leagues:', error.message);
-      return [];
+      return [] as unknown[];
     }),
-    fetchBackend('/api/public/sitemap/players').catch((error) => {
+    fetchBackend('/api/public/sitemap/players').catch((error: Error) => {
       console.error('[sitemap] Failed to fetch players:', error.message);
-      return [];
+      return [] as unknown[];
     }),
-    fetchBackend('/api/public/sitemap/locations').catch((error) => {
+    fetchBackend('/api/public/sitemap/locations').catch((error: Error) => {
       console.error('[sitemap] Failed to fetch locations:', error.message);
-      return [];
+      return [] as unknown[];
     }),
-    fetchBackend('/api/public/sitemap/courts').catch((error) => {
+    fetchBackend('/api/public/sitemap/courts').catch((error: Error) => {
       console.error('[sitemap] Failed to fetch courts:', error.message);
-      return [];
+      return [] as unknown[];
     }),
   ]);
 
@@ -53,31 +53,31 @@ export default async function sitemap() {
     priority,
   }));
 
-  const leagueEntries = leagues.map((league) => ({
+  const leagueEntries = (leagues as Array<{ id: number; updated_at?: string }>).map((league) => ({
     url: `${BASE_URL}/league/${league.id}`,
     lastModified: league.updated_at || undefined,
-    changeFrequency: 'weekly',
+    changeFrequency: 'weekly' as const,
     priority: 0.8,
   }));
 
-  const playerEntries = players.map((player) => ({
+  const playerEntries = (players as Array<{ id: number; full_name: string; updated_at?: string }>).map((player) => ({
     url: `${BASE_URL}/player/${player.id}/${slugify(player.full_name)}`,
     lastModified: player.updated_at || undefined,
-    changeFrequency: 'weekly',
+    changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
 
-  const locationEntries = locations.map((location) => ({
+  const locationEntries = (locations as Array<{ slug: string; updated_at?: string }>).map((location) => ({
     url: `${BASE_URL}/beach-volleyball/${location.slug}`,
     lastModified: location.updated_at || undefined,
-    changeFrequency: 'weekly',
+    changeFrequency: 'weekly' as const,
     priority: 0.8,
   }));
 
-  const courtEntries = courts.map((court) => ({
+  const courtEntries = (courts as Array<{ slug: string; updated_at?: string }>).map((court) => ({
     url: `${BASE_URL}/courts/${court.slug}`,
     lastModified: court.updated_at || undefined,
-    changeFrequency: 'weekly',
+    changeFrequency: 'weekly' as const,
     priority: 0.7,
   }));
 

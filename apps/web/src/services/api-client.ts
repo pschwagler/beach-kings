@@ -111,7 +111,7 @@ const PROACTIVE_REFRESH_THRESHOLD_SECS = 120;
 // refresh paths use this single refreshAccessToken() function, ensuring mutual
 // exclusion via the isRefreshing flag and failedQueue.
 let isRefreshing = false;
-let failedQueue = [];
+let failedQueue: Array<{ resolve: (value: string | null) => void; reject: (reason?: unknown) => void }> = [];
 
 const processQueue = (error: any, token: string | null = null): void => {
   failedQueue.forEach(prom => {
@@ -199,7 +199,7 @@ const isPublicAuthEndpoint = (url: string | undefined): boolean => {
 };
 
 // Cache decoded exp per token to avoid re-parsing on every request
-let cachedTokenExp = { token: null, exp: null };
+let cachedTokenExp: { token: string | null; exp: number | null } = { token: null, exp: null };
 
 api.interceptors.request.use(
   async (config) => {

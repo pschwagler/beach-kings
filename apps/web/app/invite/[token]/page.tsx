@@ -179,7 +179,7 @@ export default function InviteLandingPage() {
       </div>
       {invite.league_names?.length > 0 && (
         <div className="invite-page__leagues">
-          {invite.league_names.map((name) => (
+          {invite.league_names.map((name: string) => (
             <span key={name} className="invite-page__league-badge">{name}</span>
           ))}
         </div>
@@ -249,7 +249,7 @@ export default function InviteLandingPage() {
             <span>Some matches had issues:</span>
           </div>
           <ul className="invite-page__warnings-list">
-            {claimResult.warnings.map((warning, i) => (
+            {claimResult.warnings.map((warning: string, i: number) => (
               <li key={i}>{warning}</li>
             ))}
           </ul>

@@ -2,7 +2,7 @@
  * Form navigation utilities for auto-advancing between fields
  */
 
-const FIELD_NAVIGATION = {
+const FIELD_NAVIGATION: Record<string, string> = {
   team1Player1: 'team1Player2',
   team1Player2: 'team2Player1',
   team2Player1: 'team2Player2',
