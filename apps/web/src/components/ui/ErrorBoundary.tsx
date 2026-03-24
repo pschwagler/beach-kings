@@ -1,7 +1,18 @@
-import { Component } from 'react';
+import { Component, ReactNode } from 'react';
 
-class ErrorBoundary extends Component {
-  constructor(props) {
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+  onReset?: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }

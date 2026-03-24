@@ -1,6 +1,20 @@
 'use client';
 
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, LucideIcon } from 'lucide-react';
+
+interface StatCardDelta {
+  label: string;
+  direction: 'up' | 'down' | 'neutral';
+}
+
+interface StatCardProps {
+  icon?: LucideIcon;
+  label: string;
+  value: string | number;
+  subtitle?: string;
+  delta?: StatCardDelta;
+  className?: string;
+}
 
 /**
  * StatCard — Reusable stat display card with optional delta and subtitle.
@@ -14,7 +28,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
  * @param {'up'|'down'|'neutral'} delta.direction - Controls color (green/red/gray)
  * @param {string} [className] - Additional className on the root element
  */
-export default function StatCard({ icon: Icon, label, value, subtitle, delta, className }) {
+export default function StatCard({ icon: Icon, label, value, subtitle, delta, className }: StatCardProps) {
   return (
     <div className={`overview-stat-card${className ? ` ${className}` : ''}`}>
       {Icon && <Icon size={20} className="overview-stat-card__icon" />}

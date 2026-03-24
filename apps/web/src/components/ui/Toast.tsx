@@ -1,7 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { X } from 'lucide-react';
+
+interface ToastProps {
+  message: string;
+  action?: ReactNode;
+  duration?: number;
+  onClose: () => void;
+}
 
 /**
  * Lightweight toast notification for temporary user feedback.
@@ -12,7 +19,7 @@ import { X } from 'lucide-react';
  * @param {number} [props.duration=10000] - Auto-dismiss time in ms (0 = never)
  * @param {function} props.onClose - Called when toast is dismissed
  */
-export default function Toast({ message, action, duration = 10000, onClose }) {
+export default function Toast({ message, action, duration = 10000, onClose }: ToastProps) {
   const [visible, setVisible] = useState(true);
 
   const dismiss = useCallback(() => {
@@ -37,6 +44,18 @@ export default function Toast({ message, action, duration = 10000, onClose }) {
   );
 }
 
+interface ToastItem {
+  id: number;
+  message: string;
+  action?: ReactNode;
+  duration?: number;
+}
+
+interface ToastContainerProps {
+  toasts: ToastItem[];
+  onDismiss: (id: number) => void;
+}
+
 /**
  * Container for rendering multiple toasts. Renders at bottom-center of viewport.
  *
@@ -44,7 +63,7 @@ export default function Toast({ message, action, duration = 10000, onClose }) {
  * @param {Array<{id, message, action}>} props.toasts - Active toasts
  * @param {function} props.onDismiss - Called with toast id when dismissed
  */
-export function ToastContainer({ toasts, onDismiss }) {
+export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (!toasts || toasts.length === 0) return null;
 
   return (

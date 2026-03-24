@@ -79,8 +79,12 @@ export function RankingsTableSkeleton() {
   );
 }
 
+interface MatchesTableSkeletonProps {
+  isLeagueMember?: boolean;
+}
+
 // Matches Table Skeleton
-export function MatchesTableSkeleton({ isLeagueMember = false }) {
+export function MatchesTableSkeleton({ isLeagueMember = false }: MatchesTableSkeletonProps) {
   return (
     <div className="matches-container">
       {/* Add Matches Card - Disabled during loading */}

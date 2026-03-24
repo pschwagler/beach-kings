@@ -1,12 +1,25 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, ReactNode, CSSProperties } from 'react';
 import { Calendar, Trophy } from 'lucide-react';
 import './Button.css';
 
+interface ButtonProps {
+  children?: ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  variant?: 'default' | 'success' | 'danger' | 'tab' | 'close' | 'ghost' | 'outline';
+  className?: string;
+  active?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  style?: CSSProperties;
+  form?: string;
+  [key: string]: any;
+}
+
 // Button Component - handles all button variants
-export function Button({ 
-  children, 
-  onClick, 
-  disabled = false, 
+export function Button({
+  children,
+  onClick,
+  disabled = false,
   variant = 'default',
   className = '',
   active = false,
@@ -14,7 +27,7 @@ export function Button({
   style = {},
   form,
   ...rest
-}) {
+}: ButtonProps) {
   let buttonClass = 'button';
   
   if (variant === 'success') {
@@ -46,8 +59,14 @@ export function Button({
   );
 }
 
+interface AlertProps {
+  type?: string;
+  children?: ReactNode;
+  className?: string;
+}
+
 // Alert Component - displays messages
-export function Alert({ type, children, className = '' }) {
+export function Alert({ type, children, className = '' }: AlertProps) {
   if (!type || !children) return null;
   
   return (
@@ -57,12 +76,18 @@ export function Alert({ type, children, className = '' }) {
   );
 }
 
+interface TooltipProps {
+  children: ReactNode;
+  text: string;
+  multiline?: boolean;
+}
+
 // Tooltip Component - React-based tooltip
-export function Tooltip({ children, text, multiline = false }) {
+export function Tooltip({ children, text, multiline = false }: TooltipProps) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [isVisible, setIsVisible] = useState(false);
-  const tooltipRef = useRef(null);
-  const triggerRef = useRef(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   
   const handleMouseEnter = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -104,8 +129,13 @@ export function Tooltip({ children, text, multiline = false }) {
   );
 }
 
+interface TabsProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
 // Tabs Component - tab navigation
-export function Tabs({ activeTab, onTabChange }) {
+export function Tabs({ activeTab, onTabChange }: TabsProps) {
   return (
     <div className="tabs">
       <Button

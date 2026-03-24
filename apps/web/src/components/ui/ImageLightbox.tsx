@@ -4,6 +4,17 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import './ImageLightbox.css';
 
+interface LightboxPhoto {
+  id: string | number;
+  url: string;
+}
+
+interface ImageLightboxProps {
+  photos: LightboxPhoto[];
+  startIndex?: number;
+  onClose: () => void;
+}
+
 /**
  * Fullscreen image lightbox with keyboard and swipe navigation.
  *
@@ -11,10 +22,10 @@ import './ImageLightbox.css';
  * @param {number}   startIndex - Initial photo index to display
  * @param {Function} onClose - Called when lightbox is dismissed
  */
-export default function ImageLightbox({ photos, startIndex = 0, onClose }) {
+export default function ImageLightbox({ photos, startIndex = 0, onClose }: ImageLightboxProps) {
   const [index, setIndex] = useState(startIndex);
-  const touchStartX = useRef(null);
-  const overlayRef = useRef(null);
+  const touchStartX = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const total = photos.length;
   const photo = photos[index];

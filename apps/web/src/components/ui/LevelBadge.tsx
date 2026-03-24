@@ -23,7 +23,11 @@ const toCapitalized = (str) => {
     .join(' ');
 };
 
-export default function LevelBadge({ level }) {
+interface LevelBadgeProps {
+  level?: string;
+}
+
+export default function LevelBadge({ level }: LevelBadgeProps) {
   return (
     <span className={`level-badge level-badge-${getLevelColor(level)}`}>
       {toCapitalized(level || 'Unknown')}

@@ -22,6 +22,12 @@ const ICONS = {
   info: Info,
 };
 
+interface GlassToastProps {
+  message: string;
+  type?: 'success' | 'error' | 'info';
+  onDismiss: () => void;
+}
+
 /**
  * Single glass-morphism toast notification.
  *
@@ -30,7 +36,7 @@ const ICONS = {
  * @param {'success'|'error'|'info'} props.type - Visual variant
  * @param {function} props.onDismiss - Called when toast should be removed
  */
-export default function GlassToast({ message, type = 'info', onDismiss }) {
+export default function GlassToast({ message, type = 'info', onDismiss }: GlassToastProps) {
   const [exiting, setExiting] = useState(false);
   const duration = DURATIONS[type] || DURATIONS.info;
   const Icon = ICONS[type] || ICONS.info;

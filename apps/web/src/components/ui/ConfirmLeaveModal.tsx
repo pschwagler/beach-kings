@@ -1,6 +1,12 @@
 import { X, AlertTriangle } from 'lucide-react';
 
-export default function ConfirmLeaveModal({ isOpen, onClose, onConfirm }) {
+interface ConfirmLeaveModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export default function ConfirmLeaveModal({ isOpen, onClose, onConfirm }: ConfirmLeaveModalProps) {
   if (!isOpen) {
     return null;
   }

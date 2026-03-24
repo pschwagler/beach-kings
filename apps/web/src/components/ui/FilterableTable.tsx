@@ -1,5 +1,38 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, ReactNode } from 'react';
 import { Search, Filter, X, Loader2 } from 'lucide-react';
+
+interface FilterOption {
+  label: string;
+  value: string;
+}
+
+interface FilterConfig {
+  label: string;
+  options?: FilterOption[];
+}
+
+interface Column {
+  label: string;
+  className?: string;
+}
+
+interface FilterableTableProps {
+  data: any[];
+  columns: Column[];
+  searchPlaceholder?: string;
+  filters?: Record<string, any>;
+  filterOptions?: Record<string, FilterConfig>;
+  onFilterChange?: (filters: Record<string, any>) => void;
+  loading?: boolean;
+  renderRow: (item: any, idx: number) => ReactNode;
+  emptyMessage?: string;
+  extraFiltersContent?: ReactNode;
+  page?: number;
+  pageSize?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+}
 
 export default function FilterableTable({
   data,
@@ -18,11 +51,11 @@ export default function FilterableTable({
   totalCount,
   onPageChange,
   onPageSizeChange,
-}) {
+}: FilterableTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
-  const filterPanelRef = useRef(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   // Update local filters when props change
   useEffect(() => {

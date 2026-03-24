@@ -3,6 +3,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Check, ChevronDown, Search } from 'lucide-react';
 
+interface SelectOption {
+  id: string;
+  label: string;
+}
+
+interface SearchableMultiSelectProps {
+  options?: SelectOption[];
+  selectedIds?: string[];
+  onToggle: (id: string) => void;
+  placeholder?: string;
+  label?: string;
+}
+
 /**
  * Tom Select-style searchable multi-select dropdown.
  * Shows selected items as pills, supports type-to-filter, and checkbox-toggle options.
@@ -20,12 +33,12 @@ export default function SearchableMultiSelect({
   onToggle,
   placeholder = 'Search...',
   label,
-}) {
+}: SearchableMultiSelectProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const wrapperRef = useRef(null);
-  const inputRef = useRef(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdown on outside click
   useEffect(() => {

@@ -5,25 +5,43 @@ import { getCityAutocomplete } from '../../services/api';
 import { useDebounce } from '../../utils/debounce';
 import './CityAutocomplete.css';
 
+interface CitySuggestion {
+  city: string;
+  state: string;
+  formatted: string;
+  lat: number;
+  lon: number;
+}
+
+interface CityAutocompleteProps {
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string } }) => void;
+  onCitySelect?: (suggestion: CitySuggestion) => void;
+  className?: string;
+  required?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
 /**
  * CityAutocomplete component for city selection with autocomplete suggestions.
  * Uses backend proxy to Geoapify Autocomplete API (keeps API key secure).
  */
-export default function CityAutocomplete({ 
-  value = '', 
-  onChange, 
+export default function CityAutocomplete({
+  value = '',
+  onChange,
   onCitySelect,
-  className = '', 
-  required = false, 
+  className = '',
+  required = false,
   placeholder = 'Enter your city/zip',
   disabled = false
-}) {
+}: CityAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedCity, setSelectedCity] = useState(null);
-  const wrapperRef = useRef(null);
+  const [selectedCity, setSelectedCity] = useState<CitySuggestion | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Update input value when prop changes
   useEffect(() => {

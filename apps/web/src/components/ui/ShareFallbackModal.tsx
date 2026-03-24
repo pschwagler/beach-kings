@@ -6,6 +6,14 @@ import { Copy, Check, Mail } from 'lucide-react';
 import { getShareText } from '../../hooks/useShare';
 import './ShareFallbackModal.css';
 
+interface ShareFallbackModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  name?: string;
+  url: string;
+  text?: string;
+}
+
 /**
  * Desktop share modal (fallback when native share sheet isn't used).
  *
@@ -20,7 +28,7 @@ import './ShareFallbackModal.css';
  * @param {string} props.url - Invite URL to share
  * @param {string} props.text - Pre-formatted share text
  */
-export default function ShareFallbackModal({ isOpen, onClose, name, url, text }) {
+export default function ShareFallbackModal({ isOpen, onClose, name, url, text }: ShareFallbackModalProps) {
   const [copied, setCopied] = useState(false);
 
   const shareText = text || getShareText(name);

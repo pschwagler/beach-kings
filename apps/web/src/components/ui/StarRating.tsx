@@ -4,6 +4,14 @@ import { useState } from 'react';
 import { Star } from 'lucide-react';
 import './StarRating.css';
 
+interface StarRatingProps {
+  value?: number;
+  onChange?: (value: number) => void;
+  size?: number;
+  showValue?: boolean;
+  className?: string;
+}
+
 /**
  * Reusable star rating component.
  *
@@ -17,7 +25,7 @@ import './StarRating.css';
  * @param {boolean} [props.showValue=false] - Show numeric value next to stars
  * @param {string} [props.className] - Additional CSS class
  */
-export default function StarRating({ value = 0, onChange, size = 18, showValue = false, className = '' }) {
+export default function StarRating({ value = 0, onChange, size = 18, showValue = false, className = '' }: StarRatingProps) {
   const [hoverValue, setHoverValue] = useState(0);
   const interactive = typeof onChange === 'function';
   const displayValue = interactive && hoverValue > 0 ? hoverValue : value;

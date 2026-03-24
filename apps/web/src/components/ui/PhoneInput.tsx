@@ -55,11 +55,26 @@ const isValidPhoneNumber = (digits) => {
   return digits.length === 10;
 };
 
-export default function PhoneInput({ value, onChange, onValidationChange, className = '', required = false, placeholder = '(555) 123-4567' }) {
+interface ValidationState {
+  isValid: boolean;
+  value: string;
+  displayValue: string;
+}
+
+interface PhoneInputProps {
+  value?: string;
+  onChange?: (value: string) => void;
+  onValidationChange?: (state: ValidationState) => void;
+  className?: string;
+  required?: boolean;
+  placeholder?: string;
+}
+
+export default function PhoneInput({ value, onChange, onValidationChange, className = '', required = false, placeholder = '(555) 123-4567' }: PhoneInputProps) {
   const [displayValue, setDisplayValue] = useState('');
   const [isTouched, setIsTouched] = useState(false);
   const [error, setError] = useState('');
-  const onValidationChangeRef = useRef(onValidationChange);
+  const onValidationChangeRef = useRef<typeof onValidationChange>(onValidationChange);
 
   // Keep the ref updated with the latest callback
   useEffect(() => {
