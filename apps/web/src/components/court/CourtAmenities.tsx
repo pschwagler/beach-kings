@@ -25,7 +25,7 @@ interface CourtAmenitiesProps {
 }
 
 export default function CourtAmenities({ court }: CourtAmenitiesProps) {
-  const amenities = AMENITY_CONFIG.filter((a) => court[a.key] === true);
+  const amenities = AMENITY_CONFIG.filter((a) => (court as unknown as Record<string, unknown>)[a.key] === true);
   if (amenities.length === 0) return null;
 
   return (

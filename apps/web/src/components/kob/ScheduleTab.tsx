@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import "./KobLive.css";
 
 interface KobScheduleMatch {
-  matchup_id: number;
+  matchup_id: string;
   round_num: number;
   phase?: string;
   bracket_position?: string;

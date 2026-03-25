@@ -74,8 +74,8 @@ export default function LeagueSignUpsTab() {
 
       // Sort by date (newest first)
       allSignups.sort((a, b) => {
-        const dateA = new Date(a.date || 0);
-        const dateB = new Date(b.date || 0);
+        const dateA = new Date(a.scheduled_datetime || 0);
+        const dateB = new Date(b.scheduled_datetime || 0);
         return dateB.getTime() - dateA.getTime();
       });
 

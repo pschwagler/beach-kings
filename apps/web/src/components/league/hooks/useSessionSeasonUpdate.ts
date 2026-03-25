@@ -6,6 +6,21 @@ import { useToast } from '../../../contexts/ToastContext';
  * Hook to handle complex session season update logic
  * Manages data loading for old/new seasons and handles edge cases
  */
+interface UseSessionSeasonUpdateParams {
+  activeSession: any;
+  editingSessions: Set<number> | null | undefined;
+  matches: any[] | null | undefined;
+  refreshData: ((opts?: Record<string, any>) => Promise<void>) | null | undefined;
+  refreshSeasonData: ((seasonId: number) => Promise<void>) | null | undefined;
+  setSelectedSeasonId: ((id: number | null) => void) | null | undefined;
+  seasonData: Record<string | number, any> | null | undefined;
+  seasonDataLoadingMap: Record<string | number, boolean> | null | undefined;
+  loadSeasonData: ((seasonId: number) => Promise<void>) | null | undefined;
+  seasons: any[];
+  selectedSeasonId: number | null;
+  getSeasonIdForRefresh: (() => number | null) | null | undefined;
+}
+
 export function useSessionSeasonUpdate({
   activeSession,
   editingSessions,
@@ -19,13 +34,13 @@ export function useSessionSeasonUpdate({
   seasons,
   selectedSeasonId,
   getSeasonIdForRefresh,
-}) {
+}: UseSessionSeasonUpdateParams) {
   const { showToast } = useToast();
   /**
    * Update a session's season ID
    * Handles data loading, refresh logic, and filter updates
    */
-  const handleUpdateSessionSeason = useCallback(async (sessionId, seasonId) => {
+  const handleUpdateSessionSeason = useCallback(async (sessionId: number, seasonId: number | null) => {
     try {
       // Get the old season_id before updating (from active session or from matches)
       let oldSeasonId = null;
@@ -36,7 +51,7 @@ export function useSessionSeasonUpdate({
         oldSeasonId = activeSession.season_id;
       } else {
         // Try to get it from the matches data
-        const sessionMatch = matches?.find(m => m['Session ID'] === sessionId);
+        const sessionMatch = matches?.find((m: any) => m['Session ID'] === sessionId);
         if (sessionMatch) {
           oldSeasonId = sessionMatch['Session Season ID'];
         }
@@ -60,10 +75,10 @@ export function useSessionSeasonUpdate({
         }
         
         // Refresh all affected seasons
-        Array.from(seasonsToRefresh).forEach(sid => {
+        Array.from(seasonsToRefresh).forEach((sid: any) => {
           setTimeout(() => {
             try {
-              refreshSeasonData(sid);
+              refreshSeasonData(sid as number);
             } catch (error) {
               console.error('[useSessionSeasonUpdate.handleUpdateSessionSeason] Error refreshing stats:', error);
               // Don't throw - stats refresh failure shouldn't affect session operation
@@ -122,7 +137,7 @@ export function useSessionSeasonUpdate({
       
       // If "All Seasons" is selected, also refresh all seasons to ensure matches appear correctly
       if (!selectedSeasonId && seasons?.length > 0) {
-        await Promise.all(seasons.map(s => 
+        await Promise.all(seasons.map((s: any) =>
           refreshData({ matches: true, seasonId: s.id, forceClear: true })
         ));
       }

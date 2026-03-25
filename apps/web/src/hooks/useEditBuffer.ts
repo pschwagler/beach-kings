@@ -12,6 +12,40 @@ const isPendingId = (id: number | string): id is string =>
 /** Extract the array index from a pending ID string. */
 const parsePendingIndex = (id: string): number => parseInt(id.slice(PENDING_ID_PREFIX.length), 10);
 
+/** A match payload as submitted by AddMatchModal. */
+interface MatchPayload {
+  team1_player1_id?: number | string | null;
+  team1_player2_id?: number | string | null;
+  team2_player1_id?: number | string | null;
+  team2_player2_id?: number | string | null;
+  team1_score?: number | null;
+  team2_score?: number | null;
+  session_id?: number | null;
+  is_ranked?: boolean;
+  league_id?: number | null;
+  season_id?: number | null;
+  [key: string]: unknown;
+}
+
+/** A display-format match object (keyed by display strings). */
+interface DisplayMatch {
+  id: number | string;
+  Date?: string;
+  'Session ID'?: number | null;
+  'Session Name'?: string;
+  'Session Status'?: string;
+  'Team 1 Player 1'?: string;
+  'Team 1 Player 2'?: string;
+  'Team 2 Player 1'?: string;
+  'Team 2 Player 2'?: string;
+  'Team 1 Score'?: number | null;
+  'Team 2 Score'?: number | null;
+  Winner?: string;
+  'Team 1 ELO Change'?: number;
+  'Team 2 ELO Change'?: number;
+  [key: string]: unknown;
+}
+
 /**
  * Buffer state machine for pickup session edit mode.
  *
@@ -25,8 +59,8 @@ export function useEditBuffer() {
   // modified: Map<matchId, payload>  — edits to existing (or pending) matches
   // added: [payload]                 — new matches not yet persisted
   // deleted: Set<matchId>            — real match IDs to remove on flush
-  const [modified, setModified] = useState(new Map<number | string, any>());
-  const [added, setAdded] = useState<any[]>([]);
+  const [modified, setModified] = useState(new Map<number | string, MatchPayload>());
+  const [added, setAdded] = useState<MatchPayload[]>([]);
   const [deleted, setDeleted] = useState(new Set<number | string>());
 
   /** True when the buffer contains any pending changes. */
@@ -40,7 +74,7 @@ export function useEditBuffer() {
    * @param {number|string} matchId - Real ID or `pending-*` temp ID
    * @param {Object} payload - Match payload from AddMatchModal
    */
-  const bufferEdit = useCallback((matchId: number | string, payload: any) => {
+  const bufferEdit = useCallback((matchId: number | string, payload: MatchPayload) => {
     if (isPendingId(matchId)) {
       // Editing a just-added match — update in `added` array in-place
       const index = parsePendingIndex(matchId);
@@ -65,7 +99,7 @@ export function useEditBuffer() {
    * Assigns a temp `pending-{index}` ID (index = position in added array).
    * @param {Object} payload - Match payload from AddMatchModal
    */
-  const bufferAdd = useCallback((payload: any) => {
+  const bufferAdd = useCallback((payload: MatchPayload) => {
     setAdded((prev) => [...prev, payload]);
   }, []);
 
@@ -127,18 +161,18 @@ export function useEditBuffer() {
         createMatchAPI,
         lockInSessionAPI,
       }: {
-        deleteMatchAPI: (matchId: number | string) => Promise<any>;
-        updateMatchAPI: (matchId: number | string, payload: any) => Promise<any>;
-        createMatchAPI: (payload: any) => Promise<any>;
-        lockInSessionAPI: (sessionId: number) => Promise<any>;
+        deleteMatchAPI: (matchId: number | string) => Promise<unknown>;
+        updateMatchAPI: (matchId: number | string, payload: MatchPayload) => Promise<unknown>;
+        createMatchAPI: (payload: MatchPayload) => Promise<unknown>;
+        lockInSessionAPI: (sessionId: number) => Promise<unknown>;
       },
     ) => {
       // Deletes first
-      for (const matchId of deleted as Set<number | string>) {
+      for (const matchId of deleted) {
         await deleteMatchAPI(matchId);
       }
       // Updates
-      for (const [matchId, payload] of modified as Map<number | string, any>) {
+      for (const [matchId, payload] of modified) {
         await updateMatchAPI(matchId, payload);
       }
       // Creates
@@ -176,10 +210,10 @@ export function useEditBuffer() {
  * @returns {Array} merged matches for display
  */
 export function mergeBufferWithMatches(
-  matches: any[],
-  buffer: { modified: Map<any, any>; added: any[]; deleted: Set<any> },
+  matches: DisplayMatch[],
+  buffer: { modified: Map<number | string, MatchPayload>; added: MatchPayload[]; deleted: Set<number | string> },
   participantLookup: Map<number, string>,
-): any[] {
+): DisplayMatch[] {
   const { modified, added, deleted } = buffer;
   if (modified.size === 0 && added.length === 0 && deleted.size === 0) {
     return matches;

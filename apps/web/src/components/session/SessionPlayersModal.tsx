@@ -335,8 +335,8 @@ export default function SessionPlayersModal({
               leagueIds={leagueIds}
               genderFilters={genderFilters}
               levelFilters={levelFilters}
-              locations={locations}
-              leagues={leagues}
+              locations={locations as import('../../types').Location[]}
+              leagues={leagues as import('../../types').League[]}
               onToggleFilter={handleToggleFilter}
               onRemoveFilter={handleRemoveFilter}
               items={items}

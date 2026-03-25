@@ -45,8 +45,8 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
 
   useEffect(() => {
     getPublicLocations()
-      .then((regions) => {
-        const locs = [];
+      .then((regions: Array<{ locations?: Array<{ id: string; name: string }> }>) => {
+        const locs: Array<{ id: string; name: string }> = [];
         (regions || []).forEach((region) => {
           (region.locations || []).forEach((loc) => {
             locs.push({ id: loc.id, name: loc.name });
@@ -189,7 +189,7 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
                 <label key={key} className="add-court-form__checkbox">
                   <input
                     type="checkbox"
-                    checked={form[key]}
+                    checked={(form as Record<string, string | boolean | number>)[key] as boolean}
                     onChange={(e) => handleChange(key, e.target.checked)}
                   />
                   {label}

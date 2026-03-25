@@ -13,6 +13,34 @@ import KobPreview from "./KobPreview";
 import { Loader2, Trophy } from "lucide-react";
 import "./KobCreate.css";
 
+/** A pre-computed format option returned by the pills endpoint. */
+interface KobPill {
+  format: string;
+  num_pools: number | null;
+  playoff_size: number | null;
+  max_rounds: number | null;
+  game_to: number;
+  games_per_match: number;
+  playoff_format: string | null;
+  is_recommended: boolean;
+  label: string;
+  total_time_minutes: number;
+  max_games_per_player: number;
+}
+
+/** Recommendation / preview shape returned by the recommendation endpoint. */
+interface KobRecommendation {
+  format: string;
+  num_pools: number | null;
+  playoff_size: number | null;
+  max_rounds: number | null;
+  game_to: number;
+  games_per_match: number;
+  playoff_format: string | null;
+  suggestion?: string | null;
+  [key: string]: unknown;
+}
+
 const FORMAT_OPTIONS = [
   { value: "FULL_ROUND_ROBIN", label: "Round Robin" },
   { value: "PARTIAL_ROUND_ROBIN", label: "Partial RR" },
@@ -57,7 +85,7 @@ export default function KobCreate() {
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   const { showToast } = useToast();
-  const nameInputRef = useRef(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const userChangedGenderRef = useRef(false);
 
   // Form state
@@ -65,7 +93,7 @@ export default function KobCreate() {
   const [scheduledDate, setScheduledDate] = useState("");
   const [numPlayers, setNumPlayers] = useState(8);
   const [numCourts, setNumCourts] = useState(2);
-  const [durationMinutes, setDurationMinutes] = useState(180);
+  const [durationMinutes, setDurationMinutes] = useState<number | null>(180);
   const [autoAdvance, setAutoAdvance] = useState(true);
 
   // Format state
@@ -74,7 +102,7 @@ export default function KobCreate() {
   const userPickedFormatRef = useRef(false);
 
   // Format-dependent config
-  const [numPools, setNumPools] = useState(null);
+  const [numPools, setNumPools] = useState<number | null>(null);
   const [playoffSize, setPlayoffSize] = useState(0);
   const [maxRounds, setMaxRounds] = useState(5);
 
@@ -85,29 +113,29 @@ export default function KobCreate() {
   const [gamesPerMatch, setGamesPerMatch] = useState(1);
 
   // Playoff-specific settings
-  const [playoffFormat, setPlayoffFormat] = useState(null); // null = RR, "DRAFT"
+  const [playoffFormat, setPlayoffFormat] = useState<string | null>(null); // null = RR, "DRAFT"
   const [customPlayoffSettings, setCustomPlayoffSettings] = useState(false);
-  const [playoffGameTo, setPlayoffGameTo] = useState(null); // null = use tournament gameTo
-  const [playoffGamesPerMatch, setPlayoffGamesPerMatch] = useState(null); // null = use tournament gpm
+  const [playoffGameTo, setPlayoffGameTo] = useState<number | null>(null); // null = use tournament gameTo
+  const [playoffGamesPerMatch, setPlayoffGamesPerMatch] = useState<number | null>(null); // null = use tournament gpm
   const [playoffCapEnabled, setPlayoffCapEnabled] = useState(false);
-  const [playoffScoreCap, setPlayoffScoreCap] = useState(null);
+  const [playoffScoreCap, setPlayoffScoreCap] = useState<number | null>(null);
 
   // Recommendation / preview
-  const [recommendation, setRecommendation] = useState(null);
+  const [recommendation, setRecommendation] = useState<KobRecommendation | null>(null);
   const [loadingRec, setLoadingRec] = useState(false);
-  const debounceRef = useRef(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Format pills
-  const [pills, setPills] = useState([]);
-  const [activePillIdx, setActivePillIdx] = useState(null);
-  const pillDebounceRef = useRef(null);
+  const [pills, setPills] = useState<KobPill[]>([]);
+  const [activePillIdx, setActivePillIdx] = useState<number | null>(null);
+  const pillDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Metadata
   const [gender, setGender] = useState("coed");
 
   // Submit
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Derived
   const poolSize = numPools ? Math.ceil(numPlayers / numPools) : null;
@@ -139,7 +167,9 @@ export default function KobCreate() {
     }
     setLoadingRec(true);
     try {
-      const params: Record<string, any> = {
+      const ps = (format === "POOLS_PLAYOFFS" || isPools) ? Math.max(effectivePlayoffSize, 4) : effectivePlayoffSize;
+
+      const params: Parameters<typeof getKobFormatRecommendation>[0] = {
         numPlayers,
         numCourts,
         gameTo,
@@ -148,23 +178,13 @@ export default function KobCreate() {
         playoffFormat: playoffFormat || undefined,
         playoffGameTo: customPlayoffSettings ? playoffGameTo : undefined,
         playoffGamesPerMatch: customPlayoffSettings ? playoffGamesPerMatch : undefined,
+        ...(userPickedFormat && format ? { format } : {}),
+        ...(userPickedFormat && format === "POOLS_PLAYOFFS" && numPools ? { numPools } : {}),
+        ...(userPickedFormat && format === "PARTIAL_ROUND_ROBIN" && maxRounds ? { maxRounds } : {}),
+        ...(ps > 0 ? { playoffSize: ps } : {}),
       };
 
-      if (userPickedFormat && format) {
-        params.format = format;
-        if (format === "POOLS_PLAYOFFS") {
-          if (numPools) params.numPools = numPools;
-        }
-        if (format === "PARTIAL_ROUND_ROBIN" && maxRounds) {
-          params.maxRounds = maxRounds;
-        }
-      }
-
-      // Send playoff size for any format
-      const ps = (format === "POOLS_PLAYOFFS" || isPools) ? Math.max(effectivePlayoffSize, 4) : effectivePlayoffSize;
-      if (ps > 0) params.playoffSize = ps;
-
-      const rec = await getKobFormatRecommendation(params as any);
+      const rec = await getKobFormatRecommendation(params) as KobRecommendation;
       setRecommendation(rec);
 
       // Sync UI from backend defaults — use ref to avoid stale closure
@@ -214,11 +234,11 @@ export default function KobCreate() {
           numPlayers,
           numCourts,
           durationMinutes: durationMinutes || undefined,
-        });
+        }) as KobPill[];
         setPills(result);
         // Auto-select recommended pill when user hasn't manually picked format
         if (!userPickedFormatRef.current) {
-          const recIdx = result.findIndex((p: any) => p.is_recommended);
+          const recIdx = result.findIndex((p: KobPill) => p.is_recommended);
           setActivePillIdx(recIdx >= 0 ? recIdx : null);
         } else {
           setActivePillIdx(null);
@@ -278,7 +298,7 @@ export default function KobCreate() {
   };
 
   // Pill click handler — populate form from pill config
-  const handlePillClick = (pill: any, idx: number) => {
+  const handlePillClick = (pill: KobPill, idx: number) => {
     setActivePillIdx(idx);
     setFormat(pill.format);
     setNumPools(pill.num_pools);
@@ -323,8 +343,9 @@ export default function KobCreate() {
         scheduled_date: scheduledDate || null,
       });
       router.push(`/kob/manage/${tournament.id}`);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Failed to create tournament");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      setError(e.response?.data?.detail || e.message || "Failed to create tournament");
     } finally {
       setSubmitting(false);
     }

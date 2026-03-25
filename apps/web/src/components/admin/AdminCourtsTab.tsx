@@ -30,7 +30,7 @@ export default function AdminCourtsTab() {
       .catch(() => {});
   }, []);
 
-  const badgeCounts = {
+  const badgeCounts: Record<string, number | null> = {
     pending: pendingCount,
     suggestions: suggestionsCount,
     all: null,

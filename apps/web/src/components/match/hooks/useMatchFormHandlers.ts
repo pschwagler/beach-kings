@@ -1,10 +1,25 @@
-import { useCallback } from 'react';
+import { useCallback, type RefObject } from 'react';
 import { autoAdvanceToNextField } from '../../../utils/formNavigation';
+
+/** A player option value: either an object with value/label or a string name. */
+type PlayerOption = { value: number | string; label: string; [key: string]: unknown } | string | null;
 
 /**
  * Hook to consolidate form field handlers
  * Groups handleFieldChange, handleScoreChange, and handlePlayerChange
  */
+/** Minimal ref shape for form navigation — must support .focus() and .querySelector(). */
+type FormFieldRef = RefObject<{ focus?: () => void; querySelector?: (selector: string) => HTMLElement | null } | null>;
+
+interface UseMatchFormHandlersParams {
+  dispatchForm: (action: { type: 'SET_PLAYER' | 'SET_SCORE'; field: string; player?: PlayerOption; value?: string }) => void;
+  setFormError: (error: string | null) => void;
+  team1Player2Ref: FormFieldRef;
+  team2Player1Ref: FormFieldRef;
+  team2Player2Ref: FormFieldRef;
+  team1ScoreRef: FormFieldRef;
+}
+
 export function useMatchFormHandlers({
   dispatchForm,
   setFormError,
@@ -12,14 +27,14 @@ export function useMatchFormHandlers({
   team2Player1Ref,
   team2Player2Ref,
   team1ScoreRef
-}) {
-  const handleFieldChange = useCallback((field, value) => {
+}: UseMatchFormHandlersParams) {
+  const handleFieldChange = useCallback((field: string, value: PlayerOption) => {
     dispatchForm({ type: 'SET_PLAYER', field, player: value });
     // Clear error when user starts typing
     setFormError(null);
   }, [dispatchForm, setFormError]);
 
-  const handleScoreChange = useCallback((field, value) => {
+  const handleScoreChange = useCallback((field: string, value: string) => {
     // Remove any non-numeric characters
     const numericValue = value.replace(/\D/g, '');
     
@@ -38,7 +53,7 @@ export function useMatchFormHandlers({
     setFormError(null);
   }, [dispatchForm, setFormError]);
 
-  const handlePlayerChange = useCallback((field, newPlayer) => {
+  const handlePlayerChange = useCallback((field: string, newPlayer: PlayerOption) => {
     // Clear error when user starts typing
     setFormError(null);
     

@@ -78,7 +78,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
 
   /** Apply selected fields to the court, then resolve the suggestion. */
   const handleApply = async () => {
-    const selectedFields = {};
+    const selectedFields: Record<string, unknown> = {};
     let allSelectedAndUnmodified = true;
 
     for (const key of changedKeys) {

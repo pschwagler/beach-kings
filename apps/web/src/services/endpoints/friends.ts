@@ -3,12 +3,13 @@
  */
 
 import api from '../api-client';
+import type { Friend, FriendListResponse, FriendRequest } from '../../types';
 
 /**
  * Send a friend request to another player.
  * @param {number} receiverPlayerId - Player ID to send request to
  */
-export const sendFriendRequest = async (receiverPlayerId: number) => {
+export const sendFriendRequest = async (receiverPlayerId: number): Promise<FriendRequest> => {
   const response = await api.post('/api/friends/request', {
     receiver_player_id: receiverPlayerId,
   });
@@ -19,7 +20,7 @@ export const sendFriendRequest = async (receiverPlayerId: number) => {
  * Accept a pending friend request.
  * @param {number} requestId - Friend request ID
  */
-export const acceptFriendRequest = async (requestId: number) => {
+export const acceptFriendRequest = async (requestId: number): Promise<FriendRequest> => {
   const response = await api.post(`/api/friends/requests/${requestId}/accept`);
   return response.data;
 };
@@ -28,7 +29,7 @@ export const acceptFriendRequest = async (requestId: number) => {
  * Decline a pending friend request.
  * @param {number} requestId - Friend request ID
  */
-export const declineFriendRequest = async (requestId: number) => {
+export const declineFriendRequest = async (requestId: number): Promise<FriendRequest> => {
   const response = await api.post(`/api/friends/requests/${requestId}/decline`);
   return response.data;
 };
@@ -37,7 +38,7 @@ export const declineFriendRequest = async (requestId: number) => {
  * Cancel an outgoing friend request.
  * @param {number} requestId - Friend request ID
  */
-export const cancelFriendRequest = async (requestId: number) => {
+export const cancelFriendRequest = async (requestId: number): Promise<{ message: string }> => {
   const response = await api.delete(`/api/friends/requests/${requestId}`);
   return response.data;
 };
@@ -46,7 +47,7 @@ export const cancelFriendRequest = async (requestId: number) => {
  * Remove a friend (unfriend).
  * @param {number} playerId - Player ID to unfriend
  */
-export const removeFriend = async (playerId: number) => {
+export const removeFriend = async (playerId: number): Promise<{ message: string }> => {
   const response = await api.delete(`/api/friends/${playerId}`);
   return response.data;
 };
@@ -56,7 +57,7 @@ export const removeFriend = async (playerId: number) => {
  * @param {number} page - Page number (1-based)
  * @param {number} pageSize - Items per page
  */
-export const getFriends = async (page: number = 1, pageSize: number = 50) => {
+export const getFriends = async (page: number = 1, pageSize: number = 50): Promise<FriendListResponse> => {
   const response = await api.get('/api/friends', {
     params: { page, page_size: pageSize },
   });
@@ -67,7 +68,7 @@ export const getFriends = async (page: number = 1, pageSize: number = 50) => {
  * Get pending friend requests.
  * @param {string} direction - "incoming", "outgoing", or "both"
  */
-export const getFriendRequests = async (direction: string = 'both') => {
+export const getFriendRequests = async (direction: string = 'both'): Promise<FriendRequest[]> => {
   const response = await api.get('/api/friends/requests', {
     params: { direction },
   });

@@ -10,7 +10,7 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
     return null;
   }
 
-  const formatNewRating = (eloAfter, eloChange) => {
+  const formatNewRating = (eloAfter: number | null | undefined, eloChange: number | null | undefined) => {
     if (!eloAfter && eloAfter !== 0) return null;
     if (!eloChange) {
       return <span>{Math.round(eloAfter)}</span>;

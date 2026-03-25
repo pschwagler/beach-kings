@@ -2,14 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { getLeague, getLeagueSeasons, getLeagueMembers } from '../../services/api';
-import type { League, Season } from '../../types';
-
-interface LeagueMember {
-  id: number;
-  player_id: number;
-  role?: string;
-  [key: string]: unknown;
-}
+import type { League, Season, LeagueMember } from '../../types';
 
 /**
  * Manages core league data: league info, seasons, members, and derived permission state.

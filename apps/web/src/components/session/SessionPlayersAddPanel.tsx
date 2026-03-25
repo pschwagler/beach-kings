@@ -6,7 +6,13 @@ import { GENDER_FILTER_OPTIONS, LEVEL_FILTER_OPTIONS } from '../../utils/playerF
 import { formatDivisionLabel } from '../../utils/divisionUtils';
 import PlayerFilterPopover from './PlayerFilterPopover';
 import PlaceholderCreateModal from '../player/PlaceholderCreateModal';
-import type { Location, League } from '../../types';
+import type { League } from '../../types';
+
+/** Minimal location shape used for filter display (only id and name are needed). */
+interface LocationOption {
+  id: string;
+  name?: string | null;
+}
 import type { PlayerOption } from '../../utils/playerDropdownUtils';
 
 interface PlayerItem {
@@ -33,7 +39,7 @@ interface SessionPlayersAddPanelProps {
   leagueIds: (string | number)[];
   genderFilters: string[];
   levelFilters: string[];
-  locations: Location[];
+  locations: LocationOption[];
   leagues: League[];
   onToggleFilter: (filterType: string, value: string | number) => void;
   onRemoveFilter: (filterType: string, value: string | number) => void;

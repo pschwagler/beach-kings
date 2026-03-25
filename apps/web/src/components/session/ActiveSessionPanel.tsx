@@ -1,6 +1,7 @@
 import { Trophy, Users, ChevronDown, MapPin } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
 import type { Match, Season } from '../../types';
+import type { DisplayMatch } from '../league/utils/matchUtils';
 
 interface Court {
   id: number;
@@ -20,7 +21,7 @@ export interface ActiveSession {
 
 interface ActiveSessionPanelProps {
   activeSession: ActiveSession;
-  activeSessionMatches: Match[];
+  activeSessionMatches: DisplayMatch[];
   onPlayerClick?: (playerId: number | null, playerName: string, e: React.MouseEvent) => void;
   onAddMatchClick?: () => void;
   onEditMatch?: (match: Match) => void;

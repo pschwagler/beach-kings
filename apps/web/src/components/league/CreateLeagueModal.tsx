@@ -9,7 +9,15 @@ import { GENDER_OPTIONS_LEAGUE, LEVEL_OPTIONS } from '../../utils/playerFilterOp
 import { getPlayerHomeCourts } from '../../services/api';
 import CourtSelector from '../court/CourtSelector';
 
-const INITIAL_FORM_STATE = {
+const INITIAL_FORM_STATE: {
+  name: string;
+  description: string;
+  is_open: boolean;
+  gender: string;
+  level: string;
+  location_id: string;
+  court_id: number | null;
+} = {
   name: '',
   description: '',
   is_open: true,

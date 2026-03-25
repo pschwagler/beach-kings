@@ -5,7 +5,7 @@ import ScoreEntryCard from "./ScoreEntryCard";
 import "./KobLive.css";
 
 interface KobMatch {
-  matchup_id: number;
+  matchup_id: string;
   phase?: string;
   team1_score: number | null;
   team2_score: number | null;
@@ -52,9 +52,9 @@ function getEffectiveGamesPerMatch(tournament: KobTournament, match: KobMatch) {
 interface NowPlayingTabProps {
   matches: KobMatch[];
   tournament: KobTournament;
-  onScoreSubmit: (matchupId: number, team1Score: number, team2Score: number) => void;
+  onScoreSubmit: (matchupId: string, team1Score: number, team2Score: number) => void;
   isDirector: boolean;
-  onEditScore?: (matchupId: number, team1Score: number, team2Score: number) => void;
+  onEditScore?: (matchupId: string, team1Score: number, team2Score: number) => void;
 }
 
 export default function NowPlayingTab({ matches, tournament, onScoreSubmit, isDirector, onEditScore }: NowPlayingTabProps) {

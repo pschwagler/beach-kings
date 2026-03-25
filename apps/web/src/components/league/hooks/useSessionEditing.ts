@@ -2,6 +2,53 @@ import { useState, useCallback } from 'react';
 import { lockInLeagueSession } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
+/** Display-format match row (as produced by transformMatchData / sessionMatchToDisplayFormat). */
+interface DisplayMatch {
+  id: number | string;
+  'Session ID'?: number | null;
+  'Session Name'?: string | null;
+  'Session Status'?: string | null;
+  'Session Created At'?: string | null;
+  'Session Updated At'?: string | null;
+  'Session Created By'?: string | null;
+  'Session Updated By'?: string | null;
+  [key: string]: unknown;
+}
+
+/** Metadata captured when entering edit mode for a session. */
+interface SessionEditMetadata {
+  id: number;
+  name: string;
+  status: string;
+  createdAt: string | null | undefined;
+  updatedAt: string | null | undefined;
+  createdBy: string | null | undefined;
+  updatedBy: string | null | undefined;
+}
+
+/** Pending changes for a single session being edited. */
+interface SessionPendingChanges {
+  updates: Map<number, Partial<DisplayMatch>>;
+  additions: Partial<DisplayMatch>[];
+  deletions: number[];
+}
+
+/** API operations bundle passed to save/create/update/delete handlers. */
+interface MatchOperations {
+  deleteMatchAPI: (matchId: number | string, opts?: Record<string, unknown>) => Promise<void>;
+  updateMatchAPI: (matchId: number | string, matchData: Partial<DisplayMatch>, opts?: Record<string, unknown>) => Promise<void>;
+  createMatchAPI: (matchData: Partial<DisplayMatch>, opts?: Record<string, unknown>) => Promise<void>;
+  normalizeMatchData?: (matchData: Partial<DisplayMatch>) => Partial<DisplayMatch>;
+}
+
+interface UseSessionEditingParams {
+  matches: DisplayMatch[] | null | undefined;
+  leagueId: number | null | undefined;
+  refreshData: ((opts?: Record<string, any>) => Promise<void>) | null | undefined;
+  refreshSeasonData: ((seasonId: number) => Promise<void>) | null | undefined;
+  getSeasonIdForRefresh: (() => number | null) | null | undefined;
+}
+
 /**
  * Hook to manage session editing state and pending changes
  * Tracks which sessions are being edited and stores pending match changes
@@ -12,16 +59,16 @@ export function useSessionEditing({
   refreshData,
   refreshSeasonData,
   getSeasonIdForRefresh,
-}) {
+}: UseSessionEditingParams) {
   const { showToast } = useToast();
   const [editingSessions, setEditingSessions] = useState<Set<number>>(new Set());
-  const [pendingMatchChanges, setPendingMatchChanges] = useState<Map<number, { updates: Map<any, any>; additions: any[]; deletions: any[] }>>(new Map());
-  const [editingSessionMetadata, setEditingSessionMetadata] = useState<Map<number, any>>(new Map());
+  const [pendingMatchChanges, setPendingMatchChanges] = useState<Map<number, SessionPendingChanges>>(new Map());
+  const [editingSessionMetadata, setEditingSessionMetadata] = useState<Map<number, SessionEditMetadata>>(new Map());
 
   /**
    * Check if a session is currently being edited
    */
-  const isEditing = useCallback((sessionId) => {
+  const isEditing = useCallback((sessionId: number) => {
     return editingSessions.has(sessionId);
   }, [editingSessions]);
 
@@ -29,21 +76,21 @@ export function useSessionEditing({
    * Enter edit mode for a session
    * Initializes pending changes and stores session metadata
    */
-  const enterEditMode = useCallback((sessionId, currentMatches) => {
+  const enterEditMode = useCallback((sessionId: number, currentMatches: DisplayMatch[] | null) => {
     const matchesToUse = currentMatches || matches;
     setEditingSessions(prev => new Set(prev).add(sessionId));
-    
+
     // Initialize pending changes for this session
     setPendingMatchChanges(prev => {
       const next = new Map(prev);
       if (!next.has(sessionId)) {
-        next.set(sessionId, { updates: new Map(), additions: [], deletions: [] });
+        next.set(sessionId, { updates: new Map<number, Partial<DisplayMatch>>(), additions: [], deletions: [] });
       }
       return next;
     });
-    
+
     // Store session metadata so we can show the session even if all matches are deleted
-    const sessionMatch = matchesToUse?.find(m => m['Session ID'] === sessionId);
+    const sessionMatch = matchesToUse?.find((m: DisplayMatch) => m['Session ID'] === sessionId);
     if (sessionMatch) {
       setEditingSessionMetadata(prev => {
         const next = new Map(prev);
@@ -65,7 +112,7 @@ export function useSessionEditing({
    * Cancel edit mode for a session
    * Discards all pending changes
    */
-  const cancelEdit = useCallback((sessionId) => {
+  const cancelEdit = useCallback((sessionId: number) => {
     setEditingSessions(prev => {
       const next = new Set(prev);
       next.delete(sessionId);
@@ -95,7 +142,7 @@ export function useSessionEditing({
    * Save edited session
    * Applies all pending changes and locks in the session
    */
-  const saveEditedSession = useCallback(async (sessionId, matchOperations) => {
+  const saveEditedSession = useCallback(async (sessionId: number, matchOperations: MatchOperations) => {
     try {
       // Apply all pending match changes for this session
       const sessionChanges = pendingMatchChanges.get(sessionId);
@@ -179,10 +226,10 @@ export function useSessionEditing({
   /**
    * Add a pending match to a session being edited
    */
-  const addPendingMatch = useCallback((sessionId, matchData) => {
+  const addPendingMatch = useCallback((sessionId: number, matchData: Partial<DisplayMatch>) => {
     setPendingMatchChanges(prev => {
       const next = new Map(prev);
-      const sessionChanges = next.get(sessionId) || { updates: new Map(), additions: [], deletions: [] };
+      const sessionChanges: SessionPendingChanges = next.get(sessionId) || { updates: new Map<number, Partial<DisplayMatch>>(), additions: [] as Partial<DisplayMatch>[], deletions: [] as number[] };
       sessionChanges.additions.push(matchData);
       next.set(sessionId, sessionChanges);
       return next;
@@ -192,10 +239,10 @@ export function useSessionEditing({
   /**
    * Update a pending match in a session being edited
    */
-  const updatePendingMatch = useCallback((sessionId, matchId, matchData) => {
+  const updatePendingMatch = useCallback((sessionId: number, matchId: number | string, matchData: Partial<DisplayMatch>) => {
     setPendingMatchChanges(prev => {
       const next = new Map(prev);
-      const sessionChanges = next.get(sessionId) || { updates: new Map(), additions: [], deletions: [] };
+      const sessionChanges: SessionPendingChanges = next.get(sessionId) || { updates: new Map<number, Partial<DisplayMatch>>(), additions: [] as Partial<DisplayMatch>[], deletions: [] as number[] };
       
       // Check if this is a pending match (newly added match being edited)
       if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
@@ -216,7 +263,7 @@ export function useSessionEditing({
         }
       } else {
         // Existing match being edited - store in updates
-        sessionChanges.updates.set(matchId, matchData);
+        sessionChanges.updates.set(matchId as number, matchData);
       }
       
       next.set(sessionId, sessionChanges);
@@ -227,7 +274,7 @@ export function useSessionEditing({
   /**
    * Delete a pending match from a session being edited
    */
-  const deletePendingMatch = useCallback((sessionId, matchId) => {
+  const deletePendingMatch = useCallback((sessionId: number, matchId: number | string) => {
     // Check if this is a pending match (newly added match that hasn't been saved)
     if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
       // Extract sessionId and index from temp ID: pending-{sessionId}-{index}
@@ -257,17 +304,17 @@ export function useSessionEditing({
     // Existing match - track deletion in pending changes
     setPendingMatchChanges(prev => {
       const next = new Map(prev);
-      const sessionChanges = next.get(sessionId) || { updates: new Map(), additions: [], deletions: [] };
+      const sessionChanges: SessionPendingChanges = next.get(sessionId) || { updates: new Map<number, Partial<DisplayMatch>>(), additions: [] as Partial<DisplayMatch>[], deletions: [] as number[] };
       
       // Remove from updates if it was being updated
-      sessionChanges.updates.delete(matchId);
-      
+      sessionChanges.updates.delete(matchId as number);
+
       // Add to deletions list
       if (!sessionChanges.deletions) {
         sessionChanges.deletions = [];
       }
-      if (!sessionChanges.deletions.includes(matchId)) {
-        sessionChanges.deletions.push(matchId);
+      if (!sessionChanges.deletions.includes(matchId as number)) {
+        sessionChanges.deletions.push(matchId as number);
       }
       
       next.set(sessionId, sessionChanges);
@@ -278,7 +325,7 @@ export function useSessionEditing({
   /**
    * Router function: Create match - routes to pending changes or API
    */
-  const handleCreateMatch = useCallback(async (matchData, sessionId, matchOperations) => {
+  const handleCreateMatch = useCallback(async (matchData: Partial<DisplayMatch> & { session_id?: number }, sessionId: number | null | undefined, matchOperations: MatchOperations | null) => {
     // Determine which session ID to check (from parameter or matchData)
     const sessionIdToCheck = sessionId || matchData?.session_id;
     
@@ -299,10 +346,10 @@ export function useSessionEditing({
   /**
    * Router function: Update match - routes to pending changes or API
    */
-  const handleUpdateMatch = useCallback(async (matchId, matchData, sessionId, matchOperations, matches) => {
+  const handleUpdateMatch = useCallback(async (matchId: number | string, matchData: Partial<DisplayMatch>, sessionId: number | null | undefined, matchOperations: MatchOperations | null, matches: DisplayMatch[]) => {
     // Find session ID if not provided
     if (!sessionId) {
-      const match = matches?.find(m => m.id === matchId);
+      const match = matches?.find((m: DisplayMatch) => m.id === matchId);
       sessionId = match?.['Session ID'];
     }
     
@@ -327,7 +374,7 @@ export function useSessionEditing({
   /**
    * Router function: Delete match - routes to pending changes or API
    */
-  const handleDeleteMatch = useCallback(async (matchId, matchOperations, matches) => {
+  const handleDeleteMatch = useCallback(async (matchId: number | string, matchOperations: MatchOperations | null, matches: DisplayMatch[]) => {
     // Check if pending match
     if (typeof matchId === 'string' && matchId.startsWith('pending-')) {
       // Extract sessionId from temp ID: pending-{sessionId}-{index}
@@ -342,9 +389,9 @@ export function useSessionEditing({
       // Invalid pending ID format, just return (match was never saved)
       return;
     }
-    
+
     // Find session ID
-    const match = matches?.find(m => m.id === matchId);
+    const match = matches?.find((m: DisplayMatch) => m.id === matchId);
     const sessionId = match?.['Session ID'];
     
     // If editing this session, store locally

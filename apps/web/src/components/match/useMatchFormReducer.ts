@@ -12,7 +12,7 @@ const INITIAL_FORM_STATE = {
 };
 
 /** A player field can be an empty string, a plain name string, or a player option object. */
-type PlayerField = string | { value: any; label?: string; isPlaceholder?: boolean; inviteUrl?: string; inviteToken?: string };
+type PlayerField = string | { value: number | string; label?: string; isPlaceholder?: boolean; inviteUrl?: string; inviteToken?: string };
 
 interface FormState {
   team1Player1: PlayerField;

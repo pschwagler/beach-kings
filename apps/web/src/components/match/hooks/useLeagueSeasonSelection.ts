@@ -1,10 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUserLeagues, getLeagueSeasons } from '../../../services/api';
 
+/** Minimal league shape for selection. */
+interface LeagueOption {
+  id: number;
+  name: string;
+}
+
+/** Minimal season shape for selection. */
+interface SeasonOption {
+  id: number;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
 /**
  * Hook to manage league and season selection state.
  * Consolidates league, season, and match-type state for AddMatchModal.
  */
+interface UseLeagueSeasonSelectionParams {
+  isOpen: boolean;
+  leagueMatchOnly: boolean;
+  defaultLeagueId: number | null | undefined;
+  league: LeagueOption | null | undefined;
+  sessionSeasonId: number | null | undefined;
+  defaultSeasonId: number | null | undefined;
+  matchType: string;
+}
+
 export function useLeagueSeasonSelection({
   isOpen,
   leagueMatchOnly,
@@ -13,19 +36,19 @@ export function useLeagueSeasonSelection({
   sessionSeasonId,
   defaultSeasonId,
   matchType: initialMatchType
-}) {
+}: UseLeagueSeasonSelectionParams) {
   const [matchType, setMatchType] = useState(leagueMatchOnly ? 'league' : 'non-league');
   const [selectedLeagueId, setSelectedLeagueId] = useState(defaultLeagueId);
-  const [availableLeagues, setAvailableLeagues] = useState<any[]>([]);
-  const [activeSeason, setActiveSeason] = useState<any | null>(null);
-  const [allSeasons, setAllSeasons] = useState<any[]>([]);
+  const [availableLeagues, setAvailableLeagues] = useState<LeagueOption[]>([]);
+  const [activeSeason, setActiveSeason] = useState<SeasonOption | null>(null);
+  const [allSeasons, setAllSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [isSeasonDisabled, setIsSeasonDisabled] = useState(false);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingSeason, setLoadingSeason] = useState(false);
 
   // Helper to check if season is active based on dates
-  const isSeasonActive = useCallback((season) => {
+  const isSeasonActive = useCallback((season: SeasonOption | null | undefined) => {
     if (!season || !season.start_date || !season.end_date) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -40,17 +63,17 @@ export function useLeagueSeasonSelection({
    * Pick the best default season from a list: most recent active season,
    * falling back to the season with the latest start_date.
    */
-  const pickDefaultSeason = useCallback((seasons: any[]) => {
+  const pickDefaultSeason = useCallback((seasons: SeasonOption[]) => {
     const activeSeasons = seasons.filter(isSeasonActive);
     if (activeSeasons.length > 0) {
       // Most recent active season by start_date
       return [...activeSeasons].sort(
-        (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+        (a, b) => new Date(b.start_date ?? 0).getTime() - new Date(a.start_date ?? 0).getTime()
       )[0];
     }
     // No active seasons — fall back to most recent by start_date
     return [...seasons].sort(
-      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+      (a, b) => new Date(b.start_date ?? 0).getTime() - new Date(a.start_date ?? 0).getTime()
     )[0] ?? null;
   }, [isSeasonActive]);
 
@@ -60,11 +83,11 @@ export function useLeagueSeasonSelection({
       const loadLeagues = async () => {
         setLoadingLeagues(true);
         try {
-          const leagues = await getUserLeagues();
+          const leagues: LeagueOption[] = await getUserLeagues();
           setAvailableLeagues(leagues || []);
           // If defaultLeagueId is provided, select it
           if (defaultLeagueId && leagues) {
-            const defaultLeague = leagues.find(l => l.id === defaultLeagueId);
+            const defaultLeague = leagues.find((l) => l.id === defaultLeagueId);
             if (defaultLeague) {
               setSelectedLeagueId(defaultLeagueId);
             }
@@ -103,25 +126,25 @@ export function useLeagueSeasonSelection({
             setSelectedSeasonId(sessionSeasonId);
             setIsSeasonDisabled(true);
 
-            const seasons = await getLeagueSeasons(selectedLeagueId);
+            const seasons: SeasonOption[] = await getLeagueSeasons(selectedLeagueId);
             setAllSeasons(seasons || []);
 
             // Find and set the active season
-            const season = seasons.find(s => s.id === sessionSeasonId);
+            const season = seasons.find((s) => s.id === sessionSeasonId);
             if (season) {
               setActiveSeason(season);
             }
           } else {
             setIsSeasonDisabled(false); // Allow selection when not from a session
 
-            const seasons = await getLeagueSeasons(selectedLeagueId);
+            const seasons: SeasonOption[] = await getLeagueSeasons(selectedLeagueId);
             setAllSeasons(seasons || []);
 
             // Use defaultSeasonId if provided, otherwise auto-select best season
             if (defaultSeasonId !== null && defaultSeasonId !== undefined) {
               // Use the provided default season
               setSelectedSeasonId(defaultSeasonId);
-              const season = seasons.find(s => s.id === defaultSeasonId);
+              const season = seasons.find((s) => s.id === defaultSeasonId);
               if (season) {
                 setActiveSeason(season);
               }

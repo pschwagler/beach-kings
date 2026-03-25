@@ -9,7 +9,7 @@
  * @param {Object} partnershipOpponentStats - Partnership and opponent stats
  * @returns {Object} Formatted stats with overview and stats array
  */
-export function formatPlayerSeasonStats(seasonStats, partnershipOpponentStats) {
+export function formatPlayerSeasonStats(seasonStats: any, partnershipOpponentStats: any) {
   if (!seasonStats) return null;
 
   // Format stats array for PlayerStatsTable
@@ -67,11 +67,11 @@ export function formatPlayerSeasonStats(seasonStats, partnershipOpponentStats) {
  * @param {number} playerId - Player ID to filter matches for
  * @returns {Array} Formatted match history for the player
  */
-export function formatPlayerMatchHistory(matches, playerId) {
+export function formatPlayerMatchHistory(matches: any[], playerId: number) {
   if (!matches || !playerId) return [];
 
   // Filter match history to only include matches where this player participated
-  const playerMatches = matches.filter(match => {
+  const playerMatches = matches.filter((match: any) => {
     const playerIds = [
       match.team1_player1_id,
       match.team1_player2_id,
@@ -83,7 +83,7 @@ export function formatPlayerMatchHistory(matches, playerId) {
   });
   
   // Transform matches to MatchHistoryTable format
-  return playerMatches.map(match => {
+  return playerMatches.map((match: any) => {
     // Determine which team the player was on
     const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
     
@@ -143,7 +143,7 @@ export function formatPlayerMatchHistory(matches, playerId) {
  * @param {number} playerId - Player ID
  * @returns {Object} Object with formatted stats and match history, or null if no data
  */
-export function transformPlayerData(seasonData, playerId) {
+export function transformPlayerData(seasonData: any, playerId: number) {
   if (!seasonData || !playerId) {
     return {
       stats: null,

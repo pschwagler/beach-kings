@@ -1,7 +1,14 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { formatDateRange } from '../../league/utils/leagueUtils';
-import type { Season } from '../../../types';
+
+/** Minimal season shape required by this component. */
+interface SeasonOption {
+  id: number;
+  name?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}
 
 /**
  * Component to render season dropdown with complex conditional logic
@@ -9,17 +16,17 @@ import type { Season } from '../../../types';
  */
 interface SeasonDropdownProps {
   loadingSeason: boolean;
-  allSeasons: Season[];
+  allSeasons: SeasonOption[];
   selectedSeasonId: number | null;
   isSeasonDisabled: boolean;
   isSeasonDropdownOpen: boolean;
   setIsSeasonDropdownOpen: (open: boolean) => void;
   setSelectedSeasonId: (id: number) => void;
-  setActiveSeason: (season: Season) => void;
+  setActiveSeason: (season: SeasonOption) => void;
   formError: string | null;
   setFormError: (err: string | null) => void;
   onSeasonChange?: ((id: number) => void) | null;
-  isSeasonActive: (season: Season) => boolean;
+  isSeasonActive: (season: SeasonOption) => boolean;
   seasonDropdownRef: React.RefObject<HTMLDivElement | null>;
 }
 

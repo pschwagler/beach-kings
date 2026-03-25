@@ -3,6 +3,7 @@
  */
 
 import api from '../api-client';
+import type { WeeklySchedule, Signup } from '../../types';
 
 /**
  * Weekly Schedule API methods
@@ -19,7 +20,7 @@ export const createWeeklySchedule = async (seasonId: number, scheduleData: Recor
 /**
  * Get weekly schedules for a season
  */
-export const getWeeklySchedules = async (seasonId: number) => {
+export const getWeeklySchedules = async (seasonId: number): Promise<WeeklySchedule[]> => {
   const response = await api.get(`/api/seasons/${seasonId}/weekly-schedules`);
   return response.data;
 };
@@ -55,7 +56,7 @@ export const createSignup = async (seasonId: number, signupData: Record<string, 
 /**
  * Get signups for a season
  */
-export const getSignups = async (seasonId: number, options: { upcoming_only?: boolean; past_only?: boolean; include_players?: boolean } = {}) => {
+export const getSignups = async (seasonId: number, options: { upcoming_only?: boolean; past_only?: boolean; include_players?: boolean } = {}): Promise<Signup[]> => {
   const params = new URLSearchParams();
   if (options.upcoming_only) params.append('upcoming_only', 'true');
   if (options.past_only) params.append('past_only', 'true');
@@ -69,7 +70,7 @@ export const getSignups = async (seasonId: number, options: { upcoming_only?: bo
 /**
  * Get a signup by ID with players list
  */
-export const getSignup = async (signupId: number) => {
+export const getSignup = async (signupId: number): Promise<Signup> => {
   const response = await api.get(`/api/signups/${signupId}`);
   return response.data;
 };

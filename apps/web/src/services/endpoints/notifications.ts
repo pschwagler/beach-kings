@@ -3,11 +3,12 @@
  */
 
 import api from '../api-client';
+import type { Notification } from '../../types';
 
 /**
  * Get user notifications with pagination
  */
-export const getNotifications = async (params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}) => {
+export const getNotifications = async (params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}): Promise<{ notifications: Notification[]; total_count: number; has_more: boolean }> => {
   const { limit = 50, offset = 0, unreadOnly = false } = params;
   const response = await api.get('/api/notifications', {
     params: { limit, offset, unread_only: unreadOnly }
@@ -18,7 +19,7 @@ export const getNotifications = async (params: { limit?: number; offset?: number
 /**
  * Get unread notification count
  */
-export const getUnreadCount = async () => {
+export const getUnreadCount = async (): Promise<{ count: number }> => {
   const response = await api.get('/api/notifications/unread-count');
   return response.data;
 };
@@ -26,7 +27,7 @@ export const getUnreadCount = async () => {
 /**
  * Mark a single notification as read
  */
-export const markNotificationAsRead = async (notificationId: number) => {
+export const markNotificationAsRead = async (notificationId: number): Promise<Notification> => {
   const response = await api.put(`/api/notifications/${notificationId}/read`);
   return response.data;
 };
@@ -34,7 +35,7 @@ export const markNotificationAsRead = async (notificationId: number) => {
 /**
  * Mark all notifications as read
  */
-export const markAllNotificationsAsRead = async () => {
+export const markAllNotificationsAsRead = async (): Promise<{ updated_count: number }> => {
   const response = await api.put('/api/notifications/mark-all-read');
   return response.data;
 };

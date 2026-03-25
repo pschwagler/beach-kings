@@ -1,10 +1,42 @@
 import { useCallback } from 'react';
 import { validateFormFields, validateScores } from '../../../utils/matchValidation';
 
+/** A player option as produced by usePlayerMappings or the form reducer. */
+type PlayerOption = { value: number | string; label?: string; [key: string]: unknown } | string | null;
+
+/** Form data for the match form. */
+interface MatchFormData {
+  team1Player1?: PlayerOption;
+  team1Player2?: PlayerOption;
+  team2Player1?: PlayerOption;
+  team2Player2?: PlayerOption;
+  team1Score?: string;
+  team2Score?: string;
+}
+
+/** Minimal season shape for selection. */
+interface SeasonOption {
+  id: number;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
 /**
  * Hook to handle match form validation
  * Consolidates validation logic for fields, scores, league, and season
  */
+interface UseMatchValidationParams {
+  formData: MatchFormData;
+  editMatch: unknown;
+  matchType: string;
+  selectedLeagueId: number | null | undefined;
+  selectedSeasonId: number | null | undefined;
+  allSeasons: SeasonOption[];
+  setSelectedSeasonId: (id: number | null) => void;
+  setActiveSeason: (season: SeasonOption | null) => void;
+  setFormError: (error: string | null) => void;
+}
+
 export function useMatchValidation({
   formData,
   editMatch,
@@ -15,7 +47,7 @@ export function useMatchValidation({
   setSelectedSeasonId,
   setActiveSeason,
   setFormError
-}) {
+}: UseMatchValidationParams) {
   const validateForm = useCallback(() => {
     // Validate all fields
     const fieldsValidation = validateFormFields(formData);

@@ -3,11 +3,12 @@
  */
 
 import api from '../api-client';
+import type { Location, Player } from '../../types';
 
 /**
  * Get the current user's player profile
  */
-export const getCurrentUserPlayer = async () => {
+export const getCurrentUserPlayer = async (): Promise<Player> => {
   const response = await api.get('/api/users/me/player');
   return response.data;
 };
@@ -47,7 +48,7 @@ export const cancelAccountDeletion = async () => {
 /**
  * Get list of locations
  */
-export const getLocations = async () => {
+export const getLocations = async (): Promise<Location[]> => {
   const response = await api.get('/api/locations');
   return response.data;
 };
@@ -55,7 +56,7 @@ export const getLocations = async () => {
 /**
  * Get all locations with distances from given coordinates, sorted by closest first
  */
-export const getLocationDistances = async (lat: number, lon: number) => {
+export const getLocationDistances = async (lat: number, lon: number): Promise<Location[]> => {
   const response = await api.get('/api/locations/distances', {
     params: { lat, lon }
   });
@@ -94,7 +95,7 @@ export const getPublicLocations = async () => {
  * @param {File|Blob} file - Image file or blob to upload
  * @returns {Promise<{ profile_picture_url: string }>}
  */
-export const uploadAvatar = async (file: File | Blob) => {
+export const uploadAvatar = async (file: File | Blob): Promise<{ profile_picture_url: string }> => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post('/api/users/me/avatar', formData, {

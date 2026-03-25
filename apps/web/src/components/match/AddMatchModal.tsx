@@ -10,6 +10,8 @@ import { nameToPlayerOption, arePlayersEqual } from '../../utils/playerUtils';
 import { formatScore } from '../../utils/matchValidation';
 import { createPlaceholderPlayer, getPublicPlayers } from '../../services/api';
 import useShare from '../../hooks/useShare';
+import type { LeagueMember, League, Season } from '../../types';
+import type { PlayerOption as DropdownPlayerOption } from '../../utils/playerDropdownUtils';
 
 // Import custom hooks
 import { useLeagueSeasonSelection } from './hooks/useLeagueSeasonSelection';
@@ -21,8 +23,29 @@ import { useMatchValidation } from './hooks/useMatchValidation';
 import { useMatchPayload } from './hooks/useMatchPayload';
 import SeasonDropdown from './components/SeasonDropdown';
 
+/**
+ * A selectable player option used by PlayerDropdown and form state.
+ * Aliased from playerDropdownUtils for structural compatibility with PlayerDropdown.
+ */
+export type PlayerOption = DropdownPlayerOption;
+
+/** A player field value as stored in the form state (label may be absent for string-only entries). */
+type PlayerFieldValue = string | { value: number | string; label?: string; isPlaceholder?: boolean; inviteUrl?: string | null; inviteToken?: string | null } | null;
+
+/** A match row as supplied to the edit form — subset of MatchDisplayRow keys. */
+export interface EditMatchData {
+  id: number | string;
+  'Team 1 Player 1': string;
+  'Team 1 Player 2': string;
+  'Team 2 Player 1': string;
+  'Team 2 Player 2': string;
+  'Team 1 Score': number | null;
+  'Team 2 Score': number | null;
+  [key: string]: unknown;
+}
+
 // Helper function to map edit match to form data
-const mapEditMatchToFormData = (editMatch: Record<string, unknown>, nameToIdMap: Map<any, any>) => ({
+const mapEditMatchToFormData = (editMatch: EditMatchData, nameToIdMap: Map<string, number | string>) => ({
   team1Player1: nameToPlayerOption((editMatch['Team 1 Player 1'] || '') as string, nameToIdMap),
   team1Player2: nameToPlayerOption((editMatch['Team 1 Player 2'] || '') as string, nameToIdMap),
   team2Player1: nameToPlayerOption((editMatch['Team 2 Player 1'] || '') as string, nameToIdMap),
@@ -34,15 +57,15 @@ const mapEditMatchToFormData = (editMatch: Record<string, unknown>, nameToIdMap:
 interface AddMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (payload: any, matchId?: any) => Promise<void>;
-  allPlayerNames?: any[];
-  onDelete?: (matchId: any) => Promise<void>;
-  editMatch?: any;
+  onSubmit: (payload: Record<string, unknown>, matchId?: number | string | null) => Promise<void>;
+  allPlayerNames?: string[];
+  onDelete?: (matchId: number | string) => Promise<void>;
+  editMatch?: EditMatchData | null;
   leagueMatchOnly?: boolean;
   sessionOnly?: boolean;
   defaultLeagueId?: number | null;
-  members?: any[];
-  league?: any;
+  members?: LeagueMember[];
+  league?: League | null;
   sessionId?: number | null;
   sessionSeasonId?: number | null;
   defaultSeasonId?: number | null;
@@ -68,7 +91,12 @@ export default function AddMatchModal({
 }: AddMatchModalProps) {
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
-  const [localPlaceholders, setLocalPlaceholders] = useState([]);
+  const [localPlaceholders, setLocalPlaceholders] = useState<Array<{
+    player_id: number;
+    name: string;
+    invite_token: string | null;
+    invite_url: string | null;
+  }>>([]);
   const { shareInvite } = useShare();
 
   // Use custom hooks - sessionOnly forces non-league with session_id only
@@ -76,7 +104,7 @@ export default function AddMatchModal({
     isOpen,
     leagueMatchOnly,
     defaultLeagueId,
-    league,
+    league: league ? { id: league.id, name: league.name } : null,
     sessionSeasonId,
     defaultSeasonId,
     matchType: sessionOnly ? 'non-league' : (leagueMatchOnly ? 'league' : 'non-league')
@@ -121,12 +149,12 @@ export default function AddMatchModal({
   } = formSubmission;
   
   // Refs for auto-focusing next fields
-  const team1Player1Ref = useRef(null);
-  const team1Player2Ref = useRef(null);
-  const team2Player1Ref = useRef(null);
-  const team2Player2Ref = useRef(null);
-  const team1ScoreRef = useRef(null);
-  const team2ScoreRef = useRef(null);
+  const team1Player1Ref = useRef<HTMLDivElement | null>(null);
+  const team1Player2Ref = useRef<HTMLDivElement | null>(null);
+  const team2Player1Ref = useRef<HTMLDivElement | null>(null);
+  const team2Player2Ref = useRef<HTMLDivElement | null>(null);
+  const team1ScoreRef = useRef<FocusableRef | null>(null);
+  const team2ScoreRef = useRef<FocusableRef | null>(null);
 
   // Use player mappings hook (includes locally created placeholders)
   const playerMappings = usePlayerMappings({ members, allPlayerNames, localPlaceholders });
@@ -275,7 +303,9 @@ export default function AddMatchModal({
 
       // Collect placeholder players from this match for invite link toasts
       const selectedPlayers = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
-      const placeholdersInMatch = selectedPlayers.filter(p => p && typeof p === 'object' && (p as any).isPlaceholder && (p as any).inviteUrl);
+      const placeholdersInMatch = selectedPlayers.filter((p): p is PlayerOption =>
+        p !== null && typeof p === 'object' && !!(p as PlayerOption).isPlaceholder && !!(p as PlayerOption).inviteUrl
+      );
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
@@ -288,8 +318,8 @@ export default function AddMatchModal({
       // native share may fire if activation persists, otherwise falls back to
       // ShareFallbackModal via the still-mounted ModalContext)
       if (placeholdersInMatch.length > 0) {
-        const ph = placeholdersInMatch[0] as any;
-        shareInvite({ name: ph.label, url: ph.inviteUrl });
+        const ph = placeholdersInMatch[0];
+        shareInvite({ name: ph.label, url: ph.inviteUrl as string });
       }
     } catch (error) {
       console.error('Error submitting match:', error);
@@ -613,12 +643,16 @@ export default function AddMatchModal({
   );
 }
 
+interface FocusableRef {
+  focus: () => void;
+}
+
 interface ScoreCardInputProps {
   value: string;
   onChange: (value: string) => void;
   teamNumber: number;
-  scoreRef: React.MutableRefObject<any>;
-  nextScoreRef: React.MutableRefObject<any> | null;
+  scoreRef: React.MutableRefObject<FocusableRef | null>;
+  nextScoreRef: React.MutableRefObject<FocusableRef | null> | null;
 }
 
 // ScoreCard Input Component - Two separate digit inputs
@@ -630,8 +664,8 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
   const isTeam1 = teamNumber === 1;
   const bgColor = isTeam1 ? 'var(--danger)' : 'var(--primary)';
   
-  const input1Ref = useRef(null);
-  const input2Ref = useRef(null);
+  const input1Ref = useRef<HTMLInputElement | null>(null);
+  const input2Ref = useRef<HTMLInputElement | null>(null);
   
   // Expose focus method via ref
   useEffect(() => {
@@ -778,24 +812,24 @@ function ScoreCardInput({ value, onChange, teamNumber, scoreRef, nextScoreRef }:
 
 interface TeamSectionProps {
   teamNumber: number;
-  player1Value: any;
-  player2Value: any;
+  player1Value: PlayerFieldValue;
+  player2Value: PlayerFieldValue;
   scoreValue: string;
   player1Field: string;
   player2Field: string;
   scoreField: string;
   isWinner: boolean;
-  onPlayerChange: (field: string, player: any) => void;
+  onPlayerChange: (field: string, player: PlayerOption | string | null) => void;
   onScoreChange: (field: string, value: string) => void;
-  allPlayerNames: any[];
-  getExcludedPlayers: (current: any) => any[];
-  player1Ref: React.MutableRefObject<any>;
-  player2Ref: React.MutableRefObject<any>;
-  scoreRef: React.MutableRefObject<any>;
-  nextScoreRef: React.MutableRefObject<any> | null;
+  allPlayerNames: Array<PlayerOption | PlayerFieldValue>;
+  getExcludedPlayers: (current: unknown) => PlayerFieldValue[];
+  player1Ref: React.MutableRefObject<HTMLDivElement | null>;
+  player2Ref: React.MutableRefObject<HTMLDivElement | null>;
+  scoreRef: React.MutableRefObject<FocusableRef | null>;
+  nextScoreRef: React.MutableRefObject<FocusableRef | null> | null;
   autoOpenFirstPlayer?: boolean;
-  onCreatePlaceholder?: ((name: string, extras?: any) => Promise<any>) | null;
-  onSearchPlayers?: ((query: string) => Promise<any>) | null;
+  onCreatePlaceholder?: ((name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption>) | null;
+  onSearchPlayers?: ((query: string) => Promise<{ items: Array<{ id: number; full_name: string; location_name?: string | null; gender?: string | null; level?: string | null; total_games?: number | null; current_rating?: number | null }> }>) | null;
   leagueMemberIds?: Set<number> | null;
   leagueGender?: string | null;
   leagueLevel?: string | null;
@@ -841,11 +875,11 @@ function TeamSection({
         <div className="player-inputs">
           <div ref={player1Ref}>
             <PlayerDropdown
-              value={player1Value}
+              value={player1Value as PlayerOption | string | null}
               onChange={(player) => onPlayerChange(player1Field, player)}
-              allPlayerNames={allPlayerNames || []}
+              allPlayerNames={allPlayerNames as Array<PlayerOption | string>}
               placeholder="Player 1"
-              excludePlayers={getExcludedPlayers(player1Value)}
+              excludePlayers={getExcludedPlayers(player1Value) as Array<PlayerOption | string>}
               autoOpen={autoOpenFirstPlayer}
               onCreatePlaceholder={onCreatePlaceholder}
               onSearchPlayers={onSearchPlayers}
@@ -856,11 +890,11 @@ function TeamSection({
           </div>
           <div ref={player2Ref}>
             <PlayerDropdown
-              value={player2Value}
+              value={player2Value as PlayerOption | string | null}
               onChange={(player) => onPlayerChange(player2Field, player)}
-              allPlayerNames={allPlayerNames || []}
+              allPlayerNames={allPlayerNames as Array<PlayerOption | string>}
               placeholder="Player 2"
-              excludePlayers={getExcludedPlayers(player2Value)}
+              excludePlayers={getExcludedPlayers(player2Value) as Array<PlayerOption | string>}
               onCreatePlaceholder={onCreatePlaceholder}
               onSearchPlayers={onSearchPlayers}
               leagueMemberIds={leagueMemberIds}

@@ -90,7 +90,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
       };
       if (levelFilter) params.level = levelFilter;
       const data = await getPublicPlayers(params);
-      setPlayers(data.items || data.players || []);
+      setPlayers(data.items || []);
     } catch {
       setPlayers([]);
     } finally {

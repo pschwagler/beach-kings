@@ -154,7 +154,7 @@ export default function LeagueMenuBar({
   // When loading, we still show the same nav items but they can be disabled
   const loadingItems = items.map((item) => ({
     ...item,
-    onClick: undefined,
+    onClick: undefined as (() => void) | undefined,
   }));
 
   return (

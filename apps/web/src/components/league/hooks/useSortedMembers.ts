@@ -5,19 +5,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * then admins, then alphabetically.
  * Preserves sort order when members are updated (e.g., role changes).
  */
-export function useSortedMembers(members, currentUserPlayer) {
+export function useSortedMembers(members: any[], currentUserPlayer: any) {
   const [sortedMembers, setSortedMembers] = useState<any[]>([]);
   const lastMembersLengthRef = useRef<number>(0);
 
-  const sortMembers = useCallback((membersToSort) => {
+  const sortMembers = useCallback((membersToSort: any[]) => {
     if (!membersToSort.length) return [];
 
     const currentUserMember = currentUserPlayer
-      ? membersToSort.find(m => m.player_id === currentUserPlayer.id)
+      ? membersToSort.find((m: any) => m.player_id === currentUserPlayer.id)
       : null;
 
     const otherMembers = membersToSort.filter(
-      m => !currentUserPlayer || m.player_id !== currentUserPlayer.id
+      (m: any) => !currentUserPlayer || m.player_id !== currentUserPlayer.id
     );
 
     // Sort other members: admins first, then alphabetically
@@ -48,7 +48,7 @@ export function useSortedMembers(members, currentUserPlayer) {
     } else {
       // Length same - update in place (preserve order)
       setSortedMembers(prev => {
-        const membersMap = new Map(members.map(m => [m.id, m]));
+        const membersMap = new Map(members.map((m: any) => [m.id, m]));
         return prev.map(member => {
           const updated = membersMap.get(member.id);
           return updated || member;

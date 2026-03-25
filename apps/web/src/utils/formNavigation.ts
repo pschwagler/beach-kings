@@ -9,31 +9,34 @@ const FIELD_NAVIGATION: Record<string, string> = {
   team2Player2: 'team1Score',
 };
 
+/** A focusable element that may support focus() and querySelector(). */
+type FocusableElement = { focus?: () => void; querySelector?: (selector: string) => HTMLElement | null } | null;
+
 /**
  * Auto-advance to the next field after selection
  * @param {string} currentField - The field that was just filled
  * @param {Object} refs - Object containing refs for all fields
  */
-export function autoAdvanceToNextField(currentField: string, refs: Record<string, { current: HTMLElement | null } | undefined>): void {
+export function autoAdvanceToNextField(currentField: string, refs: Record<string, { current: FocusableElement } | undefined>): void {
   const nextField = FIELD_NAVIGATION[currentField];
   if (!nextField) return;
-  
+
   setTimeout(() => {
     const refKey = `${nextField}Ref`;
     const ref = refs[refKey];
-    
+
     if (!ref?.current) return;
-    
+
     // Check if the NEXT field is a player field (not the current field)
     if (nextField.includes('Player')) {
       // For player fields, find the input inside the dropdown
-      const input = ref.current.querySelector('.player-dropdown-input') as HTMLElement | null;
+      const input = ref.current.querySelector?.('.player-dropdown-input');
       if (input) {
         input.focus();
       }
     } else {
       // For score fields, focus directly
-      ref.current.focus();
+      ref.current.focus?.();
     }
   }, 100);
 }

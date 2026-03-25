@@ -67,7 +67,7 @@ export default function CourtListView({ initialCourts, initialTotal, locationId,
   useEffect(() => {
     getPublicLocations()
       .then((data) => {
-        const regionList = Array.isArray(data) ? data : (data.regions || []);
+        const regionList: Array<{ id: string; name: string; locations?: Array<{ id: string; name: string; city?: string; state?: string }> }> = Array.isArray(data) ? data : (data.regions || []);
         setRegions(
           regionList
             .map((r) => ({ id: r.id, name: r.name }))

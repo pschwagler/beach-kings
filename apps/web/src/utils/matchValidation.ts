@@ -2,13 +2,16 @@
  * Validation utilities for match forms
  */
 
+/** A player option value: either an object with value/label, a string name, or null/undefined. */
+type PlayerOption = { value: number | string; label?: string; [key: string]: unknown } | string | null | undefined;
+
 interface MatchFormData {
-  team1Player1?: any;
-  team1Player2?: any;
-  team2Player1?: any;
-  team2Player2?: any;
-  team1Score?: any;
-  team2Score?: any;
+  team1Player1?: PlayerOption;
+  team1Player2?: PlayerOption;
+  team2Player1?: PlayerOption;
+  team2Player2?: PlayerOption;
+  team1Score?: string | number | null;
+  team2Score?: string | number | null;
 }
 
 interface ValidationResult {
@@ -21,9 +24,9 @@ interface ValidationResult {
 /**
  * Format score as 2-digit string
  */
-export function formatScore(score: any): string {
+export function formatScore(score: string | number | null | undefined): string {
   if (!score && score !== 0) return '00';
-  const num = parseInt(score);
+  const num = parseInt(String(score));
   if (isNaN(num)) return '00';
   // Clamp to 0-99 range
   const clamped = Math.max(0, Math.min(99, num));
@@ -45,8 +48,8 @@ export function validatePlayers(formData: MatchFormData): ValidationResult {
  * Validate that scores are valid numbers
  */
 export function validateScoreFormat(formData: MatchFormData): ValidationResult {
-  const score1 = parseInt(formData.team1Score);
-  const score2 = parseInt(formData.team2Score);
+  const score1 = parseInt(String(formData.team1Score ?? ''));
+  const score2 = parseInt(String(formData.team2Score ?? ''));
   
   if (isNaN(score1) || isNaN(score2)) {
     return { isValid: false, errorMessage: 'Please enter valid scores' };
@@ -59,8 +62,8 @@ export function validateScoreFormat(formData: MatchFormData): ValidationResult {
  * Validate scores according to game rules
  */
 export function validateScores(formData: MatchFormData): ValidationResult {
-  const score1 = parseInt(formData.team1Score);
-  const score2 = parseInt(formData.team2Score);
+  const score1 = parseInt(String(formData.team1Score ?? ''));
+  const score2 = parseInt(String(formData.team2Score ?? ''));
   
   if (isNaN(score1) || isNaN(score2) || score1 < 0 || score2 < 0) {
     return { isValid: false, errorMessage: 'Please enter valid scores' };

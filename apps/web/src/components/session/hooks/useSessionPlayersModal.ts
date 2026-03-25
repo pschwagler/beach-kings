@@ -4,9 +4,45 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getPlayers, inviteToSessionBatch, removeSessionParticipant, getLocations, listLeagues, createPlaceholderPlayer, getPublicPlayers } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import type { Location, League } from '../../../types';
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** A session participant as returned by the API. */
+interface Participant {
+  player_id: number;
+  full_name?: string | null;
+  level?: string | null;
+  gender?: string | null;
+  location_name?: string | null;
+}
+
+/** A player item returned from the players search API. */
+interface PlayerItem {
+  id: number;
+  name?: string | null;
+  full_name?: string | null;
+  level?: string | null;
+  gender?: string | null;
+  location_name?: string | null;
+  [key: string]: unknown;
+}
+
+
+/** An invite failure entry from the batch invite API. */
+interface InviteFailure {
+  player_id: number;
+  error?: string;
+  [key: string]: unknown;
+}
+
+/** Optional extras for creating a placeholder player. */
+interface PlaceholderExtras {
+  gender?: string;
+  level?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Encapsulates state and logic for the Session Players modal: local participants,
@@ -20,13 +56,21 @@ const SEARCH_DEBOUNCE_MS = 300;
  * @param {function()} [opts.onClose]
  * @returns {Object} State and handlers for SessionPlayersModal and its panels
  */
+interface UseSessionPlayersModalParams {
+  isOpen: boolean;
+  sessionId: number | null;
+  participants?: Participant[];
+  onSuccess?: () => void;
+  onClose?: () => void;
+}
+
 export function useSessionPlayersModal({
   isOpen,
   sessionId,
   participants = [],
   onSuccess,
   onClose,
-}) {
+}: UseSessionPlayersModalParams) {
   const { showToast } = useToast();
   const { currentUserPlayer } = useAuth();
   const defaultLocationIds = useMemo(
@@ -34,8 +78,8 @@ export function useSessionPlayersModal({
     [currentUserPlayer]
   );
 
-  const [localParticipants, setLocalParticipants] = useState<any[]>([]);
-  const [items, setItems] = useState<any[]>([]);
+  const [localParticipants, setLocalParticipants] = useState<Participant[]>([]);
+  const [items, setItems] = useState<PlayerItem[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -46,8 +90,8 @@ export function useSessionPlayersModal({
   const [leagueIds, setLeagueIds] = useState<number[]>([]);
   const [genderFilters, setGenderFilters] = useState<string[]>([]);
   const [levelFilters, setLevelFilters] = useState<string[]>([]);
-  const [locations, setLocations] = useState<any[]>([]);
-  const [leagues, setLeagues] = useState<any[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [pendingAddIds, setPendingAddIds] = useState(new Set<number>());
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -65,8 +109,8 @@ export function useSessionPlayersModal({
 
   useEffect(() => {
     if (!filtersOpen) return;
-    const handleClickOutside = (e) => {
-      if (filterPopoverRef.current?.contains(e.target) || filterButtonRef.current?.contains(e.target)) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterPopoverRef.current?.contains(e.target as Node) || filterButtonRef.current?.contains(e.target as Node)) return;
       setFiltersOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -111,7 +155,7 @@ export function useSessionPlayersModal({
   }, [isOpen]);
 
   const fetchPage = useCallback(
-    async (pageOffset, append = false) => {
+    async (pageOffset: number, append = false) => {
       const params = {
         q: debouncedQ || undefined,
         location_id: locationIds.length ? locationIds : undefined,
@@ -125,7 +169,7 @@ export function useSessionPlayersModal({
       else setLoading(true);
       try {
         const data = await getPlayers(params);
-        const list = Array.isArray(data?.items) ? data.items : [];
+        const list: PlayerItem[] = Array.isArray(data?.items) ? data.items : [];
         const count = typeof data?.total === 'number' ? data.total : 0;
         if (append) setItems((prev) => [...prev, ...list]);
         else setItems(list);
@@ -180,8 +224,8 @@ export function useSessionPlayersModal({
       if (pending.length > 0 && sessionId) {
         try {
           const result = await inviteToSessionBatch(sessionId, pending);
-          const added = result?.added ?? [];
-          const failed = result?.failed ?? [];
+          const added: unknown[] = result?.added ?? [];
+          const failed: InviteFailure[] = result?.failed ?? [];
           if (failed.length > 0) {
             const failedIds = new Set(failed.map((f) => f.player_id));
             setLocalParticipants((prev) => prev.filter((p) => !failedIds.has(p.player_id)));
@@ -194,7 +238,8 @@ export function useSessionPlayersModal({
           }
           if (added.length > 0) hasMutatedRef.current = true;
         } catch (err) {
-          const detail = err.response?.data?.detail || err.message || 'Failed to add players';
+          const apiErr = err as { response?: { data?: { detail?: string } }; message?: string };
+          const detail = apiErr.response?.data?.detail || apiErr.message || 'Failed to add players';
           showToast(detail, 'error');
         }
       }
@@ -205,7 +250,7 @@ export function useSessionPlayersModal({
   );
 
   const handleRemove = useCallback(
-    async (playerId) => {
+    async (playerId: number) => {
       if (!sessionId || removingId) return;
       if (pendingAddIds.has(playerId)) {
         setPendingAddIds((prev) => {
@@ -222,7 +267,8 @@ export function useSessionPlayersModal({
         hasMutatedRef.current = true;
         setLocalParticipants((prev) => prev.filter((p) => p.player_id !== playerId));
       } catch (err) {
-        const detail = err.response?.data?.detail || '';
+        const apiErr = err as { response?: { data?: { detail?: string } }; message?: string };
+        const detail = apiErr.response?.data?.detail || '';
         let msg = 'Could not remove player';
         if (detail.includes('has games') || detail.includes('has matches')) {
           msg = 'Cannot remove player - they have recorded games in this session';
@@ -239,7 +285,7 @@ export function useSessionPlayersModal({
     [sessionId, removingId, pendingAddIds, showToast]
   );
 
-  const handleAdd = useCallback((player) => {
+  const handleAdd = useCallback((player: PlayerItem) => {
     if (!sessionId || pendingAddIds.has(player.id)) return;
     setPendingAddIds((prev) => new Set(prev).add(player.id));
     setLocalParticipants((prev) => [
@@ -254,7 +300,7 @@ export function useSessionPlayersModal({
     ]);
   }, [sessionId, pendingAddIds]);
 
-  const handleRemoveFilter = useCallback((key, value) => {
+  const handleRemoveFilter = useCallback((key: string, value: string | number) => {
     if (key === 'location') setLocationIds((prev) => prev.filter((id) => id !== value));
     if (key === 'league') setLeagueIds((prev) => prev.filter((id) => id !== value));
     if (key === 'gender') setGenderFilters((prev) => prev.filter((g) => g !== value));
@@ -263,17 +309,12 @@ export function useSessionPlayersModal({
   }, []);
 
   /**
-   * Create a placeholder player and add them to the session roster.
-   * @param {string} name - Player name
-   * @param {Object} [extras] - Optional gender/level
-   */
-  /**
    * Create a placeholder player, add to session, and return invite data for the modal.
    * @param {string} name - Player name
    * @param {Object} [extras] - Optional gender/level
    * @returns {Promise<{value: number, label: string, name: string, inviteUrl: string, inviteToken: string}|null>}
    */
-  const handleCreatePlaceholder = useCallback(async (name: any, extras: Record<string, any> = {}) => {
+  const handleCreatePlaceholder = useCallback(async (name: string, extras: PlaceholderExtras = {}) => {
     if (!sessionId || !name?.trim() || isCreatingPlaceholder) return null;
     setIsCreatingPlaceholder(true);
     try {
@@ -282,10 +323,9 @@ export function useSessionPlayersModal({
         gender: extras.gender || undefined,
         level: extras.level || undefined,
       });
-      const newPlayer = {
+      const newPlayer: PlayerItem = {
         id: response.player_id,
         name: response.name,
-        player_id: response.player_id,
         full_name: response.name,
       };
       handleAdd(newPlayer);
@@ -299,7 +339,8 @@ export function useSessionPlayersModal({
         isPlaceholder: true,
       };
     } catch (err) {
-      const detail = err.response?.data?.detail || 'Failed to create player';
+      const apiErr = err as { response?: { data?: { detail?: string } }; message?: string };
+      const detail = apiErr.response?.data?.detail || 'Failed to create player';
       showToast(detail, 'error');
       throw new Error(detail);
     } finally {
@@ -312,14 +353,14 @@ export function useSessionPlayersModal({
    * @param {string} query - Search term
    * @returns {Promise<{items: Array}>}
    */
-  const handleSearchPlayers = useCallback((query) => {
+  const handleSearchPlayers = useCallback((query: string) => {
     return getPublicPlayers({ search: query, page_size: 5 });
   }, []);
 
-  const handleToggleFilter = useCallback((key, value) => {
+  const handleToggleFilter = useCallback((key: string, value: string | number) => {
     if (key === 'location') {
       setLocationIds((prev) =>
-        prev.includes(value) ? prev.filter((id) => id !== value) : [...prev, value]
+        prev.includes(value as string) ? prev.filter((id) => id !== value) : [...prev, value as string]
       );
     }
     if (key === 'league') {
@@ -328,12 +369,12 @@ export function useSessionPlayersModal({
     }
     if (key === 'gender') {
       setGenderFilters((prev) =>
-        prev.includes(value) ? prev.filter((g) => g !== value) : [...prev, value]
+        prev.includes(value as string) ? prev.filter((g) => g !== value) : [...prev, value as string]
       );
     }
     if (key === 'level') {
       setLevelFilters((prev) =>
-        prev.includes(value) ? prev.filter((l) => l !== value) : [...prev, value]
+        prev.includes(value as string) ? prev.filter((l) => l !== value) : [...prev, value as string]
       );
     }
     setOffset(0);

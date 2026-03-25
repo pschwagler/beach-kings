@@ -2,13 +2,82 @@
  * Match transformation utilities
  */
 
+/** A raw match object as returned by the API (snake_case). */
+export interface RawMatch {
+  id: number | string;
+  date?: string | null;
+  session_id?: number | null;
+  session_name?: string | null;
+  session_status?: string | null;
+  session_season_id?: number | null;
+  session_created_at?: string | null;
+  session_updated_at?: string | null;
+  session_created_by_name?: string | null;
+  session_updated_by_name?: string | null;
+  team1_player1_id?: number | null;
+  team1_player2_id?: number | null;
+  team2_player1_id?: number | null;
+  team2_player2_id?: number | null;
+  team1_player1_name?: string | null;
+  team1_player2_name?: string | null;
+  team2_player1_name?: string | null;
+  team2_player2_name?: string | null;
+  team1_score?: number | null;
+  team2_score?: number | null;
+  winner?: number | null;
+  is_ranked?: boolean | null;
+  ranked_intent?: string | boolean | null;
+  team1_elo_change?: number;
+  team2_elo_change?: number;
+  elo_changes?: Record<number, { elo_change?: number }>;
+  [key: string]: unknown;
+}
+
+/** A display-format match object (keyed by display strings). */
+export interface DisplayMatch {
+  id: number | string;
+  Date?: string | null;
+  'Session ID'?: number | null;
+  'Session Name'?: string | null;
+  'Session Status'?: string | null;
+  'Session Season ID'?: number | null;
+  'Session Created At'?: string | null;
+  'Session Updated At'?: string | null;
+  'Session Created By'?: string | null;
+  'Session Updated By'?: string | null;
+  'Team 1 Player 1'?: string;
+  'Team 1 Player 2'?: string;
+  'Team 2 Player 1'?: string;
+  'Team 2 Player 2'?: string;
+  'Team 1 Player 1 ID'?: number | null;
+  'Team 1 Player 2 ID'?: number | null;
+  'Team 2 Player 1 ID'?: number | null;
+  'Team 2 Player 2 ID'?: number | null;
+  'Team 1 Score'?: number | null;
+  'Team 2 Score'?: number | null;
+  Winner?: string;
+  'Is Ranked'?: boolean | null;
+  'Ranked Intent'?: string | boolean | null;
+  'Team 1 ELO Change'?: number;
+  'Team 2 ELO Change'?: number;
+  [key: string]: unknown;
+}
+
+/** A league/session member with placeholder flag. */
+interface MemberEntry {
+  player_id: number;
+  is_placeholder?: boolean | null;
+  player_name?: string | null;
+}
+
 /**
  * Determine the winner based on team scores.
  * @param {number} team1Score
  * @param {number} team2Score
  * @returns {'Team 1'|'Team 2'|'Tie'}
  */
-export function calculateWinner(team1Score, team2Score) {
+export function calculateWinner(team1Score: number | null | undefined, team2Score: number | null | undefined): string {
+  if (team1Score == null || team2Score == null) return 'Tie';
   if (team1Score > team2Score) return 'Team 1';
   if (team1Score < team2Score) return 'Team 2';
   return 'Tie';
@@ -39,11 +108,12 @@ const ALL_POSITION_KEYS = [
  * @param {Array<Object>} matches - Matches in display format (with 'Team 1 Player 1', etc.)
  * @returns {number} Number of unique player names
  */
-export function getUniquePlayersCount(matches) {
-  const players = new Set();
+export function getUniquePlayersCount(matches: DisplayMatch[]): number {
+  const players = new Set<string>();
   (matches || []).forEach((match) => {
     for (const key of ALL_POSITION_KEYS) {
-      if (match[key]) players.add(match[key]);
+      const name = match[key];
+      if (name && typeof name === 'string') players.add(name);
     }
   });
   return players.size;
@@ -56,14 +126,14 @@ export function getUniquePlayersCount(matches) {
  * @param {Set<number>} [placeholderPlayerIds] - Set of player IDs that are placeholders
  * @returns {Object} displayMatch with isPlaceholder flags added
  */
-function applyPlaceholderFlags(displayMatch, rawMatch, placeholderPlayerIds) {
+function applyPlaceholderFlags(displayMatch: DisplayMatch, rawMatch: RawMatch, placeholderPlayerIds: Set<number> | undefined): DisplayMatch {
   if (!placeholderPlayerIds || placeholderPlayerIds.size === 0) return displayMatch;
   return {
     ...displayMatch,
-    [`${MATCH_POSITION_KEYS.T1P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player1_id),
-    [`${MATCH_POSITION_KEYS.T1P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player2_id),
-    [`${MATCH_POSITION_KEYS.T2P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player1_id),
-    [`${MATCH_POSITION_KEYS.T2P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player2_id),
+    [`${MATCH_POSITION_KEYS.T1P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player1_id as number),
+    [`${MATCH_POSITION_KEYS.T1P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player2_id as number),
+    [`${MATCH_POSITION_KEYS.T2P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player1_id as number),
+    [`${MATCH_POSITION_KEYS.T2P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player2_id as number),
   };
 }
 
@@ -72,7 +142,7 @@ function applyPlaceholderFlags(displayMatch, rawMatch, placeholderPlayerIds) {
  * @param {Array} members - Array of {player_id, is_placeholder} objects
  * @returns {Set<number>} Set of placeholder player IDs
  */
-export function buildPlaceholderIdSet(members): Set<number> {
+export function buildPlaceholderIdSet(members: MemberEntry[]): Set<number> {
   const ids = new Set<number>();
   if (!members) return ids;
   for (const m of members) {
@@ -90,9 +160,9 @@ export function buildPlaceholderIdSet(members): Set<number> {
  * @param {Set<number>} [placeholderPlayerIds] - Optional set of placeholder player IDs
  * @returns {Object} Match in display format (Team 1 Player 1, etc.)
  */
-export function sessionMatchToDisplayFormat(match, placeholderPlayerIds) {
+export function sessionMatchToDisplayFormat(match: RawMatch, placeholderPlayerIds?: Set<number>): DisplayMatch {
   const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
-  const displayMatch = {
+  const displayMatch: DisplayMatch = {
     id: match.id,
     Date: match.date,
     'Session ID': match.session_id,
@@ -124,8 +194,8 @@ export function sessionMatchToDisplayFormat(match, placeholderPlayerIds) {
  * @param {Set<number>} [placeholderPlayerIds] - Optional set of placeholder player IDs
  * @returns {Array} Transformed matches for display in MatchesTable
  */
-export function transformMatchData(matches, placeholderPlayerIds) {
-  return matches.map(match => {
+export function transformMatchData(matches: RawMatch[], placeholderPlayerIds?: Set<number>): DisplayMatch[] {
+  return matches.map((match) => {
     const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
 
     // Handle both context format (with elo_changes) and API format (with team elo changes)
@@ -134,17 +204,17 @@ export function transformMatchData(matches, placeholderPlayerIds) {
 
     if (match.elo_changes) {
       // Context format: calculate team ELO changes from individual player changes
-      const team1Players = [match.team1_player1_id, match.team1_player2_id].filter(Boolean);
-      const team2Players = [match.team2_player1_id, match.team2_player2_id].filter(Boolean);
+      const team1Players = [match.team1_player1_id, match.team1_player2_id].filter(Boolean) as number[];
+      const team2Players = [match.team2_player1_id, match.team2_player2_id].filter(Boolean) as number[];
 
       team1Players.forEach(playerId => {
-        if (match.elo_changes[playerId]) {
+        if (match.elo_changes?.[playerId]) {
           team1EloChange += match.elo_changes[playerId].elo_change || 0;
         }
       });
 
       team2Players.forEach(playerId => {
-        if (match.elo_changes[playerId]) {
+        if (match.elo_changes?.[playerId]) {
           team2EloChange += match.elo_changes[playerId].elo_change || 0;
         }
       });
@@ -154,7 +224,7 @@ export function transformMatchData(matches, placeholderPlayerIds) {
       team2EloChange = match.team2_elo_change || 0;
     }
 
-    const displayMatch = {
+    const displayMatch: DisplayMatch = {
       id: match.id,
       Date: match.date,
       'Session ID': match.session_id,

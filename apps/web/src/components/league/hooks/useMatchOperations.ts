@@ -1,6 +1,14 @@
 import { useCallback } from 'react';
 import { createMatch, updateMatch, deleteMatch } from '../../../services/api';
 
+interface UseMatchOperationsParams {
+  playerNameToId: Map<string, number> | null | undefined;
+  refreshMatchData: ((seasonId: number) => Promise<void>) | null | undefined;
+  getSeasonIdForRefresh: (() => number | null) | null | undefined;
+  loadActiveSession: (() => Promise<unknown>) | null | undefined;
+  loadAllSessions: (() => Promise<void>) | null | undefined;
+}
+
 /**
  * Hook for pure match API operations
  * Handles data transformation and API calls only - no edit mode logic
@@ -11,21 +19,21 @@ export function useMatchOperations({
   getSeasonIdForRefresh,
   loadActiveSession,
   loadAllSessions
-}) {
+}: UseMatchOperationsParams) {
   /**
    * Normalize match data by converting player names/objects to IDs
    * @param {Object} matchData - Match data with player names or IDs
    * @returns {Object} Match data with player IDs
    */
-  const normalizeMatchData = useCallback((matchData) => {
-    const getPlayerId = (playerValue) => {
+  const normalizeMatchData = useCallback((matchData: Record<string, any>) => {
+    const getPlayerId = (playerValue: unknown): number | null => {
       // If it's already an ID (number), return it
       if (typeof playerValue === 'number') {
         return playerValue;
       }
       // If it's an object with value (from player dropdown), use the value
       if (typeof playerValue === 'object' && playerValue !== null && 'value' in playerValue) {
-        return playerValue.value;
+        return (playerValue as { value: number }).value;
       }
       // If it's a string (player name), convert to ID
       if (typeof playerValue === 'string') {

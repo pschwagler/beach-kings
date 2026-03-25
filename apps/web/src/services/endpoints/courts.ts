@@ -3,6 +3,7 @@
  */
 
 import api from '../api-client';
+import type { Court, CourtReview, CourtPhoto, ReviewActionResponse } from '../../types';
 
 /**
  * Court API methods (legacy — admin CRUD)
@@ -24,7 +25,7 @@ export const getPublicCourts = async (filters: Record<string, any> = {}) => {
 };
 
 /** Get full court detail by slug. */
-export const getPublicCourtBySlug = async (slug: string) => {
+export const getPublicCourtBySlug = async (slug: string): Promise<Court> => {
   const response = await api.get(`/api/public/courts/${slug}`);
   return response.data;
 };
@@ -62,25 +63,25 @@ export const updateCourtDiscovery = async (courtId: number, data: Record<string,
 };
 
 /** Create a review for a court. */
-export const createCourtReview = async (courtId: number, data: Record<string, any>) => {
+export const createCourtReview = async (courtId: number, data: Record<string, any>): Promise<ReviewActionResponse> => {
   const response = await api.post(`/api/courts/${courtId}/reviews`, data);
   return response.data;
 };
 
 /** Update an existing review. */
-export const updateCourtReview = async (courtId: number, reviewId: number, data: Record<string, any>) => {
+export const updateCourtReview = async (courtId: number, reviewId: number, data: Record<string, any>): Promise<ReviewActionResponse> => {
   const response = await api.put(`/api/courts/${courtId}/reviews/${reviewId}`, data);
   return response.data;
 };
 
 /** Delete a review. */
-export const deleteCourtReview = async (courtId: number, reviewId: number) => {
+export const deleteCourtReview = async (courtId: number, reviewId: number): Promise<ReviewActionResponse> => {
   const response = await api.delete(`/api/courts/${courtId}/reviews/${reviewId}`);
   return response.data;
 };
 
 /** Upload a photo to a review (multipart form data). */
-export const uploadReviewPhoto = async (courtId: number, reviewId: number, file: File) => {
+export const uploadReviewPhoto = async (courtId: number, reviewId: number, file: File): Promise<CourtPhoto> => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post(
@@ -158,7 +159,7 @@ export const adminDeleteReview = async (reviewId: number) => {
 };
 
 /** Fetch full court detail by numeric ID (uses public slug endpoint via redirect). */
-export const getCourtDetailById = async (courtId: number, { bustCache = false }: { bustCache?: boolean } = {}) => {
+export const getCourtDetailById = async (courtId: number, { bustCache = false }: { bustCache?: boolean } = {}): Promise<Court> => {
   const params = bustCache ? { _t: Date.now() } : {};
   const response = await api.get(`/api/public/courts/${courtId}`, { params });
   return response.data;

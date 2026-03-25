@@ -3,6 +3,7 @@
  */
 
 import api from '../api-client';
+import type { PaginatedResponse, PublicPlayerResponse } from '../../types';
 
 /**
  * Query rankings with filters (e.g., by season_id)
@@ -171,9 +172,9 @@ export const getPlayerMatchHistory = async (playerId: number, { signal }: { sign
  * @param {string} [params.level] - Filter by skill level
  * @param {number} [params.page] - Page number (1-based)
  * @param {number} [params.page_size] - Items per page
- * @returns {Promise<{items: Array, total_count: number}>}
+ * @returns {Promise<PaginatedResponse<PublicPlayerResponse>>}
  */
-export const getPublicPlayers = async (params: Record<string, any> = {}, options: Record<string, any> = {}) => {
+export const getPublicPlayers = async (params: Record<string, any> = {}, options: Record<string, any> = {}): Promise<PaginatedResponse<PublicPlayerResponse>> => {
   const response = await api.get('/api/public/players', { params, ...options });
   return response.data;
 };

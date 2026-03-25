@@ -5,7 +5,7 @@ import { RefreshCw, ChevronUp, ChevronDown, Camera } from 'lucide-react';
 import { getAdminAllCourts, getCourtDetailById } from '../../../services/api';
 import { useApp } from '../../../contexts/AppContext';
 import { formatDate } from '../adminUtils';
-import CourtEditRow, { type CourtPhoto, type CourtReview } from './CourtEditRow';
+import CourtEditRow, { type AdminCourt, type CourtPhoto, type CourtReview } from './CourtEditRow';
 import { Court } from '../../../types';
 
 /** Column definitions for the sortable table. */
@@ -147,10 +147,10 @@ export default function AllCourtsPanel() {
   };
 
   /** Called by CourtEditRow after a successful save. */
-  const handleCourtUpdated = (updatedCourt: Court) => {
+  const handleCourtUpdated = (updatedCourt: AdminCourt) => {
     setCourts((prev) =>
       prev.map((c) =>
-        c.id === updatedCourt.id ? { ...c, ...updatedCourt } : c
+        c.id === updatedCourt.id ? { ...c, ...(updatedCourt as Partial<Court>) } : c
       )
     );
     setExpandedId(null);
@@ -163,7 +163,7 @@ export default function AllCourtsPanel() {
   };
 
   /** Render sort indicator arrow for a column header. */
-  const SortIcon = ({ columnKey }) => {
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
     if (sortBy !== columnKey) return null;
     return sortDir === 'asc'
       ? <ChevronUp size={14} className="admin-sort-icon" />
@@ -280,7 +280,7 @@ interface CourtRowsProps {
   court: Court;
   isExpanded: boolean;
   onRowClick: (id: number | string) => void;
-  onCourtUpdated: (court: Court) => void;
+  onCourtUpdated: (court: AdminCourt) => void;
   statusBadge: (status: string | undefined) => React.ReactElement;
   courtDetail: Court | null;
   detailLoading: boolean;
@@ -318,7 +318,7 @@ function CourtRows({ court, isExpanded, onRowClick, onCourtUpdated, statusBadge,
         <tr className="admin-court-edit-row">
           <td colSpan={8}>
             <CourtEditRow
-              court={court}
+              court={court as AdminCourt}
               onSave={onCourtUpdated}
               onCancel={() => onRowClick(court.id)}
               photos={(courtDetail?.court_photos || []) as CourtPhoto[]}

@@ -8,7 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { formatDateRange } from './utils/leagueUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerDetailsDrawer } from './hooks/usePlayerDetailsDrawer';
-import { transformMatchData, buildPlaceholderIdSet } from './utils/matchUtils';
+import { transformMatchData, buildPlaceholderIdSet, type RawMatch } from './utils/matchUtils';
 import { lockInLeagueSession, deleteSession, updateSession } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import CreateSeasonModal from './CreateSeasonModal';
@@ -190,7 +190,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       // This allows the add matches card to show for seasons with no matches
       return [];
     }
-    return transformMatchData(matchesData, placeholderPlayerIds);
+    return transformMatchData(matchesData as RawMatch[], placeholderPlayerIds);
   }, [selectedSeasonData, placeholderPlayerIds]);
 
   const sessionEditing = useSessionEditing({
@@ -399,7 +399,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       return null; // Data loaded but no matches property yet
     }
     
-    return transformMatchData(matchesData, placeholderPlayerIds);
+    return transformMatchData(matchesData as RawMatch[], placeholderPlayerIds);
   }, [activeSession, selectedSeasonId, seasonData, seasons, seasonDataLoadingMap, placeholderPlayerIds]);
 
   const handleCreateSeasonSuccess = async () => {

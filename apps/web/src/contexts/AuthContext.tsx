@@ -15,6 +15,12 @@ interface VerifyPasswordResetResponse {
   [key: string]: unknown;
 }
 
+interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  profile_complete?: boolean;
+}
+
 interface AuthContextValue {
   user: User | null;
   currentUserPlayer: Player | null;
@@ -38,7 +44,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const normalizePhone = (phone) => phone?.trim();
+const normalizePhone = (phone: string | undefined | null) => phone?.trim();
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -95,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Cross-tab auth state sync: detect login/logout from other tabs via localStorage changes.
   useEffect(() => {
-    const handleStorage = (e) => {
+    const handleStorage = (e: StorageEvent) => {
       if (e.key !== 'beach_access_token') return;
 
       if (!e.newValue) {
@@ -117,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchCurrentUser]);
 
   const handleAuthSuccess = useCallback(
-    async (authResponse) => {
+    async (authResponse: AuthResponse) => {
       setSessionExpired(false);
       setAuthTokens(authResponse.access_token, authResponse.refresh_token);
       await fetchCurrentUser();
@@ -139,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const loginWithPassword = useCallback(
-    async (phoneNumber, password) => {
+    async (phoneNumber: string, password: string) => {
       const response = await api.post('/api/auth/login', {
         phone_number: normalizePhone(phoneNumber),
         password,
@@ -150,7 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const loginWithSms = useCallback(
-    async (phoneNumber, code) => {
+    async (phoneNumber: string, code: string) => {
       const response = await api.post('/api/auth/sms-login', {
         phone_number: normalizePhone(phoneNumber),
         code,
@@ -160,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [handleAuthSuccess]
   );
 
-  const signup = useCallback(async ({ phoneNumber, password, fullName, email }) => {
+  const signup = useCallback(async ({ phoneNumber, password, fullName, email }: { phoneNumber: string; password: string; fullName: string; email?: string }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
       password: password.trim(),
@@ -170,14 +176,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return response.data;
   }, []);
 
-  const sendVerificationCode = useCallback(async (phoneNumber) => {
+  const sendVerificationCode = useCallback(async (phoneNumber: string) => {
     await api.post('/api/auth/send-verification', {
       phone_number: normalizePhone(phoneNumber),
     });
   }, []);
 
   const verifyPhone = useCallback(
-    async (phoneNumber, code) => {
+    async (phoneNumber: string, code: string) => {
       const response = await api.post('/api/auth/verify-phone', {
         phone_number: normalizePhone(phoneNumber),
         code,
@@ -188,14 +194,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [handleAuthSuccess]
   );
 
-  const resetPassword = useCallback(async (phoneNumber) => {
+  const resetPassword = useCallback(async (phoneNumber: string) => {
     const response = await api.post('/api/auth/reset-password', {
       phone_number: normalizePhone(phoneNumber),
     });
     return response.data;
   }, []);
 
-  const verifyPasswordReset = useCallback(async (phoneNumber, code) => {
+  const verifyPasswordReset = useCallback(async (phoneNumber: string, code: string) => {
     const response = await api.post('/api/auth/reset-password-verify', {
       phone_number: normalizePhone(phoneNumber),
       code,
@@ -203,7 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return response.data;
   }, []);
 
-  const confirmPasswordReset = useCallback(async (resetToken, newPassword) => {
+  const confirmPasswordReset = useCallback(async (resetToken: string, newPassword: string) => {
     const response = await api.post('/api/auth/reset-password-confirm', {
       reset_token: resetToken,
       new_password: newPassword.trim(),

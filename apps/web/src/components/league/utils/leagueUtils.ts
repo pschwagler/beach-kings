@@ -16,7 +16,7 @@ export const SEASON_RATING_DESCRIPTION = "All players start with 100 points and 
 /**
  * Get display name for a player
  */
-export function getPlayerDisplayName(player, isCurrentUser = false) {
+export function getPlayerDisplayName(player: any, isCurrentUser = false) {
   const name = player?.full_name || player?.player_name || player?.nickname || player?.name || `Player ${player?.id || player?.player_id}`;
   return isCurrentUser ? `${name} (you)` : name;
 }
@@ -24,7 +24,7 @@ export function getPlayerDisplayName(player, isCurrentUser = false) {
 /**
  * Check if a player matches search term
  */
-export function matchesSearchTerm(player, searchTerm) {
+export function matchesSearchTerm(player: any, searchTerm: string) {
   if (!searchTerm.trim()) return false;
   const searchLower = searchTerm.toLowerCase();
   const fullName = (player.full_name || '').toLowerCase();
@@ -36,6 +36,6 @@ export function matchesSearchTerm(player, searchTerm) {
 /**
  * Format date range for display
  */
-export function formatDateRange(startDate, endDate) {
+export function formatDateRange(startDate: any, endDate: any) {
   return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
 }

@@ -2,6 +2,8 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useDrawer, DRAWER_TYPES } from '../../../contexts/DrawerContext';
 import { transformPlayerData } from '../utils/playerDataUtils';
 import { getFirstPlacePlayer } from '../../../utils/playerUtils';
+import type { SeasonDataEntry, RankingEntry } from '../../../contexts/league/useSeasonData';
+import type { Player } from '../../../types';
 
 /**
  * Custom hook to manage player details drawer logic.
@@ -27,23 +29,35 @@ import { getFirstPlacePlayer } from '../../../utils/playerUtils';
  *
  * @returns {Object} Object with handlePlayerClick function
  */
+interface PlayerOption {
+  id: number;
+  name: string;
+  is_placeholder?: boolean;
+}
+
+interface LeagueMember {
+  player_id: number;
+  role?: string;
+  is_placeholder?: boolean;
+}
+
 interface UsePlayerDetailsDrawerConfig {
-  seasonData: any;
-  getPlayerStats?: any;
-  getPlayerMatchHistory?: any;
-  allPlayers: any;
-  leagueName: any;
-  seasonName: any;
-  selectedPlayerId: any;
-  selectedPlayerName: any;
-  setSelectedPlayer: any;
-  precomputedStats?: any;
-  precomputedMatchHistory?: any;
+  seasonData: SeasonDataEntry | null;
+  getPlayerStats?: ((playerId: number, seasonData: SeasonDataEntry | null) => unknown) | null;
+  getPlayerMatchHistory?: ((playerId: number, seasonData: SeasonDataEntry | null) => unknown[]) | null;
+  allPlayers: PlayerOption[];
+  leagueName: string;
+  seasonName: string;
+  selectedPlayerId: number | null;
+  selectedPlayerName: string | null;
+  setSelectedPlayer: (playerId: number, playerName: string) => void;
+  precomputedStats?: unknown;
+  precomputedMatchHistory?: unknown[] | null;
   autoSelect?: boolean;
-  currentUserPlayer?: any;
-  rankings?: any;
-  members?: any;
-  selectedSeasonId?: any;
+  currentUserPlayer?: Player | null;
+  rankings?: RankingEntry[] | null;
+  members?: LeagueMember[] | null;
+  selectedSeasonId?: number | null;
 }
 
 export function usePlayerDetailsDrawer({
@@ -82,7 +96,7 @@ export function usePlayerDetailsDrawer({
 
       // Try to find current user's player in rankings first
       if (currentUserPlayer?.id) {
-        const currentUserInRankings = rankings.find(r => r.player_id === currentUserPlayer.id);
+        const currentUserInRankings = rankings.find((r: RankingEntry) => r.player_id === currentUserPlayer.id);
         if (currentUserInRankings?.player_id) {
           playerToSelect = currentUserInRankings;
         }
@@ -90,11 +104,11 @@ export function usePlayerDetailsDrawer({
 
       // Fall back to first place player if current user not found
       if (!playerToSelect) {
-        playerToSelect = getFirstPlacePlayer(rankings) || rankings[0];
+        playerToSelect = (getFirstPlacePlayer(rankings as Parameters<typeof getFirstPlacePlayer>[0]) as RankingEntry | null) || rankings[0];
       }
 
       if (playerToSelect?.player_id) {
-        setSelectedPlayer(playerToSelect.player_id, playerToSelect.Name);
+        setSelectedPlayer(playerToSelect.player_id, playerToSelect.Name as string);
       }
       return;
     }
@@ -105,9 +119,9 @@ export function usePlayerDetailsDrawer({
 
       // Try to find current user's player in the league
       if (currentUserPlayer?.id && members) {
-        const userMember = members.find(m => m.player_id === currentUserPlayer.id);
+        const userMember = members.find((m: LeagueMember) => m.player_id === currentUserPlayer.id);
         if (userMember) {
-          const found = allPlayers.find(p => p.id === currentUserPlayer.id);
+          const found = allPlayers.find((p: PlayerOption) => p.id === currentUserPlayer.id);
           if (found) {
             playerToSelect = found;
           }
@@ -135,7 +149,7 @@ export function usePlayerDetailsDrawer({
   ]);
 
   // Helper to compute or get pre-computed player stats
-  const computePlayerStats = useCallback((playerId) => {
+  const computePlayerStats = useCallback((playerId: number) => {
     if (precomputedStats !== null) {
       return precomputedStats;
     }
@@ -150,7 +164,7 @@ export function usePlayerDetailsDrawer({
   }, [seasonData, getPlayerStats, precomputedStats]);
 
   // Helper to compute or get pre-computed match history
-  const computePlayerMatchHistory = useCallback((playerId) => {
+  const computePlayerMatchHistory = useCallback((playerId: number) => {
     if (precomputedMatchHistory !== null) {
       return precomputedMatchHistory || [];
     }
@@ -165,19 +179,19 @@ export function usePlayerDetailsDrawer({
   }, [seasonData, getPlayerMatchHistory, precomputedMatchHistory]);
 
   // Stable ref for handlePlayerClick to break circular dependency with openPlayerDrawer
-  const handlePlayerClickRef = useRef<((...args: any[]) => void) | null>(null);
+  const handlePlayerClickRef = useRef<((playerIdOrName: number | string, playerName?: string | null) => void) | null>(null);
 
   // Refs for selected player so the auto-update effect doesn't fire on player changes
   // (handlePlayerClick already calls openPlayerDrawer directly)
-  const selectedPlayerIdRef = useRef<any>(selectedPlayerId);
-  const selectedPlayerNameRef = useRef<any>(selectedPlayerName);
+  const selectedPlayerIdRef = useRef<number | null>(selectedPlayerId);
+  const selectedPlayerNameRef = useRef<string | null>(selectedPlayerName);
   useEffect(() => {
     selectedPlayerIdRef.current = selectedPlayerId;
     selectedPlayerNameRef.current = selectedPlayerName;
   }, [selectedPlayerId, selectedPlayerName]);
 
   // Open drawer with player data
-  const openPlayerDrawer = useCallback((playerId, playerName) => {
+  const openPlayerDrawer = useCallback((playerId: number, playerName: string) => {
     if (!playerId || !playerName) return;
 
     const stats = computePlayerStats(playerId);
@@ -187,7 +201,7 @@ export function usePlayerDetailsDrawer({
     const displaySeasonName = selectedSeasonId === null ? null : seasonName;
 
     // Check if player is a placeholder (unregistered)
-    const member = members?.find(m => m.player_id === playerId);
+    const member = members?.find((m: LeagueMember) => m.player_id === playerId);
     const isPlaceholder = member?.is_placeholder ?? false;
 
     openDrawer(DRAWER_TYPES.PLAYER_DETAILS, {
@@ -196,7 +210,7 @@ export function usePlayerDetailsDrawer({
       playerStats: stats,
       playerMatchHistory: matchHistory,
       allPlayerNames: allPlayers,
-      onPlayerChange: (...args) => handlePlayerClickRef.current?.(...args),
+      onPlayerChange: (playerIdOrName: number | string, playerName?: string | null) => handlePlayerClickRef.current?.(playerIdOrName, playerName),
       leagueName,
       seasonName: displaySeasonName,
       isPlaceholder,
@@ -205,17 +219,17 @@ export function usePlayerDetailsDrawer({
 
   // Handle player selection — sets state + opens/updates the drawer.
   // Accepts a player ID (number) or player name (string) for backwards compatibility.
-  const handlePlayerClick = useCallback((playerIdOrName, playerName = null) => {
-    let playerId;
-    let name;
+  const handlePlayerClick = useCallback((playerIdOrName: number | string, playerName: string | null = null) => {
+    let playerId: number | null;
+    let name: string | null;
 
     if (typeof playerIdOrName === 'number') {
       playerId = playerIdOrName;
-      name = playerName || allPlayers?.find(p => p.id === playerId)?.name || selectedPlayerName;
+      name = playerName || allPlayers?.find((p: PlayerOption) => p.id === playerId)?.name || selectedPlayerName;
     } else {
       // String — look up by name
       name = playerIdOrName;
-      const found = allPlayers?.find(p => p.name === name);
+      const found = allPlayers?.find((p: PlayerOption) => p.name === name);
       playerId = found?.id || null;
     }
 

@@ -12,6 +12,7 @@ import {
   editKobScore,
   completeKobTournament,
 } from "../../services/api";
+import type { KobTournamentDetail, KobMatch } from "../../types";
 import { Button } from "../ui/UI";
 import NavBar from "../layout/NavBar";
 import NowPlayingTab from "./NowPlayingTab";
@@ -32,21 +33,22 @@ export default function KobLive({ code }: KobLiveProps) {
   const { user, currentUserPlayer, isAuthenticated, isInitializing, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
 
-  const [tournament, setTournament] = useState(null);
+  const [tournament, setTournament] = useState<KobTournamentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("now-playing");
   const [copied, setCopied] = useState(false);
 
-  const pollRef = useRef(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTournament = useCallback(async () => {
     try {
-      const data = await getKobTournamentByCode(code);
+      const data = await getKobTournamentByCode(code) as KobTournamentDetail;
       setTournament(data);
       setError(null);
-    } catch (err) {
-      setError(err.message || "Failed to load tournament");
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || "Failed to load tournament");
     } finally {
       setLoading(false);
     }
@@ -67,8 +69,8 @@ export default function KobLive({ code }: KobLiveProps) {
     };
   }, [tournament?.status, loadTournament]);
 
-  const handleScoreSubmit = async (matchupId: number, team1Score: number, team2Score: number) => {
-    await submitKobScorePublic(code, String(matchupId), {
+  const handleScoreSubmit = async (matchupId: string, team1Score: number, team2Score: number) => {
+    await submitKobScorePublic(code, matchupId, {
       team1_score: team1Score,
       team2_score: team2Score,
     });
@@ -82,8 +84,9 @@ export default function KobLive({ code }: KobLiveProps) {
     try {
       await advanceKobRound(tournament.id);
       await loadTournament();
-    } catch (err) {
-      alert(err.response?.data?.detail || "Failed to advance round");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      alert(e.response?.data?.detail || "Failed to advance round");
     }
   };
 
@@ -91,20 +94,22 @@ export default function KobLive({ code }: KobLiveProps) {
     try {
       await dropKobPlayer(tournament.id, playerId);
       await loadTournament();
-    } catch (err) {
-      alert(err.response?.data?.detail || "Failed to drop player");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      alert(e.response?.data?.detail || "Failed to drop player");
     }
   };
 
-  const handleDirectorEditScore = async (matchupId: number, team1Score: number, team2Score: number) => {
+  const handleDirectorEditScore = async (matchupId: string, team1Score: number, team2Score: number) => {
     try {
-      await editKobScore(tournament.id, String(matchupId), {
+      await editKobScore(tournament.id, matchupId, {
         team1_score: team1Score,
         team2_score: team2Score,
       });
       await loadTournament();
-    } catch (err) {
-      alert(err.response?.data?.detail || "Failed to edit score");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      alert(e.response?.data?.detail || "Failed to edit score");
     }
   };
 
@@ -113,8 +118,9 @@ export default function KobLive({ code }: KobLiveProps) {
     try {
       await completeKobTournament(tournament.id);
       await loadTournament();
-    } catch (err) {
-      alert(err.response?.data?.detail || "Failed to complete tournament");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      alert(e.response?.data?.detail || "Failed to complete tournament");
     }
   };
 
@@ -165,7 +171,7 @@ export default function KobLive({ code }: KobLiveProps) {
   }
 
   const currentRoundMatches = tournament.matches?.filter(
-    (m: any) => m.round_num === tournament.current_round
+    (m: KobMatch) => m.round_num === tournament.current_round
   ) || [];
 
   // Compute display label for current round (e.g. "Round 3" or "Playoff 2" or "Final")
@@ -177,7 +183,7 @@ export default function KobLive({ code }: KobLiveProps) {
     if (tournament.current_phase === "playoffs") {
       // Count how many pool play rounds there are
       const poolPlayRounds = new Set(
-        (tournament.matches || []).filter((m: any) => m.phase === "pool_play").map((m: any) => m.round_num)
+        (tournament.matches || []).filter((m: KobMatch) => m.phase === "pool_play").map((m: KobMatch) => m.round_num)
       ).size;
       return `Playoff ${tournament.current_round - poolPlayRounds}`;
     }

@@ -3,6 +3,7 @@
  */
 
 import api from '../api-client';
+import type { Feedback } from '../../types';
 
 /**
  * Load matches from Google Sheets and calculate statistics
@@ -53,7 +54,7 @@ export const updateAdminConfig = async (config: Record<string, any>) => {
 /**
  * Get all feedback submissions (admin only)
  */
-export const getAdminFeedback = async () => {
+export const getAdminFeedback = async (): Promise<Feedback[]> => {
   const response = await api.get('/api/admin-view/feedback');
   return response.data;
 };

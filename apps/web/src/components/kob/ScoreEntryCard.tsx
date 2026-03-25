@@ -6,7 +6,7 @@ import { Loader2, Check, Edit2 } from "lucide-react";
 import "./KobLive.css";
 
 interface KobMatchForCard {
-  matchup_id: number;
+  matchup_id: string;
   phase?: string;
   team1_score: number | null;
   team2_score: number | null;
@@ -26,10 +26,10 @@ interface ScoreEntryCardProps {
   gameTo: number;
   winBy: number;
   gamesPerMatch?: number;
-  onSubmit: (matchupId: number, team1Score: number, team2Score: number) => void;
+  onSubmit: (matchupId: string, team1Score: number, team2Score: number) => void;
   isScored?: boolean;
   isDirector?: boolean;
-  onEditScore?: (matchupId: number, team1Score: number, team2Score: number) => void;
+  onEditScore?: (matchupId: string, team1Score: number, team2Score: number) => void;
 }
 
 export default function ScoreEntryCard({

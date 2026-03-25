@@ -3,6 +3,7 @@
  */
 
 import api from '../api-client';
+import type { League, Season, LeagueMember, HomeCourtResponse } from '../../types';
 
 /**
  * Create a new league
@@ -15,7 +16,7 @@ export const createLeague = async (leagueData: Record<string, any>) => {
 /**
  * List all leagues
  */
-export const listLeagues = async () => {
+export const listLeagues = async (): Promise<League[]> => {
   const response = await api.get('/api/leagues');
   return response.data;
 };
@@ -87,7 +88,7 @@ export const rejectLeagueJoinRequest = async (leagueId: number, requestId: numbe
 /**
  * Get a specific league
  */
-export const getLeague = async (leagueId: number) => {
+export const getLeague = async (leagueId: number): Promise<League> => {
   const response = await api.get(`/api/leagues/${leagueId}`);
   return response.data;
 };
@@ -95,7 +96,7 @@ export const getLeague = async (leagueId: number) => {
 /**
  * Get seasons for a league
  */
-export const getLeagueSeasons = async (leagueId: number) => {
+export const getLeagueSeasons = async (leagueId: number): Promise<Season[]> => {
   const response = await api.get(`/api/leagues/${leagueId}/seasons`);
   return response.data;
 };
@@ -103,7 +104,7 @@ export const getLeagueSeasons = async (leagueId: number) => {
 /**
  * Get members of a league
  */
-export const getLeagueMembers = async (leagueId: number) => {
+export const getLeagueMembers = async (leagueId: number): Promise<LeagueMember[]> => {
   const response = await api.get(`/api/leagues/${leagueId}/members`);
   return response.data;
 };
@@ -195,7 +196,7 @@ export const updateLeague = async (leagueId: number, leagueData: Record<string, 
  */
 
 /** List home courts for a league. */
-export const getLeagueHomeCourts = async (leagueId: number) => {
+export const getLeagueHomeCourts = async (leagueId: number): Promise<HomeCourtResponse[]> => {
   const response = await api.get(`/api/leagues/${leagueId}/home-courts`);
   return response.data;
 };

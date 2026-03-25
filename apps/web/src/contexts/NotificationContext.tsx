@@ -35,13 +35,20 @@ export interface Notification {
   } | null;
 }
 
+/** Paginated notifications response from GET /api/notifications */
+interface NotificationsPage {
+  notifications: Notification[];
+  total_count: number;
+  has_more: boolean;
+}
+
 interface NotificationContextValue {
   notifications: Notification[];
   unreadCount: number;
   dmUnreadCount: number;
   isLoading: boolean;
   wsConnected: boolean;
-  fetchNotifications: (limit?: number, offset?: number, unreadOnly?: boolean) => Promise<unknown>;
+  fetchNotifications: (limit?: number, offset?: number, unreadOnly?: boolean) => Promise<NotificationsPage | undefined>;
   fetchUnreadCount: () => Promise<number | undefined>;
   fetchDmUnreadCount: () => Promise<number | undefined>;
   markAsRead: (notificationId: number) => Promise<Notification | undefined>;
@@ -63,7 +70,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Fetch notifications with pagination
    */
-  const fetchNotifications = useCallback(async (limit = 50, offset = 0, unreadOnly = false) => {
+  const fetchNotifications = useCallback(async (limit = 50, offset = 0, unreadOnly = false): Promise<NotificationsPage | undefined> => {
     if (!isAuthenticated) return;
 
     setIsLoading(true);
@@ -170,7 +177,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Handle new notification from WebSocket
    */
-  const handleNotification = useCallback((notification: any) => {
+  const handleNotification = useCallback((notification: Notification) => {
     setNotifications(prev => [notification, ...prev]);
     if (!notification.is_read) {
       setUnreadCount(prev => prev + 1);
@@ -180,7 +187,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Handle updated notification from WebSocket (e.g. DM summary upsert)
    */
-  const handleNotificationUpdated = useCallback((updated: any) => {
+  const handleNotificationUpdated = useCallback((updated: Notification) => {
     setNotifications(prev => {
       const idx = prev.findIndex(n => n.id === updated.id);
       if (idx !== -1) {

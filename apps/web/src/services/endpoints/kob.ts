@@ -3,6 +3,7 @@
  */
 
 import api, { API_BASE_URL } from '../api-client';
+import type { KobTournament, KobTournamentDetail } from '../../types';
 
 /**
  * Create a new KOB tournament.
@@ -16,7 +17,7 @@ export const createKobTournament = async (data: Record<string, any>) => {
 /**
  * Get tournaments directed by or participated in by current user.
  */
-export const getMyKobTournaments = async () => {
+export const getMyKobTournaments = async (): Promise<KobTournament[]> => {
   const response = await api.get('/api/kob/tournaments/mine');
   return response.data;
 };
@@ -25,7 +26,7 @@ export const getMyKobTournaments = async () => {
  * Get tournament detail by ID (director view).
  * @param {number} tournamentId
  */
-export const getKobTournament = async (tournamentId: number) => {
+export const getKobTournament = async (tournamentId: number): Promise<KobTournamentDetail> => {
   const response = await api.get(`/api/kob/tournaments/${tournamentId}`);
   return response.data;
 };

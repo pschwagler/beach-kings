@@ -105,7 +105,7 @@ export default function FindLeaguesPage() {
       router.push(`/league/${leagueId}`);
     } else if (action === "create-league") {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
-        onSubmit: async (leagueData) => {
+        onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
           const leagues = await getUserLeagues();
           setUserLeagues(leagues);

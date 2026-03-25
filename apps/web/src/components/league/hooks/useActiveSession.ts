@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getActiveSession, getSessions } from '../../../services/api';
 
+interface UseActiveSessionParams {
+  leagueId: number | null | undefined;
+  seasons: unknown[];
+  selectedSeasonId: number | null;
+  refreshMatchData: ((seasonId: number) => Promise<void>) | null | undefined;
+}
+
 /**
  * Hook to manage active session and all sessions state
  * Handles loading and polling logic
@@ -10,7 +17,7 @@ export function useActiveSession({
   seasons,
   selectedSeasonId,
   refreshMatchData
-}) {
+}: UseActiveSessionParams) {
   const [activeSession, setActiveSession] = useState<any | null>(null);
   const [allSessions, setAllSessions] = useState<any[]>([]);
 
@@ -21,7 +28,7 @@ export function useActiveSession({
     if (!leagueId) return null;
     try {
       // getActiveSession now filters client-side from all league sessions
-      const session = await getActiveSession(leagueId).catch(() => null);
+      const session = await getActiveSession(leagueId).catch((): null => null);
       setActiveSession(session);
       return session;
     } catch (err) {
@@ -38,7 +45,7 @@ export function useActiveSession({
     if (!leagueId) return;
     try {
       // API now filters by league, so no client-side filtering needed
-      const sessions = await getSessions(leagueId).catch(() => []);
+      const sessions = await getSessions(leagueId).catch((): unknown[] => []);
       setAllSessions(sessions);
     } catch (err) {
       console.error('Error loading all sessions:', err);

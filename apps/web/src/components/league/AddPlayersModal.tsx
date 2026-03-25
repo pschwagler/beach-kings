@@ -106,7 +106,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
   }, [isOpen]);
 
   const fetchPage = useCallback(
-    async (pageOffset, append = false) => {
+    async (pageOffset: number, append = false) => {
       const params = {
         q: debouncedQ || undefined,
         location_id: locationIds.length ? locationIds : undefined,
@@ -335,7 +335,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
         const msg =
           added.length > 0
             ? `${added.length} added; ${failed.length} failed (e.g. ${failed[0].error})`
-            : failed.map((f) => f.error).join('; ');
+            : failed.map((f: { error?: string }) => f.error).join('; ');
         showToast(msg, 'error');
       }
       if (added.length > 0) {

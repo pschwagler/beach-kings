@@ -8,7 +8,7 @@ import {
   getSessionParticipants,
   getUserLeagues,
 } from '../services/api';
-import { sessionMatchToDisplayFormat, buildPlaceholderIdSet } from '../components/league/utils/matchUtils';
+import { sessionMatchToDisplayFormat, buildPlaceholderIdSet, type RawMatch } from '../components/league/utils/matchUtils';
 import { useAuth } from '../contexts/AuthContext';
 import type { Session, Match, League } from '../types';
 
@@ -112,7 +112,7 @@ export function usePickupSession(code: string | undefined) {
   );
 
   const transformedMatches = useMemo(
-    () => (matches || []).map((m) => sessionMatchToDisplayFormat(m, placeholderPlayerIds)),
+    () => (matches || []).map((m) => sessionMatchToDisplayFormat(m as unknown as RawMatch, placeholderPlayerIds)),
     [matches, placeholderPlayerIds]
   );
 
