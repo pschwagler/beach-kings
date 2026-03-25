@@ -1,5 +1,16 @@
 import { useCallback } from 'react';
 
+interface UseDataRefreshParams {
+  loadActiveSession: (() => Promise<unknown>) | null | undefined;
+  loadAllSessions: (() => Promise<void>) | null | undefined;
+  refreshSeasonData: ((seasonId: number) => Promise<void>) | null | undefined;
+  refreshMatchData: ((seasonId: number, forceClear?: boolean) => Promise<void>) | null | undefined;
+  refreshAllSeasonsMatches: (() => Promise<void>) | null | undefined;
+  getSeasonIdForRefresh: (() => number | null) | null | undefined;
+  selectedSeasonId: number | null;
+  seasons: unknown[];
+}
+
 /**
  * Hook to consolidate all data refresh operations
  * Unifies loadActiveSession, loadAllSessions, refreshSeasonData, and refreshMatchData calls
@@ -13,7 +24,7 @@ export function useDataRefresh({
   getSeasonIdForRefresh,
   selectedSeasonId,
   seasons
-}) {
+}: UseDataRefreshParams) {
   /**
    * Unified refresh function that handles all refresh operations
    * @param {Object} options - Refresh options
@@ -83,7 +94,6 @@ export function useDataRefresh({
     refreshAllSeasonsMatches,
     getSeasonIdForRefresh,
     selectedSeasonId,
-    seasons
   ]);
 
   return { refreshData };

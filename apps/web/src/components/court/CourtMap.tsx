@@ -27,7 +27,7 @@ const AUTO_FIT_COUNT = 10;
  * Haversine distance in miles between two lat/lng points.
  */
 function distanceMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d) => (d * Math.PI) / 180;
+  const toRad = (d: number) => (d * Math.PI) / 180;
   const R = 3958.8; // Earth radius in miles
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -60,7 +60,6 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
   const [popupCourt, setPopupCourt] = useState<Court | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   const hasFittedWithGeo = useRef(false);
 

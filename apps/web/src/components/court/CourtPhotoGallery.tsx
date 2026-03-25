@@ -57,6 +57,7 @@ export default function CourtPhotoGallery({ photos = [], slug }: CourtPhotoGalle
     <div className="court-detail__mosaic" onClick={handleClick} onKeyDown={handleKeyDown} role="button" tabIndex={0} aria-label={`View all ${photos.length} court photos`}>
       {/* Large photo (left, spans 2 rows) */}
       <div className="court-detail__mosaic-main">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={displayPhotos[0].url}
           alt={`Court photo 1 of ${photos.length}`}
@@ -75,6 +76,7 @@ export default function CourtPhotoGallery({ photos = [], slug }: CourtPhotoGalle
             key={photo.url}
             className={`court-detail__mosaic-cell${index === 1 ? ' court-detail__mosaic-cell--tr' : ''}${index === 3 ? ' court-detail__mosaic-cell--br' : ''}`}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photo.url}
               alt={`Court photo ${index + 2} of ${photos.length}`}

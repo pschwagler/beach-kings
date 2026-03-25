@@ -98,6 +98,7 @@ export default function PhotoMatchReviewModal({
       aria-label="Click to expand image"
       onKeyDown={(e) => e.key === 'Enter' && setImageExpanded(true)}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={uploadedImageUrl} alt="Uploaded scoreboard" />
     </div>
   );
@@ -213,6 +214,7 @@ export default function PhotoMatchReviewModal({
                   aria-label="Click to expand image"
                   onKeyDown={(e) => e.key === 'Enter' && setImageExpanded(true)}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={uploadedImageUrl} alt="Uploaded scoreboard" />
                   <span className="review-image-expand-hint">
                     <Expand size={14} /> Click to expand
@@ -281,6 +283,7 @@ export default function PhotoMatchReviewModal({
             >
               <X size={24} />
             </Button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={uploadedImageUrl} alt="Uploaded scoreboard (full size)" />
           </div>
         </div>

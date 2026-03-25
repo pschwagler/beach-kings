@@ -1,7 +1,7 @@
 /** @type { import("eslint").Linter.Config[] } */
 module.exports = [
   ...require("eslint-config-next"),
-  { ignores: ["dist/**"] },
+  { ignores: ["dist/**", "coverage/**"] },
   {
     files: ["app/**/*.{js,jsx,ts,tsx}", "src/**/*.{js,jsx,ts,tsx}"],
     rules: {

@@ -357,6 +357,7 @@ function MemberGrid({ members }: { members: PublicLeagueMember[] }) {
         <div key={member.player_id} className="public-league__member">
           <div className="public-league__avatar">
             {isImageUrl(member.avatar)
+              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={member.avatar} alt={member.full_name} className="public-league__avatar-img" />
               : <span className="public-league__avatar-initials">{member.avatar || member.full_name?.charAt(0)}</span>
             }

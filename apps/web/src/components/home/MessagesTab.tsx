@@ -82,6 +82,7 @@ function Avatar({ avatar, name }: AvatarProps) {
   if (isImageUrl(avatar)) {
     return (
       <div className="messages-tab__avatar">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatar} alt={name} />
       </div>
     );
@@ -459,7 +460,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
   }
 
   // Group messages with date separators
-  let lastDateLabel = null;
+  let lastDateLabel: string | null = null;
 
   return (
     <div className="messages-tab__thread">
@@ -578,7 +579,7 @@ export default function MessagesTab() {
       (async () => {
         try {
           const data = await getConversations(1, 100);
-          const conv = (data.conversations || []).find(
+          const conv = ((data.conversations || []) as ConversationItem[]).find(
             (c) => String(c.player_id) === String(threadPlayerId)
           );
           if (conv) {

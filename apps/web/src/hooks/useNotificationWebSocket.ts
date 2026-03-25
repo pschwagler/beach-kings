@@ -183,6 +183,7 @@ export function useNotificationWebSocket({
             reconnectAttemptsRef.current += 1;
 
             reconnectTimeoutRef.current = setTimeout(() => {
+              // eslint-disable-next-line react-hooks/immutability -- connectWebSocket is stable via useCallback; accessed via closure before declaration is valid here
               connectWebSocket();
             }, delay);
           }

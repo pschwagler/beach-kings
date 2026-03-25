@@ -83,6 +83,7 @@ export default function PlayersSection({
                   <div className="league-member-avatar">
                     {isImageUrl(member.player_avatar) ? (
                       <div className="player-avatar player-avatar-image">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={member.player_avatar}
                           alt={member.player_name || 'Player'}

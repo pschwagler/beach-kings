@@ -60,6 +60,7 @@ export default function CourtCard({ court, selectable = false, selected = false,
     <>
       <div className="court-card__image">
         {photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={photo_url} alt={name} loading="lazy" />
         ) : (
           <div className="court-card__placeholder">

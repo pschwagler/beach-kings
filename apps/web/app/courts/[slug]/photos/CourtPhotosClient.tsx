@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
@@ -112,7 +113,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
         <div className="court-detail court-detail--not-found">
           <h1>Court Not Found</h1>
           <p>The court you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <a href="/courts">Browse all courts</a>
+          <Link href="/courts">Browse all courts</Link>
         </div>
       </>
     );
@@ -156,6 +157,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
         {previewUrl && (
           <div className="court-photos__upload-preview">
             <div className="court-photos__preview-wrapper">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt="Upload preview" className="court-photos__preview-img" />
               <button
                 className="court-photos__preview-remove"
@@ -193,6 +195,7 @@ export default function CourtPhotosClient({ court, slug }: CourtPhotosClientProp
         {photos.length > 0 ? (
           <div className="court-photos__grid">
             {photos.map((photo: { url: string }, idx: number) => (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={photo.url}
                 src={photo.url}

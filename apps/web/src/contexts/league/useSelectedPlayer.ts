@@ -53,6 +53,7 @@ export function useSelectedPlayer(selectedSeasonData: SeasonDataEntry | null) {
   // Reload player data when selected season data changes
   useEffect(() => {
     if (selectedPlayerId && selectedSeasonData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing derived stats state when season data changes
       updatePlayerStats(selectedSeasonData, selectedPlayerId);
     }
   }, [selectedSeasonData, selectedPlayerId, updatePlayerStats]);

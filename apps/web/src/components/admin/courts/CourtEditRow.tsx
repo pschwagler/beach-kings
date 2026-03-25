@@ -70,7 +70,7 @@ export interface CourtReview {
   author?: CourtReviewAuthor;
 }
 
-interface AdminCourt {
+export interface AdminCourt {
   id: number | string;
   name?: string;
   address?: string;
@@ -89,6 +89,7 @@ interface AdminCourt {
   has_parking?: boolean;
   nets_provided?: boolean;
   is_active?: boolean;
+  [key: string]: string | number | boolean | undefined;
 }
 
 /**
@@ -105,8 +106,29 @@ interface CourtEditRowProps {
   detailLoading?: boolean;
 }
 
+type CourtFormState = {
+  name: string;
+  address: string;
+  description: string;
+  hours: string;
+  phone: string;
+  website: string;
+  cost_info: string;
+  parking_info: string;
+  surface_type: string;
+  court_count: string | number;
+  status: string;
+  is_free: boolean;
+  has_lights: boolean;
+  has_restrooms: boolean;
+  has_parking: boolean;
+  nets_provided: boolean;
+  is_active: boolean;
+  [key: string]: string | number | boolean;
+};
+
 export default function CourtEditRow({ court, onSave, onCancel, photos = [], reviews = [], detailLoading = false }: CourtEditRowProps) {
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState<CourtFormState>(() => ({
     name: court.name || '',
     address: court.address || '',
     description: court.description || '',
@@ -193,7 +215,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
             <label>{label}</label>
             <input
               type={type}
-              value={form[key]}
+              value={form[key] as string | number}
               onChange={(e) => handleChange(key, type === 'number' ? e.target.value : e.target.value)}
             />
           </div>
@@ -203,7 +225,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
           <div key={key} className="admin-court-edit-field admin-court-edit-field--full">
             <label>{label}</label>
             <textarea
-              value={form[key]}
+              value={form[key] as string}
               onChange={(e) => handleChange(key, e.target.value)}
             />
           </div>
@@ -212,7 +234,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
         {SELECT_FIELDS.map(({ key, label, options }) => (
           <div key={key} className="admin-court-edit-field">
             <label>{label}</label>
-            <select value={form[key]} onChange={(e) => handleChange(key, e.target.value)}>
+            <select value={form[key] as string} onChange={(e) => handleChange(key, e.target.value)}>
               {options.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -228,7 +250,7 @@ export default function CourtEditRow({ court, onSave, onCancel, photos = [], rev
                 <input
                   type="checkbox"
                   id={`edit-${court.id}-${key}`}
-                  checked={form[key]}
+                  checked={form[key] as boolean}
                   onChange={(e) => handleChange(key, e.target.checked)}
                 />
                 <label htmlFor={`edit-${court.id}-${key}`}>{label}</label>
@@ -423,6 +445,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
       {/* Upload preview */}
       {previewUrl && (
         <div className="admin-court-photos__upload-preview">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewUrl} alt="Upload preview" className="admin-court-photos__preview-img" />
           <div className="admin-court-photos__upload-actions">
             <button
@@ -468,6 +491,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
               onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
             >
               {idx === 0 && <span className="admin-court-photos__cover-badge">Cover</span>}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
                 alt=""
@@ -529,7 +553,7 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSect
   // Clean up confirm timer on unmount
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const doDelete = useCallback(async (reviewId) => {
+  const doDelete = useCallback(async (reviewId: number) => {
     try {
       setDeletingId(reviewId);
       await adminDeleteReview(reviewId);
@@ -541,7 +565,7 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSect
     }
   }, [onReviewDeleted]);
 
-  const handleDeleteClick = useCallback((reviewId) => {
+  const handleDeleteClick = useCallback((reviewId: number) => {
     if (confirmId === reviewId) {
       clearTimeout(timerRef.current);
       setConfirmId(null);

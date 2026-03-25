@@ -18,6 +18,7 @@ const PlayerAvatar = ({ avatar, playerName }: { avatar: string | null | undefine
   if (isImageUrl(avatar)) {
     return (
       <div className="player-avatar player-avatar-image">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatar} alt={playerName} />
       </div>
     );

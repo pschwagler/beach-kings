@@ -11,7 +11,7 @@ import type { User as UserType, Player } from '../../../types';
  * Gets the avatar image URL and fallback initial for the navbar.
  * Prefers player avatar (backend-provided initials or URL), then email initial.
  */
-const getAvatarData = (user: UserType | null | undefined, currentUserPlayer: Player | null | undefined) => {
+const getAvatarData = (user: UserType | null | undefined, currentUserPlayer: Player | null | undefined): { imageUrl: string | null; initial: string | null } => {
   // Prefer avatar coming from player API (can be URL or initials string)
   if (currentUserPlayer?.avatar) {
     // If it looks like a URL or path, treat as image, otherwise as initials
@@ -113,6 +113,7 @@ export default function UserMenu({
         {isLoggedIn ? (
           avatarImageUrl ? (
             <div className="navbar-avatar navbar-avatar-image" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarImageUrl} alt={currentUserPlayer?.full_name || 'User'} />
             </div>
           ) : avatarInitial ? (

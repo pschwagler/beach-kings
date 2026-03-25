@@ -29,7 +29,7 @@ export default function PrivacyPolicyPageRoute() {
         
         <section className="legal-section">
           <p className="legal-intro">
-            This Privacy Policy describes how Beach League, operated by Patrick Schwagler, located in Brooklyn, NY ("we," "us," or "our"), collects, uses, discloses, and protects your personal information when you use our beach volleyball league management platform and related services (the "Service").
+            This Privacy Policy describes how Beach League, operated by Patrick Schwagler, located in Brooklyn, NY (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), collects, uses, discloses, and protects your personal information when you use our beach volleyball league management platform and related services (the &quot;Service&quot;).
           </p>
 
           <h3>
@@ -165,13 +165,14 @@ export default function PrivacyPolicyPageRoute() {
           <h4>7.3 Data Portability Process</h4>
           <p>If you request a copy of your personal information, we will provide it to you via email in a commonly used format (such as CSV or JSON) within 45 days of verifying your identity. The data export will include your account information, profile data, game statistics, and other personal information we maintain about you.</p>
 
-          <h3>8. Children's Privacy</h3>
+          <h3>8. Children&apos;s Privacy</h3>
           <p>The Service is not intended for individuals under the age of 18. We do not knowingly collect personal information from children under 18. If you are under 18, do not use the Service or provide any personal information. If we learn that we have collected personal information from a person under 18, we will promptly delete that information. If you believe we may have information from a child under 18, please contact us immediately at beachleaguevb@gmail.com.</p>
+
 
           <h3>9. Changes to This Privacy Policy</h3>
           <p>We may update this Privacy Policy from time to time to reflect changes in our practices, technology, legal requirements, or other factors. We will notify you of any material changes by:</p>
           <ul>
-            <li>Updating the "Last updated" date at the top of this policy</li>
+            <li>Updating the &quot;Last updated&quot; date at the top of this policy</li>
             <li>Sending an email notification to your registered email address</li>
             <li>Displaying a prominent notice within the Service</li>
           </ul>

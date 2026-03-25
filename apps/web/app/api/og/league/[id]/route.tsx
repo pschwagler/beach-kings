@@ -55,8 +55,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     (
       <div style={outerStyle()}>
         {/* Logo */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={logoSrc}
+          alt=""
           width={OG_STYLES.logo.width}
           height={OG_STYLES.logo.height}
         />

@@ -82,6 +82,7 @@ function Avatar({ avatar, name, className }: AvatarProps) {
   if (isImageUrl(avatar)) {
     return (
       <div className={className}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatar} alt={name} />
       </div>
     );
@@ -201,7 +202,7 @@ export default function FriendsTab() {
       setSuggestionBuffer((prev) => {
         const existingIds = new Set(prev.map((s) => s.player_id));
         const currentDismissed = dismissedIdsRef.current;
-        const newItems = (fresh || []).filter(
+        const newItems = (fresh as FriendSuggestion[] || []).filter(
           (s) => !existingIds.has(s.player_id) && !currentDismissed.has(s.player_id)
         );
         return [...prev, ...newItems];

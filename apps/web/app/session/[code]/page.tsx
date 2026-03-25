@@ -108,7 +108,7 @@ export default function SessionByCodePage() {
     joinSessionByCode(code)
       .then(() => refresh())
       .catch(() => { visitActionsRef.current.autoJoinDone = false; });
-  }, [session, code, isAuthenticated, currentUserPlayer, participants]);
+  }, [session, code, isAuthenticated, currentUserPlayer, participants, refresh]);
 
   useClickOutside(shareMenuRef, shareMenuOpen, () => setShareMenuOpen(false));
 

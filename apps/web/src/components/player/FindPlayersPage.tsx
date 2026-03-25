@@ -614,6 +614,7 @@ export default function FindPlayersPage() {
                                   <div className="find-players__table-player">
                                     <div className="find-players__card-avatar find-players__card-avatar--sm">
                                       {isImageUrl(player.avatar)
+                                        // eslint-disable-next-line @next/next/no-img-element
                                         ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
                                         : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
                                       }
@@ -646,6 +647,7 @@ export default function FindPlayersPage() {
                         >
                           <div className="find-players__card-avatar">
                             {isImageUrl(player.avatar)
+                              // eslint-disable-next-line @next/next/no-img-element
                               ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
                               : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
                             }

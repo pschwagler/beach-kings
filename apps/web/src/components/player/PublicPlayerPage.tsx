@@ -211,6 +211,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
       <div className="public-player__header">
         <div className="public-player__avatar">
           {isImageUrl(player.avatar) ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={player.avatar}
               alt={player.full_name}
@@ -292,6 +293,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
               >
                 <div className="public-player__mutual-friend-avatar">
                   {isImageUrl(mf.avatar) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={mf.avatar} alt={mf.full_name} />
                   ) : (
                     mf.avatar || mf.full_name?.charAt(0)

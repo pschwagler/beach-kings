@@ -29,13 +29,13 @@ export default function TermsOfServicePageRoute() {
         
         <section className="legal-section">
           <p className="legal-intro">
-            These Terms of Service ("Terms") govern your access to and use of Beach League, a beach volleyball league management platform operated by Patrick Schwagler, located in New York ("we," "us," or "our"). By accessing or using our services, you agree to be bound by these Terms.
+            These Terms of Service (&quot;Terms&quot;) govern your access to and use of Beach League, a beach volleyball league management platform operated by Patrick Schwagler, located in New York (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). By accessing or using our services, you agree to be bound by these Terms.
           </p>
 
           <h3>
             1. Acceptance of Terms
           </h3>
-          <p>By creating an account, accessing, or using Beach League (the "Service"), you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree to these Terms, you may not access or use our Service.</p>
+          <p>By creating an account, accessing, or using Beach League (the &quot;Service&quot;), you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree to these Terms, you may not access or use our Service.</p>
           
           <h3>
             2. Eligibility
@@ -65,10 +65,10 @@ export default function TermsOfServicePageRoute() {
           
           <p><strong>Message Frequency:</strong> Message frequency varies. You will primarily receive messages for account verification and authentication purposes.</p>
           
-          <p><strong>Message and Data Rates:</strong> Message and data rates may apply based on your mobile carrier's plan. Please consult with your carrier for details.</p>
+          <p><strong>Message and Data Rates:</strong> Message and data rates may apply based on your mobile carrier&apos;s plan. Please consult with your carrier for details.</p>
           
           <p><strong>Opt-Out:</strong> You can opt out of receiving SMS messages at any time by replying <strong>STOP</strong> to any message. Note that opting out may affect your ability to use certain features that require phone verification.</p>
-          
+
           <p><strong>Help:</strong> For assistance, reply <strong>HELP</strong> to any message or contact us at beachleaguevb@gmail.com.</p>
           
           <p><strong>Supported Carriers:</strong> The Service is available on all major U.S. wireless carriers. Carriers are not liable for delayed or undelivered messages.</p>
@@ -99,7 +99,7 @@ export default function TermsOfServicePageRoute() {
           <h3>8. Intellectual Property Rights</h3>
           <p><strong>Our Content:</strong> The Service, including its design, features, text, graphics, logos, and software, is owned by us and protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, sell, or reproduce any part of the Service without our written permission.</p>
           
-          <p><strong>User Content:</strong> You retain ownership of any content you submit to the Service, including profile information, game results, and other data ("User Content"). By submitting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, display, reproduce, and distribute your User Content solely for the purpose of operating and improving the Service.</p>
+          <p><strong>User Content:</strong> You retain ownership of any content you submit to the Service, including profile information, game results, and other data (&quot;User Content&quot;). By submitting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, display, reproduce, and distribute your User Content solely for the purpose of operating and improving the Service.</p>
           
           <p><strong>Feedback:</strong> Any feedback, suggestions, or ideas you provide about the Service become our property, and we may use them without compensation or attribution.</p>
 
@@ -108,7 +108,7 @@ export default function TermsOfServicePageRoute() {
 
           <h3>10. Disclaimers and Warranties</h3>
           <p className="legal-disclaimer-box">
-            <strong>The Service is provided "as is" and "as available" without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the Service will be uninterrupted, secure, or error-free, or that any defects will be corrected. We do not guarantee the accuracy, completeness, or reliability of any content, statistics, rankings, or information provided through the Service.</strong>
+            <strong>The Service is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the Service will be uninterrupted, secure, or error-free, or that any defects will be corrected. We do not guarantee the accuracy, completeness, or reliability of any content, statistics, rankings, or information provided through the Service.</strong>
           </p>
 
           <h3>11. Limitation of Liability</h3>
@@ -120,7 +120,7 @@ export default function TermsOfServicePageRoute() {
           </p>
 
           <h3>12. Indemnification</h3>
-          <p>You agree to defend, indemnify, and hold harmless Beach League, its operator, and their respective affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising from: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any rights of another party; (d) any injuries or damages arising from your participation in volleyball or sports activities; or (e) any content you submit to the Service.</p>
+          <p>You agree to defend, indemnify, and hold harmless Beach League, its operator, and their respective affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, costs, expenses, or fees (including reasonable attorneys&apos; fees) arising from: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any rights of another party; (d) any injuries or damages arising from your participation in volleyball or sports activities; or (e) any content you submit to the Service.</p>
 
           <h3>13. Termination</h3>
           <p><strong>By You:</strong> You may terminate your account at any time by contacting us at beachleaguevb@gmail.com or using account deletion features within the Service.</p>
@@ -142,7 +142,7 @@ export default function TermsOfServicePageRoute() {
           <p><strong>Jurisdiction:</strong> If informal resolution is unsuccessful, any legal action or proceeding arising under these Terms shall be brought exclusively in the state or federal courts located in New York, and you consent to the personal jurisdiction of such courts.</p>
 
           <h3>15. Changes to Terms</h3>
-          <p>We reserve the right to modify or replace these Terms at any time at our sole discretion. If we make material changes, we will provide notice by updating the "Last updated" date at the top of these Terms and, if you have an account, by sending a notice to your registered email address. Your continued use of the Service after such modifications constitutes your acceptance of the updated Terms. We encourage you to review these Terms periodically.</p>
+          <p>We reserve the right to modify or replace these Terms at any time at our sole discretion. If we make material changes, we will provide notice by updating the &quot;Last updated&quot; date at the top of these Terms and, if you have an account, by sending a notice to your registered email address. Your continued use of the Service after such modifications constitutes your acceptance of the updated Terms. We encourage you to review these Terms periodically.</p>
 
           <h3>16. Severability</h3>
           <p>If any provision of these Terms is found to be unenforceable or invalid by a court of competent jurisdiction, that provision shall be limited or eliminated to the minimum extent necessary so that these Terms shall otherwise remain in full force and effect and enforceable.</p>

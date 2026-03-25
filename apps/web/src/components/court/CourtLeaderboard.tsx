@@ -56,6 +56,7 @@ export default function CourtLeaderboard({ slug }: CourtLeaderboardProps) {
                 <a href={`/players/${entry.player_id}`} className="court-leaderboard__player">
                   <div className="court-leaderboard__avatar">
                     {isImageUrl(entry.avatar) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={entry.avatar} alt={entry.player_name} />
                     ) : (
                       entry.player_name?.charAt(0) || '?'

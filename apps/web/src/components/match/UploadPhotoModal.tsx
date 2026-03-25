@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { X, Upload, Image as ImageIcon, Camera, AlertCircle, Loader } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { uploadMatchPhoto } from '../../services/api';
@@ -17,7 +17,7 @@ const THUMBNAIL_JPEG_QUALITY = 0.75;
  * @param {File} file - Image file
  * @returns {Promise<string|null>} - Data URL or null on failure
  */
-function createThumbnailDataUrl(file) {
+function createThumbnailDataUrl(file: File) {
   return new Promise((resolve) => {
     const img = document.createElement('img');
     const url = URL.createObjectURL(file);
@@ -64,7 +64,7 @@ function createThumbnailDataUrl(file) {
  * @param {File} file - The HEIC file to convert
  * @returns {Promise<File>} - The converted JPEG file
  */
-async function convertHeicToJpeg(file) {
+async function convertHeicToJpeg(file: File) {
   // heic-to API: heicTo({ blob, type, quality })
   const convertedBlob = await heicTo({
     blob: file,
@@ -121,7 +121,7 @@ export default function UploadPhotoModal({
     }
   }, [isUploading, isConverting, onClose, resetState]);
 
-  const validateFile = useCallback((file) => {
+  const validateFile = useCallback((file: File | null) => {
     if (!file) {
       return 'Please select a file';
     }
@@ -143,7 +143,7 @@ export default function UploadPhotoModal({
     return null;
   }, []);
 
-  const handleFileSelect = useCallback(async (file) => {
+  const handleFileSelect = useCallback(async (file: File) => {
     const validationError = validateFile(file);
     if (validationError) {
       setError(validationError);
@@ -175,14 +175,14 @@ export default function UploadPhotoModal({
     setPreviewUrl(url);
   }, [validateFile]);
 
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       handleFileSelect(file);
     }
   }, [handleFileSelect]);
 
-  const handleDrag = useCallback((e) => {
+  const handleDrag = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === 'dragenter' || e.type === 'dragover') {
@@ -192,7 +192,7 @@ export default function UploadPhotoModal({
     }
   }, []);
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -288,6 +288,7 @@ export default function UploadPhotoModal({
           ) : (
             <div className="upload-preview">
               <div className="preview-image-container">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={previewUrl} alt="Preview" className="preview-image" />
                 <button
                   className="preview-remove-btn"

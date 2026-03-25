@@ -43,12 +43,14 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading localStorage on mount to restore preference
       if (saved === 'map' || saved === 'list') setViewMode(saved);
     } catch {}
   }, []);
 
   // Reset map courts when location filter changes so they refetch
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived state when filter param changes
     setMapCourts(null);
   }, [locationParam]);
 

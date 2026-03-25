@@ -85,6 +85,7 @@ export default function ImageLightbox({ photos, startIndex = 0, onClose }: Image
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={photo.url} alt="" className="image-lightbox__img" />
 
       <button className="image-lightbox__close" onClick={onClose} aria-label="Close lightbox">

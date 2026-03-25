@@ -63,12 +63,14 @@ export default function InviteLandingPage() {
   }, [token]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching async data on mount via stable callback
     fetchInvite();
   }, [fetchInvite]);
 
   // Load user leagues for NavBar when authenticated
   useEffect(() => {
     if (!isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting state when auth changes
       setUserLeagues([]);
       return;
     }

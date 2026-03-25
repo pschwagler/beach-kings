@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
@@ -401,10 +401,11 @@ describe('NotificationContext — WebSocket lifecycle', () => {
 
   describe('intentional disconnect', () => {
     it('does not reconnect after disconnectWebSocket is called', async () => {
-      let ctx;
+      const ctxRef = { current: null as ReturnType<typeof useNotifications> | null };
 
       function CapturingConsumer() {
-        ctx = useNotifications();
+        const notifications = useNotifications();
+        useEffect(() => { ctxRef.current = notifications; });
         return <WsConsumer />;
       }
 
@@ -420,7 +421,7 @@ describe('NotificationContext — WebSocket lifecycle', () => {
       ws.simulateOpen();
 
       await act(async () => {
-        ctx.disconnectWebSocket();
+        ctxRef.current!.disconnectWebSocket();
       });
 
       // Advance well past any reconnect window.

@@ -175,6 +175,7 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
                     className="public-location__player-row"
                   >
                     {isImageUrl(player.avatar)
+                      // eslint-disable-next-line @next/next/no-img-element
                       ? <img src={player.avatar} alt={player.full_name} className="public-location__player-avatar" />
                       : <div className="public-location__player-avatar">{player.avatar || player.full_name?.charAt(0)}</div>
                     }

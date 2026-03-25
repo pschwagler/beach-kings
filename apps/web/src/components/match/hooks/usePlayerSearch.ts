@@ -13,14 +13,14 @@ const DEBOUNCE_MS = 300;
  * @param {number} [opts.limit] - Max results (default 10)
  * @returns {{ query: string, setQuery: function, results: Array, isLoading: boolean }}
  */
-export function usePlayerSearch({ leagueId = null, limit = 10 } = {}) {
+export function usePlayerSearch({ leagueId = null as number | null, limit = 10 } = {}) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const search = useCallback(async (q) => {
+  const search = useCallback(async (q: string) => {
     if (!q || q.trim().length < 2) {
       setResults([]);
       setIsLoading(false);
@@ -59,6 +59,7 @@ export function usePlayerSearch({ leagueId = null, limit = 10 } = {}) {
       clearTimeout(timerRef.current);
     }
     if (!query || query.trim().length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting search results when query is too short
       setResults([]);
       setIsLoading(false);
       return;

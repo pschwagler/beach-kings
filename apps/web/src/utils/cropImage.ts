@@ -23,7 +23,6 @@ export default function cropImage(imageSrc: string, pixelCrop: PixelCrop, output
       const canvas = document.createElement('canvas');
       canvas.width = outputSize;
       canvas.height = outputSize;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const ctx = canvas.getContext('2d')!;
 
       ctx.drawImage(

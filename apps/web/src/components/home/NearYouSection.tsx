@@ -70,7 +70,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
     if (!locationId) return;
     getPublicLocations()
       .then((data) => {
-        const allLocations = (data.regions || []).flatMap((r) => r.locations || []);
+        const allLocations = ((data.regions || []) as Array<{ locations?: Array<{ id: string; [key: string]: unknown }> }>).flatMap((r) => r.locations || []);
         const match = allLocations.find((loc) => loc.id === locationId);
         if (match) setLocationData(match);
       })
@@ -194,6 +194,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                 >
                   <div className="near-you-section__player-avatar">
                     {isImageUrl(player.avatar || player.profile_picture_url) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={player.avatar || player.profile_picture_url}
                         alt={player.full_name}

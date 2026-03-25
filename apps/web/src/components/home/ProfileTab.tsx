@@ -187,7 +187,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
   // Helper function to check if form data has changed
   // Takes formData and initialFormData as parameters so it can work with refs or state
-  const checkHasChanges = (formDataToCheck, initialFormDataToCheck) => {
+  const checkHasChanges = (formDataToCheck: typeof formData, initialFormDataToCheck: typeof formData) => {
     return (
       formDataToCheck.email !== initialFormDataToCheck.email ||
       formDataToCheck.full_name !== initialFormDataToCheck.full_name ||
@@ -210,6 +210,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   useEffect(() => {
     const hasChanges = checkHasChanges(formData, initialFormData);
     hasUnsavedChangesRef.current = hasChanges;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkHasChanges is a stable inline function; adding it causes infinite re-renders
   }, [formData, initialFormData]);
   
   // Note: Next.js doesn't have useBlocker equivalent

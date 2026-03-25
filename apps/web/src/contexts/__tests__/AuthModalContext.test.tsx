@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { AuthModalProvider, useAuthModal } from '../AuthModalContext';
@@ -76,13 +76,13 @@ describe('AuthModalProvider', () => {
     });
 
     it('stores the onVerifySuccess callback', () => {
-      let capturedCtx;
+      const ctxRef = { current: null as ReturnType<typeof useAuthModal> | null };
 
       const callback = vi.fn();
 
       function CallbackConsumer() {
         const ctx = useAuthModal();
-        capturedCtx = ctx;
+        useEffect(() => { ctxRef.current = ctx; });
         return (
           <button
             data-testid="open-with-cb-btn"
@@ -104,7 +104,7 @@ describe('AuthModalProvider', () => {
       });
 
       act(() => {
-        capturedCtx.handleVerifySuccess();
+        ctxRef.current!.handleVerifySuccess();
       });
 
       expect(callback).toHaveBeenCalledTimes(1);

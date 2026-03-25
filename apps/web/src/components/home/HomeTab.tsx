@@ -70,9 +70,9 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
 
         const matches = await getPlayerMatchHistory(playerId);
         const sortedMatches = (matches || [])
-          .sort((a, b) => {
-            const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-            const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+          .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+            const dateA = a.Date ? new Date(a.Date as string).getTime() : 0;
+            const dateB = b.Date ? new Date(b.Date as string).getTime() : 0;
             return dateB - dateA;
           });
         setUserMatches(sortedMatches);
@@ -183,6 +183,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         >
           <div className="navbar-avatar" style={{ marginRight: '12px' }}>
             {isImageUrl(currentUserPlayer?.profile_picture_url) ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={currentUserPlayer.profile_picture_url}
                 alt={fullName}

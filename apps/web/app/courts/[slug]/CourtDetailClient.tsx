@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../src/contexts/ModalContext';
@@ -93,7 +94,7 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
         <div className="court-detail court-detail--not-found">
           <h1>Court Not Found</h1>
           <p>The court you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <a href="/courts">Browse all courts</a>
+          <Link href="/courts">Browse all courts</Link>
         </div>
       </>
     );
@@ -114,7 +115,7 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
 
       <div className="court-detail">
         <nav className="court-detail__breadcrumb">
-          <a href="/courts" className="court-detail__breadcrumb-link">Courts</a>
+          <Link href="/courts" className="court-detail__breadcrumb-link">Courts</Link>
           {court.location_name && court.location_slug && (
             <>
               <span className="court-detail__breadcrumb-sep">/</span>

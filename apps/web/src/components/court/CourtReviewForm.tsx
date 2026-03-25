@@ -176,6 +176,7 @@ export default function CourtReviewForm({ courtId, existingReview, onSuccess, on
           <div className="court-review-form__photo-previews">
             {photos.map((file, i) => (
               <div key={i} className="court-review-form__photo-preview">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrls[i]} alt={`Upload ${i + 1}`} />
                 <button
                   type="button"

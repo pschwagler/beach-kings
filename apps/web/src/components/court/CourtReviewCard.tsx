@@ -106,6 +106,7 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
       {review.photos?.length > 0 && (
         <div className="court-review-card__photos">
           {review.photos.map((photo, idx) => (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               key={photo.id}
               src={photo.url}
