@@ -91,9 +91,9 @@ beforeEach(() => {
   mockIsAuthenticated.value = true;
   mockUser.value = { id: 1 };
 
-  // Default mock responses (getNotifications returns Notification[] directly)
-  mockGetNotifications.mockResolvedValue([]);
-  mockGetUnreadCount.mockResolvedValue({ unread_count: 0 });
+  // Default mock responses
+  mockGetNotifications.mockResolvedValue({ notifications: [], total_count: 0, has_more: false });
+  mockGetUnreadCount.mockResolvedValue({ count: 0 });
   mockGetUnreadMessageCount.mockResolvedValue({ count: 0 });
 });
 
@@ -120,10 +120,14 @@ describe('NotificationProvider — initial data fetch', () => {
   });
 
   it('populates notifications from API response', async () => {
-    mockGetNotifications.mockResolvedValue([
-      { id: 1, is_read: false, type: 'test' },
-      { id: 2, is_read: true, type: 'test' },
-    ]);
+    mockGetNotifications.mockResolvedValue({
+      notifications: [
+        { id: 1, is_read: false, type: 'test' },
+        { id: 2, is_read: true, type: 'test' },
+      ],
+      total_count: 2,
+      has_more: false,
+    });
 
     render(
       <NotificationProvider>
@@ -137,7 +141,7 @@ describe('NotificationProvider — initial data fetch', () => {
   });
 
   it('sets unreadCount from API response', async () => {
-    mockGetUnreadCount.mockResolvedValue({ unread_count: 5 });
+    mockGetUnreadCount.mockResolvedValue({ count: 5 });
 
     render(
       <NotificationProvider>
@@ -209,7 +213,7 @@ describe('NotificationProvider — isLoading lifecycle', () => {
 
     // Resolve the pending request
     await act(async () => {
-      resolveNotifications([]);
+      resolveNotifications({ notifications: [], total_count: 0, has_more: false });
     });
 
     await waitFor(() => {
@@ -236,7 +240,7 @@ describe('NotificationProvider — fetchNotifications error handling', () => {
       result = await latestCtx.fetchNotifications();
     });
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ notifications: [], total_count: 0, has_more: false });
     // State should still be empty / loading reset
     expect(screen.getByTestId('loading').textContent).toBe('false');
   });
@@ -244,11 +248,15 @@ describe('NotificationProvider — fetchNotifications error handling', () => {
 
 describe('NotificationProvider — markAsRead', () => {
   it('calls the API, marks the notification as read locally, and decrements unreadCount', async () => {
-    mockGetNotifications.mockResolvedValue([
-      { id: 1, is_read: false, type: 'test' },
-      { id: 2, is_read: false, type: 'test' },
-    ]);
-    mockGetUnreadCount.mockResolvedValue({ unread_count: 2 });
+    mockGetNotifications.mockResolvedValue({
+      notifications: [
+        { id: 1, is_read: false, type: 'test' },
+        { id: 2, is_read: false, type: 'test' },
+      ],
+      total_count: 2,
+      has_more: false,
+    });
+    mockGetUnreadCount.mockResolvedValue({ count: 2 });
     mockMarkAsRead.mockResolvedValue({ id: 1, is_read: true, read_at: '2026-01-01T00:00:00Z' });
 
     let latestCtx;
@@ -272,9 +280,13 @@ describe('NotificationProvider — markAsRead', () => {
   });
 
   it('does not decrement unreadCount below 0', async () => {
-    mockGetNotifications.mockResolvedValue([{ id: 1, is_read: false, type: 'test' }]);
+    mockGetNotifications.mockResolvedValue({
+      notifications: [{ id: 1, is_read: false, type: 'test' }],
+      total_count: 1,
+      has_more: false,
+    });
     // API reports 0 already
-    mockGetUnreadCount.mockResolvedValue({ unread_count: 0 });
+    mockGetUnreadCount.mockResolvedValue({ count: 0 });
     mockMarkAsRead.mockResolvedValue({ id: 1, is_read: true, read_at: '2026-01-01T00:00:00Z' });
 
     let latestCtx;
@@ -298,11 +310,15 @@ describe('NotificationProvider — markAsRead', () => {
 
 describe('NotificationProvider — markAllAsRead', () => {
   it('calls the API, marks all notifications as read locally, and resets unreadCount to 0', async () => {
-    mockGetNotifications.mockResolvedValue([
-      { id: 1, is_read: false, type: 'test' },
-      { id: 2, is_read: false, type: 'test' },
-    ]);
-    mockGetUnreadCount.mockResolvedValue({ unread_count: 2 });
+    mockGetNotifications.mockResolvedValue({
+      notifications: [
+        { id: 1, is_read: false, type: 'test' },
+        { id: 2, is_read: false, type: 'test' },
+      ],
+      total_count: 2,
+      has_more: false,
+    });
+    mockGetUnreadCount.mockResolvedValue({ count: 2 });
     mockMarkAllAsRead.mockResolvedValue({ updated: 2 });
 
     let latestCtx;
