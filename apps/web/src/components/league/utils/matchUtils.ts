@@ -33,31 +33,35 @@ export interface RawMatch {
   [key: string]: unknown;
 }
 
-/** A display-format match object (keyed by display strings). */
+/** A display-format match object (snake_case). */
 export interface DisplayMatch {
   id: number | string;
   Date?: string | null;
-  'Session ID'?: number | null;
-  'Session Name'?: string | null;
-  'Session Status'?: string | null;
-  'Session Season ID'?: number | null;
-  'Session Created At'?: string | null;
-  'Session Updated At'?: string | null;
-  'Session Created By'?: string | null;
-  'Session Updated By'?: string | null;
-  'Team 1 Player 1'?: string;
-  'Team 1 Player 2'?: string;
-  'Team 2 Player 1'?: string;
-  'Team 2 Player 2'?: string;
-  'Team 1 Player 1 ID'?: number | null;
-  'Team 1 Player 2 ID'?: number | null;
-  'Team 2 Player 1 ID'?: number | null;
-  'Team 2 Player 2 ID'?: number | null;
-  'Team 1 Score'?: number | null;
-  'Team 2 Score'?: number | null;
+  session_id?: number | null;
+  session_name?: string | null;
+  session_status?: string | null;
+  session_season_id?: number | null;
+  session_created_at?: string | null;
+  session_updated_at?: string | null;
+  session_created_by?: string | null;
+  session_updated_by?: string | null;
+  team_1_player_1?: string;
+  team_1_player_2?: string;
+  team_2_player_1?: string;
+  team_2_player_2?: string;
+  team_1_player_1_id?: number | null;
+  team_1_player_2_id?: number | null;
+  team_2_player_1_id?: number | null;
+  team_2_player_2_id?: number | null;
+  team_1_score?: number | null;
+  team_2_score?: number | null;
   Winner?: string;
-  'Is Ranked'?: boolean | null;
-  'Ranked Intent'?: string | boolean | null;
+  is_ranked?: boolean | null;
+  ranked_intent?: string | boolean | null;
+  team_1_player_1_is_placeholder?: boolean;
+  team_1_player_2_is_placeholder?: boolean;
+  team_2_player_1_is_placeholder?: boolean;
+  team_2_player_2_is_placeholder?: boolean;
   'Team 1 ELO Change'?: number;
   'Team 2 ELO Change'?: number;
   [key: string]: unknown;
@@ -85,14 +89,14 @@ export function calculateWinner(team1Score: number | null | undefined, team2Scor
 
 /** Display-format keys for the four player positions in a match. */
 export const MATCH_POSITION_KEYS = {
-  T1P1: 'Team 1 Player 1',
-  T1P2: 'Team 1 Player 2',
-  T2P1: 'Team 2 Player 1',
-  T2P2: 'Team 2 Player 2',
-  T1P1_ID: 'Team 1 Player 1 ID',
-  T1P2_ID: 'Team 1 Player 2 ID',
-  T2P1_ID: 'Team 2 Player 1 ID',
-  T2P2_ID: 'Team 2 Player 2 ID',
+  T1P1: 'team_1_player_1',
+  T1P2: 'team_1_player_2',
+  T2P1: 'team_2_player_1',
+  T2P2: 'team_2_player_2',
+  T1P1_ID: 'team_1_player_1_id',
+  T1P2_ID: 'team_1_player_2_id',
+  T2P1_ID: 'team_2_player_1_id',
+  T2P2_ID: 'team_2_player_2_id',
 };
 
 /** Array of player name keys for iteration (excludes ID keys). */
@@ -104,8 +108,8 @@ const ALL_POSITION_KEYS = [
 ];
 
 /**
- * Count unique players across matches in display format (Team 1 Player 1, etc.).
- * @param {Array<Object>} matches - Matches in display format (with 'Team 1 Player 1', etc.)
+ * Count unique players across matches in display format (team_1_player_1, etc.).
+ * @param {Array<Object>} matches - Matches in display format (with team_1_player_1, etc.)
  * @returns {number} Number of unique player names
  */
 export function getUniquePlayersCount(matches: DisplayMatch[]): number {
@@ -130,10 +134,10 @@ function applyPlaceholderFlags(displayMatch: DisplayMatch, rawMatch: RawMatch, p
   if (!placeholderPlayerIds || placeholderPlayerIds.size === 0) return displayMatch;
   return {
     ...displayMatch,
-    [`${MATCH_POSITION_KEYS.T1P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player1_id as number),
-    [`${MATCH_POSITION_KEYS.T1P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team1_player2_id as number),
-    [`${MATCH_POSITION_KEYS.T2P1} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player1_id as number),
-    [`${MATCH_POSITION_KEYS.T2P2} IsPlaceholder`]: placeholderPlayerIds.has(rawMatch.team2_player2_id as number),
+    team_1_player_1_is_placeholder: placeholderPlayerIds.has(rawMatch.team1_player1_id as number),
+    team_1_player_2_is_placeholder: placeholderPlayerIds.has(rawMatch.team1_player2_id as number),
+    team_2_player_1_is_placeholder: placeholderPlayerIds.has(rawMatch.team2_player1_id as number),
+    team_2_player_2_is_placeholder: placeholderPlayerIds.has(rawMatch.team2_player2_id as number),
   };
 }
 
@@ -158,16 +162,16 @@ export function buildPlaceholderIdSet(members: MemberEntry[]): Set<number> {
  * used by MatchCard and SessionMatchesClipboardTable.
  * @param {Object} match - Match from getSessionMatches API (snake_case)
  * @param {Set<number>} [placeholderPlayerIds] - Optional set of placeholder player IDs
- * @returns {Object} Match in display format (Team 1 Player 1, etc.)
+ * @returns {Object} Match in display format (team_1_player_1, etc.)
  */
 export function sessionMatchToDisplayFormat(match: RawMatch, placeholderPlayerIds?: Set<number>): DisplayMatch {
   const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
   const displayMatch: DisplayMatch = {
     id: match.id,
     Date: match.date,
-    'Session ID': match.session_id,
-    'Session Name': match.session_name || match.date,
-    'Session Status': match.session_status || null,
+    session_id: match.session_id,
+    session_name: match.session_name || match.date,
+    session_status: match.session_status || null,
     [MATCH_POSITION_KEYS.T1P1]: match.team1_player1_name || '',
     [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
     [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
@@ -176,11 +180,11 @@ export function sessionMatchToDisplayFormat(match: RawMatch, placeholderPlayerId
     [MATCH_POSITION_KEYS.T1P2_ID]: match.team1_player2_id ?? null,
     [MATCH_POSITION_KEYS.T2P1_ID]: match.team2_player1_id ?? null,
     [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
-    'Team 1 Score': match.team1_score,
-    'Team 2 Score': match.team2_score,
+    team_1_score: match.team1_score,
+    team_2_score: match.team2_score,
     Winner: winner,
-    'Is Ranked': match.is_ranked ?? true,
-    'Ranked Intent': match.ranked_intent ?? true,
+    is_ranked: match.is_ranked ?? true,
+    ranked_intent: match.ranked_intent ?? true,
     'Team 1 ELO Change': 0,
     'Team 2 ELO Change': 0,
   };
@@ -227,14 +231,14 @@ export function transformMatchData(matches: RawMatch[], placeholderPlayerIds?: S
     const displayMatch: DisplayMatch = {
       id: match.id,
       Date: match.date,
-      'Session ID': match.session_id,
-      'Session Name': match.session_name || match.date,
-      'Session Status': match.session_status || null,
-      'Session Season ID': match.session_season_id || null,
-      'Session Created At': match.session_created_at || null,
-      'Session Updated At': match.session_updated_at || null,
-      'Session Created By': match.session_created_by_name || null,
-      'Session Updated By': match.session_updated_by_name || null,
+      session_id: match.session_id,
+      session_name: match.session_name || match.date,
+      session_status: match.session_status || null,
+      session_season_id: match.session_season_id || null,
+      session_created_at: match.session_created_at || null,
+      session_updated_at: match.session_updated_at || null,
+      session_created_by: match.session_created_by_name || null,
+      session_updated_by: match.session_updated_by_name || null,
       [MATCH_POSITION_KEYS.T1P1]: match.team1_player1_name || '',
       [MATCH_POSITION_KEYS.T1P2]: match.team1_player2_name || '',
       [MATCH_POSITION_KEYS.T2P1]: match.team2_player1_name || '',
@@ -243,11 +247,11 @@ export function transformMatchData(matches: RawMatch[], placeholderPlayerIds?: S
       [MATCH_POSITION_KEYS.T1P2_ID]: match.team1_player2_id ?? null,
       [MATCH_POSITION_KEYS.T2P1_ID]: match.team2_player1_id ?? null,
       [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
-      'Team 1 Score': match.team1_score,
-      'Team 2 Score': match.team2_score,
+      team_1_score: match.team1_score,
+      team_2_score: match.team2_score,
       Winner: winner,
-      'Is Ranked': match.is_ranked ?? true,
-      'Ranked Intent': match.ranked_intent ?? true,
+      is_ranked: match.is_ranked ?? true,
+      ranked_intent: match.ranked_intent ?? true,
       'Team 1 ELO Change': team1EloChange,
       'Team 2 ELO Change': team2EloChange,
     };

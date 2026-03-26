@@ -11,44 +11,41 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator, model_valida
 class RankingResponse(BaseModel):
     """Player ranking data."""
 
-    model_config = ConfigDict(populate_by_name=True)
-    Name: str
-    Points: int
-    Games: int
-    Win_Rate: float = Field(alias="Win Rate")
-    Wins: int
-    Losses: int
-    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
-    ELO: int
+    name: str
+    points: int
+    games: int
+    win_rate: float
+    wins: int
+    losses: int
+    avg_pt_diff: float
+    elo: int
     season_rank: int
 
 
 class PartnershipStats(BaseModel):
     """Partnership statistics."""
 
-    model_config = ConfigDict(populate_by_name=True)
-    Player_ID: int = Field(alias="Player ID")
-    Partner_Opponent: str = Field(alias="Partner/Opponent")
-    Points: int
-    Games: int
-    Wins: int
-    Losses: int
-    Win_Rate: float = Field(alias="Win Rate")
-    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
+    player_id: int
+    partner_opponent: str
+    points: int
+    games: int
+    wins: int
+    losses: int
+    win_rate: float
+    avg_pt_diff: float
 
 
 class OpponentStats(BaseModel):
     """Opponent statistics."""
 
-    model_config = ConfigDict(populate_by_name=True)
-    Player_ID: int = Field(alias="Player ID")
-    Partner_Opponent: str = Field(alias="Partner/Opponent")
-    Points: int
-    Games: int
-    Wins: int
-    Losses: int
-    Win_Rate: float = Field(alias="Win Rate")
-    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
+    player_id: int
+    partner_opponent: str
+    points: int
+    games: int
+    wins: int
+    losses: int
+    win_rate: float
+    avg_pt_diff: float
 
 
 class PartnershipOpponentStatsResponse(BaseModel):
@@ -69,39 +66,37 @@ class PlayerStatsResponse(BaseModel):
 class MatchResponse(BaseModel):
     """Match result data."""
 
-    model_config = ConfigDict(populate_by_name=True)
-    Date: str
-    Team_1_Player_1: str = Field(alias="Team 1 Player 1")
-    Team_1_Player_2: str = Field(alias="Team 1 Player 2")
-    Team_2_Player_1: str = Field(alias="Team 2 Player 1")
-    Team_2_Player_2: str = Field(alias="Team 2 Player 2")
-    Team_1_Score: int = Field(alias="Team 1 Score")
-    Team_2_Score: int = Field(alias="Team 2 Score")
-    Winner: str
-    Team_1_ELO_Change: float = Field(alias="Team 1 ELO Change")
-    Team_2_ELO_Change: float = Field(alias="Team 2 ELO Change")
+    date: str
+    team_1_player_1: str
+    team_1_player_2: str
+    team_2_player_1: str
+    team_2_player_2: str
+    team_1_score: int
+    team_2_score: int
+    winner: str
+    team_1_elo_change: float
+    team_2_elo_change: float
 
 
 class PlayerMatchHistoryResponse(BaseModel):
     """Player's match history."""
 
-    model_config = ConfigDict(populate_by_name=True)
-    Date: str
-    Partner: str
-    Partner_ID: Optional[int] = Field(None, alias="Partner ID")
-    Opponent_1: str = Field(alias="Opponent 1")
-    Opponent_1_ID: Optional[int] = Field(None, alias="Opponent 1 ID")
-    Opponent_2: str = Field(alias="Opponent 2")
-    Opponent_2_ID: Optional[int] = Field(None, alias="Opponent 2 ID")
-    Result: str
-    Score: str
-    ELO_Change: float = Field(alias="ELO Change")
+    date: str
+    partner: str
+    partner_id: Optional[int] = None
+    opponent_1: str
+    opponent_1_id: Optional[int] = None
+    opponent_2: str
+    opponent_2_id: Optional[int] = None
+    result: str
+    score: str
+    elo_change: float
 
 
 class EloTimelineResponse(BaseModel):
     """ELO timeline data for charting."""
 
-    Date: str
+    date: str
     # Additional fields will be player names with their ELO values
 
 
@@ -149,6 +144,8 @@ class CreateMatchRequest(BaseModel):
     team2_score: int
     is_public: Optional[bool] = True
     is_ranked: Optional[bool] = True
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class CreateMatchResponse(BaseModel):
@@ -430,7 +427,7 @@ class LeagueBase(BaseModel):
     is_open: bool = True
     is_public: Optional[bool] = True  # Whether league is visible on public pages
     whatsapp_group_id: Optional[str] = None
-    gender: Optional[str] = None  # 'male', 'female', 'mixed'
+    gender: Optional[str] = None  # 'mens', 'womens', 'coed'
     level: Optional[str] = None  # 'juniors', 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
 
 
@@ -693,14 +690,14 @@ class ConversationResponse(BaseModel):
 class ConversationListResponse(BaseModel):
     """Paginated conversation list."""
 
-    conversations: List[ConversationResponse]
+    items: List[ConversationResponse]
     total_count: int
 
 
 class ThreadResponse(BaseModel):
     """Paginated thread of messages with a specific player."""
 
-    messages: List[DirectMessageResponse]
+    items: List[DirectMessageResponse]
     total_count: int
     has_more: bool
 
@@ -781,6 +778,9 @@ class SessionResponse(BaseModel):
     status: str  # ACTIVE, SUBMITTED, or EDITED
     season_id: Optional[int] = None
     court_id: Optional[int] = None
+    location_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     created_at: str
 
 
@@ -952,7 +952,7 @@ class NotificationResponse(BaseModel):
 class NotificationListResponse(BaseModel):
     """Paginated notification list response."""
 
-    notifications: List[NotificationResponse]
+    items: List[NotificationResponse]
     total_count: int
     has_more: bool
 
@@ -998,6 +998,8 @@ class CreateNonLeagueSessionRequest(BaseModel):
     date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
     name: Optional[str] = None
     court_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class UpdateSessionRequest(BaseModel):

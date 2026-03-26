@@ -51,9 +51,9 @@ export function useSessionSeasonUpdate({
         oldSeasonId = activeSession.season_id;
       } else {
         // Try to get it from the matches data
-        const sessionMatch = matches?.find((m: any) => m['Session ID'] === sessionId);
+        const sessionMatch = matches?.find((m: any) => m.session_id === sessionId);
         if (sessionMatch) {
-          oldSeasonId = sessionMatch['Session Season ID'];
+          oldSeasonId = sessionMatch.session_season_id;
         }
       }
       

@@ -17,30 +17,29 @@ export function formatPlayerSeasonStats(seasonStats: any, partnershipOpponentSta
   
   // Add overall row first
   statsArray.push({
-    "Partner/Opponent": "OVERALL",
-    "Points": seasonStats.points,
-    "Games": seasonStats.games,
-    "Wins": seasonStats.wins,
-    "Losses": seasonStats.losses,
-    "Win Rate": seasonStats.win_rate,
-    "Avg Pt Diff": seasonStats.avg_point_diff
+    partner_opponent: "OVERALL",
+    games: seasonStats.games,
+    wins: seasonStats.wins,
+    losses: seasonStats.losses,
+    win_rate: seasonStats.win_rate,
+    avg_pt_diff: seasonStats.avg_point_diff
   });
-  
+
   // Add empty row separator
-  statsArray.push({ "Partner/Opponent": "" });
-  
+  statsArray.push({ partner_opponent: "" });
+
   // Add partnerships section
   if (partnershipOpponentStats?.partnerships && partnershipOpponentStats.partnerships.length > 0) {
-    statsArray.push({ "Partner/Opponent": "WITH PARTNERS" });
+    statsArray.push({ partner_opponent: "WITH PARTNERS" });
     statsArray.push(...partnershipOpponentStats.partnerships);
-    statsArray.push({ "Partner/Opponent": "" }); // Empty row
+    statsArray.push({ partner_opponent: "" }); // Empty row
   }
-  
+
   // Add opponents section
   if (partnershipOpponentStats?.opponents && partnershipOpponentStats.opponents.length > 0) {
-    statsArray.push({ "Partner/Opponent": "VS OPPONENTS" });
+    statsArray.push({ partner_opponent: "VS OPPONENTS" });
     statsArray.push(...partnershipOpponentStats.opponents);
-    statsArray.push({ "Partner/Opponent": "" }); // Empty row
+    statsArray.push({ partner_opponent: "" }); // Empty row
   }
   
   // Format season stats for PlayerDetails component

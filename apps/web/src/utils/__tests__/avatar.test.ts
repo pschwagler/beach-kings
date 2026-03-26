@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isImageUrl } from '../avatar';
+import { isImageUrl, getPlayerImageUrl } from '../avatar';
 
 describe('isImageUrl', () => {
   // ─── Falsy / empty inputs ───────────────────────────────────────────────────
@@ -42,5 +42,76 @@ describe('isImageUrl', () => {
 
   it('returns false for data: URI', () => {
     expect(isImageUrl('data:image/png;base64,abc123')).toBe(false);
+  });
+});
+
+describe('getPlayerImageUrl', () => {
+  // ─── No image available ──────────────────────────────────────────────────────
+
+  it('returns null when both fields are absent', () => {
+    expect(getPlayerImageUrl({})).toBe(null);
+  });
+
+  it('returns null when both fields are null', () => {
+    expect(getPlayerImageUrl({ avatar: null, profile_picture_url: null })).toBe(null);
+  });
+
+  it('returns null when avatar is initials and profile_picture_url is null', () => {
+    expect(getPlayerImageUrl({ avatar: 'PS', profile_picture_url: null })).toBe(null);
+  });
+
+  it('returns null when both fields are initials strings', () => {
+    expect(getPlayerImageUrl({ avatar: 'AB', profile_picture_url: 'CD' })).toBe(null);
+  });
+
+  // ─── profile_picture_url preferred over avatar ───────────────────────────────
+
+  it('returns profile_picture_url when both are valid URLs', () => {
+    expect(
+      getPlayerImageUrl({
+        avatar: 'https://example.com/avatar.jpg',
+        profile_picture_url: 'https://example.com/profile.jpg',
+      }),
+    ).toBe('https://example.com/profile.jpg');
+  });
+
+  it('returns profile_picture_url when avatar is initials', () => {
+    expect(
+      getPlayerImageUrl({
+        avatar: 'PS',
+        profile_picture_url: 'https://example.com/profile.jpg',
+      }),
+    ).toBe('https://example.com/profile.jpg');
+  });
+
+  // ─── Fallback to avatar when profile_picture_url is absent ──────────────────
+
+  it('returns avatar URL when profile_picture_url is null', () => {
+    expect(
+      getPlayerImageUrl({
+        avatar: 'https://example.com/avatar.jpg',
+        profile_picture_url: null,
+      }),
+    ).toBe('https://example.com/avatar.jpg');
+  });
+
+  it('returns avatar URL when profile_picture_url is undefined', () => {
+    expect(
+      getPlayerImageUrl({ avatar: 'https://example.com/avatar.jpg' }),
+    ).toBe('https://example.com/avatar.jpg');
+  });
+
+  // ─── URL formats ─────────────────────────────────────────────────────────────
+
+  it('returns http:// URLs', () => {
+    expect(getPlayerImageUrl({ profile_picture_url: 'http://example.com/img.png' })).toBe(
+      'http://example.com/img.png',
+    );
+  });
+
+  it('returns root-relative paths', () => {
+    expect(getPlayerImageUrl({ profile_picture_url: '/uploads/avatar.jpg' })).toBe(
+      '/uploads/avatar.jpg',
+    );
   });
 });

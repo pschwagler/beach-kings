@@ -1,19 +1,7 @@
 import { useState, useCallback } from 'react';
 import { lockInLeagueSession } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
-
-/** Display-format match row (as produced by transformMatchData / sessionMatchToDisplayFormat). */
-interface DisplayMatch {
-  id: number | string;
-  'Session ID'?: number | null;
-  'Session Name'?: string | null;
-  'Session Status'?: string | null;
-  'Session Created At'?: string | null;
-  'Session Updated At'?: string | null;
-  'Session Created By'?: string | null;
-  'Session Updated By'?: string | null;
-  [key: string]: unknown;
-}
+import type { DisplayMatch } from '../utils/matchUtils';
 
 /** Metadata captured when entering edit mode for a session. */
 interface SessionEditMetadata {
@@ -90,18 +78,18 @@ export function useSessionEditing({
     });
 
     // Store session metadata so we can show the session even if all matches are deleted
-    const sessionMatch = matchesToUse?.find((m: DisplayMatch) => m['Session ID'] === sessionId);
+    const sessionMatch = matchesToUse?.find((m: DisplayMatch) => m.session_id === sessionId);
     if (sessionMatch) {
       setEditingSessionMetadata(prev => {
         const next = new Map(prev);
         next.set(sessionId, {
           id: sessionId,
-          name: sessionMatch['Session Name'] || `Session ${sessionId}`,
-          status: sessionMatch['Session Status'] || 'SUBMITTED',
-          createdAt: sessionMatch['Session Created At'],
-          updatedAt: sessionMatch['Session Updated At'],
-          createdBy: sessionMatch['Session Created By'],
-          updatedBy: sessionMatch['Session Updated By'],
+          name: sessionMatch.session_name || `Session ${sessionId}`,
+          status: sessionMatch.session_status || 'SUBMITTED',
+          createdAt: sessionMatch.session_created_at,
+          updatedAt: sessionMatch.session_updated_at,
+          createdBy: sessionMatch.session_created_by,
+          updatedBy: sessionMatch.session_updated_by,
         });
         return next;
       });
@@ -350,7 +338,7 @@ export function useSessionEditing({
     // Find session ID if not provided
     if (!sessionId) {
       const match = matches?.find((m: DisplayMatch) => m.id === matchId);
-      sessionId = match?.['Session ID'];
+      sessionId = match?.session_id;
     }
     
     // Normalize match data first
@@ -392,7 +380,7 @@ export function useSessionEditing({
 
     // Find session ID
     const match = matches?.find((m: DisplayMatch) => m.id === matchId);
-    const sessionId = match?.['Session ID'];
+    const sessionId = match?.session_id;
     
     // If editing this session, store locally
     if (sessionId && isEditing(sessionId)) {

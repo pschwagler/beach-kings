@@ -35,23 +35,23 @@ type PlayerFieldValue = string | { value: number | string; label?: string; isPla
 /** A match row as supplied to the edit form — subset of MatchDisplayRow keys. */
 export interface EditMatchData {
   id: number | string;
-  'Team 1 Player 1': string;
-  'Team 1 Player 2': string;
-  'Team 2 Player 1': string;
-  'Team 2 Player 2': string;
-  'Team 1 Score': number | null;
-  'Team 2 Score': number | null;
+  team_1_player_1: string;
+  team_1_player_2: string;
+  team_2_player_1: string;
+  team_2_player_2: string;
+  team_1_score: number | null;
+  team_2_score: number | null;
   [key: string]: unknown;
 }
 
 // Helper function to map edit match to form data
 const mapEditMatchToFormData = (editMatch: EditMatchData, nameToIdMap: Map<string, number | string>) => ({
-  team1Player1: nameToPlayerOption((editMatch['Team 1 Player 1'] || '') as string, nameToIdMap),
-  team1Player2: nameToPlayerOption((editMatch['Team 1 Player 2'] || '') as string, nameToIdMap),
-  team2Player1: nameToPlayerOption((editMatch['Team 2 Player 1'] || '') as string, nameToIdMap),
-  team2Player2: nameToPlayerOption((editMatch['Team 2 Player 2'] || '') as string, nameToIdMap),
-  team1Score: formatScore(editMatch['Team 1 Score']),
-  team2Score: formatScore(editMatch['Team 2 Score'])
+  team1Player1: nameToPlayerOption((editMatch.team_1_player_1 || '') as string, nameToIdMap),
+  team1Player2: nameToPlayerOption((editMatch.team_1_player_2 || '') as string, nameToIdMap),
+  team2Player1: nameToPlayerOption((editMatch.team_2_player_1 || '') as string, nameToIdMap),
+  team2Player2: nameToPlayerOption((editMatch.team_2_player_2 || '') as string, nameToIdMap),
+  team1Score: formatScore(editMatch.team_1_score),
+  team2Score: formatScore(editMatch.team_2_score)
 });
 
 interface AddMatchModalProps {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, Plus, Filter } from 'lucide-react';
-import type { Location, League } from '../../types';
+import type { Location, League, LeagueMember } from '../../types';
 import {
   getPlayers,
   addLeagueMembersBatch,
@@ -27,13 +27,6 @@ const SEARCH_DEBOUNCE_MS = 300;
  * filters (Location, League, Gender, Level), and batch submit. Uses batch
  * API and shows added/failed counts on partial failure.
  */
-interface LeagueMember {
-  player_id: number;
-  player_name?: string | null;
-  player_avatar?: string | null;
-  role?: string;
-  joined_at?: string | null;
-}
 
 interface AddPlayersModalProps {
   isOpen: boolean;
@@ -121,7 +114,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
       try {
         const data = await getPlayers(params);
         const list = Array.isArray(data?.items) ? data.items : [];
-        const count = typeof data?.total === 'number' ? data.total : 0;
+        const count = typeof data?.total_count === 'number' ? data.total_count : 0;
         if (append) setItems((prev) => [...prev, ...list]);
         else setItems(list);
         setTotal(count);

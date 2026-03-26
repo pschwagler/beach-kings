@@ -47,7 +47,7 @@ async def list_players(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Get list of players with optional search and filters. Always returns { items, total }.
+    Get list of players with optional search and filters. Always returns { items, total_count }.
 
     Query params: q (search name), location_id (repeatable), league_id (repeatable),
     gender (repeatable), level (repeatable), limit (default 50), offset (default 0),
@@ -66,7 +66,7 @@ async def list_players(
             include_placeholders=include_placeholders,
             session_id=session_id,
         )
-        return {"items": items, "total": total}
+        return {"items": items, "total_count": total}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading players: {str(e)}")
 

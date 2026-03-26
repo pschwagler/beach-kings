@@ -44,42 +44,42 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
       {/* Team 1 */}
       <div className={`match-team ${team1Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 1 ID'], match['Team 1 Player 1'], e); }}>
-            {match['Team 1 Player 1']}
-            {match['Team 1 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 1 Player 1 ID']} playerName={match['Team 1 Player 1']} />}
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_1_player_1_id, match.team_1_player_1, e); }}>
+            {match.team_1_player_1}
+            {match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_1_id} playerName={match.team_1_player_1} />}
           </span>
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 1 Player 2 ID'], match['Team 1 Player 2'], e); }}>
-            {match['Team 1 Player 2']}
-            {match['Team 1 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 1 Player 2 ID']} playerName={match['Team 1 Player 2']} />}
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_1_player_2_id, match.team_1_player_2, e); }}>
+            {match.team_1_player_2}
+            {match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_1_player_2_id} playerName={match.team_1_player_2} />}
           </span>
         </div>
         <div className={`team-score ${team1Won ? 'winner-score' : 'loser-score'}`}>
-          {match['Team 1 Score']}
+          {match.team_1_score}
         </div>
       </div>
 
       {/* Team 2 */}
       <div className={`match-team ${team2Won ? 'winner' : 'loser'}`}>
         <div className="team-players">
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 1 ID'], match['Team 2 Player 1'], e); }}>
-            {match['Team 2 Player 1']}
-            {match['Team 2 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 2 Player 1 ID']} playerName={match['Team 2 Player 1']} />}
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_2_player_1_id, match.team_2_player_1, e); }}>
+            {match.team_2_player_1}
+            {match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_1_id} playerName={match.team_2_player_1} />}
           </span>
-          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match['Team 2 Player 2 ID'], match['Team 2 Player 2'], e); }}>
-            {match['Team 2 Player 2']}
-            {match['Team 2 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={match['Team 2 Player 2 ID']} playerName={match['Team 2 Player 2']} />}
+          <span className="player-name-modern" onClick={(e) => { e.stopPropagation(); onPlayerClick(match.team_2_player_2_id, match.team_2_player_2, e); }}>
+            {match.team_2_player_2}
+            {match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={match.team_2_player_2_id} playerName={match.team_2_player_2} />}
           </span>
         </div>
         <div className={`team-score ${team2Won ? 'winner-score' : 'loser-score'}`}>
-          {match['Team 2 Score']}
+          {match.team_2_score}
         </div>
       </div>
 
       {/* Ranked/Unranked/Pending badge strip below teams */}
       <div className="match-card-ranked-strip">
-        {match['Is Ranked'] ? (
+        {match.is_ranked ? (
           <span className="match-card-badge match-card-badge--ranked">Ranked</span>
-        ) : match['Ranked Intent'] ? (
+        ) : match.ranked_intent ? (
           <span
             className="match-card-badge match-card-badge--pending"
             data-tooltip="Will become ranked when all players register"

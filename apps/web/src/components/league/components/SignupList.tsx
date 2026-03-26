@@ -3,12 +3,7 @@ import { Calendar, Edit2, Trash2, Users, Clock, MapPin, ChevronDown, ChevronUp }
 import { formatDateTimeWithTimezone, formatDate, formatTime } from '../../../utils/dateUtils';
 import { SignupListSkeleton } from '../../ui/Skeletons';
 import { useLeague } from '../../../contexts/LeagueContext';
-
-interface SignupPlayer {
-  player_id: number;
-  player_name?: string | null;
-  signed_up_at?: string | null;
-}
+import type { SignupPlayer } from '../../../types';
 
 export interface Signup {
   id: number;

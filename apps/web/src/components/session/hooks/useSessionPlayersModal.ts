@@ -170,7 +170,7 @@ export function useSessionPlayersModal({
       try {
         const data = await getPlayers(params);
         const list: PlayerItem[] = Array.isArray(data?.items) ? data.items : [];
-        const count = typeof data?.total === 'number' ? data.total : 0;
+        const count = typeof data?.total_count === 'number' ? data.total_count : 0;
         if (append) setItems((prev) => [...prev, ...list]);
         else setItems(list);
         setTotal(count);

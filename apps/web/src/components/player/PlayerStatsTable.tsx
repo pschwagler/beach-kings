@@ -2,13 +2,13 @@ import React from 'react';
 import { BarChart3 } from 'lucide-react';
 
 export interface PlayerStatsRow {
-  'Partner/Opponent': string;
-  'Player ID'?: number | null;
-  'Wins'?: number | string;
-  'Losses'?: number | string;
-  'Win Rate'?: number | null;
-  'Games'?: number | string;
-  'Avg Pt Diff'?: number | string | null;
+  partner_opponent: string;
+  player_id?: number | null;
+  wins?: number | string;
+  losses?: number | string;
+  win_rate?: number | null;
+  games?: number | string;
+  avg_pt_diff?: number | string | null;
 }
 
 interface PlayerStatsTableProps {
@@ -74,10 +74,10 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }: Player
         <tbody>
           {playerStats.reduce((acc: { rows: React.ReactNode[]; groupRowIndex: number }, row, idx) => {
             const isSectionHeader =
-              row['Partner/Opponent'] === 'WITH PARTNERS' ||
-              row['Partner/Opponent'] === 'VS OPPONENTS';
-            const isEmpty = row['Partner/Opponent'] === '';
-            const isOverall = row['Partner/Opponent'] === 'OVERALL';
+              row.partner_opponent === 'WITH PARTNERS' ||
+              row.partner_opponent === 'VS OPPONENTS';
+            const isEmpty = row.partner_opponent === '';
+            const isOverall = row.partner_opponent === 'OVERALL';
 
             // Reset counter on section header
             let groupRowIndex = isSectionHeader ? 0 : acc.groupRowIndex;
@@ -93,13 +93,13 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }: Player
               groupRowIndex++;
             }
 
-            const rowKey = row['Player ID'] != null ? `${row['Player ID']}-${idx}` : idx;
+            const rowKey = row.player_id != null ? `${row.player_id}-${idx}` : idx;
             if (isEmpty) {
               acc.rows.push(<tr key={`spacer-${idx}`}><td colSpan={6} className="spacer-row"></td></tr>);
             } else if (isSectionHeader) {
               acc.rows.push(
                 <tr key={`header-${idx}`} className="section-header">
-                  <td colSpan={6} style={{ width: '100%' }}>{row['Partner/Opponent']}</td>
+                  <td colSpan={6} style={{ width: '100%' }}>{row.partner_opponent}</td>
                 </tr>
               );
             } else {
@@ -107,20 +107,20 @@ export default function PlayerStatsTable({ playerStats, onPlayerChange }: Player
                 <tr key={rowKey} className={className}>
                   <td className="player-stats-name-col">
                     {isOverall ? (
-                      <strong>{row['Partner/Opponent']}</strong>
+                      <strong>{row.partner_opponent}</strong>
                     ) : (
                       <strong>
-                        <span className="player-name-modern" onClick={() => onPlayerChange(row['Player ID'] ?? row['Partner/Opponent'])}>
-                          {row['Partner/Opponent']}
+                        <span className="player-name-modern" onClick={() => onPlayerChange(row.player_id ?? row.partner_opponent)}>
+                          {row.partner_opponent}
                         </span>
                       </strong>
                     )}
                   </td>
-                  <td className="player-stats-stat-cell">{row['Wins']}</td>
-                  <td className="player-stats-stat-cell">{row['Losses']}</td>
-                  <td className="player-stats-stat-cell">{formatWinRate(row['Win Rate'])}</td>
-                  <td className="player-stats-stat-cell">{row['Games']}</td>
-                  <td className="player-stats-stat-cell">{formatPtDiff(row['Avg Pt Diff'])}</td>
+                  <td className="player-stats-stat-cell">{row.wins}</td>
+                  <td className="player-stats-stat-cell">{row.losses}</td>
+                  <td className="player-stats-stat-cell">{formatWinRate(row.win_rate)}</td>
+                  <td className="player-stats-stat-cell">{row.games}</td>
+                  <td className="player-stats-stat-cell">{formatPtDiff(row.avg_pt_diff)}</td>
                 </tr>
               );
             }

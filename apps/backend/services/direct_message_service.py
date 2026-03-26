@@ -219,7 +219,7 @@ async def get_conversations(
             }
         )
 
-    return {"conversations": conversations, "total_count": total_count}
+    return {"items": conversations, "total_count": total_count}
 
 
 async def get_thread(
@@ -271,7 +271,7 @@ async def get_thread(
 
     has_more = (offset + len(messages)) < total_count
 
-    return {"messages": messages, "total_count": total_count, "has_more": has_more}
+    return {"items": messages, "total_count": total_count, "has_more": has_more}
 
 
 async def mark_thread_read(

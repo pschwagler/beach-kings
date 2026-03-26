@@ -3,16 +3,17 @@
  * Single source of truth for filters, forms, and display.
  *
  * Backend values:
- * - Gender: male, female
+ * - PlayerGender: male, female
+ * - LeagueGender: mens, womens, coed
  * - Canonical skill levels (6): juniors, beginner, intermediate, advanced, AA, Open
  * - Level (league filter API): lowercase for filters (open) – backend accepts both
  */
 
-/** Options for gender filter: All + Men's / Women's. Values match backend (male/female). */
+/** Options for gender filter: All + Men's / Women's. Values match backend LeagueGender (mens/womens). */
 export const GENDER_FILTER_OPTIONS = [
   { value: '', label: 'All genders' },
-  { value: 'male', label: "Men's" },
-  { value: 'female', label: "Women's" },
+  { value: 'mens', label: "Men's" },
+  { value: 'womens', label: "Women's" },
 ];
 
 /** Options for skill/level filter: All + Juniors through Open. Use lowercase for filter API. */

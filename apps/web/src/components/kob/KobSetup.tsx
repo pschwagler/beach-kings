@@ -109,7 +109,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
     try {
       const data = await getPlayers({ q: query || undefined, limit: PLAYER_PAGE_SIZE, offset });
       const results = data.items || data;
-      const total = typeof data.total === "number" ? data.total : 0;
+      const total = typeof data.total_count === "number" ? data.total_count : 0;
       if (append) setSearchResults((prev) => [...prev, ...results]);
       else setSearchResults(results);
       setPlayerTotal(total);

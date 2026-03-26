@@ -24,11 +24,11 @@ const getAvatarInitial = (currentUserPlayer: Player | null): string => {
 interface MatchHistoryRecord {
   Date?: string;
   Result?: string;
-  'Session Status'?: string;
-  'ELO After'?: number | null;
-  'League ID'?: number | string | null;
-  'Season ID'?: number | string | null;
-  'Session Code'?: string | null;
+  session_status?: string;
+  elo_after?: number | null;
+  league_id?: number | string | null;
+  season_id?: number | string | null;
+  session_code?: string | null;
 }
 
 interface HomeTabProps {
@@ -92,16 +92,16 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   };
 
   const handleMatchClick = (match: MatchHistoryRecord) => {
-    const sessionCode = match?.['Session Code'];
+    const sessionCode = match?.session_code;
     if (sessionCode) {
       router.push(`/session/${sessionCode}`);
       return;
     }
-    const leagueId = match['League ID'];
+    const leagueId = match.league_id;
     if (leagueId) {
       const params = new URLSearchParams();
       params.set('tab', 'matches');
-      const seasonId = match['Season ID'];
+      const seasonId = match.season_id;
       if (seasonId) {
         params.set('season', seasonId.toString());
       }
@@ -126,7 +126,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
 
     // Filter out pending matches (active sessions)
     const completedMatches = userMatches.filter(match => {
-      const sessionStatus = match['Session Status'];
+      const sessionStatus = match.session_status;
       return sessionStatus !== 'ACTIVE';
     });
 
@@ -145,8 +145,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
 
       // Get rating from most recent match
       const mostRecentMatch = sortedMatches[0];
-      if (mostRecentMatch['ELO After'] !== undefined && mostRecentMatch['ELO After'] !== null) {
-        currentRating = mostRecentMatch['ELO After'];
+      if (mostRecentMatch.elo_after !== undefined && mostRecentMatch.elo_after !== null) {
+        currentRating = mostRecentMatch.elo_after;
       }
     }
 

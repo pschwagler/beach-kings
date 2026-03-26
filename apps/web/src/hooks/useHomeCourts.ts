@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '../contexts/ToastContext';
+import type { Court } from '../types';
 
 /**
  * Manage home courts for a league or player with optimistic updates.
@@ -15,14 +16,6 @@ import { useToast } from '../contexts/ToastContext';
  *   - set(entityId, courtIds) → court[] — replace all courts with ordered list
  * @returns {{ homeCourts, handleSet, handleRemove, handleSetPrimary }}
  */
-interface Court {
-  id: string | number;
-  name?: string;
-  address?: string;
-  position?: number;
-  [key: string]: any;
-}
-
 interface HomeCourtsApi {
   get?: (entityId: string | number) => Promise<Court[]>;
   set: (entityId: string | number, courtIds: (string | number)[]) => Promise<any>;

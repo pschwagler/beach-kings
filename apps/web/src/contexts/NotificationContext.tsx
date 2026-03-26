@@ -37,7 +37,7 @@ export interface Notification {
 
 /** Paginated notifications response from GET /api/notifications */
 interface NotificationsPage {
-  notifications: Notification[];
+  items: Notification[];
   total_count: number;
   has_more: boolean;
 }
@@ -76,11 +76,11 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       const response = await getNotifications({ limit, offset, unreadOnly });
-      setNotifications(response.notifications || []);
+      setNotifications(response.items || []);
       return response;
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      return { notifications: [], total_count: 0, has_more: false };
+      return { items: [], total_count: 0, has_more: false };
     } finally {
       setIsLoading(false);
     }

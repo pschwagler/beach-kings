@@ -224,67 +224,67 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 {getSortArrow('season_rank')}
               </span>
             </th>
-            <th className="sticky-col" onClick={() => handleSort('Name')}>
+            <th className="sticky-col" onClick={() => handleSort('name')}>
               <Tooltip text="Player's name">
                 <span className="th-content">
-                  Player name{getSortArrow('Name')}
+                  Player name{getSortArrow('name')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Points')}>
+            <th onClick={() => handleSort('points')}>
               <Tooltip text={getPointsHelperText()} multiline={true}>
                 <span className="th-content">
                   <span className="desktop-label">Points</span>
                   <span className="mobile-label">PTS</span>
-                  {getSortArrow('Points')}
+                  {getSortArrow('points')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Games')}>
+            <th onClick={() => handleSort('games')}>
               <Tooltip text="Total number of games played this season">
                 <span className="th-content">
                   <span className="desktop-label">Games</span>
                   <span className="mobile-label">GP</span>
-                  {getSortArrow('Games')}
+                  {getSortArrow('games')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Wins')}>
+            <th onClick={() => handleSort('wins')}>
               <Tooltip text="Total number of wins">
                 <span className="th-content">
                   <span className="desktop-label">Wins</span>
                   <span className="mobile-label">W</span>
-                  {getSortArrow('Wins')}
+                  {getSortArrow('wins')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Losses')}>
+            <th onClick={() => handleSort('losses')}>
               <Tooltip text="Total number of losses">
                 <span className="th-content">
                   <span className="desktop-label">Losses</span>
                   <span className="mobile-label">L</span>
-                  {getSortArrow('Losses')}
+                  {getSortArrow('losses')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Win Rate')}>
+            <th onClick={() => handleSort('win_rate')}>
               <Tooltip text="Percentage of games won">
                 <span className="th-content">
-                  Win %{getSortArrow('Win Rate')}
+                  Win %{getSortArrow('win_rate')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('Avg Pt Diff')}>
+            <th onClick={() => handleSort('avg_pt_diff')}>
               <Tooltip text="Average point differential per game">
                 <span className="th-content">
-                  Avg +/-{getSortArrow('Avg Pt Diff')}
+                  Avg +/-{getSortArrow('avg_pt_diff')}
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('ELO')}>
+            <th onClick={() => handleSort('elo')}>
               <Tooltip text="Current skill rating (higher is better)">
                 <span className="th-content">
-                  Rating{getSortArrow('ELO')}
+                  Rating{getSortArrow('elo')}
                 </span>
               </Tooltip>
             </th>
@@ -293,10 +293,10 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
         <tbody>
           {sortedRankings.map((player, idx) => {
             return (
-              <tr 
-                key={player.player_id || idx} 
+              <tr
+                key={player.player_id || idx}
                 className="rankings-row clickable-row"
-                onClick={() => onPlayerClick(player.player_id, player.Name)}
+                onClick={() => onPlayerClick(player.player_id, player.name)}
                 data-testid="rankings-row"
               >
                 <td className="rank-number-cell">
@@ -313,21 +313,21 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 </td>
                 <td className="sticky-col rankings-name-cell">
                   <span className="player-name-modern">
-                    <PlayerAvatar avatar={player.avatar} playerName={player.Name} />
+                    <PlayerAvatar avatar={player.avatar} playerName={player.name} />
                     {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
                       <Crown size={15} className="crown-icon-modern" />
                     )}
-                    <span>{player.Name}</span>
-                    {placeholderPlayerIds?.has(player.player_id) && <ShareInviteIcon playerId={player.player_id} playerName={player.Name} />}
+                    <span>{player.name}</span>
+                    {placeholderPlayerIds?.has(player.player_id) && <ShareInviteIcon playerId={player.player_id} playerName={player.name} />}
                   </span>
                 </td>
-                <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.Points)}</td>
-                <td className="rankings-stat-cell">{player.Games}</td>
-                <td className="rankings-stat-cell">{player.Wins}</td>
-                <td className="rankings-stat-cell">{player.Losses}</td>
-                <td className="rankings-stat-cell">{(player['Win Rate'] * 100).toFixed(1)}%</td>
-                <td className="rankings-stat-cell">{formatPtDiff(player['Avg Pt Diff'])}</td>
-                <td className="rankings-stat-cell">{Math.round(player.ELO)}</td>
+                <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.points)}</td>
+                <td className="rankings-stat-cell">{player.games}</td>
+                <td className="rankings-stat-cell">{player.wins}</td>
+                <td className="rankings-stat-cell">{player.losses}</td>
+                <td className="rankings-stat-cell">{(player.win_rate * 100).toFixed(1)}%</td>
+                <td className="rankings-stat-cell">{formatPtDiff(player.avg_pt_diff)}</td>
+                <td className="rankings-stat-cell">{Math.round(player.elo)}</td>
               </tr>
             );
           })}

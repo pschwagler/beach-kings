@@ -5,18 +5,12 @@ import { getPublicCourtBySlug } from '../../services/api';
 import CourtReviewCard from './CourtReviewCard';
 import CourtReviewForm from './CourtReviewForm';
 import { Button } from '../ui/UI';
-import { Court } from '../../types';
+import type { Court, CourtReview as CanonicalCourtReview } from '../../types';
 
-interface CourtReview {
-  id: number;
-  rating: number;
-  review_text?: string | null;
-  created_at?: string | null;
+/** Extends CourtReview with aggregate fields returned by action endpoints. */
+interface CourtReview extends CanonicalCourtReview {
   average_rating?: number;
   review_count?: number;
-  author?: { player_id?: number | null; full_name?: string | null } | null;
-  tags?: Array<{ id: number; name: string }> | null;
-  photos?: Array<{ id: number; url: string }> | null;
 }
 
 /**

@@ -135,7 +135,7 @@ function ConversationList({ onOpenThread }: ConversationListProps) {
     (async () => {
       try {
         const data = await getConversations();
-        if (!cancelled) setConversations(data.conversations || []);
+        if (!cancelled) setConversations(data.items || []);
       } catch (err: unknown) {
         console.error('Error loading conversations:', err);
       } finally {
@@ -361,7 +361,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         const data = await getThread(otherPlayerId, 1, 50);
         if (!cancelled) {
           // Messages come newest-first from API; reverse for chronological display
-          setMessages((data.messages || []).reverse());
+          setMessages((data.items || []).reverse());
           setHasMore(data.has_more);
         }
       } catch (err) {
@@ -416,7 +416,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     const nextPage = page + 1;
     try {
       const data = await getThread(otherPlayerId, nextPage, 50);
-      const older = (data.messages || []).reverse();
+      const older = (data.items || []).reverse();
       setMessages((prev) => [...older, ...prev]);
       setHasMore(data.has_more);
       setPage(nextPage);
@@ -579,7 +579,7 @@ export default function MessagesTab() {
       (async () => {
         try {
           const data = await getConversations(1, 100);
-          const conv = ((data.conversations || []) as ConversationItem[]).find(
+          const conv = ((data.items || []) as ConversationItem[]).find(
             (c) => String(c.player_id) === String(threadPlayerId)
           );
           if (conv) {

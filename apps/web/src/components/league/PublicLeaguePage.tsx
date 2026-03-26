@@ -263,7 +263,7 @@ interface PublicMatch {
   team2_player2_id?: number | null;
   team1_score?: number | null;
   team2_score?: number | null;
-  winner?: string | null;
+  winner?: number | null;
 }
 
 /**
@@ -314,7 +314,7 @@ function MatchList({ matches }: { matches: PublicMatch[] }) {
           )}
           {group.matches.map((match) => (
             <div key={match.id} className="public-league__match">
-              <div className={`public-league__team ${match.winner === 'team1' ? 'public-league__team--winner' : ''}`}>
+              <div className={`public-league__team ${match.winner === 1 ? 'public-league__team--winner' : ''}`}>
                 <span className="public-league__team-names">
                   <PlayerLink name={match.team1_player1} playerId={match.team1_player1_id} />
                   {' & '}
@@ -323,7 +323,7 @@ function MatchList({ matches }: { matches: PublicMatch[] }) {
                 <span className="public-league__team-score">{match.team1_score}</span>
               </div>
               <div className="public-league__match-vs">vs</div>
-              <div className={`public-league__team ${match.winner === 'team2' ? 'public-league__team--winner' : ''}`}>
+              <div className={`public-league__team ${match.winner === 2 ? 'public-league__team--winner' : ''}`}>
                 <span className="public-league__team-names">
                   <PlayerLink name={match.team2_player1} playerId={match.team2_player1_id} />
                   {' & '}

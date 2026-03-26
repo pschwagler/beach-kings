@@ -142,37 +142,37 @@ describe('nameToPlayerOption', () => {
 });
 
 describe('sortPlayersDefault', () => {
-  it('sorts by Points descending first', () => {
-    const a = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1200 };
-    const b = { Points: 20, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1200 };
+  it('sorts by points descending first', () => {
+    const a = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1200 };
+    const b = { points: 20, avg_pt_diff: 5, win_rate: 0.8, elo: 1200 };
     expect(sortPlayersDefault(a, b)).toBeGreaterThan(0);
     expect(sortPlayersDefault(b, a)).toBeLessThan(0);
   });
 
-  it('uses Avg Pt Diff as tiebreaker when Points are equal', () => {
-    const a = { Points: 10, 'Avg Pt Diff': 3, 'Win Rate': 0.8, ELO: 1200 };
-    const b = { Points: 10, 'Avg Pt Diff': 7, 'Win Rate': 0.8, ELO: 1200 };
+  it('uses avg_pt_diff as tiebreaker when points are equal', () => {
+    const a = { points: 10, avg_pt_diff: 3, win_rate: 0.8, elo: 1200 };
+    const b = { points: 10, avg_pt_diff: 7, win_rate: 0.8, elo: 1200 };
     expect(sortPlayersDefault(a, b)).toBeGreaterThan(0);
     expect(sortPlayersDefault(b, a)).toBeLessThan(0);
   });
 
-  it('uses Win Rate as tiebreaker when Points and Avg Pt Diff are equal', () => {
-    const a = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.5, ELO: 1200 };
-    const b = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.9, ELO: 1200 };
+  it('uses win_rate as tiebreaker when points and avg_pt_diff are equal', () => {
+    const a = { points: 10, avg_pt_diff: 5, win_rate: 0.5, elo: 1200 };
+    const b = { points: 10, avg_pt_diff: 5, win_rate: 0.9, elo: 1200 };
     expect(sortPlayersDefault(a, b)).toBeGreaterThan(0);
     expect(sortPlayersDefault(b, a)).toBeLessThan(0);
   });
 
-  it('uses ELO as final tiebreaker', () => {
-    const a = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1000 };
-    const b = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1500 };
+  it('uses elo as final tiebreaker', () => {
+    const a = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1000 };
+    const b = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1500 };
     expect(sortPlayersDefault(a, b)).toBeGreaterThan(0);
     expect(sortPlayersDefault(b, a)).toBeLessThan(0);
   });
 
   it('returns 0 when all fields are equal', () => {
-    const a = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1200 };
-    const b = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1200 };
+    const a = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1200 };
+    const b = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1200 };
     expect(sortPlayersDefault(a, b)).toBe(0);
   });
 });
@@ -187,21 +187,21 @@ describe('getFirstPlacePlayer', () => {
   });
 
   it('returns the only player in a single-element array', () => {
-    const player = { Points: 10, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1200 };
+    const player = { points: 10, avg_pt_diff: 5, win_rate: 0.8, elo: 1200 };
     expect(getFirstPlacePlayer([player])).toBe(player);
   });
 
   it('returns the player with the highest ranking from multiple players', () => {
-    const first = { Points: 30, 'Avg Pt Diff': 5, 'Win Rate': 0.9, ELO: 1400 };
-    const second = { Points: 20, 'Avg Pt Diff': 5, 'Win Rate': 0.8, ELO: 1300 };
-    const third = { Points: 10, 'Avg Pt Diff': 3, 'Win Rate': 0.5, ELO: 1100 };
+    const first = { points: 30, avg_pt_diff: 5, win_rate: 0.9, elo: 1400 };
+    const second = { points: 20, avg_pt_diff: 5, win_rate: 0.8, elo: 1300 };
+    const third = { points: 10, avg_pt_diff: 3, win_rate: 0.5, elo: 1100 };
     expect(getFirstPlacePlayer([third, second, first])).toBe(first);
   });
 
   it('does not mutate the original rankings array', () => {
     const players = [
-      { Points: 10, 'Avg Pt Diff': 1, 'Win Rate': 0.5, ELO: 1000 },
-      { Points: 30, 'Avg Pt Diff': 5, 'Win Rate': 0.9, ELO: 1400 },
+      { points: 10, avg_pt_diff: 1, win_rate: 0.5, elo: 1000 },
+      { points: 30, avg_pt_diff: 5, win_rate: 0.9, elo: 1400 },
     ];
     const originalOrder = [...players];
     getFirstPlacePlayer(players);

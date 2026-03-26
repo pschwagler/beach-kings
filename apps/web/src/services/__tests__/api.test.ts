@@ -133,7 +133,7 @@ describe('getPlayers', () => {
   });
 
   it('builds URLSearchParams with defaults', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers();
 
     const url = mockGet.mock.calls[0][0];
@@ -143,7 +143,7 @@ describe('getPlayers', () => {
   });
 
   it('handles array params for location_id', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers({ location_id: ['socal_sd', 'socal_la'] });
 
     const url = mockGet.mock.calls[0][0];
@@ -152,7 +152,7 @@ describe('getPlayers', () => {
   });
 
   it('handles scalar params for location_id', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers({ location_id: 'socal_sd' });
 
     const url = mockGet.mock.calls[0][0];
@@ -160,7 +160,7 @@ describe('getPlayers', () => {
   });
 
   it('handles array gender param', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers({ gender: ['male', 'female'] });
 
     const url = mockGet.mock.calls[0][0];
@@ -169,7 +169,7 @@ describe('getPlayers', () => {
   });
 
   it('omits empty string params', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers({ q: '', location_id: '' });
 
     const url = mockGet.mock.calls[0][0];
@@ -178,7 +178,7 @@ describe('getPlayers', () => {
   });
 
   it('passes search query', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     await getPlayers({ q: 'Alice' });
 
     const url = mockGet.mock.calls[0][0];
@@ -186,7 +186,7 @@ describe('getPlayers', () => {
   });
 
   it('passes abort signal', async () => {
-    mockGet.mockResolvedValueOnce({ data: { items: [], total: 0 } });
+    mockGet.mockResolvedValueOnce({ data: { items: [], total_count: 0 } });
     const controller = new AbortController();
     await getPlayers({}, { signal: controller.signal });
 

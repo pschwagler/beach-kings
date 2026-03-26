@@ -6,6 +6,44 @@
  */
 
 // ---------------------------------------------------------------------------
+// Shared enums
+// ---------------------------------------------------------------------------
+
+/** Player's personal gender identity. null = not specified / prefer not to say. */
+export type PlayerGender = 'male' | 'female';
+
+/**
+ * League / tournament gender division.
+ * NOTE: Backend leagues currently store 'male'/'female'/'mixed' — needs migration
+ * to align with KoB tournaments which already use 'mens'/'womens'/'coed'.
+ */
+export type LeagueGender = 'mens' | 'womens' | 'coed';
+
+/** Canonical skill level values. */
+export type SkillLevel = 'juniors' | 'beginner' | 'intermediate' | 'advanced' | 'AA' | 'Open';
+
+/** Session lifecycle status (maps to backend SessionStatus enum). */
+export type SessionStatus = 'ACTIVE' | 'SUBMITTED' | 'EDITED';
+
+/**
+ * Court moderation status.
+ * NOTE: The backend DB column uses 'approved' (not 'active') for live courts.
+ */
+export type CourtStatus = 'pending' | 'approved' | 'rejected';
+
+/** League member role values. */
+export type LeagueMemberRole = 'admin' | 'member';
+
+/** KOB tournament scheduling format (maps to backend TournamentFormat enum). */
+export type KobTournamentFormat = 'FULL_ROUND_ROBIN' | 'POOLS_PLAYOFFS' | 'PARTIAL_ROUND_ROBIN';
+
+/** KOB tournament lifecycle status (maps to backend TournamentStatus enum). */
+export type KobTournamentStatus = 'SETUP' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+
+/** Friend request lifecycle status. */
+export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
+
+// ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
 
@@ -44,24 +82,41 @@ export interface User {
 
 export interface Player {
   id: number;
+  /**
+   * Computed display name. The backend's list_players_search serializes this
+   * as player.full_name (falling back to "Player {id}"). Both `name` and
+   * `full_name` are returned by the player search API; `full_name` is the DB
+   * column and is canonical.
+   */
   name: string;
+  /** Canonical DB column. Matches `name` in player search responses. */
   full_name?: string | null;
   first_name?: string | null;
   nickname?: string | null;
-  gender?: string | null;
-  level?: string | null;
+  gender?: PlayerGender | null;
+  level?: SkillLevel | null;
   city?: string | null;
   state?: string | null;
   city_latitude?: number | null;
   city_longitude?: number | null;
+  /**
+   * Initials-based fallback avatar (e.g. "JD"). Present when no profile
+   * picture has been uploaded. Check `profile_picture_url` for the real image.
+   */
   avatar?: string | null;
+  /** Uploaded profile picture URL (S3). Null if the player has not uploaded one. */
   profile_picture_url?: string | null;
   location_id?: string | null;
   location_name?: string | null;
   location_slug?: string | null;
+  /**
+   * Player's primary key aliased as player_id. Present in joined contexts
+   * (e.g. session participant responses) where the row maps Player.id →
+   * player_id. Not returned by the base player search endpoint.
+   */
   player_id?: number | null;
   is_placeholder?: boolean | null;
-  league_memberships?: unknown[] | null;
+  league_memberships?: Array<{ league_id: number; league_name: string }> | null;
   season_rank?: number | null;
   current_rating?: number | null;
   wins?: number | null;
@@ -121,7 +176,7 @@ export interface FriendRequest {
   receiver_player_id: number;
   receiver_name: string;
   receiver_avatar: string | null;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: FriendRequestStatus;
   created_at: string | null;
 }
 
@@ -131,7 +186,7 @@ export interface Friend {
   full_name: string;
   avatar: string | null;
   location_name: string | null;
-  level: string | null;
+  level: SkillLevel | null;
 }
 
 export interface FriendListResponse {
@@ -208,8 +263,8 @@ export interface Court {
   top_tags?: string[] | null;
   photo_url?: string | null;
   photos?: CourtPhoto[] | null;
-  tags?: unknown[] | null;
-  status?: string | null;
+  tags?: Array<{ id: number; name: string; category: string | null }> | null;
+  status?: CourtStatus | null;
   submitted_by?: number | null;
   submitted_by_name?: string | null;
   position?: number;
@@ -223,8 +278,10 @@ export interface LeagueMember {
   id: number;
   league_id: number;
   player_id: number;
-  role: string;
+  /** Role within the league. Comes from joined queries, not the Player object. */
+  role: LeagueMemberRole;
   created_at: string;
+  /** player_name comes from joined queries (not on the base Player object). */
   player_name?: string | null;
   is_placeholder?: boolean | null;
 }
@@ -239,8 +296,8 @@ export interface HomeCourtResponse {
 export interface League {
   id: number;
   name: string;
-  gender?: string | null;
-  level?: string | null;
+  gender?: LeagueGender | null;
+  level?: SkillLevel | null;
   location_id?: string | null;
   location_name?: string | null;
   region_name?: string | null;
@@ -250,8 +307,8 @@ export interface League {
   member_count?: number | null;
   games_played?: number | null;
   created_at?: string;
-  standings?: unknown[] | null;
-  recent_matches?: unknown[] | null;
+  standings?: Array<{ player_id: number; name: string; elo: number; points: number; games: number; wins: number; losses: number; win_rate: number; avg_pt_diff: number; season_rank?: number; initials?: string; is_placeholder?: boolean }> | null;
+  recent_matches?: Array<{ id: number; date: string | null; session_id: number | null; session_name: string | null; session_status: string | null; session_season_id: number | null; team1_player1_id: number | null; team1_player1_name: string | null; team1_player2_id: number | null; team1_player2_name: string | null; team2_player1_id: number | null; team2_player1_name: string | null; team2_player2_id: number | null; team2_player2_name: string | null; team1_score: number | null; team2_score: number | null; winner: number | null; is_ranked: boolean | null; ranked_intent: boolean | null; elo_changes: Record<string, { elo_before?: number; elo_after: number; elo_change: number }> }> | null;
   members?: LeagueMember[] | null;
   home_courts?: HomeCourtResponse[] | null;
   current_season?: { name?: string | null } | null;
@@ -285,7 +342,7 @@ export interface Session {
   id: number;
   season_id: number;
   date?: string | null;
-  status?: string | null;
+  status?: SessionStatus | null;
   code?: string | null;
   league_id?: number | null;
   league_name?: string | null;
@@ -341,7 +398,8 @@ export interface Match {
   matchup_id?: number | null;
   court_num?: number | null;
   round_num?: number | null;
-  ranked_intent?: string | null;
+  /** DB column is BOOLEAN NOT NULL DEFAULT TRUE. True = player requested ranked; false = explicitly unranked. */
+  ranked_intent?: boolean | null;
   phase?: string | null;
   is_ranked?: boolean | null;
   is_bye?: boolean | null;
@@ -420,12 +478,12 @@ export interface Conversation {
 }
 
 export interface ConversationListResponse {
-  conversations: Conversation[];
+  items: Conversation[];
   total_count: number;
 }
 
 export interface ThreadResponse {
-  messages: DirectMessage[];
+  items: DirectMessage[];
   total_count: number;
   has_more?: boolean;
 }
@@ -443,9 +501,9 @@ export interface KobTournament {
   id: number;
   name: string;
   code: string;
-  gender: string;
-  format: 'FULL_ROUND_ROBIN' | 'POOLS_PLAYOFFS' | 'PARTIAL_ROUND_ROBIN' | string;
-  status: 'SETUP' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  gender: LeagueGender;
+  format: KobTournamentFormat;
+  status: KobTournamentStatus;
   num_courts: number;
   game_to: number;
   scheduled_date: string | null;
@@ -540,7 +598,9 @@ export interface SeasonAward {
   league_name: string | null;
   player_id: number;
   player_name: string | null;
+  /** Initials-based fallback avatar (same concept as Player.avatar, prefixed for this context). */
   player_avatar: string | null;
+  /** Uploaded profile picture URL (same concept as Player.profile_picture_url, prefixed). */
   player_profile_picture_url: string | null;
   award_type: string;
   award_key: string;
@@ -578,8 +638,8 @@ export interface PublicPlayerResponse {
   id: number;
   full_name: string;
   avatar: string | null;
-  gender: string | null;
-  level: string | null;
+  gender: PlayerGender | null;
+  level: SkillLevel | null;
   is_placeholder: boolean;
   location: { id: string; name: string; slug: string | null } | null;
   stats: PublicPlayerStats;

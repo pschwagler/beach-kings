@@ -67,57 +67,57 @@ def test_stats_data_exports_read_functions():
 
 
 def test_sort_rankings_all_seasons_by_wins():
-    """Should sort by Wins descending as primary key."""
+    """Should sort by wins descending as primary key."""
     rankings = [
-        {"Wins": 5, "Win Rate": 0.5, "Avg Pt Diff": 0.0, "ELO": 1200},
-        {"Wins": 10, "Win Rate": 0.5, "Avg Pt Diff": 0.0, "ELO": 1200},
-        {"Wins": 1, "Win Rate": 0.5, "Avg Pt Diff": 0.0, "ELO": 1200},
+        {"wins": 5, "win_rate": 0.5, "avg_pt_diff": 0.0, "elo": 1200},
+        {"wins": 10, "win_rate": 0.5, "avg_pt_diff": 0.0, "elo": 1200},
+        {"wins": 1, "win_rate": 0.5, "avg_pt_diff": 0.0, "elo": 1200},
     ]
     result = _sort_rankings_all_seasons(rankings)
-    assert result[0]["Wins"] == 10
-    assert result[1]["Wins"] == 5
-    assert result[2]["Wins"] == 1
+    assert result[0]["wins"] == 10
+    assert result[1]["wins"] == 5
+    assert result[2]["wins"] == 1
 
 
 def test_sort_rankings_all_seasons_win_rate_tiebreak():
-    """With equal wins, higher Win Rate comes first."""
+    """With equal wins, higher win_rate comes first."""
     rankings = [
-        {"Wins": 5, "Win Rate": 0.4, "Avg Pt Diff": 0.0, "ELO": 1200},
-        {"Wins": 5, "Win Rate": 0.8, "Avg Pt Diff": 0.0, "ELO": 1200},
+        {"wins": 5, "win_rate": 0.4, "avg_pt_diff": 0.0, "elo": 1200},
+        {"wins": 5, "win_rate": 0.8, "avg_pt_diff": 0.0, "elo": 1200},
     ]
     result = _sort_rankings_all_seasons(rankings)
-    assert result[0]["Win Rate"] == 0.8
+    assert result[0]["win_rate"] == 0.8
 
 
 def test_sort_rankings_all_seasons_avg_pt_diff_tiebreak():
-    """With equal wins and win rate, higher Avg Pt Diff comes first."""
+    """With equal wins and win_rate, higher avg_pt_diff comes first."""
     rankings = [
-        {"Wins": 5, "Win Rate": 0.5, "Avg Pt Diff": 2.0, "ELO": 1200},
-        {"Wins": 5, "Win Rate": 0.5, "Avg Pt Diff": 5.0, "ELO": 1200},
+        {"wins": 5, "win_rate": 0.5, "avg_pt_diff": 2.0, "elo": 1200},
+        {"wins": 5, "win_rate": 0.5, "avg_pt_diff": 5.0, "elo": 1200},
     ]
     result = _sort_rankings_all_seasons(rankings)
-    assert result[0]["Avg Pt Diff"] == 5.0
+    assert result[0]["avg_pt_diff"] == 5.0
 
 
 def test_sort_rankings_all_seasons_elo_final_tiebreak():
-    """With equal wins/win-rate/avg-pt-diff, higher ELO comes first."""
+    """With equal wins/win_rate/avg_pt_diff, higher elo comes first."""
     rankings = [
-        {"Wins": 5, "Win Rate": 0.5, "Avg Pt Diff": 0.0, "ELO": 1100},
-        {"Wins": 5, "Win Rate": 0.5, "Avg Pt Diff": 0.0, "ELO": 1300},
+        {"wins": 5, "win_rate": 0.5, "avg_pt_diff": 0.0, "elo": 1100},
+        {"wins": 5, "win_rate": 0.5, "avg_pt_diff": 0.0, "elo": 1300},
     ]
     result = _sort_rankings_all_seasons(rankings)
-    assert result[0]["ELO"] == 1300
+    assert result[0]["elo"] == 1300
 
 
 def test_sort_rankings_all_seasons_none_values():
     """None values should be treated as 0 without raising exceptions."""
     rankings = [
-        {"Wins": None, "Win Rate": None, "Avg Pt Diff": None, "ELO": None},
-        {"Wins": 3, "Win Rate": 0.6, "Avg Pt Diff": 1.0, "ELO": 1200},
+        {"wins": None, "win_rate": None, "avg_pt_diff": None, "elo": None},
+        {"wins": 3, "win_rate": 0.6, "avg_pt_diff": 1.0, "elo": 1200},
     ]
     result = _sort_rankings_all_seasons(rankings)
     # Player with wins=3 should rank first
-    assert result[0]["Wins"] == 3
+    assert result[0]["wins"] == 3
 
 
 def test_sort_rankings_all_seasons_empty():
@@ -131,45 +131,45 @@ def test_sort_rankings_all_seasons_empty():
 
 
 def test_sort_rankings_single_season_by_points():
-    """Should sort by Points descending as primary key."""
+    """Should sort by points descending as primary key."""
     rankings = [
-        {"Points": 10, "Avg Pt Diff": 0.0, "Win Rate": 0.5, "ELO": 1200},
-        {"Points": 20, "Avg Pt Diff": 0.0, "Win Rate": 0.5, "ELO": 1200},
-        {"Points": 5, "Avg Pt Diff": 0.0, "Win Rate": 0.5, "ELO": 1200},
+        {"points": 10, "avg_pt_diff": 0.0, "win_rate": 0.5, "elo": 1200},
+        {"points": 20, "avg_pt_diff": 0.0, "win_rate": 0.5, "elo": 1200},
+        {"points": 5, "avg_pt_diff": 0.0, "win_rate": 0.5, "elo": 1200},
     ]
     result = _sort_rankings_single_season(rankings)
-    assert result[0]["Points"] == 20
-    assert result[2]["Points"] == 5
+    assert result[0]["points"] == 20
+    assert result[2]["points"] == 5
 
 
 def test_sort_rankings_single_season_avg_pt_diff_tiebreak():
-    """With equal points, higher Avg Pt Diff comes first."""
+    """With equal points, higher avg_pt_diff comes first."""
     rankings = [
-        {"Points": 10, "Avg Pt Diff": 1.0, "Win Rate": 0.5, "ELO": 1200},
-        {"Points": 10, "Avg Pt Diff": 3.5, "Win Rate": 0.5, "ELO": 1200},
+        {"points": 10, "avg_pt_diff": 1.0, "win_rate": 0.5, "elo": 1200},
+        {"points": 10, "avg_pt_diff": 3.5, "win_rate": 0.5, "elo": 1200},
     ]
     result = _sort_rankings_single_season(rankings)
-    assert result[0]["Avg Pt Diff"] == 3.5
+    assert result[0]["avg_pt_diff"] == 3.5
 
 
 def test_sort_rankings_single_season_win_rate_tiebreak():
-    """With equal points/avg-pt-diff, higher Win Rate comes first."""
+    """With equal points/avg_pt_diff, higher win_rate comes first."""
     rankings = [
-        {"Points": 10, "Avg Pt Diff": 0.0, "Win Rate": 0.3, "ELO": 1200},
-        {"Points": 10, "Avg Pt Diff": 0.0, "Win Rate": 0.7, "ELO": 1200},
+        {"points": 10, "avg_pt_diff": 0.0, "win_rate": 0.3, "elo": 1200},
+        {"points": 10, "avg_pt_diff": 0.0, "win_rate": 0.7, "elo": 1200},
     ]
     result = _sort_rankings_single_season(rankings)
-    assert result[0]["Win Rate"] == 0.7
+    assert result[0]["win_rate"] == 0.7
 
 
 def test_sort_rankings_single_season_none_values():
     """None values should not raise; treated as 0."""
     rankings = [
-        {"Points": None, "Avg Pt Diff": None, "Win Rate": None, "ELO": None},
-        {"Points": 5, "Avg Pt Diff": 1.0, "Win Rate": 0.5, "ELO": 1200},
+        {"points": None, "avg_pt_diff": None, "win_rate": None, "elo": None},
+        {"points": 5, "avg_pt_diff": 1.0, "win_rate": 0.5, "elo": 1200},
     ]
     result = _sort_rankings_single_season(rankings)
-    assert result[0]["Points"] == 5
+    assert result[0]["points"] == 5
 
 
 # ---------------------------------------------------------------------------

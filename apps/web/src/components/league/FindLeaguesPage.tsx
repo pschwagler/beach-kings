@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { Location } from "../../types";
+import type { Location, LeagueGender, SkillLevel } from "../../types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Users, MapPin, LogIn, UserRoundPlus, Plus, X } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
@@ -38,8 +38,8 @@ interface FindLeague {
   name: string;
   is_open: boolean;
   member_count?: number;
-  level?: string;
-  gender?: string;
+  level?: SkillLevel;
+  gender?: LeagueGender;
   location_name?: string;
   region_name?: string;
 }

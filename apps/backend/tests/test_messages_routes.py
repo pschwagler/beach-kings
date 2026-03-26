@@ -61,7 +61,7 @@ class TestGetConversations:
 
         async def fake_get(session, player_id, limit=50, offset=0):
             return {
-                "conversations": [
+                "items": [
                     {
                         "player_id": 20,
                         "full_name": "Friend",
@@ -82,7 +82,7 @@ class TestGetConversations:
         assert response.status_code == 200
         data = response.json()
         assert data["total_count"] == 1
-        assert len(data["conversations"]) == 1
+        assert len(data["items"]) == 1
 
     def test_conversations_pagination(self, client, headers, monkeypatch):
         """Pagination params are passed through."""
@@ -91,7 +91,7 @@ class TestGetConversations:
         async def fake_get(session, player_id, limit=50, offset=0):
             captured["limit"] = limit
             captured["offset"] = offset
-            return {"conversations": [], "total_count": 0}
+            return {"items": [], "total_count": 0}
 
         monkeypatch.setattr(direct_message_service, "get_conversations", fake_get, raising=True)
 
@@ -127,7 +127,7 @@ class TestGetThread:
 
         async def fake_get(session, player_id, other_id, limit=50, offset=0):
             return {
-                "messages": [
+                "items": [
                     {
                         "id": 1,
                         "sender_player_id": 10,
@@ -147,8 +147,8 @@ class TestGetThread:
         assert response.status_code == 200
         data = response.json()
         assert data["total_count"] == 1
-        assert len(data["messages"]) == 1
-        assert data["messages"][0]["sender_player_id"] == 10
+        assert len(data["items"]) == 1
+        assert data["items"][0]["sender_player_id"] == 10
 
 
 # ============================================================================

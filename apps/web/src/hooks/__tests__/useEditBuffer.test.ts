@@ -260,22 +260,22 @@ describe('mergeBufferWithMatches', () => {
   const baseMatches = [
     {
       id: 1,
-      'Team 1 Player 1': 'Alice',
-      'Team 1 Player 2': 'Bob',
-      'Team 2 Player 1': 'Carol',
-      'Team 2 Player 2': 'Dave',
-      'Team 1 Score': 21,
-      'Team 2 Score': 15,
+      team_1_player_1: 'Alice',
+      team_1_player_2: 'Bob',
+      team_2_player_1: 'Carol',
+      team_2_player_2: 'Dave',
+      team_1_score: 21,
+      team_2_score: 15,
       Winner: 'Team 1',
     },
     {
       id: 2,
-      'Team 1 Player 1': 'Eve',
-      'Team 1 Player 2': 'Frank',
-      'Team 2 Player 1': 'Grace',
-      'Team 2 Player 2': 'Hank',
-      'Team 1 Score': 10,
-      'Team 2 Score': 21,
+      team_1_player_1: 'Eve',
+      team_1_player_2: 'Frank',
+      team_2_player_1: 'Grace',
+      team_2_player_2: 'Hank',
+      team_1_score: 10,
+      team_2_score: 21,
       Winner: 'Team 2',
     },
   ];
@@ -307,8 +307,8 @@ describe('mergeBufferWithMatches', () => {
     };
     const result = mergeBufferWithMatches(baseMatches, buffer, participantLookup);
 
-    expect(result[0]['Team 1 Score']).toBe(18);
-    expect(result[0]['Team 2 Score']).toBe(12);
+    expect(result[0].team_1_score).toBe(18);
+    expect(result[0].team_2_score).toBe(12);
   });
 
   it('resolves player ID to name in modified match via participantLookup', () => {
@@ -318,7 +318,7 @@ describe('mergeBufferWithMatches', () => {
     };
     const result = mergeBufferWithMatches(baseMatches, buffer, participantLookup);
 
-    expect(result[0]['Team 1 Player 1']).toBe('NewPlayer');
+    expect(result[0].team_1_player_1).toBe('NewPlayer');
   });
 
   it('appends added entries with pending- IDs', () => {
@@ -336,7 +336,7 @@ describe('mergeBufferWithMatches', () => {
 
     expect(result).toHaveLength(3);
     expect(result[2].id).toBe('pending-0');
-    expect(result[2]['Team 1 Player 1']).toBe('Alice');
-    expect(result[2]['Team 1 Score']).toBe(21);
+    expect(result[2].team_1_player_1).toBe('Alice');
+    expect(result[2].team_1_score).toBe(21);
   });
 });

@@ -72,15 +72,15 @@ export default function LeagueRankingsTab() {
     if (!playerSearchTerm.trim()) return allRankings;
     
     const searchLower = playerSearchTerm.toLowerCase();
-    return allRankings.filter(player => 
-      player.Name?.toLowerCase().includes(searchLower)
+    return allRankings.filter(player =>
+      player.name?.toLowerCase().includes(searchLower)
     );
   }, [allRankings, playerSearchTerm]);
 
   // Build player objects from rankings for dropdown and ID lookup
   const allPlayers = useMemo(() => {
     if (!rankings || !Array.isArray(rankings)) return [];
-    return rankings.map(r => ({ id: r.player_id, name: r.Name }));
+    return rankings.map(r => ({ id: r.player_id, name: r.name }));
   }, [rankings]);
 
   // Use shared hook for player details drawer logic with auto-selection

@@ -64,16 +64,16 @@ export default function SessionMatchesClipboardTable({
             </tr>
           ) : (
             matches.map((match, idx) => {
-              const t1p1 = match['Team 1 Player 1'];
-              const t1p2 = match['Team 1 Player 2'];
-              const t2p1 = match['Team 2 Player 1'];
-              const t2p2 = match['Team 2 Player 2'];
-              const t1p1Id = match['Team 1 Player 1 ID'];
-              const t1p2Id = match['Team 1 Player 2 ID'];
-              const t2p1Id = match['Team 2 Player 1 ID'];
-              const t2p2Id = match['Team 2 Player 2 ID'];
-              const t1Score = match['Team 1 Score'];
-              const t2Score = match['Team 2 Score'];
+              const t1p1 = match.team_1_player_1;
+              const t1p2 = match.team_1_player_2;
+              const t2p1 = match.team_2_player_1;
+              const t2p2 = match.team_2_player_2;
+              const t1p1Id = match.team_1_player_1_id;
+              const t1p2Id = match.team_1_player_2_id;
+              const t2p1Id = match.team_2_player_1_id;
+              const t2p2Id = match.team_2_player_2_id;
+              const t1Score = match.team_1_score;
+              const t2Score = match.team_2_score;
               const isTeam1Winner = match.Winner === 'Team 1';
               const isTeam2Winner = match.Winner === 'Team 2';
               const team1Class = isTeam1Winner ? 'clipboard-winner' : 'clipboard-loser';
@@ -88,14 +88,14 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t1p1 && onPlayerClick(t1p1Id, t1p1, e)}>
                           {t1p1}
                         </span>
-                        {match['Team 1 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={t1p1Id} playerName={t1p1} />}
+                        {match.team_1_player_1_is_placeholder && <ShareInviteIcon playerId={t1p1Id} playerName={t1p1} />}
                       </span>
                       {t1p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t1p2Id, t1p2, e)}>
                             {t1p2}
                           </span>
-                          {match['Team 1 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={t1p2Id} playerName={t1p2} />}
+                          {match.team_1_player_2_is_placeholder && <ShareInviteIcon playerId={t1p2Id} playerName={t1p2} />}
                         </span>
                       )}
                     </div>
@@ -108,22 +108,22 @@ export default function SessionMatchesClipboardTable({
                         <span className="player-name clickable" onClick={(e) => t2p1 && onPlayerClick(t2p1Id, t2p1, e)}>
                           {t2p1}
                         </span>
-                        {match['Team 2 Player 1 IsPlaceholder'] && <ShareInviteIcon playerId={t2p1Id} playerName={t2p1} />}
+                        {match.team_2_player_1_is_placeholder && <ShareInviteIcon playerId={t2p1Id} playerName={t2p1} />}
                       </span>
                       {t2p2 && (
                         <span className="player-cell__entry">
                           <span className="player-name clickable" onClick={(e) => onPlayerClick(t2p2Id, t2p2, e)}>
                             {t2p2}
                           </span>
-                          {match['Team 2 Player 2 IsPlaceholder'] && <ShareInviteIcon playerId={t2p2Id} playerName={t2p2} />}
+                          {match.team_2_player_2_is_placeholder && <ShareInviteIcon playerId={t2p2Id} playerName={t2p2} />}
                         </span>
                       )}
                     </div>
                   </td>
                   <td className="clipboard-badge-cell">
-                    {match['Is Ranked'] ? (
+                    {match.is_ranked ? (
                       <span className="clipboard-ranked-badge clipboard-ranked-badge--ranked">Ranked</span>
-                    ) : match['Ranked Intent'] ? (
+                    ) : match.ranked_intent ? (
                       <span
                         className="clipboard-ranked-badge clipboard-ranked-badge--pending"
                         data-tooltip="Will become ranked when all players register"

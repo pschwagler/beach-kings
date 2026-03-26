@@ -3,16 +3,12 @@ import { ChevronDown, Trophy, Plus, Search, Users } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownSection from './NavDropdownSection';
 import NavDropdownItem from './NavDropdownItem';
-
-interface League {
-  id: string | number;
-  name: string;
-}
+import type { League } from '../../../types';
 
 interface LeaguesMenuProps {
   isLoggedIn?: boolean;
   userLeagues?: League[];
-  onMenuClick?: (action: string, leagueId?: string | number | null) => void;
+  onMenuClick?: (action: string, leagueId?: number | null) => void;
 }
 
 export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick }: LeaguesMenuProps) {
@@ -30,7 +26,7 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleItemClick = (action: string, leagueId: string | number | null = null) => {
+  const handleItemClick = (action: string, leagueId: number | null = null) => {
     setIsOpen(false);
     if (onMenuClick) {
       onMenuClick(action, leagueId);

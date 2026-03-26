@@ -15,16 +15,16 @@ export const ALL_SEASONS_KEY = 'all-seasons';
 
 export interface RankingEntry {
   player_id?: number;
-  Name?: string;
+  name?: string;
   avatar?: string | null;
   season_rank?: number;
-  Points?: number | null;
-  Games?: number;
-  Wins?: number;
-  Losses?: number;
-  'Win Rate'?: number;
-  'Avg Pt Diff'?: number;
-  ELO?: number;
+  points?: number | null;
+  games?: number;
+  wins?: number;
+  losses?: number;
+  win_rate?: number;
+  avg_pt_diff?: number;
+  elo?: number;
   [key: string]: unknown;
 }
 

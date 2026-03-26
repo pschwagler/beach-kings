@@ -10,19 +10,19 @@ interface MatchRecord {
   Score?: string;
   Date?: string;
   Partner?: string;
-  'Partner ID'?: number | null;
-  'Partner IsPlaceholder'?: boolean;
+  partner_id?: number | null;
+  partner_is_placeholder?: boolean;
   'Opponent 1'?: string;
-  'Opponent 1 ID'?: number | null;
+  opponent_1_id?: number | null;
   'Opponent 1 IsPlaceholder'?: boolean;
   'Opponent 2'?: string;
-  'Opponent 2 ID'?: number | null;
+  opponent_2_id?: number | null;
   'Opponent 2 IsPlaceholder'?: boolean;
-  'League Name'?: string;
-  'League ID'?: number | string | null;
-  'Court Name'?: string;
-  'Session Code'?: string | null;
-  'Session Status'?: string;
+  league_name?: string;
+  league_id?: number | string | null;
+  court_name?: string;
+  session_code?: string | null;
+  session_status?: string;
 }
 
 /**
@@ -64,16 +64,16 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
       won,
       score,
       partner: match.Partner || 'Solo',
-      partnerId: match['Partner ID'],
-      partnerIsPlaceholder: match['Partner IsPlaceholder'],
+      partnerId: match.partner_id,
+      partnerIsPlaceholder: match.partner_is_placeholder,
       opponent1: match['Opponent 1'],
-      opponent1Id: match['Opponent 1 ID'],
+      opponent1Id: match.opponent_1_id,
       opponent1IsPlaceholder: match['Opponent 1 IsPlaceholder'],
       opponent2: match['Opponent 2'],
-      opponent2Id: match['Opponent 2 ID'],
+      opponent2Id: match.opponent_2_id,
       opponent2IsPlaceholder: match['Opponent 2 IsPlaceholder'],
-      leagueName: match['League Name'],
-      courtName: match['Court Name'],
+      leagueName: match.league_name,
+      courtName: match.court_name,
     };
   };
 
@@ -91,7 +91,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
     <div className={`dashboard-matches-list${!isFull && showAll ? ' dashboard-matches-list-expanded' : ''}`}>
       {(displayMatches || []).map((match, idx) => {
         const result = getMatchResult(match);
-        const isClickable = onMatchClick && (match['League ID'] || match['Session Code']);
+        const isClickable = onMatchClick && (match.league_id || match.session_code);
 
         const handleClick = () => {
           if (isClickable) {

@@ -314,7 +314,7 @@ class League(Base):
         Boolean, default=True, nullable=False
     )  # Whether league is visible on public pages
     whatsapp_group_id = Column(String, nullable=True)
-    gender = Column(String, nullable=True)  # 'male', 'female', 'mixed'
+    gender = Column(String, nullable=True)  # 'mens', 'womens', 'coed'
     level = Column(String, nullable=True)  # 'beginner', 'intermediate', 'advanced', 'Open', etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -634,6 +634,9 @@ class Session(Base):
     )  # Shareable code for non-league / invite links
     season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
     court_id = Column(Integer, ForeignKey("courts.id"), nullable=True)
+    location_id = Column(String, ForeignKey("locations.id"), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(
@@ -646,6 +649,7 @@ class Session(Base):
     # Relationships
     season = relationship("Season", back_populates="sessions")
     court = relationship("Court", back_populates="sessions")
+    location = relationship("Location")
     matches = relationship("Match", back_populates="session")
     participants = relationship(
         "SessionParticipant", back_populates="session", cascade="all, delete-orphan"
@@ -659,6 +663,8 @@ class Session(Base):
         Index("idx_sessions_season", "season_id"),
         Index("idx_sessions_court", "court_id"),
         Index("idx_sessions_code", "code"),
+        Index("idx_sessions_location", "location_id"),
+        Index("idx_sessions_lat_lng", "latitude", "longitude"),
     )
 
 

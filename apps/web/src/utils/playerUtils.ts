@@ -9,10 +9,10 @@ interface PlayerOptionLike {
 
 interface RankedPlayer {
   player_id?: number;
-  Points?: number | null;
-  'Avg Pt Diff'?: number | null;
-  'Win Rate'?: number | null;
-  ELO?: number | null;
+  points?: number | null;
+  avg_pt_diff?: number | null;
+  win_rate?: number | null;
+  elo?: number | null;
   season_rank?: number;
 }
 
@@ -71,10 +71,10 @@ export function nameToPlayerOption(name: string | null | undefined, nameToIdMap:
  * Default player sorting with tie-breakers: Points → Avg Pt Diff → Win Rate → ELO
  */
 export const sortPlayersDefault = (a: RankedPlayer, b: RankedPlayer): number => {
-  if (a.Points !== b.Points) return b.Points - a.Points;
-  if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
-  if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
-  return b.ELO - a.ELO;
+  if (a.points !== b.points) return b.points - a.points;
+  if (a.avg_pt_diff !== b.avg_pt_diff) return b.avg_pt_diff - a.avg_pt_diff;
+  if (a.win_rate !== b.win_rate) return b.win_rate - a.win_rate;
+  return b.elo - a.elo;
 };
 
 /**

@@ -35,10 +35,10 @@ describe('GENDER_FILTER_OPTIONS', () => {
     expect(allGenders.label).toBe('All genders');
   });
 
-  it('contains male and female options', () => {
+  it("contains men's and women's options (LeagueGender values)", () => {
     const values = GENDER_FILTER_OPTIONS.map((o) => o.value);
-    expect(values).toContain('male');
-    expect(values).toContain('female');
+    expect(values).toContain('mens');
+    expect(values).toContain('womens');
   });
 
   it('every item has string value and label', () => {
@@ -115,11 +115,11 @@ describe('GENDER_OPTIONS_LEAGUE', () => {
     expect(empty).toBeUndefined();
   });
 
-  it('is derived from GENDER_FILTER_OPTIONS (same male/female entries)', () => {
-    const male = GENDER_OPTIONS_LEAGUE.find((o) => o.value === 'male');
-    const female = GENDER_OPTIONS_LEAGUE.find((o) => o.value === 'female');
-    expect(male).toBeDefined();
-    expect(female).toBeDefined();
+  it("is derived from GENDER_FILTER_OPTIONS (same mens/womens entries)", () => {
+    const mens = GENDER_OPTIONS_LEAGUE.find((o) => o.value === 'mens');
+    const womens = GENDER_OPTIONS_LEAGUE.find((o) => o.value === 'womens');
+    expect(mens).toBeDefined();
+    expect(womens).toBeDefined();
   });
 
   it('every item has string value and label', () => {

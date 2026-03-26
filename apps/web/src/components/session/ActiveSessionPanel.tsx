@@ -1,13 +1,7 @@
 import { Trophy, Users, ChevronDown, MapPin } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
-import type { Match, Season } from '../../types';
+import type { Match, Season, Court } from '../../types';
 import type { DisplayMatch } from '../league/utils/matchUtils';
-
-interface Court {
-  id: number;
-  name: string;
-  slug?: string | null;
-}
 
 export interface ActiveSession {
   id: number;

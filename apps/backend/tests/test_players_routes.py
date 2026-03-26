@@ -83,7 +83,7 @@ class TestListPlayers:
 
         assert response.status_code == 200
         body = response.json()
-        assert body["total"] == 2
+        assert body["total_count"] == 2
         assert len(body["items"]) == 2
         assert body["items"][0]["full_name"] == "Alice"
 

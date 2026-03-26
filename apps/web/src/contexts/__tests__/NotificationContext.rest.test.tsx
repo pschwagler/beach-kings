@@ -92,7 +92,7 @@ beforeEach(() => {
   mockUser.value = { id: 1 };
 
   // Default mock responses
-  mockGetNotifications.mockResolvedValue({ notifications: [], total_count: 0, has_more: false });
+  mockGetNotifications.mockResolvedValue({ items: [], total_count: 0, has_more: false });
   mockGetUnreadCount.mockResolvedValue({ count: 0 });
   mockGetUnreadMessageCount.mockResolvedValue({ count: 0 });
 });
@@ -121,7 +121,7 @@ describe('NotificationProvider — initial data fetch', () => {
 
   it('populates notifications from API response', async () => {
     mockGetNotifications.mockResolvedValue({
-      notifications: [
+      items: [
         { id: 1, is_read: false, type: 'test' },
         { id: 2, is_read: true, type: 'test' },
       ],
@@ -213,7 +213,7 @@ describe('NotificationProvider — isLoading lifecycle', () => {
 
     // Resolve the pending request
     await act(async () => {
-      resolveNotifications({ notifications: [], total_count: 0, has_more: false });
+      resolveNotifications({ items: [], total_count: 0, has_more: false });
     });
 
     await waitFor(() => {
@@ -240,7 +240,7 @@ describe('NotificationProvider — fetchNotifications error handling', () => {
       result = await latestCtx.fetchNotifications();
     });
 
-    expect(result).toEqual({ notifications: [], total_count: 0, has_more: false });
+    expect(result).toEqual({ items: [], total_count: 0, has_more: false });
     // State should still be empty / loading reset
     expect(screen.getByTestId('loading').textContent).toBe('false');
   });
@@ -249,7 +249,7 @@ describe('NotificationProvider — fetchNotifications error handling', () => {
 describe('NotificationProvider — markAsRead', () => {
   it('calls the API, marks the notification as read locally, and decrements unreadCount', async () => {
     mockGetNotifications.mockResolvedValue({
-      notifications: [
+      items: [
         { id: 1, is_read: false, type: 'test' },
         { id: 2, is_read: false, type: 'test' },
       ],
@@ -281,7 +281,7 @@ describe('NotificationProvider — markAsRead', () => {
 
   it('does not decrement unreadCount below 0', async () => {
     mockGetNotifications.mockResolvedValue({
-      notifications: [{ id: 1, is_read: false, type: 'test' }],
+      items: [{ id: 1, is_read: false, type: 'test' }],
       total_count: 1,
       has_more: false,
     });
@@ -311,7 +311,7 @@ describe('NotificationProvider — markAsRead', () => {
 describe('NotificationProvider — markAllAsRead', () => {
   it('calls the API, marks all notifications as read locally, and resets unreadCount to 0', async () => {
     mockGetNotifications.mockResolvedValue({
-      notifications: [
+      items: [
         { id: 1, is_read: false, type: 'test' },
         { id: 2, is_read: false, type: 'test' },
       ],

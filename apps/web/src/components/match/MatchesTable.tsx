@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
-import type { Season, Match } from '../../types';
+import type { Season, Match, Session } from '../../types';
 
 /** Minimal court shape used for the home-court selector (must match ActiveSessionPanel's Court). */
 interface HomeCourt {
@@ -69,15 +69,6 @@ interface MatchesTableProps {
   contentVariant?: string;
 }
 
-/** Partial session shape (only what MatchesTable uses) */
-interface Session {
-  id: number;
-  name?: string | null;
-  status?: string | null;
-  season_id?: number | null;
-  date?: string | null;
-  created_at?: string | null;
-}
 
 import ActiveSessionPanel from '../session/ActiveSessionPanel';
 import SessionGroupHeader from '../session/SessionGroupHeader';
@@ -217,26 +208,26 @@ export default function MatchesTable({
         const matchIndex = updatedMatches.findIndex(m => m.id === matchId);
         if (matchIndex !== -1) {
           const match = updatedMatches[matchIndex];
-          const team1Score = updatedData.team1_score !== undefined ? updatedData.team1_score : match['Team 1 Score'];
-          const team2Score = updatedData.team2_score !== undefined ? updatedData.team2_score : match['Team 2 Score'];
-          
+          const team1Score = updatedData.team1_score !== undefined ? updatedData.team1_score : match.team_1_score;
+          const team2Score = updatedData.team2_score !== undefined ? updatedData.team2_score : match.team_2_score;
+
           updatedMatches[matchIndex] = {
             ...match,
-            'Team 1 Player 1': (updatedData.team1_player1 as string | undefined) || match['Team 1 Player 1'],
-            'Team 1 Player 2': (updatedData.team1_player2 as string | undefined) || match['Team 1 Player 2'],
-            'Team 2 Player 1': (updatedData.team2_player1 as string | undefined) || match['Team 2 Player 1'],
-            'Team 2 Player 2': (updatedData.team2_player2 as string | undefined) || match['Team 2 Player 2'],
-            'Team 1 Score': team1Score as number | null,
-            'Team 2 Score': team2Score as number | null,
+            team_1_player_1: (updatedData.team1_player1 as string | undefined) || match.team_1_player_1,
+            team_1_player_2: (updatedData.team1_player2 as string | undefined) || match.team_1_player_2,
+            team_2_player_1: (updatedData.team2_player1 as string | undefined) || match.team_2_player_1,
+            team_2_player_2: (updatedData.team2_player2 as string | undefined) || match.team_2_player_2,
+            team_1_score: team1Score as number | null,
+            team_2_score: team2Score as number | null,
             Winner: calculateWinner(team1Score as number, team2Score as number)
           };
         }
       });
 
       sessionChanges.additions.forEach((newMatchData: Record<string, unknown>, index: number) => {
-        const sessionMatch = updatedMatches.find(m => m['Session ID'] === sessionId);
-        const sessionName = sessionMatch?.['Session Name'] || 'New Session';
-        
+        const sessionMatch = updatedMatches.find(m => m.session_id === sessionId);
+        const sessionName = sessionMatch?.session_name || 'New Session';
+
         // Convert player IDs to names using the reverse map
         // Match data has team1_player1_id, team1_player2_id, etc.
         const getPlayerName = (playerId: string | number | null | undefined) => {
@@ -248,19 +239,19 @@ export default function MatchesTable({
           const name = playerIdToName.get(Number(playerId)) || '';
           return name;
         };
-        
+
         const pendingMatch: DisplayMatch = {
           id: `pending-${sessionId}-${index}`,
           Date: new Date().toISOString().split('T')[0],
-          'Session ID': sessionId,
-          'Session Name': sessionName as string | null,
-          'Session Status': 'ACTIVE',
-          'Team 1 Player 1': getPlayerName((newMatchData.team1_player1_id || newMatchData.team1_player1) as string | number | null | undefined),
-          'Team 1 Player 2': getPlayerName((newMatchData.team1_player2_id || newMatchData.team1_player2) as string | number | null | undefined),
-          'Team 2 Player 1': getPlayerName((newMatchData.team2_player1_id || newMatchData.team2_player1) as string | number | null | undefined),
-          'Team 2 Player 2': getPlayerName((newMatchData.team2_player2_id || newMatchData.team2_player2) as string | number | null | undefined),
-          'Team 1 Score': newMatchData.team1_score as number | null,
-          'Team 2 Score': newMatchData.team2_score as number | null,
+          session_id: sessionId,
+          session_name: sessionName as string | null,
+          session_status: 'ACTIVE',
+          team_1_player_1: getPlayerName((newMatchData.team1_player1_id || newMatchData.team1_player1) as string | number | null | undefined),
+          team_1_player_2: getPlayerName((newMatchData.team1_player2_id || newMatchData.team1_player2) as string | number | null | undefined),
+          team_2_player_1: getPlayerName((newMatchData.team2_player1_id || newMatchData.team2_player1) as string | number | null | undefined),
+          team_2_player_2: getPlayerName((newMatchData.team2_player2_id || newMatchData.team2_player2) as string | number | null | undefined),
+          team_1_score: newMatchData.team1_score as number | null,
+          team_2_score: newMatchData.team2_score as number | null,
           Winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
           'Team 1 ELO Change': 0,
           'Team 2 ELO Change': 0,
@@ -285,16 +276,16 @@ export default function MatchesTable({
     if (matchesWithPendingChanges === null) return {};
 
     const grouped = matchesWithPendingChanges.reduce((acc: Record<string, MatchGroup>, match) => {
-      const sessionId = match['Session ID'];
-      
+      const sessionId = match.session_id;
+
       if (sessionId != null) {
         const key = `session-${sessionId}`;
         if (!acc[key]) {
           // Get session data from allSessions if available, otherwise use match data
           const sessionData = sessionsMap.get(sessionId);
-          const sessionCreatedAt = sessionData?.created_at || match['Session Created At'];
-          const sessionName = sessionData?.name || match['Session Name'];
-          const sessionStatus = sessionData?.status || match['Session Status'];
+          const sessionCreatedAt = sessionData?.created_at || match.session_created_at;
+          const sessionName = sessionData?.name || match.session_name;
+          const sessionStatus = sessionData?.status || match.session_status;
           const sessionDate = sessionData?.date || match.Date;
 
           acc[key] = createSessionGroup(
@@ -302,9 +293,9 @@ export default function MatchesTable({
             sessionName,
             sessionStatus,
             sessionCreatedAt,
-            match['Session Updated At'],
-            match['Session Created By'],
-            match['Session Updated By'],
+            match.session_updated_at,
+            match.session_created_by,
+            match.session_updated_by,
             sessionDate
           );
         }
@@ -312,17 +303,17 @@ export default function MatchesTable({
 
         // acc[key] is always a session group here (sessionId != null branch)
         const sessionGroup = acc[key] as ReturnType<typeof createSessionGroup>;
-        const status = match['Session Status'];
+        const status = match.session_status;
         if (status) {
           sessionGroup.status = status;
           sessionGroup.isActive = status === 'ACTIVE';
         }
-        if (match['Session Updated By']) {
-          sessionGroup.updatedBy = match['Session Updated By'];
+        if (match.session_updated_by) {
+          sessionGroup.updatedBy = match.session_updated_by;
         }
-        if (match['Session Updated At']) {
-          sessionGroup.updatedAt = match['Session Updated At'];
-          sessionGroup.lastUpdated = match['Session Updated At'];
+        if (match.session_updated_at) {
+          sessionGroup.updatedAt = match.session_updated_at;
+          sessionGroup.lastUpdated = match.session_updated_at;
         }
       } else {
         const key = `date-${match.Date}`;
@@ -363,21 +354,21 @@ export default function MatchesTable({
             sessionDate
           );
         } else {
-          const sessionMatch = matches?.find(m => m['Session ID'] === sessionId);
+          const sessionMatch = matches?.find(m => m.session_id === sessionId);
           if (sessionMatch) {
             // Use session data from allSessions if available
             const sessionData = sessionsMap.get(sessionId);
-            const sessionCreatedAt = sessionData?.created_at || sessionMatch['Session Created At'];
+            const sessionCreatedAt = sessionData?.created_at || sessionMatch.session_created_at;
             const sessionDate = sessionData?.date || sessionMatch.Date;
 
             grouped[key] = createSessionGroup(
               sessionId,
-              sessionMatch['Session Name'] || `Session ${sessionId}`,
-              sessionMatch['Session Status'] || 'SUBMITTED',
+              sessionMatch.session_name || `Session ${sessionId}`,
+              sessionMatch.session_status || 'SUBMITTED',
               sessionCreatedAt,
-              sessionMatch['Session Updated At'],
-              sessionMatch['Session Created By'],
-              sessionMatch['Session Updated By'],
+              sessionMatch.session_updated_at,
+              sessionMatch.session_created_by,
+              sessionMatch.session_updated_by,
               sessionDate
             );
           }
@@ -400,22 +391,22 @@ export default function MatchesTable({
     
     // If we have an override (matches from the session's season), use those
     if (activeSessionMatchesOverride) {
-      return activeSessionMatchesOverride.filter(match => match['Session ID'] === activeSession.id);
+      return activeSessionMatchesOverride.filter(match => match.session_id === activeSession.id);
     }
-    
+
     // Otherwise, get matches from the current matches list
     if (!matchesWithPendingChanges) return [];
-    
-    return matchesWithPendingChanges.filter(match => match['Session ID'] === activeSession.id);
+
+    return matchesWithPendingChanges.filter(match => match.session_id === activeSession.id);
   }, [activeSession, matchesWithPendingChanges, activeSessionMatchesOverride]);
 
   const playerCount = useMemo(() => {
     const players = new Set();
     activeSessionMatches.forEach(match => {
-      if (match['Team 1 Player 1']) players.add(match['Team 1 Player 1']);
-      if (match['Team 1 Player 2']) players.add(match['Team 1 Player 2']);
-      if (match['Team 2 Player 1']) players.add(match['Team 2 Player 1']);
-      if (match['Team 2 Player 2']) players.add(match['Team 2 Player 2']);
+      if (match.team_1_player_1) players.add(match.team_1_player_1);
+      if (match.team_1_player_2) players.add(match.team_1_player_2);
+      if (match.team_2_player_1) players.add(match.team_2_player_1);
+      if (match.team_2_player_2) players.add(match.team_2_player_2);
     });
     return players.size;
   }, [activeSessionMatches]);
@@ -489,7 +480,7 @@ export default function MatchesTable({
   const handleAddMatch = async (matchData: Record<string, unknown>, matchId?: number | string) => {
     if (matchId) {
       const match = matchesWithPendingChanges.find(m => m.id === matchId);
-      const sessionId = match?.['Session ID'];
+      const sessionId = match?.session_id;
       const isEditingSession = sessionId && editingSessions.has(sessionId);
       
       await onUpdateMatch(matchId, matchData, isEditingSession ? sessionId : undefined);
@@ -530,7 +521,7 @@ export default function MatchesTable({
       defaultLeagueId: leagueId,
       members,
       league,
-      sessionSeasonId: ('Session Season ID' in match ? (match as DisplayMatch)['Session Season ID'] : match.session_season_id) ?? null,
+      sessionSeasonId: (match as DisplayMatch).session_season_id ?? null,
       defaultSeasonId: selectedSeasonId,
       onSeasonChange: onSeasonChange
     });
@@ -694,7 +685,7 @@ export default function MatchesTable({
           if (isEditing && group.type === 'session') {
             // Get season_id from the first match in the group, or from session metadata
             const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
-            const seasonId = sessionMatch?.['Session Season ID'] || null;
+            const seasonId = sessionMatch?.session_season_id || null;
             return (
               <div data-session-id={group.id} key={key}>
                 <ActiveSessionPanel
@@ -721,7 +712,7 @@ export default function MatchesTable({
                   onCancelClick={() => onCancelEdit(group.id)}
                   onDeleteSession={onDeleteSession}
                   onRequestDeleteSession={() => {
-                    const seasonId = group.matches?.[0]?.['Session Season ID'];
+                    const seasonId = group.matches?.[0]?.session_season_id;
                     const sessionSeasonForDelete = seasonId && seasons.length > 0
                       ? seasons.find(s => s.id === seasonId)
                       : null;
@@ -741,18 +732,18 @@ export default function MatchesTable({
                   onStatsClick={() => {
                   // Get season for this session
                   const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
-                  const seasonId = sessionMatch?.['Session Season ID'];
+                  const seasonId = sessionMatch?.session_season_id;
                   const sessionSeason = seasonId && seasons.length > 0
                     ? seasons.find(s => s.id === seasonId)
                     : null;
 
                   const sessionGameCount = group.matches?.length || 0;
                   const sessionPlayers = new Set();
-                  group.matches?.forEach((match: Record<string, unknown>) => {
-                    if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
-                    if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
-                    if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
-                    if (match['Team 2 Player 2']) sessionPlayers.add(match['Team 2 Player 2']);
+                  group.matches?.forEach((match: DisplayMatch) => {
+                    if (match.team_1_player_1) sessionPlayers.add(match.team_1_player_1);
+                    if (match.team_1_player_2) sessionPlayers.add(match.team_1_player_2);
+                    if (match.team_2_player_1) sessionPlayers.add(match.team_2_player_1);
+                    if (match.team_2_player_2) sessionPlayers.add(match.team_2_player_2);
                   });
                   const sessionPlayerCount = sessionPlayers.size;
 
@@ -776,17 +767,17 @@ export default function MatchesTable({
           // Calculate stats for this session group
           const sessionGameCount = group.matches?.length || 0;
           const sessionPlayers = new Set();
-          group.matches?.forEach((match: Record<string, unknown>) => {
-            if (match['Team 1 Player 1']) sessionPlayers.add(match['Team 1 Player 1']);
-            if (match['Team 1 Player 2']) sessionPlayers.add(match['Team 1 Player 2']);
-            if (match['Team 2 Player 1']) sessionPlayers.add(match['Team 2 Player 1']);
-            if (match['Team 2 Player 2']) sessionPlayers.add(match['Team 2 Player 2']);
+          group.matches?.forEach((match: DisplayMatch) => {
+            if (match.team_1_player_1) sessionPlayers.add(match.team_1_player_1);
+            if (match.team_1_player_2) sessionPlayers.add(match.team_1_player_2);
+            if (match.team_2_player_1) sessionPlayers.add(match.team_2_player_1);
+            if (match.team_2_player_2) sessionPlayers.add(match.team_2_player_2);
           });
           const sessionPlayerCount = sessionPlayers.size;
-          
+
           // Get season for this session group
           const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
-          const seasonId = sessionMatch?.['Session Season ID'];
+          const seasonId = sessionMatch?.session_season_id;
           const sessionSeason = seasonId && seasons.length > 0 
             ? seasons.find(s => s.id === seasonId) 
             : null;

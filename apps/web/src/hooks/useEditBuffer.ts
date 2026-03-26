@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { calculateWinner } from '../components/league/utils/matchUtils';
+import { calculateWinner, type DisplayMatch } from '../components/league/utils/matchUtils';
 
 const PENDING_ID_PREFIX = 'pending-';
 
@@ -27,24 +27,6 @@ interface MatchPayload {
   [key: string]: unknown;
 }
 
-/** A display-format match object (keyed by display strings). */
-interface DisplayMatch {
-  id: number | string;
-  Date?: string;
-  'Session ID'?: number | null;
-  'Session Name'?: string;
-  'Session Status'?: string;
-  'Team 1 Player 1'?: string;
-  'Team 1 Player 2'?: string;
-  'Team 2 Player 1'?: string;
-  'Team 2 Player 2'?: string;
-  'Team 1 Score'?: number | null;
-  'Team 2 Score'?: number | null;
-  Winner?: string;
-  'Team 1 ELO Change'?: number;
-  'Team 2 ELO Change'?: number;
-  [key: string]: unknown;
-}
 
 /**
  * Buffer state machine for pickup session edit mode.
@@ -237,17 +219,17 @@ export function mergeBufferWithMatches(
       const payload = modified.get(match.id);
       if (!payload) return match;
 
-      const team1Score = payload.team1_score !== undefined ? payload.team1_score : match['Team 1 Score'];
-      const team2Score = payload.team2_score !== undefined ? payload.team2_score : match['Team 2 Score'];
+      const team1Score = payload.team1_score !== undefined ? payload.team1_score : match.team_1_score;
+      const team2Score = payload.team2_score !== undefined ? payload.team2_score : match.team_2_score;
 
       return {
         ...match,
-        'Team 1 Player 1': payload.team1_player1_id ? resolveName(payload.team1_player1_id) : match['Team 1 Player 1'],
-        'Team 1 Player 2': payload.team1_player2_id ? resolveName(payload.team1_player2_id) : match['Team 1 Player 2'],
-        'Team 2 Player 1': payload.team2_player1_id ? resolveName(payload.team2_player1_id) : match['Team 2 Player 1'],
-        'Team 2 Player 2': payload.team2_player2_id ? resolveName(payload.team2_player2_id) : match['Team 2 Player 2'],
-        'Team 1 Score': team1Score,
-        'Team 2 Score': team2Score,
+        team_1_player_1: payload.team1_player1_id ? resolveName(payload.team1_player1_id) : match.team_1_player_1,
+        team_1_player_2: payload.team1_player2_id ? resolveName(payload.team1_player2_id) : match.team_1_player_2,
+        team_2_player_1: payload.team2_player1_id ? resolveName(payload.team2_player1_id) : match.team_2_player_1,
+        team_2_player_2: payload.team2_player2_id ? resolveName(payload.team2_player2_id) : match.team_2_player_2,
+        team_1_score: team1Score,
+        team_2_score: team2Score,
         Winner: calculateWinner(team1Score, team2Score),
       };
     });
@@ -258,15 +240,15 @@ export function mergeBufferWithMatches(
     result.push({
       id: `${PENDING_ID_PREFIX}${index}`,
       Date: new Date().toISOString().split('T')[0],
-      'Session ID': payload.session_id ?? null,
-      'Session Name': '',
-      'Session Status': 'ACTIVE',
-      'Team 1 Player 1': resolveName(payload.team1_player1_id),
-      'Team 1 Player 2': resolveName(payload.team1_player2_id),
-      'Team 2 Player 1': resolveName(payload.team2_player1_id),
-      'Team 2 Player 2': resolveName(payload.team2_player2_id),
-      'Team 1 Score': payload.team1_score,
-      'Team 2 Score': payload.team2_score,
+      session_id: payload.session_id ?? null,
+      session_name: '',
+      session_status: 'ACTIVE',
+      team_1_player_1: resolveName(payload.team1_player1_id),
+      team_1_player_2: resolveName(payload.team1_player2_id),
+      team_2_player_1: resolveName(payload.team2_player1_id),
+      team_2_player_2: resolveName(payload.team2_player2_id),
+      team_1_score: payload.team1_score,
+      team_2_score: payload.team2_score,
       Winner: calculateWinner(payload.team1_score, payload.team2_score),
       'Team 1 ELO Change': 0,
       'Team 2 ELO Change': 0,

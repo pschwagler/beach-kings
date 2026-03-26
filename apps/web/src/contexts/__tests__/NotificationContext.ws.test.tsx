@@ -137,7 +137,7 @@ beforeEach(() => {
   mockIsAuthenticated.value = true;
   mockUser.value = { id: 1 };
 
-  mockGetNotifications.mockResolvedValue({ notifications: [], total_count: 0 });
+  mockGetNotifications.mockResolvedValue({ items: [], total_count: 0 });
   mockGetUnreadCount.mockResolvedValue({ count: 0 });
   mockGetUnreadMessageCount.mockResolvedValue({ count: 0 });
 });

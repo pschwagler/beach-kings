@@ -3,7 +3,7 @@ import { useDrawer, DRAWER_TYPES } from '../../../contexts/DrawerContext';
 import { transformPlayerData } from '../utils/playerDataUtils';
 import { getFirstPlacePlayer } from '../../../utils/playerUtils';
 import type { SeasonDataEntry, RankingEntry } from '../../../contexts/league/useSeasonData';
-import type { Player } from '../../../types';
+import type { Player, LeagueMember } from '../../../types';
 
 /**
  * Custom hook to manage player details drawer logic.
@@ -32,12 +32,6 @@ import type { Player } from '../../../types';
 interface PlayerOption {
   id: number;
   name: string;
-  is_placeholder?: boolean;
-}
-
-interface LeagueMember {
-  player_id: number;
-  role?: string;
   is_placeholder?: boolean;
 }
 
@@ -108,7 +102,7 @@ export function usePlayerDetailsDrawer({
       }
 
       if (playerToSelect?.player_id) {
-        setSelectedPlayer(playerToSelect.player_id, playerToSelect.Name as string);
+        setSelectedPlayer(playerToSelect.player_id, playerToSelect.name as string);
       }
       return;
     }

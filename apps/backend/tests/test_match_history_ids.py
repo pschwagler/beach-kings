@@ -116,18 +116,18 @@ async def test_team1_player1_sees_correct_ids(db_session, match_scenario):
     assert len(history) == 1
 
     m = history[0]
-    assert m["Partner"] == "Bob Beta"
-    assert m["Partner ID"] == p2.id
-    assert m["Opponent 1"] == "Carol Gamma"
-    assert m["Opponent 1 ID"] == p3.id
-    assert m["Opponent 2"] == "Dave Delta"
-    assert m["Opponent 2 ID"] == p4.id
-    assert m["Result"] == "W"
-    assert m["Score"] == "21-19"
+    assert m["partner"] == "Bob Beta"
+    assert m["partner_id"] == p2.id
+    assert m["opponent_1"] == "Carol Gamma"
+    assert m["opponent_1_id"] == p3.id
+    assert m["opponent_2"] == "Dave Delta"
+    assert m["opponent_2_id"] == p4.id
+    assert m["result"] == "W"
+    assert m["score"] == "21-19"
     # All non-placeholder players
-    assert m["Partner IsPlaceholder"] is False
-    assert m["Opponent 1 IsPlaceholder"] is False
-    assert m["Opponent 2 IsPlaceholder"] is False
+    assert m["partner_is_placeholder"] is False
+    assert m["opponent_1_is_placeholder"] is False
+    assert m["opponent_2_is_placeholder"] is False
 
 
 @pytest.mark.asyncio
@@ -146,14 +146,14 @@ async def test_team2_player1_sees_correct_ids(db_session, match_scenario):
     assert len(history) == 1
 
     m = history[0]
-    assert m["Partner"] == "Dave Delta"
-    assert m["Partner ID"] == p4.id
-    assert m["Opponent 1"] == "Alice Alpha"
-    assert m["Opponent 1 ID"] == p1.id
-    assert m["Opponent 2"] == "Bob Beta"
-    assert m["Opponent 2 ID"] == p2.id
-    assert m["Result"] == "L"
-    assert m["Score"] == "19-21"
+    assert m["partner"] == "Dave Delta"
+    assert m["partner_id"] == p4.id
+    assert m["opponent_1"] == "Alice Alpha"
+    assert m["opponent_1_id"] == p1.id
+    assert m["opponent_2"] == "Bob Beta"
+    assert m["opponent_2_id"] == p2.id
+    assert m["result"] == "L"
+    assert m["score"] == "19-21"
 
 
 @pytest.mark.asyncio
@@ -170,10 +170,10 @@ async def test_team1_player2_sees_correct_partner(db_session, match_scenario):
     assert len(history) == 1
 
     m = history[0]
-    assert m["Partner"] == "Alice Alpha"
-    assert m["Partner ID"] == p1.id
-    assert m["Opponent 1 ID"] == p3.id
-    assert m["Opponent 2 ID"] == p4.id
+    assert m["partner"] == "Alice Alpha"
+    assert m["partner_id"] == p1.id
+    assert m["opponent_1_id"] == p3.id
+    assert m["opponent_2_id"] == p4.id
 
 
 @pytest.mark.asyncio
@@ -188,8 +188,8 @@ async def test_team2_player2_sees_correct_partner(db_session, match_scenario):
     assert len(history) == 1
 
     m = history[0]
-    assert m["Partner"] == "Carol Gamma"
-    assert m["Partner ID"] == p3.id
+    assert m["partner"] == "Carol Gamma"
+    assert m["partner_id"] == p3.id
 
 
 @pytest.mark.asyncio
@@ -259,8 +259,8 @@ async def test_same_named_players_have_distinct_ids(db_session):
     assert len(history) == 2
 
     # Collect partner IDs across matches
-    partner_ids = {m["Partner ID"] for m in history}
-    partner_names = {m["Partner"] for m in history}
+    partner_ids = {m["partner_id"] for m in history}
+    partner_names = {m["partner"] for m in history}
 
     # Both partners are named "John Smith" and "Jane Doe"
     assert p2.id in partner_ids
@@ -269,9 +269,9 @@ async def test_same_named_players_have_distinct_ids(db_session):
     assert p2.id != p1.id
 
     # In match 2, p2 appears as opponent — check opponent IDs
-    match2 = [m for m in history if m["Partner ID"] == p3.id][0]
-    assert match2["Opponent 1 ID"] == p2.id
-    assert match2["Opponent 1"] == "John Smith"
+    match2 = [m for m in history if m["partner_id"] == p3.id][0]
+    assert match2["opponent_1_id"] == p2.id
+    assert match2["opponent_1"] == "John Smith"
 
 
 @pytest.mark.asyncio
@@ -321,9 +321,9 @@ async def test_placeholder_flags_in_match_history(db_session):
     history = await data_service.get_player_match_history_by_id(db_session, p1.id)
     assert len(history) == 1
     m = history[0]
-    assert m["Partner IsPlaceholder"] is True
-    assert m["Opponent 1 IsPlaceholder"] is False
-    assert m["Opponent 2 IsPlaceholder"] is True
+    assert m["partner_is_placeholder"] is True
+    assert m["opponent_1_is_placeholder"] is False
+    assert m["opponent_2_is_placeholder"] is True
 
 
 @pytest.mark.asyncio

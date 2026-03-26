@@ -229,10 +229,10 @@ async def test_get_user_notifications(db_session, test_user):
     )
 
     assert result["total_count"] == 2
-    assert len(result["notifications"]) == 2
+    assert len(result["items"]) == 2
     assert result["has_more"] is False
     # Should be ordered by created_at DESC
-    assert result["notifications"][0]["title"] == "Notification 2"
+    assert result["items"][0]["title"] == "Notification 2"
 
 
 @pytest.mark.asyncio
@@ -255,7 +255,7 @@ async def test_get_user_notifications_pagination(db_session, test_user):
     )
 
     assert result["total_count"] == 5
-    assert len(result["notifications"]) == 2
+    assert len(result["items"]) == 2
     assert result["has_more"] is True
 
     # Get second page
@@ -264,7 +264,7 @@ async def test_get_user_notifications_pagination(db_session, test_user):
     )
 
     assert result["total_count"] == 5
-    assert len(result["notifications"]) == 2
+    assert len(result["items"]) == 2
     assert result["has_more"] is True
 
 
@@ -298,8 +298,8 @@ async def test_get_user_notifications_unread_only(db_session, test_user):
     )
 
     assert result["total_count"] == 1
-    assert len(result["notifications"]) == 1
-    assert result["notifications"][0]["title"] == "Unread 2"
+    assert len(result["items"]) == 1
+    assert result["items"][0]["title"] == "Unread 2"
 
 
 @pytest.mark.asyncio
@@ -536,7 +536,7 @@ async def test_session_submitted_notification_league_session(db_session, test_us
         session=db_session, user_id=test_user2
     )
     assert result["total_count"] == 1
-    notif = result["notifications"][0]
+    notif = result["items"][0]
     assert notif["type"] == NotificationType.SESSION_SUBMITTED.value
     assert "Test League" in notif["title"]
     assert "Player One" in notif["message"]
@@ -594,7 +594,7 @@ async def test_session_submitted_notification_non_league(db_session, test_user, 
         session=db_session, user_id=test_user2
     )
     assert result["total_count"] == 1
-    notif = result["notifications"][0]
+    notif = result["items"][0]
     assert notif["type"] == NotificationType.SESSION_SUBMITTED.value
     assert notif["title"] == "Games submitted"
     assert notif["link_url"] == "/home"
@@ -669,7 +669,7 @@ async def test_notify_league_members_about_message_creates_notifications(
         session=db_session, user_id=test_user2
     )
     assert member_notifs["total_count"] == 1
-    notif = member_notifs["notifications"][0]
+    notif = member_notifs["items"][0]
     assert notif["type"] == NotificationType.LEAGUE_MESSAGE.value
     assert "Beach League" in notif["title"]
     assert notif["link_url"] == f"/league/{league.id}?tab=messages"
@@ -728,7 +728,7 @@ async def test_notify_league_members_truncates_long_message(db_session, test_use
         session=db_session, user_id=test_user2
     )
     assert notifs["total_count"] == 1
-    assert notifs["notifications"][0]["message"].endswith("...")
+    assert notifs["items"][0]["message"].endswith("...")
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -763,7 +763,7 @@ async def test_notify_admins_about_join_request_creates_notification(
         session=db_session, user_id=test_user
     )
     assert admin_notifs["total_count"] == 1
-    notif = admin_notifs["notifications"][0]
+    notif = admin_notifs["items"][0]
     assert notif["type"] == NotificationType.LEAGUE_JOIN_REQUEST.value
     assert notif["title"] == "New Join Request"
     assert "Requesting Player" in notif["message"]
@@ -821,7 +821,7 @@ async def test_notify_player_about_join_approval(db_session, test_user):
         session=db_session, user_id=test_user
     )
     assert notifs["total_count"] == 1
-    notif = notifs["notifications"][0]
+    notif = notifs["items"][0]
     assert notif["type"] == NotificationType.LEAGUE_INVITE.value
     assert notif["title"] == "Join request approved"
     assert "Approved League" in notif["message"]
@@ -848,7 +848,7 @@ async def test_notify_player_about_join_rejection(db_session, test_user):
         session=db_session, user_id=test_user
     )
     assert notifs["total_count"] == 1
-    notif = notifs["notifications"][0]
+    notif = notifs["items"][0]
     assert notif["type"] == NotificationType.LEAGUE_JOIN_REJECTED.value
     assert notif["title"] == "Join request declined"
     assert "Rejected League" in notif["message"]
@@ -889,7 +889,7 @@ async def test_notify_members_about_season_activated_active_season(db_session, t
         session=db_session, user_id=test_user
     )
     assert notifs["total_count"] == 1
-    notif = notifs["notifications"][0]
+    notif = notifs["items"][0]
     assert notif["type"] == NotificationType.SEASON_ACTIVATED.value
     assert "Active League" in notif["title"]
     assert "Spring 2025" in notif["message"]
@@ -1016,7 +1016,7 @@ async def test_notify_members_about_new_member_notifies_existing_members(
         session=db_session, user_id=test_user
     )
     assert veteran_notifs["total_count"] == 1
-    notif = veteran_notifs["notifications"][0]
+    notif = veteran_notifs["items"][0]
     assert notif["type"] == NotificationType.MEMBER_JOINED.value
     assert "Growing League" in notif["title"]
     assert notif["link_url"] == f"/league/{league.id}"
@@ -1075,7 +1075,7 @@ async def test_notify_player_about_removal_from_league(db_session, test_user):
         session=db_session, user_id=test_user
     )
     assert notifs["total_count"] == 1
-    notif = notifs["notifications"][0]
+    notif = notifs["items"][0]
     assert notif["type"] == NotificationType.MEMBER_REMOVED.value
     assert notif["title"] == "Removed from league"
     assert "Kicker League" in notif["message"]
@@ -1102,4 +1102,4 @@ async def test_notify_player_about_removal_fetches_league_name(db_session, test_
         session=db_session, user_id=test_user
     )
     assert notifs["total_count"] == 1
-    assert "Auto-fetched League" in notifs["notifications"][0]["message"]
+    assert "Auto-fetched League" in notifs["items"][0]["message"]

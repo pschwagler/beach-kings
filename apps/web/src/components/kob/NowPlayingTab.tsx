@@ -3,22 +3,7 @@
 import { useState } from "react";
 import ScoreEntryCard from "./ScoreEntryCard";
 import "./KobLive.css";
-
-interface KobMatch {
-  matchup_id: string;
-  phase?: string;
-  team1_score: number | null;
-  team2_score: number | null;
-  is_bye?: boolean;
-  winner?: number | null;
-  court_num?: number;
-  bracket_position?: string;
-  team1_player1_name?: string;
-  team1_player2_name?: string;
-  team2_player1_name?: string;
-  team2_player2_name?: string;
-  game_scores?: Array<{ team1_score: number; team2_score: number }>;
-}
+import type { KobMatch } from "../../types";
 
 interface KobTournament {
   game_to: number;

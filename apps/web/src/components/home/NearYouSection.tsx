@@ -6,7 +6,8 @@ import { MapPin, Users, BarChart3 } from 'lucide-react';
 import { getPublicCourts, getPublicPlayers, getPublicLocations } from '../../services/api';
 import { useUserPosition } from '../../hooks/useUserPosition';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
-import { isImageUrl } from '../../utils/avatar';
+import { getPlayerImageUrl } from '../../utils/avatar';
+import { slugify } from '../../utils/slugify';
 import { Button } from '../ui/UI';
 import StarRating from '../ui/StarRating';
 import LevelBadge from '../ui/LevelBadge';
@@ -185,18 +186,20 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
             ) : players.length === 0 ? (
               <div className="near-you-section__empty">No players found</div>
             ) : (
-              players.map((player) => (
+              players.map((player) => {
+                const imageUrl = getPlayerImageUrl(player);
+                return (
                 <Link
                   key={player.id}
-                  href={`/player/${player.id}`}
+                  href={`/player/${player.id}/${slugify(player.full_name)}`}
                   className="near-you-section__player-item"
                   style={{ textDecoration: 'none' }}
                 >
                   <div className="near-you-section__player-avatar">
-                    {isImageUrl(player.avatar || player.profile_picture_url) ? (
+                    {imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={player.avatar || player.profile_picture_url}
+                        src={imageUrl}
                         alt={player.full_name}
                       />
                     ) : (
@@ -211,7 +214,8 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                     {Math.round(player.stats?.current_rating || player.current_rating || 1200)}
                   </span>
                 </Link>
-              ))
+                );
+              })
             )}
           </div>
           {locationHref && (

@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { SignupPlayer } from '../../types';
 
 // Helper function to format datetime with timezone
 function formatDateTimeWithTimezone(isoString: string | null | undefined): string {
@@ -6,25 +7,20 @@ function formatDateTimeWithTimezone(isoString: string | null | undefined): strin
   const date = new Date(isoString);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const timeZoneName = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
-  
-  const dateStr = date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    year: 'numeric',
-    timeZone 
-  });
-  const timeStr = date.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    timeZone 
-  });
-  
-  return `${dateStr} at ${timeStr} ${timeZoneName}`;
-}
 
-interface SignupPlayer {
-  player_name?: string | null;
-  signed_up_at?: string | null;
+  const dateStr = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone
+  });
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone
+  });
+
+  return `${dateStr} at ${timeStr} ${timeZoneName}`;
 }
 
 interface SignupWithPlayers {

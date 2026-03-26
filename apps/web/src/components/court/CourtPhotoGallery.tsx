@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Camera } from 'lucide-react';
+import type { CourtPhoto } from '../../types';
 
 /**
  * Photo mosaic gallery for court detail page.
@@ -10,11 +11,6 @@ import { Camera } from 'lucide-react';
  * Clicking navigates to the full photos page.
  * When no photos exist, renders an empty-state CTA linking to the photos page.
  */
-interface CourtPhoto {
-  url: string;
-  id?: number;
-}
-
 interface CourtPhotoGalleryProps {
   photos?: CourtPhoto[];
   slug: string;
