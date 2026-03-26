@@ -165,6 +165,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 Player.full_name,
                 Player.nickname,
                 Player.is_placeholder,
+                Player.avatar,
                 PlayerGlobalStats.current_rating,
                 stats_subq.c.points,
                 stats_subq.c.games,
@@ -191,12 +192,13 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             initials = generate_player_initials(name)
             rankings.append(
                 {
-                    "Player ID": row.id,
+                    "player_id": row.id,
                     "Name": name,
+                    "avatar": row.avatar if row.avatar else initials,
                     "Initials": initials,
                     "IsPlaceholder": row.is_placeholder or False,
                     "ELO": round(row.current_rating) if row.current_rating else INITIAL_ELO,
-                    "Points": row.points or 0,
+                    "Points": row.points if row.points is not None else 0,
                     "Games": row.games or 0,
                     "Wins": row.wins or 0,
                     "Losses": (row.games or 0) - (row.wins or 0),
@@ -209,6 +211,10 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             rankings = _sort_rankings_single_season(rankings)
         else:
             rankings = _sort_rankings_all_seasons(rankings)
+
+        # Add season_rank (1-based position after sorting)
+        for idx, player in enumerate(rankings, 1):
+            player["season_rank"] = idx
 
         return rankings
 

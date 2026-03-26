@@ -96,6 +96,7 @@ export default function LeagueRankingsTab() {
     autoSelect: true,
     currentUserPlayer,
     rankings,
+    members,
     selectedSeasonId,
   });
 

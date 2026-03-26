@@ -155,11 +155,11 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
     for i, player in enumerate(active_players[:3]):
         rank = i + 1
         award_key = PLACEMENT_KEYS[i]
-        podium_player_ids.add(player["Player ID"])
+        podium_player_ids.add(player["player_id"])
         awards_to_create.append(
             SeasonAward(
                 season_id=season_id,
-                player_id=player["Player ID"],
+                player_id=player["player_id"],
                 award_type="placement",
                 award_key=award_key,
                 rank=rank,
@@ -175,11 +175,11 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
     eligible = [
         r
         for r in active_players
-        if r["Player ID"] not in podium_player_ids and r.get("Games", 0) >= MIN_GAMES_STAT_AWARD
+        if r["player_id"] not in podium_player_ids and r.get("Games", 0) >= MIN_GAMES_STAT_AWARD
     ]
 
     # Compute ELO deltas for Rising Star
-    elo_deltas = await _compute_elo_deltas(session, season, [r["Player ID"] for r in eligible])
+    elo_deltas = await _compute_elo_deltas(session, season, [r["player_id"] for r in eligible])
 
     stat_awarded_player_ids: set = set()
 
@@ -189,16 +189,16 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
 
         if stat_key == "_elo_delta":
             candidates = [
-                (r, elo_deltas.get(r["Player ID"], 0.0))
+                (r, elo_deltas.get(r["player_id"], 0.0))
                 for r in eligible
-                if r["Player ID"] not in stat_awarded_player_ids
+                if r["player_id"] not in stat_awarded_player_ids
             ]
             candidates = [(r, v) for r, v in candidates if v > 0]
         else:
             candidates = [
                 (r, float(r.get(stat_key, 0)))
                 for r in eligible
-                if r["Player ID"] not in stat_awarded_player_ids
+                if r["player_id"] not in stat_awarded_player_ids
             ]
             candidates = [(r, v) for r, v in candidates if v > 0]
 
@@ -208,12 +208,12 @@ async def compute_season_awards(session: AsyncSession, season_id: int) -> List[D
         # Sort by stat value descending
         candidates.sort(key=lambda x: x[1], reverse=True)
         winner, stat_value = candidates[0]
-        stat_awarded_player_ids.add(winner["Player ID"])
+        stat_awarded_player_ids.add(winner["player_id"])
 
         awards_to_create.append(
             SeasonAward(
                 season_id=season_id,
-                player_id=winner["Player ID"],
+                player_id=winner["player_id"],
                 award_type="stat_award",
                 award_key=award_key,
                 rank=None,
