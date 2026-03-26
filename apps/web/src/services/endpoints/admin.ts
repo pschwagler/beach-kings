@@ -30,8 +30,13 @@ export const getAdminStats = async () => {
 };
 
 /** Admin: get recently created players. */
-export const getAdminRecentPlayers = async (limit: number = 50) => {
-  const response = await api.get('/api/admin-view/players/recent', { params: { limit } });
+export const getAdminRecentPlayers = async (
+  limit: number = 50,
+  includeUnregistered: boolean = false,
+) => {
+  const response = await api.get('/api/admin-view/players/recent', {
+    params: { limit, include_unregistered: includeUnregistered },
+  });
   return response.data;
 };
 

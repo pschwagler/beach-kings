@@ -12,6 +12,8 @@ import secrets
 import string
 import logging
 
+from backend.services.session_geo_service import resolve_session_geo
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
 from sqlalchemy.orm import aliased
@@ -333,6 +335,8 @@ async def get_or_create_active_league_session(
     name: Optional[str] = None,
     created_by: Optional[int] = None,
     season_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Get or create an active session for a league and date atomically.
@@ -453,6 +457,16 @@ async def get_or_create_active_league_session(
     )
     default_court_id = home_court_result.scalar_one_or_none()
 
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=default_court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=session_date,
         name=session_name,
@@ -460,6 +474,9 @@ async def get_or_create_active_league_session(
         season_id=active_season.id,
         created_by=created_by,
         court_id=default_court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.flush()
@@ -471,6 +488,9 @@ async def get_or_create_active_league_session(
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
     }
 
 
@@ -481,6 +501,8 @@ async def create_league_session(
     name: Optional[str],
     created_by: Optional[int] = None,
     court_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Create a league session. Automatically uses the league's most recent active season.
@@ -554,6 +576,16 @@ async def create_league_session(
         )
         court_id = home_court_result.scalar_one_or_none()
 
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=date,
         name=session_name,
@@ -561,6 +593,9 @@ async def create_league_session(
         season_id=active_season.id,
         created_by=created_by,
         court_id=court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.commit()
@@ -572,6 +607,9 @@ async def create_league_session(
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
     }
 
 
@@ -581,6 +619,8 @@ async def create_session(
     name: Optional[str] = None,
     court_id: Optional[int] = None,
     created_by: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Create a new non-league session (no season_id).
@@ -592,6 +632,8 @@ async def create_session(
         name: Optional session name (defaults to date-based name)
         court_id: Optional court ID
         created_by: Optional player ID who created the session
+        latitude: Optional browser geolocation latitude
+        longitude: Optional browser geolocation longitude
 
     Returns:
         Dict with session info including code
@@ -615,6 +657,15 @@ async def create_session(
 
     code = await _generate_session_code(session)
 
+    # Resolve geo from court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=date,
         name=session_name,
@@ -623,6 +674,9 @@ async def create_session(
         season_id=None,
         court_id=court_id,
         created_by=created_by,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.flush()
@@ -643,6 +697,9 @@ async def create_session(
         "code": new_session.code,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
         "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
 

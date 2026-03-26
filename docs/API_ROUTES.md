@@ -137,7 +137,7 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 | POST | `/api/sessions/join` | User | Join session by code |
 | POST | `/api/sessions/{session_id}/invite` | User | Invite player to session |
 | POST | `/api/sessions/{session_id}/invite_batch` | User | Batch invite players to session |
-| POST | `/api/sessions` | User | Create standalone session |
+| POST | `/api/sessions` | User | Create standalone session (accepts optional `latitude`/`longitude` for geo) |
 | PATCH | `/api/sessions/{session_id}` | User | Update session (status, name, court_id) |
 | DELETE | `/api/sessions/{session_id}` | User | Delete session |
 
@@ -145,7 +145,7 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/matches` | User | Create match |
+| POST | `/api/matches` | User | Create match (accepts optional `latitude`/`longitude` for session geo) |
 | PUT | `/api/matches/{match_id}` | User | Update match |
 | DELETE | `/api/matches/{match_id}` | User | Delete match |
 | POST | `/api/matches/elo` | None | Get matches with ELO changes (by season_id or league_id) |

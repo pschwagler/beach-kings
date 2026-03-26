@@ -528,7 +528,13 @@ async def create_session(
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         created_by = player["id"] if player else None
         new_session = await data_service.create_session(
-            session, date, name=name, court_id=court_id, created_by=created_by
+            session,
+            date,
+            name=name,
+            court_id=court_id,
+            created_by=created_by,
+            latitude=body.latitude,
+            longitude=body.longitude,
         )
         return {
             "status": "success",

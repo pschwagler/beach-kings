@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 async def find_closest_location(
-    session: AsyncSession, user_lat: float, user_lon: float
+    session: AsyncSession,
+    user_lat: float,
+    user_lon: float,
+    max_distance_miles: float = 50.0,
 ) -> Optional[Dict]:
     """
     Find the closest location to the user's coordinates.
@@ -24,10 +27,13 @@ async def find_closest_location(
         session: Database session
         user_lat: User's latitude
         user_lon: User's longitude
+        max_distance_miles: Maximum distance in miles to consider a match.
+            Returns None if the nearest hub is farther than this threshold.
 
     Returns:
         Dictionary with keys: "location_id", "distance_miles"
-        Returns None if no locations found or all locations lack coordinates
+        Returns None if no locations found, all lack coordinates,
+        or the nearest is beyond max_distance_miles.
     """
     try:
         # Query all locations that have coordinates
@@ -59,6 +65,13 @@ async def find_closest_location(
                 closest_location = location
 
         if closest_location is None:
+            return None
+
+        if closest_distance > max_distance_miles:
+            logger.info(
+                f"Nearest location {closest_location.id} is {closest_distance:.1f}mi away, "
+                f"exceeds {max_distance_miles}mi cap"
+            )
             return None
 
         return {"location_id": closest_location.id, "distance_miles": closest_distance}

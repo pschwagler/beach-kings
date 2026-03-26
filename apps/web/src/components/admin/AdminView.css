@@ -195,6 +195,42 @@
   color: var(--gray-600);
 }
 
+.admin-player-badge--placeholder {
+  background: #fff8e1;
+  color: #b8860b;
+  margin-left: 8px;
+}
+
+/* ── Recent Players header with toggle ── */
+.admin-recent-players-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.admin-recent-players-header .admin-recent-players-section__title {
+  margin: 0;
+}
+
+.admin-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-toggle-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
 /* ── Settings ── */
 .admin-view-container p {
   color: var(--gray-600);

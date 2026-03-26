@@ -495,6 +495,7 @@ async def get_platform_stats(
 @router.get("/api/admin-view/players/recent")
 async def get_recent_players(
     limit: int = 50,
+    include_unregistered: bool = False,
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
 ):
@@ -503,11 +504,15 @@ async def get_recent_players(
 
     Returns players ordered by created_at desc, with a flag indicating
     whether they have an associated user account.
+
+    Args:
+        limit: Max number of players to return (capped at 200).
+        include_unregistered: If True, include placeholder/unregistered players.
     """
     try:
         capped_limit = min(limit, 200)
 
-        result = await session.execute(
+        stmt = (
             select(
                 Player.id,
                 Player.full_name,
@@ -518,10 +523,14 @@ async def get_recent_players(
                 User.auth_provider,
             )
             .outerjoin(User, User.id == Player.user_id)
-            .where(Player.is_placeholder == False)  # noqa: E712
             .order_by(Player.created_at.desc())
             .limit(capped_limit)
         )
+
+        if not include_unregistered:
+            stmt = stmt.where(Player.is_placeholder == False)  # noqa: E712
+
+        result = await session.execute(stmt)
         rows = result.all()
 
         return [

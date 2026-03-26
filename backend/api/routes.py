@@ -1824,7 +1824,9 @@ async def create_league_session(
             league_id=league_id,
             date=date,
             name=name,
-            created_by=player_id
+            created_by=player_id,
+            latitude=body.get("latitude"),
+            longitude=body.get("longitude"),
         )
         return {"status": "success", "message": "Session created", "session": new_session}
     except ValueError as e:
@@ -2136,8 +2138,10 @@ async def create_match(
                 session_obj = await data_service.get_or_create_active_league_session(
                     session=session,
                     league_id=league_id,
-                    date=match_date,
-                    created_by=player_id
+                    session_date=match_date,
+                    created_by=player_id,
+                    latitude=body.get("latitude"),
+                    longitude=body.get("longitude"),
                 )
             
             session_id = session_obj["id"]

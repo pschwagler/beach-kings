@@ -227,6 +227,8 @@ async def create_match(
                         session_date=match_date,
                         created_by=player_id,
                         season_id=selected_season.id,
+                        latitude=match_request.latitude,
+                        longitude=match_request.longitude,
                     )
                 session_id = session_obj["id"]
 

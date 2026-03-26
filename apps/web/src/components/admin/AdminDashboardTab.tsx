@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RefreshCw, User, UserX } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, User, UserX, UserPlus } from 'lucide-react';
 import { getAdminStats, getAdminRecentPlayers } from '../../services/api';
 import { formatDate } from './adminUtils';
 
@@ -19,6 +19,7 @@ interface AdminStats {
 interface AdminPlayer {
   id: number;
   full_name: string;
+  is_placeholder: boolean;
   has_user: boolean;
   auth_provider?: string | null;
   created_at: string;
@@ -28,11 +29,12 @@ interface AdminPlayer {
  * Platform stats dashboard tab — shows key metrics with 30-day trends
  * and a table of recently created players.
  */
-export default function AdminDashboardTab() {
+export default function AdminDashboardTab(): React.ReactNode {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [playersLoading, setPlayersLoading] = useState(false);
+  const [includeUnregistered, setIncludeUnregistered] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -46,22 +48,22 @@ export default function AdminDashboardTab() {
     }
   };
 
-  const loadPlayers = async () => {
+  const loadPlayers = useCallback(async (withUnregistered: boolean) => {
     try {
       setPlayersLoading(true);
-      const data = await getAdminRecentPlayers(50);
+      const data = await getAdminRecentPlayers(50, withUnregistered);
       setPlayers(data);
     } catch (err) {
       console.error('Error loading recent players:', err);
     } finally {
       setPlayersLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadStats();
-    loadPlayers();
-  }, []);
+    loadPlayers(includeUnregistered);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -70,7 +72,7 @@ export default function AdminDashboardTab() {
         <div className="admin-section-header">
           <h2>Platform Stats</h2>
           <button
-            onClick={() => { loadStats(); loadPlayers(); }}
+            onClick={() => { loadStats(); loadPlayers(includeUnregistered); }}
             disabled={loading || playersLoading}
             className="admin-refresh-btn"
             aria-label="Refresh stats"
@@ -101,7 +103,22 @@ export default function AdminDashboardTab() {
 
       {/* Recent Players */}
       <div className="admin-recent-players-section">
-        <h2 className="admin-recent-players-section__title">Recent Players</h2>
+        <div className="admin-recent-players-header">
+          <h2 className="admin-recent-players-section__title">Recent Players</h2>
+          <label className="admin-toggle-label">
+            <input
+              type="checkbox"
+              checked={includeUnregistered}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setIncludeUnregistered(next);
+                loadPlayers(next);
+              }}
+              className="admin-toggle-checkbox"
+            />
+            <span>Include unregistered</span>
+          </label>
+        </div>
         {playersLoading && players.length === 0 ? (
           <p>Loading players...</p>
         ) : players.length > 0 ? (
@@ -118,7 +135,14 @@ export default function AdminDashboardTab() {
               <tbody>
                 {players.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>{p.full_name}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
+                      {p.full_name}
+                      {p.is_placeholder && (
+                        <span className="admin-player-badge admin-player-badge--placeholder">
+                          <UserPlus size={13} /> Placeholder
+                        </span>
+                      )}
+                    </td>
                     <td>
                       {p.has_user ? (
                         <span className="admin-player-badge admin-player-badge--user">
