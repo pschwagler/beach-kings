@@ -479,3 +479,152 @@ def test_season_elo_updates_independently():
     season_change = p1.season_rating - 1200
     assert global_change != 0
     assert season_change != 0
+
+
+# ============================================================================
+# Tests for get_scoring_config
+# ============================================================================
+
+
+def test_get_scoring_config_none():
+    """get_scoring_config returns default when input is None."""
+    config = calculation_service.get_scoring_config(None)
+    assert config == {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+
+
+def test_get_scoring_config_empty_string():
+    """get_scoring_config returns default when input is empty string."""
+    config = calculation_service.get_scoring_config("")
+    assert config == {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+
+
+def test_get_scoring_config_valid_points_system():
+    """get_scoring_config parses valid points_system JSON."""
+    import json
+
+    raw = json.dumps({"type": "points_system", "points_per_win": 5, "points_per_loss": 0})
+    config = calculation_service.get_scoring_config(raw)
+    assert config["type"] == "points_system"
+    assert config["points_per_win"] == 5
+    assert config["points_per_loss"] == 0
+
+
+def test_get_scoring_config_points_system_defaults_missing_keys():
+    """get_scoring_config fills in missing points_per_win/loss for points_system."""
+    import json
+
+    raw = json.dumps({"type": "points_system"})
+    config = calculation_service.get_scoring_config(raw)
+    assert config["points_per_win"] == 3
+    assert config["points_per_loss"] == 1
+
+
+def test_get_scoring_config_season_rating():
+    """get_scoring_config parses season_rating JSON."""
+    import json
+
+    raw = json.dumps({"type": "season_rating"})
+    config = calculation_service.get_scoring_config(raw)
+    assert config["type"] == "season_rating"
+
+
+def test_get_scoring_config_malformed_json():
+    """get_scoring_config returns default on malformed JSON."""
+    config = calculation_service.get_scoring_config("{bad json!!}")
+    assert config == {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+
+
+def test_get_scoring_config_malformed_json_logs_warning(caplog):
+    """get_scoring_config logs a warning when JSON is malformed."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="backend.services.calculation_service"):
+        calculation_service.get_scoring_config("{bad}")
+    assert any("Malformed point_system JSON" in record.message for record in caplog.records)
+
+
+# ============================================================================
+# Tests for calculate_points
+# ============================================================================
+
+
+def test_calculate_points_default():
+    """calculate_points with default scoring (3/1)."""
+    config = {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+    assert calculation_service.calculate_points(5, 3, config) == 5 * 3 + 3 * 1
+
+
+def test_calculate_points_custom():
+    """calculate_points with custom scoring (5/0)."""
+    config = {"type": "points_system", "points_per_win": 5, "points_per_loss": 0}
+    assert calculation_service.calculate_points(4, 2, config) == 4 * 5 + 2 * 0
+
+
+def test_calculate_points_season_rating_returns_zero():
+    """calculate_points returns 0 for season_rating mode (partnership/opponent context)."""
+    config = {"type": "season_rating"}
+    assert calculation_service.calculate_points(10, 5, config) == 0
+
+
+def test_calculate_points_missing_config_keys():
+    """calculate_points falls back to 3/1 when config keys are absent."""
+    config = {"type": "points_system"}
+    assert calculation_service.calculate_points(2, 1, config) == 2 * 3 + 1 * 1
+
+
+# ============================================================================
+# Tests for PlayerStats.points with custom scoring configs
+# ============================================================================
+
+
+def test_player_stats_points_custom_scoring():
+    """PlayerStats.points uses custom points_per_win/loss from scoring_config."""
+    config = {"type": "points_system", "points_per_win": 5, "points_per_loss": 0}
+    stats = calculation_service.PlayerStats(player_id=1, scoring_config=config)
+    stats.game_count = 8
+    stats.win_count = 5
+    # 5 wins * 5 + 3 losses * 0 = 25
+    assert stats.points == 25.0
+
+
+def test_player_stats_points_season_rating():
+    """PlayerStats.points returns season_rating for season_rating mode."""
+    config = {"type": "season_rating"}
+    stats = calculation_service.PlayerStats(player_id=1, initial_rating=100.0, scoring_config=config)
+    stats.game_count = 2
+    stats.win_count = 1
+    # Should return season_rating, not a win/loss points formula
+    assert stats.points == 100.0  # No matches processed, so still initial
+
+
+def test_process_matches_custom_scoring_config():
+    """process_matches uses custom scoring config for partnership/opponent points."""
+    config = {"type": "points_system", "points_per_win": 5, "points_per_loss": 0}
+    matches = [
+        create_mock_match([1, 2], [3, 4], 21, 19, match_id=1),
+    ]
+    partnerships, opponents, _ = calculation_service.process_matches(
+        matches, scoring_config=config
+    )
+
+    # Winners (1 & 2) each have 1 win, 0 losses -> 5 points
+    p1_partner = next(p for p in partnerships if p.player_id == 1 and p.partner_id == 2)
+    assert p1_partner.points == 5
+
+    # Losers (3 & 4) each have 0 wins, 1 loss -> 0 points
+    p3_partner = next(p for p in partnerships if p.player_id == 3 and p.partner_id == 4)
+    assert p3_partner.points == 0
+
+
+def test_stats_tracker_non_member_initial_rating():
+    """Non-member players (not in initial_ratings) fall back to INITIAL_ELO for season_rating."""
+    # Player 5 is not in initial_ratings — simulates a non-member guest
+    tracker = calculation_service.StatsTracker(
+        initial_ratings={1: 100.0, 2: 100.0, 3: 100.0, 4: 100.0},
+        scoring_config={"type": "season_rating"},
+    )
+    member = tracker.get_player(1)
+    non_member = tracker.get_player(5)
+
+    assert member.season_rating == 100.0
+    assert non_member.season_rating == INITIAL_ELO  # 1200 — the bug we're fixing in stats_calc_data

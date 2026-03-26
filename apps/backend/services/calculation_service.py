@@ -5,8 +5,12 @@ Processes matches and computes all statistics.
 
 from typing import List, Dict, Tuple, Optional
 import json
+import logging
+
 from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL, K, SEASON_K
 from backend.database.models import Match, PartnershipStats, OpponentStats, EloHistory
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -62,8 +66,12 @@ def get_scoring_config(point_system_json: Optional[str]) -> Dict:
             config.setdefault("points_per_win", 3)
             config.setdefault("points_per_loss", 1)
         return config
-    except (json.JSONDecodeError, TypeError):
-        # Invalid JSON, default to Points System
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning(
+            "Malformed point_system JSON, falling back to defaults: %r (error: %s)",
+            point_system_json,
+            exc,
+        )
         return {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
 
 

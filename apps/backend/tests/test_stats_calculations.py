@@ -17,6 +17,8 @@ from sqlalchemy import select
 from backend.database.models import (
     Player,
     League,
+    LeagueConfig,
+    LeagueMember,
     Season,
     Session,
     Match,
@@ -30,6 +32,8 @@ from backend.database.models import (
     PartnershipStatsLeague,
     OpponentStatsLeague,
     PlayerLeagueStats,
+    SeasonRatingHistory,
+    ScoringSystem,
     SessionStatus,
 )
 from backend.services import data_service, calculation_service
@@ -1178,3 +1182,346 @@ async def test_edited_sessions_included(db_session, test_players, test_league_an
     elo_history = await db_session.execute(select(EloHistory))
     elo_records = elo_history.scalars().all()
     assert len(elo_records) == 4
+
+
+# ============================================================================
+# Scoring config integration tests
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def custom_scoring_league(db_session: AsyncSession, test_players):
+    """Create a league with custom scoring: 5 pts/win, 0 pts/loss."""
+    import json
+
+    league = League(name="Custom Scoring League", is_open=True, created_by=test_players[0].id)
+    db_session.add(league)
+    await db_session.flush()
+
+    scoring_json = json.dumps({"type": "points_system", "points_per_win": 5, "points_per_loss": 0})
+
+    # Set league-level config
+    league_config = LeagueConfig(league_id=league.id, point_system=scoring_json)
+    db_session.add(league_config)
+
+    season = Season(
+        league_id=league.id,
+        name="Custom Season",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        scoring_system=ScoringSystem.POINTS_SYSTEM.value,
+        point_system=scoring_json,
+        created_by=test_players[0].id,
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(league)
+    await db_session.refresh(season)
+    await db_session.refresh(league_config)
+
+    return league, season
+
+
+@pytest_asyncio.fixture
+async def season_rating_league(db_session: AsyncSession, test_players):
+    """Create a league using season_rating scoring mode."""
+    import json
+
+    league = League(name="Rating League", is_open=True, created_by=test_players[0].id)
+    db_session.add(league)
+    await db_session.flush()
+
+    scoring_json = json.dumps({"type": "season_rating"})
+
+    league_config = LeagueConfig(league_id=league.id, point_system=scoring_json)
+    db_session.add(league_config)
+
+    season = Season(
+        league_id=league.id,
+        name="Rating Season",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        scoring_system=ScoringSystem.SEASON_RATING.value,
+        point_system=scoring_json,
+        created_by=test_players[0].id,
+    )
+    db_session.add(season)
+
+    # Add players as league members (all 4)
+    for player in test_players:
+        member = LeagueMember(league_id=league.id, player_id=player.id)
+        db_session.add(member)
+
+    await db_session.commit()
+    await db_session.refresh(league)
+    await db_session.refresh(season)
+
+    return league, season
+
+
+@pytest.mark.asyncio
+async def test_season_stats_custom_points_per_win(
+    db_session, test_players, custom_scoring_league
+):
+    """Season stats use custom points_per_win/loss from season.point_system."""
+    alice, bob, charlie, dave = test_players
+    league, season = custom_scoring_league
+
+    session_obj = Session(
+        date="2024-01-15",
+        name="Custom Scoring Session",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        created_by=1,
+    )
+    db_session.add(session_obj)
+    await db_session.commit()
+    await db_session.refresh(session_obj)
+
+    # Alice & Bob beat Charlie & Dave
+    await create_match(db_session, session_obj, alice, bob, charlie, dave, 21, 19)
+
+    result = await data_service.calculate_season_stats_async(db_session, season.id)
+    assert result["match_count"] == 1
+
+    # Check season stats: Alice should have 5 points (1 win * 5), not 3
+    stats_result = await db_session.execute(
+        select(PlayerSeasonStats).where(
+            PlayerSeasonStats.season_id == season.id,
+            PlayerSeasonStats.player_id == alice.id,
+        )
+    )
+    alice_stats = stats_result.scalar_one()
+    assert alice_stats.points == 5.0  # 1 win * 5 pts/win
+
+    # Charlie lost: 0 wins * 5 + 1 loss * 0 = 0 points
+    stats_result = await db_session.execute(
+        select(PlayerSeasonStats).where(
+            PlayerSeasonStats.season_id == season.id,
+            PlayerSeasonStats.player_id == charlie.id,
+        )
+    )
+    charlie_stats = stats_result.scalar_one()
+    assert charlie_stats.points == 0.0  # 1 loss * 0 pts/loss
+
+    # Partnership stats should also use custom scoring
+    partnership_result = await db_session.execute(
+        select(PartnershipStatsSeason).where(
+            PartnershipStatsSeason.season_id == season.id,
+            PartnershipStatsSeason.player_id == alice.id,
+            PartnershipStatsSeason.partner_id == bob.id,
+        )
+    )
+    alice_bob = partnership_result.scalar_one()
+    assert alice_bob.points == 5  # 1 win * 5
+
+
+@pytest.mark.asyncio
+async def test_league_stats_use_league_scoring_config(
+    db_session, test_players, custom_scoring_league
+):
+    """League-level stats use the league's scoring config, not the default 3/1."""
+    alice, bob, charlie, dave = test_players
+    league, season = custom_scoring_league
+
+    session_obj = Session(
+        date="2024-02-01",
+        name="League Config Session",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        created_by=1,
+    )
+    db_session.add(session_obj)
+    await db_session.commit()
+    await db_session.refresh(session_obj)
+
+    # Two matches
+    await create_match(db_session, session_obj, alice, bob, charlie, dave, 21, 19)
+    await create_match(db_session, session_obj, alice, charlie, bob, dave, 21, 17)
+
+    result = await data_service.calculate_league_stats_async(db_session, league.id)
+    assert result["league_match_count"] == 2
+
+    # Check league-level PlayerLeagueStats — should use 5/0 scoring
+    stats_result = await db_session.execute(
+        select(PlayerLeagueStats).where(
+            PlayerLeagueStats.league_id == league.id,
+            PlayerLeagueStats.player_id == alice.id,
+        )
+    )
+    alice_stats = stats_result.scalar_one()
+    # Alice won 2 matches: 2 * 5 = 10 points (not 2*3 + 0*1 = 6)
+    assert alice_stats.points == 10.0
+
+    # Dave lost both: 0 * 5 + 2 * 0 = 0 points (not 0*3 + 2*1 = 2)
+    stats_result = await db_session.execute(
+        select(PlayerLeagueStats).where(
+            PlayerLeagueStats.league_id == league.id,
+            PlayerLeagueStats.player_id == dave.id,
+        )
+    )
+    dave_stats = stats_result.scalar_one()
+    assert dave_stats.points == 0.0
+
+    # League partnership stats should also use 5/0
+    partnership_result = await db_session.execute(
+        select(PartnershipStatsLeague).where(
+            PartnershipStatsLeague.league_id == league.id,
+            PartnershipStatsLeague.player_id == alice.id,
+            PartnershipStatsLeague.partner_id == bob.id,
+        )
+    )
+    alice_bob_league = partnership_result.scalar_one()
+    assert alice_bob_league.points == 5  # 1 win * 5
+
+
+@pytest.mark.asyncio
+async def test_season_rating_mode_points_are_ratings(
+    db_session, test_players, season_rating_league
+):
+    """In season_rating mode, PlayerSeasonStats.points stores the season ELO rating."""
+    alice, bob, charlie, dave = test_players
+    league, season = season_rating_league
+
+    session_obj = Session(
+        date="2024-01-15",
+        name="Rating Session",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        created_by=1,
+    )
+    db_session.add(session_obj)
+    await db_session.commit()
+    await db_session.refresh(session_obj)
+
+    # Alice & Bob beat Charlie & Dave
+    await create_match(db_session, session_obj, alice, bob, charlie, dave, 21, 15)
+
+    await data_service.calculate_league_stats_async(db_session, league.id)
+
+    # All members start at 100.0, winners should go up, losers should go down
+    stats_result = await db_session.execute(
+        select(PlayerSeasonStats).where(PlayerSeasonStats.season_id == season.id)
+    )
+    all_stats = {s.player_id: s for s in stats_result.scalars().all()}
+
+    # Winners gained rating (above 100)
+    assert all_stats[alice.id].points > 100.0
+    assert all_stats[bob.id].points > 100.0
+    # Losers lost rating (below 100)
+    assert all_stats[charlie.id].points < 100.0
+    assert all_stats[dave.id].points < 100.0
+
+    # Partnership stats should be 0 in season_rating mode
+    partnership_result = await db_session.execute(
+        select(PartnershipStatsSeason).where(
+            PartnershipStatsSeason.season_id == season.id,
+            PartnershipStatsSeason.player_id == alice.id,
+        )
+    )
+    alice_partnership = partnership_result.scalars().first()
+    assert alice_partnership is not None
+    assert alice_partnership.points == 0
+
+    # Season rating history should be written
+    history_result = await db_session.execute(
+        select(SeasonRatingHistory).where(SeasonRatingHistory.season_id == season.id)
+    )
+    history = history_result.scalars().all()
+    assert len(history) == 4  # One entry per player
+
+
+@pytest.mark.asyncio
+async def test_season_rating_non_member_gets_same_initial_rating(
+    db_session, test_players, season_rating_league
+):
+    """Non-league-members who play in a season_rating season start at 100, not 1200."""
+    alice, bob, charlie, dave = test_players
+    league, season = season_rating_league
+
+    # Create a 5th player who is NOT a league member
+    guest = Player(full_name="Guest")
+    db_session.add(guest)
+    await db_session.commit()
+    await db_session.refresh(guest)
+
+    session_obj = Session(
+        date="2024-01-15",
+        name="Guest Session",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        created_by=1,
+    )
+    db_session.add(session_obj)
+    await db_session.commit()
+    await db_session.refresh(session_obj)
+
+    # Guest plays with Alice against Bob & Charlie
+    await create_match(db_session, session_obj, alice, guest, bob, charlie, 21, 19)
+
+    await data_service.calculate_league_stats_async(db_session, league.id)
+
+    # Guest's season stats should show a rating near 100, not near 1200
+    stats_result = await db_session.execute(
+        select(PlayerSeasonStats).where(
+            PlayerSeasonStats.season_id == season.id,
+            PlayerSeasonStats.player_id == guest.id,
+        )
+    )
+    guest_stats = stats_result.scalar_one()
+
+    # Guest won, so should be slightly above 100 (not near 1200)
+    assert guest_stats.points > 100.0
+    assert guest_stats.points < 200.0  # Reasonable range for one-match gain from 100
+
+
+@pytest.mark.asyncio
+async def test_malformed_point_system_uses_defaults(
+    db_session, test_players
+):
+    """Season with malformed point_system JSON falls back to 3/1 defaults."""
+    league = League(name="Bad Config League", is_open=True, created_by=test_players[0].id)
+    db_session.add(league)
+    await db_session.flush()
+
+    season = Season(
+        league_id=league.id,
+        name="Bad Config Season",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        scoring_system=ScoringSystem.POINTS_SYSTEM.value,
+        point_system="{not valid json!!!}",
+        created_by=test_players[0].id,
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(league)
+    await db_session.refresh(season)
+
+    alice, bob, charlie, dave = test_players
+
+    session_obj = Session(
+        date="2024-01-15",
+        name="Bad Config Session",
+        status=SessionStatus.SUBMITTED,
+        season_id=season.id,
+        created_by=1,
+    )
+    db_session.add(session_obj)
+    await db_session.commit()
+    await db_session.refresh(session_obj)
+
+    await create_match(db_session, session_obj, alice, bob, charlie, dave, 21, 19)
+
+    result = await data_service.calculate_season_stats_async(db_session, season.id)
+    assert result["match_count"] == 1
+
+    # Should use default 3/1 scoring
+    stats_result = await db_session.execute(
+        select(PlayerSeasonStats).where(
+            PlayerSeasonStats.season_id == season.id,
+            PlayerSeasonStats.player_id == alice.id,
+        )
+    )
+    alice_stats = stats_result.scalar_one()
+    assert alice_stats.points == 3.0  # 1 win * 3 (default)

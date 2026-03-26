@@ -24,6 +24,7 @@ from sqlalchemy import select
 
 from backend.database.models import (
     EloHistory,
+    LeagueConfig,
     LeagueMember,
     Match,
     OpponentStats,
@@ -378,24 +379,31 @@ async def _calculate_season_stats_from_matches(
     if not season:
         raise ValueError(f"Season {season_id} not found")
 
-    try:
-        scoring_config = calculation_service.get_scoring_config(season.point_system)
-    except Exception:
-        scoring_config = {"type": "points_system", "points_per_win": 3, "points_per_loss": 1}
+    scoring_config = calculation_service.get_scoring_config(season.point_system)
 
     is_season_rating = season.scoring_system == ScoringSystem.SEASON_RATING.value
 
     initial_ratings: Dict[int, float] = {}
     if is_season_rating:
-        try:
-            league_members_result = await session.execute(
-                select(LeagueMember.player_id).where(LeagueMember.league_id == season.league_id)
-            )
-            all_league_member_ids = [row[0] for row in league_members_result.all()]
-            for pid in all_league_member_ids:
-                initial_ratings[pid] = 100.0
-        except Exception:
-            pass
+        # Set initial rating for all league members
+        league_members_result = await session.execute(
+            select(LeagueMember.player_id).where(LeagueMember.league_id == season.league_id)
+        )
+        all_league_member_ids = [row[0] for row in league_members_result.all()]
+        for pid in all_league_member_ids:
+            initial_ratings[pid] = 100.0
+
+        # Also set initial rating for any match participants not in league_members
+        # (e.g. guest/substitute players) so they don't start at 1200
+        for match in season_matches:
+            for pid in (
+                match.team1_player1_id,
+                match.team1_player2_id,
+                match.team2_player1_id,
+                match.team2_player2_id,
+            ):
+                if pid and pid not in initial_ratings:
+                    initial_ratings[pid] = 100.0
 
     if not season_matches:
         await delete_season_stats_async(session, season_id)
@@ -559,9 +567,18 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
             if sess_season_id:
                 session_to_season_map[sess_id] = sess_season_id
 
-    partnerships, opponents, _ = calculation_service.process_matches(all_matches)
+    # Load league-level scoring config from LeagueConfig
+    league_config_result = await session.execute(
+        select(LeagueConfig.point_system).where(LeagueConfig.league_id == league_id)
+    )
+    league_point_system = league_config_result.scalar_one_or_none()
+    league_scoring_config = calculation_service.get_scoring_config(league_point_system)
 
-    league_tracker = calculation_service.StatsTracker()
+    partnerships, opponents, _ = calculation_service.process_matches(
+        all_matches, scoring_config=league_scoring_config
+    )
+
+    league_tracker = calculation_service.StatsTracker(scoring_config=league_scoring_config)
     for match in all_matches:
         league_tracker.process_match(match)
 
