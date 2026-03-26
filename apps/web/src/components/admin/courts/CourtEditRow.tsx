@@ -324,7 +324,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
 
   // Clean up confirm timer and preview URL on unmount
   useEffect(() => () => {
-    clearTimeout(timerRef.current);
+    clearTimeout(timerRef.current ?? undefined);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
@@ -383,7 +383,7 @@ function PhotosSection({ courtId, photos, onPhotoDeleted, onPhotoAdded, onPhotos
    */
   const handleDeleteClick = (photoId: number) => {
     if (confirmIdRef.current === photoId) {
-      clearTimeout(timerRef.current);
+      clearTimeout(timerRef.current ?? undefined);
       setConfirmId(null);
       doDelete(photoId);
     } else {
@@ -551,7 +551,7 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSect
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up confirm timer on unmount
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => clearTimeout(timerRef.current ?? undefined), []);
 
   const doDelete = useCallback(async (reviewId: number) => {
     try {
@@ -567,7 +567,7 @@ function ReviewsSection({ reviews, onReviewDeleted, detailLoading }: ReviewsSect
 
   const handleDeleteClick = useCallback((reviewId: number) => {
     if (confirmId === reviewId) {
-      clearTimeout(timerRef.current);
+      clearTimeout(timerRef.current ?? undefined);
       setConfirmId(null);
       doDelete(reviewId);
     } else {

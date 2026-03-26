@@ -165,10 +165,11 @@ function computeOverview(filtered: MatchRecord[], currentElo: number | null | un
   const winRate = games > 0 ? ((wins / games) * 100).toFixed(1) : null;
 
   // Peak ELO in range
-  let peak = null;
+  let peak: number | null = null;
   for (const m of filtered) {
-    if (m[F.ELO_AFTER] != null) {
-      if (peak === null || m[F.ELO_AFTER] > peak) peak = m[F.ELO_AFTER];
+    const eloAfter = m[F.ELO_AFTER];
+    if (typeof eloAfter === 'number') {
+      if (peak === null || eloAfter > peak) peak = eloAfter;
     }
   }
 
@@ -273,10 +274,10 @@ function computeDeltas(allCompleted: MatchRecord[], filtered: MatchRecord[], tim
  * @param {string} [suffix=''] - Suffix to append (e.g. '%')
  * @param {number} [decimals=0] - Decimal places for values < 10
  */
-function formatDelta(value: number | null | undefined, suffix = '', decimals = 0): { label: string; direction: 'up' | 'down' | 'neutral' } | null {
-  if (value == null || !isFinite(value)) return null;
+function formatDelta(value: number | null | undefined, suffix = '', decimals = 0): { label: string; direction: 'up' | 'down' | 'neutral' } | undefined {
+  if (value == null || !isFinite(value)) return undefined;
   // Round very small deltas to zero
-  if (Math.abs(value) < 0.05) return null;
+  if (Math.abs(value) < 0.05) return undefined;
 
   const formatted = Math.abs(value) < 10 && decimals > 0
     ? value.toFixed(decimals)

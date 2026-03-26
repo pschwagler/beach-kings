@@ -62,7 +62,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
 
   // Track editable proposed values (pre-filled from suggestion)
   const [proposed, setProposed] = useState(() =>
-    Object.fromEntries(changedKeys.map((k) => [k, changes[k]]))
+    Object.fromEntries(changedKeys.map((k) => [k, changes?.[k]]))
   );
 
   const [saving, setSaving] = useState(false);
@@ -84,7 +84,7 @@ export default function SuggestionDiffRow({ suggestion, onResolved }: Suggestion
     for (const key of changedKeys) {
       if (selected[key]) {
         selectedFields[key] = proposed[key];
-        if (proposed[key] !== changes[key]) {
+        if (proposed[key] !== changes?.[key]) {
           allSelectedAndUnmodified = false;
         }
       } else {

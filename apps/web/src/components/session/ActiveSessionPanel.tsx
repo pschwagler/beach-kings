@@ -96,7 +96,7 @@ export default function ActiveSessionPanel({
     <div className="active-session-panel" data-testid="active-session-panel">
       {showSubmittedHeader ? (
         <SessionGroupHeader
-          sessionName={activeSession.name}
+          sessionName={activeSession.name ?? ''}
           gameCount={gameCount}
           playerCount={playerCount}
           onStatsClick={onStatsClick}
@@ -106,7 +106,7 @@ export default function ActiveSessionPanel({
         />
       ) : (
         <SessionHeader
-          sessionName={activeSession.name}
+          sessionName={activeSession.name ?? ''}
           gameCount={gameCount}
           playerCount={playerCount}
           onStatsClick={onStatsClick}
@@ -199,8 +199,8 @@ export default function ActiveSessionPanel({
             onChange={(courtId) => {
               onUpdateSessionCourt(activeSession.id, courtId);
             }}
-            homeCourts={leagueHomeCourts}
-            preFilterLocationId={leagueLocationId}
+            homeCourts={leagueHomeCourts as { id: number | string; name?: string; address?: string }[]}
+            preFilterLocationId={leagueLocationId ?? undefined}
             label="Court"
           />
         </div>
@@ -228,7 +228,7 @@ export default function ActiveSessionPanel({
         ) : contentVariant === 'clipboard' ? (
           <SessionMatchesClipboardTable
             matches={activeSessionMatches}
-            onPlayerClick={onPlayerClick}
+            onPlayerClick={onPlayerClick ?? (() => {})}
             onEditMatch={onEditMatch}
             canAddMatch={Boolean(onAddMatchClick)}
             onAddMatch={onAddMatchClick ? () => onAddMatchClick() : undefined}
@@ -242,7 +242,7 @@ export default function ActiveSessionPanel({
               <MatchCard
                 key={idx}
                 match={match}
-                onPlayerClick={onPlayerClick}
+                onPlayerClick={onPlayerClick ?? (() => {})}
                 onEdit={onEditMatch}
                 showEdit={Boolean(onEditMatch)}
               />

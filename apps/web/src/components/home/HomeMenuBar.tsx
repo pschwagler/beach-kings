@@ -14,15 +14,15 @@ import MenuBar from '../navigation/MenuBar';
  */
 
 interface HomeMenuBarProps {
-  activeTab: string;
+  activeTab: string | null;
 }
 
 export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
   const router = useRouter();
   const { dmUnreadCount } = useNotifications();
   const [moreMenuExpanded, setMoreMenuExpanded] = useState(false);
-  const moreMenuRef = useRef(null);
-  const moreMenuPortalRef = useRef(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuPortalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

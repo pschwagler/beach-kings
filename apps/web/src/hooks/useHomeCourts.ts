@@ -67,6 +67,7 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
    * Optimistically updates UI, then calls the set API.
    */
   const handleSet = useCallback(async (newCourts: Court[]) => {
+    if (entityId == null) return;
     const prev = homeCourts;
     const courtsWithPosition = newCourts.map((c, i) => ({ ...c, position: i }));
     setHomeCourts(courtsWithPosition);

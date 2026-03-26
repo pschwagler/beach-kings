@@ -31,7 +31,7 @@ interface ShareFallbackModalProps {
 export default function ShareFallbackModal({ isOpen, onClose, name, url, text }: ShareFallbackModalProps) {
   const [copied, setCopied] = useState(false);
 
-  const shareText = text || getShareText(name);
+  const shareText = text || getShareText(name ?? '');
 
   const handleCopy = useCallback(async () => {
     try {

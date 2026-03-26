@@ -5,6 +5,7 @@ import { Trophy, Award, Flame, Target, Zap, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getPlayerAwards } from '../../services/api';
 import { AWARD_CONFIG, type AwardConfig } from '../../utils/awardConstants';
+import type { SeasonAward } from '../../types';
 import './PlayerTrophies.css';
 
 /** Map iconName strings from AWARD_CONFIG to actual Lucide components. */
@@ -29,7 +30,7 @@ interface PlayerTrophiesProps {
 
 export default function PlayerTrophies({ playerId, compact = false }: PlayerTrophiesProps) {
   const router = useRouter();
-  const [awards, setAwards] = useState([]);
+  const [awards, setAwards] = useState<SeasonAward[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

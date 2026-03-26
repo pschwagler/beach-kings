@@ -185,12 +185,12 @@ export default function LeagueMembersModal({
                       {isImageUrl(member.player_avatar) ? (
                         <div className="player-avatar player-avatar-image">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={member.player_avatar} alt={member.player_name || 'Player'} />
+                          <img src={member.player_avatar ?? undefined} alt={member.player_name || 'Player'} />
                         </div>
                       ) : (
                         <div className="player-avatar player-avatar-initials">
                           <span className="player-avatar-text">
-                            {member.player_avatar || getAvatarInitial(member.player_name)}
+                            {member.player_avatar || getAvatarInitial(member.player_name ?? '')}
                           </span>
                         </div>
                       )}
@@ -207,14 +207,14 @@ export default function LeagueMembersModal({
                       ) : (
                         <span className="league-member-name">{member.player_name || 'Unknown'}</span>
                       )}
-                      {member.is_placeholder && <ShareInviteIcon playerId={member.player_id} playerName={member.player_name} />}
+                      {member.is_placeholder && <ShareInviteIcon playerId={member.player_id ?? 0} playerName={member.player_name ?? ''} />}
                       {member.joined_at && (
                         <span className="league-member-joined">
                           Joined {formatJoinDate(member.joined_at)}
                         </span>
                       )}
                     </div>
-                    <LevelBadge level={member.player_level} />
+                    <LevelBadge level={member.player_level ?? undefined} />
                   </div>
                 </div>
               ))}

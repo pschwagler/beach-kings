@@ -44,50 +44,54 @@ interface ProfileTabProps {
   fetchCurrentUser: () => Promise<void>;
 }
 
-export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }: ProfileTabProps) {
-  const [formData, setFormData] = useState({
-    email: '',
-    full_name: '',
-    nickname: '',
-    gender: 'male',
-    level: 'beginner',
-    date_of_birth: '',
-    height: '',
-    preferred_side: 'none',
-    city: '',
-    state: '',
-    city_latitude: null,
-    city_longitude: null,
-    location_id: '',
-    distance_to_location: null,
-  });
+interface ProfileFormData {
+  email: string;
+  full_name: string;
+  nickname: string;
+  gender: string;
+  level: string;
+  date_of_birth: string;
+  height: string;
+  preferred_side: string;
+  city: string;
+  state: string;
+  city_latitude: number | null;
+  city_longitude: number | null;
+  location_id: string;
+  distance_to_location: number | null;
+}
 
-  const [initialFormData, setInitialFormData] = useState({
-    email: '',
-    full_name: '',
-    nickname: '',
-    gender: 'male',
-    level: 'beginner',
-    date_of_birth: '',
-    height: '',
-    preferred_side: 'none',
-    city: '',
-    state: '',
-    city_latitude: null,
-    city_longitude: null,
-    location_id: '',
-    distance_to_location: null,
-  });
+const DEFAULT_FORM_DATA: ProfileFormData = {
+  email: '',
+  full_name: '',
+  nickname: '',
+  gender: 'male',
+  level: 'beginner',
+  date_of_birth: '',
+  height: '',
+  preferred_side: 'none',
+  city: '',
+  state: '',
+  city_latitude: null,
+  city_longitude: null,
+  location_id: '',
+  distance_to_location: null,
+};
+
+export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }: ProfileTabProps) {
+  const [formData, setFormData] = useState<ProfileFormData>(DEFAULT_FORM_DATA);
+
+  const [initialFormData, setInitialFormData] = useState<ProfileFormData>(DEFAULT_FORM_DATA);
 
   const { showToast } = useToast();
   const { deletionScheduledAt, cancelAccountDeletion, logout } = useAuth();
-  const [allLocations, setAllLocations] = useState([]);
+  const [allLocations, setAllLocations] = useState<import('../../types').Location[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showConfirmLeaveModal, setShowConfirmLeaveModal] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState(null);
-  const [deleteStep, setDeleteStep] = useState(null); // null → 'info' → 'confirm'
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const [deleteStep, setDeleteStep] = useState<string | null>(null); // null → 'info' → 'confirm'
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeletionPending, setIsDeletionPending] = useState(false);
   // Store whether there are unsaved changes in a ref so navigation blocker callback can access it
@@ -100,7 +104,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     handleRemove: handleRemoveHomeCourt,
     handleSetPrimary,
   } = useHomeCourts({
-    entityId: currentUserPlayer?.id,
+    entityId: currentUserPlayer?.id ?? null,
     api: { get: getPlayerHomeCourts, set: setPlayerHomeCourts },
   });
 
@@ -379,7 +383,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         </div>
       )}
 
-      <AvatarUpload currentUserPlayer={currentUserPlayer} fetchCurrentUser={fetchCurrentUser} />
+      {currentUserPlayer && <AvatarUpload currentUserPlayer={currentUserPlayer} fetchCurrentUser={fetchCurrentUser} />}
 
       <form className="profile-page__form" onSubmit={handleSubmit}>
         {/* Account Info */}
@@ -506,10 +510,10 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         <CourtSelector
           mode="multi"
           selectedCourts={homeCourts as Array<{ id: number | string; name: string; address?: string }>}
-          onSet={handleSetHomeCourts}
+          onSet={handleSetHomeCourts as (courts: { id: number | string; name?: string; address?: string }[]) => void}
           onRemove={handleRemoveHomeCourt}
           onSetPrimary={handleSetPrimary}
-          preFilterLocationId={currentUserPlayer?.location_id}
+          preFilterLocationId={currentUserPlayer?.location_id ?? undefined}
         />
       </div>
 

@@ -18,8 +18,8 @@ function calculatePlayerStats(matches: SessionMatch[]) {
   const playerStats: Record<string, { name: string; wins: number; losses: number; pointDifferential: number }> = {};
   
   matches.forEach(match => {
-    const team1Players = [match.team_1_player_1, match.team_1_player_2].filter(Boolean);
-    const team2Players = [match.team_2_player_1, match.team_2_player_2].filter(Boolean);
+    const team1Players = [match.team_1_player_1, match.team_1_player_2].filter((p): p is string => Boolean(p));
+    const team2Players = [match.team_2_player_1, match.team_2_player_2].filter((p): p is string => Boolean(p));
     const team1Score = parseInt(String(match.team_1_score ?? '')) || 0;
     const team2Score = parseInt(String(match.team_2_score ?? '')) || 0;
     

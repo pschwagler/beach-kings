@@ -88,7 +88,7 @@ export default function AllCourtsPanel() {
   }, [load, page, regionFilter, locationFilter, sortBy, sortDir]);
 
   // Clean up debounce timer on unmount
-  useEffect(() => () => clearTimeout(debounceRef.current), []);
+  useEffect(() => () => clearTimeout(debounceRef.current ?? undefined), []);
 
   /** Debounced search — resets to page 1 on new search. */
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,11 +300,11 @@ function CourtRows({ court, isExpanded, onRowClick, onCourtUpdated, statusBadge,
           <div className="feedback-text">{court.address || 'N/A'}</div>
         </td>
         <td>{court.location_name || court.location_id}</td>
-        <td>{statusBadge(court.status)}</td>
+        <td>{statusBadge(court.status ?? undefined)}</td>
         <td>{court.surface_type || 'N/A'}</td>
         <td>{court.court_count || 'N/A'}</td>
         <td>
-          {court.photo_count > 0 ? (
+          {(court.photo_count ?? 0) > 0 ? (
             <span className="admin-court-photo-count">
               <Camera size={13} /> {court.photo_count}
             </span>

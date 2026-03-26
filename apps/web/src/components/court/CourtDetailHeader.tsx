@@ -14,7 +14,7 @@ interface CourtDetailHeaderProps {
 }
 
 export default function CourtDetailHeader({ court, onSuggestEdit }: CourtDetailHeaderProps) {
-  const surfaceLabel = getSurfaceLabel(court.surface_type);
+  const surfaceLabel = getSurfaceLabel(court.surface_type ?? '');
 
   return (
     <div className="court-detail__header">
@@ -35,7 +35,7 @@ export default function CourtDetailHeader({ court, onSuggestEdit }: CourtDetailH
       </div>
 
       <div className="court-detail__rating-row">
-        {court.review_count > 0 ? (
+        {(court.review_count ?? 0) > 0 ? (
           <>
             <StarRating value={court.average_rating || 0} size={20} showValue />
             <span className="court-detail__review-count">
@@ -54,7 +54,7 @@ export default function CourtDetailHeader({ court, onSuggestEdit }: CourtDetailH
       )}
 
       <div className="court-detail__badges">
-        {court.court_count > 0 && (
+        {(court.court_count ?? 0) > 0 && (
           <span className="court-detail__badge">
             {court.court_count} Court{court.court_count !== 1 ? 's' : ''}
           </span>

@@ -95,14 +95,14 @@ export default function UploadPhotoModal({
   seasonId,
   onProceedToReview
 }: UploadPhotoModalProps) {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [userPrompt, setUserPrompt] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const resetState = useCallback(() => {
     setSelectedFile(null);
@@ -210,7 +210,7 @@ export default function UploadPhotoModal({
     setError(null);
 
     try {
-      const result: any = await uploadMatchPhoto(leagueId, selectedFile, userPrompt || null, seasonId || null);
+      const result: any = await uploadMatchPhoto(leagueId ?? 0, selectedFile, userPrompt || null, seasonId ?? null);
       const thumbnailDataUrl = await createThumbnailDataUrl(selectedFile) as string | null;
       onProceedToReview(result.job_id, result.session_id, thumbnailDataUrl);
     } catch (err) {
@@ -289,7 +289,7 @@ export default function UploadPhotoModal({
             <div className="upload-preview">
               <div className="preview-image-container">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewUrl} alt="Preview" className="preview-image" />
+                <img src={previewUrl ?? undefined} alt="Preview" className="preview-image" />
                 <button
                   className="preview-remove-btn"
                   onClick={handleRemoveFile}

@@ -43,7 +43,7 @@ export default function LeagueDetailsTab() {
   const [showCreateSeasonModal, setShowCreateSeasonModal] = useState(false);
   const [showOnlyAdminModal, setShowOnlyAdminModal] = useState(false);
   const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ memberId: number; playerName: string } | null>(null);
   const [joinRequests, setJoinRequests] = useState({ pending: [], rejected: [] });
 
   // Use custom hook for sorted members
@@ -128,7 +128,7 @@ export default function LeagueDetailsTab() {
 
     try {
       await leaveLeague(leagueId);
-      showToast(`You have left ${league.name}`, 'success');
+      showToast(`You have left ${league?.name}`, 'success');
       setShowLeaveConfirmModal(false);
       // Navigate back to home leagues tab
       router.push('/home?tab=leagues');

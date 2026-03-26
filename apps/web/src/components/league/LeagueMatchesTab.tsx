@@ -294,7 +294,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   const handleUpdateMatch = async (matchId: number, matchData: Record<string, unknown>, sessionId: number | null = null) => {
     try {
-      await sessionEditingUpdateMatch(matchId, matchData, sessionId, matchOperations, matches);
+      await sessionEditingUpdateMatch(matchId, matchData, sessionId, matchOperations, matches ?? []);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       showToast(e.response?.data?.detail || 'Failed to update game', 'error');
@@ -304,7 +304,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   const handleDeleteMatch = async (matchId: number) => {
     try {
-      await sessionEditingDeleteMatch(matchId, matchOperations, matches);
+      await sessionEditingDeleteMatch(matchId, matchOperations, matches ?? []);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       showToast(e.response?.data?.detail || 'Failed to delete game', 'error');
@@ -333,8 +333,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const { handlePlayerClick } = usePlayerDetailsDrawer({
     seasonData: selectedSeasonData,
     allPlayers,
-    leagueName: league?.name,
-    seasonName: selectedSeasonId ? seasons.find(s => s.id === selectedSeasonId)?.name : null,
+    leagueName: league?.name ?? '',
+    seasonName: selectedSeasonId ? (seasons.find(s => s.id === selectedSeasonId)?.name ?? '') : '',
     selectedPlayerId,
     selectedPlayerName,
     setSelectedPlayer,
@@ -519,7 +519,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       </div>
       
       <MatchesTable
-        matches={matches}
+        matches={matches ?? []}
         onPlayerClick={handlePlayerClick}
         loading={selectedSeasonId
           ? (seasonDataLoadingMap[selectedSeasonId] || false)

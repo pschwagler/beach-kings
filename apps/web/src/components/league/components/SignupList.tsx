@@ -85,7 +85,7 @@ export default function SignupList({
   const getIsExpanded = (signup: Signup): boolean => {
     if (isUpcoming) {
       // Signups are expanded by default unless manually collapsed
-      return signup.players && signup.players.length > 0 && !collapsedSignups.has(signup.id);
+      return !!(signup.players && signup.players.length > 0 && !collapsedSignups.has(signup.id));
     } else {
       return expandedPastSignups.has(signup.id);
     }
@@ -176,7 +176,7 @@ export default function SignupList({
                     {isUpcoming && isLeagueMember && signup.is_open && (
                       <button
                         className={`league-text-button ${isSignedUp ? 'danger' : 'primary'}`}
-                        onClick={() => isSignedUp ? onDropout(signup.id) : onSignup(signup.id)}
+                        onClick={() => isSignedUp ? onDropout?.(signup.id) : onSignup?.(signup.id)}
                       >
                         {isSignedUp ? 'Drop Out' : 'Sign Up'}
                       </button>
@@ -195,14 +195,14 @@ export default function SignupList({
                     <>
                       <button
                         className="league-text-button"
-                        onClick={() => onEdit(signup)}
+                        onClick={() => onEdit?.(signup)}
                       >
                         <Edit2 size={14} />
                         Edit
                       </button>
                       <button
                         className="league-signup-remove"
-                        onClick={() => onDelete(signup.id)}
+                        onClick={() => onDelete?.(signup.id)}
                         title="Delete signup"
                       >
                         <Trash2 size={16} />

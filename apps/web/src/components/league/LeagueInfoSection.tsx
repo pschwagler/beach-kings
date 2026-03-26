@@ -35,7 +35,7 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
     handleSetPrimary,
   } = useHomeCourts({
     entityId: leagueId,
-    initialCourts: league?.home_courts,
+    initialCourts: (league?.home_courts ?? undefined) as import('../../types').Court[] | undefined,
     api: { set: setLeagueHomeCourts },
   });
 
@@ -162,11 +162,11 @@ export default function LeagueInfoSection({ league, onUpdate }: LeagueInfoSectio
             {isLeagueAdmin ? (
               <CourtSelector
                 mode="multi"
-                selectedCourts={homeCourts}
-                onSet={handleSetHomeCourts}
+                selectedCourts={homeCourts as { id: number | string; name?: string; address?: string }[]}
+                onSet={handleSetHomeCourts as (courts: { id: number | string; name?: string; address?: string }[]) => void}
                 onRemove={handleRemoveHomeCourt}
                 onSetPrimary={handleSetPrimary}
-                preFilterLocationId={league?.location_id}
+                preFilterLocationId={league?.location_id ?? undefined}
               />
             ) : homeCourts.length > 0 ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>

@@ -81,6 +81,10 @@ export const subscribePhotoJobStream = (leagueId: number, jobId: number, callbac
         callbacks.onError({ message: response.status === 404 ? 'Job not found' : response.status === 403 ? 'Access denied' : `Request failed: ${response.status}` });
         return;
       }
+      if (!response.body) {
+        callbacks.onError({ message: 'Response body is not readable' });
+        return;
+      }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const parser = createParser({

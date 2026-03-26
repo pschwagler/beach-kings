@@ -12,7 +12,17 @@ import { Button } from '../ui/UI';
 import StarRating from '../ui/StarRating';
 import LevelBadge from '../ui/LevelBadge';
 import './NearYouSection.css';
-import type { Player } from '../../types';
+import type { Player, Court, PublicPlayerResponse } from '../../types';
+
+/** Shape of a location entry returned by getPublicLocations(). */
+interface LocationData {
+  id: string;
+  name?: string;
+  league_count?: number;
+  player_count?: number;
+  court_count?: number;
+  [key: string]: unknown;
+}
 
 /**
  * "Near You" discovery section for the home page.
@@ -38,9 +48,9 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
     : null;
   const { position: userPos, source: posSource } = useUserPosition(profileCoords);
 
-  const [courts, setCourts] = useState([]);
-  const [players, setPlayers] = useState([]);
-  const [locationData, setLocationData] = useState(null);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [players, setPlayers] = useState<PublicPlayerResponse[]>([]);
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [levelFilter, setLevelFilter] = useState('');
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
@@ -71,7 +81,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
     if (!locationId) return;
     getPublicLocations()
       .then((data) => {
-        const allLocations = ((data.regions || []) as Array<{ locations?: Array<{ id: string; [key: string]: unknown }> }>).flatMap((r) => r.locations || []);
+        const allLocations = ((data.regions || []) as Array<{ locations?: LocationData[] }>).flatMap((r) => r.locations || []);
         const match = allLocations.find((loc) => loc.id === locationId);
         if (match) setLocationData(match);
       })
@@ -148,8 +158,8 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                       <div className="near-you-section__court-address">{court.address}</div>
                     )}
                   </div>
-                  {court.avg_rating > 0 && (
-                    <StarRating value={court.avg_rating} size={14} />
+                  {(court.avg_rating ?? 0) > 0 && (
+                    <StarRating value={court.avg_rating ?? undefined} size={14} />
                   )}
                 </Link>
               ))
@@ -211,7 +221,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                     {player.level && <LevelBadge level={player.level} />}
                   </div>
                   <span className="near-you-section__player-rating">
-                    {Math.round(player.stats?.current_rating || player.current_rating || 1200)}
+                    {Math.round(player.stats?.current_rating || 1200)}
                   </span>
                 </Link>
                 );

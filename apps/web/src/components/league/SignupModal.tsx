@@ -71,7 +71,7 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
   const [loading, setLoading] = useState(true);
   
   // Initialize form data
-  const scheduled = signup ? utcToLocalDateTime(signup.scheduled_datetime) : { date: getTodayDate(), time: getNextHour() };
+  const scheduled = signup ? utcToLocalDateTime(signup.scheduled_datetime ?? '') : { date: getTodayDate(), time: getNextHour() };
   
   const [formData, setFormData] = useState({
     scheduled_date: scheduled.date,

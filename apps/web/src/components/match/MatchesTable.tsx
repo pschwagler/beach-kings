@@ -290,13 +290,13 @@ export default function MatchesTable({
 
           acc[key] = createSessionGroup(
             sessionId,
-            sessionName,
-            sessionStatus,
-            sessionCreatedAt,
-            match.session_updated_at,
-            match.session_created_by,
-            match.session_updated_by,
-            sessionDate
+            sessionName ?? '',
+            sessionStatus ?? '',
+            sessionCreatedAt ?? null,
+            match.session_updated_at ?? null,
+            match.session_created_by ?? null,
+            match.session_updated_by ?? null,
+            sessionDate ?? null
           );
         }
         acc[key].matches.push(match);
@@ -347,10 +347,10 @@ export default function MatchesTable({
             sessionId,
             sessionMetadata.name || `Session ${sessionId}`,
             sessionMetadata.status || 'SUBMITTED',
-            sessionCreatedAt,
-            sessionMetadata.updatedAt,
-            sessionMetadata.createdBy,
-            sessionMetadata.updatedBy,
+            sessionCreatedAt ?? null,
+            sessionMetadata.updatedAt ?? null,
+            sessionMetadata.createdBy ?? null,
+            sessionMetadata.updatedBy ?? null,
             sessionDate
           );
         } else {
@@ -365,11 +365,11 @@ export default function MatchesTable({
               sessionId,
               sessionMatch.session_name || `Session ${sessionId}`,
               sessionMatch.session_status || 'SUBMITTED',
-              sessionCreatedAt,
-              sessionMatch.session_updated_at,
-              sessionMatch.session_created_by,
-              sessionMatch.session_updated_by,
-              sessionDate
+              sessionCreatedAt ?? null,
+              sessionMatch.session_updated_at ?? null,
+              sessionMatch.session_created_by ?? null,
+              sessionMatch.session_updated_by ?? null,
+              sessionDate ?? null
             );
           }
         }
@@ -479,16 +479,16 @@ export default function MatchesTable({
 
   const handleAddMatch = async (matchData: Record<string, unknown>, matchId?: number | string) => {
     if (matchId) {
-      const match = matchesWithPendingChanges.find(m => m.id === matchId);
+      const match = matchesWithPendingChanges?.find(m => m.id === matchId);
       const sessionId = match?.session_id;
       const isEditingSession = sessionId && editingSessions.has(sessionId);
       
-      await onUpdateMatch(matchId, matchData, isEditingSession ? sessionId : undefined);
+      await onUpdateMatch?.(matchId, matchData, isEditingSession ? sessionId : undefined);
     } else {
       const matchPayload = { ...matchData };
       // Preserve season_id if it's in matchData (from AddMatchModal)
       const editingSessionId = editingSessions.size > 0 ? Array.from(editingSessions)[0] : null;
-      
+
       if (editingSessionId) {
         matchPayload.session_id = editingSessionId;
       } else if (activeSession) {
@@ -499,11 +499,11 @@ export default function MatchesTable({
       } else {
         throw new Error('leagueId is required to create a match');
       }
-      
+
       if (editingSessionId) {
-        await onCreateMatch(matchPayload, editingSessionId);
+        await onCreateMatch?.(matchPayload, editingSessionId);
       } else {
-        await onCreateMatch(matchPayload);
+        await onCreateMatch?.(matchPayload);
         if (onCreateSession) {
           await onCreateSession();
         }
@@ -529,7 +529,7 @@ export default function MatchesTable({
 
   const handleLockInSession = async (sessionId: number | string) => {
     if (sessionId) {
-      await onEndSession(sessionId);
+      await onEndSession?.(sessionId);
     }
   };
   
@@ -595,7 +595,7 @@ export default function MatchesTable({
           <ActiveSessionPanel
             activeSession={activeSession}
             activeSessionMatches={activeSessionMatches}
-            onPlayerClick={onPlayerClick}
+            onPlayerClick={onPlayerClick as (playerId: number | null, playerName: string, e: React.MouseEvent) => void}
             contentVariant={contentVariant}
             isAdmin={isAdmin}
             onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
@@ -624,7 +624,7 @@ export default function MatchesTable({
                 confirmButtonClass: 'danger',
                 sessionName: activeSession?.name,
                 season: sessionSeason,
-                onConfirm: () => onDeleteSession(activeSession.id),
+                onConfirm: () => onDeleteSession?.(activeSession.id),
               });
             }}
             onSubmitClick={() => {
@@ -691,7 +691,7 @@ export default function MatchesTable({
                 <ActiveSessionPanel
                   activeSession={{ id: group.id as number, name: group.name, season_id: seasonId }}
                   activeSessionMatches={group.matches}
-                  onPlayerClick={onPlayerClick}
+                  onPlayerClick={onPlayerClick as (playerId: number | null, playerName: string, e: React.MouseEvent) => void}
                   contentVariant={contentVariant}
                   isAdmin={isAdmin}
                   onAddMatchClick={() => openModal(MODAL_TYPES.ADD_MATCH, {
@@ -708,8 +708,8 @@ export default function MatchesTable({
                     onSeasonChange: onSeasonChange
                   })}
                   onEditMatch={handleEditMatch}
-                  onSaveClick={() => onSaveEditedSession(group.id)}
-                  onCancelClick={() => onCancelEdit(group.id)}
+                  onSaveClick={() => onSaveEditedSession?.(group.id)}
+                  onCancelClick={() => onCancelEdit?.(group.id)}
                   onDeleteSession={onDeleteSession}
                   onRequestDeleteSession={() => {
                     const seasonId = group.matches?.[0]?.session_season_id;
@@ -723,7 +723,7 @@ export default function MatchesTable({
                       confirmButtonClass: 'danger',
                       sessionName: group.name,
                       season: sessionSeasonForDelete,
-                      onConfirm: () => onDeleteSession(group.id),
+                      onConfirm: () => onDeleteSession?.(group.id),
                     });
                   }}
                   onUpdateSessionSeason={onUpdateSessionSeason}
@@ -800,7 +800,7 @@ export default function MatchesTable({
               data-testid="session-group"
             >
               <SessionGroupHeader
-                sessionName={group.name}
+                sessionName={group.name ?? ''}
                 gameCount={sessionGameCount}
                 playerCount={sessionPlayerCount}
                 onStatsClick={group.type === 'session' && sessionGameCount > 0 ? () => {
@@ -812,8 +812,8 @@ export default function MatchesTable({
                     season: sessionSeason
                   });
                 } : undefined}
-                onEditClick={canEdit ? () => onEnterEditMode(group.id) : undefined}
-                timestampText={contentVariant === 'cards' ? timestampText : undefined}
+                onEditClick={canEdit ? () => onEnterEditMode?.(group.id) : undefined}
+                timestampText={contentVariant === 'cards' ? (timestampText ?? undefined) : undefined}
                 seasonBadge={sessionSeason ? (sessionSeason.name || `Season ${sessionSeason.id}`) : undefined}
               />
               {contentVariant === 'clipboard' ? (
@@ -825,7 +825,7 @@ export default function MatchesTable({
                   showActions={false}
                   lastUpdated={group.lastUpdated}
                   formatRelativeTime={(date) => {
-                    const timestamp = formatRelativeTime(date);
+                    const timestamp = formatRelativeTime(date) ?? '';
                     if (group.type === 'session') {
                       const user = group.updatedBy || group.createdBy;
                       if (group.status === 'EDITED' && user) {

@@ -49,7 +49,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });
-                this.props.onReset();
+                this.props.onReset?.();
               }}
               style={{
                 padding: '10px 20px',

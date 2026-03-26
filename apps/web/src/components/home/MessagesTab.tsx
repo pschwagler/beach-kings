@@ -83,7 +83,7 @@ function Avatar({ avatar, name }: AvatarProps) {
     return (
       <div className="messages-tab__avatar">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatar} alt={name} />
+        <img src={avatar ?? undefined} alt={name ?? undefined} />
       </div>
     );
   }
@@ -362,7 +362,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
         if (!cancelled) {
           // Messages come newest-first from API; reverse for chronological display
           setMessages((data.items || []).reverse());
-          setHasMore(data.has_more);
+          setHasMore(data.has_more ?? false);
         }
       } catch (err) {
         console.error('Error loading thread:', err);
@@ -418,7 +418,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
       const data = await getThread(otherPlayerId, nextPage, 50);
       const older = (data.items || []).reverse();
       setMessages((prev) => [...older, ...prev]);
-      setHasMore(data.has_more);
+      setHasMore(data.has_more ?? false);
       setPage(nextPage);
     } catch (err: unknown) {
       console.error('Error loading more messages:', err);
@@ -586,8 +586,8 @@ export default function MessagesTab() {
             setThreadInfo({
               playerId: conv.player_id,
               name: conv.full_name,
-              avatar: conv.avatar,
-              isFriend: conv.is_friend,
+              avatar: conv.avatar ?? null,
+              isFriend: conv.is_friend ?? false,
             });
           } else {
             // No existing conversation — fetch player info and check friendship
@@ -621,7 +621,7 @@ export default function MessagesTab() {
   }, [threadPlayerId, threadInfo]);
 
   const openThread = useCallback((playerId: number, name: string, avatar: string | null | undefined, isFriend: boolean | undefined) => {
-    setThreadInfo({ playerId, name, avatar, isFriend });
+    setThreadInfo({ playerId, name, avatar: avatar ?? null, isFriend: isFriend ?? false });
     const params = new URLSearchParams(window.location.search);
     params.set('tab', 'messages');
     params.set('thread', String(playerId));

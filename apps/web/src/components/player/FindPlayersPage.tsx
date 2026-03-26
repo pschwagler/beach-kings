@@ -17,6 +17,7 @@ import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
 import { formatGender } from '../../utils/formatters';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
+import type { PublicPlayerResponse, Location, League } from '../../types';
 import './FindPlayersPage.css';
 
 /** Max players per page. */
@@ -111,13 +112,13 @@ export default function FindPlayersPage() {
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
-  const [players, setPlayers] = useState([]);
+  const [userLeagues, setUserLeagues] = useState<League[]>([]);
+  const [players, setPlayers] = useState<PublicPlayerResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-  const [locations, setLocations] = useState([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [locationIds, setLocationIds] = useState(() => {
     const initial = searchParams.get('location_id');
     return initial ? initial.split(',') : [];
@@ -132,7 +133,7 @@ export default function FindPlayersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [friendStatuses, setFriendStatuses] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const filterPanelRef = useRef(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   // Restore saved view mode from localStorage (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -144,7 +145,7 @@ export default function FindPlayersPage() {
   useEffect(() => {
     if (!isFilterOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
         setIsFilterOpen(false);
       }
     };
@@ -615,7 +616,7 @@ export default function FindPlayersPage() {
                                     <div className="find-players__card-avatar find-players__card-avatar--sm">
                                       {isImageUrl(player.avatar)
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
+                                        ? <img src={player.avatar ?? undefined} alt={player.full_name} className="find-players__card-avatar-img" />
                                         : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
                                       }
                                     </div>
@@ -625,11 +626,11 @@ export default function FindPlayersPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="find-players__table-cell--secondary">{player.location_name || '—'}</td>
+                                <td className="find-players__table-cell--secondary">{player.location?.name || '—'}</td>
                                 <td className="find-players__table-cell--secondary">{player.gender ? formatGender(player.gender) : '—'}</td>
                                 <td>{player.level ? <LevelBadge level={player.level} /> : '—'}</td>
-                                <td className="find-players__table-cell--secondary">{player.total_games}</td>
-                                <td className="find-players__table-cell--secondary">{Math.round(player.current_rating || 1200)}</td>
+                                <td className="find-players__table-cell--secondary">{player.stats?.total_games}</td>
+                                <td className="find-players__table-cell--secondary">{Math.round(player.stats?.current_rating || 1200)}</td>
                                 <td><FriendBadge friendStatuses={friendStatuses} playerId={player.id} /></td>
                               </tr>
                             ))}
@@ -648,7 +649,7 @@ export default function FindPlayersPage() {
                           <div className="find-players__card-avatar">
                             {isImageUrl(player.avatar)
                               // eslint-disable-next-line @next/next/no-img-element
-                              ? <img src={player.avatar} alt={player.full_name} className="find-players__card-avatar-img" />
+                              ? <img src={player.avatar ?? undefined} alt={player.full_name} className="find-players__card-avatar-img" />
                               : <span className="find-players__card-avatar-initials">{player.avatar || player.full_name?.charAt(0)}</span>
                             }
                           </div>
@@ -659,10 +660,10 @@ export default function FindPlayersPage() {
                                 <span className="find-players__card-badge find-players__card-badge--placeholder">Unregistered</span>
                               )}
                             </div>
-                            {player.location_name && (
+                            {player.location?.name && (
                               <span className="find-players__card-location">
                                 <MapPin size={12} />
-                                {player.location_name}
+                                {player.location.name}
                               </span>
                             )}
                             <div className="find-players__card-meta">
@@ -671,10 +672,10 @@ export default function FindPlayersPage() {
                               )}
                               {player.level && <LevelBadge level={player.level} />}
                               <span className="find-players__card-games">
-                                {player.total_games} game{player.total_games !== 1 ? 's' : ''}
+                                {player.stats?.total_games} game{player.stats?.total_games !== 1 ? 's' : ''}
                               </span>
                               <span className="find-players__card-rating">
-                                {Math.round(player.current_rating || 1200)}
+                                {Math.round(player.stats?.current_rating || 1200)}
                               </span>
                               <FriendBadge friendStatuses={friendStatuses} playerId={player.id} />
                             </div>

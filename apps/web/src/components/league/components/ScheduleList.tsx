@@ -56,14 +56,14 @@ export default function ScheduleList({
                 <div className="league-schedule-actions">
                   <button
                     className="league-text-button"
-                    onClick={() => onEdit(schedule)}
+                    onClick={() => onEdit?.(schedule)}
                   >
                     <Edit2 size={14} />
                     Edit
                   </button>
                   <button
                     className="league-schedule-remove"
-                    onClick={() => onDelete(schedule.id)}
+                    onClick={() => onDelete?.(schedule.id)}
                     title="Delete schedule"
                   >
                     <Trash2 size={16} />

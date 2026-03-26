@@ -7,17 +7,17 @@ import "./KobLive.css";
 interface KobScheduleMatch {
   matchup_id: string;
   round_num: number;
-  phase?: string;
-  bracket_position?: string;
+  phase?: string | null;
+  bracket_position?: string | null;
   team1_score: number | null;
   team2_score: number | null;
   is_bye?: boolean;
   winner?: number | null;
-  court_num?: number;
-  team1_player1_name?: string;
-  team1_player2_name?: string;
-  team2_player1_name?: string;
-  team2_player2_name?: string;
+  court_num?: number | null;
+  team1_player1_name?: string | null;
+  team1_player2_name?: string | null;
+  team2_player1_name?: string | null;
+  team2_player2_name?: string | null;
 }
 
 interface ScheduleTabProps {
@@ -60,7 +60,7 @@ export default function ScheduleTab({ matches, scheduleData, currentRound }: Sch
   const playoffNums = roundNums.filter((rn) => rounds[rn][0]?.phase !== "pool_play");
 
   const toggleRound = (roundNum: number) => {
-    setExpandedRound(expandedRound === roundNum ? null : roundNum);
+    setExpandedRound(expandedRound === roundNum ? undefined : roundNum);
   };
 
   return (
@@ -118,11 +118,11 @@ export default function ScheduleTab({ matches, scheduleData, currentRound }: Sch
               <div className="kob-schedule__matches">
                 {roundMatches.map((match) => {
                   const team1Names = [match.team1_player1_name, match.team1_player2_name]
-                    .filter(Boolean)
+                    .filter((n): n is string => Boolean(n))
                     .map((n) => n.split(" ")[0])
                     .join(" & ");
                   const team2Names = [match.team2_player1_name, match.team2_player2_name]
-                    .filter(Boolean)
+                    .filter((n): n is string => Boolean(n))
                     .map((n) => n.split(" ")[0])
                     .join(" & ");
 

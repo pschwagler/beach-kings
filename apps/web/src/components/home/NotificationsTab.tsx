@@ -132,7 +132,7 @@ export default function NotificationsTab() {
     }
   };
 
-  const formatTimestamp = (timestamp: string): string => {
+  const formatTimestamp = (timestamp: string | null | undefined): string => {
     if (!timestamp) return '';
     
     const date = new Date(timestamp);

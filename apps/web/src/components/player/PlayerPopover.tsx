@@ -31,8 +31,8 @@ export default function PlayerPopover({
   const router = useRouter();
   const { isAuthenticated, currentUserPlayer } = useAuth();
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [friendStatus, setFriendStatus] = useState<string | null>(friendStatusCache[playerId] || null);
-  const [loading, setLoading] = useState(!friendStatusCache[playerId] && isAuthenticated && playerId !== currentUserPlayer?.id);
+  const [friendStatus, setFriendStatus] = useState<string | null>(playerId != null ? (friendStatusCache[playerId] || null) : null);
+  const [loading, setLoading] = useState(playerId != null && !friendStatusCache[playerId] && isAuthenticated && playerId !== currentUserPlayer?.id);
   const [actionLoading, setActionLoading] = useState(false);
   const [incomingRequestId, setIncomingRequestId] = useState<number | null>(null);
 
@@ -114,7 +114,7 @@ export default function PlayerPopover({
   };
 
   const handleAddFriend = async () => {
-    if (actionLoading) return;
+    if (actionLoading || !playerId) return;
     setActionLoading(true);
     try {
       await sendFriendRequest(playerId);
@@ -133,7 +133,7 @@ export default function PlayerPopover({
     try {
       await acceptFriendRequest(incomingRequestId);
       setFriendStatus('friend');
-      onCacheUpdate?.(playerId, 'friend');
+      if (playerId != null) onCacheUpdate?.(playerId, 'friend');
     } catch {
       // Silently fail
     } finally {

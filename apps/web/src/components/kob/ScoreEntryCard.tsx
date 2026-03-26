@@ -7,18 +7,18 @@ import "./KobLive.css";
 
 interface KobMatchForCard {
   matchup_id: string;
-  phase?: string;
+  phase?: string | null;
   team1_score: number | null;
   team2_score: number | null;
   is_bye?: boolean;
   winner?: number | null;
-  court_num?: number;
-  bracket_position?: string;
-  team1_player1_name?: string;
-  team1_player2_name?: string;
-  team2_player1_name?: string;
-  team2_player2_name?: string;
-  game_scores?: Array<{ team1_score: number; team2_score: number }>;
+  court_num?: number | null;
+  bracket_position?: string | null;
+  team1_player1_name?: string | null;
+  team1_player2_name?: string | null;
+  team2_player1_name?: string | null;
+  team2_player2_name?: string | null;
+  game_scores?: Array<{ team1_score: number; team2_score: number }> | null;
 }
 
 interface ScoreEntryCardProps {
@@ -116,12 +116,12 @@ export default function ScoreEntryCard({
   };
 
   const team1Names = [match.team1_player1_name, match.team1_player2_name]
-    .filter(Boolean)
-    .map((n) => n.split(" ")[0])
+    .filter((n): n is string => Boolean(n))
+    .map((n) => n.split(" ")[0] ?? n)
     .join(" & ");
   const team2Names = [match.team2_player1_name, match.team2_player2_name]
-    .filter(Boolean)
-    .map((n) => n.split(" ")[0])
+    .filter((n): n is string => Boolean(n))
+    .map((n) => n.split(" ")[0] ?? n)
     .join(" & ");
 
   // For single-game: show inputs when not scored or editing

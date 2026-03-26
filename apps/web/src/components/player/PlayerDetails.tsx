@@ -51,6 +51,7 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
   }, [isAuthenticated, playerId, isSelf, isPlaceholder]);
 
   const handleAddFriend = useCallback(async () => {
+    if (!playerId) return;
     setFriendLoading(true);
     try {
       await sendFriendRequest(playerId);

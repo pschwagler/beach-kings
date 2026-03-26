@@ -65,7 +65,7 @@ export default function LeagueAwardsTab({ leagueId }: LeagueAwardsTabProps) {
         setLoading(true);
         const data = await getLeagueAwards(leagueId);
         if (!cancelled) {
-          setAwards(data || []);
+          setAwards((data || []) as LeagueAward[]);
         }
       } catch (err) {
         if (!cancelled) {

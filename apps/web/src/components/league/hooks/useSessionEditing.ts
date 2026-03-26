@@ -164,6 +164,7 @@ export function useSessionEditing({
       }
       
       // Lock in the session (this will recalculate stats)
+      if (leagueId == null) return;
       await lockInLeagueSession(leagueId, sessionId);
       
       // Clear editing state and pending changes IMMEDIATELY after API operations

@@ -19,7 +19,7 @@ export default function Page() {
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
   const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] = useState(false);
   const [userLeagues, setUserLeagues] = useState([]);
-  const [pendingAction, setPendingAction] = useState(null);
+  const [pendingAction, setPendingAction] = useState<{ type: string; leagueId?: number } | null>(null);
   const [justSignedUp, setJustSignedUp] = useState(false);
 
   // Redirect authenticated users to /home

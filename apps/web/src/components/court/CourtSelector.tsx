@@ -133,20 +133,20 @@ export default function CourtSelector({
   }, [value, valueName, homeCourts, browsedCourt, placeholderCourt]);
 
   const handleSelect = (courtId: number | string) => {
-    onChange(courtId as number);
+    onChange?.(courtId as number);
     setIsOpen(false);
   };
 
   const handleOther = () => {
     if (mode === 'single' && placeholderCourt) {
-      onChange(placeholderCourt.id as number);
+      onChange?.(placeholderCourt.id as number);
     }
     setIsOpen(false);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onChange(null);
+    onChange?.(null);
     setBrowsedCourt(null);
   };
 
@@ -175,7 +175,7 @@ export default function CourtSelector({
       if (selected.length > 0) {
         const court = selected[0];
         setBrowsedCourt(court);
-        onChange(court.id as number);
+        onChange?.(court.id as number);
       }
     } else {
       // Multi: merge browser selection with existing courts

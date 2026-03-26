@@ -26,7 +26,7 @@ export default function NearbyCourtsList({ courts }: NearbyCourtsList_Props) {
           >
             <h3>{court.name}</h3>
             <div className="court-detail__nearby-meta">
-              {court.review_count > 0 ? (
+              {(court.review_count ?? 0) > 0 ? (
                 <StarRating value={court.average_rating || 0} size={12} />
               ) : (
                 <span className="court-detail__nearby-new">New</span>

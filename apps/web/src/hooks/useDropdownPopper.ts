@@ -27,7 +27,7 @@ export function useDropdownPopper(
 
     // Calculate max height based on available space
     const calculateMaxHeight = () => {
-      const rect = referenceRef.current.getBoundingClientRect();
+      const rect = referenceRef.current!.getBoundingClientRect();
       const viewportHeight = window.visualViewport 
         ? window.visualViewport.height 
         : window.innerHeight;

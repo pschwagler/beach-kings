@@ -28,11 +28,11 @@ const SUGGESTIONS_REFETCH_THRESHOLD = 3;
 
 interface FriendRequest {
   id: number;
-  sender_name?: string;
-  sender_avatar?: string | null;
-  receiver_name?: string;
-  receiver_avatar?: string | null;
-  created_at?: string;
+  sender_name: string;
+  sender_avatar: string | null;
+  receiver_name: string;
+  receiver_avatar: string | null;
+  created_at: string | null;
 }
 
 interface Friend {
@@ -54,7 +54,7 @@ interface FriendSuggestion {
 /**
  * Format a timestamp into a relative time string.
  */
-function formatRelativeTime(timestamp: string): string {
+function formatRelativeTime(timestamp: string | null | undefined): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const now = new Date();
@@ -83,7 +83,7 @@ function Avatar({ avatar, name, className }: AvatarProps) {
     return (
       <div className={className}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatar} alt={name} />
+        <img src={avatar ?? undefined} alt={name ?? undefined} />
       </div>
     );
   }
@@ -465,7 +465,7 @@ export default function FriendsTab() {
             {filteredFriends.map((friend) => (
               <div key={friend.player_id} className="friends-tab__friend-card" data-testid="friend-card">
                 <Link
-                  href={`/player/${friend.player_id}/${slugify(friend.full_name)}`}
+                  href={`/player/${friend.player_id}/${slugify(friend.full_name ?? '')}`}
                   style={{ display: 'contents' }}
                 >
                   <Avatar
@@ -559,7 +559,7 @@ export default function FriendsTab() {
                 />
                 <div className="friends-tab__suggestion-info">
                   <Link
-                    href={`/player/${suggestion.player_id}/${slugify(suggestion.full_name)}`}
+                    href={`/player/${suggestion.player_id}/${slugify(suggestion.full_name ?? '')}`}
                     className="friends-tab__suggestion-name"
                     data-testid="friend-suggestion-name"
                   >

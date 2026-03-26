@@ -104,7 +104,7 @@ export default function SeasonsSection({ seasons, onCreateSeason }: SeasonsSecti
         isOpen={!!editingSeason}
         onClose={() => setEditingSeason(null)}
         onSuccess={handleEditSuccess}
-        season={editingSeason}
+        season={editingSeason as NonNullable<typeof editingSeason>}
       />
     </>
   );

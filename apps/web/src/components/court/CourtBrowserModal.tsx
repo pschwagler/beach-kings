@@ -164,7 +164,7 @@ export default function CourtBrowserModal({
           for (const court of items) {
             const entry = next.get(court.id);
             if (entry && !entry.name) {
-              next.set(court.id, { id: court.id, name: court.name, address: court.address });
+              next.set(court.id, { id: court.id, name: court.name, address: court.address ?? undefined });
               changed = true;
             }
           }
@@ -192,7 +192,7 @@ export default function CourtBrowserModal({
         setSelectedMap((prev) => {
           const next = new Map();
           if (!prev.has(court.id)) {
-            next.set(court.id, { id: court.id, name: court.name, address: court.address });
+            next.set(court.id, { id: court.id, name: court.name, address: court.address ?? undefined });
           }
           return next;
         });
@@ -203,7 +203,7 @@ export default function CourtBrowserModal({
           if (next.has(court.id)) {
             next.delete(court.id);
           } else {
-            next.set(court.id, { id: court.id, name: court.name, address: court.address });
+            next.set(court.id, { id: court.id, name: court.name, address: court.address ?? undefined });
           }
           return next;
         });

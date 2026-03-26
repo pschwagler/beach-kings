@@ -218,7 +218,7 @@ api.interceptors.request.use(
       }
       if (exp && exp - Date.now() / 1000 < PROACTIVE_REFRESH_THRESHOLD_SECS) {
         try {
-          token = await refreshAccessToken();
+          token = await refreshAccessToken() as string;
           cachedTokenExp = { token, exp: getTokenExp(token) };
         } catch {
           // If proactive refresh fails, send the request with the current token

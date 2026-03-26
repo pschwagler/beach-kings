@@ -65,17 +65,17 @@ export default function SessionByCodePage() {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [editingSessionName, setEditingSessionName] = useState(false);
   const [draftSessionName, setDraftSessionName] = useState('');
-  const [message, setMessage] = useState(null);
-  const shareMenuRef = useRef(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const shareMenuRef = useRef<HTMLSpanElement | null>(null);
   const { shareInvite } = useShare();
   const [viewMode, setViewMode] = usePersistedViewMode(SESSION_VIEW_STORAGE_KEY, 'cards');
   const [isEditing, setIsEditing] = useState(false);
   const { buffer, isDirty, bufferEdit, bufferAdd, bufferDelete, clearBuffer, flush } = useEditBuffer();
   const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
-  const [popover, setPopover] = useState(null); // { playerId, playerName, anchorRect }
+  const [popover, setPopover] = useState<{ playerId: number; playerName: string; anchorRect: DOMRect | null } | null>(null);
   const friendStatusCacheRef = useRef({});
 
-  const visitActionsRef = useRef({
+  const visitActionsRef = useRef<{ sessionCode: string | null | undefined; autoJoinDone: boolean; managePlayersAutoOpened: boolean }>({
     sessionCode: null,
     autoJoinDone: false,
     managePlayersAutoOpened: false,
@@ -204,6 +204,7 @@ export default function SessionByCodePage() {
   };
 
   const handleEditMatch = (match: Match) => {
+    if (!session) return;
     openModal(MODAL_TYPES.ADD_MATCH, {
       editMatch: match,
       sessionId: session.id,
@@ -216,7 +217,7 @@ export default function SessionByCodePage() {
   };
 
   const handleAddMatchClick = () => {
-    if (hasLessThanFourPlayers) return;
+    if (hasLessThanFourPlayers || !session) return;
     openModal(MODAL_TYPES.ADD_MATCH, {
       sessionId: session.id,
       sessionOnly: true,
@@ -234,6 +235,7 @@ export default function SessionByCodePage() {
       confirmButtonClass: 'danger',
       sessionName: session?.name,
       onConfirm: async () => {
+        if (!session) return;
         await deleteSession(session.id);
         router.push('/home?tab=my-games');
       },
@@ -253,6 +255,7 @@ export default function SessionByCodePage() {
       confirmText: 'Submit Scores',
       cancelText: 'Cancel',
       onConfirm: async () => {
+        if (!session) return;
         await lockInSession(session.id);
         refresh();
       },
@@ -263,6 +266,7 @@ export default function SessionByCodePage() {
    * Flush buffered changes to the API, then lock in and refresh.
    */
   const handleSaveEditedSession = async () => {
+    if (!session) return;
     try {
       await flush(session.id, {
         deleteMatchAPI: deleteMatch,
@@ -273,7 +277,7 @@ export default function SessionByCodePage() {
       clearBuffer();
       refresh();
       setIsEditing(false);
-    } catch (err) {
+    } catch (err: any) {
       showToast(err.response?.data?.detail || 'Failed to save session', 'error');
     }
   };
@@ -337,7 +341,7 @@ export default function SessionByCodePage() {
         await inviteToSessionBatch(newSess.id, toInvite);
       }
       router.push(`/session/${newSess.code}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating session from players:', err);
       setMessage(err.response?.data?.detail || err.message || 'Failed to create session');
     } finally {
@@ -729,12 +733,12 @@ export default function SessionByCodePage() {
                     isAdmin={isCreator}
                     isSubmitted={!isActive}
                     submittedTimestampText={submittedTimestampText ?? undefined}
-                    onEditSessionClick={isCreator && !isEditing ? () => setIsEditing(true) : null}
+                    onEditSessionClick={isCreator && !isEditing ? () => setIsEditing(true) : undefined}
                     onAddMatchClick={isActive || isEditing ? handleAddMatchClick : undefined}
                     onEditMatch={isActive || (isCreator && isEditing) ? handleEditMatch : undefined}
                     onSubmitClick={isActive ? handleSubmitClick : undefined}
-                    onSaveClick={!isActive && isEditing ? handleSaveEditedSession : null}
-                    onCancelClick={!isActive && isEditing ? handleCancelEdit : null}
+                    onSaveClick={!isActive && isEditing ? handleSaveEditedSession : undefined}
+                    onCancelClick={!isActive && isEditing ? handleCancelEdit : undefined}
                     isEditing={isEditing}
                     onDeleteSession={async () => {
                       await deleteSession(session.id);

@@ -250,7 +250,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
           return;
         }
         const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
-        setResetToken(result.reset_token);
+        setResetToken(result.reset_token ?? null);
         setActiveMode('reset-password-new');
         setErrorMessage('');
         setStatusMessage('');

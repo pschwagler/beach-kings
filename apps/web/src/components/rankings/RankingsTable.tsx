@@ -19,7 +19,7 @@ const PlayerAvatar = ({ avatar, playerName }: { avatar: string | null | undefine
     return (
       <div className="player-avatar player-avatar-image">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatar} alt={playerName} />
+        <img src={avatar ?? undefined} alt={playerName} />
       </div>
     );
   }
@@ -296,38 +296,38 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
               <tr
                 key={player.player_id || idx}
                 className="rankings-row clickable-row"
-                onClick={() => onPlayerClick(player.player_id, player.name)}
+                onClick={() => onPlayerClick(player.player_id ?? 0, player.name ?? '')}
                 data-testid="rankings-row"
               >
                 <td className="rank-number-cell">
                   {isAllSeasons ? '-' : (
                     <>
-                      {awardsFinalized && player.season_rank <= 3 && (
-                        <span className="rank-medal" aria-label={`${['Gold', 'Silver', 'Bronze'][player.season_rank - 1]} medal`}>
-                          {MEDAL_ICONS[player.season_rank - 1]}
+                      {awardsFinalized && (player.season_rank ?? 0) <= 3 && (
+                        <span className="rank-medal" aria-label={`${['Gold', 'Silver', 'Bronze'][(player.season_rank ?? 1) - 1]} medal`}>
+                          {MEDAL_ICONS[(player.season_rank ?? 1) - 1]}
                         </span>
                       )}
-                      {(!awardsFinalized || player.season_rank > 3) && (player.season_rank || idx + 1)}
+                      {(!awardsFinalized || (player.season_rank ?? 0) > 3) && (player.season_rank || idx + 1)}
                     </>
                   )}
                 </td>
                 <td className="sticky-col rankings-name-cell">
                   <span className="player-name-modern">
-                    <PlayerAvatar avatar={player.avatar} playerName={player.name} />
+                    <PlayerAvatar avatar={player.avatar} playerName={player.name ?? ''} />
                     {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
                       <Crown size={15} className="crown-icon-modern" />
                     )}
                     <span>{player.name}</span>
-                    {placeholderPlayerIds?.has(player.player_id) && <ShareInviteIcon playerId={player.player_id} playerName={player.name} />}
+                    {player.player_id != null && placeholderPlayerIds?.has(player.player_id) && <ShareInviteIcon playerId={player.player_id} playerName={player.name ?? ''} />}
                   </span>
                 </td>
                 <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.points)}</td>
                 <td className="rankings-stat-cell">{player.games}</td>
                 <td className="rankings-stat-cell">{player.wins}</td>
                 <td className="rankings-stat-cell">{player.losses}</td>
-                <td className="rankings-stat-cell">{(player.win_rate * 100).toFixed(1)}%</td>
-                <td className="rankings-stat-cell">{formatPtDiff(player.avg_pt_diff)}</td>
-                <td className="rankings-stat-cell">{Math.round(player.elo)}</td>
+                <td className="rankings-stat-cell">{((player.win_rate ?? 0) * 100).toFixed(1)}%</td>
+                <td className="rankings-stat-cell">{formatPtDiff(player.avg_pt_diff ?? 0)}</td>
+                <td className="rankings-stat-cell">{Math.round(player.elo ?? 0)}</td>
               </tr>
             );
           })}

@@ -31,12 +31,12 @@ export default function InviteLandingPage() {
 
   // --- Page state ---
   const [pageState, setPageState] = useState('loading'); // loading | loaded | error
-  const [invite, setInvite] = useState(null);
+  const [invite, setInvite] = useState<{ inviter_name: string; match_count: number; league_names?: string[]; status?: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // --- Claim state ---
   const [claimState, setClaimState] = useState('idle'); // idle | claiming | success | error
-  const [claimResult, setClaimResult] = useState(null);
+  const [claimResult, setClaimResult] = useState<{ message?: string; warnings?: string[] } | null>(null);
   const [claimError, setClaimError] = useState('');
 
   // Fetch invite details
@@ -51,7 +51,7 @@ export default function InviteLandingPage() {
       const data = await getInviteDetails(Array.isArray(token) ? token[0] : token);
       setInvite(data);
       setPageState('loaded');
-    } catch (err) {
+    } catch (err: any) {
       setPageState('error');
       const status = err.response?.status;
       if (status === 404) {
@@ -103,10 +103,12 @@ export default function InviteLandingPage() {
     try {
       setClaimState('claiming');
       setClaimError('');
-      const result = await claimInvite(Array.isArray(token) ? token[0] : token);
+      const tokenStr = Array.isArray(token) ? token[0] : token;
+      if (!tokenStr) return;
+      const result = await claimInvite(tokenStr);
       setClaimResult(result);
       setClaimState('success');
-    } catch (err) {
+    } catch (err: any) {
       setClaimState('error');
       const detail = err.response?.data?.detail;
       setClaimError(detail || 'Failed to claim matches. Please try again.');
@@ -157,7 +159,9 @@ export default function InviteLandingPage() {
   );
 
   /** Invite context block (shared between unauthed + authed-idle views) */
-  const renderInviteContext = () => (
+  const renderInviteContext = () => {
+    if (!invite) return null;
+    return (
     <>
       <div className="invite-page__logo">
         <Image
@@ -179,15 +183,16 @@ export default function InviteLandingPage() {
           {invite.match_count === 1 ? 'match' : 'matches'} waiting for you
         </span>
       </div>
-      {invite.league_names?.length > 0 && (
+      {(invite.league_names?.length ?? 0) > 0 && (
         <div className="invite-page__leagues">
-          {invite.league_names.map((name: string) => (
+          {invite.league_names?.map((name: string) => (
             <span key={name} className="invite-page__league-badge">{name}</span>
           ))}
         </div>
       )}
     </>
-  );
+    );
+  };
 
   /** Unauthenticated: show context + sign-up / log-in CTAs */
   const renderUnauthenticated = () => (
@@ -244,14 +249,14 @@ export default function InviteLandingPage() {
       <p className="invite-page__description">
         {claimResult?.message || 'Your matches have been linked to your account.'}
       </p>
-      {claimResult?.warnings?.length > 0 && (
+      {(claimResult?.warnings?.length ?? 0) > 0 && (
         <div className="invite-page__warnings">
           <div className="invite-page__warnings-header">
             <AlertTriangle size={16} />
             <span>Some matches had issues:</span>
           </div>
           <ul className="invite-page__warnings-list">
-            {claimResult.warnings.map((warning: string, i: number) => (
+            {claimResult?.warnings?.map((warning: string, i: number) => (
               <li key={i}>{warning}</li>
             ))}
           </ul>

@@ -84,7 +84,9 @@ export default function PlayerSearchModal({ isOpen, rawName, leagueId, onSelect,
     if (createdPlayer) {
       const id = createdPlayer.player_id || createdPlayer.id;
       const name = createdPlayer.name || createdPlayer.label || '';
-      onSelect(id, name);
+      if (id !== undefined) {
+        onSelect(id, name);
+      }
     }
   }, [onSelect]);
 

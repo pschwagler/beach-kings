@@ -39,8 +39,8 @@ export default function PhotoMatchReviewModal({
   onSuccess,
 }: PhotoMatchReviewModalProps) {
   const [imageExpanded, setImageExpanded] = useState(false);
-  const [resolutionTarget, setResolutionTarget] = useState(null);
-  const conversationEndRef = useRef(null);
+  const [resolutionTarget, setResolutionTarget] = useState<{ rawName: string } | null>(null);
+  const conversationEndRef = useRef<HTMLDivElement | null>(null);
 
   const {
     status,
@@ -62,12 +62,12 @@ export default function PhotoMatchReviewModal({
     handleResolvePlayer,
   } = usePhotoMatchReview({
     isOpen,
-    initialJobId,
-    leagueId,
-    sessionId,
-    seasonId,
+    initialJobId: initialJobId ?? null,
+    leagueId: leagueId ?? 0,
+    sessionId: sessionId ?? null,
+    seasonId: seasonId ?? null,
     onClose,
-    onSuccess,
+    onSuccess: onSuccess ?? undefined,
   });
 
   useEffect(() => {
@@ -255,7 +255,7 @@ export default function PhotoMatchReviewModal({
       <PlayerSearchModal
         isOpen={!!resolutionTarget}
         rawName={resolutionTarget?.rawName || ''}
-        leagueId={leagueId}
+        leagueId={leagueId ?? undefined}
         onSelect={(playerId, playerName) => {
           if (resolutionTarget) {
             handleResolvePlayer(resolutionTarget.rawName, playerId, playerName);

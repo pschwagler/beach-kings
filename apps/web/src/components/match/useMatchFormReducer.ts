@@ -34,16 +34,17 @@ interface FormAction {
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
     case 'SET_PLAYER':
+      if (!action.field) return state;
       // If a player is selected, remove them from other positions
       if (action.player) {
         return removeDuplicatePlayer(state, action.field, action.player) as FormState;
       }
       return { ...state, [action.field]: action.player } as FormState;
-      
+
     case 'SET_SCORE':
       return {
         ...state,
-        [action.field]: formatScore(action.value)
+        [action.field ?? '']: formatScore(action.value)
       };
       
     case 'RESET':

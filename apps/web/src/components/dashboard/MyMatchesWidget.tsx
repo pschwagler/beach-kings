@@ -124,11 +124,11 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
                 <span className="dashboard-match-score">{result.score}</span>
                 <span className="dashboard-match-partner">
                   w/ {result.partner}
-                  {result.partnerIsPlaceholder && <ShareInviteIcon playerId={Number(result.partnerId)} playerName={result.partner} />}
+                  {result.partnerIsPlaceholder && <ShareInviteIcon playerId={Number(result.partnerId)} playerName={result.partner ?? ''} />}
                 </span>
                 <span className="dashboard-match-opponent">
                   vs {result.opponent1}
-                  {result.opponent1IsPlaceholder && <ShareInviteIcon playerId={Number(result.opponent1Id)} playerName={result.opponent1} />}
+                  {result.opponent1IsPlaceholder && <ShareInviteIcon playerId={Number(result.opponent1Id)} playerName={result.opponent1 ?? ''} />}
                   {result.opponent2 && (
                     <>
                       {' & '}{result.opponent2}

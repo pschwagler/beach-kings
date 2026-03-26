@@ -78,11 +78,11 @@ export default function LeagueMenuBar({
           className={`league-sidebar-title-caret ${isLeagueDropdownOpen ? 'open' : ''}`}
         />
       </button>
-      {isLeagueDropdownOpen && isAuthenticated && userLeagues?.length > 0 && (
+      {isLeagueDropdownOpen && isAuthenticated && (userLeagues?.length ?? 0) > 0 && (
         <div className="league-sidebar-dropdown">
           <NavDropdown className="league-sidebar-dropdown-menu">
             <NavDropdownSection title="My Leagues">
-              {userLeagues.map((userLeague) => (
+              {(userLeagues ?? []).map((userLeague) => (
                 <NavDropdownItem
                   key={userLeague.id}
                   icon={Users}

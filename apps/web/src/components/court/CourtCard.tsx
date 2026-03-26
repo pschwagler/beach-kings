@@ -41,14 +41,14 @@ export default function CourtCard({ court, selectable = false, selected = false,
     court_count,
     surface_type,
     average_rating,
-    review_count = 0,
+    review_count,
     is_free,
-    top_tags = [],
+    top_tags,
     photo_url,
     distance_miles,
   } = court;
 
-  const surfaceLabel = getSurfaceLabel(surface_type);
+  const surfaceLabel = getSurfaceLabel(surface_type ?? '');
 
   const cardClassName = [
     'court-card',
@@ -82,7 +82,7 @@ export default function CourtCard({ court, selectable = false, selected = false,
         <h3 className="court-card__name">{name}</h3>
 
         <div className="court-card__rating">
-          {review_count > 0 ? (
+          {(review_count ?? 0) > 0 ? (
             <>
               <StarRating value={average_rating || 0} size={14} />
               <span className="court-card__review-count">({review_count})</span>
@@ -127,9 +127,9 @@ export default function CourtCard({ court, selectable = false, selected = false,
           )}
         </div>
 
-        {top_tags.length > 0 && (
+        {(top_tags ?? []).length > 0 && (
           <div className="court-card__tags">
-            {top_tags.slice(0, 3).map((tag) => (
+            {(top_tags ?? []).slice(0, 3).map((tag) => (
               <span key={tag} className="court-card__tag">{tag}</span>
             ))}
           </div>

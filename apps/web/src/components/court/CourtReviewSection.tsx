@@ -40,7 +40,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
 
   const refreshCourt = useCallback(async () => {
     try {
-      const updated = await getPublicCourtBySlug(court.slug);
+      const updated = await getPublicCourtBySlug(court.slug ?? '');
       setReviews(updated.reviews || []);
       setAvgRating(updated.average_rating);
       setReviewCount(updated.review_count || 0);
@@ -58,7 +58,7 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
   const handleReviewAction = (result?: CourtReview) => {
     if (result) {
       setAvgRating(result.average_rating);
-      setReviewCount(result.review_count);
+      setReviewCount(result.review_count ?? reviewCount);
     }
     setShowForm(false);
     setEditingReview(null);

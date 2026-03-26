@@ -71,7 +71,7 @@ export default function PlayersSection({
             const isCurrentUser =
               currentUserPlayer && member.player_id === currentUserPlayer.id;
             const playerName = member.player_name || `Player ${member.player_id}`;
-            const displayName = getPlayerDisplayName(member, isCurrentUser);
+            const displayName = getPlayerDisplayName(member, isCurrentUser ?? undefined);
             const canEdit = isLeagueAdmin && !isCurrentUser;
 
             return (
@@ -85,7 +85,7 @@ export default function PlayersSection({
                       <div className="player-avatar player-avatar-image">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={member.player_avatar}
+                          src={member.player_avatar ?? undefined}
                           alt={member.player_name || 'Player'}
                         />
                       </div>
@@ -110,8 +110,8 @@ export default function PlayersSection({
                   <span className="league-player-role">
                     {canEdit ? (
                       <select
-                        value={member.role}
-                        onChange={(e) => onRoleChange(member.id, e.target.value)}
+                        value={member.role ?? undefined}
+                        onChange={(e) => onRoleChange?.(member.id, e.target.value)}
                         className="league-role-select"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -130,7 +130,7 @@ export default function PlayersSection({
                   {canEdit && (
                     <button
                       className="league-player-remove"
-                      onClick={() => onRemoveMember(member.id, playerName)}
+                      onClick={() => onRemoveMember?.(member.id, playerName)}
                       title="Remove player from league"
                     >
                       <X size={16} />

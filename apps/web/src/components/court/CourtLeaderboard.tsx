@@ -57,7 +57,7 @@ export default function CourtLeaderboard({ slug }: CourtLeaderboardProps) {
                   <div className="court-leaderboard__avatar">
                     {isImageUrl(entry.avatar) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={entry.avatar} alt={entry.player_name} />
+                      <img src={entry.avatar ?? undefined} alt={entry.player_name} />
                     ) : (
                       entry.player_name?.charAt(0) || '?'
                     )}

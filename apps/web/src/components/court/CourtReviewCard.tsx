@@ -95,17 +95,17 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
         <p className="court-review-card__text" data-testid="court-review-text">{review.review_text}</p>
       )}
 
-      {review.tags?.length > 0 && (
+      {(review.tags?.length ?? 0) > 0 && (
         <div className="court-review-card__tags">
-          {review.tags.map((tag) => (
+          {(review.tags ?? []).map((tag) => (
             <span key={tag.id} className="court-review-card__tag">{tag.name}</span>
           ))}
         </div>
       )}
 
-      {review.photos?.length > 0 && (
+      {(review.photos?.length ?? 0) > 0 && (
         <div className="court-review-card__photos">
-          {review.photos.map((photo, idx) => (
+          {(review.photos ?? []).map((photo, idx) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={photo.id}
@@ -119,9 +119,9 @@ export default function CourtReviewCard({ review, isOwn, onEdit, onDeleted, cour
         </div>
       )}
 
-      {lightboxIndex !== null && review.photos?.length > 0 && (
+      {lightboxIndex !== null && (review.photos?.length ?? 0) > 0 && (
         <ImageLightbox
-          photos={review.photos}
+          photos={review.photos ?? []}
           startIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />

@@ -53,11 +53,11 @@ interface SessionPlayersAddPanelProps {
   onLoadMore: () => void;
   filtersOpen: boolean;
   onFiltersOpenChange: (open: boolean | ((prev: boolean) => boolean)) => void;
-  filterButtonRef: React.RefObject<HTMLDivElement>;
-  filterPopoverRef: React.RefObject<HTMLDivElement>;
+  filterButtonRef: React.RefObject<HTMLDivElement | null>;
+  filterPopoverRef: React.RefObject<HTMLDivElement | null>;
   activeFilterCount: number;
   userLocationId?: string | null;
-  onCreatePlaceholder: (name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption>;
+  onCreatePlaceholder?: ((name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption>) | null;
   isCreatingPlaceholder: boolean;
   onSearchPlayers?: ((query: string) => Promise<{ items: SearchResult[] }>) | null;
 }
@@ -428,6 +428,7 @@ export default function SessionPlayersAddPanel({
         isOpen={!!createModalState}
         playerName={createModalState?.name || ''}
         onCreate={async (name, extras) => {
+          if (!onCreatePlaceholder) throw new Error('onCreatePlaceholder is required');
           const result = await onCreatePlaceholder(name, extras);
           return { name: result.label, id: result.value, ...result };
         }}

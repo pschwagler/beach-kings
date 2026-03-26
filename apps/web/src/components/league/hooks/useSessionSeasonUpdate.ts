@@ -95,16 +95,16 @@ export function useSessionSeasonUpdate({
         // This is critical: we need the data loaded before the active session state updates
         // so that activeSessionMatchesFromSeason can find the matches
         if (!seasonData?.[seasonId]?.matches && !seasonDataLoadingMap?.[seasonId]) {
-          await loadSeasonData(seasonId);
+          await loadSeasonData?.(seasonId);
           // Give React a chance to update state after loadSeasonData completes
           // The loadSeasonData function updates state asynchronously, so we need to wait
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
-      
+
       // Reload active session and all sessions to get updated season_id
       // This will trigger a re-render, and activeSessionMatchesFromSeason should now have data
-      await refreshData({ sessions: true });
+      await refreshData?.({ sessions: true });
       
       // Refresh match data for both old and new seasons
       const seasonsToRefresh = new Set();
@@ -127,18 +127,18 @@ export function useSessionSeasonUpdate({
       
       // Ensure the new season's data is loaded if it's not already loaded (for non-active sessions)
       if (seasonId && !isActiveSession && !seasonData?.[seasonId]?.matches && !seasonDataLoadingMap?.[seasonId]) {
-        await loadSeasonData(seasonId);
+        await loadSeasonData?.(seasonId);
       }
-      
+
       // Refresh all affected seasons (force clear to ensure fresh data)
-      await Promise.all(Array.from(seasonsToRefresh).map(sid => 
-        refreshData({ matches: true, seasonId: sid, forceClear: true })
+      await Promise.all(Array.from(seasonsToRefresh).map(sid =>
+        refreshData?.({ matches: true, seasonId: sid, forceClear: true })
       ));
-      
+
       // If "All Seasons" is selected, also refresh all seasons to ensure matches appear correctly
       if (!selectedSeasonId && seasons?.length > 0) {
         await Promise.all(seasons.map((s: any) =>
-          refreshData({ matches: true, seasonId: s.id, forceClear: true })
+          refreshData?.({ matches: true, seasonId: s.id, forceClear: true })
         ));
       }
       

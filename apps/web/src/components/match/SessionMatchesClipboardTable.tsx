@@ -139,7 +139,7 @@ export default function SessionMatchesClipboardTable({
                       <button
                         type="button"
                         className="icon-button small"
-                        onClick={() => onEditMatch(match)}
+                        onClick={() => onEditMatch?.(match)}
                         aria-label="Edit match"
                       >
                         <Edit2 size={14} />

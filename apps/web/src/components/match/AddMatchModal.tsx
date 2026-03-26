@@ -157,12 +157,17 @@ export default function AddMatchModal({
   const team2ScoreRef = useRef<FocusableRef | null>(null);
 
   // Use player mappings hook (includes locally created placeholders)
-  const playerMappings = usePlayerMappings({ members, allPlayerNames, localPlaceholders });
+  const playerMappings = usePlayerMappings({
+    members: members as { player_id: number; player_name?: string | null; is_placeholder?: boolean }[],
+    allPlayerNames,
+    localPlaceholders: localPlaceholders as { player_id: number; name: string; invite_token?: string; invite_url?: string }[],
+  });
   const { playerOptions, playerNameToIdMap, getPlayerId } = playerMappings;
 
   // Use form handlers hook
   const formHandlers = useMatchFormHandlers({
-    dispatchForm,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dispatchForm: dispatchForm as any,
     setFormError,
     team1Player2Ref,
     team2Player1Ref,
@@ -293,6 +298,8 @@ export default function AddMatchModal({
       setFormError('Please select all four players');
       return;
     }
+
+    if (!validationResult.scoresValidation) return;
 
     setIsSubmitting(true);
     try {

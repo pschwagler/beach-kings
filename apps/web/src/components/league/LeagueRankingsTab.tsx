@@ -80,15 +80,17 @@ export default function LeagueRankingsTab() {
   // Build player objects from rankings for dropdown and ID lookup
   const allPlayers = useMemo(() => {
     if (!rankings || !Array.isArray(rankings)) return [];
-    return rankings.map(r => ({ id: r.player_id, name: r.name }));
+    return rankings
+      .filter((r): r is typeof r & { player_id: number; name: string } => r.player_id != null && r.name != null)
+      .map(r => ({ id: r.player_id, name: r.name }));
   }, [rankings]);
 
   // Use shared hook for player details drawer logic with auto-selection
   const { handlePlayerClick } = usePlayerDetailsDrawer({
     seasonData: selectedSeasonData,
     allPlayers,
-    leagueName: league?.name,
-    seasonName: selectedSeason?.name,
+    leagueName: league?.name ?? '',
+    seasonName: selectedSeason?.name ?? '',
     selectedPlayerId,
     selectedPlayerName,
     setSelectedPlayer,
@@ -214,7 +216,7 @@ export default function LeagueRankingsTab() {
           : (seasonDataLoadingMap[ALL_SEASONS_KEY] || false)
         }
         isAllSeasons={!selectedSeasonId}
-        season={selectedSeason}
+        season={selectedSeason as { id: number; name?: string | null; scoring_system?: string; point_system?: string | Record<string, unknown> } | null}
         placeholderPlayerIds={placeholderPlayerIds}
         awardsFinalized={!!selectedSeason?.awards_finalized_at}
       />

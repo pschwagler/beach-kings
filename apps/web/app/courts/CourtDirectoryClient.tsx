@@ -162,19 +162,19 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
             userLocation={
               currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
-                : null
+                : undefined
             }
-            locationFilter={locationParam}
+            locationFilter={locationParam ?? undefined}
           />
         ) : (
           <CourtListView
             initialCourts={locationParam ? null : initialCourts}
-            locationId={locationParam}
-            userLocationId={currentUserPlayer?.location_id || null}
+            locationId={locationParam ?? undefined}
+            userLocationId={currentUserPlayer?.location_id ?? undefined}
             userLocation={
               currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
                 ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
-                : null
+                : undefined
             }
           />
         )}

@@ -44,7 +44,7 @@ export default function DescriptionSection({ league, onUpdate }: DescriptionSect
         gender: league?.gender || null,
       });
 
-      onUpdate(updatedLeague);
+      onUpdate?.(updatedLeague);
       setIsEditing(false);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };

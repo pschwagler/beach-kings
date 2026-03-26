@@ -322,7 +322,7 @@ export default function KobPreview({ recommendation, loading }: KobPreviewProps)
     let maxCourt = 1;
     for (const rnd of preview_rounds) {
       for (const m of rnd.matches) {
-        if (m.court_num > maxCourt) maxCourt = m.court_num;
+        if ((m.court_num ?? 0) > maxCourt) maxCourt = m.court_num ?? maxCourt;
       }
     }
     return maxCourt;
@@ -397,7 +397,7 @@ export default function KobPreview({ recommendation, loading }: KobPreviewProps)
       {/* Summary bar */}
       <div className="kob-preview__summary">
         <span className="kob-preview__stat">
-          ~{formatTime(total_time_minutes)}
+          ~{formatTime(total_time_minutes ?? 0)}
         </span>
         <span className="kob-preview__stat-divider">&middot;</span>
         <span className="kob-preview__stat">
@@ -461,14 +461,14 @@ export default function KobPreview({ recommendation, loading }: KobPreviewProps)
 
         {/* End time */}
         <div className="kob-preview__finish">
-          <span className="kob-preview__finish-clock">{formatClock(total_time_minutes)}</span>
+          <span className="kob-preview__finish-clock">{formatClock(total_time_minutes ?? 0)}</span>
           <span className="kob-preview__finish-label">
             {playoff_format === "DRAFT" ? "Champions crowned" : "Champion crowned"}
           </span>
           <span className="kob-preview__finish-medals">
             {playoff_format === "DRAFT" ? (
               <>
-                🥇🥇 🥈🥈{playoff_size >= 6 ? " 🥉🥉" : ""}
+                🥇🥇 🥈🥈{(playoff_size ?? 0) >= 6 ? " 🥉🥉" : ""}
               </>
             ) : (
               <>🥇 🥈 🥉</>

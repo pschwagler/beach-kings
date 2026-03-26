@@ -23,5 +23,5 @@ export function getPlayerImageUrl(
   player: { avatar?: string | null; profile_picture_url?: string | null },
 ): string | null {
   const url = player.profile_picture_url || player.avatar;
-  return isImageUrl(url) ? url : null;
+  return isImageUrl(url) ? (url as string) : null;
 }

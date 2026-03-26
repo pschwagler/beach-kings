@@ -87,7 +87,7 @@ export default function PlayerDropdown({
   useEffect(() => {
     if (autoOpen && !hasAutoOpened && !value && inputRef.current) {
       const timeoutId = setTimeout(() => {
-        inputRef.current.focus();
+        inputRef.current?.focus();
         setHasAutoOpened(true);
       }, 350);
       return () => clearTimeout(timeoutId);
@@ -496,6 +496,7 @@ export default function PlayerDropdown({
         isOpen={!!createModalState}
         playerName={createModalState?.name || ''}
         onCreate={async (name, extras) => {
+          if (!onCreatePlaceholder) return { name, id: 0, value: 0, label: name };
           const result = await onCreatePlaceholder(name, extras);
           return { name: result.label, id: result.value, ...result };
         }}

@@ -65,7 +65,9 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
 
   // Filter to only courts with coordinates
   const mappable = useMemo(
-    () => courts.filter((c) => c.latitude != null && c.longitude != null),
+    () => courts.filter((c): c is Court & { latitude: number; longitude: number } =>
+      c.latitude != null && c.longitude != null
+    ),
     [courts]
   );
 
@@ -185,8 +187,8 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
 
         {popupCourt && (
           <Popup
-            latitude={popupCourt.latitude}
-            longitude={popupCourt.longitude}
+            latitude={popupCourt.latitude as number}
+            longitude={popupCourt.longitude as number}
             anchor="bottom"
             offset={30}
             closeOnClick={false}
@@ -196,7 +198,7 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
             <a href={`/courts/${popupCourt.slug}`} className="court-map__popup-link">
               <h4 className="court-map__popup-name">{popupCourt.name}</h4>
               <div className="court-map__popup-rating">
-                {popupCourt.review_count > 0 ? (
+                {(popupCourt.review_count ?? 0) > 0 ? (
                   <>
                     <StarRating value={popupCourt.average_rating || 0} size={12} />
                     <span>({popupCourt.review_count})</span>

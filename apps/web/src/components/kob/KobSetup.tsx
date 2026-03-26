@@ -78,7 +78,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
   const loadTournament = useCallback(async () => {
     try {
       const data = await getKobTournament(tournamentId);
-      setTournament(data);
+      setTournament(data as unknown as KobTournament);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load tournament");
     } finally {
@@ -124,12 +124,12 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
   // Load players when search panel opens, and re-fetch on search query changes
   useEffect(() => {
     if (!showSearch || !tournament) return;
-    clearTimeout(searchDebounceRef.current);
+    clearTimeout(searchDebounceRef.current ?? undefined);
     searchDebounceRef.current = setTimeout(() => {
       setPlayerOffset(0);
       fetchPlayers(searchQuery, 0, false);
     }, searchQuery ? 300 : 0);
-    return () => clearTimeout(searchDebounceRef.current);
+    return () => clearTimeout(searchDebounceRef.current ?? undefined);
   }, [showSearch, searchQuery, tournament, fetchPlayers]);
 
   const handleLoadMorePlayers = useCallback(() => {
@@ -161,6 +161,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
   };
 
   const handleMovePlayer = async (index: number, direction: number) => {
+    if (!tournament) return;
     const players = [...tournament.players];
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= players.length) return;

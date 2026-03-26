@@ -98,7 +98,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
           <h1 className="public-league__name">{league.name}</h1>
           <LeagueMeta league={league} />
           {locationLabel && (
-            <Link href={`/find-leagues?location_id=${league.location.id}`} className="public-league__area-link">
+            <Link href={`/find-leagues?location_id=${league.location?.id}`} className="public-league__area-link">
               View all leagues in {locationLabel}
             </Link>
           )}
@@ -120,7 +120,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
           <p className="public-league__description">{league.description}</p>
         )}
         {locationLabel && (
-          <Link href={`/find-leagues?location_id=${league.location.id}`} className="public-league__area-link">
+          <Link href={`/find-leagues?location_id=${league.location?.id}`} className="public-league__area-link">
             View all leagues in {locationLabel}
           </Link>
         )}
@@ -137,7 +137,7 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
         </div>
       )}
 
-      {league.standings?.length > 0 && (
+      {(league.standings?.length ?? 0) > 0 && (
         <section className="public-league__section">
           <h2 className="public-league__section-title">
             {league.current_season?.name || 'Current Season'} Standings
@@ -146,14 +146,14 @@ export default function PublicLeaguePage({ league, leagueId, onJoinLeague, isOpe
         </section>
       )}
 
-      {league.recent_matches?.length > 0 && (
+      {(league.recent_matches?.length ?? 0) > 0 && (
         <section className="public-league__section">
           <h2 className="public-league__section-title">Recent Matches</h2>
           <MatchList matches={league.recent_matches as PublicMatch[]} />
         </section>
       )}
 
-      {league.members?.length > 0 && (
+      {(league.members?.length ?? 0) > 0 && (
         <section className="public-league__section">
           <h2 className="public-league__section-title">
             Members ({league.member_count})
@@ -184,7 +184,7 @@ function LeagueMeta({ league }: { league: PublicLeagueData }) {
         <span className="public-league__badge">{formatGender(league.gender)}</span>
       )}
       {league.level && <LevelBadge level={league.level} />}
-      {league.member_count > 0 && (
+      {(league.member_count ?? 0) > 0 && (
         <span className="public-league__badge">
           {league.member_count} members
         </span>
@@ -230,8 +230,8 @@ function StandingsTable({ standings }: { standings: StandingRow[] }) {
                 </Link>
               </td>
               <td>{row.wins}</td>
-              <td>{row.games - row.wins}</td>
-              <td>{Math.round(row.points)}</td>
+              <td>{(row.games ?? 0) - (row.wins ?? 0)}</td>
+              <td>{Math.round(row.points ?? 0)}</td>
               <td>{Math.round((row.win_rate || 0) * 100)}%</td>
             </tr>
           ))}
@@ -270,7 +270,7 @@ interface PublicMatch {
  * Groups matches by date and returns an array of { date, label, matches } objects.
  */
 function groupMatchesByDate(matches: PublicMatch[]): Array<{ date: string; label: string | null; matches: PublicMatch[] }> {
-  const groups = [];
+  const groups: Array<{ date: string; label: string | null; matches: PublicMatch[] }> = [];
   let currentDate = null;
   for (const match of matches) {
     const dateKey = match.date || 'unknown';
@@ -358,7 +358,7 @@ function MemberGrid({ members }: { members: PublicLeagueMember[] }) {
           <div className="public-league__avatar">
             {isImageUrl(member.avatar)
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={member.avatar} alt={member.full_name} className="public-league__avatar-img" />
+              ? <img src={member.avatar ?? undefined} alt={member.full_name ?? undefined} className="public-league__avatar-img" />
               : <span className="public-league__avatar-initials">{member.avatar || member.full_name?.charAt(0)}</span>
             }
           </div>

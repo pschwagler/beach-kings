@@ -551,7 +551,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                               <select
                                 value={typedItem.role}
                                 onChange={(e) =>
-                                  handleChangeRole(typedItem.player_id, e.target.value)
+                                  handleChangeRole(typedItem.player_id ?? 0, e.target.value)
                                 }
                                 className="league-role-select"
                                 onClick={(e) => e.stopPropagation()}
@@ -566,7 +566,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
                                 className="add-players-table-remove"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRemovePlayer(typedItem.player_id);
+                                  handleRemovePlayer(typedItem.player_id ?? 0);
                                 }}
                                 title="Remove from selection"
                               >
@@ -631,7 +631,7 @@ export default function AddPlayersModal({ isOpen, members, onClose, onSuccess }:
     <PlaceholderCreateModal
       isOpen={!!createModalState}
       playerName={createModalState?.name || ''}
-      onCreate={handleCreatePlaceholder}
+      onCreate={handleCreatePlaceholder as (name: string, extras: { gender?: string; level?: string }) => Promise<{ name: string; inviteUrl?: string | null; invite_url?: string | null; label?: string; id?: number; player_id?: number; value?: number }>}
       onClose={handleCreateModalClose}
     />
     </>

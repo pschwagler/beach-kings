@@ -8,9 +8,9 @@ import type { KobMatch } from "../../types";
 interface KobTournament {
   game_to: number;
   win_by: number;
-  games_per_match?: number;
-  playoff_game_to?: number;
-  playoff_games_per_match?: number;
+  games_per_match?: number | null;
+  playoff_game_to?: number | null;
+  playoff_games_per_match?: number | null;
 }
 
 /**

@@ -157,8 +157,8 @@ export const getKobFormatRecommendation = async ({
   if (numPools) params.num_pools = numPools;
   if (playoffSize != null) params.playoff_size = playoffSize;
   if (maxRounds) params.max_rounds = maxRounds;
-  if (gamesPerMatch > 1) params.games_per_match = gamesPerMatch;
-  if (numRrCycles > 1) params.num_rr_cycles = numRrCycles;
+  if (gamesPerMatch != null && gamesPerMatch > 1) params.games_per_match = gamesPerMatch;
+  if (numRrCycles != null && numRrCycles > 1) params.num_rr_cycles = numRrCycles;
   if (gameTo && gameTo !== 21) params.game_to = gameTo;
   if (durationMinutes) params.duration_minutes = durationMinutes;
   if (playoffFormat) params.playoff_format = playoffFormat;

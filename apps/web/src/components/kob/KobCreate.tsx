@@ -29,7 +29,7 @@ interface KobPill {
 }
 
 /** Recommendation / preview shape returned by the recommendation endpoint. */
-interface KobRecommendation {
+interface KobRecommendationConfig {
   format: string;
   num_pools: number | null;
   playoff_size: number | null;
@@ -121,7 +121,7 @@ export default function KobCreate() {
   const [playoffScoreCap, setPlayoffScoreCap] = useState<number | null>(null);
 
   // Recommendation / preview
-  const [recommendation, setRecommendation] = useState<KobRecommendation | null>(null);
+  const [recommendation, setRecommendation] = useState<KobRecommendationConfig | null>(null);
   const [loadingRec, setLoadingRec] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -176,15 +176,15 @@ export default function KobCreate() {
         gamesPerMatch,
         durationMinutes: durationMinutes || undefined,
         playoffFormat: playoffFormat || undefined,
-        playoffGameTo: customPlayoffSettings ? playoffGameTo : undefined,
-        playoffGamesPerMatch: customPlayoffSettings ? playoffGamesPerMatch : undefined,
+        playoffGameTo: customPlayoffSettings ? (playoffGameTo ?? undefined) : undefined,
+        playoffGamesPerMatch: customPlayoffSettings ? (playoffGamesPerMatch ?? undefined) : undefined,
         ...(userPickedFormat && format ? { format } : {}),
         ...(userPickedFormat && format === "POOLS_PLAYOFFS" && numPools ? { numPools } : {}),
         ...(userPickedFormat && format === "PARTIAL_ROUND_ROBIN" && maxRounds ? { maxRounds } : {}),
         ...(ps > 0 ? { playoffSize: ps } : {}),
       };
 
-      const rec = await getKobFormatRecommendation(params) as KobRecommendation;
+      const rec = await getKobFormatRecommendation(params) as KobRecommendationConfig;
       setRecommendation(rec);
 
       // Sync UI from backend defaults — use ref to avoid stale closure
@@ -216,7 +216,7 @@ export default function KobCreate() {
     }, 300);
     return () => {
       cancelled = true;
-      clearTimeout(debounceRef.current);
+      clearTimeout(debounceRef.current ?? undefined);
     };
   }, [fetchRecommendation]);
 
@@ -247,7 +247,7 @@ export default function KobCreate() {
         // Silent fail — pills are non-critical
       }
     }, 350);
-    return () => clearTimeout(pillDebounceRef.current);
+    return () => clearTimeout(pillDebounceRef.current ?? undefined);
   }, [numPlayers, numCourts, durationMinutes]);
 
   // If player count drops below 8 while Pools is selected, switch to RR
@@ -826,7 +826,7 @@ export default function KobCreate() {
                 Need at least 4 players for a tournament.
               </div>
             ) : (
-              <KobPreview recommendation={recommendation} loading={loadingRec} />
+              <KobPreview recommendation={recommendation as Parameters<typeof KobPreview>[0]['recommendation']} loading={loadingRec} />
             )}
           </div>
         </div>

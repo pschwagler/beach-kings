@@ -14,7 +14,7 @@ interface DirectorControlsProps {
 
 export default function DirectorControls({ tournament, onAdvance, onDropPlayer, onComplete }: DirectorControlsProps) {
   const [expanded, setExpanded] = useState(false);
-  const [selectedDropPlayer, setSelectedDropPlayer] = useState(null);
+  const [selectedDropPlayer, setSelectedDropPlayer] = useState<number | null>(null);
 
   const activePlayers = tournament.players?.filter((p: any) => !p.is_dropped) || [];
 

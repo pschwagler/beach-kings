@@ -44,9 +44,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
   const { openAuthModal } = useAuthModal();
   const { currentUserPlayer } = useAuth();
   const router = useRouter();
-  const [friendStatus, setFriendStatus] = useState(null); // 'friend'|'pending_outgoing'|'pending_incoming'|'none'|'self'
-  const [incomingRequestId, setIncomingRequestId] = useState(null);
-  const [mutualFriends, setMutualFriends] = useState([]);
+  const [friendStatus, setFriendStatus] = useState<string | null>(null); // 'friend'|'pending_outgoing'|'pending_incoming'|'none'|'self'
+  const [incomingRequestId, setIncomingRequestId] = useState<number | null>(null);
+  const [mutualFriends, setMutualFriends] = useState<Array<{ player_id: number; full_name: string; avatar: string | null }>>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -294,7 +294,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
                 <div className="public-player__mutual-friend-avatar">
                   {isImageUrl(mf.avatar) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mf.avatar} alt={mf.full_name} />
+                    <img src={mf.avatar ?? undefined} alt={mf.full_name} />
                   ) : (
                     mf.avatar || mf.full_name?.charAt(0)
                   )}
@@ -324,8 +324,10 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
               )}
               <CourtSelector
                 mode="multi"
-                selectedCourts={homeCourts}
-                onSet={handleSetHomeCourts}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                selectedCourts={homeCourts as any[]}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onSet={handleSetHomeCourts as (courts: any[]) => void}
                 onRemove={handleRemoveHomeCourt}
                 onSetPrimary={handleSetPrimary}
                 preFilterLocationId={player.location?.id}

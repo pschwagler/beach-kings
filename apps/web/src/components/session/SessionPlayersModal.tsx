@@ -199,7 +199,7 @@ export default function SessionPlayersModal({
     isOpen,
     sessionId,
     participants,
-    onSuccess,
+    onSuccess: onSuccess ?? undefined,
     onClose,
   });
 
@@ -276,7 +276,7 @@ export default function SessionPlayersModal({
                 valueName={courtName}
                 onChange={handleCourtChange}
                 homeCourts={playerHomeCourts}
-                preFilterLocationId={currentUserPlayer?.location_id}
+                preFilterLocationId={currentUserPlayer?.location_id ?? undefined}
                 label="Court"
               />
             </div>
@@ -353,7 +353,7 @@ export default function SessionPlayersModal({
               filterPopoverRef={filterPopoverRef}
               activeFilterCount={activeFilterCount}
               userLocationId={userLocationId}
-              onCreatePlaceholder={handleCreatePlaceholder}
+              onCreatePlaceholder={handleCreatePlaceholder as unknown as (name: string, extras?: { gender?: string; level?: string }) => Promise<import('../../utils/playerDropdownUtils').PlayerOption>}
               isCreatingPlaceholder={isCreatingPlaceholder}
               onSearchPlayers={handleSearchPlayers}
             />

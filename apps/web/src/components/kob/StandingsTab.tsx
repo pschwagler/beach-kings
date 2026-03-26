@@ -6,14 +6,14 @@ import "./KobLive.css";
 
 interface KobStandingEntry {
   player_id: number;
-  player_name?: string;
+  player_name?: string | null;
   rank: number;
   wins: number;
   losses: number;
   points_for: number;
   points_against: number;
   point_diff: number;
-  pool_id?: number;
+  pool_id?: number | null;
 }
 
 interface StandingsTabProps {

@@ -112,7 +112,7 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
             <span className="public-location__stat-value">{stats.total_matches || 0}</span>
             <span className="public-location__stat-label">Matches</span>
           </div>
-          {stats.total_courts > 0 && (
+          {(stats.total_courts ?? 0) > 0 && (
             <div className="public-location__stat">
               <span className="public-location__stat-value">{stats.total_courts}</span>
               <span className="public-location__stat-label">Courts</span>
@@ -134,11 +134,11 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
       )}
 
       {/* Leagues section */}
-      {leagues?.length > 0 && (
+      {(leagues?.length ?? 0) > 0 && (
         <section className="public-location__section">
           <h2 className="public-location__section-title">Leagues</h2>
           <div className="public-location__leagues">
-            {leagues.map((league) => (
+            {(leagues ?? []).map((league) => (
               <Link
                 key={league.id}
                 href={`/league/${league.id}`}
@@ -161,14 +161,14 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
       )}
 
       {/* Top players + Courts — two-column on desktop */}
-      {(top_players?.length > 0 || courts?.length > 0) && (
+      {((top_players?.length ?? 0) > 0 || (courts?.length ?? 0) > 0) && (
         <div className="public-location__two-col">
           {/* Top players section */}
-          {top_players?.length > 0 && (
+          {(top_players?.length ?? 0) > 0 && (
             <section className="public-location__section">
               <h2 className="public-location__section-title">Top Players</h2>
               <div className="public-location__players">
-                {top_players.map((player) => (
+                {(top_players ?? []).map((player) => (
                   <Link
                     key={player.id}
                     href={`/player/${player.id}/${slugify(player.full_name)}`}
@@ -195,7 +195,7 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
           )}
 
           {/* Courts section */}
-          {courts?.length > 0 && (
+          {(courts?.length ?? 0) > 0 && (
             <section className="public-location__section">
               <div className="public-location__section-header">
                 <h2 className="public-location__section-title">Courts</h2>
@@ -204,7 +204,7 @@ export default function PublicLocationPage({ location, isAuthenticated }: Public
                 </Link>
               </div>
               <div className="public-location__courts">
-                {courts.map((court) => (
+                {(courts ?? []).map((court) => (
                   <Link
                     key={court.id}
                     href={`/courts/${court.slug || court.id}`}

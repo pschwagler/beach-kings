@@ -71,10 +71,16 @@ export function nameToPlayerOption(name: string | null | undefined, nameToIdMap:
  * Default player sorting with tie-breakers: Points → Avg Pt Diff → Win Rate → ELO
  */
 export const sortPlayersDefault = (a: RankedPlayer, b: RankedPlayer): number => {
-  if (a.points !== b.points) return b.points - a.points;
-  if (a.avg_pt_diff !== b.avg_pt_diff) return b.avg_pt_diff - a.avg_pt_diff;
-  if (a.win_rate !== b.win_rate) return b.win_rate - a.win_rate;
-  return b.elo - a.elo;
+  const aPoints = a.points ?? 0;
+  const bPoints = b.points ?? 0;
+  if (aPoints !== bPoints) return bPoints - aPoints;
+  const aAvgPtDiff = a.avg_pt_diff ?? 0;
+  const bAvgPtDiff = b.avg_pt_diff ?? 0;
+  if (aAvgPtDiff !== bAvgPtDiff) return bAvgPtDiff - aAvgPtDiff;
+  const aWinRate = a.win_rate ?? 0;
+  const bWinRate = b.win_rate ?? 0;
+  if (aWinRate !== bWinRate) return bWinRate - aWinRate;
+  return (b.elo ?? 0) - (a.elo ?? 0);
 };
 
 /**

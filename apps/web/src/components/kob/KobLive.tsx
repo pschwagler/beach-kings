@@ -81,6 +81,7 @@ export default function KobLive({ code }: KobLiveProps) {
   const isDirector = isAuthenticated && tournament?.director_player_id === currentUserPlayer?.id;
 
   const handleDirectorAdvance = async () => {
+    if (!tournament) return;
     try {
       await advanceKobRound(tournament.id);
       await loadTournament();
@@ -91,6 +92,7 @@ export default function KobLive({ code }: KobLiveProps) {
   };
 
   const handleDirectorDrop = async (playerId: number) => {
+    if (!tournament) return;
     try {
       await dropKobPlayer(tournament.id, playerId);
       await loadTournament();
@@ -101,6 +103,7 @@ export default function KobLive({ code }: KobLiveProps) {
   };
 
   const handleDirectorEditScore = async (matchupId: string, team1Score: number, team2Score: number) => {
+    if (!tournament) return;
     try {
       await editKobScore(tournament.id, matchupId, {
         team1_score: team1Score,
@@ -114,6 +117,7 @@ export default function KobLive({ code }: KobLiveProps) {
   };
 
   const handleDirectorComplete = async () => {
+    if (!tournament) return;
     if (!confirm("Complete this tournament? No more scores can be entered.")) return;
     try {
       await completeKobTournament(tournament.id);
@@ -128,7 +132,7 @@ export default function KobLive({ code }: KobLiveProps) {
     const url = window.location.href;
     if (navigator.share) {
       try {
-        await navigator.share({ title: tournament.name, url });
+        await navigator.share({ title: tournament?.name, url });
       } catch { /* cancelled */ }
     } else {
       navigator.clipboard.writeText(url);
@@ -276,7 +280,7 @@ export default function KobLive({ code }: KobLiveProps) {
             <ScheduleTab
               matches={tournament.matches}
               scheduleData={tournament.schedule_data}
-              currentRound={tournament.current_round}
+              currentRound={tournament.current_round ?? undefined}
             />
           )}
         </div>

@@ -53,10 +53,10 @@ export function useMatchPayload({
 }: UseMatchPayloadParams) {
   const buildMatchPayload = useCallback((scoresValidation: ScoresValidation) => {
     // Extract player IDs from form data
-    const team1_p1_id = getPlayerId(formData.team1Player1);
-    const team1_p2_id = getPlayerId(formData.team1Player2);
-    const team2_p1_id = getPlayerId(formData.team2Player1);
-    const team2_p2_id = getPlayerId(formData.team2Player2);
+    const team1_p1_id = getPlayerId(formData.team1Player1 ?? null);
+    const team1_p2_id = getPlayerId(formData.team1Player2 ?? null);
+    const team2_p1_id = getPlayerId(formData.team2Player1 ?? null);
+    const team2_p2_id = getPlayerId(formData.team2Player2 ?? null);
 
     // Build base payload
     const matchPayload: Record<string, number | string | boolean | null | undefined> = {

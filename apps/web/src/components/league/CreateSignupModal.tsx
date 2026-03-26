@@ -151,7 +151,7 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }: Creat
               value={formData.court_id}
               onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
               homeCourts={homeCourts as Array<{ id: number | string; name: string; address?: string }>}
-              preFilterLocationId={league?.location_id}
+              preFilterLocationId={league?.location_id ?? undefined}
               label="Court"
             />
             {isLeagueAdmin && (

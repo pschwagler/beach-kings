@@ -223,8 +223,8 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
             <CourtSelector
               value={formData.court_id}
               onChange={(courtId) => setFormData({ ...formData, court_id: courtId })}
-              homeCourts={homeCourts}
-              preFilterLocationId={league?.location_id}
+              homeCourts={homeCourts.map(c => ({ ...c, address: c.address ?? undefined }))}
+              preFilterLocationId={league?.location_id ?? undefined}
               label="Court (Optional)"
             />
             {isLeagueAdmin && (

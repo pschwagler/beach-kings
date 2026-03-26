@@ -187,13 +187,13 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
   const handleJoinLeague = async () => {
     try {
-      if (league.is_open) {
+      if (league?.is_open) {
         await joinLeague(leagueId);
-        showToast(`Successfully joined ${league.name}!`, 'success');
+        showToast(`Successfully joined ${league?.name}!`, 'success');
         await refreshLeague();
       } else {
         await requestToJoinLeague(leagueId);
-        showToast(`Join request submitted for ${league.name}. League admins will be notified.`, 'success');
+        showToast(`Join request submitted for ${league?.name}. League admins will be notified.`, 'success');
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
@@ -307,7 +307,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
                 league={clientPublicData as unknown as PublicLeagueData}
                 leagueId={leagueId}
                 onJoinLeague={handleJoinLeague}
-                isOpen={league.is_open}
+                isOpen={league?.is_open ?? false}
               />
             </main>
           </div>

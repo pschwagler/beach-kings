@@ -184,7 +184,7 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
       <div className="avatar-upload__preview" onClick={handleClickUpload}>
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="Profile" className="avatar-upload__image" data-testid="avatar-image" />
+          <img src={avatarUrl ?? undefined} alt="Profile" className="avatar-upload__image" data-testid="avatar-image" />
         ) : (
           <div className="avatar-upload__initials" data-testid="avatar-initials">{getInitials()}</div>
         )}

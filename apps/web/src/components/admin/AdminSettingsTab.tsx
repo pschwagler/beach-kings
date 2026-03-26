@@ -27,7 +27,7 @@ export default function AdminSettingsTab() {
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up success message timer on unmount
-  useEffect(() => () => clearTimeout(successTimerRef.current), []);
+  useEffect(() => () => clearTimeout(successTimerRef.current ?? undefined), []);
 
   const [originalValues, setOriginalValues] = useState({
     enable_sms: false,
@@ -98,7 +98,7 @@ export default function AdminSettingsTab() {
         log_level: updatedConfig.log_level || 'INFO',
       });
       setSuccessMessage('Configuration updated successfully!');
-      clearTimeout(successTimerRef.current);
+      clearTimeout(successTimerRef.current ?? undefined);
       successTimerRef.current = setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error('Error updating admin config:', err);
