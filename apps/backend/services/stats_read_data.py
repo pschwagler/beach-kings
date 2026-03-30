@@ -13,7 +13,29 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "get_rankings",
+    "get_elo_timeline",
+    "get_season_matches_with_elo",
+    "get_league_matches_with_elo",
+    "query_matches",
+    "get_player_stats_by_id",
+    "get_player_season_partnership_opponent_stats",
+    "get_all_player_season_stats",
+    "get_all_player_season_partnership_opponent_stats",
+    "get_player_season_stats",
+    "get_player_league_stats",
+    "get_all_player_league_stats",
+    "get_player_league_partnership_opponent_stats",
+    "get_all_player_league_partnership_opponent_stats",
+    "export_matches_to_csv",
+    "get_player_match_history_by_id",
+]
 
 from sqlalchemy import and_, cast, func, or_
 from sqlalchemy import Integer
@@ -52,15 +74,15 @@ from backend.services.player_data import generate_player_initials
 def _sort_rankings_all_seasons(rankings: List[Dict]) -> List[Dict]:
     """
     Sort rankings for "All Seasons" view.
-    Sort by: Wins (desc) -> Win Rate (desc) -> Avg Pt Diff (desc) -> ELO (desc)
+    Sort by: wins (desc) -> win_rate (desc) -> avg_pt_diff (desc) -> elo (desc)
     """
     return sorted(
         rankings,
         key=lambda p: (
-            -(p.get("Wins") or 0),
-            -(p.get("Win Rate") or 0.0),
-            -(p.get("Avg Pt Diff") or 0.0),
-            -(p.get("ELO") or 0),
+            -(p.get("wins") or 0),
+            -(p.get("win_rate") or 0.0),
+            -(p.get("avg_pt_diff") or 0.0),
+            -(p.get("elo") or 0),
         ),
     )
 
@@ -68,15 +90,15 @@ def _sort_rankings_all_seasons(rankings: List[Dict]) -> List[Dict]:
 def _sort_rankings_single_season(rankings: List[Dict]) -> List[Dict]:
     """
     Sort rankings for single season view.
-    Sort by: Points (desc) -> Avg Pt Diff (desc) -> Win Rate (desc) -> ELO (desc)
+    Sort by: points (desc) -> avg_pt_diff (desc) -> win_rate (desc) -> elo (desc)
     """
     return sorted(
         rankings,
         key=lambda p: (
-            -(p.get("Points") or 0),
-            -(p.get("Avg Pt Diff") or 0.0),
-            -(p.get("Win Rate") or 0.0),
-            -(p.get("ELO") or 0),
+            -(p.get("points") or 0),
+            -(p.get("avg_pt_diff") or 0.0),
+            -(p.get("win_rate") or 0.0),
+            -(p.get("elo") or 0),
         ),
     )
 
@@ -191,17 +213,17 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
             initials = generate_player_initials(name)
             rankings.append(
                 {
-                    "Player ID": row.id,
-                    "Name": name,
-                    "Initials": initials,
-                    "IsPlaceholder": row.is_placeholder or False,
-                    "ELO": round(row.current_rating) if row.current_rating else INITIAL_ELO,
-                    "Points": row.points or 0,
-                    "Games": row.games or 0,
-                    "Wins": row.wins or 0,
-                    "Losses": (row.games or 0) - (row.wins or 0),
-                    "Win Rate": row.win_rate or 0.0,
-                    "Avg Pt Diff": row.avg_point_diff or 0.0,
+                    "player_id": row.id,
+                    "name": name,
+                    "initials": initials,
+                    "is_placeholder": row.is_placeholder or False,
+                    "elo": round(row.current_rating) if row.current_rating else INITIAL_ELO,
+                    "points": row.points or 0,
+                    "games": row.games or 0,
+                    "wins": row.wins or 0,
+                    "losses": (row.games or 0) - (row.wins or 0),
+                    "win_rate": row.win_rate or 0.0,
+                    "avg_pt_diff": row.avg_point_diff or 0.0,
                 }
             )
 
@@ -213,6 +235,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         return rankings
 
     except Exception:
+        logger.exception("get_rankings failed")
         return []
 
 
@@ -269,7 +292,7 @@ async def get_elo_timeline(session: AsyncSession) -> List[Dict]:
 
     timeline = []
     for d in dates:
-        row_data: Dict = {"Date": d}
+        row_data: Dict = {"date": d}
         for player_id, name in player_id_to_name.items():
             history = player_elo_history.get(player_id, [])
             ptr = player_pointers[player_id]
@@ -613,13 +636,13 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     )
     partnerships = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -633,13 +656,13 @@ async def get_player_stats_by_id(session: AsyncSession, player_id: int) -> Optio
     )
     opponents = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -683,13 +706,13 @@ async def get_player_season_partnership_opponent_stats(
     )
     partnerships = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -708,13 +731,13 @@ async def get_player_season_partnership_opponent_stats(
     )
     opponents = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -737,12 +760,12 @@ async def get_all_player_season_stats(session: AsyncSession, season_id: int) -> 
         row.player_id: {
             "player_id": row.player_id,
             "season_id": row.season_id,
-            "Games": row.games,
-            "Wins": row.wins,
-            "Losses": row.games - row.wins,
-            "Win Rate": row.win_rate,
-            "Points": row.points,
-            "Avg Pt Diff": row.avg_point_diff,
+            "games": row.games,
+            "wins": row.wins,
+            "losses": row.games - row.wins,
+            "win_rate": row.win_rate,
+            "points": row.points,
+            "avg_pt_diff": row.avg_point_diff,
         }
         for row in rows
     }
@@ -783,13 +806,13 @@ async def get_all_player_season_partnership_opponent_stats(
             result_dict[pid] = {"partnerships": [], "opponents": []}
         result_dict[pid]["partnerships"].append(
             {
-                "Partner/Opponent": row[1],
-                "Points": row[0].points,
-                "Games": row[0].games,
-                "Wins": row[0].wins,
-                "Losses": row[0].games - row[0].wins,
-                "Win Rate": row[0].win_rate,
-                "Avg Pt Diff": row[0].avg_point_diff,
+                "partner_opponent": row[1],
+                "points": row[0].points,
+                "games": row[0].games,
+                "wins": row[0].wins,
+                "losses": row[0].games - row[0].wins,
+                "win_rate": row[0].win_rate,
+                "avg_pt_diff": row[0].avg_point_diff,
             }
         )
 
@@ -799,13 +822,13 @@ async def get_all_player_season_partnership_opponent_stats(
             result_dict[pid] = {"partnerships": [], "opponents": []}
         result_dict[pid]["opponents"].append(
             {
-                "Partner/Opponent": row[1],
-                "Points": row[0].points,
-                "Games": row[0].games,
-                "Wins": row[0].wins,
-                "Losses": row[0].games - row[0].wins,
-                "Win Rate": row[0].win_rate,
-                "Avg Pt Diff": row[0].avg_point_diff,
+                "partner_opponent": row[1],
+                "points": row[0].points,
+                "games": row[0].games,
+                "wins": row[0].wins,
+                "losses": row[0].games - row[0].wins,
+                "win_rate": row[0].win_rate,
+                "avg_pt_diff": row[0].avg_point_diff,
             }
         )
 
@@ -834,12 +857,12 @@ async def get_player_season_stats(
     return {
         "player_id": row.player_id,
         "season_id": row.season_id,
-        "Games": row.games,
-        "Wins": row.wins,
-        "Losses": row.games - row.wins,
-        "Win Rate": row.win_rate,
-        "Points": row.points,
-        "Avg Pt Diff": row.avg_point_diff,
+        "games": row.games,
+        "wins": row.wins,
+        "losses": row.games - row.wins,
+        "win_rate": row.win_rate,
+        "points": row.points,
+        "avg_pt_diff": row.avg_point_diff,
     }
 
 
@@ -865,12 +888,12 @@ async def get_player_league_stats(
     return {
         "player_id": row.player_id,
         "league_id": row.league_id,
-        "Games": row.games,
-        "Wins": row.wins,
-        "Losses": row.games - row.wins,
-        "Win Rate": row.win_rate,
-        "Points": row.points,
-        "Avg Pt Diff": row.avg_point_diff,
+        "games": row.games,
+        "wins": row.wins,
+        "losses": row.games - row.wins,
+        "win_rate": row.win_rate,
+        "points": row.points,
+        "avg_pt_diff": row.avg_point_diff,
     }
 
 
@@ -889,12 +912,12 @@ async def get_all_player_league_stats(session: AsyncSession, league_id: int) -> 
         row.player_id: {
             "player_id": row.player_id,
             "league_id": row.league_id,
-            "Games": row.games,
-            "Wins": row.wins,
-            "Losses": row.games - row.wins,
-            "Win Rate": row.win_rate,
-            "Points": row.points,
-            "Avg Pt Diff": row.avg_point_diff,
+            "games": row.games,
+            "wins": row.wins,
+            "losses": row.games - row.wins,
+            "win_rate": row.win_rate,
+            "points": row.points,
+            "avg_pt_diff": row.avg_point_diff,
         }
         for row in rows
     }
@@ -923,13 +946,13 @@ async def get_player_league_partnership_opponent_stats(
     )
     partnerships = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -948,13 +971,13 @@ async def get_player_league_partnership_opponent_stats(
     )
     opponents = [
         {
-            "Partner/Opponent": row[1],
-            "Points": row[0].points,
-            "Games": row[0].games,
-            "Wins": row[0].wins,
-            "Losses": row[0].games - row[0].wins,
-            "Win Rate": row[0].win_rate,
-            "Avg Pt Diff": row[0].avg_point_diff,
+            "partner_opponent": row[1],
+            "points": row[0].points,
+            "games": row[0].games,
+            "wins": row[0].wins,
+            "losses": row[0].games - row[0].wins,
+            "win_rate": row[0].win_rate,
+            "avg_pt_diff": row[0].avg_point_diff,
         }
         for row in result.all()
     ]
@@ -997,13 +1020,13 @@ async def get_all_player_league_partnership_opponent_stats(
             result_dict[pid] = {"partnerships": [], "opponents": []}
         result_dict[pid]["partnerships"].append(
             {
-                "Partner/Opponent": row[1],
-                "Points": row[0].points,
-                "Games": row[0].games,
-                "Wins": row[0].wins,
-                "Losses": row[0].games - row[0].wins,
-                "Win Rate": row[0].win_rate,
-                "Avg Pt Diff": row[0].avg_point_diff,
+                "partner_opponent": row[1],
+                "points": row[0].points,
+                "games": row[0].games,
+                "wins": row[0].wins,
+                "losses": row[0].games - row[0].wins,
+                "win_rate": row[0].win_rate,
+                "avg_pt_diff": row[0].avg_point_diff,
             }
         )
 
@@ -1013,13 +1036,13 @@ async def get_all_player_league_partnership_opponent_stats(
             result_dict[pid] = {"partnerships": [], "opponents": []}
         result_dict[pid]["opponents"].append(
             {
-                "Partner/Opponent": row[1],
-                "Points": row[0].points,
-                "Games": row[0].games,
-                "Wins": row[0].wins,
-                "Losses": row[0].games - row[0].wins,
-                "Win Rate": row[0].win_rate,
-                "Avg Pt Diff": row[0].avg_point_diff,
+                "partner_opponent": row[1],
+                "points": row[0].points,
+                "games": row[0].games,
+                "wins": row[0].wins,
+                "losses": row[0].games - row[0].wins,
+                "win_rate": row[0].win_rate,
+                "avg_pt_diff": row[0].avg_point_diff,
             }
         )
 
@@ -1225,31 +1248,31 @@ async def get_player_match_history_by_id(
 
         results.append(
             {
-                "Date": row.date,
-                "Partner": partner,
-                "Partner ID": partner_id,
-                "Partner IsPlaceholder": partner_is_placeholder,
-                "Opponent 1": opponent1,
-                "Opponent 1 ID": opponent1_id,
-                "Opponent 1 IsPlaceholder": opponent1_is_placeholder,
-                "Opponent 2": opponent2,
-                "Opponent 2 ID": opponent2_id,
-                "Opponent 2 IsPlaceholder": opponent2_is_placeholder,
-                "Result": match_result,
-                "Score": f"{player_score}-{opponent_score}",
-                "ELO Change": elo_change,
-                "ELO After": row.elo_after,
-                "Session Status": session_status_value,
-                "Session ID": row.session_id,
-                "Session Name": row.session_name,
-                "Session Code": row.session_code,
-                "Season ID": row.season_id,
-                "Season Name": row.season_name,
-                "League ID": row.league_id,
-                "League Name": row.league_name,
-                "Is Ranked": row.is_ranked,
-                "Ranked Intent": row.ranked_intent,
-                "Court Name": row.court_name,
+                "date": row.date,
+                "partner": partner,
+                "partner_id": partner_id,
+                "partner_is_placeholder": partner_is_placeholder,
+                "opponent_1": opponent1,
+                "opponent_1_id": opponent1_id,
+                "opponent_1_is_placeholder": opponent1_is_placeholder,
+                "opponent_2": opponent2,
+                "opponent_2_id": opponent2_id,
+                "opponent_2_is_placeholder": opponent2_is_placeholder,
+                "result": match_result,
+                "score": f"{player_score}-{opponent_score}",
+                "elo_change": elo_change,
+                "elo_after": row.elo_after,
+                "session_status": session_status_value,
+                "session_id": row.session_id,
+                "session_name": row.session_name,
+                "session_code": row.session_code,
+                "season_id": row.season_id,
+                "season_name": row.season_name,
+                "league_id": row.league_id,
+                "league_name": row.league_name,
+                "is_ranked": row.is_ranked,
+                "ranked_intent": row.ranked_intent,
+                "court_name": row.court_name,
             }
         )
 

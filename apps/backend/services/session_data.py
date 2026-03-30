@@ -12,6 +12,34 @@ import secrets
 import string
 import logging
 
+__all__ = [
+    "get_sessions",
+    "get_session",
+    "get_active_session",
+    "get_session_by_code",
+    "get_open_sessions_for_user",
+    "get_or_create_active_league_session",
+    "create_league_session",
+    "create_session",
+    "lock_in_session",
+    "update_session",
+    "delete_session",
+    "get_matches",
+    "get_session_matches",
+    "get_match_async",
+    "create_match_async",
+    "update_match_async",
+    "delete_match_async",
+    "get_session_participants",
+    "remove_session_participant",
+    "add_session_participant",
+    "join_session_by_code",
+    "can_user_add_match_to_session",
+    "get_session_match_player_user_ids",
+]
+
+from backend.services.session_geo_service import resolve_session_geo
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, and_, or_, cast, Integer
 from sqlalchemy.orm import aliased
@@ -85,11 +113,6 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
     }
-
-
-async def get_session_for_routes(session: AsyncSession, session_id: int) -> Optional[Dict]:
-    """Get a session by ID - alias for get_session."""
-    return await get_session(session, session_id)
 
 
 async def get_active_session(session: AsyncSession) -> Optional[Dict]:
@@ -301,13 +324,6 @@ async def get_open_sessions_for_user(
     return out
 
 
-async def get_user_leagues_for_routes(session: AsyncSession, user_id: int) -> List[Dict]:
-    """Get user leagues - alias for get_user_leagues (defined in league_data)."""
-    from backend.services.league_data import get_user_leagues
-
-    return await get_user_leagues(session, user_id)
-
-
 # ============================================================================
 # Session write operations
 # ============================================================================
@@ -326,6 +342,43 @@ async def _generate_session_code(db_session: AsyncSession) -> str:
     raise ValueError("Failed to generate unique session code")
 
 
+async def _get_active_season(
+    session: AsyncSession, league_id: int, season_id: Optional[int] = None
+) -> Season:
+    """Get active season for a league, either by ID or by current date."""
+    if season_id:
+        result = await session.execute(
+            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
+        )
+        active_season = result.scalar_one_or_none()
+        if not active_season:
+            raise ValueError(
+                f"Season {season_id} not found or does not belong to league {league_id}"
+            )
+        return active_season
+
+    current_date = date.today()
+    result = await session.execute(
+        select(Season)
+        .where(
+            and_(
+                Season.league_id == league_id,
+                Season.start_date <= current_date,
+                Season.end_date >= current_date,
+            )
+        )
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    active_season = result.scalar_one_or_none()
+    if not active_season:
+        raise ValueError(
+            f"League {league_id} does not have an active season. "
+            "Please create a season with dates that include today's date."
+        )
+    return active_season
+
+
 async def get_or_create_active_league_session(
     session: AsyncSession,
     league_id: int,
@@ -333,6 +386,8 @@ async def get_or_create_active_league_session(
     name: Optional[str] = None,
     created_by: Optional[int] = None,
     season_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Get or create an active session for a league and date atomically.
@@ -355,35 +410,7 @@ async def get_or_create_active_league_session(
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    if season_id:
-        season_result = await session.execute(
-            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
-        )
-        active_season = season_result.scalar_one_or_none()
-        if not active_season:
-            raise ValueError(
-                f"Season {season_id} not found or does not belong to league {league_id}"
-            )
-    else:
-        current_date = date.today()
-        season_result = await session.execute(
-            select(Season)
-            .where(
-                and_(
-                    Season.league_id == league_id,
-                    Season.start_date <= current_date,
-                    Season.end_date >= current_date,
-                )
-            )
-            .order_by(Season.created_at.desc())
-            .limit(1)
-        )
-        active_season = season_result.scalar_one_or_none()
-
-        if not active_season:
-            raise ValueError(
-                f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
-            )
+    active_season = await _get_active_season(session, league_id, season_id)
 
     # Try to get existing active session for this date and season
     try:
@@ -408,7 +435,8 @@ async def get_or_create_active_league_session(
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
             }
-    except Exception:
+    except Exception as e:
+        logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
         result = await session.execute(
             select(Session).where(
                 and_(
@@ -453,6 +481,16 @@ async def get_or_create_active_league_session(
     )
     default_court_id = home_court_result.scalar_one_or_none()
 
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=default_court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=session_date,
         name=session_name,
@@ -460,6 +498,9 @@ async def get_or_create_active_league_session(
         season_id=active_season.id,
         created_by=created_by,
         court_id=default_court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.flush()
@@ -471,6 +512,9 @@ async def get_or_create_active_league_session(
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
     }
 
 
@@ -481,38 +525,20 @@ async def create_league_session(
     name: Optional[str],
     created_by: Optional[int] = None,
     court_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Create a league session. Automatically uses the league's most recent active season.
     Defaults court_id to the league's primary home court (position=0) if not provided.
     Includes duplicate prevention - will raise ValueError if active session already exists.
     """
-    from datetime import date as date_type
-
     result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    current_date = date_type.today()
-    season_result = await session.execute(
-        select(Season)
-        .where(
-            and_(
-                Season.league_id == league_id,
-                Season.start_date <= current_date,
-                Season.end_date >= current_date,
-            )
-        )
-        .order_by(Season.created_at.desc())
-        .limit(1)
-    )
-    active_season = season_result.scalar_one_or_none()
-
-    if not active_season:
-        raise ValueError(
-            f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
-        )
+    active_season = await _get_active_season(session, league_id)
 
     # Check if active session already exists for this date and season
     result = await session.execute(
@@ -554,6 +580,16 @@ async def create_league_session(
         )
         court_id = home_court_result.scalar_one_or_none()
 
+    # Resolve geo from court → league home court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        league_id=league_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=date,
         name=session_name,
@@ -561,6 +597,9 @@ async def create_league_session(
         season_id=active_season.id,
         created_by=created_by,
         court_id=court_id,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.commit()
@@ -572,6 +611,9 @@ async def create_league_session(
         "status": new_session.status.value if new_session.status else None,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
     }
 
 
@@ -581,6 +623,8 @@ async def create_session(
     name: Optional[str] = None,
     court_id: Optional[int] = None,
     created_by: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> Dict:
     """
     Create a new non-league session (no season_id).
@@ -592,6 +636,8 @@ async def create_session(
         name: Optional session name (defaults to date-based name)
         court_id: Optional court ID
         created_by: Optional player ID who created the session
+        latitude: Optional browser geolocation latitude
+        longitude: Optional browser geolocation longitude
 
     Returns:
         Dict with session info including code
@@ -615,6 +661,15 @@ async def create_session(
 
     code = await _generate_session_code(session)
 
+    # Resolve geo from court → browser → player city
+    geo_lat, geo_lon, geo_location_id = await resolve_session_geo(
+        db_session=session,
+        court_id=court_id,
+        browser_lat=latitude,
+        browser_lon=longitude,
+        creator_player_id=created_by,
+    )
+
     new_session = Session(
         date=date,
         name=session_name,
@@ -623,6 +678,9 @@ async def create_session(
         season_id=None,
         court_id=court_id,
         created_by=created_by,
+        location_id=geo_location_id,
+        latitude=geo_lat,
+        longitude=geo_lon,
     )
     session.add(new_session)
     await session.flush()
@@ -643,6 +701,9 @@ async def create_session(
         "code": new_session.code,
         "season_id": new_session.season_id,
         "court_id": new_session.court_id,
+        "location_id": new_session.location_id,
+        "latitude": new_session.latitude,
+        "longitude": new_session.longitude,
         "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
 

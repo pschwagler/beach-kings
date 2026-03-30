@@ -15,6 +15,7 @@ from backend.models.schemas import (
     DirectMessageResponse,
     ConversationListResponse,
     ThreadResponse,
+    UnreadCountResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ async def mark_thread_read(
         raise HTTPException(status_code=500, detail="Error marking thread as read")
 
 
-@router.get("/api/messages/unread-count")
+@router.get("/api/messages/unread-count", response_model=UnreadCountResponse)
 @limiter.limit("60/minute")
 async def get_unread_count(
     request: Request,

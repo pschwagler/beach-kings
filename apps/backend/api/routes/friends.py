@@ -14,6 +14,7 @@ from backend.models.schemas import (
     FriendListResponse,
     FriendBatchStatusRequest,
     FriendBatchStatusResponse,
+    StatusResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ async def decline_friend_request(
         raise HTTPException(status_code=500, detail="Error declining friend request")
 
 
-@router.delete("/api/friends/requests/{request_id}")
+@router.delete("/api/friends/requests/{request_id}", response_model=StatusResponse)
 async def cancel_friend_request(
     request_id: int,
     user: dict = Depends(require_verified_player),
@@ -89,7 +90,7 @@ async def cancel_friend_request(
         raise HTTPException(status_code=500, detail="Error cancelling friend request")
 
 
-@router.delete("/api/friends/{player_id}")
+@router.delete("/api/friends/{player_id}", response_model=StatusResponse)
 async def remove_friend(
     player_id: int,
     user: dict = Depends(require_verified_player),
@@ -125,7 +126,7 @@ async def get_friends(
         raise HTTPException(status_code=500, detail="Error fetching friends")
 
 
-@router.get("/api/friends/requests")
+@router.get("/api/friends/requests", response_model=dict)
 async def get_friend_requests(
     direction: str = Query("both", pattern="^(incoming|outgoing|both)$"),
     user: dict = Depends(require_verified_player),
@@ -142,7 +143,7 @@ async def get_friend_requests(
         raise HTTPException(status_code=500, detail="Error fetching friend requests")
 
 
-@router.get("/api/friends/suggestions")
+@router.get("/api/friends/suggestions", response_model=list)
 async def get_friend_suggestions(
     limit: int = Query(10, ge=1, le=50),
     user: dict = Depends(require_verified_player),
@@ -176,7 +177,7 @@ async def batch_friend_status(
         raise HTTPException(status_code=500, detail="Error fetching friend statuses")
 
 
-@router.get("/api/friends/mutual/{other_player_id}")
+@router.get("/api/friends/mutual/{other_player_id}", response_model=dict)
 async def get_mutual_friends(
     other_player_id: int,
     user: dict = Depends(require_verified_player),

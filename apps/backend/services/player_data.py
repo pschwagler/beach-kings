@@ -9,6 +9,23 @@ Extracted from data_service.py.  Covers:
 
 from typing import List, Dict, Optional, Tuple
 from datetime import date
+
+__all__ = [
+    "generate_player_initials",
+    "list_players_search",
+    "get_all_player_names",
+    "get_player_by_user_id",
+    "get_player_by_user_id_with_stats",
+    "upsert_user_player",
+    "get_or_create_player",
+    "get_player_by_id",
+    "get_player_home_courts",
+    "add_player_home_court",
+    "remove_player_home_court",
+    "set_player_home_courts",
+    "reorder_player_home_courts",
+]
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func, or_, and_
 

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/api/loadsheets")
+@router.post("/api/loadsheets", response_model=dict)
 async def load_sheets(current_user: dict = Depends(get_current_user)):
     """
     DISABLED: This endpoint has been disabled.
@@ -37,8 +37,8 @@ async def load_sheets(current_user: dict = Depends(get_current_user)):
     )
 
 
-@router.post("/api/calculate")
-@router.post("/api/calculate-stats")
+@router.post("/api/calculate", response_model=dict)
+@router.post("/api/calculate-stats", response_model=dict)
 async def calculate_stats(
     request: Request,
     current_user: dict = Depends(get_current_user),
@@ -87,7 +87,7 @@ async def calculate_stats(
         raise HTTPException(status_code=500, detail=f"Error queueing stats calculation: {str(e)}")
 
 
-@router.get("/api/calculate-stats/status")
+@router.get("/api/calculate-stats/status", response_model=dict)
 async def get_calculation_status(
     current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
 ):
@@ -106,7 +106,7 @@ async def get_calculation_status(
         raise HTTPException(status_code=500, detail=f"Error getting queue status: {str(e)}")
 
 
-@router.get("/api/calculate-stats/status/{job_id}")
+@router.get("/api/calculate-stats/status/{job_id}", response_model=dict)
 async def get_job_status(
     job_id: int,
     current_user: dict = Depends(get_current_user),
@@ -135,7 +135,7 @@ async def get_job_status(
         raise HTTPException(status_code=500, detail=f"Error getting job status: {str(e)}")
 
 
-@router.get("/api/health")
+@router.get("/api/health", response_model=dict)
 async def health_check(session: AsyncSession = Depends(get_db_session)):
     """
     Health check endpoint.

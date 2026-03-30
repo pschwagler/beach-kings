@@ -3,7 +3,7 @@
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
@@ -13,12 +13,14 @@ from backend.api.auth_dependencies import (
     get_current_user_optional,
     require_system_admin,
 )
+from backend.models.schemas import LocationResponse, RegionResponse
+from typing import List
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/api/locations")
+@router.post("/api/locations", response_model=LocationResponse)
 async def create_location(
     request: Request,
     user: dict = Depends(require_system_admin),
@@ -44,7 +46,7 @@ async def create_location(
         raise HTTPException(status_code=500, detail=f"Error creating location: {str(e)}")
 
 
-@router.get("/api/locations")
+@router.get("/api/locations", response_model=List[LocationResponse])
 async def list_locations(session: AsyncSession = Depends(get_db_session)):
     """List locations (public)."""
     try:
@@ -53,7 +55,7 @@ async def list_locations(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error listing locations: {str(e)}")
 
 
-@router.get("/api/regions")
+@router.get("/api/regions", response_model=List[RegionResponse])
 async def list_regions(session: AsyncSession = Depends(get_db_session)):
     """List regions (public)."""
     try:
@@ -62,9 +64,11 @@ async def list_regions(session: AsyncSession = Depends(get_db_session)):
         raise HTTPException(status_code=500, detail=f"Error listing regions: {str(e)}")
 
 
-@router.get("/api/locations/distances")
+@router.get("/api/locations/distances", response_model=list)
 async def get_location_distances(
-    lat: float, lon: float, session: AsyncSession = Depends(get_db_session)
+    lat: float = Query(..., ge=-90.0, le=90.0),
+    lon: float = Query(..., ge=-180.0, le=180.0),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Get all locations with distances from given coordinates, sorted by closest first.
@@ -84,7 +88,7 @@ async def get_location_distances(
         raise HTTPException(status_code=500, detail=f"Error getting location distances: {str(e)}")
 
 
-@router.get("/api/geocode/autocomplete")
+@router.get("/api/geocode/autocomplete", response_model=dict)
 async def geocode_autocomplete(
     text: str,
     current_user: dict = Depends(get_current_user_optional),  # Optional auth for rate limiting
@@ -113,7 +117,7 @@ async def geocode_autocomplete(
         raise HTTPException(status_code=500, detail=f"Error fetching autocomplete: {str(e)}")
 
 
-@router.put("/api/locations/{location_id}")
+@router.put("/api/locations/{location_id}", response_model=LocationResponse)
 async def update_location(
     location_id: str,
     request: Request,
@@ -140,7 +144,7 @@ async def update_location(
         raise HTTPException(status_code=500, detail=f"Error updating location: {str(e)}")
 
 
-@router.delete("/api/locations/{location_id}")
+@router.delete("/api/locations/{location_id}", response_model=dict)
 async def delete_location(
     location_id: str,
     user: dict = Depends(require_system_admin),

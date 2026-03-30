@@ -2,14 +2,22 @@
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Season, Player, Session, SessionStatus, LeagueMember, League
+from backend.database.models import (
+    Court,
+    Season,
+    Player,
+    Session,
+    SessionStatus,
+    LeagueMember,
+    League,
+)
 from backend.services import data_service
 from backend.services.notification_service import notify_players_about_session_submitted
 from backend.api.auth_dependencies import (
@@ -23,6 +31,16 @@ from backend.models.schemas import (
     InviteBatchToSessionRequest,
     CreateNonLeagueSessionRequest,
     UpdateSessionRequest,
+    BatchInviteResponse,
+    DeleteSessionResponse,
+    OpenSessionResponse,
+    SessionDetailResponse,
+    SessionListItemResponse,
+    SessionMatchItemResponse,
+    SessionParticipantItemResponse,
+    SessionWithStatusResponse,
+    StatusResponse,
+    SubmitSessionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,7 +121,7 @@ async def _send_session_submit_notifications(
             league_name=league_name,
         )
     except Exception as e:
-        logger.warning(f"Failed to send session submitted notifications: {e}")
+        logger.warning("Failed to send session submitted notifications: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -111,43 +129,25 @@ async def _send_session_submit_notifications(
 # ---------------------------------------------------------------------------
 
 
-async def get_league_id_from_session(session: AsyncSession, session_id: int) -> Optional[int]:
-    """Get league_id from session_id via session -> season -> league."""
-    result = await session.execute(select(Session).where(Session.id == session_id))
-    session_obj = result.scalar_one_or_none()
-    if not session_obj or not session_obj.season_id:
-        return None
-
-    result = await session.execute(select(Season).where(Season.id == session_obj.season_id))
-    season = result.scalar_one_or_none()
-    if not season:
-        return None
-
-    return season.league_id
-
-
 async def is_user_admin_of_session_league(
     session: AsyncSession, user_id: int, session_id: int
 ) -> bool:
-    """Check if user is admin of the league that the session belongs to."""
-    league_id = await get_league_id_from_session(session, session_id)
-    if not league_id:
-        return False
+    """Check if user is admin of the league that the session belongs to.
 
-    query = (
-        select(1)
-        .select_from(
-            LeagueMember.__table__.join(Player.__table__, LeagueMember.player_id == Player.id)
-        )
+    Uses a single joined query: Session -> Season -> LeagueMember -> Player.
+    """
+    result = await session.execute(
+        select(LeagueMember.role)
+        .join(Season, Season.league_id == LeagueMember.league_id)
+        .join(Session, Session.season_id == Season.id)
+        .join(Player, Player.id == LeagueMember.player_id)
         .where(
-            LeagueMember.league_id == league_id,
+            Session.id == session_id,
             Player.user_id == user_id,
             LeagueMember.role == "admin",
         )
         .limit(1)
     )
-
-    result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
 
@@ -156,7 +156,7 @@ async def is_user_admin_of_session_league(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/leagues/{league_id}/sessions")
+@router.get("/api/leagues/{league_id}/sessions", response_model=list[SessionListItemResponse])
 async def get_league_sessions(
     league_id: int,
     active: Optional[bool] = None,
@@ -175,8 +175,6 @@ async def get_league_sessions(
         List of session objects for the league
     """
     try:
-        from backend.database.models import Court
-
         query = (
             select(
                 Session,
@@ -218,11 +216,13 @@ async def get_league_sessions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting league sessions: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting league sessions: {str(e)}")
+        logger.error("Error getting league sessions: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.patch("/api/leagues/{league_id}/sessions/{session_id}")
+@router.patch(
+    "/api/leagues/{league_id}/sessions/{session_id}", response_model=SubmitSessionResponse
+)
 async def end_league_session(
     league_id: int,
     session_id: int,
@@ -285,7 +285,8 @@ async def end_league_session(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating league session: {str(e)}")
+        logger.error("Error updating league session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +294,7 @@ async def end_league_session(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/sessions/open")
+@router.get("/api/sessions/open", response_model=list[OpenSessionResponse])
 async def get_open_sessions(
     include_all: bool = False,
     current_user: dict = Depends(get_current_user),
@@ -311,11 +312,11 @@ async def get_open_sessions(
             session, player["id"], active_only=not include_all
         )
     except Exception as e:
-        logger.error(f"Error getting open sessions: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting open sessions: {str(e)}")
+        logger.error("Error getting open sessions: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/sessions/by-code/{code}")
+@router.get("/api/sessions/by-code/{code}", response_model=SessionDetailResponse)
 async def get_session_by_code(
     code: str,
     current_user: dict = Depends(get_current_user),
@@ -328,7 +329,7 @@ async def get_session_by_code(
     return sess
 
 
-@router.get("/api/sessions/{session_id}/matches")
+@router.get("/api/sessions/{session_id}/matches", response_model=list[SessionMatchItemResponse])
 async def get_session_matches(
     session_id: int,
     current_user: dict = Depends(get_current_user),
@@ -342,7 +343,9 @@ async def get_session_matches(
     return matches
 
 
-@router.get("/api/sessions/{session_id}/participants")
+@router.get(
+    "/api/sessions/{session_id}/participants", response_model=list[SessionParticipantItemResponse]
+)
 async def get_session_participants(
     session_id: int,
     current_user: dict = Depends(get_current_user),
@@ -362,7 +365,9 @@ async def get_session_participants(
     return participants
 
 
-@router.delete("/api/sessions/{session_id}/participants/{player_id}")
+@router.delete(
+    "/api/sessions/{session_id}/participants/{player_id}", response_model=StatusResponse
+)
 async def remove_session_participant(
     session_id: int,
     player_id: int,
@@ -392,7 +397,7 @@ async def remove_session_participant(
     return {"status": "success", "message": "Player removed from session"}
 
 
-@router.post("/api/sessions/join")
+@router.post("/api/sessions/join", response_model=SessionWithStatusResponse)
 async def join_session_by_code(
     body: JoinSessionRequest,
     current_user: dict = Depends(get_current_user),
@@ -413,11 +418,11 @@ async def join_session_by_code(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error joining session: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error joining session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/sessions/{session_id}/invite")
+@router.post("/api/sessions/{session_id}/invite", response_model=StatusResponse)
 async def invite_to_session(
     session_id: int,
     body: InviteToSessionRequest,
@@ -452,11 +457,11 @@ async def invite_to_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error inviting to session: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error inviting to session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/sessions/{session_id}/invite_batch")
+@router.post("/api/sessions/{session_id}/invite_batch", response_model=BatchInviteResponse)
 async def invite_to_session_batch(
     session_id: int,
     body: InviteBatchToSessionRequest,
@@ -506,11 +511,11 @@ async def invite_to_session_batch(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error batch inviting to session: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error batch inviting to session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/sessions")
+@router.post("/api/sessions", response_model=SessionWithStatusResponse)
 async def create_session(
     body: CreateNonLeagueSessionRequest,
     current_user: dict = Depends(get_current_user),
@@ -528,7 +533,13 @@ async def create_session(
         player = await data_service.get_player_by_user_id(session, current_user["id"])
         created_by = player["id"] if player else None
         new_session = await data_service.create_session(
-            session, date, name=name, court_id=court_id, created_by=created_by
+            session,
+            date,
+            name=name,
+            court_id=court_id,
+            created_by=created_by,
+            latitude=body.latitude,
+            longitude=body.longitude,
         )
         return {
             "status": "success",
@@ -538,10 +549,14 @@ async def create_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+        logger.error("Error creating session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.patch("/api/sessions/{session_id}")
+@router.patch(
+    "/api/sessions/{session_id}",
+    response_model=Union[SubmitSessionResponse, SessionWithStatusResponse],
+)
 async def update_session(
     session_id: int,
     body: UpdateSessionRequest,
@@ -640,10 +655,11 @@ async def update_session(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating session: {str(e)}")
+        logger.error("Error updating session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.delete("/api/sessions/{session_id}")
+@router.delete("/api/sessions/{session_id}", response_model=DeleteSessionResponse)
 async def delete_session(
     session_id: int,
     current_user: dict = Depends(get_current_user),

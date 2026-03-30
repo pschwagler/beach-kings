@@ -1,0 +1,164 @@
+/**
+ * Player data transformation utilities
+ * Extracted from LeagueContext to separate concerns
+ */
+
+/**
+ * Transform player season stats into the format expected by PlayerDetails component
+ * @param {Object} seasonStats - Player season stats from context
+ * @param {Object} partnershipOpponentStats - Partnership and opponent stats
+ * @returns {Object} Formatted stats with overview and stats array
+ */
+export function formatPlayerSeasonStats(seasonStats: any, partnershipOpponentStats: any) {
+  if (!seasonStats) return null;
+
+  // Format stats array for PlayerStatsTable
+  const statsArray = [];
+  
+  // Add overall row first
+  statsArray.push({
+    partner_opponent: "OVERALL",
+    games: seasonStats.games,
+    wins: seasonStats.wins,
+    losses: seasonStats.losses,
+    win_rate: seasonStats.win_rate,
+    avg_pt_diff: seasonStats.avg_point_diff
+  });
+
+  // Add empty row separator
+  statsArray.push({ partner_opponent: "" });
+
+  // Add partnerships section
+  if (partnershipOpponentStats?.partnerships && partnershipOpponentStats.partnerships.length > 0) {
+    statsArray.push({ partner_opponent: "WITH PARTNERS" });
+    statsArray.push(...partnershipOpponentStats.partnerships);
+    statsArray.push({ partner_opponent: "" }); // Empty row
+  }
+
+  // Add opponents section
+  if (partnershipOpponentStats?.opponents && partnershipOpponentStats.opponents.length > 0) {
+    statsArray.push({ partner_opponent: "VS OPPONENTS" });
+    statsArray.push(...partnershipOpponentStats.opponents);
+    statsArray.push({ partner_opponent: "" }); // Empty row
+  }
+  
+  // Format season stats for PlayerDetails component
+  // Note: current_elo is now global (league/season agnostic), not season-specific
+  return {
+    overview: {
+      ranking: seasonStats.rank,
+      points: seasonStats.points,
+      rating: seasonStats.current_elo, // Global ELO rating
+      games: seasonStats.games,
+      wins: seasonStats.wins,
+      losses: seasonStats.losses,
+      win_rate: seasonStats.win_rate,
+      avg_point_diff: seasonStats.avg_point_diff
+    },
+    stats: statsArray
+  };
+}
+
+/**
+ * Transform match history for a specific player
+ * Filters and formats matches where the player participated
+ * @param {Array} matches - All matches from season data
+ * @param {number} playerId - Player ID to filter matches for
+ * @returns {Array} Formatted match history for the player
+ */
+export function formatPlayerMatchHistory(matches: any[], playerId: number) {
+  if (!matches || !playerId) return [];
+
+  // Filter match history to only include matches where this player participated
+  const playerMatches = matches.filter((match: any) => {
+    const playerIds = [
+      match.team1_player1_id,
+      match.team1_player2_id,
+      match.team2_player1_id,
+      match.team2_player2_id
+    ].filter(Boolean);
+    
+    return playerIds.includes(playerId);
+  });
+  
+  // Transform matches to MatchHistoryTable format
+  return playerMatches.map((match: any) => {
+    // Determine which team the player was on
+    const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
+    
+    let partner, partnerId, opponent1, opponent1Id, opponent2, opponent2Id;
+    let playerScore, opponentScore, result;
+
+    if (isTeam1) {
+      const isP1 = match.team1_player1_id === playerId;
+      partner = isP1 ? match.team1_player2_name : match.team1_player1_name;
+      partnerId = isP1 ? match.team1_player2_id : match.team1_player1_id;
+      opponent1 = match.team2_player1_name;
+      opponent1Id = match.team2_player1_id;
+      opponent2 = match.team2_player2_name;
+      opponent2Id = match.team2_player2_id;
+      playerScore = match.team1_score;
+      opponentScore = match.team2_score;
+      result = match.winner === 1 ? 'W' : match.winner === 2 ? 'L' : 'T';
+    } else {
+      const isP1 = match.team2_player1_id === playerId;
+      partner = isP1 ? match.team2_player2_name : match.team2_player1_name;
+      partnerId = isP1 ? match.team2_player2_id : match.team2_player1_id;
+      opponent1 = match.team1_player1_name;
+      opponent1Id = match.team1_player1_id;
+      opponent2 = match.team1_player2_name;
+      opponent2Id = match.team1_player2_id;
+      playerScore = match.team2_score;
+      opponentScore = match.team1_score;
+      result = match.winner === 2 ? 'W' : match.winner === 1 ? 'L' : 'T';
+    }
+    
+    // Get ELO change for this player
+    const eloChange = match.elo_changes?.[playerId];
+    const eloAfter = eloChange?.elo_after;
+    const eloChangeValue = eloChange?.elo_change;
+    
+    return {
+      Date: match.date,
+      Partner: partner || '',
+      'Partner ID': partnerId,
+      'Opponent 1': opponent1 || '',
+      'Opponent 1 ID': opponent1Id,
+      'Opponent 2': opponent2 || '',
+      'Opponent 2 ID': opponent2Id,
+      Result: result,
+      Score: `${playerScore}-${opponentScore}`,
+      'ELO After': eloAfter,
+      'ELO Change': eloChangeValue,
+      'Session Status': match.session_status || null
+    };
+  });
+}
+
+/**
+ * Transform player data from season data
+ * Combines stats and match history formatting
+ * @param {Object} seasonData - Season data (selectedSeasonData from context)
+ * @param {number} playerId - Player ID
+ * @returns {Object} Object with formatted stats and match history, or null if no data
+ */
+export function transformPlayerData(seasonData: any, playerId: number) {
+  if (!seasonData || !playerId) {
+    return {
+      stats: null,
+      matchHistory: []
+    };
+  }
+
+  const seasonStats = seasonData.player_season_stats?.[playerId];
+  const partnershipOpponentStats = seasonData.partnership_opponent_stats?.[playerId] || { partnerships: [], opponents: [] };
+  const matches = seasonData.matches || [];
+
+  const formattedStats = formatPlayerSeasonStats(seasonStats, partnershipOpponentStats);
+  const matchHistory = formatPlayerMatchHistory(matches, playerId);
+
+  return {
+    stats: formattedStats,
+    matchHistory: matchHistory
+  };
+}

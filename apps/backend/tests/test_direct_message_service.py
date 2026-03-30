@@ -138,10 +138,10 @@ async def test_get_thread_returns_messages_between_two_players(db_session, frien
 
     result = await direct_message_service.get_thread(db_session, alice, bob)
     assert result["total_count"] == 2
-    assert len(result["messages"]) == 2
+    assert len(result["items"]) == 2
 
     # Both messages should involve only alice and bob
-    for msg in result["messages"]:
+    for msg in result["items"]:
         assert {msg["sender_player_id"], msg["receiver_player_id"]} == {alice, bob}
 
 
@@ -160,7 +160,7 @@ async def test_get_thread_excludes_other_conversations(db_session, friends):
 
     result = await direct_message_service.get_thread(db_session, alice, bob)
     assert result["total_count"] == 1
-    assert result["messages"][0]["message_text"] == "Hi Bob"
+    assert result["items"][0]["message_text"] == "Hi Bob"
 
 
 @pytest.mark.asyncio
@@ -173,12 +173,12 @@ async def test_get_thread_pagination(db_session, friends):
         await direct_message_service.send_message(db_session, alice, bob, f"Msg {i}")
 
     result = await direct_message_service.get_thread(db_session, alice, bob, limit=2, offset=0)
-    assert len(result["messages"]) == 2
+    assert len(result["items"]) == 2
     assert result["total_count"] == 5
     assert result["has_more"] is True
 
     result2 = await direct_message_service.get_thread(db_session, alice, bob, limit=2, offset=4)
-    assert len(result2["messages"]) == 1
+    assert len(result2["items"]) == 1
     assert result2["has_more"] is False
 
 
@@ -264,7 +264,7 @@ async def test_get_conversations_lists_partners(db_session, friends):
 
     result = await direct_message_service.get_conversations(db_session, alice)
     assert result["total_count"] == 1
-    conv = result["conversations"][0]
+    conv = result["items"][0]
     assert conv["player_id"] == bob
     assert conv["last_message_text"] == "Hello!"
     assert conv["is_friend"] is True
@@ -280,4 +280,4 @@ async def test_get_conversations_shows_unread_count(db_session, friends):
     await direct_message_service.send_message(db_session, bob, alice, "Hey 2")
 
     result = await direct_message_service.get_conversations(db_session, alice)
-    assert result["conversations"][0]["unread_count"] == 2
+    assert result["items"][0]["unread_count"] == 2

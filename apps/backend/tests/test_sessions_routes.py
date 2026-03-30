@@ -707,7 +707,15 @@ class TestCreateSession:
             "status": "ACTIVE",
         }
 
-        async def fake_create_session(session, date, name=None, court_id=None, created_by=None):
+        async def fake_create_session(
+            session,
+            date,
+            name=None,
+            court_id=None,
+            created_by=None,
+            latitude=None,
+            longitude=None,
+        ):
             return created_session
 
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
@@ -728,7 +736,15 @@ class TestCreateSession:
         client, headers = _make_user_client(monkeypatch)
         _patch_player(monkeypatch)
 
-        async def fake_create_session(session, date, name=None, court_id=None, created_by=None):
+        async def fake_create_session(
+            session,
+            date,
+            name=None,
+            court_id=None,
+            created_by=None,
+            latitude=None,
+            longitude=None,
+        ):
             return {"id": _SESSION_ID, "name": None, "code": "DEFA0001", "status": "ACTIVE"}
 
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)

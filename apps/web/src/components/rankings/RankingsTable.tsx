@@ -1,0 +1,338 @@
+import { useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Crown } from 'lucide-react';
+import { Tooltip } from '../ui/UI';
+import { getFirstPlacePlayer } from '../../utils/playerUtils';
+import { RankingsTableSkeleton } from '../ui/Skeletons';
+import ShareInviteIcon from '../player/ShareInviteIcon';
+import type { RankingEntry } from '../../contexts/league/useSeasonData';
+
+// Helper function to check if avatar is an image URL
+const isImageUrl = (avatar: string | null | undefined): boolean => {
+  if (!avatar) return false;
+  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
+};
+
+// Avatar component
+const PlayerAvatar = ({ avatar, playerName }: { avatar: string | null | undefined; playerName: string }) => {
+  if (isImageUrl(avatar)) {
+    return (
+      <div className="player-avatar player-avatar-image">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={avatar ?? undefined} alt={playerName} />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="player-avatar player-avatar-initials">
+      <span className="player-avatar-text">{avatar || '?'}</span>
+    </div>
+  );
+};
+
+const MEDAL_ICONS = ['🥇', '🥈', '🥉'];
+
+
+interface RankingsSeason {
+  id: number;
+  name?: string | null;
+  scoring_system?: string;
+  point_system?: string | Record<string, unknown>;
+}
+
+interface RankingsTableProps {
+  rankings: RankingEntry[] | null | undefined;
+  onPlayerClick: (playerId: number, playerName: string) => void;
+  loading?: boolean;
+  isAllSeasons?: boolean;
+  onNavigateToMatches?: () => void;
+  season?: RankingsSeason | null;
+  placeholderPlayerIds?: Set<number> | null;
+  awardsFinalized?: boolean;
+}
+
+export default function RankingsTable({ rankings, onPlayerClick, loading, isAllSeasons = false, onNavigateToMatches, season = null, placeholderPlayerIds = null, awardsFinalized = false }: RankingsTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  // Default sort by season_rank (ascending - 1, 2, 3...)
+  const [sortConfig, setSortConfig] = useState({ column: 'season_rank', ascending: true });
+  
+  const handleNavigateToMatches = () => {
+    if (onNavigateToMatches) {
+      onNavigateToMatches();
+    } else if (pathname && router) {
+      // Navigate to matches tab by updating URL
+      const url = new URL(pathname, window.location.origin);
+      url.searchParams.set('tab', 'matches');
+      router.push(url.pathname + url.search);
+    } else if (typeof window !== 'undefined') {
+      // Fallback: try to update the current URL
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('tab', 'matches');
+      window.location.href = currentUrl.toString();
+    }
+  };
+
+  // All hooks must be called before any early returns
+  const sortedRankings = useMemo(() => {
+    // If rankings is null or undefined, data hasn't loaded yet
+    if (!rankings || !Array.isArray(rankings) || rankings.length === 0) return [];
+    
+    return [...rankings].sort((a, b) => {
+      // Primary sort by selected column
+      const aVal = a[sortConfig.column];
+      const bVal = b[sortConfig.column];
+      
+      // Handle null/undefined values
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      
+      const primaryComparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      const primaryResult = sortConfig.ascending ? primaryComparison : -primaryComparison;
+      
+      if (primaryResult !== 0) return primaryResult;
+      
+      // Tiebreaker: if sorting by something other than season_rank, use season_rank as tiebreaker
+      if (sortConfig.column !== 'season_rank') {
+        const aRank = a.season_rank || 9999;
+        const bRank = b.season_rank || 9999;
+        return aRank - bRank; // Always ascending for rank
+      }
+      
+      return 0;
+    });
+  }, [rankings, sortConfig]);
+
+  // Find first place player using utility function
+  const firstPlacePlayer = useMemo(() => getFirstPlacePlayer(rankings), [rankings]);
+
+  // Early returns after all hooks
+  // Show skeleton if loading OR if rankings hasn't loaded yet (null or undefined)
+  if (loading || rankings === null || rankings === undefined) {
+    return <RankingsTableSkeleton />;
+  }
+
+  const handleSort = (column: string) => {
+    setSortConfig(prev => {
+      if (prev.column === column) {
+        // Toggle ascending/descending for same column
+        return { column, ascending: !prev.ascending };
+      } else {
+        // New column: default to ascending for season_rank, descending for others
+        return { column, ascending: column === 'season_rank' };
+      }
+    });
+  };
+
+  const getSortArrow = (column: string) => {
+    if (sortConfig.column === column) {
+      return sortConfig.ascending ? ' ↑' : ' ↓';
+    }
+    return '';
+  };
+
+  const formatPtDiff = (value: number) => {
+    return value >= 0 ? `+${value}` : `${value}`;
+  };
+
+  /**
+   * Format points to nearest 0.1, but show as integer if it's a whole number
+   * Examples: 2.0000 -> "2", 2.5 -> "2.5", 2.45 -> "2.5", 2.44 -> "2.4"
+   */
+  const formatPoints = (value: number | null | undefined) => {
+    if (value == null || value === undefined) return '-';
+    
+    // Round to nearest 0.1
+    const rounded = Math.round(value * 10) / 10;
+    
+    // If it's a whole number, display without decimal
+    if (rounded % 1 === 0) {
+      return rounded.toString();
+    }
+    
+    // Otherwise, display with one decimal place
+    return rounded.toFixed(1);
+  };
+
+  // Generate dynamic helper text for Points column based on scoring system
+  const getPointsHelperText = () => {
+    if (isAllSeasons || !season) {
+      return "Points don't apply to non-season standings";
+    }
+    
+    const scoringSystem = season.scoring_system;
+    
+    if (scoringSystem === "season_rating") {
+      return "Points determined by Rating-based system, where every player starts with 100 points and competes for other players' points.";
+    }
+    
+    // Points system - show the points per win/loss if available
+    if (season.point_system) {
+      try {
+        const config = typeof season.point_system === 'string' 
+          ? JSON.parse(season.point_system) 
+          : season.point_system;
+        
+        if (config.points_per_win !== undefined && config.points_per_loss !== undefined) {
+          return `Season points: +${config.points_per_win} for each win, +${config.points_per_loss} for each loss`;
+        }
+      } catch (e) {
+        return `Season points: +3 for each win, +1 for each loss`;
+      }
+    }
+    
+    // Default fallback
+    return "";
+  };
+
+  if (Array.isArray(rankings) && rankings.length === 0) {
+    return (
+      <div className="loading">
+        No rankings available yet.{' '}
+        <button
+          onClick={handleNavigateToMatches}
+          className="link-button"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--primary)',
+            textDecoration: 'underline',
+            cursor: 'pointer',
+            padding: 0,
+            font: 'inherit',
+          }}
+        >
+          Add Games
+        </button>
+        {' '}to start tracking stats.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rankings-table-wrapper">
+      <table className="rankings-table-modern" data-testid="rankings-table">
+        <thead>
+          <tr>
+            <th className="rank-number-header" onClick={() => handleSort('season_rank')}>
+              <span className="th-content">
+                <span className="desktop-label">No</span>
+                <span className="mobile-label">No</span>
+                {getSortArrow('season_rank')}
+              </span>
+            </th>
+            <th className="sticky-col" onClick={() => handleSort('name')}>
+              <Tooltip text="Player's name">
+                <span className="th-content">
+                  Player name{getSortArrow('name')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('points')}>
+              <Tooltip text={getPointsHelperText()} multiline={true}>
+                <span className="th-content">
+                  <span className="desktop-label">Points</span>
+                  <span className="mobile-label">PTS</span>
+                  {getSortArrow('points')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('games')}>
+              <Tooltip text="Total number of games played this season">
+                <span className="th-content">
+                  <span className="desktop-label">Games</span>
+                  <span className="mobile-label">GP</span>
+                  {getSortArrow('games')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('wins')}>
+              <Tooltip text="Total number of wins">
+                <span className="th-content">
+                  <span className="desktop-label">Wins</span>
+                  <span className="mobile-label">W</span>
+                  {getSortArrow('wins')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('losses')}>
+              <Tooltip text="Total number of losses">
+                <span className="th-content">
+                  <span className="desktop-label">Losses</span>
+                  <span className="mobile-label">L</span>
+                  {getSortArrow('losses')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('win_rate')}>
+              <Tooltip text="Percentage of games won">
+                <span className="th-content">
+                  Win %{getSortArrow('win_rate')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('avg_pt_diff')}>
+              <Tooltip text="Average point differential per game">
+                <span className="th-content">
+                  Avg +/-{getSortArrow('avg_pt_diff')}
+                </span>
+              </Tooltip>
+            </th>
+            <th onClick={() => handleSort('elo')}>
+              <Tooltip text="Current skill rating (higher is better)">
+                <span className="th-content">
+                  Rating{getSortArrow('elo')}
+                </span>
+              </Tooltip>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedRankings.map((player, idx) => {
+            return (
+              <tr
+                key={player.player_id || idx}
+                className="rankings-row clickable-row"
+                onClick={() => onPlayerClick(player.player_id ?? 0, player.name ?? '')}
+                data-testid="rankings-row"
+              >
+                <td className="rank-number-cell">
+                  {isAllSeasons ? '-' : (
+                    <>
+                      {awardsFinalized && (player.season_rank ?? 0) <= 3 && (
+                        <span className="rank-medal" aria-label={`${['Gold', 'Silver', 'Bronze'][(player.season_rank ?? 1) - 1]} medal`}>
+                          {MEDAL_ICONS[(player.season_rank ?? 1) - 1]}
+                        </span>
+                      )}
+                      {(!awardsFinalized || (player.season_rank ?? 0) > 3) && (player.season_rank || idx + 1)}
+                    </>
+                  )}
+                </td>
+                <td className="sticky-col rankings-name-cell">
+                  <span className="player-name-modern">
+                    <PlayerAvatar avatar={player.avatar} playerName={player.name ?? ''} />
+                    {firstPlacePlayer && player.player_id === firstPlacePlayer.player_id && (
+                      <Crown size={15} className="crown-icon-modern" />
+                    )}
+                    <span>{player.name}</span>
+                    {player.player_id != null && placeholderPlayerIds?.has(player.player_id) && <ShareInviteIcon playerId={player.player_id} playerName={player.name ?? ''} />}
+                  </span>
+                </td>
+                <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.points)}</td>
+                <td className="rankings-stat-cell">{player.games}</td>
+                <td className="rankings-stat-cell">{player.wins}</td>
+                <td className="rankings-stat-cell">{player.losses}</td>
+                <td className="rankings-stat-cell">{((player.win_rate ?? 0) * 100).toFixed(1)}%</td>
+                <td className="rankings-stat-cell">{formatPtDiff(player.avg_pt_diff ?? 0)}</td>
+                <td className="rankings-stat-cell">{Math.round(player.elo ?? 0)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

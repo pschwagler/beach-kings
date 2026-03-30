@@ -31,9 +31,15 @@ from backend.api.auth_dependencies import (
 )
 from backend.models.schemas import (
     CreateMatchRequest,
+    CreateMatchResponse,
     UpdateMatchRequest,
     EditPhotoResultsRequest,
     ConfirmPhotoMatchesRequest,
+    MatchStatusResponse,
+    StatusResponse,
+    PhotoJobResponse,
+    PhotoJobStatusResponse,
+    ConfirmMatchesResponse,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -62,7 +68,7 @@ def _format_sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
-@router.post("/api/matches")
+@router.post("/api/matches", response_model=CreateMatchResponse)
 async def create_match(
     match_request: CreateMatchRequest,
     current_user: dict = Depends(get_current_user),
@@ -227,6 +233,8 @@ async def create_match(
                         session_date=match_date,
                         created_by=player_id,
                         season_id=selected_season.id,
+                        latitude=match_request.latitude,
+                        longitude=match_request.longitude,
                     )
                 session_id = session_obj["id"]
 
@@ -249,10 +257,11 @@ async def create_match(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating match: {str(e)}")
+        logger.error("Error creating match: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.put("/api/matches/{match_id}")
+@router.put("/api/matches/{match_id}", response_model=MatchStatusResponse)
 async def update_match(
     match_id: int,
     match_request: UpdateMatchRequest,
@@ -326,10 +335,11 @@ async def update_match(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating match: {str(e)}")
+        logger.error("Error updating match: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.delete("/api/matches/{match_id}")
+@router.delete("/api/matches/{match_id}", response_model=MatchStatusResponse)
 async def delete_match(
     match_id: int,
     current_user: dict = Depends(get_current_user),
@@ -386,7 +396,8 @@ async def delete_match(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting match: {str(e)}")
+        logger.error("Error deleting match: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -394,7 +405,7 @@ async def delete_match(
 # ============================================================================
 
 
-@router.post("/api/leagues/{league_id}/matches/upload-photo")
+@router.post("/api/leagues/{league_id}/matches/upload-photo", response_model=PhotoJobResponse)
 @limiter.limit("10/minute")
 async def upload_match_photo(
     league_id: int,
@@ -468,11 +479,14 @@ async def upload_match_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading match photo: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing photo upload: {str(e)}")
+        logger.error("Error uploading match photo: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/leagues/{league_id}/matches/photo-sessions/{session_id}/edit")
+@router.post(
+    "/api/leagues/{league_id}/matches/photo-sessions/{session_id}/edit",
+    response_model=PhotoJobResponse,
+)
 @limiter.limit("20/minute")
 async def edit_photo_results(
     league_id: int,
@@ -517,8 +531,8 @@ async def edit_photo_results(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error editing photo results: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing edit: {str(e)}")
+        logger.error("Error editing photo results: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}/stream")
@@ -573,7 +587,9 @@ async def stream_photo_job(
         raise HTTPException(status_code=500, detail="Error starting stream")
 
 
-@router.get("/api/leagues/{league_id}/matches/photo-jobs/{job_id}")
+@router.get(
+    "/api/leagues/{league_id}/matches/photo-jobs/{job_id}", response_model=PhotoJobStatusResponse
+)
 @limiter.limit("60/minute")
 async def get_photo_job_status(
     league_id: int,
@@ -615,11 +631,14 @@ async def get_photo_job_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting job status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting job status: {str(e)}")
+        logger.error("Error getting job status: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/leagues/{league_id}/matches/photo-sessions/{session_id}/confirm")
+@router.post(
+    "/api/leagues/{league_id}/matches/photo-sessions/{session_id}/confirm",
+    response_model=ConfirmMatchesResponse,
+)
 @limiter.limit("10/minute")
 async def confirm_photo_matches(
     league_id: int,
@@ -673,11 +692,13 @@ async def confirm_photo_matches(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error confirming matches: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error creating matches: {str(e)}")
+        logger.error("Error confirming matches: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.delete("/api/leagues/{league_id}/matches/photo-sessions/{session_id}")
+@router.delete(
+    "/api/leagues/{league_id}/matches/photo-sessions/{session_id}", response_model=StatusResponse
+)
 async def cancel_photo_session(
     league_id: int,
     session_id: str,
@@ -698,5 +719,5 @@ async def cancel_photo_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error cancelling session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error cancelling session: {str(e)}")
+        logger.error("Error cancelling session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

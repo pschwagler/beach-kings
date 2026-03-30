@@ -45,7 +45,7 @@ async def test_get_notifications(monkeypatch):
 
     # Mock notification service
     mock_notifications = {
-        "notifications": [
+        "items": [
             {
                 "id": 1,
                 "user_id": 1,
@@ -74,8 +74,8 @@ async def test_get_notifications(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data["total_count"] == 1
-    assert len(data["notifications"]) == 1
-    assert data["notifications"][0]["title"] == "Test Notification"
+    assert len(data["items"]) == 1
+    assert data["items"][0]["title"] == "Test Notification"
 
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_get_notifications_with_params(monkeypatch):
     client, headers = make_client_with_auth(monkeypatch, user_id=1)
 
     async def fake_get_user_notifications(session, user_id, limit=50, offset=0, unread_only=False):
-        return {"notifications": [], "total_count": 0, "has_more": False}
+        return {"items": [], "total_count": 0, "has_more": False}
 
     monkeypatch.setattr(
         notification_service, "get_user_notifications", fake_get_user_notifications, raising=True

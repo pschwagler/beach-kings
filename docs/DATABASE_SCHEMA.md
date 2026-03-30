@@ -420,6 +420,9 @@ Gaming sessions grouped by date/time.
 | `code` | String(12) | **Unique**, shareable code for invite links |
 | `season_id` | Integer FK → seasons.id | Nullable |
 | `court_id` | Integer FK → courts.id | Nullable |
+| `location_id` | String FK → locations.id | Nullable; auto-resolved from nearest location hub |
+| `latitude` | Float | Nullable; from court, browser geolocation, or player city |
+| `longitude` | Float | Nullable; from court, browser geolocation, or player city |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
 | `created_by` | Integer FK → players.id | |

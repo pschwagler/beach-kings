@@ -1,472 +1,642 @@
 ---
 name: frontend-patterns
-description: Frontend development patterns for React, Next.js App Router, and Chakra UI. Component composition, state management, performance, and accessibility.
+description: Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.
+origin: ECC
 ---
 
 # Frontend Development Patterns
 
-Patterns for building components with React 18, Next.js 14 App Router, TypeScript, and Chakra UI.
+Modern frontend patterns for React, Next.js, and performant user interfaces.
 
 ## When to Activate
 
-- Building React components
-- Managing state (useState, useReducer, Context)
-- Implementing data fetching (server components, client fetch)
-- Optimizing performance (memoization, code splitting)
-- Working with forms
-- Building accessible, responsive UI
+- Building React components (composition, props, rendering)
+- Managing state (useState, useReducer, Zustand, Context)
+- Implementing data fetching (SWR, React Query, server components)
+- Optimizing performance (memoization, virtualization, code splitting)
+- Working with forms (validation, controlled inputs, Zod schemas)
+- Handling client-side routing and navigation
+- Building accessible, responsive UI patterns
 
 ## Component Patterns
 
-### Composition with Chakra UI
+### Composition Over Inheritance
 
 ```typescript
-import { Box, Flex, FlexProps, Text } from '@chakra-ui/react';
-
-interface CardProps extends FlexProps {
-  title: string;
-  children: React.ReactNode;
+// ✅ GOOD: Component composition
+interface CardProps {
+  children: React.ReactNode
+  variant?: 'default' | 'outlined'
 }
 
-export default function Card({
-  title,
-  children,
-  ...rest
-}: CardProps): React.ReactNode {
-  return (
-    <Flex
-      direction="column"
-      bg="#FBFBFB"
-      borderRadius="8px"
-      border="1px"
-      borderColor="#DBDCE1"
-      p={4}
-      {...rest}
-    >
-      <Text fontWeight="bold" color="blackAlpha.800" mb={2}>
-        {title}
-      </Text>
-      <Box>{children}</Box>
-    </Flex>
-  );
+export function Card({ children, variant = 'default' }: CardProps) {
+  return <div className={`card card-${variant}`}>{children}</div>
 }
+
+export function CardHeader({ children }: { children: React.ReactNode }) {
+  return <div className="card-header">{children}</div>
+}
+
+export function CardBody({ children }: { children: React.ReactNode }) {
+  return <div className="card-body">{children}</div>
+}
+
+// Usage
+<Card>
+  <CardHeader>Title</CardHeader>
+  <CardBody>Content</CardBody>
+</Card>
 ```
-
-Key points:
-- Extend Chakra's props (e.g., `FlexProps`) for composability via `...rest`
-- Props as `interface`, destructured in signature
-- Explicit return types on exported components
-- Prop-based styling, not raw CSS
 
 ### Compound Components
 
 ```typescript
-import { createContext, useContext, useState } from 'react';
-import { Box, Button } from '@chakra-ui/react';
-
 interface TabsContextValue {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab: string
+  setActiveTab: (tab: string) => void
 }
 
-const TabsContext = createContext<TabsContextValue | undefined>(undefined);
+const TabsContext = createContext<TabsContextValue | undefined>(undefined)
 
-export function Tabs({
-  children,
-  defaultTab,
-}: {
-  children: React.ReactNode;
-  defaultTab: string;
-}): React.ReactNode {
-  const [activeTab, setActiveTab] = useState(defaultTab);
+export function Tabs({ children, defaultTab }: {
+  children: React.ReactNode
+  defaultTab: string
+}) {
+  const [activeTab, setActiveTab] = useState(defaultTab)
 
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
       {children}
     </TabsContext.Provider>
-  );
+  )
 }
 
-function useTabs(): TabsContextValue {
-  const context = useContext(TabsContext);
-  if (!context) throw new Error('Tab must be used within Tabs');
-  return context;
+export function TabList({ children }: { children: React.ReactNode }) {
+  return <div className="tab-list">{children}</div>
 }
 
-export function Tab({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}): React.ReactNode {
-  const { activeTab, setActiveTab } = useTabs();
-  const isActive = activeTab === id;
+export function Tab({ id, children }: { id: string, children: React.ReactNode }) {
+  const context = useContext(TabsContext)
+  if (!context) throw new Error('Tab must be used within Tabs')
 
   return (
-    <Button
-      variant="unstyled"
-      color={isActive ? '#2800D7' : '#5E6272'}
-      fontWeight={isActive ? 'bold' : 'normal'}
-      onClick={() => setActiveTab(id)}
+    <button
+      className={context.activeTab === id ? 'active' : ''}
+      onClick={() => context.setActiveTab(id)}
     >
       {children}
-    </Button>
-  );
+    </button>
+  )
 }
+
+// Usage
+<Tabs defaultTab="overview">
+  <TabList>
+    <Tab id="overview">Overview</Tab>
+    <Tab id="details">Details</Tab>
+  </TabList>
+</Tabs>
 ```
 
-### Server vs Client Components
+### Render Props Pattern
 
 ```typescript
-// layout.tsx - Server component (default in App Router)
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Page Title',
-};
-
-export default function Layout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  return <main>{children}</main>;
+interface DataLoaderProps<T> {
+  url: string
+  children: (data: T | null, loading: boolean, error: Error | null) => React.ReactNode
 }
 
-// InteractiveWidget.tsx - Client component (opt-in)
-'use client';
+export function DataLoader<T>({ url, children }: DataLoaderProps<T>) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-import { useState } from 'react';
-import { Box } from '@chakra-ui/react';
+  useEffect(() => {
+    fetch(url)
+      .then(res => res.json())
+      .then(setData)
+      .catch(setError)
+      .finally(() => setLoading(false))
+  }, [url])
 
-export default function InteractiveWidget(): React.ReactNode {
-  const [isOpen, setIsOpen] = useState(false);
-  return <Box onClick={() => setIsOpen(!isOpen)}>{/* ... */}</Box>;
+  return <>{children(data, loading, error)}</>
 }
+
+// Usage
+<DataLoader<Market[]> url="/api/markets">
+  {(markets, loading, error) => {
+    if (loading) return <Spinner />
+    if (error) return <Error error={error} />
+    return <MarketList markets={markets!} />
+  }}
+</DataLoader>
 ```
 
-Only add `'use client'` when the component needs interactivity (hooks, event handlers, browser APIs).
-
-## Custom Hooks
+## Custom Hooks Patterns
 
 ### State Management Hook
 
 ```typescript
-import { useCallback, useState } from 'react';
+export function useToggle(initialValue = false): [boolean, () => void] {
+  const [value, setValue] = useState(initialValue)
 
-export function useToggle(
-  initialValue = false
-): [boolean, () => void] {
-  const [value, setValue] = useState(initialValue);
-  const toggle = useCallback(() => setValue((v) => !v), []);
-  return [value, toggle];
+  const toggle = useCallback(() => {
+    setValue(v => !v)
+  }, [])
+
+  return [value, toggle]
 }
+
+// Usage
+const [isOpen, toggleOpen] = useToggle()
+```
+
+### Async Data Fetching Hook
+
+```typescript
+interface UseQueryOptions<T> {
+  onSuccess?: (data: T) => void
+  onError?: (error: Error) => void
+  enabled?: boolean
+}
+
+export function useQuery<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  options?: UseQueryOptions<T>
+) {
+  const [data, setData] = useState<T | null>(null)
+  const [error, setError] = useState<Error | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const result = await fetcher()
+      setData(result)
+      options?.onSuccess?.(result)
+    } catch (err) {
+      const error = err as Error
+      setError(error)
+      options?.onError?.(error)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetcher, options])
+
+  useEffect(() => {
+    if (options?.enabled !== false) {
+      refetch()
+    }
+  }, [key, refetch, options?.enabled])
+
+  return { data, error, loading, refetch }
+}
+
+// Usage
+const { data: markets, loading, error, refetch } = useQuery(
+  'markets',
+  () => fetch('/api/markets').then(r => r.json()),
+  {
+    onSuccess: data => console.log('Fetched', data.length, 'markets'),
+    onError: err => console.error('Failed:', err)
+  }
+)
 ```
 
 ### Debounce Hook
 
 ```typescript
-import { useEffect, useState } from 'react';
-
 export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
 
-  return debouncedValue;
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
 }
+
+// Usage
+const [searchQuery, setSearchQuery] = useState('')
+const debouncedQuery = useDebounce(searchQuery, 500)
+
+useEffect(() => {
+  if (debouncedQuery) {
+    performSearch(debouncedQuery)
+  }
+}, [debouncedQuery])
 ```
 
-### API Fetch Hook
+## State Management Patterns
+
+### Context + Reducer Pattern
 
 ```typescript
-import { useCallback, useEffect, useState } from 'react';
-
-interface UseFetchResult<T> {
-  data: T | null;
-  error: Error | null;
-  loading: boolean;
-  refetch: () => Promise<void>;
-}
-
-export function useFetch<T>(url: string): UseFetchResult<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const refetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-      setData(await res.json());
-    } catch (err) {
-      setError(err as Error);
-    } finally {
-      setLoading(false);
-    }
-  }, [url]);
-
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  return { data, error, loading, refetch };
-}
-```
-
-## State Management
-
-This project uses local state (`useState`) and Context. No external state library.
-
-### Context + Reducer
-
-```typescript
-import { createContext, useContext, useReducer, Dispatch } from 'react';
-
 interface State {
-  query: string;
-  loading: boolean;
+  markets: Market[]
+  selectedMarket: Market | null
+  loading: boolean
 }
 
 type Action =
-  | { type: 'SET_QUERY'; payload: string }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_MARKETS'; payload: Market[] }
+  | { type: 'SELECT_MARKET'; payload: Market }
+  | { type: 'SET_LOADING'; payload: boolean }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'SET_QUERY':
-      return { ...state, query: action.payload };
+    case 'SET_MARKETS':
+      return { ...state, markets: action.payload }
+    case 'SELECT_MARKET':
+      return { ...state, selectedMarket: action.payload }
     case 'SET_LOADING':
-      return { ...state, loading: action.payload };
+      return { ...state, loading: action.payload }
     default:
-      return state;
+      return state
   }
 }
 
-const AppContext = createContext<
-  { state: State; dispatch: Dispatch<Action> } | undefined
->(undefined);
+const MarketContext = createContext<{
+  state: State
+  dispatch: Dispatch<Action>
+} | undefined>(undefined)
 
-export function AppProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}): React.ReactNode {
+export function MarketProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
-    query: '',
-    loading: false,
-  });
+    markets: [],
+    selectedMarket: null,
+    loading: false
+  })
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <MarketContext.Provider value={{ state, dispatch }}>
       {children}
-    </AppContext.Provider>
-  );
+    </MarketContext.Provider>
+  )
 }
 
-export function useApp() {
-  const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within AppProvider');
-  return context;
+export function useMarkets() {
+  const context = useContext(MarketContext)
+  if (!context) throw new Error('useMarkets must be used within MarketProvider')
+  return context
 }
 ```
 
-## Chakra UI Styling Patterns
-
-### Responsive Props
-
-```typescript
-<Flex
-  direction={{ base: 'column', md: 'row' }}
-  px={{ base: 4, md: 8 }}
-  gap={{ base: 2, md: 4 }}
->
-  {children}
-</Flex>
-```
-
-### Hover and Interactive States
-
-```typescript
-// For simple CSS hover, use Chakra's pseudo props
-<Box _hover={{ bg: '#EEEBFF', color: '#2800D7' }}>
-  Hover me
-</Box>
-
-// For hover that drives JS logic (e.g., icon color changes), use state
-const [isHovered, setIsHovered] = useState(false);
-const color = isHovered ? '#2800D7' : '#5E6272';
-
-<Box
-  onMouseEnter={() => setIsHovered(true)}
-  onMouseLeave={() => setIsHovered(false)}
->
-  <SomeIcon color={color} />
-</Box>
-```
-
-### Brand Palette
-
-```
-#2800D7  - brand purple (primary actions, active states)
-#5E6272  - neutral gray (default text, icons)
-#FBFBFB  - background
-#DBDCE1  - borders, dividers
-#EEEBFF  - hover purple (light backgrounds)
-#32343C  - dark text
-```
-
-## Performance
+## Performance Optimization
 
 ### Memoization
 
 ```typescript
-import { useMemo, useCallback, memo } from 'react';
+// ✅ useMemo for expensive computations
+const sortedMarkets = useMemo(() => {
+  return markets.sort((a, b) => b.volume - a.volume)
+}, [markets])
 
-// Expensive computation
-const sorted = useMemo(
-  () => items.sort((a, b) => b.score - a.score),
-  [items]
-);
-
-// Stable callback for child components
+// ✅ useCallback for functions passed to children
 const handleSearch = useCallback((query: string) => {
-  setSearchQuery(query);
-}, []);
+  setSearchQuery(query)
+}, [])
 
-// Pure component that skips re-renders
-const ListItem = memo<{ item: Item }>(function ListItem({ item }) {
-  return <Box>{item.name}</Box>;
-});
-```
-
-### Code Splitting
-
-```typescript
-import { lazy, Suspense } from 'react';
-import { Spinner } from '@chakra-ui/react';
-
-const HeavyComponent = lazy(() => import('./HeavyComponent'));
-
-export default function Page(): React.ReactNode {
+// ✅ React.memo for pure components
+export const MarketCard = React.memo<MarketCardProps>(({ market }) => {
   return (
-    <Suspense fallback={<Spinner color="#2800D7" />}>
-      <HeavyComponent />
-    </Suspense>
-  );
-}
-```
-
-## Accessibility
-
-### Keyboard Navigation
-
-```typescript
-const handleKeyDown = (e: React.KeyboardEvent) => {
-  switch (e.key) {
-    case 'ArrowDown':
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, options.length - 1));
-      break;
-    case 'ArrowUp':
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-      break;
-    case 'Enter':
-      e.preventDefault();
-      onSelect(options[activeIndex]);
-      break;
-    case 'Escape':
-      onClose();
-      break;
-  }
-};
-```
-
-### Focus Management
-
-```typescript
-import { useEffect, useRef } from 'react';
-
-export function Modal({
-  isOpen,
-  onClose,
-  children,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}): React.ReactNode {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      previousFocusRef.current = document.activeElement as HTMLElement;
-      modalRef.current?.focus();
-    } else {
-      previousFocusRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={-1}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-    >
-      {children}
+    <div className="market-card">
+      <h3>{market.name}</h3>
+      <p>{market.description}</p>
     </div>
-  );
+  )
+})
+```
+
+### Code Splitting & Lazy Loading
+
+```typescript
+import { lazy, Suspense } from 'react'
+
+// ✅ Lazy load heavy components
+const HeavyChart = lazy(() => import('./HeavyChart'))
+const ThreeJsBackground = lazy(() => import('./ThreeJsBackground'))
+
+export function Dashboard() {
+  return (
+    <div>
+      <Suspense fallback={<ChartSkeleton />}>
+        <HeavyChart data={data} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <ThreeJsBackground />
+      </Suspense>
+    </div>
+  )
 }
 ```
 
-## Conditional Rendering
+### Virtualization for Long Lists
 
 ```typescript
-// Clear and scannable
-{loading && <Spinner color="#2800D7" />}
-{error && <ErrorMessage error={error} />}
-{data && <DataDisplay data={data} />}
+import { useVirtualizer } from '@tanstack/react-virtual'
 
-// Avoid ternary nesting
-// Bad: {a ? <A /> : b ? <B /> : <C />}
+export function VirtualMarketList({ markets }: { markets: Market[] }) {
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  const virtualizer = useVirtualizer({
+    count: markets.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,  // Estimated row height
+    overscan: 5  // Extra items to render
+  })
+
+  return (
+    <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative'
+        }}
+      >
+        {virtualizer.getVirtualItems().map(virtualRow => (
+          <div
+            key={virtualRow.index}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`
+            }}
+          >
+            <MarketCard market={markets[virtualRow.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 ```
 
-## Animation (Framer Motion)
+## Form Handling Patterns
+
+### Controlled Form with Validation
 
 ```typescript
-import { motion, AnimatePresence } from 'framer-motion';
+interface FormData {
+  name: string
+  description: string
+  endDate: string
+}
 
-export function AnimatedList({
-  items,
-}: {
-  items: Item[];
-}): React.ReactNode {
+interface FormErrors {
+  name?: string
+  description?: string
+  endDate?: string
+}
+
+export function CreateMarketForm() {
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    description: '',
+    endDate: ''
+  })
+
+  const [errors, setErrors] = useState<FormErrors>({})
+
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {}
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required'
+    } else if (formData.name.length > 200) {
+      newErrors.name = 'Name must be under 200 characters'
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required'
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validate()) return
+
+    try {
+      await createMarket(formData)
+      // Success handling
+    } catch (error) {
+      // Error handling
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={formData.name}
+        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+        placeholder="Market name"
+      />
+      {errors.name && <span className="error">{errors.name}</span>}
+
+      {/* Other fields */}
+
+      <button type="submit">Create Market</button>
+    </form>
+  )
+}
+```
+
+## Error Boundary Pattern
+
+```typescript
+interface ErrorBoundaryState {
+  hasError: boolean
+  error: Error | null
+}
+
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error boundary caught:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-fallback">
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </button>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+// Usage
+<ErrorBoundary>
+  <App />
+</ErrorBoundary>
+```
+
+## Animation Patterns
+
+### Framer Motion Animations
+
+```typescript
+import { motion, AnimatePresence } from 'framer-motion'
+
+// ✅ List animations
+export function AnimatedMarketList({ markets }: { markets: Market[] }) {
   return (
     <AnimatePresence>
-      {items.map((item) => (
+      {markets.map(market => (
         <motion.div
-          key={item.id}
+          key={market.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
         >
-          <ItemCard item={item} />
+          <MarketCard market={market} />
         </motion.div>
       ))}
     </AnimatePresence>
-  );
+  )
+}
+
+// ✅ Modal animations
+export function Modal({ isOpen, onClose, children }: ModalProps) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="modal-content"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          >
+            {children}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
 }
 ```
+
+## Accessibility Patterns
+
+### Keyboard Navigation
+
+```typescript
+export function Dropdown({ options, onSelect }: DropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setActiveIndex(i => Math.min(i + 1, options.length - 1))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setActiveIndex(i => Math.max(i - 1, 0))
+        break
+      case 'Enter':
+        e.preventDefault()
+        onSelect(options[activeIndex])
+        setIsOpen(false)
+        break
+      case 'Escape':
+        setIsOpen(false)
+        break
+    }
+  }
+
+  return (
+    <div
+      role="combobox"
+      aria-expanded={isOpen}
+      aria-haspopup="listbox"
+      onKeyDown={handleKeyDown}
+    >
+      {/* Dropdown implementation */}
+    </div>
+  )
+}
+```
+
+### Focus Management
+
+```typescript
+export function Modal({ isOpen, onClose, children }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      // Save currently focused element
+      previousFocusRef.current = document.activeElement as HTMLElement
+
+      // Focus modal
+      modalRef.current?.focus()
+    } else {
+      // Restore focus when closing
+      previousFocusRef.current?.focus()
+    }
+  }, [isOpen])
+
+  return isOpen ? (
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
+      onKeyDown={e => e.key === 'Escape' && onClose()}
+    >
+      {children}
+    </div>
+  ) : null
+}
+```
+
+**Remember**: Modern frontend patterns enable maintainable, performant user interfaces. Choose patterns that fit your project complexity.
