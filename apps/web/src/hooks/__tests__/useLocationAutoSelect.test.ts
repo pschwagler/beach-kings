@@ -8,7 +8,7 @@ vi.mock('../../services/api', () => ({
 import { getLocationDistances } from '../../services/api';
 import { useLocationAutoSelect } from '../useLocationAutoSelect';
 
-const CITY_DATA = { city: 'San Diego', state: 'CA', lat: 32.7157, lon: -117.1611 };
+const CITY_DATA = { city: 'San Diego', state: 'CA', city_latitude: 32.7157, city_longitude: -117.1611 };
 
 const LOCATIONS = [
   { id: 'loc-1', name: 'Mission Beach' },

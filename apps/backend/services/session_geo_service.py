@@ -57,7 +57,7 @@ async def resolve_session_geo(
         return (lat, lon, location_id)
 
     except Exception as e:
-        logger.warning(f"Geo resolution failed, session will have null geo: {e}")
+        logger.warning("Geo resolution failed, session will have null geo: %s", e, exc_info=True)
         return (None, None, None)
 
 

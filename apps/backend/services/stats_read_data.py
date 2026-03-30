@@ -13,7 +13,29 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "get_rankings",
+    "get_elo_timeline",
+    "get_season_matches_with_elo",
+    "get_league_matches_with_elo",
+    "query_matches",
+    "get_player_stats_by_id",
+    "get_player_season_partnership_opponent_stats",
+    "get_all_player_season_stats",
+    "get_all_player_season_partnership_opponent_stats",
+    "get_player_season_stats",
+    "get_player_league_stats",
+    "get_all_player_league_stats",
+    "get_player_league_partnership_opponent_stats",
+    "get_all_player_league_partnership_opponent_stats",
+    "export_matches_to_csv",
+    "get_player_match_history_by_id",
+]
 
 from sqlalchemy import and_, cast, func, or_
 from sqlalchemy import Integer
@@ -213,6 +235,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
         return rankings
 
     except Exception:
+        logger.exception("get_rankings failed")
         return []
 
 

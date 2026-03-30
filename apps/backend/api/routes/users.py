@@ -12,7 +12,7 @@ from backend.database.db import get_db_session
 from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service
 from backend.api.auth_dependencies import get_current_user
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -53,7 +53,7 @@ async def update_current_user(
         raise HTTPException(status_code=500, detail=f"Error updating user profile: {str(e)}")
 
 
-@router.get("/api/users/me/player")
+@router.get("/api/users/me/player", response_model=dict)
 async def get_current_user_player(
     current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
 ):
@@ -74,7 +74,7 @@ async def get_current_user_player(
         raise HTTPException(status_code=500, detail=f"Error getting user player: {str(e)}")
 
 
-@router.put("/api/users/me/player")
+@router.put("/api/users/me/player", response_model=dict)
 async def update_current_user_player(
     payload: PlayerUpdate,
     current_user: dict = Depends(get_current_user),
@@ -137,7 +137,7 @@ async def update_current_user_player(
         raise HTTPException(status_code=500, detail=f"Error updating player profile: {str(e)}")
 
 
-@router.post("/api/users/me/avatar")
+@router.post("/api/users/me/avatar", response_model=dict)
 @limiter.limit("10/minute")
 async def upload_avatar(
     request: Request,
@@ -195,7 +195,7 @@ async def upload_avatar(
         raise HTTPException(status_code=500, detail="Error uploading avatar")
 
 
-@router.delete("/api/users/me/avatar")
+@router.delete("/api/users/me/avatar", response_model=dict)
 async def delete_avatar(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
@@ -235,7 +235,7 @@ async def delete_avatar(
         raise HTTPException(status_code=500, detail="Error deleting avatar")
 
 
-@router.get("/api/users/me/leagues")
+@router.get("/api/users/me/leagues", response_model=list)
 async def get_user_leagues(
     user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
 ):
@@ -249,7 +249,7 @@ async def get_user_leagues(
         raise HTTPException(status_code=500, detail=f"Error getting user leagues: {str(e)}")
 
 
-@router.post("/api/users/me/delete")
+@router.post("/api/users/me/delete", response_model=StatusResponse)
 async def schedule_account_deletion(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
@@ -275,7 +275,7 @@ async def schedule_account_deletion(
         raise HTTPException(status_code=500, detail="Error scheduling account deletion")
 
 
-@router.post("/api/users/me/cancel-deletion")
+@router.post("/api/users/me/cancel-deletion", response_model=StatusResponse)
 async def cancel_account_deletion(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),

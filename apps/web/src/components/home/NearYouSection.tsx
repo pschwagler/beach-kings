@@ -158,8 +158,8 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                       <div className="near-you-section__court-address">{court.address}</div>
                     )}
                   </div>
-                  {(court.avg_rating ?? 0) > 0 && (
-                    <StarRating value={court.avg_rating ?? undefined} size={14} />
+                  {(court.average_rating ?? 0) > 0 && (
+                    <StarRating value={court.average_rating ?? undefined} size={14} />
                   )}
                 </Link>
               ))

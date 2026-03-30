@@ -18,7 +18,23 @@ interface PlayersSectionProps {
   currentUserPlayer?: { id: number } | null;
   onAddPlayers?: () => void;
   onRoleChange?: (memberId: number, role: string) => void;
-  onRemoveMember?: (memberId: number, playerName?: string) => void;
+  onRemoveMember?: (memberId: number, playerName: string) => void;
+}
+
+function formatJoinDate(dateString: string): string {
+  if (!dateString) return 'Unknown';
+  const relative = formatRelativeTime(dateString);
+  return relative || 'Unknown';
+}
+
+function isImageUrl(avatar: string | null | undefined): boolean {
+  if (!avatar) return false;
+  return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
+}
+
+function getAvatarInitial(playerName: string | null | undefined): string {
+  if (!playerName) return '?';
+  return playerName.trim().charAt(0).toUpperCase();
 }
 
 export default function PlayersSection({
@@ -30,21 +46,6 @@ export default function PlayersSection({
 }: PlayersSectionProps) {
   const { isLeagueAdmin } = useLeague();
 
-  const formatJoinDate = (dateString: string) => {
-    if (!dateString) return 'Unknown';
-    const relative = formatRelativeTime(dateString);
-    return relative || 'Unknown';
-  };
-
-  const isImageUrl = (avatar: string | null | undefined): boolean => {
-    if (!avatar) return false;
-    return avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/');
-  };
-
-  const getAvatarInitial = (playerName: string | null | undefined): string => {
-    if (!playerName) return '?';
-    return playerName.trim().charAt(0).toUpperCase();
-  };
   return (
     <div className="league-players-section">
       <div className="league-section-header">
@@ -53,7 +54,7 @@ export default function PlayersSection({
           Players
         </h3>
         {isLeagueAdmin && (
-          <button className="league-text-button" onClick={onAddPlayers}>
+          <button type="button" className="league-text-button" onClick={onAddPlayers}>
             <Plus size={16} />
             Add Players
           </button>

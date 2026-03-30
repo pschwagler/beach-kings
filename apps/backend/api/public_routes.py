@@ -258,8 +258,8 @@ async def list_court_tags(request: Request, session: AsyncSession = Depends(get_
 @limiter.limit("60/minute")
 async def get_nearby_courts(
     request: Request,
-    lat: float = Query(..., description="Latitude"),
-    lng: float = Query(..., description="Longitude"),
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude"),
+    lng: float = Query(..., ge=-180.0, le=180.0, description="Longitude"),
     radius: float = Query(25.0, ge=1, le=100, description="Radius in miles"),
     exclude: Optional[int] = Query(None, description="Court ID to exclude"),
     session: AsyncSession = Depends(get_db_session),
@@ -322,8 +322,8 @@ async def list_public_courts(
     has_parking: Optional[bool] = Query(None, description="Filter courts with parking"),
     nets_provided: Optional[bool] = Query(None, description="Filter courts with nets"),
     search: Optional[str] = Query(None, description="Search by name or address"),
-    user_lat: Optional[float] = Query(None, description="User latitude for distance sort"),
-    user_lng: Optional[float] = Query(None, description="User longitude for distance sort"),
+    user_lat: Optional[float] = Query(None, ge=-90.0, le=90.0, description="User latitude for distance sort"),
+    user_lng: Optional[float] = Query(None, ge=-180.0, le=180.0, description="User longitude for distance sort"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),

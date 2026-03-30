@@ -708,8 +708,13 @@ class TestCreateSession:
         }
 
         async def fake_create_session(
-            session, date, name=None, court_id=None, created_by=None,
-            latitude=None, longitude=None,
+            session,
+            date,
+            name=None,
+            court_id=None,
+            created_by=None,
+            latitude=None,
+            longitude=None,
         ):
             return created_session
 
@@ -732,8 +737,13 @@ class TestCreateSession:
         _patch_player(monkeypatch)
 
         async def fake_create_session(
-            session, date, name=None, court_id=None, created_by=None,
-            latitude=None, longitude=None,
+            session,
+            date,
+            name=None,
+            court_id=None,
+            created_by=None,
+            latitude=None,
+            longitude=None,
         ):
             return {"id": _SESSION_ID, "name": None, "code": "DEFA0001", "status": "ACTIVE"}
 

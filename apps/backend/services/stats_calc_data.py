@@ -14,13 +14,33 @@ Extracted from stats_data.py.  Covers:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, Optional, TypeVar
 
-from sqlalchemy import and_, delete, func, or_
-from sqlalchemy.dialects.postgresql import insert, insert as pg_insert
+__all__ = [
+    "delete_global_stats_async",
+    "delete_season_stats_async",
+    "delete_league_stats_async",
+    "load_stat_eligible_matches_async",
+    "delete_all_stats_async",
+    "insert_elo_history_async",
+    "insert_season_rating_history_async",
+    "upsert_player_global_stats_async",
+    "insert_partnership_stats_async",
+    "insert_opponent_stats_async",
+    "insert_partnership_stats_season_async",
+    "insert_opponent_stats_season_async",
+    "insert_partnership_stats_league_async",
+    "insert_opponent_stats_league_async",
+    "upsert_player_season_stats_async",
+    "calculate_global_stats_async",
+    "calculate_league_stats_async",
+    "calculate_season_stats_async",
+    "register_stats_queue_callbacks",
+]
+
+from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import func as sql_func
-from sqlalchemy import select
 
 from backend.database.models import (
     EloHistory,
@@ -128,9 +148,7 @@ async def load_stat_eligible_matches_async(
 
 async def delete_all_stats_async(session: AsyncSession) -> None:
     """Delete all stats from all tables (global, league, and season stats)."""
-    await session.execute(delete(EloHistory))
-    await session.execute(delete(PartnershipStats))
-    await session.execute(delete(OpponentStats))
+    await delete_global_stats_async(session)
     await session.execute(delete(PlayerGlobalStats))
     await session.execute(delete(PartnershipStatsLeague))
     await session.execute(delete(OpponentStatsLeague))
@@ -140,7 +158,10 @@ async def delete_all_stats_async(session: AsyncSession) -> None:
     await session.execute(delete(PlayerSeasonStats))
 
 
-def _chunks(lst, n):
+T = TypeVar("T")
+
+
+def _chunks(lst: List[T], n: int) -> Generator[List[T], None, None]:
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
@@ -203,25 +224,25 @@ async def upsert_player_global_stats_async(
                     player_wins[pid] = player_wins.get(pid, 0) + 1
 
     all_pids = set(player_latest_elo.keys()) | set(player_games.keys())
-    for pid in all_pids:
-        current_rating = player_latest_elo.get(pid, INITIAL_ELO)
-        stmt = (
-            pg_insert(PlayerGlobalStats)
-            .values(
-                player_id=pid,
-                current_rating=current_rating,
-                total_games=player_games.get(pid, 0),
-                total_wins=player_wins.get(pid, 0),
-            )
-            .on_conflict_do_update(
-                index_elements=["player_id"],
-                set_=dict(
-                    current_rating=current_rating,
-                    total_games=player_games.get(pid, 0),
-                    total_wins=player_wins.get(pid, 0),
-                    updated_at=func.now(),
-                ),
-            )
+    rows = [
+        {
+            "player_id": pid,
+            "current_rating": player_latest_elo.get(pid, INITIAL_ELO),
+            "total_games": player_games.get(pid, 0),
+            "total_wins": player_wins.get(pid, 0),
+        }
+        for pid in all_pids
+    ]
+    if rows:
+        stmt = pg_insert(PlayerGlobalStats).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["player_id"],
+            set_=dict(
+                current_rating=stmt.excluded.current_rating,
+                total_games=stmt.excluded.total_games,
+                total_wins=stmt.excluded.total_wins,
+                updated_at=func.now(),
+            ),
         )
         await session.execute(stmt)
 
@@ -247,7 +268,7 @@ async def insert_opponent_stats_async(
 
 
 async def insert_partnership_stats_season_async(
-    session: AsyncSession, partnerships: List[PartnershipStatsSeason], season_id: int
+    session: AsyncSession, partnerships: List[PartnershipStatsSeason]
 ) -> None:
     """Bulk insert season-specific partnership stats in chunks."""
     if not partnerships:
@@ -257,7 +278,7 @@ async def insert_partnership_stats_season_async(
 
 
 async def insert_opponent_stats_season_async(
-    session: AsyncSession, opponents: List[OpponentStatsSeason], season_id: int
+    session: AsyncSession, opponents: List[OpponentStatsSeason]
 ) -> None:
     """Bulk insert season-specific opponent stats in chunks."""
     if not opponents:
@@ -267,7 +288,7 @@ async def insert_opponent_stats_season_async(
 
 
 async def insert_partnership_stats_league_async(
-    session: AsyncSession, partnerships: List[PartnershipStatsLeague], league_id: int
+    session: AsyncSession, partnerships: List[PartnershipStatsLeague]
 ) -> None:
     """Bulk insert league-specific partnership stats in chunks."""
     if not partnerships:
@@ -277,7 +298,7 @@ async def insert_partnership_stats_league_async(
 
 
 async def insert_opponent_stats_league_async(
-    session: AsyncSession, opponents: List[OpponentStatsLeague], league_id: int
+    session: AsyncSession, opponents: List[OpponentStatsLeague]
 ) -> None:
     """Bulk insert league-specific opponent stats in chunks."""
     if not opponents:
@@ -305,7 +326,7 @@ async def upsert_player_season_stats_async(
     if not player_stats_list:
         return
 
-    stmt = insert(PlayerSeasonStats).values(player_stats_list)
+    stmt = pg_insert(PlayerSeasonStats).values(player_stats_list)
     stmt = stmt.on_conflict_do_update(
         index_elements=["player_id", "season_id"],
         set_=dict(
@@ -314,7 +335,7 @@ async def upsert_player_season_stats_async(
             points=stmt.excluded.points,
             win_rate=stmt.excluded.win_rate,
             avg_point_diff=stmt.excluded.avg_point_diff,
-            updated_at=sql_func.now(),
+            updated_at=func.now(),
         ),
     )
     await session.execute(stmt)
@@ -460,19 +481,6 @@ async def _calculate_season_stats_from_matches(
                 )
             )
 
-    player_stats_list = [
-        {
-            "player_id": player_id,
-            "season_id": season_id,
-            "games": player_stats.game_count,
-            "wins": player_stats.win_count,
-            "points": player_stats.points,
-            "win_rate": round(player_stats.win_rate, 3),
-            "avg_point_diff": round(player_stats.avg_point_diff, 1),
-        }
-        for player_id, player_stats in tracker.players.items()
-    ]
-
     season_rating_history_list = []
     if is_season_rating:
         for player_id, player_stats in tracker.players.items():
@@ -494,26 +502,13 @@ async def _calculate_season_stats_from_matches(
                 )
 
     await delete_season_stats_async(session, season_id)
-    await insert_partnership_stats_season_async(session, partnership_season_list, season_id)
-    await insert_opponent_stats_season_async(session, opponent_season_list, season_id)
+    await insert_partnership_stats_season_async(session, partnership_season_list)
+    await insert_opponent_stats_season_async(session, opponent_season_list)
 
     if season_rating_history_list:
         await insert_season_rating_history_async(session, season_rating_history_list)
 
-    if player_stats_list:
-        stmt = insert(PlayerSeasonStats).values(player_stats_list)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["player_id", "season_id"],
-            set_=dict(
-                games=stmt.excluded.games,
-                wins=stmt.excluded.wins,
-                points=stmt.excluded.points,
-                win_rate=stmt.excluded.win_rate,
-                avg_point_diff=stmt.excluded.avg_point_diff,
-                updated_at=sql_func.now(),
-            ),
-        )
-        await session.execute(stmt)
+    await upsert_player_season_stats_async(session, tracker, season_id)
 
     unique_players = {
         pid
@@ -624,11 +619,11 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
     ]
 
     await delete_league_stats_async(session, league_id)
-    await insert_partnership_stats_league_async(session, partnership_league_list, league_id)
-    await insert_opponent_stats_league_async(session, opponent_league_list, league_id)
+    await insert_partnership_stats_league_async(session, partnership_league_list)
+    await insert_opponent_stats_league_async(session, opponent_league_list)
 
     if player_league_stats_list:
-        stmt = insert(PlayerLeagueStats).values(player_league_stats_list)
+        stmt = pg_insert(PlayerLeagueStats).values(player_league_stats_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=["player_id", "league_id"],
             set_=dict(
@@ -637,7 +632,7 @@ async def calculate_league_stats_async(session: AsyncSession, league_id: int) ->
                 points=stmt.excluded.points,
                 win_rate=stmt.excluded.win_rate,
                 avg_point_diff=stmt.excluded.avg_point_diff,
-                updated_at=sql_func.now(),
+                updated_at=func.now(),
             ),
         )
         await session.execute(stmt)

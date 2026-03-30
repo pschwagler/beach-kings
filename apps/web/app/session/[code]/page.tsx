@@ -349,7 +349,7 @@ export default function SessionByCodePage() {
     }
   };
 
-  const handlePlayerClick = useCallback((playerId: number, playerName: string, event: React.MouseEvent) => {
+  const handlePlayerClick = useCallback((playerId: number | null, playerName: string, event: React.MouseEvent) => {
     if (!playerId || !playerName) return;
     const target = event?.target as Element | null;
     const anchorRect = target?.getBoundingClientRect?.();

@@ -14,8 +14,7 @@ export type PlayerGender = 'male' | 'female';
 
 /**
  * League / tournament gender division.
- * NOTE: Backend leagues currently store 'male'/'female'/'mixed' — needs migration
- * to align with KoB tournaments which already use 'mens'/'womens'/'coed'.
+ * Aligned with KoB tournament conventions (migration 038).
  */
 export type LeagueGender = 'mens' | 'womens' | 'coed';
 
@@ -135,21 +134,26 @@ export interface Player {
 // Notification
 // ---------------------------------------------------------------------------
 
+/**
+ * Notification type values — must match backend NotificationType enum in models.py.
+ */
 export type NotificationType =
-  | 'SESSION_SUBMITTED'
-  | 'MATCH_ADDED'
-  | 'MATCH_EDITED'
-  | 'MATCH_DELETED'
-  | 'SESSION_EDITED'
-  | 'LEAGUE_JOINED'
-  | 'PLAYER_JOINED'
-  | 'SEASON_STARTED'
-  | 'SEASON_ENDED'
-  | 'STATS_UPDATED'
-  | 'FRIEND_REQUEST'
-  | 'FRIEND_ACCEPTED'
-  | 'DIRECT_MESSAGE'
-  | 'SEASON_AWARD';
+  | 'league_message'
+  | 'league_invite'
+  | 'league_join_request'
+  | 'league_join_rejected'
+  | 'season_start'
+  | 'season_activated'
+  | 'placeholder_claimed'
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'session_submitted'
+  | 'session_auto_submitted'
+  | 'session_auto_deleted'
+  | 'member_joined'
+  | 'member_removed'
+  | 'direct_message'
+  | 'season_award';
 
 export interface Notification {
   id: number;
@@ -236,7 +240,6 @@ export interface Court {
   latitude?: number | null;
   longitude?: number | null;
   average_rating?: number | null;
-  avg_rating?: number | null;
   review_count?: number | null;
   court_count?: number | null;
   photo_count?: number | null;
@@ -262,7 +265,6 @@ export interface Court {
   location_slug?: string | null;
   top_tags?: string[] | null;
   photo_url?: string | null;
-  photos?: CourtPhoto[] | null;
   tags?: Array<{ id: number; name: string; category: string | null }> | null;
   status?: CourtStatus | null;
   submitted_by?: number | null;
@@ -293,6 +295,44 @@ export interface HomeCourtResponse {
   position: number;
 }
 
+export interface LeagueStandingRow {
+  player_id: number;
+  name: string;
+  elo: number;
+  points: number;
+  games: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_pt_diff: number;
+  season_rank?: number;
+  initials?: string;
+  is_placeholder?: boolean;
+}
+
+export interface LeagueMatchRow {
+  id: number;
+  date: string | null;
+  session_id: number | null;
+  session_name: string | null;
+  session_status: string | null;
+  session_season_id: number | null;
+  team1_player1_id: number | null;
+  team1_player1_name: string | null;
+  team1_player2_id: number | null;
+  team1_player2_name: string | null;
+  team2_player1_id: number | null;
+  team2_player1_name: string | null;
+  team2_player2_id: number | null;
+  team2_player2_name: string | null;
+  team1_score: number | null;
+  team2_score: number | null;
+  winner: number | null;
+  is_ranked: boolean | null;
+  ranked_intent: boolean | null;
+  elo_changes: Record<string, { elo_before?: number; elo_after: number; elo_change: number }>;
+}
+
 export interface League {
   id: number;
   name: string;
@@ -307,8 +347,8 @@ export interface League {
   member_count?: number | null;
   games_played?: number | null;
   created_at?: string;
-  standings?: Array<{ player_id: number; name: string; elo: number; points: number; games: number; wins: number; losses: number; win_rate: number; avg_pt_diff: number; season_rank?: number; initials?: string; is_placeholder?: boolean }> | null;
-  recent_matches?: Array<{ id: number; date: string | null; session_id: number | null; session_name: string | null; session_status: string | null; session_season_id: number | null; team1_player1_id: number | null; team1_player1_name: string | null; team1_player2_id: number | null; team1_player2_name: string | null; team2_player1_id: number | null; team2_player1_name: string | null; team2_player2_id: number | null; team2_player2_name: string | null; team1_score: number | null; team2_score: number | null; winner: number | null; is_ranked: boolean | null; ranked_intent: boolean | null; elo_changes: Record<string, { elo_before?: number; elo_after: number; elo_change: number }> }> | null;
+  standings?: LeagueStandingRow[] | null;
+  recent_matches?: LeagueMatchRow[] | null;
   members?: LeagueMember[] | null;
   home_courts?: HomeCourtResponse[] | null;
   current_season?: { name?: string | null } | null;

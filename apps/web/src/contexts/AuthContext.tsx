@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import api, { setAuthTokens, clearAuthTokens, getStoredTokens, logout as logoutApi, getCurrentUserPlayer, cancelAccountDeletion as cancelDeletionApi } from '../services/api';
 import type { User, Player } from '../types';
@@ -60,18 +60,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Also fetch the current user's player profile
       try {
         const player = await getCurrentUserPlayer();
-        player.first_name = player.nickname ? player.nickname : (player.full_name?.split(' ')[0] ?? '');
-        setCurrentUserPlayer(player);
-      } catch (playerError) {
+        setCurrentUserPlayer({
+          ...player,
+          first_name: player.nickname ? player.nickname : (player.full_name?.split(' ')[0] ?? ''),
+        });
+      } catch (playerError: unknown) {
         // Player might not exist yet, that's okay
-        if (playerError.response?.status !== 404) {
+        const status = (playerError as { response?: { status?: number } }).response?.status;
+        if (status !== 404) {
           console.error('Error fetching current user player:', playerError);
         }
         setCurrentUserPlayer(null);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Only clear tokens on 401 (unauthorized) - don't clear on network errors, 500s, etc.
-      const isUnauthorized = error.response?.status === 401;
+      const isUnauthorized = (error as { response?: { status?: number } }).response?.status === 401;
       if (isUnauthorized) {
         clearAuthTokens();
         setUser(null);
@@ -112,9 +115,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSessionExpired(true);
       } else if (!userRef.current && e.newValue) {
         // Another tab logged in — pick up the session
-        setSessionExpired(false);
-        setAuthTokens(e.newValue, window.localStorage.getItem('beach_refresh_token'));
-        fetchCurrentUser();
+        const newRefresh = window.localStorage.getItem('beach_refresh_token');
+        if (newRefresh) {
+          setSessionExpired(false);
+          setAuthTokens(e.newValue, newRefresh);
+          fetchCurrentUser();
+        }
       }
     };
 
@@ -240,7 +246,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     currentUserPlayer,
     isAuthenticated: Boolean(user),
@@ -259,7 +265,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     confirmPasswordReset,
     cancelAccountDeletion,
     logout,
-  };
+  }), [
+    user,
+    currentUserPlayer,
+    isInitializing,
+    sessionExpired,
+    fetchCurrentUser,
+    loginWithGoogle,
+    loginWithPassword,
+    loginWithSms,
+    signup,
+    sendVerificationCode,
+    verifyPhone,
+    resetPassword,
+    verifyPasswordReset,
+    confirmPasswordReset,
+    cancelAccountDeletion,
+    logout,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -180,7 +180,7 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     loadLocations();
   }, [loadLocations]);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
     const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,

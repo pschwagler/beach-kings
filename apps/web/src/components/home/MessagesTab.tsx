@@ -15,27 +15,10 @@ import api, {
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { isImageUrl } from '../../utils/avatar';
+import { formatRelativeTime } from '../../utils/dateUtils';
 import './MessagesTab.css';
 
 const MAX_CHARS = 500;
-
-/**
- * Format a timestamp into a relative time string for conversation list.
- */
-function formatRelativeTime(timestamp: string | null | undefined): string {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
 
 /**
  * Format time for message bubbles (e.g. "2:30 PM").
@@ -213,7 +196,7 @@ function ConversationList({ onOpenThread }: ConversationListProps) {
               </div>
               <div className="messages-tab__conversation-meta">
                 <span className="messages-tab__conversation-time">
-                  {formatRelativeTime(conv.last_message_at)}
+                  {formatRelativeTime(conv.last_message_at) ?? ''}
                 </span>
                 {hasUnread && <div className="messages-tab__unread-dot" />}
               </div>
@@ -348,9 +331,11 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
   const containerRef = useRef<HTMLDivElement>(null);
   const myPlayerId = currentUserPlayer?.id;
 
-  // Scroll page to top when thread opens
+  // Scroll messages container to top when thread opens
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
   }, []);
 
   // Load initial thread
@@ -388,10 +373,11 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
 
   // Subscribe to real-time incoming messages
   useEffect(() => {
-    const handler = (msg: MessageItem) => {
+    const handler = (msg: Record<string, unknown>) => {
+      const typedMsg = msg as unknown as MessageItem;
       // Only accept messages from this thread's other player
-      if (msg.sender_player_id === otherPlayerId) {
-        setMessages((prev) => [...prev, msg]);
+      if (typedMsg.sender_player_id === otherPlayerId) {
+        setMessages((prev) => [...prev, typedMsg]);
         // Auto-mark as read since user is viewing this thread
         markThreadRead(otherPlayerId)
           .then(() => fetchDmUnreadCount())
@@ -412,7 +398,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
   }, [messages]);
 
   // Load older messages
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
     const nextPage = page + 1;
     try {
       const data = await getThread(otherPlayerId, nextPage, 50);
@@ -423,10 +409,10 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     } catch (err: unknown) {
       console.error('Error loading more messages:', err);
     }
-  };
+  }, [page, otherPlayerId]);
 
   // Send message
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
@@ -442,7 +428,7 @@ function ThreadView({ otherPlayerId, otherPlayerName, otherPlayerAvatar, isFrien
     } finally {
       setSending(false);
     }
-  };
+  }, [text, sending, otherPlayerId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

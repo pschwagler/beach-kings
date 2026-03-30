@@ -143,19 +143,19 @@ export function useEditBuffer() {
         createMatchAPI,
         lockInSessionAPI,
       }: {
-        deleteMatchAPI: (matchId: number | string) => Promise<unknown>;
-        updateMatchAPI: (matchId: number | string, payload: MatchPayload) => Promise<unknown>;
+        deleteMatchAPI: (matchId: number) => Promise<unknown>;
+        updateMatchAPI: (matchId: number, payload: MatchPayload) => Promise<unknown>;
         createMatchAPI: (payload: MatchPayload) => Promise<unknown>;
         lockInSessionAPI: (sessionId: number) => Promise<unknown>;
       },
     ) => {
       // Deletes first
       for (const matchId of deleted) {
-        await deleteMatchAPI(matchId);
+        await deleteMatchAPI(matchId as number);
       }
       // Updates
       for (const [matchId, payload] of modified) {
-        await updateMatchAPI(matchId, payload);
+        await updateMatchAPI(matchId as number, payload);
       }
       // Creates
       for (const payload of added) {

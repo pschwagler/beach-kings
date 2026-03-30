@@ -125,7 +125,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     return newLeague;
   };
 
-  const handleLeaguesMenuClick = (action: string, leagueId: string | number | null = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === "create-league") {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: handleCreateLeague,

@@ -148,13 +148,12 @@ async def test_browser_geolocation():
         new_callable=AsyncMock,
         return_value={"location_id": "socal_sd", "distance_miles": 1.0},
     ):
-        lat, lon, loc_id = await resolve_session_geo(
-            db, browser_lat=32.72, browser_lon=-117.16
-        )
+        lat, lon, loc_id = await resolve_session_geo(db, browser_lat=32.72, browser_lon=-117.16)
 
     assert lat == 32.72
     assert lon == -117.16
     assert loc_id == "socal_sd"
+    db.execute.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -225,9 +224,7 @@ async def test_location_beyond_cap_returns_null_location_id():
         new_callable=AsyncMock,
         return_value=None,
     ):
-        lat, lon, loc_id = await resolve_session_geo(
-            db, browser_lat=45.0, browser_lon=-110.0
-        )
+        lat, lon, loc_id = await resolve_session_geo(db, browser_lat=45.0, browser_lon=-110.0)
 
     assert lat == 45.0
     assert lon == -110.0
@@ -275,3 +272,22 @@ async def test_court_wins_over_league():
     assert lat == 32.72
     assert lon == -117.16
     assert loc_id == "socal_sd"
+
+
+@pytest.mark.asyncio
+async def test_no_location_hub_within_cap():
+    """When find_closest_location returns None, location_id is None but coords are preserved."""
+    db = AsyncMock()
+    db.execute = AsyncMock()
+
+    with patch(
+        "backend.services.session_geo_service.find_closest_location",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        lat, lon, loc_id = await resolve_session_geo(
+            db, browser_lat=0.0, browser_lon=0.0
+        )
+    assert lat == 0.0
+    assert lon == 0.0
+    assert loc_id is None

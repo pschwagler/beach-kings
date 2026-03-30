@@ -919,7 +919,7 @@ async def list_all_courts_admin(
 
     filters = []
     if search:
-        pattern = f"%{search}%"
+        pattern = f"%{_escape_like(search)}%"
         filters.append(
             or_(
                 Court.name.ilike(pattern),

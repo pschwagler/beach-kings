@@ -3,7 +3,7 @@ Pydantic models for API request/response validation.
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
@@ -57,6 +57,8 @@ class PartnershipOpponentStatsResponse(BaseModel):
 
 class PlayerStatsResponse(BaseModel):
     """Combined player statistics."""
+
+    model_config = ConfigDict(extra="ignore")
 
     overall: dict
     partnerships: List[PartnershipStats]
@@ -144,8 +146,8 @@ class CreateMatchRequest(BaseModel):
     team2_score: int
     is_public: Optional[bool] = True
     is_ranked: Optional[bool] = True
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
 
 
 class CreateMatchResponse(BaseModel):
@@ -155,6 +157,60 @@ class CreateMatchResponse(BaseModel):
     message: str
     match_id: int
     session_id: int
+
+
+class MatchStatusResponse(BaseModel):
+    """Response from updating or deleting a match."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    match_id: int
+
+
+class StatusResponse(BaseModel):
+    """Generic status/message response."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: Optional[str] = None
+
+
+class PhotoJobResponse(BaseModel):
+    """Response from initiating a photo processing job."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    job_id: int
+    session_id: str
+    status: str
+
+
+class PhotoJobStatusResponse(BaseModel):
+    """Response from polling a photo processing job's status."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    job_id: int
+    status: str
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    result: Optional[dict] = None
+    partial_matches: Optional[list] = None
+
+
+class ConfirmMatchesResponse(BaseModel):
+    """Response from confirming photo-parsed matches."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    matches_created: int
+    match_ids: List[int]
 
 
 class UpdateMatchRequest(BaseModel):
@@ -338,9 +394,11 @@ class RegionCreate(RegionBase):
 class RegionResponse(RegionBase):
     """Region response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: str
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class LocationBase(BaseModel):
@@ -367,10 +425,12 @@ class LocationCreate(LocationBase):
 class LocationResponse(LocationBase):
     """Location response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: str  # Primary key: hub_id from CSV (e.g., "socal_la", "hi_oahu")
     slug: Optional[str] = None  # SEO-friendly URL slug (e.g., "manhattan-beach")
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class CourtBase(BaseModel):
@@ -440,8 +500,10 @@ class LeagueCreate(LeagueBase):
 class HomeCourtResponse(BaseModel):
     """Home court summary for league responses."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
-    name: str
+    name: Optional[str] = None
     address: Optional[str] = None
     position: int = 0
 
@@ -449,8 +511,10 @@ class HomeCourtResponse(BaseModel):
 class PlayerHomeCourtResponse(BaseModel):
     """Home court summary for player responses, includes position."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
-    name: str
+    name: Optional[str] = None
     address: Optional[str] = None
     position: int = 0
 
@@ -459,8 +523,8 @@ class LeagueResponse(LeagueBase):
     """League response."""
 
     id: int
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
     home_courts: List[HomeCourtResponse] = []
 
 
@@ -479,10 +543,12 @@ class LeagueMemberCreate(LeagueMemberBase):
 class LeagueMemberResponse(LeagueMemberBase):
     """League member response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
-    league_id: int
+    league_id: Optional[int] = None
     player_id: int
-    created_at: str
+    created_at: Optional[str] = None
 
 
 class SeasonBase(BaseModel):
@@ -506,10 +572,12 @@ class SeasonCreate(SeasonBase):
 class SeasonResponse(SeasonBase):
     """Season response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     league_id: int
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 class PlayerBase(BaseModel):
@@ -545,8 +613,8 @@ class PlayerUpdate(BaseModel):
     preferred_side: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
-    city_latitude: Optional[float] = None
-    city_longitude: Optional[float] = None
+    city_latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    city_longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
     location_id: Optional[str] = (
         None  # Optional: manually override auto-matched location (location_id string, e.g., "socal_la")
     )
@@ -643,6 +711,8 @@ class ClaimInviteResponse(BaseModel):
 class PlayerSeasonStatsResponse(BaseModel):
     """Player season stats response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     player_id: int
     season_id: int
@@ -653,6 +723,41 @@ class PlayerSeasonStatsResponse(BaseModel):
     avg_point_diff: float
     created_at: str
     updated_at: str
+
+
+class PaginatedPlayersResponse(BaseModel):
+    """Paginated player list response for GET /api/players."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    items: List[Any]
+    total_count: int
+
+
+class CreatePlayerResponse(BaseModel):
+    """Response after creating a player via POST /api/players."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    player_id: int
+    name: str
+
+
+class PlayerSeasonStatsDataResponse(BaseModel):
+    """Season stats for a player as returned by GET /api/players/{player_id}/season/{season_id}/stats."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_id: int
+    season_id: int
+    games: int
+    wins: int
+    losses: int
+    win_rate: float
+    points: float
+    avg_pt_diff: float
 
 
 class SendMessageRequest(BaseModel):
@@ -726,6 +831,8 @@ class FriendRequestCreate(BaseModel):
 class FriendRequestResponse(BaseModel):
     """Friend request response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     sender_player_id: int
     sender_name: str
@@ -782,6 +889,163 @@ class SessionResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     created_at: str
+
+
+class SessionDetailResponse(BaseModel):
+    """Detailed session data including court info and creator details."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    code: Optional[str] = None
+    date: Optional[str] = None
+    name: Optional[str] = None
+    status: Optional[str] = None
+    season_id: Optional[int] = None
+    court_id: Optional[int] = None
+    court_name: Optional[str] = None
+    court_slug: Optional[str] = None
+    league_id: Optional[int] = None
+    location_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    updated_by: Optional[int] = None
+    updated_by_name: Optional[str] = None
+
+
+class SessionListItemResponse(BaseModel):
+    """Session list item for league session listings."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    date: Optional[str] = None
+    name: Optional[str] = None
+    status: Optional[str] = None
+    season_id: Optional[int] = None
+    court_id: Optional[int] = None
+    court_name: Optional[str] = None
+    court_slug: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    created_by: Optional[int] = None
+    updated_by: Optional[int] = None
+
+
+class OpenSessionResponse(BaseModel):
+    """Session summary for open/active sessions visible to the current user."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    code: Optional[str] = None
+    date: Optional[str] = None
+    name: Optional[str] = None
+    status: Optional[str] = None
+    season_id: Optional[int] = None
+    league_id: Optional[int] = None
+    league_name: Optional[str] = None
+    court_id: Optional[int] = None
+    court_name: Optional[str] = None
+    court_slug: Optional[str] = None
+    match_count: int = 0
+    user_match_count: int = 0
+    participation: Optional[str] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class SessionWithStatusResponse(BaseModel):
+    """Response wrapping a session with a status/message envelope."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    session: SessionDetailResponse
+
+
+class SubmitSessionResponse(BaseModel):
+    """Response after submitting/locking in a session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    global_job_id: Optional[int] = None
+    league_job_id: Optional[int] = None
+    season_id: Optional[int] = None
+
+
+class DeleteSessionResponse(BaseModel):
+    """Response after deleting a session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str
+    message: str
+    session_id: int
+
+
+class SessionMatchItemResponse(BaseModel):
+    """Single match item within a session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    date: Optional[str] = None
+    session_id: Optional[int] = None
+    session_name: Optional[str] = None
+    session_status: Optional[str] = None
+    team1_player1_id: Optional[int] = None
+    team1_player1_name: str = ""
+    team1_player2_id: Optional[int] = None
+    team1_player2_name: str = ""
+    team2_player1_id: Optional[int] = None
+    team2_player1_name: str = ""
+    team2_player2_id: Optional[int] = None
+    team2_player2_name: str = ""
+    team1_score: Optional[int] = None
+    team2_score: Optional[int] = None
+    winner: Optional[str] = None
+    is_ranked: Optional[bool] = None
+    ranked_intent: Optional[bool] = None
+
+
+class SessionParticipantItemResponse(BaseModel):
+    """Single participant in a session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_id: int
+    full_name: str
+    level: Optional[str] = None
+    gender: Optional[str] = None
+    location_name: Optional[str] = None
+    is_placeholder: bool = False
+
+
+class BatchInviteFailItem(BaseModel):
+    """Single failed invite in a batch invite response."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_id: int
+    error: str
+
+
+class BatchInviteResponse(BaseModel):
+    """Response from batch invite endpoint."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    added: List[int]
+    failed: List[BatchInviteFailItem]
 
 
 # Weekly Schedule schemas
@@ -998,8 +1262,8 @@ class CreateNonLeagueSessionRequest(BaseModel):
     date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
     name: Optional[str] = None
     court_id: Optional[int] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
 
 
 class UpdateSessionRequest(BaseModel):
@@ -1248,6 +1512,105 @@ class PublicPlayerResponse(BaseModel):
     league_memberships: List[PublicPlayerLeagueMembership] = []
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# League route response schemas
+# ---------------------------------------------------------------------------
+
+
+class SuccessResponse(BaseModel):
+    """Generic response for operations that return only a success flag."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool
+
+
+class SuccessMessageResponse(BaseModel):
+    """Generic response for operations that return a success flag and a message."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool
+    message: str
+
+
+class LeagueMemberDetailResponse(BaseModel):
+    """League member response enriched with player profile fields."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    league_id: Optional[int] = None
+    player_id: int
+    role: str
+    player_name: Optional[str] = None
+    player_nickname: Optional[str] = None
+    player_level: Optional[str] = None
+    player_avatar: Optional[str] = None
+    joined_at: Optional[str] = None
+    is_placeholder: bool = False
+
+
+class BatchMemberFailItem(BaseModel):
+    """A single failed entry from a batch member-add operation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_id: Optional[int] = None
+    error: str
+
+
+class BatchMemberResponse(BaseModel):
+    """Response from batch-adding league members."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    added: List[LeagueMemberResponse]
+    failed: List[BatchMemberFailItem]
+
+
+class JoinRequestItemResponse(BaseModel):
+    """Single league join request item."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    league_id: Optional[int] = None
+    player_id: int
+    player_name: Optional[str] = None
+    status: str
+    created_at: Optional[str] = None
+
+
+class JoinRequestsResponse(BaseModel):
+    """Response for listing pending and rejected league join requests."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pending: List[JoinRequestItemResponse]
+    rejected: List[JoinRequestItemResponse]
+
+
+class RequestJoinResponse(BaseModel):
+    """Response after successfully submitting a league join request."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool
+    message: str
+    request_id: int
+
+
+class LeagueJoinResponse(BaseModel):
+    """Response after joining or approving a join request for a league."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool
+    message: str
+    member: LeagueMemberResponse
 
 
 class PublicLocationDirectoryItem(BaseModel):
@@ -1525,8 +1888,8 @@ class CreateCourtRequest(BaseModel):
     hours: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
 
 
 class UpdateCourtRequest(BaseModel):
@@ -1547,8 +1910,8 @@ class UpdateCourtRequest(BaseModel):
     hours: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
     is_active: Optional[bool] = None
 
 
@@ -1606,6 +1969,8 @@ class SitemapCourtItem(BaseModel):
 class SeasonAwardResponse(BaseModel):
     """Season award data for API responses."""
 
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     season_id: int
     season_name: Optional[str] = None
@@ -1631,24 +1996,24 @@ class _KobTournamentBase(BaseModel):
     """Shared fields for KOB tournament create/update schemas."""
 
     name: str = Field(default=None, min_length=1, max_length=100)
-    gender: Literal["mens", "womens", "coed"] = None
-    format: Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"] = None
-    game_to: int = Field(default=None, ge=7, le=28)
-    num_courts: int = Field(default=None, ge=1, le=20)
+    gender: Optional[Literal["mens", "womens", "coed"]] = None
+    format: Optional[Literal["FULL_ROUND_ROBIN", "POOLS_PLAYOFFS", "PARTIAL_ROUND_ROBIN"]] = None
+    game_to: Optional[int] = Field(default=None, ge=7, le=28)
+    num_courts: Optional[int] = Field(default=None, ge=1, le=20)
     max_rounds: Optional[int] = Field(default=None, ge=1)
-    has_playoffs: bool = None
+    has_playoffs: Optional[bool] = None
     playoff_size: Optional[int] = Field(default=None, ge=4)
     num_pools: Optional[int] = Field(default=None, ge=2, le=6)
-    games_per_match: int = None
-    num_rr_cycles: int = Field(default=None, ge=1, le=3)
+    games_per_match: Optional[int] = None
+    num_rr_cycles: Optional[int] = Field(default=None, ge=1, le=3)
     score_cap: Optional[int] = Field(default=None, ge=7)
     playoff_format: Optional[Literal["ROUND_ROBIN", "DRAFT"]] = None
     playoff_game_to: Optional[int] = Field(default=None, ge=7, le=28)
     playoff_games_per_match: Optional[int] = None
     playoff_score_cap: Optional[int] = Field(default=None, ge=7)
-    is_ranked: bool = None
+    is_ranked: Optional[bool] = None
     scheduled_date: Optional[str] = None
-    auto_advance: bool = None
+    auto_advance: Optional[bool] = None
 
     @field_validator("games_per_match", "playoff_games_per_match", mode="before")
     @classmethod

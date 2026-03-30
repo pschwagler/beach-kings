@@ -12,6 +12,32 @@ import secrets
 import string
 import logging
 
+__all__ = [
+    "get_sessions",
+    "get_session",
+    "get_active_session",
+    "get_session_by_code",
+    "get_open_sessions_for_user",
+    "get_or_create_active_league_session",
+    "create_league_session",
+    "create_session",
+    "lock_in_session",
+    "update_session",
+    "delete_session",
+    "get_matches",
+    "get_session_matches",
+    "get_match_async",
+    "create_match_async",
+    "update_match_async",
+    "delete_match_async",
+    "get_session_participants",
+    "remove_session_participant",
+    "add_session_participant",
+    "join_session_by_code",
+    "can_user_add_match_to_session",
+    "get_session_match_player_user_ids",
+]
+
 from backend.services.session_geo_service import resolve_session_geo
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,11 +113,6 @@ async def get_session(session: AsyncSession, session_id: int) -> Optional[Dict]:
         "created_by": s.created_by,
         "created_at": s.created_at.isoformat() if s.created_at else None,
     }
-
-
-async def get_session_for_routes(session: AsyncSession, session_id: int) -> Optional[Dict]:
-    """Get a session by ID - alias for get_session."""
-    return await get_session(session, session_id)
 
 
 async def get_active_session(session: AsyncSession) -> Optional[Dict]:
@@ -303,13 +324,6 @@ async def get_open_sessions_for_user(
     return out
 
 
-async def get_user_leagues_for_routes(session: AsyncSession, user_id: int) -> List[Dict]:
-    """Get user leagues - alias for get_user_leagues (defined in league_data)."""
-    from backend.services.league_data import get_user_leagues
-
-    return await get_user_leagues(session, user_id)
-
-
 # ============================================================================
 # Session write operations
 # ============================================================================
@@ -326,6 +340,43 @@ async def _generate_session_code(db_session: AsyncSession) -> str:
         if result.scalar_one_or_none() is None:
             return code
     raise ValueError("Failed to generate unique session code")
+
+
+async def _get_active_season(
+    session: AsyncSession, league_id: int, season_id: Optional[int] = None
+) -> Season:
+    """Get active season for a league, either by ID or by current date."""
+    if season_id:
+        result = await session.execute(
+            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
+        )
+        active_season = result.scalar_one_or_none()
+        if not active_season:
+            raise ValueError(
+                f"Season {season_id} not found or does not belong to league {league_id}"
+            )
+        return active_season
+
+    current_date = date.today()
+    result = await session.execute(
+        select(Season)
+        .where(
+            and_(
+                Season.league_id == league_id,
+                Season.start_date <= current_date,
+                Season.end_date >= current_date,
+            )
+        )
+        .order_by(Season.created_at.desc())
+        .limit(1)
+    )
+    active_season = result.scalar_one_or_none()
+    if not active_season:
+        raise ValueError(
+            f"League {league_id} does not have an active season. "
+            "Please create a season with dates that include today's date."
+        )
+    return active_season
 
 
 async def get_or_create_active_league_session(
@@ -359,35 +410,7 @@ async def get_or_create_active_league_session(
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    if season_id:
-        season_result = await session.execute(
-            select(Season).where(and_(Season.id == season_id, Season.league_id == league_id))
-        )
-        active_season = season_result.scalar_one_or_none()
-        if not active_season:
-            raise ValueError(
-                f"Season {season_id} not found or does not belong to league {league_id}"
-            )
-    else:
-        current_date = date.today()
-        season_result = await session.execute(
-            select(Season)
-            .where(
-                and_(
-                    Season.league_id == league_id,
-                    Season.start_date <= current_date,
-                    Season.end_date >= current_date,
-                )
-            )
-            .order_by(Season.created_at.desc())
-            .limit(1)
-        )
-        active_season = season_result.scalar_one_or_none()
-
-        if not active_season:
-            raise ValueError(
-                f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
-            )
+    active_season = await _get_active_season(session, league_id, season_id)
 
     # Try to get existing active session for this date and season
     try:
@@ -412,7 +435,8 @@ async def get_or_create_active_league_session(
                 "status": existing_session.status.value if existing_session.status else None,
                 "season_id": existing_session.season_id,
             }
-    except Exception:
+    except Exception as e:
+        logger.warning("SELECT FOR UPDATE failed, falling back to plain SELECT: %s", e)
         result = await session.execute(
             select(Session).where(
                 and_(
@@ -509,32 +533,12 @@ async def create_league_session(
     Defaults court_id to the league's primary home court (position=0) if not provided.
     Includes duplicate prevention - will raise ValueError if active session already exists.
     """
-    from datetime import date as date_type
-
     result = await session.execute(select(League).where(League.id == league_id))
     league = result.scalar_one_or_none()
     if not league:
         raise ValueError(f"League {league_id} not found")
 
-    current_date = date_type.today()
-    season_result = await session.execute(
-        select(Season)
-        .where(
-            and_(
-                Season.league_id == league_id,
-                Season.start_date <= current_date,
-                Season.end_date >= current_date,
-            )
-        )
-        .order_by(Season.created_at.desc())
-        .limit(1)
-    )
-    active_season = season_result.scalar_one_or_none()
-
-    if not active_season:
-        raise ValueError(
-            f"League {league_id} does not have an active season. Please create a season with dates that include today's date."
-        )
+    active_season = await _get_active_season(session, league_id)
 
     # Check if active session already exists for this date and season
     result = await session.execute(

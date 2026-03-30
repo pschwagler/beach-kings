@@ -1260,9 +1260,7 @@ async def season_rating_league(db_session: AsyncSession, test_players):
 
 
 @pytest.mark.asyncio
-async def test_season_stats_custom_points_per_win(
-    db_session, test_players, custom_scoring_league
-):
+async def test_season_stats_custom_points_per_win(db_session, test_players, custom_scoring_league):
     """Season stats use custom points_per_win/loss from season.point_system."""
     alice, bob, charlie, dave = test_players
     league, season = custom_scoring_league
@@ -1476,9 +1474,7 @@ async def test_season_rating_non_member_gets_same_initial_rating(
 
 
 @pytest.mark.asyncio
-async def test_malformed_point_system_uses_defaults(
-    db_session, test_players
-):
+async def test_malformed_point_system_uses_defaults(db_session, test_players):
     """Season with malformed point_system JSON falls back to 3/1 defaults."""
     league = League(name="Bad Config League", is_open=True, created_by=test_players[0].id)
     db_session.add(league)

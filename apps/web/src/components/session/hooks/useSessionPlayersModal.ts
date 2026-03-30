@@ -350,11 +350,22 @@ export function useSessionPlayersModal({
 
   /**
    * Search registered players by name for duplicate checking in the create form.
+   * Maps PublicPlayerResponse to the flat shape SessionPlayersAddPanel expects
+   * (location_name instead of location.name).
    * @param {string} query - Search term
-   * @returns {Promise<{items: Array}>}
+   * @returns {Promise<{items: Array<{id, full_name, location_name, gender, level}>}>}
    */
-  const handleSearchPlayers = useCallback((query: string) => {
-    return getPublicPlayers({ search: query, page_size: 5 });
+  const handleSearchPlayers = useCallback(async (query: string) => {
+    const result = await getPublicPlayers({ search: query, page_size: 5 });
+    return {
+      items: result.items.map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        location_name: p.location?.name ?? null,
+        gender: p.gender ?? null,
+        level: p.level ?? null,
+      })),
+    };
   }, []);
 
   const handleToggleFilter = useCallback((key: string, value: string | number) => {

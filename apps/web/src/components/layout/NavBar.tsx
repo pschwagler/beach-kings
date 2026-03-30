@@ -21,7 +21,7 @@ interface NavBarProps {
   onSignUp?: () => void;
   onSmsLogin?: () => void;
   userLeagues?: League[];
-  onLeaguesMenuClick?: (action: string, leagueId?: string | number | null) => void;
+  onLeaguesMenuClick?: (action: string, leagueId?: number | null) => void;
   onPlayersClick?: () => void;
 }
 
@@ -52,7 +52,7 @@ export default function NavBar({
     }
   };
 
-  const handleLeaguesMenuClick = (action: string, leagueId: string | number | null = null) => {
+  const handleLeaguesMenuClick = (action: string, leagueId: number | null = null) => {
     if (action === 'find-leagues') {
       router.push('/find-leagues');
       return;

@@ -5,7 +5,7 @@ import { getPublicCourtBySlug } from '../../services/api';
 import CourtReviewCard from './CourtReviewCard';
 import CourtReviewForm from './CourtReviewForm';
 import { Button } from '../ui/UI';
-import type { Court, CourtReview as CanonicalCourtReview } from '../../types';
+import type { Court, CourtReview as CanonicalCourtReview, ReviewActionResponse } from '../../types';
 
 /** Extends CourtReview with aggregate fields returned by action endpoints. */
 interface CourtReview extends CanonicalCourtReview {
@@ -55,9 +55,9 @@ export default function CourtReviewSection({ court, isAuthenticated, currentPlay
     refreshCourt();
   }, [refreshCourt]);
 
-  const handleReviewAction = (result?: CourtReview) => {
+  const handleReviewAction = (result?: ReviewActionResponse) => {
     if (result) {
-      setAvgRating(result.average_rating);
+      setAvgRating(result.average_rating ?? undefined);
       setReviewCount(result.review_count ?? reviewCount);
     }
     setShowForm(false);

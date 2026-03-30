@@ -1,45 +1,57 @@
 import { useState, useCallback } from 'react';
 import { getLocationDistances } from '../services/api';
+import type { Location } from '../types';
+
+interface CityData {
+  city: string;
+  state: string;
+  city_latitude: number | null;
+  city_longitude: number | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic form updater, callers use their own specific form types
+type FormUpdater = (updater: (prev: any) => any) => void;
 
 /**
  * Custom hook for automatically selecting the closest location when a city is selected.
  * Returns state and handlers for managing location distances and auto-selection.
  */
 export function useLocationAutoSelect(
-  setFormData: (updater: (prev: any) => any) => void,
+  setFormData: FormUpdater,
   setErrorMessage: ((msg: string) => void) | null,
 ) {
   const [locationDistances, setLocationDistances] = useState<Record<string, number>>({}); // Map of location_id -> distance
-  const [locations, setLocations] = useState<any[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
 
   /**
    * Handle city selection - automatically find and select the closest location
    */
-  const handleCitySelect = async (cityData: any, currentLocations: any[]) => {
+  const handleCitySelect = useCallback(async (cityData: CityData, currentLocations: Location[]) => {
     // Store city data
-    setFormData((prev) => ({
+    setFormData((prev: Record<string, unknown>) => ({
       ...prev,
       city: cityData.city,
       state: cityData.state,
-      city_latitude: cityData.lat,
-      city_longitude: cityData.lon,
+      city_latitude: cityData.city_latitude,
+      city_longitude: cityData.city_longitude,
     }));
 
     // Get distances to all locations
+    if (cityData.city_latitude == null || cityData.city_longitude == null) return;
     try {
-      const locationsWithDistances = await getLocationDistances(cityData.lat, cityData.lon);
+      const locationsWithDistances = await getLocationDistances(cityData.city_latitude, cityData.city_longitude);
       
       // Store distances in a map for easy lookup
       const distancesMap: Record<string, number> = {};
-      locationsWithDistances.forEach((loc: any) => {
-        distancesMap[loc.id as string] = loc.distance_miles;
+      locationsWithDistances.forEach((loc: Location) => {
+        distancesMap[loc.id] = loc.distance_miles ?? 0;
       });
       setLocationDistances(distancesMap);
 
       // Update locations list with distances for display
       // Merge the API response (which has distances) with the full location data
-      const locationsWithDistancesForDisplay = currentLocations.map((loc: any) => {
-        const distanceInfo = locationsWithDistances.find((l: any) => l.id === loc.id);
+      const locationsWithDistancesForDisplay = currentLocations.map((loc: Location) => {
+        const distanceInfo = locationsWithDistances.find((l: Location) => l.id === loc.id);
         return {
           ...loc,
           distance_miles: distanceInfo ? distanceInfo.distance_miles : undefined
@@ -62,25 +74,25 @@ export function useLocationAutoSelect(
         setErrorMessage('Failed to find nearby locations. Please try again.');
       }
     }
-  };
+  }, [setFormData, setErrorMessage]);
 
   /**
    * Handle location change - update distance from stored distances map
    */
-  const handleLocationChange = (locationId: string) => {
+  const handleLocationChange = useCallback((locationId: string) => {
     const distance = locationDistances[locationId];
     setFormData((prev) => ({
       ...prev,
       location_id: locationId,
       distance_to_location: distance !== undefined ? distance : null,
     }));
-  };
+  }, [locationDistances, setFormData]);
 
   /**
    * Update locations list (for when locations are loaded separately)
    * This should be called when locations are initially loaded
    */
-  const updateLocationsWithDistances = useCallback((newLocations: any[]) => {
+  const updateLocationsWithDistances = useCallback((newLocations: Location[]) => {
     setLocations(newLocations);
   }, []);
 

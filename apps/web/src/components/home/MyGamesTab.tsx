@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../ui/UI';
 import { MySessionsWidget } from './OpenSessionsList';
-import MyMatchesWidget from '../dashboard/MyMatchesWidget';
+import MyMatchesWidget, { type MatchRecord } from '../dashboard/MyMatchesWidget';
 import { getPlayerMatchHistory } from '../../services/api';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 
@@ -17,13 +17,13 @@ import type { Player } from '../../types';
 interface MyGamesTabProps {
   currentUserPlayer: Player | null;
   onTabChange: (tab: string) => void;
-  onMatchClick: (match: Record<string, unknown>) => void;
+  onMatchClick: (match: MatchRecord) => void;
 }
 
 export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClick }: MyGamesTabProps) {
   const { openModal } = useModal();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [userMatches, setUserMatches] = useState<Record<string, unknown>[]>([]);
+  const [userMatches, setUserMatches] = useState<MatchRecord[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
   useEffect(() => {
@@ -42,9 +42,9 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
       setLoadingMatches(true);
       try {
         const matches = await getPlayerMatchHistory(currentUserPlayer.id);
-        const sorted = (matches || []).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-          const dateA = a.Date ? new Date(a.Date as string).getTime() : 0;
-          const dateB = b.Date ? new Date(b.Date as string).getTime() : 0;
+        const sorted = ((matches || []) as MatchRecord[]).sort((a, b) => {
+          const dateA = a.Date ? new Date(a.Date).getTime() : 0;
+          const dateB = b.Date ? new Date(b.Date).getTime() : 0;
           return dateB - dateA;
         });
         setUserMatches(sorted);

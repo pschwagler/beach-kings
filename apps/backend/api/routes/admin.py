@@ -92,7 +92,7 @@ async def proxy_whatsapp_request(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/settings/{key}")
+@router.get("/api/settings/{key}", response_model=dict)
 async def get_setting_value(
     key: str,
     user: dict = Depends(require_system_admin),
@@ -107,7 +107,7 @@ async def get_setting_value(
         raise HTTPException(status_code=500, detail="Error getting setting.")
 
 
-@router.put("/api/settings/{key}")
+@router.put("/api/settings/{key}", response_model=dict)
 async def set_setting_value(
     key: str,
     request: Request,
@@ -238,7 +238,7 @@ async def get_all_feedback(
         raise HTTPException(status_code=500, detail="Error getting feedback.")
 
 
-@router.patch("/api/admin-view/feedback/{feedback_id}/resolve")
+@router.patch("/api/admin-view/feedback/{feedback_id}/resolve", response_model=FeedbackResponse)
 async def update_feedback_resolution(
     feedback_id: int,
     request: Request,
@@ -291,7 +291,7 @@ async def update_feedback_resolution(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/admin-view/config")
+@router.get("/api/admin-view/config", response_model=dict)
 async def get_admin_config(
     user: dict = Depends(require_system_admin), session: AsyncSession = Depends(get_db_session)
 ):
@@ -323,7 +323,7 @@ async def get_admin_config(
         raise HTTPException(status_code=500, detail="Error getting admin config.")
 
 
-@router.put("/api/admin-view/config")
+@router.put("/api/admin-view/config", response_model=dict)
 async def update_admin_config(
     request: Request,
     user: dict = Depends(require_system_admin),
@@ -409,7 +409,7 @@ PLATFORM_STATS_CACHE_KEY = "admin:platform_stats"
 PLATFORM_STATS_TTL = 3600  # 1 hour
 
 
-@router.get("/api/admin-view/stats")
+@router.get("/api/admin-view/stats", response_model=dict)
 async def get_platform_stats(
     user: dict = Depends(require_system_admin),
     session: AsyncSession = Depends(get_db_session),
@@ -492,7 +492,7 @@ async def get_platform_stats(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/admin-view/players/recent")
+@router.get("/api/admin-view/players/recent", response_model=list)
 async def get_recent_players(
     limit: int = 50,
     include_unregistered: bool = False,
@@ -556,44 +556,44 @@ async def get_recent_players(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/whatsapp/qr")
+@router.get("/api/whatsapp/qr", response_model=dict)
 async def whatsapp_qr(user: dict = Depends(require_system_admin)):
     """Proxy endpoint for WhatsApp QR code. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/qr")
 
 
-@router.get("/api/whatsapp/status")
+@router.get("/api/whatsapp/status", response_model=dict)
 async def whatsapp_status(user: dict = Depends(require_system_admin)):
     """Proxy endpoint for WhatsApp authentication status. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/status")
 
 
-@router.post("/api/whatsapp/initialize")
+@router.post("/api/whatsapp/initialize", response_model=dict)
 async def whatsapp_initialize(user: dict = Depends(require_system_admin)):
     """Proxy endpoint for initializing WhatsApp client. System admin only."""
     return await proxy_whatsapp_request("POST", "/api/whatsapp/initialize")
 
 
-@router.post("/api/whatsapp/logout")
+@router.post("/api/whatsapp/logout", response_model=dict)
 async def whatsapp_logout(user: dict = Depends(require_system_admin)):
     """Proxy endpoint for logging out of WhatsApp. System admin only."""
     return await proxy_whatsapp_request("POST", "/api/whatsapp/logout")
 
 
-@router.get("/api/whatsapp/groups")
+@router.get("/api/whatsapp/groups", response_model=dict)
 async def whatsapp_groups(user: dict = Depends(require_system_admin)):
     """Proxy endpoint for fetching WhatsApp group chats. System admin only."""
     return await proxy_whatsapp_request("GET", "/api/whatsapp/groups")
 
 
-@router.post("/api/whatsapp/send")
+@router.post("/api/whatsapp/send", response_model=dict)
 async def whatsapp_send(request: Request, user: dict = Depends(require_system_admin)):
     """Proxy endpoint for sending WhatsApp messages. System admin only."""
     body = await request.json()
     return await proxy_whatsapp_request("POST", "/api/whatsapp/send", body=body)
 
 
-@router.get("/api/whatsapp/config")
+@router.get("/api/whatsapp/config", response_model=dict)
 async def get_whatsapp_config(
     user: dict = Depends(require_system_admin), session: AsyncSession = Depends(get_db_session)
 ):
@@ -609,7 +609,7 @@ async def get_whatsapp_config(
         raise HTTPException(status_code=500, detail="Error loading WhatsApp config.")
 
 
-@router.post("/api/whatsapp/config")
+@router.post("/api/whatsapp/config", response_model=dict)
 async def set_whatsapp_config(
     request: Request,
     user: dict = Depends(require_system_admin),

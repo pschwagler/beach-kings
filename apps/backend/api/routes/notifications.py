@@ -1,6 +1,7 @@
 """Notification and WebSocket route handlers."""
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -75,7 +76,7 @@ async def mark_notification_as_read(
         )
 
 
-@router.put("/api/notifications/mark-all-read")
+@router.put("/api/notifications/mark-all-read", response_model=dict)
 async def mark_all_notifications_as_read(
     user: dict = Depends(require_user), session: AsyncSession = Depends(get_db_session)
 ):
@@ -96,12 +97,29 @@ async def websocket_notifications(websocket: WebSocket):
     """
     WebSocket endpoint for real-time notification delivery.
 
-    Requires JWT token in query parameter: ?token=<jwt_token>
+    Client authenticates by sending ``{"type": "auth", "token": "<jwt>"}``
+    as the first message after connection is accepted.
     """
     await websocket.accept()
 
-    # Get token from query parameters
-    token = websocket.query_params.get("token")
+    # Authenticate via first message (token not in URL to avoid proxy/log exposure)
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+    except asyncio.TimeoutError:
+        await websocket.close(code=1008, reason="Authentication timeout")
+        return
+
+    try:
+        auth_data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        await websocket.close(code=1008, reason="Invalid auth message format")
+        return
+
+    if not isinstance(auth_data, dict) or auth_data.get("type") != "auth":
+        await websocket.close(code=1008, reason="Expected auth message")
+        return
+
+    token = auth_data.get("token")
     if not token:
         await websocket.close(code=1008, reason="Missing authentication token")
         return

@@ -37,9 +37,7 @@ def _index_exists(index_name: str) -> bool:
     """Return True if the named index already exists."""
     bind = op.get_bind()
     result = bind.execute(
-        sa.text(
-            "SELECT 1 FROM pg_indexes WHERE indexname = :name"
-        ),
+        sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :name"),
         {"name": index_name},
     )
     return result.fetchone() is not None
@@ -67,7 +65,8 @@ def upgrade() -> None:
     if not _index_exists("idx_sessions_lat_lng"):
         op.create_index("idx_sessions_lat_lng", "sessions", ["latitude", "longitude"])
 
-    # Backfill: all existing sessions were played at QBK Sports, Queens NYC
+    # Intentional: all existing sessions were played at QBK Sports, Queens NYC.
+    # This sets court_id, location_id, and coordinates for every pre-migration session.
     op.execute(
         """
         UPDATE sessions

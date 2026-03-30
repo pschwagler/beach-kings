@@ -353,7 +353,7 @@ export default function SessionPlayersModal({
               filterPopoverRef={filterPopoverRef}
               activeFilterCount={activeFilterCount}
               userLocationId={userLocationId}
-              onCreatePlaceholder={handleCreatePlaceholder as unknown as (name: string, extras?: { gender?: string; level?: string }) => Promise<import('../../utils/playerDropdownUtils').PlayerOption>}
+              onCreatePlaceholder={handleCreatePlaceholder}
               isCreatingPlaceholder={isCreatingPlaceholder}
               onSearchPlayers={handleSearchPlayers}
             />

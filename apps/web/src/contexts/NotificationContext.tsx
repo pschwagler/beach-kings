@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
 import {
   getNotifications,
@@ -55,7 +55,7 @@ interface NotificationContextValue {
   markAllAsRead: () => Promise<unknown>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
-  onDirectMessageRef: MutableRefObject<((msg: unknown) => void) | null>;
+  onDirectMessageRef: MutableRefObject<((msg: Record<string, unknown>) => void) | null>;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
@@ -135,16 +135,14 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         )
       );
 
-      if (unreadCount > 0) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+      setUnreadCount(prev => Math.max(0, prev - 1));
 
       return updatedNotification;
     } catch (error) {
       console.error('Error marking notification as read:', error);
       throw error;
     }
-  }, [isAuthenticated, unreadCount]);
+  }, [isAuthenticated]);
 
   /**
    * Mark all notifications as read
@@ -231,9 +229,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       disconnectWebSocket();
     };
+  // All fetch/connect functions are stable useCallback refs — only re-run on auth state change
   }, [isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const value = {
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     dmUnreadCount,
@@ -247,7 +246,21 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     connectWebSocket,
     disconnectWebSocket,
     onDirectMessageRef,
-  };
+  }), [
+    notifications,
+    unreadCount,
+    dmUnreadCount,
+    isLoading,
+    wsConnected,
+    fetchNotifications,
+    fetchUnreadCount,
+    fetchDmUnreadCount,
+    markAsRead,
+    markAllAsRead,
+    connectWebSocket,
+    disconnectWebSocket,
+    onDirectMessageRef,
+  ]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };

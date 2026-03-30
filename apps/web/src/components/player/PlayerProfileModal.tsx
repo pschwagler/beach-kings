@@ -121,7 +121,7 @@ export default function PlayerProfileModal({ isOpen, onClose, onSuccess, current
     };
   }, [isOpen]);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }): void => {
     const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,

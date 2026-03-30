@@ -46,11 +46,13 @@ async function getBackendHostForWebSocket() {
  * @param {React.MutableRefObject<Function>} options.fetchDmUnreadCountRef - ref to fetchDmUnreadCount
  * @returns {{ wsConnected, connectWebSocket, disconnectWebSocket, onDirectMessageRef }}
  */
+import type { User, Notification } from '../types';
+
 interface UseNotificationWebSocketOptions {
   isAuthenticated: boolean;
-  user: any;
-  onNotification: (notification: any) => void;
-  onNotificationUpdated: (notification: any) => void;
+  user: User | null;
+  onNotification: (notification: Notification) => void;
+  onNotificationUpdated: (notification: Notification) => void;
   fetchUnreadCountRef: MutableRefObject<() => void>;
   fetchDmUnreadCountRef: MutableRefObject<() => void>;
 }
@@ -65,7 +67,7 @@ export function useNotificationWebSocket({
 }: UseNotificationWebSocketOptions) {
   const [wsConnected, setWsConnected] = useState(false);
 
-  const onDirectMessageRef = useRef<((msg: any) => void) | null>(null);
+  const onDirectMessageRef = useRef<((msg: Record<string, unknown>) => void) | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -79,8 +81,8 @@ export function useNotificationWebSocket({
   userRef.current = user;
 
   // Keep callback refs stable to avoid recreating connectWebSocket
-  const onNotificationRef = useRef<(notification: any) => void>(onNotification);
-  const onNotificationUpdatedRef = useRef<(notification: any) => void>(onNotificationUpdated);
+  const onNotificationRef = useRef<(notification: Notification) => void>(onNotification);
+  const onNotificationUpdatedRef = useRef<(notification: Notification) => void>(onNotificationUpdated);
   useEffect(() => { onNotificationRef.current = onNotification; }, [onNotification]);
   useEffect(() => { onNotificationUpdatedRef.current = onNotificationUpdated; }, [onNotificationUpdated]);
 
@@ -103,13 +105,15 @@ export function useNotificationWebSocket({
     (async () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = await getBackendHostForWebSocket();
-      const wsUrl = `${protocol}//${host}/api/ws/notifications?token=${token}`;
+      const wsUrl = `${protocol}//${host}/api/ws/notifications`;
 
       try {
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
+          // Authenticate via first message (keeps token out of URL logs)
+          ws.send(JSON.stringify({ type: 'auth', token }));
           setWsConnected(true);
           reconnectAttemptsRef.current = 0;
 
@@ -193,6 +197,7 @@ export function useNotificationWebSocket({
         setWsConnected(false);
       }
     })();
+  // All mutable values (token, url, callbacks) are accessed via refs — connect function never needs re-creation
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**

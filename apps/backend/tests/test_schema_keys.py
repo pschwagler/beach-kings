@@ -72,7 +72,17 @@ def test_ranking_response_alias_keys_are_snake_case():
 def test_ranking_response_has_expected_fields():
     """RankingResponse must include all required stat fields."""
     serialized = _assert_all_keys_snake_case(RankingResponse, SAMPLE_RANKING)
-    expected = {"name", "points", "games", "win_rate", "wins", "losses", "avg_pt_diff", "elo", "season_rank"}
+    expected = {
+        "name",
+        "points",
+        "games",
+        "win_rate",
+        "wins",
+        "losses",
+        "avg_pt_diff",
+        "elo",
+        "season_rank",
+    }
     assert set(serialized.keys()) == expected
 
 
@@ -174,8 +184,12 @@ def test_match_history_no_space_keys():
     instance = PlayerMatchHistoryResponse(**SAMPLE_HISTORY)
     serialized = instance.model_dump()
     old_keys = [
-        "Partner ID", "Opponent 1", "Opponent 1 ID",
-        "Opponent 2", "Opponent 2 ID", "ELO Change",
+        "Partner ID",
+        "Opponent 1",
+        "Opponent 1 ID",
+        "Opponent 2",
+        "Opponent 2 ID",
+        "ELO Change",
     ]
     for old_key in old_keys:
         assert old_key not in serialized, f"Old space-keyed field '{old_key}' found"

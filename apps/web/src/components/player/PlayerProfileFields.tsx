@@ -28,7 +28,7 @@ interface CitySelectData {
 
 interface PlayerProfileFieldsProps {
   formData: ProfileFormData;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => void;
   onCitySelect: (cityData: CitySelectData) => void;
   locations?: Location[];
   isLoadingLocations?: boolean;

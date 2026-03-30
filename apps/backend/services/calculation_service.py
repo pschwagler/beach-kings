@@ -33,8 +33,8 @@ def elo_change(k: float, old_elo: float, expected_score: float, actual_score: fl
     return k * (actual_score - expected_score)
 
 
-def k_factor(avg_games: float, k_constant: float) -> float:
-    """Calculate K-factor based on average games played."""
+def k_factor(k_constant: float) -> float:
+    """Return the K-factor constant for ELO calculations."""
     return k_constant
 
 
@@ -181,7 +181,7 @@ class PlayerStats:
             initial_rating if initial_rating is not None else INITIAL_ELO
         )  # Season-specific ELO
         self.initial_rating = initial_rating  # Store initial rating for season
-        self.scoring_config = scoring_config or {
+        self.scoring_config = scoring_config if scoring_config is not None else {
             "type": "points_system",
             "points_per_win": 3,
             "points_per_loss": 1,
@@ -309,7 +309,7 @@ class StatsTracker:
         """
         self.players: Dict[int, PlayerStats] = {}
         self.initial_ratings = initial_ratings or {}
-        self.scoring_config = scoring_config or {
+        self.scoring_config = scoring_config if scoring_config is not None else {
             "type": "points_system",
             "points_per_win": 3,
             "points_per_loss": 1,
@@ -462,8 +462,7 @@ class StatsTracker:
             expected_score(team_ratings[0], team_ratings[1]),
             expected_score(team_ratings[1], team_ratings[0]),
         ]
-        avg_games = sum(self.get_player(pid).game_count for team in teams for pid in team) / 4
-        k = k_factor(avg_games, k_constant)
+        k = k_factor(k_constant)
         return [
             elo_change(k, team_ratings[0], exp[0], normalized_score),
             elo_change(k, team_ratings[1], exp[1], 1 - normalized_score),

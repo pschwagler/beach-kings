@@ -234,7 +234,7 @@ async def get_user_notifications(
 
     Returns:
         Dict containing:
-            - notifications: List of notification dicts (ordered by created_at DESC)
+            - items: List of notification dicts (ordered by created_at DESC)
             - total_count: Total number of notifications matching the criteria
             - has_more: Boolean indicating if there are more notifications
     """

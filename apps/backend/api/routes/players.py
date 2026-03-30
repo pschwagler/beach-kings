@@ -1,8 +1,7 @@
 """Player list, create, data, placeholder, and invite route handlers."""
 
 import logging
-import traceback
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -18,19 +17,29 @@ from backend.api.auth_dependencies import (
     require_verified_player,
 )
 from backend.models.schemas import (
+    ClaimInviteResponse,
     CreatePlaceholderRequest,
     CreatePlayerRequest,
+    CreatePlayerResponse,
     AddPlayerHomeCourt,
+    DeletePlaceholderResponse,
+    InviteDetailsResponse,
+    InviteUrlResponse,
+    PaginatedPlayersResponse,
+    PlaceholderListResponse,
+    PlaceholderPlayerResponse,
+    PlayerHomeCourtResponse,
     SetPlayerHomeCourts,
     ReorderPlayerHomeCourts,
     MatchesQueryRequest,
+    SuccessResponse,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/players")
+@router.get("/api/players", response_model=PaginatedPlayersResponse)
 @limiter.limit("60/minute")
 async def list_players(
     request: Request,
@@ -68,13 +77,14 @@ async def list_players(
         )
         return {"items": items, "total_count": total}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading players: {str(e)}")
+        logger.error("Error loading players: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # --- Placeholder Player endpoints ---
 
 
-@router.post("/api/players/placeholder")
+@router.post("/api/players/placeholder", response_model=PlaceholderPlayerResponse)
 async def create_placeholder_player(
     request: CreatePlaceholderRequest,
     current_user: dict = Depends(get_current_user),
@@ -124,10 +134,11 @@ async def create_placeholder_player(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating placeholder: {str(e)}")
+        logger.error("Error creating placeholder: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/players/placeholder")
+@router.get("/api/players/placeholder", response_model=PlaceholderListResponse)
 async def list_placeholder_players(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
@@ -148,10 +159,11 @@ async def list_placeholder_players(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing placeholders: {str(e)}")
+        logger.error("Error listing placeholders: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.delete("/api/players/placeholder/{player_id}")
+@router.delete("/api/players/placeholder/{player_id}", response_model=DeletePlaceholderResponse)
 async def delete_placeholder_player(
     player_id: int,
     current_user: dict = Depends(get_current_user),
@@ -181,10 +193,11 @@ async def delete_placeholder_player(
     except PermissionError:
         raise HTTPException(status_code=403, detail="You can only delete placeholders you created")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting placeholder: {str(e)}")
+        logger.error("Error deleting placeholder: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/players/{player_id}/invite-url")
+@router.get("/api/players/{player_id}/invite-url", response_model=InviteUrlResponse)
 async def get_player_invite_url(
     player_id: int,
     current_user: dict = Depends(get_current_user),
@@ -220,14 +233,14 @@ async def get_player_invite_url(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving invite URL for player {player_id}: {e}", exc_info=True)
+        logger.error("Error retrieving invite URL for player %s: %s", player_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
 # --- Invite Claim endpoints ---
 
 
-@router.get("/api/invites/{token}")
+@router.get("/api/invites/{token}", response_model=InviteDetailsResponse)
 @limiter.limit("30/minute")
 async def get_invite_details(
     request: Request,
@@ -249,10 +262,11 @@ async def get_invite_details(
     except placeholder_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving invite: {str(e)}")
+        logger.error("Error retrieving invite: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/invites/{token}/claim")
+@router.post("/api/invites/{token}/claim", response_model=ClaimInviteResponse)
 async def claim_invite(
     token: str,
     current_user: dict = Depends(get_current_user),
@@ -286,10 +300,11 @@ async def claim_invite(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error claiming invite: {str(e)}")
+        logger.error("Error claiming invite: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/players")
+@router.post("/api/players", response_model=CreatePlayerResponse)
 async def create_player(
     body: CreatePlayerRequest,
     current_user: dict = Depends(get_current_user),
@@ -323,7 +338,8 @@ async def create_player(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating player: {str(e)}")
+        logger.error("Error creating player: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +347,7 @@ async def create_player(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/players/{player_id}/matches")
+@router.get("/api/players/{player_id}/matches", response_model=List[Any])
 async def get_player_match_history(
     player_id: int, session: AsyncSession = Depends(get_db_session)
 ):
@@ -355,10 +371,14 @@ async def get_player_match_history(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading match history: {str(e)}")
+        logger.error("Error loading match history: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/players/{player_id}/season/{season_id}/stats")
+@router.get(
+    "/api/players/{player_id}/season/{season_id}/stats",
+    response_model=dict,
+)
 async def get_player_season_stats(
     player_id: int, season_id: int, session: AsyncSession = Depends(get_db_session)
 ):
@@ -382,10 +402,11 @@ async def get_player_season_stats(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading player season stats: {str(e)}")
+        logger.error("Error loading player season stats: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/elo-timeline")
+@router.get("/api/elo-timeline", response_model=List[Any])
 async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
     """
     Get ELO timeline data for all players.
@@ -404,10 +425,11 @@ async def get_elo_timeline(session: AsyncSession = Depends(get_db_session)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading ELO timeline: {str(e)}")
+        logger.error("Error loading ELO timeline: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/matches/search")
+@router.post("/api/matches/search", response_model=List[Any])
 async def search_matches(
     body: MatchesQueryRequest,
     user: Optional[dict] = Depends(get_current_user_optional),
@@ -426,8 +448,8 @@ async def search_matches(
     except HTTPException:
         raise
     except Exception as e:
-        error_detail = f"Error searching matches: {str(e)}\n{traceback.format_exc()}"
-        raise HTTPException(status_code=500, detail=error_detail)
+        logger.error("Error searching matches: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/api/matches/export")
@@ -445,10 +467,11 @@ async def export_matches(session: AsyncSession = Depends(get_db_session)):
             headers={"Content-Disposition": "attachment; filename=matches_export.csv"},
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error exporting matches: {str(e)}")
+        logger.error("Error exporting matches: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/api/players/{player_id}/stats")
+@router.get("/api/players/{player_id}/stats", response_model=dict)
 async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_db_session)):
     """
     Get detailed statistics for a specific player.
@@ -469,7 +492,8 @@ async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_d
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
+        logger.error("Error loading player stats: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ---------------------------------------------------------------------------
@@ -477,7 +501,7 @@ async def get_player_stats(player_id: int, session: AsyncSession = Depends(get_d
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/players/{player_id}/home-courts")
+@router.get("/api/players/{player_id}/home-courts", response_model=List[PlayerHomeCourtResponse])
 async def list_player_home_courts(
     player_id: int,
     session: AsyncSession = Depends(get_db_session),
@@ -486,10 +510,11 @@ async def list_player_home_courts(
     try:
         return await data_service.get_player_home_courts(session, player_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing home courts: {str(e)}")
+        logger.error("Error listing home courts: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/api/players/{player_id}/home-courts")
+@router.post("/api/players/{player_id}/home-courts", response_model=PlayerHomeCourtResponse)
 async def add_player_home_court(
     player_id: int,
     body: AddPlayerHomeCourt,
@@ -514,11 +539,11 @@ async def add_player_home_court(
 
         if isinstance(e, IntegrityError):
             raise HTTPException(status_code=409, detail="Court is already a home court")
-        logger.error(f"Error adding home court for player {player_id}: {e}", exc_info=True)
+        logger.error("Error adding home court for player %s: %s", player_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
-@router.delete("/api/players/{player_id}/home-courts/{court_id}")
+@router.delete("/api/players/{player_id}/home-courts/{court_id}", response_model=SuccessResponse)
 async def remove_player_home_court(
     player_id: int,
     court_id: int,
@@ -536,10 +561,11 @@ async def remove_player_home_court(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
+        logger.error("Error removing home court: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.put("/api/players/{player_id}/home-courts")
+@router.put("/api/players/{player_id}/home-courts", response_model=List[PlayerHomeCourtResponse])
 async def set_player_home_courts(
     player_id: int,
     body: SetPlayerHomeCourts,
@@ -558,10 +584,14 @@ async def set_player_home_courts(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error setting home courts: {str(e)}")
+        logger.error("Error setting home courts: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.put("/api/players/{player_id}/home-courts/reorder")
+@router.put(
+    "/api/players/{player_id}/home-courts/reorder",
+    response_model=List[PlayerHomeCourtResponse],
+)
 async def reorder_player_home_courts(
     player_id: int,
     body: ReorderPlayerHomeCourts,
@@ -583,4 +613,5 @@ async def reorder_player_home_courts(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reordering home courts: {str(e)}")
+        logger.error("Error reordering home courts: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

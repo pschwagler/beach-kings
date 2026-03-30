@@ -22,6 +22,7 @@ interface PlayerItem {
   gender?: string | null;
   level?: string | null;
   location_name?: string | null;
+  [key: string]: unknown;
 }
 
 interface SearchResult {
@@ -30,6 +31,7 @@ interface SearchResult {
   location_name?: string | null;
   gender?: string | null;
   level?: string | null;
+  [key: string]: unknown;
 }
 
 interface SessionPlayersAddPanelProps {
@@ -48,7 +50,7 @@ interface SessionPlayersAddPanelProps {
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
-  onAdd: (player: PlayerItem | SearchResult) => void;
+  onAdd: (player: PlayerItem) => void;
   pendingAddIds: Set<number>;
   onLoadMore: () => void;
   filtersOpen: boolean;
@@ -57,7 +59,7 @@ interface SessionPlayersAddPanelProps {
   filterPopoverRef: React.RefObject<HTMLDivElement | null>;
   activeFilterCount: number;
   userLocationId?: string | null;
-  onCreatePlaceholder?: ((name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption>) | null;
+  onCreatePlaceholder?: ((name: string, extras?: { gender?: string; level?: string }) => Promise<PlayerOption | null>) | null;
   isCreatingPlaceholder: boolean;
   onSearchPlayers?: ((query: string) => Promise<{ items: SearchResult[] }>) | null;
 }
@@ -430,6 +432,7 @@ export default function SessionPlayersAddPanel({
         onCreate={async (name, extras) => {
           if (!onCreatePlaceholder) throw new Error('onCreatePlaceholder is required');
           const result = await onCreatePlaceholder(name, extras);
+          if (!result) throw new Error('Failed to create placeholder player');
           return { name: result.label, id: result.value, ...result };
         }}
         onClose={(result) => handleModalClose(result ? (result as unknown as PlayerOption) : null)}

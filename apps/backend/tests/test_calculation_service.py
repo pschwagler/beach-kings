@@ -57,10 +57,8 @@ def test_elo_change():
 
 
 def test_k_factor():
-    """Test K-factor calculation."""
-    # Currently returns constant
-    assert calculation_service.k_factor(0, K) == K
-    assert calculation_service.k_factor(100, K) == K
+    """Test K-factor returns the constant."""
+    assert calculation_service.k_factor(K) == K
 
 
 def test_calculate_winner():
@@ -590,7 +588,9 @@ def test_player_stats_points_custom_scoring():
 def test_player_stats_points_season_rating():
     """PlayerStats.points returns season_rating for season_rating mode."""
     config = {"type": "season_rating"}
-    stats = calculation_service.PlayerStats(player_id=1, initial_rating=100.0, scoring_config=config)
+    stats = calculation_service.PlayerStats(
+        player_id=1, initial_rating=100.0, scoring_config=config
+    )
     stats.game_count = 2
     stats.win_count = 1
     # Should return season_rating, not a win/loss points formula
@@ -627,4 +627,6 @@ def test_stats_tracker_non_member_initial_rating():
     non_member = tracker.get_player(5)
 
     assert member.season_rating == 100.0
-    assert non_member.season_rating == INITIAL_ELO  # 1200 — the bug we're fixing in stats_calc_data
+    assert (
+        non_member.season_rating == INITIAL_ELO
+    )  # 1200 — the bug we're fixing in stats_calc_data

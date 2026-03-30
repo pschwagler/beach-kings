@@ -5,7 +5,7 @@ import { formatDate } from '../../utils/dateUtils';
 import ShareInviteIcon from '../player/ShareInviteIcon';
 
 /** Shape of one match history record returned by the player match history API. */
-interface MatchRecord {
+export interface MatchRecord {
   Result?: string;
   Score?: string;
   Date?: string;
@@ -20,9 +20,13 @@ interface MatchRecord {
   'Opponent 2 IsPlaceholder'?: boolean;
   league_name?: string;
   league_id?: number | string | null;
+  'League ID'?: number | string | null;
   court_name?: string;
   session_code?: string | null;
+  'Session Code'?: string | null;
   session_status?: string;
+  'Season ID'?: number | string | null;
+  season_id?: number | string | null;
 }
 
 /**

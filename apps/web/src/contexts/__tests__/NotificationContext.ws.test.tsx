@@ -176,11 +176,21 @@ describe('NotificationContext — WebSocket lifecycle', () => {
       expect(wsInstances.length).toBeGreaterThan(0);
     });
 
-    it('includes the access token from localStorage in the WebSocket URL', async () => {
+    it('sends the access token as the first message after connection', async () => {
       await renderAndFlush();
 
       expect(wsInstances.length).toBeGreaterThan(0);
-      expect(wsInstances[0].url).toContain('test-token');
+      expect(wsInstances[0].url).not.toContain('test-token');
+
+      // Simulate server accepting the connection — triggers onopen which sends auth
+      await act(async () => { wsInstances[0].simulateOpen(); });
+
+      const sendCalls = wsInstances[0].send.mock.calls;
+      const authCall = sendCalls.find(([msg]: [string]) => {
+        try { return JSON.parse(msg).type === 'auth'; } catch { return false; }
+      });
+      expect(authCall).toBeDefined();
+      expect(JSON.parse(authCall[0]).token).toBe('test-token');
     });
 
     it('does not create a WebSocket when no token is present in localStorage', async () => {

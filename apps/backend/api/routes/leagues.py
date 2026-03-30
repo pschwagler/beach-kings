@@ -18,7 +18,19 @@ from backend.api.auth_dependencies import (
     make_require_league_admin,
     make_require_league_member,
 )
-from backend.models.schemas import LeagueCreate, LeagueResponse
+from backend.models.schemas import (
+    LeagueCreate,
+    LeagueResponse,
+    LeagueMemberResponse,
+    LeagueMemberDetailResponse,
+    HomeCourtResponse,
+    SuccessResponse,
+    SuccessMessageResponse,
+    BatchMemberResponse,
+    JoinRequestsResponse,
+    RequestJoinResponse,
+    LeagueJoinResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -167,7 +179,7 @@ async def update_league(
         raise HTTPException(status_code=500, detail=f"Error updating league: {str(e)}")
 
 
-@router.delete("/api/leagues/{league_id}")
+@router.delete("/api/leagues/{league_id}", response_model=SuccessMessageResponse)
 async def delete_league(
     league_id: int,
     user: dict = Depends(require_system_admin),
@@ -192,7 +204,7 @@ async def delete_league(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/leagues/{league_id}/members")
+@router.get("/api/leagues/{league_id}/members", response_model=list[LeagueMemberDetailResponse])
 async def list_league_members(
     league_id: int,
     user: dict = Depends(require_user),
@@ -205,7 +217,7 @@ async def list_league_members(
         raise HTTPException(status_code=500, detail=f"Error listing members: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/members")
+@router.post("/api/leagues/{league_id}/members", response_model=LeagueMemberResponse)
 async def add_league_member(
     league_id: int,
     request: Request,
@@ -246,7 +258,7 @@ async def add_league_member(
         raise HTTPException(status_code=500, detail=f"Error adding member: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/members_batch")
+@router.post("/api/leagues/{league_id}/members_batch", response_model=BatchMemberResponse)
 async def add_league_members_batch(
     league_id: int,
     request: Request,
@@ -292,7 +304,7 @@ async def add_league_members_batch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/api/leagues/{league_id}/members/{member_id}")
+@router.put("/api/leagues/{league_id}/members/{member_id}", response_model=LeagueMemberResponse)
 async def update_league_member(
     league_id: int,
     member_id: int,
@@ -316,7 +328,7 @@ async def update_league_member(
         raise HTTPException(status_code=500, detail=f"Error updating member: {str(e)}")
 
 
-@router.delete("/api/leagues/{league_id}/members/{member_id}")
+@router.delete("/api/leagues/{league_id}/members/{member_id}", response_model=SuccessResponse)
 async def remove_league_member(
     league_id: int,
     member_id: int,
@@ -364,7 +376,7 @@ async def remove_league_member(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/api/leagues/{league_id}/join")
+@router.post("/api/leagues/{league_id}/join", response_model=LeagueJoinResponse)
 async def join_league(
     league_id: int,
     user: dict = Depends(require_user),
@@ -419,7 +431,7 @@ async def join_league(
         raise HTTPException(status_code=500, detail=f"Error joining league: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/request-join")
+@router.post("/api/leagues/{league_id}/request-join", response_model=RequestJoinResponse)
 async def request_to_join_league(
     league_id: int,
     user: dict = Depends(require_user),
@@ -487,7 +499,7 @@ async def request_to_join_league(
         raise HTTPException(status_code=500, detail=f"Error requesting to join league: {str(e)}")
 
 
-@router.delete("/api/leagues/{league_id}/join-request")
+@router.delete("/api/leagues/{league_id}/join-request", response_model=SuccessMessageResponse)
 async def cancel_league_join_request(
     league_id: int,
     user: dict = Depends(require_user),
@@ -513,7 +525,7 @@ async def cancel_league_join_request(
         raise HTTPException(status_code=500, detail=f"Error cancelling join request: {str(e)}")
 
 
-@router.get("/api/leagues/{league_id}/join-requests")
+@router.get("/api/leagues/{league_id}/join-requests", response_model=JoinRequestsResponse)
 async def get_league_join_requests(
     league_id: int,
     user: dict = Depends(make_require_league_admin()),
@@ -532,7 +544,10 @@ async def get_league_join_requests(
         raise HTTPException(status_code=500, detail="Error listing join requests")
 
 
-@router.post("/api/leagues/{league_id}/join-requests/{request_id}/approve")
+@router.post(
+    "/api/leagues/{league_id}/join-requests/{request_id}/approve",
+    response_model=LeagueJoinResponse,
+)
 async def approve_league_join_request(
     league_id: int,
     request_id: int,
@@ -598,7 +613,10 @@ async def approve_league_join_request(
         raise HTTPException(status_code=500, detail=f"Error approving join request: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/join-requests/{request_id}/reject")
+@router.post(
+    "/api/leagues/{league_id}/join-requests/{request_id}/reject",
+    response_model=SuccessMessageResponse,
+)
 async def reject_league_join_request(
     league_id: int,
     request_id: int,
@@ -659,7 +677,7 @@ async def reject_league_join_request(
         raise HTTPException(status_code=500, detail=f"Error rejecting join request: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/leave")
+@router.post("/api/leagues/{league_id}/leave", response_model=SuccessMessageResponse)
 async def leave_league(
     league_id: int,
     user: dict = Depends(require_user),
@@ -702,7 +720,7 @@ async def leave_league(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/api/leagues/{league_id}/home-courts")
+@router.get("/api/leagues/{league_id}/home-courts", response_model=list[HomeCourtResponse])
 async def list_league_home_courts(
     league_id: int,
     user: dict = Depends(make_require_league_member()),
@@ -715,7 +733,7 @@ async def list_league_home_courts(
         raise HTTPException(status_code=500, detail=f"Error listing home courts: {str(e)}")
 
 
-@router.post("/api/leagues/{league_id}/home-courts")
+@router.post("/api/leagues/{league_id}/home-courts", response_model=HomeCourtResponse)
 async def add_league_home_court(
     league_id: int,
     request: Request,
@@ -740,7 +758,7 @@ async def add_league_home_court(
         raise HTTPException(status_code=500, detail=f"Error adding home court: {str(e)}")
 
 
-@router.delete("/api/leagues/{league_id}/home-courts/{court_id}")
+@router.delete("/api/leagues/{league_id}/home-courts/{court_id}", response_model=SuccessResponse)
 async def remove_league_home_court(
     league_id: int,
     court_id: int,
@@ -759,7 +777,7 @@ async def remove_league_home_court(
         raise HTTPException(status_code=500, detail=f"Error removing home court: {str(e)}")
 
 
-@router.put("/api/leagues/{league_id}/home-courts")
+@router.put("/api/leagues/{league_id}/home-courts", response_model=list[HomeCourtResponse])
 async def set_league_home_courts(
     league_id: int,
     request: Request,
@@ -780,7 +798,7 @@ async def set_league_home_courts(
         raise HTTPException(status_code=500, detail=f"Error setting home courts: {str(e)}")
 
 
-@router.put("/api/leagues/{league_id}/home-courts/reorder")
+@router.put("/api/leagues/{league_id}/home-courts/reorder", response_model=list[dict])
 async def reorder_league_home_courts(
     league_id: int,
     request: Request,

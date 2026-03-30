@@ -17,12 +17,12 @@ import type { Court } from '../types';
  * @returns {{ homeCourts, handleSet, handleRemove, handleSetPrimary }}
  */
 interface HomeCourtsApi {
-  get?: (entityId: string | number) => Promise<Court[]>;
-  set: (entityId: string | number, courtIds: (string | number)[]) => Promise<any>;
+  get?: (entityId: number) => Promise<Court[]>;
+  set: (entityId: number, courtIds: number[]) => Promise<unknown>;
 }
 
 interface UseHomeCourtsOptions {
-  entityId: string | number | null;
+  entityId: number | null;
   initialCourts?: Court[];
   api: HomeCourtsApi;
 }
@@ -72,7 +72,7 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
     const courtsWithPosition = newCourts.map((c, i) => ({ ...c, position: i }));
     setHomeCourts(courtsWithPosition);
     try {
-      await apiRef.current.set(entityId, newCourts.map((c) => c.id));
+      await apiRef.current.set(entityId, newCourts.map((c) => c.id as number));
     } catch (err: any) {
       showToast(err.response?.data?.detail || 'Failed to update home courts', 'error');
       if (apiRef.current.get) {

@@ -6,6 +6,7 @@ import { createCourtReview, updateCourtReview, uploadReviewPhoto, getCourtTags }
 import StarRating from '../ui/StarRating';
 import { Button } from '../ui/UI';
 import { MAX_PHOTOS_PER_REVIEW } from '../../constants/court';
+import type { ReviewActionResponse } from '../../types';
 
 /**
  * Inline review form for creating/editing a court review.
@@ -27,7 +28,7 @@ interface ExistingReview {
 interface CourtReviewFormProps {
   courtId: number;
   existingReview?: ExistingReview | null;
-  onSuccess?: (result: unknown) => void;
+  onSuccess?: (result?: ReviewActionResponse) => void;
   onCancel?: () => void;
 }
 

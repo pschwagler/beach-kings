@@ -78,7 +78,7 @@ async def send_message(
     try:
         receiver_user_id = await _get_user_id_for_player(session, receiver_player_id)
     except Exception as e:
-        logger.warning(f"Could not resolve receiver user_id for player {receiver_player_id}: {e}")
+        logger.warning("Could not resolve receiver user_id for player %s: %s", receiver_player_id, e, exc_info=True)
 
     # WebSocket: deliver to receiver in real-time
     if receiver_user_id:
@@ -89,7 +89,7 @@ async def send_message(
                 {"type": "direct_message", "message": message_dict},
             )
         except Exception as e:
-            logger.warning(f"Failed to send DM via WebSocket to player {receiver_player_id}: {e}")
+            logger.warning("Failed to send DM via WebSocket to player %s: %s", receiver_player_id, e, exc_info=True)
 
     # Summary bell notification (upsert: one notification per user for all unread DMs)
     if receiver_user_id:
@@ -99,7 +99,7 @@ async def send_message(
                 session, receiver_user_id, receiver_player_id, sender_name, message_text
             )
         except Exception as e:
-            logger.warning(f"Failed to create DM notification: {e}")
+            logger.warning("Failed to create DM notification: %s", e, exc_info=True)
 
     return message_dict
 
@@ -313,7 +313,7 @@ async def mark_thread_read(
             if user_id:
                 await _update_or_dismiss_dm_notification(session, user_id, player_id)
         except Exception as e:
-            logger.warning(f"Failed to update DM summary notification after mark_thread_read: {e}")
+            logger.warning("Failed to update DM summary notification after mark_thread_read: %s", e, exc_info=True)
 
     return len(marked_ids)
 
@@ -373,7 +373,7 @@ async def _upsert_dm_summary_notification(
     title = f"You have {unread_total} unread message{'s' if unread_total != 1 else ''}"
     message = f"{sender_name}: {preview}"
 
-    # Look for existing unread DM summary notification
+    # Look for existing unread DM summary notification (lock row to prevent duplicates)
     existing = await session.execute(
         select(Notification).where(
             and_(
@@ -381,7 +381,7 @@ async def _upsert_dm_summary_notification(
                 Notification.type == NotificationType.DIRECT_MESSAGE.value,
                 Notification.is_read.is_(False),
             )
-        )
+        ).with_for_update()
     )
     notif = existing.scalar_one_or_none()
 
@@ -404,7 +404,7 @@ async def _upsert_dm_summary_notification(
                 user_id, {"type": "notification_updated", "notification": notif_dict}
             )
         except Exception as e:
-            logger.warning(f"Failed to broadcast updated DM notification: {e}")
+            logger.warning("Failed to broadcast updated DM notification: %s", e, exc_info=True)
     else:
         # Create new summary notification (uses notification_service which also broadcasts)
         await notification_service.create_notification(
@@ -469,7 +469,7 @@ async def _update_or_dismiss_dm_notification(
             user_id, {"type": "notification_updated", "notification": notif_dict}
         )
     except Exception as e:
-        logger.warning(f"Failed to broadcast DM notification update: {e}")
+        logger.warning("Failed to broadcast DM notification update: %s", e, exc_info=True)
 
 
 # ---------------------------------------------------------------------------

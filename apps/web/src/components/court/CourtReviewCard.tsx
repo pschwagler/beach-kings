@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { deleteCourtReview } from '../../services/api';
 import StarRating from '../ui/StarRating';
 import ImageLightbox from '../ui/ImageLightbox';
+import type { ReviewActionResponse } from '../../types';
 
 /**
  * Single review card in the reviews list.
@@ -34,7 +35,7 @@ interface CourtReviewCardProps {
   review: Review;
   isOwn: boolean;
   onEdit: () => void;
-  onDeleted?: (result: unknown) => void;
+  onDeleted?: (result?: ReviewActionResponse) => void;
   courtId: number;
 }
 

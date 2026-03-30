@@ -41,31 +41,31 @@ interface MatchesTableProps {
   loading?: boolean;
   activeSession?: Session | null;
   allSessions?: Session[];
-  onCreateSession?: (...args: unknown[]) => void;
-  onEndSession?: (...args: unknown[]) => void;
-  onDeleteSession?: (...args: unknown[]) => void;
-  onCreateMatch?: (...args: unknown[]) => void;
-  onUpdateMatch?: (...args: unknown[]) => void;
-  onDeleteMatch?: (...args: unknown[]) => void;
+  onCreateSession?: () => Promise<void>;
+  onEndSession?: (sessionId: number) => Promise<void>;
+  onDeleteSession?: (sessionId: number) => Promise<void>;
+  onCreateMatch?: (matchData: Record<string, unknown>, sessionId?: number | null) => Promise<void>;
+  onUpdateMatch?: (matchId: number, matchData: Record<string, unknown>, sessionId?: number | null) => Promise<void>;
+  onDeleteMatch?: (matchId: number) => Promise<void>;
   allPlayerNames?: string[];
   playerIdToName?: Map<number, string>;
   leagueId?: number | null;
   isAdmin?: boolean;
   editingSessions?: Set<number>;
-  onEnterEditMode?: (...args: unknown[]) => void;
-  onSaveEditedSession?: (...args: unknown[]) => void;
-  onCancelEdit?: (...args: unknown[]) => void;
+  onEnterEditMode?: (sessionId: number) => void;
+  onSaveEditedSession?: (sessionId: number) => Promise<void>;
+  onCancelEdit?: (sessionId: number) => void;
   pendingMatchChanges?: Map<number, SessionChanges>;
   editingSessionMetadata?: Map<number, SessionMetadata>;
   seasons?: Season[];
   selectedSeasonId?: number | null;
-  onUpdateSessionSeason?: ((...args: unknown[]) => void) | null;
-  onUpdateSessionCourt?: ((...args: unknown[]) => void) | null;
+  onUpdateSessionSeason?: ((sessionId: number, seasonId: number | null) => Promise<void>) | null;
+  onUpdateSessionCourt?: ((sessionId: number, courtId: number | null) => Promise<void>) | null;
   leagueHomeCourts?: HomeCourt[];
   activeSessionMatchesOverride?: DisplayMatch[] | null;
   activeSeasons?: Season[];
-  onSeasonChange?: ((...args: unknown[]) => void) | null;
-  onRefreshData?: ((...args: unknown[]) => void) | null;
+  onSeasonChange?: ((seasonId: number | null) => void) | null;
+  onRefreshData?: ((options?: { sessions?: boolean; season?: boolean; matches?: boolean; seasonId?: number | null; forceClear?: boolean }) => Promise<void>) | null;
   contentVariant?: string;
 }
 
@@ -473,7 +473,7 @@ export default function MatchesTable({
 
   Object.values(matchesBySession).forEach(group => {
     if (group.matches?.length > 0) {
-      group.matches.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+      group.matches = [...group.matches].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
     }
   });
 
@@ -483,7 +483,7 @@ export default function MatchesTable({
       const sessionId = match?.session_id;
       const isEditingSession = sessionId && editingSessions.has(sessionId);
       
-      await onUpdateMatch?.(matchId, matchData, isEditingSession ? sessionId : undefined);
+      await onUpdateMatch?.(matchId as number, matchData, isEditingSession ? sessionId : undefined);
     } else {
       const matchPayload = { ...matchData };
       // Preserve season_id if it's in matchData (from AddMatchModal)
@@ -529,7 +529,7 @@ export default function MatchesTable({
 
   const handleLockInSession = async (sessionId: number | string) => {
     if (sessionId) {
-      await onEndSession?.(sessionId);
+      await onEndSession?.(sessionId as number);
     }
   };
   
@@ -661,7 +661,7 @@ export default function MatchesTable({
               season: sessionSeason
             });
           }}
-            onDeleteSession={onDeleteSession}
+            onDeleteSession={onDeleteSession ? () => onDeleteSession(activeSession.id) : undefined}
             onUpdateSessionSeason={onUpdateSessionSeason}
             onUpdateSessionCourt={onUpdateSessionCourt}
             leagueHomeCourts={leagueHomeCourts}
@@ -708,9 +708,9 @@ export default function MatchesTable({
                     onSeasonChange: onSeasonChange
                   })}
                   onEditMatch={handleEditMatch}
-                  onSaveClick={() => onSaveEditedSession?.(group.id)}
-                  onCancelClick={() => onCancelEdit?.(group.id)}
-                  onDeleteSession={onDeleteSession}
+                  onSaveClick={() => onSaveEditedSession?.(group.id as number)}
+                  onCancelClick={() => onCancelEdit?.(group.id as number)}
+                  onDeleteSession={onDeleteSession ? () => onDeleteSession(group.id as number) : undefined}
                   onRequestDeleteSession={() => {
                     const seasonId = group.matches?.[0]?.session_season_id;
                     const sessionSeasonForDelete = seasonId && seasons.length > 0
@@ -723,7 +723,7 @@ export default function MatchesTable({
                       confirmButtonClass: 'danger',
                       sessionName: group.name,
                       season: sessionSeasonForDelete,
-                      onConfirm: () => onDeleteSession?.(group.id),
+                      onConfirm: () => onDeleteSession?.(group.id as number),
                     });
                   }}
                   onUpdateSessionSeason={onUpdateSessionSeason}
@@ -812,7 +812,7 @@ export default function MatchesTable({
                     season: sessionSeason
                   });
                 } : undefined}
-                onEditClick={canEdit ? () => onEnterEditMode?.(group.id) : undefined}
+                onEditClick={canEdit ? () => onEnterEditMode?.(group.id as number) : undefined}
                 timestampText={contentVariant === 'cards' ? (timestampText ?? undefined) : undefined}
                 seasonBadge={sessionSeason ? (sessionSeason.name || `Season ${sessionSeason.id}`) : undefined}
               />
@@ -840,9 +840,9 @@ export default function MatchesTable({
                 />
               ) : (
                 <div className="match-cards">
-                  {group.matches.map((match: DisplayMatch, idx: number) => (
+                  {group.matches.map((match: DisplayMatch) => (
                     <MatchCard
-                      key={idx}
+                      key={match.id}
                       match={match}
                       onPlayerClick={onPlayerClick}
                     />
