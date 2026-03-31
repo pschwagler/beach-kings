@@ -324,9 +324,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
               )}
               <CourtSelector
                 mode="multi"
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 selectedCourts={homeCourts as any[]}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 onSet={handleSetHomeCourts as (courts: any[]) => void}
                 onRemove={handleRemoveHomeCourt}
                 onSetPrimary={handleSetPrimary}

@@ -166,7 +166,7 @@ export default function AddMatchModal({
 
   // Use form handlers hook
   const formHandlers = useMatchFormHandlers({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     dispatchForm: dispatchForm as any,
     setFormError,
     team1Player2Ref,

@@ -16,32 +16,9 @@ import io
 import logging
 from typing import Dict, List, Optional
 
-logger = logging.getLogger(__name__)
-
-__all__ = [
-    "get_rankings",
-    "get_elo_timeline",
-    "get_season_matches_with_elo",
-    "get_league_matches_with_elo",
-    "query_matches",
-    "get_player_stats_by_id",
-    "get_player_season_partnership_opponent_stats",
-    "get_all_player_season_stats",
-    "get_all_player_season_partnership_opponent_stats",
-    "get_player_season_stats",
-    "get_player_league_stats",
-    "get_all_player_league_stats",
-    "get_player_league_partnership_opponent_stats",
-    "get_all_player_league_partnership_opponent_stats",
-    "export_matches_to_csv",
-    "get_player_match_history_by_id",
-]
-
-from sqlalchemy import and_, cast, func, or_
-from sqlalchemy import Integer
+from sqlalchemy import Integer, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
-from sqlalchemy import select
 
 from backend.database.models import (
     Court,
@@ -64,6 +41,27 @@ from backend.database.models import (
 )
 from backend.utils.constants import INITIAL_ELO
 from backend.services.player_data import generate_player_initials
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "get_rankings",
+    "get_elo_timeline",
+    "get_season_matches_with_elo",
+    "get_league_matches_with_elo",
+    "query_matches",
+    "get_player_stats_by_id",
+    "get_player_season_partnership_opponent_stats",
+    "get_all_player_season_stats",
+    "get_all_player_season_partnership_opponent_stats",
+    "get_player_season_stats",
+    "get_player_league_stats",
+    "get_all_player_league_stats",
+    "get_player_league_partnership_opponent_stats",
+    "get_all_player_league_partnership_opponent_stats",
+    "export_matches_to_csv",
+    "get_player_match_history_by_id",
+]
 
 
 # ---------------------------------------------------------------------------
