@@ -66,8 +66,12 @@ export function formatPlayerSeasonStats(seasonStats: any, partnershipOpponentSta
  * @param {number} playerId - Player ID to filter matches for
  * @returns {Array} Formatted match history for the player
  */
-export function formatPlayerMatchHistory(matches: any[], playerId: number) {
+export function formatPlayerMatchHistory(matches: any[], playerId: number | string) {
   if (!matches || !playerId) return [];
+
+  // Coerce to number so that string IDs (e.g. from URL params or PlayerOption.id typed as
+  // number | string) match numeric IDs stored in match objects.
+  const numericPlayerId = Number(playerId);
 
   // Filter match history to only include matches where this player participated
   const playerMatches = matches.filter((match: any) => {
@@ -77,20 +81,20 @@ export function formatPlayerMatchHistory(matches: any[], playerId: number) {
       match.team2_player1_id,
       match.team2_player2_id
     ].filter(Boolean);
-    
-    return playerIds.includes(playerId);
+
+    return playerIds.includes(numericPlayerId);
   });
-  
+
   // Transform matches to MatchHistoryTable format
   return playerMatches.map((match: any) => {
     // Determine which team the player was on
-    const isTeam1 = match.team1_player1_id === playerId || match.team1_player2_id === playerId;
-    
+    const isTeam1 = match.team1_player1_id === numericPlayerId || match.team1_player2_id === numericPlayerId;
+
     let partner, partnerId, opponent1, opponent1Id, opponent2, opponent2Id;
     let playerScore, opponentScore, result;
 
     if (isTeam1) {
-      const isP1 = match.team1_player1_id === playerId;
+      const isP1 = match.team1_player1_id === numericPlayerId;
       partner = isP1 ? match.team1_player2_name : match.team1_player1_name;
       partnerId = isP1 ? match.team1_player2_id : match.team1_player1_id;
       opponent1 = match.team2_player1_name;
@@ -101,7 +105,7 @@ export function formatPlayerMatchHistory(matches: any[], playerId: number) {
       opponentScore = match.team2_score;
       result = match.winner === 1 ? 'W' : match.winner === 2 ? 'L' : 'T';
     } else {
-      const isP1 = match.team2_player1_id === playerId;
+      const isP1 = match.team2_player1_id === numericPlayerId;
       partner = isP1 ? match.team2_player2_name : match.team2_player1_name;
       partnerId = isP1 ? match.team2_player2_id : match.team2_player1_id;
       opponent1 = match.team1_player1_name;
@@ -112,9 +116,9 @@ export function formatPlayerMatchHistory(matches: any[], playerId: number) {
       opponentScore = match.team1_score;
       result = match.winner === 2 ? 'W' : match.winner === 1 ? 'L' : 'T';
     }
-    
-    // Get ELO change for this player
-    const eloChange = match.elo_changes?.[playerId];
+
+    // Get ELO change for this player (keyed by numeric ID in the API response)
+    const eloChange = match.elo_changes?.[numericPlayerId];
     const eloAfter = eloChange?.elo_after;
     const eloChangeValue = eloChange?.elo_change;
     

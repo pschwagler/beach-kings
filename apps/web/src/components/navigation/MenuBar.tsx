@@ -104,7 +104,7 @@ export default function MenuBar({
         {headerContent}
         {showCollapseButton && (
           <button
-            className="league-sidebar-collapse-btn"
+            className="league-sidebar-collapse-btn focus-visible:ring-2 focus-visible:ring-offset-2"
             onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >

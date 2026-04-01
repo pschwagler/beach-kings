@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
@@ -50,6 +50,12 @@ interface UserMenuProps {
   onSignUp?: () => void;
   onSmsLogin?: () => void;
   onSignOut?: () => void;
+  /** Controlled open state lifted into NavBar. */
+  isOpen: boolean;
+  /** Called when the trigger button is clicked; parent toggles the state. */
+  onToggle: () => void;
+  /** Called to explicitly close the menu (e.g. click-outside, item click). */
+  onClose: () => void;
 }
 
 export default function UserMenu({
@@ -60,24 +66,26 @@ export default function UserMenu({
   onSignIn,
   onSignUp,
   onSignOut,
+  isOpen,
+  onToggle,
+  onClose,
 }: UserMenuProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        onClose();
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [onClose]);
 
   const handleItemClick = (action: string) => {
-    setIsOpen(false);
+    onClose();
     switch (action) {
       case 'sign-in':
         onSignIn?.();
@@ -107,7 +115,7 @@ export default function UserMenu({
     <div className="navbar-menu-group" ref={menuRef}>
       <button
         className="navbar-menu-button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={onToggle}
         aria-label="User menu"
       >
         {isLoggedIn ? (

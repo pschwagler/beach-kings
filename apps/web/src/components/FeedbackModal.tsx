@@ -55,7 +55,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       <div className="auth-modal feedback-modal">
         <div className="auth-modal__header">
           <h2>Leave Feedback</h2>
-          <button className="auth-modal__close" onClick={onClose} aria-label="Close feedback modal">
+          <button className="auth-modal__close" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

@@ -92,6 +92,41 @@ interface DateGroup {
 /** Either a session group or a date group. */
 type MatchGroup = ReturnType<typeof createSessionGroup> | DateGroup;
 
+/**
+ * Comparator for sorting session/date groups in descending order.
+ *
+ * Primary key: `date` (YYYY-MM-DD) — descending lexicographic comparison.
+ * When `date` is absent on either side the date comparison is skipped entirely
+ * to avoid using the display name string as a proxy date.
+ * Tiebreaker: `createdAt` timestamp — descending.
+ * Groups that have a `createdAt` value sort before groups that do not.
+ */
+export function compareSessionGroups(
+  a: { date?: string | null; createdAt?: string | null },
+  b: { date?: string | null; createdAt?: string | null }
+): number {
+  const dateA = a.date ?? null;
+  const dateB = b.date ?? null;
+
+  if (dateA && dateB) {
+    const dateCmp = dateB.localeCompare(dateA);
+    if (dateCmp !== 0) return dateCmp;
+  }
+
+  const createdA = a.createdAt ?? null;
+  const createdB = b.createdAt ?? null;
+
+  if (createdA && createdB) {
+    const timeDiff = new Date(createdB).getTime() - new Date(createdA).getTime();
+    if (timeDiff !== 0) return timeDiff;
+  }
+
+  if (createdA && !createdB) return -1;
+  if (!createdA && createdB) return 1;
+
+  return 0;
+}
+
 function createSessionGroup(
   sessionId: number | string,
   sessionName: string,
@@ -412,31 +447,12 @@ export default function MatchesTable({
   }, [activeSessionMatches]);
 
   const sessionGroups: [string, MatchGroup][] = useMemo(() => {
-    return Object.entries(matchesBySession).sort(([, groupA], [, groupB]) => {
-      // Primary sort: session date descending (matches backend ORDER BY date DESC)
-      // Session date is a YYYY-MM-DD string — lexicographic comparison works correctly
-      const sessionDateA = (groupA as ReturnType<typeof createSessionGroup>).date || groupA.name;
-      const sessionDateB = (groupB as ReturnType<typeof createSessionGroup>).date || groupB.name;
-
-      if (sessionDateA && sessionDateB) {
-        const dateCmp = sessionDateB.localeCompare(sessionDateA);
-        if (dateCmp !== 0) return dateCmp;
-      }
-
-      // Tiebreaker: created_at descending (matches backend ORDER BY created_at DESC)
-      const createdA = groupA.createdAt;
-      const createdB = groupB.createdAt;
-
-      if (createdA && createdB) {
-        const timeDiff = new Date(createdB).getTime() - new Date(createdA).getTime();
-        if (timeDiff !== 0) return timeDiff;
-      }
-
-      if (createdA && !createdB) return -1;
-      if (!createdA && createdB) return 1;
-
-      return 0;
-    });
+    return Object.entries(matchesBySession).sort(([, groupA], [, groupB]) =>
+      compareSessionGroups(
+        { date: (groupA as ReturnType<typeof createSessionGroup>).date, createdAt: groupA.createdAt },
+        { date: (groupB as ReturnType<typeof createSessionGroup>).date, createdAt: groupB.createdAt }
+      )
+    );
   }, [matchesBySession]);
 
   const isDataReady = !loading && matches !== null && Array.isArray(matches) && 

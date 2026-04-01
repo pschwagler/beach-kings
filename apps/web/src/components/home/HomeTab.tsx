@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, Target, Award } from 'lucide-react';
+import { Users, TrendingUp, Target, Award, Swords } from 'lucide-react';
 import MyLeaguesBar from '../dashboard/MyLeaguesBar';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import { MySessionsWidget } from './OpenSessionsList';
@@ -211,7 +211,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         {[
           { icon: Target, label: 'Total Games Played', value: totalGames },
           { icon: TrendingUp, label: 'Rating', value: totalGames === 0 && currentRating === 0 ? '\u2014' : Math.round(currentRating) },
-          { icon: Target, label: 'Games Played (Last 30 days)', value: games30Days },
+          { icon: Swords, label: 'Games Played (Last 30 days)', value: games30Days },
           { icon: Award, label: 'Win Rate (Last 30 days)', value: games30Days > 0 ? `${winRate30Days}%` : '\u2014' },
         ].map(({ icon: Icon, label, value }) => (
           <div

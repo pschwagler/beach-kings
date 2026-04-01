@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Home, User, Users, Trophy, Menu, Search, Bell, Calendar, UserSearch, UserPlus, BarChart3, MessageCircle } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import MenuBar from '../navigation/MenuBar';
 
@@ -19,6 +19,7 @@ interface HomeMenuBarProps {
 
 export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { dmUnreadCount } = useNotifications();
   const [moreMenuExpanded, setMoreMenuExpanded] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -41,7 +42,7 @@ export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
   }, [moreMenuExpanded]);
 
   const handleTabChange = (tab: string) => {
-    const params = new URLSearchParams(window.location.search || '');
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
     params.set('tab', tab);
     router.push(`/home?${params.toString()}`);
 
@@ -211,6 +212,7 @@ export default function HomeMenuBar({ activeTab }: HomeMenuBarProps) {
                       setMoreMenuExpanded(false);
                     }}
                     title="Friends"
+                    aria-label="Friends"
                     type="button"
                   >
                     <Users size={18} />

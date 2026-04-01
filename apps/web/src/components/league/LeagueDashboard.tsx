@@ -34,13 +34,17 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab } = useLeague();
+  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab, activeLeagueTab } = useLeague();
   const { showToast } = useToast();
-  // Use server-provided initialTab, then sync with URL params for client-side navigation
-  const [activeTab, setActiveTab] = useState(() => {
+
+  // Sync the server-provided initialTab into context once after mount.
+  // This must be a useEffect (post-mount), never a useState initializer, to
+  // avoid calling a context setter during render which triggers an infinite loop.
+  useEffect(() => {
     setActiveLeagueTab(initialTab);
-    return initialTab;
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
   
   // League name editing
@@ -68,15 +72,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   // Get URL query parameters for navigation
   const seasonIdParam = searchParams?.get('season');
   const autoAddMatch = searchParams?.get('autoAddMatch') === 'true';
-
-  // Get tab from URL query parameter
-  useEffect(() => {
-    const tab = searchParams?.get('tab');
-    if (tab && ['rankings', 'matches', 'awards', 'details', 'signups', 'messages'].includes(tab)) {
-      setActiveTab(tab);
-      setActiveLeagueTab(tab);
-    }
-  }, [searchParams, setActiveLeagueTab]);
 
   // Load user leagues for the navbar
   useEffect(() => {
@@ -106,7 +101,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   };
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
     setActiveLeagueTab(tab);
     // Update URL with Next.js router
     const params = new URLSearchParams(searchParams?.toString() || '');
@@ -209,7 +203,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
   // Render appropriate skeleton based on active tab
   const renderTabSkeleton = () => {
-    switch (activeTab) {
+    switch (activeLeagueTab) {
       case 'rankings':
         return <RankingsTableSkeleton />;
       case 'matches':
@@ -242,7 +236,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
             <LeagueMenuBar
               leagueId={leagueId}
               leagueName={league?.name || ''}
-              activeTab={activeTab}
+              activeTab={activeLeagueTab}
               onTabChange={handleTabChange}
               userLeagues={userLeagues}
               isAuthenticated={isAuthenticated}
@@ -302,7 +296,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
             <LeagueMenuBar
               leagueId={leagueId}
               leagueName={league.name}
-              activeTab={activeTab}
+              activeTab={activeLeagueTab}
               onTabChange={handleTabChange}
               userLeagues={userLeagues}
               isAuthenticated={isAuthenticated}
@@ -338,7 +332,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
           <LeagueMenuBar
             leagueId={leagueId}
             leagueName={league.name}
-            activeTab={activeTab}
+            activeTab={activeLeagueTab}
             onTabChange={handleTabChange}
             userLeagues={userLeagues}
             isAuthenticated={isAuthenticated}
@@ -347,7 +341,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
           {/* Main Content Area */}
           <main className="league-content">
             {/* League Name Header - Only show on Details tab */}
-            {activeTab === 'details' && (
+            {activeLeagueTab === 'details' && (
               <div className="league-content-header">
                 {isEditingName ? (
                   <div className="league-content-header-edit">
@@ -404,28 +398,28 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
             )}
 
             {/* Tab Content */}
-            {activeTab === 'rankings' && <LeagueRankingsTab />}
+            {activeLeagueTab === 'rankings' && <LeagueRankingsTab />}
 
-            {activeTab === 'matches' && (
+            {activeLeagueTab === 'matches' && (
               <LeagueMatchesTab
                 seasonIdFromUrl={seasonIdParam ? parseInt(seasonIdParam, 10) : null}
                 autoOpenAddMatch={autoAddMatch}
               />
             )}
 
-            {activeTab === 'awards' && (
+            {activeLeagueTab === 'awards' && (
               <LeagueAwardsTab leagueId={leagueId} />
             )}
 
-            {activeTab === 'details' && (
+            {activeLeagueTab === 'details' && (
               <LeagueDetailsTab />
             )}
 
-            {activeTab === 'signups' && (
+            {activeLeagueTab === 'signups' && (
               <LeagueSignUpsTab />
             )}
 
-            {activeTab === 'messages' && (
+            {activeLeagueTab === 'messages' && (
               <LeagueMessagesTab leagueId={leagueId} />
             )}
 

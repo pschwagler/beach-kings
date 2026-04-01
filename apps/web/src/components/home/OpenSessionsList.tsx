@@ -70,12 +70,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
       onSessionClick(session);
       return;
     }
-    if (session.league_id != null) {
-      const params = new URLSearchParams();
-      params.set('tab', 'matches');
-      if (session.season_id != null) params.set('season', String(session.season_id));
-      router.push(`/league/${session.league_id}?${params.toString()}`);
-    } else if (session.code) {
+    if (session.code) {
       router.push(`/session/${session.code}`);
     }
   };

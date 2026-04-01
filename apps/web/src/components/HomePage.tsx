@@ -31,7 +31,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
   const { user, currentUserPlayer, isAuthenticated, isInitializing, sessionExpired, fetchCurrentUser, logout } =
     useAuth();
   const { openAuthModal } = useAuthModal();
-  const { openModal } = useModal();
+  const { openModal, isOpen: isModalOpen } = useModal();
 
   // Use searchParams for client-side navigation, fall back to server-provided initialTab
   const activeTab = searchParams?.get("tab") || initialTab;
@@ -45,34 +45,34 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     }
   }, [isAuthenticated, isInitializing, sessionExpired, router]);
 
-  // Check if profile is incomplete and open modal if needed
-  // This runs every time the user visits the home page or when currentUserPlayer changes
+  // Check if profile is incomplete and open modal if needed.
+  // This runs every time the user visits the home page or when currentUserPlayer changes.
   useEffect(() => {
-    if (isAuthenticated) {
-      // If currentUserPlayer hasn't loaded yet, fetch it first
-      if (currentUserPlayer === undefined) {
-        fetchCurrentUser();
-        return; // Will re-run when currentUserPlayer updates
-      }
+    if (!isAuthenticated) return;
 
-      // Check if profile is incomplete (missing gender, level, or city)
-      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
+    // null means the player record has not loaded yet — wait for it.
+    if (currentUserPlayer === null) return;
 
-      if (profileIncomplete) {
-        // Small delay to ensure page is rendered and avoid conflicts with other modals
-        const timeoutId = setTimeout(() => {
-          openModal(MODAL_TYPES.PLAYER_PROFILE, {
-            currentUserPlayer: currentUserPlayer,
-            onSuccess: async () => {
-              await fetchCurrentUser();
-            },
-          });
-        }, 500);
+    // Avoid re-opening the modal while it is already showing.
+    if (isModalOpen) return;
 
-        return () => clearTimeout(timeoutId);
-      }
+    // Check if profile is incomplete (missing gender, level, or city).
+    const profileIncomplete = isProfileIncomplete(currentUserPlayer);
+
+    if (profileIncomplete) {
+      // Small delay to ensure the page is rendered and avoid conflicts with other modals.
+      const timeoutId = setTimeout(() => {
+        openModal(MODAL_TYPES.PLAYER_PROFILE, {
+          currentUserPlayer: currentUserPlayer,
+          onSuccess: async () => {
+            await fetchCurrentUser();
+          },
+        });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
+  }, [isAuthenticated, currentUserPlayer, isModalOpen, openModal, fetchCurrentUser]);
 
   // Navigation blocking is now handled by ProfileTab using useBlocker hook
 

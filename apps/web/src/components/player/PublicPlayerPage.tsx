@@ -86,11 +86,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           if (match) setIncomingRequestId(match.id);
         }
 
-        // Fetch mutual friends if not already friends
-        if (status !== 'friend' && status !== 'self') {
-          const mutual = await getMutualFriends(player.id);
-          setMutualFriends(mutual || []);
-        }
+        // Fetch mutual friends for any non-self relationship
+        const mutual = await getMutualFriends(player.id);
+        setMutualFriends(mutual || []);
       } catch (err) {
         console.error('Error loading friend data:', err);
       }
@@ -128,7 +126,6 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
     try {
       await acceptFriendRequest(incomingRequestId);
       setFriendStatus('friend');
-      setMutualFriends([]);
       showToast('Friend request accepted!', 'success');
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
@@ -207,6 +204,17 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
 
   return (
     <div className="public-player">
+      {/* Back navigation for authenticated users */}
+      {isAuthenticated && (
+        <button
+          className="public-player__back-btn"
+          data-testid="back-button"
+          onClick={() => router.back()}
+          type="button"
+        >
+          ← Back
+        </button>
+      )}
       {/* Player header: avatar, name, meta */}
       <div className="public-player__header">
         <div className="public-player__avatar">

@@ -1,6 +1,7 @@
 'use client';
 
 import './NavBar.css';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
@@ -40,6 +41,9 @@ export default function NavBar({
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { openModal } = useModal();
+
+  /** Tracks which navbar dropdown is currently open; only one can be open at a time. */
+  const [openMenu, setOpenMenu] = useState<'leagues' | 'user' | null>(null);
 
   const handleRecordGamesClick = () => {
     openModal(MODAL_TYPES.CREATE_GAME);
@@ -126,10 +130,13 @@ export default function NavBar({
             isLoggedIn={isLoggedIn}
             userLeagues={userLeagues}
             onMenuClick={handleLeaguesMenuClick}
+            isOpen={openMenu === 'leagues'}
+            onToggle={() => setOpenMenu((prev) => (prev === 'leagues' ? null : 'leagues'))}
+            onClose={() => setOpenMenu(null)}
           />
-          
+
           {isAuthenticated && <NotificationBell />}
-          
+
           <UserMenu
             isLoggedIn={isLoggedIn}
             user={user}
@@ -139,6 +146,9 @@ export default function NavBar({
             onSignUp={onSignUp}
             onSmsLogin={onSmsLogin}
             onSignOut={onSignOut}
+            isOpen={openMenu === 'user'}
+            onToggle={() => setOpenMenu((prev) => (prev === 'user' ? null : 'user'))}
+            onClose={() => setOpenMenu(null)}
           />
         </div>
       </div>

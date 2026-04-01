@@ -185,11 +185,7 @@ export default function NotificationsTab() {
         ) : filteredNotifications.length === 0 ? (
           <div className="notifications-tab-empty">
             <Bell size={48} className="notifications-empty-icon" />
-            <p>
-              {showReadNotifications 
-                ? 'No notifications' 
-                : 'No unread notifications'}
-            </p>
+            <p>No notifications yet.</p>
           </div>
         ) : (
           <div className="notifications-tab-list" data-testid="notifications-list">
