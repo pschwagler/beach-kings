@@ -43,8 +43,8 @@ export default function MyGamesTab({ currentUserPlayer, onTabChange, onMatchClic
       try {
         const matches = await getPlayerMatchHistory(currentUserPlayer.id);
         const sorted = ((matches || []) as MatchRecord[]).sort((a, b) => {
-          const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-          const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
           return dateB - dateA;
         });
         setUserMatches(sorted);

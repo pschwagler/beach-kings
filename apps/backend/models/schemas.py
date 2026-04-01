@@ -1012,7 +1012,7 @@ class SessionMatchItemResponse(BaseModel):
     team2_player2_name: str = ""
     team1_score: Optional[int] = None
     team2_score: Optional[int] = None
-    winner: Optional[str] = None
+    winner: Optional[int] = None
     is_ranked: Optional[bool] = None
     ranked_intent: Optional[bool] = None
 
@@ -1170,7 +1170,8 @@ class LeagueMessageResponse(BaseModel):
     id: int
     league_id: int
     user_id: int
-    player_name: str
+    player_id: Optional[int] = None
+    player_name: Optional[str] = None
     message: str
     created_at: str
 

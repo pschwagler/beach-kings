@@ -219,7 +219,7 @@ export default function MatchesTable({
             team_2_player_2: (updatedData.team2_player2 as string | undefined) || match.team_2_player_2,
             team_1_score: team1Score as number | null,
             team_2_score: team2Score as number | null,
-            Winner: calculateWinner(team1Score as number, team2Score as number)
+            winner: calculateWinner(team1Score as number, team2Score as number)
           };
         }
       });
@@ -252,9 +252,9 @@ export default function MatchesTable({
           team_2_player_2: getPlayerName((newMatchData.team2_player2_id || newMatchData.team2_player2) as string | number | null | undefined),
           team_1_score: newMatchData.team1_score as number | null,
           team_2_score: newMatchData.team2_score as number | null,
-          Winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
-          'Team 1 ELO Change': 0,
-          'Team 2 ELO Change': 0,
+          winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
+          team_1_elo_change: 0,
+          team_2_elo_change: 0,
         };
         updatedMatches.push(pendingMatch);
       });
@@ -286,7 +286,7 @@ export default function MatchesTable({
           const sessionCreatedAt = sessionData?.created_at || match.session_created_at;
           const sessionName = sessionData?.name || match.session_name;
           const sessionStatus = sessionData?.status || match.session_status;
-          const sessionDate = sessionData?.date || match.Date;
+          const sessionDate = sessionData?.date || match.date;
 
           acc[key] = createSessionGroup(
             sessionId,
@@ -316,11 +316,11 @@ export default function MatchesTable({
           sessionGroup.lastUpdated = match.session_updated_at;
         }
       } else {
-        const key = `date-${match.Date}`;
+        const key = `date-${match.date}`;
         if (!acc[key]) {
           acc[key] = {
             type: 'date',
-            name: match.Date,
+            name: match.date,
             createdAt: null,
             lastUpdated: null,
             createdBy: null,
@@ -359,7 +359,7 @@ export default function MatchesTable({
             // Use session data from allSessions if available
             const sessionData = sessionsMap.get(sessionId);
             const sessionCreatedAt = sessionData?.created_at || sessionMatch.session_created_at;
-            const sessionDate = sessionData?.date || sessionMatch.Date;
+            const sessionDate = sessionData?.date || sessionMatch.date;
 
             grouped[key] = createSessionGroup(
               sessionId,
@@ -523,7 +523,8 @@ export default function MatchesTable({
       league,
       sessionSeasonId: (match as DisplayMatch).session_season_id ?? null,
       defaultSeasonId: selectedSeasonId,
-      onSeasonChange: onSeasonChange
+      onSeasonChange: onSeasonChange,
+      leagueHomeCourts,
     });
   };
 
@@ -549,7 +550,8 @@ export default function MatchesTable({
               members,
               league,
               defaultSeasonId: selectedSeasonId,
-              onSeasonChange: onSeasonChange
+              onSeasonChange: onSeasonChange,
+              leagueHomeCourts,
             })}
           >
             <h2 className="add-matches-title">Add Games</h2>
@@ -609,7 +611,8 @@ export default function MatchesTable({
               sessionId: activeSession?.id,
               sessionSeasonId: activeSession?.season_id,
               defaultSeasonId: selectedSeasonId,
-              onSeasonChange: onSeasonChange
+              onSeasonChange: onSeasonChange,
+              leagueHomeCourts,
             })}
             onEditMatch={handleEditMatch}
             onRequestDeleteSession={() => {
@@ -686,10 +689,18 @@ export default function MatchesTable({
             // Get season_id from the first match in the group, or from session metadata
             const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
             const seasonId = sessionMatch?.session_season_id || null;
+            const sessionData = sessionsMap.get(group.id as number);
             return (
               <div data-session-id={group.id} key={key}>
                 <ActiveSessionPanel
-                  activeSession={{ id: group.id as number, name: group.name, season_id: seasonId }}
+                  activeSession={{
+                    id: group.id as number,
+                    name: group.name,
+                    season_id: seasonId,
+                    court_id: sessionData?.court_id ?? null,
+                    court_name: sessionData?.court_name ?? null,
+                    court_slug: sessionData?.court_slug ?? null,
+                  }}
                   activeSessionMatches={group.matches}
                   onPlayerClick={onPlayerClick as (playerId: number | null, playerName: string, e: React.MouseEvent) => void}
                   contentVariant={contentVariant}
@@ -705,7 +716,8 @@ export default function MatchesTable({
                     sessionId: group.id,
                     sessionSeasonId: seasonId,
                     defaultSeasonId: selectedSeasonId,
-                    onSeasonChange: onSeasonChange
+                    onSeasonChange: onSeasonChange,
+                    leagueHomeCourts,
                   })}
                   onEditMatch={handleEditMatch}
                   onSaveClick={() => onSaveEditedSession?.(group.id as number)}

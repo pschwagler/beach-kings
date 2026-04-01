@@ -180,6 +180,58 @@ describe('useMatchPayload', () => {
     });
   });
 
+  describe('buildMatchPayload — date', () => {
+    it('includes date when provided', () => {
+      const props = makeDefaultProps({ date: '2026-03-31' });
+      const { result } = renderHook(() => useMatchPayload(props));
+
+      let payload;
+      act(() => {
+        payload = result.current.buildMatchPayload(validScoresValidation);
+      });
+
+      expect(payload.date).toBe('2026-03-31');
+    });
+
+    it('omits date when null', () => {
+      const props = makeDefaultProps({ date: null });
+      const { result } = renderHook(() => useMatchPayload(props));
+
+      let payload;
+      act(() => {
+        payload = result.current.buildMatchPayload(validScoresValidation);
+      });
+
+      expect(payload.date).toBeUndefined();
+    });
+  });
+
+  describe('buildMatchPayload — court_id', () => {
+    it('includes court_id when provided', () => {
+      const props = makeDefaultProps({ courtId: 42 });
+      const { result } = renderHook(() => useMatchPayload(props));
+
+      let payload;
+      act(() => {
+        payload = result.current.buildMatchPayload(validScoresValidation);
+      });
+
+      expect(payload.court_id).toBe(42);
+    });
+
+    it('omits court_id when null', () => {
+      const props = makeDefaultProps({ courtId: null });
+      const { result } = renderHook(() => useMatchPayload(props));
+
+      let payload;
+      act(() => {
+        payload = result.current.buildMatchPayload(validScoresValidation);
+      });
+
+      expect(payload.court_id).toBeUndefined();
+    });
+  });
+
   describe('hook return value', () => {
     it('returns buildMatchPayload function', () => {
       const { result } = renderHook(() => useMatchPayload(makeDefaultProps()));

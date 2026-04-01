@@ -22,8 +22,8 @@ const getAvatarInitial = (currentUserPlayer: Player | null): string => {
 };
 
 interface MatchHistoryRecord {
-  Date?: string;
-  Result?: string;
+  date?: string;
+  result?: string;
   session_status?: string;
   elo_after?: number | null;
   league_id?: number | string | null;
@@ -71,8 +71,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         const matches = await getPlayerMatchHistory(playerId);
         const sortedMatches = (matches || [])
           .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-            const dateA = a.Date ? new Date(a.Date as string).getTime() : 0;
-            const dateB = b.Date ? new Date(b.Date as string).getTime() : 0;
+            const dateA = a.date ? new Date(a.date as string).getTime() : 0;
+            const dateB = b.date ? new Date(b.date as string).getTime() : 0;
             return dateB - dateA;
           });
         setUserMatches(sortedMatches);
@@ -138,8 +138,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     if (completedMatches.length > 0) {
       // Sort by date to get most recent
       const sortedMatches = [...completedMatches].sort((a, b) => {
-        const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-        const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
         return dateB - dateA;
       });
 
@@ -155,13 +155,13 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const recentMatches = completedMatches.filter(match => {
-      if (!match.Date) return false;
-      const matchDate = new Date(match.Date);
+      if (!match.date) return false;
+      const matchDate = new Date(match.date);
       return matchDate >= thirtyDaysAgo;
     });
 
     const games30Days = recentMatches.length;
-    const wins = recentMatches.filter(match => match.Result === 'W').length;
+    const wins = recentMatches.filter(match => match.result === 'W').length;
     const winRate30Days = games30Days > 0 ? Math.round((wins / games30Days) * 100) : 0;
 
     return { totalGames, currentRating, games30Days, winRate30Days };

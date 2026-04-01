@@ -12,7 +12,7 @@ import { Button } from '../ui/UI';
 import StarRating from '../ui/StarRating';
 import LevelBadge from '../ui/LevelBadge';
 import './NearYouSection.css';
-import type { Player, Court, PublicPlayerResponse } from '../../types';
+import type { Player, Court } from '../../types';
 
 /** Shape of a location entry returned by getPublicLocations(). */
 interface LocationData {
@@ -49,7 +49,15 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
   const { position: userPos, source: posSource } = useUserPosition(profileCoords);
 
   const [courts, setCourts] = useState<Court[]>([]);
-  const [players, setPlayers] = useState<PublicPlayerResponse[]>([]);
+  // Search endpoint returns flat fields (not nested under stats/location)
+  const [players, setPlayers] = useState<Array<{
+    id: number;
+    full_name: string;
+    avatar?: string | null;
+    level?: string | null;
+    current_rating?: number | null;
+    total_games?: number | null;
+  }>>([]);
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [levelFilter, setLevelFilter] = useState('');
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -221,7 +229,7 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
                     {player.level && <LevelBadge level={player.level} />}
                   </div>
                   <span className="near-you-section__player-rating">
-                    {Math.round(player.stats?.current_rating || 1200)}
+                    {Math.round(player.current_rating || 1200)}
                   </span>
                 </Link>
                 );

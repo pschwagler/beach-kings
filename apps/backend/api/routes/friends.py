@@ -126,7 +126,7 @@ async def get_friends(
         raise HTTPException(status_code=500, detail="Error fetching friends")
 
 
-@router.get("/api/friends/requests", response_model=dict)
+@router.get("/api/friends/requests", response_model=list)
 async def get_friend_requests(
     direction: str = Query("both", pattern="^(incoming|outgoing|both)$"),
     user: dict = Depends(require_verified_player),

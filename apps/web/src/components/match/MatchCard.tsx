@@ -15,8 +15,8 @@ interface MatchCardProps {
  * Displays ShareInviteIcon next to placeholder player names.
  */
 export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = false }: MatchCardProps) {
-  const team1Won = match.Winner === 'Team 1';
-  const team2Won = match.Winner === 'Team 2';
+  const team1Won = match.winner === 'Team 1';
+  const team2Won = match.winner === 'Team 2';
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger card click if clicking on player name

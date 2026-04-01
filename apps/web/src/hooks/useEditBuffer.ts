@@ -230,7 +230,7 @@ export function mergeBufferWithMatches(
         team_2_player_2: payload.team2_player2_id ? resolveName(payload.team2_player2_id) : match.team_2_player_2,
         team_1_score: team1Score,
         team_2_score: team2Score,
-        Winner: calculateWinner(team1Score, team2Score),
+        winner: calculateWinner(team1Score, team2Score),
       };
     });
   }
@@ -249,9 +249,9 @@ export function mergeBufferWithMatches(
       team_2_player_2: resolveName(payload.team2_player2_id),
       team_1_score: payload.team1_score,
       team_2_score: payload.team2_score,
-      Winner: calculateWinner(payload.team1_score, payload.team2_score),
-      'Team 1 ELO Change': 0,
-      'Team 2 ELO Change': 0,
+      winner: calculateWinner(payload.team1_score, payload.team2_score),
+      team_1_elo_change: 0,
+      team_2_elo_change: 0,
     });
   });
 

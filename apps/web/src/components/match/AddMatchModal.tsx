@@ -22,6 +22,7 @@ import { useMatchFormHandlers } from './hooks/useMatchFormHandlers';
 import { useMatchValidation } from './hooks/useMatchValidation';
 import { useMatchPayload } from './hooks/useMatchPayload';
 import SeasonDropdown from './components/SeasonDropdown';
+import CourtSelector from '../court/CourtSelector';
 
 /**
  * A selectable player option used by PlayerDropdown and form state.
@@ -54,6 +55,12 @@ const mapEditMatchToFormData = (editMatch: EditMatchData, nameToIdMap: Map<strin
   team2Score: formatScore(editMatch.team_2_score)
 });
 
+interface HomeCourtOption {
+  id: number;
+  name: string;
+  address?: string;
+}
+
 interface AddMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -70,6 +77,7 @@ interface AddMatchModalProps {
   sessionSeasonId?: number | null;
   defaultSeasonId?: number | null;
   onSeasonChange?: ((id: number) => void) | null;
+  leagueHomeCourts?: HomeCourtOption[];
 }
 
 export default function AddMatchModal({
@@ -87,10 +95,18 @@ export default function AddMatchModal({
   sessionId = null,
   sessionSeasonId = null,
   defaultSeasonId = null,
-  onSeasonChange = null
+  onSeasonChange = null,
+  leagueHomeCourts = [],
 }: AddMatchModalProps) {
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
+
+  // Date defaults to today; court defaults to league's first home court
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [matchDate, setMatchDate] = useState(todayStr);
+  const [matchCourtId, setMatchCourtId] = useState<number | null>(
+    leagueHomeCourts.length > 0 ? leagueHomeCourts[0].id : null
+  );
   const [localPlaceholders, setLocalPlaceholders] = useState<Array<{
     player_id: number;
     name: string;
@@ -247,8 +263,10 @@ export default function AddMatchModal({
       dispatchForm({ type: 'RESET' });
       setFormError(null);
       setIsRanked(true);
+      setMatchDate(new Date().toISOString().split('T')[0]);
+      setMatchCourtId(leagueHomeCourts.length > 0 ? leagueHomeCourts[0].id : null);
     }
-  }, [editMatch, isOpen, dispatchForm, setFormError]);
+  }, [editMatch, isOpen, dispatchForm, setFormError, leagueHomeCourts]);
 
 
   // Use validation hook
@@ -273,7 +291,9 @@ export default function AddMatchModal({
     sessionId,
     isRanked,
     getPlayerId,
-    formData
+    formData,
+    date: matchDate,
+    courtId: matchCourtId,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -493,6 +513,32 @@ export default function AddMatchModal({
                     >
                       Ranked
                     </button>
+                  </div>
+
+                  {/* Date and Court — per-session fields */}
+                  <div className="match-config-date-court-row">
+                    <div className="match-config-date-field">
+                      <label htmlFor="match-date" className="match-config-label">Date</label>
+                      <input
+                        id="match-date"
+                        type="date"
+                        className="match-config-date-input"
+                        value={matchDate}
+                        onChange={(e) => setMatchDate(e.target.value)}
+                        data-testid="match-date-input"
+                      />
+                    </div>
+                    {leagueHomeCourts.length > 0 && (
+                      <div className="match-config-court-field">
+                        <CourtSelector
+                          mode="single"
+                          value={matchCourtId}
+                          onChange={(courtId) => setMatchCourtId(courtId)}
+                          homeCourts={leagueHomeCourts}
+                          label="Court"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

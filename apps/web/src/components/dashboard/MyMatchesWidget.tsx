@@ -4,28 +4,25 @@ import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 import ShareInviteIcon from '../player/ShareInviteIcon';
 
-/** Shape of one match history record returned by the player match history API. */
+/** Shape of one match history record returned by the player match history API (snake_case). */
 export interface MatchRecord {
-  Result?: string;
-  Score?: string;
-  Date?: string;
-  Partner?: string;
+  result?: string;
+  score?: string;
+  date?: string;
+  partner?: string;
   partner_id?: number | null;
   partner_is_placeholder?: boolean;
-  'Opponent 1'?: string;
+  opponent_1?: string;
   opponent_1_id?: number | null;
-  'Opponent 1 IsPlaceholder'?: boolean;
-  'Opponent 2'?: string;
+  opponent_1_is_placeholder?: boolean;
+  opponent_2?: string;
   opponent_2_id?: number | null;
-  'Opponent 2 IsPlaceholder'?: boolean;
+  opponent_2_is_placeholder?: boolean;
   league_name?: string;
   league_id?: number | string | null;
-  'League ID'?: number | string | null;
   court_name?: string;
   session_code?: string | null;
-  'Session Code'?: string | null;
   session_status?: string;
-  'Season ID'?: number | string | null;
   season_id?: number | string | null;
 }
 
@@ -61,21 +58,21 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
   );
 
   const getMatchResult = (match: MatchRecord) => {
-    const won = match.Result === 'W';
-    const score = match.Score || '0-0';
+    const won = match.result === 'W';
+    const score = match.score || '0-0';
 
     return {
       won,
       score,
-      partner: match.Partner || 'Solo',
+      partner: match.partner || 'Solo',
       partnerId: match.partner_id,
       partnerIsPlaceholder: match.partner_is_placeholder,
-      opponent1: match['Opponent 1'],
+      opponent1: match.opponent_1,
       opponent1Id: match.opponent_1_id,
-      opponent1IsPlaceholder: match['Opponent 1 IsPlaceholder'],
-      opponent2: match['Opponent 2'],
+      opponent1IsPlaceholder: match.opponent_1_is_placeholder,
+      opponent2: match.opponent_2,
       opponent2Id: match.opponent_2_id,
-      opponent2IsPlaceholder: match['Opponent 2 IsPlaceholder'],
+      opponent2IsPlaceholder: match.opponent_2_is_placeholder,
       leagueName: match.league_name,
       courtName: match.court_name,
     };
@@ -122,7 +119,7 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
           >
             <div className="dashboard-match-result">
               <span className={`dashboard-match-status ${result.won ? 'won' : 'lost'}`}>
-                {match.Result || '?'}
+                {match.result || '?'}
               </span>
               <div className="dashboard-match-details">
                 <span className="dashboard-match-score">{result.score}</span>
@@ -146,9 +143,9 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
               </div>
             </div>
             <div className="dashboard-match-right">
-              {match.Date && (
+              {match.date && (
                 <span className="dashboard-match-date">
-                  {formatDate(match.Date)}
+                  {formatDate(match.date)}
                 </span>
               )}
               {result.courtName && (

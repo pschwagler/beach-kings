@@ -8,26 +8,26 @@ import RatingChart from './RatingChart';
 import PlayerTrophies from '../player/PlayerTrophies';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
 
-/** Shape of one match history record returned by the API. */
+/** Shape of one match history record returned by the API (snake_case). */
 interface MatchRecord {
   [key: string]: string | number | boolean | null | undefined;
-  'Session Status'?: string | null;
-  'ELO After'?: number | null;
-  'ELO Before'?: number | null;
-  Partner?: string | null;
-  'Partner ID'?: number | null;
-  'Opponent 1'?: string | null;
-  'Opponent 1 ID'?: number | null;
-  'Opponent 2'?: string | null;
-  'Opponent 2 ID'?: number | null;
-  Result?: string | null;
-  Score?: string | null;
-  Date?: string | null;
-  'Is Ranked'?: boolean | null;
-  'League ID'?: number | null;
-  'League Name'?: string | null;
-  'Season ID'?: number | null;
-  'Season Name'?: string | null;
+  session_status?: string | null;
+  elo_after?: number | null;
+  elo_before?: number | null;
+  partner?: string | null;
+  partner_id?: number | null;
+  opponent_1?: string | null;
+  opponent_1_id?: number | null;
+  opponent_2?: string | null;
+  opponent_2_id?: number | null;
+  result?: string | null;
+  score?: string | null;
+  date?: string | null;
+  is_ranked?: boolean | null;
+  league_id?: number | null;
+  league_name?: string | null;
+  season_id?: number | null;
+  season_name?: string | null;
 }
 
 /** Shape of global player stats returned by getPlayerStats. */
@@ -36,25 +36,25 @@ interface GlobalStats {
   [key: string]: unknown;
 }
 
-/** API field names from match history response. */
+/** API field names from match history response (snake_case). */
 const F = {
-  SESSION_STATUS: 'Session Status',
-  ELO_AFTER: 'ELO After',
-  ELO_BEFORE: 'ELO Before',
-  PARTNER: 'Partner',
-  PARTNER_ID: 'Partner ID',
-  OPPONENT_1: 'Opponent 1',
-  OPPONENT_1_ID: 'Opponent 1 ID',
-  OPPONENT_2: 'Opponent 2',
-  OPPONENT_2_ID: 'Opponent 2 ID',
-  RESULT: 'Result',
-  SCORE: 'Score',
-  DATE: 'Date',
-  IS_RANKED: 'Is Ranked',
-  LEAGUE_ID: 'League ID',
-  LEAGUE_NAME: 'League Name',
-  SEASON_ID: 'Season ID',
-  SEASON_NAME: 'Season Name',
+  SESSION_STATUS: 'session_status',
+  ELO_AFTER: 'elo_after',
+  ELO_BEFORE: 'elo_before',
+  PARTNER: 'partner',
+  PARTNER_ID: 'partner_id',
+  OPPONENT_1: 'opponent_1',
+  OPPONENT_1_ID: 'opponent_1_id',
+  OPPONENT_2: 'opponent_2',
+  OPPONENT_2_ID: 'opponent_2_id',
+  RESULT: 'result',
+  SCORE: 'score',
+  DATE: 'date',
+  IS_RANKED: 'is_ranked',
+  LEAGUE_ID: 'league_id',
+  LEAGUE_NAME: 'league_name',
+  SEASON_ID: 'season_id',
+  SEASON_NAME: 'season_name',
 };
 
 const TIME_RANGES = [

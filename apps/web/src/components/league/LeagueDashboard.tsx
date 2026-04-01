@@ -34,10 +34,13 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague } = useLeague();
+  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab } = useLeague();
   const { showToast } = useToast();
   // Use server-provided initialTab, then sync with URL params for client-side navigation
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => {
+    setActiveLeagueTab(initialTab);
+    return initialTab;
+  });
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
   
   // League name editing
@@ -71,8 +74,9 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
     const tab = searchParams?.get('tab');
     if (tab && ['rankings', 'matches', 'awards', 'details', 'signups', 'messages'].includes(tab)) {
       setActiveTab(tab);
+      setActiveLeagueTab(tab);
     }
-  }, [searchParams]);
+  }, [searchParams, setActiveLeagueTab]);
 
   // Load user leagues for the navbar
   useEffect(() => {
@@ -103,6 +107,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    setActiveLeagueTab(tab);
     // Update URL with Next.js router
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('tab', tab);

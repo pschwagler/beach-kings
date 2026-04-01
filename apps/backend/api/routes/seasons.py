@@ -176,7 +176,7 @@ async def get_season_matches(season_id: int, session: AsyncSession = Depends(get
         raise HTTPException(status_code=500, detail=f"Error loading season matches: {str(e)}")
 
 
-@router.post("/api/player-stats", response_model=list[dict])
+@router.post("/api/player-stats", response_model=dict)
 async def get_all_player_stats(request: Request, session: AsyncSession = Depends(get_db_session)):
     """Get all player stats for a season or league (public)."""
     try:
@@ -200,7 +200,7 @@ async def get_all_player_stats(request: Request, session: AsyncSession = Depends
         raise HTTPException(status_code=500, detail=f"Error loading player stats: {str(e)}")
 
 
-@router.get("/api/seasons/{season_id}/player-stats", response_model=list[dict])
+@router.get("/api/seasons/{season_id}/player-stats", response_model=dict)
 async def get_season_player_stats(season_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get all player season stats for a season (public). Deprecated: use POST /api/player-stats instead."""
     try:
@@ -210,7 +210,7 @@ async def get_season_player_stats(season_id: int, session: AsyncSession = Depend
         raise HTTPException(status_code=500, detail=f"Error loading player season stats: {str(e)}")
 
 
-@router.post("/api/partnership-opponent-stats", response_model=list[dict])
+@router.post("/api/partnership-opponent-stats", response_model=dict)
 async def get_partnership_opponent_stats(
     request: Request, session: AsyncSession = Depends(get_db_session)
 ):
@@ -242,7 +242,7 @@ async def get_partnership_opponent_stats(
         )
 
 
-@router.get("/api/seasons/{season_id}/partnership-opponent-stats", response_model=list[dict])
+@router.get("/api/seasons/{season_id}/partnership-opponent-stats", response_model=dict)
 async def get_season_partnership_opponent_stats(
     season_id: int, session: AsyncSession = Depends(get_db_session)
 ):

@@ -5,12 +5,13 @@ Tests verify that the re-export shim works and that core stat calculation
 helper functions behave correctly in isolation without needing a live DB.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from backend.services import stats_data
 from backend.services.stats_read_data import (
     _sort_rankings_all_seasons,
     _sort_rankings_single_season,
     _match_row_to_elo_dict,
+    get_rankings,
 )
 from backend.services.stats_calc_data import _chunks
 
@@ -287,3 +288,118 @@ def test_chunks_size_one():
     """Chunk size of 1 should produce one item per chunk."""
     result = list(_chunks([10, 20, 30], 1))
     assert result == [[10], [20], [30]]
+
+
+# ---------------------------------------------------------------------------
+# get_rankings — avatar field
+# ---------------------------------------------------------------------------
+
+
+def _make_rankings_row(
+    id: int = 1,
+    full_name: str = "Alice Smith",
+    nickname: str | None = None,
+    is_placeholder: bool = False,
+    avatar: str | None = None,
+    profile_picture_url: str | None = None,
+    current_rating: float | None = 1200.0,
+    points: int = 10,
+    games: int = 4,
+    wins: int = 3,
+    win_rate: float = 0.75,
+    avg_point_diff: float = 2.5,
+) -> MagicMock:
+    """Return a mock DB row matching the shape produced by get_rankings query."""
+    row = MagicMock()
+    row.id = id
+    row.full_name = full_name
+    row.nickname = nickname
+    row.is_placeholder = is_placeholder
+    row.avatar = avatar
+    row.profile_picture_url = profile_picture_url
+    row.current_rating = current_rating
+    row.points = points
+    row.games = games
+    row.wins = wins
+    row.win_rate = win_rate
+    row.avg_point_diff = avg_point_diff
+    return row
+
+
+def _make_session_for_rankings(rows: list) -> AsyncMock:
+    """Return an AsyncSession mock whose execute() returns given rows via .all()."""
+    execute_result = MagicMock()
+    execute_result.all.return_value = rows
+
+    session = AsyncMock()
+    session.execute = AsyncMock(return_value=execute_result)
+    return session
+
+
+async def test_get_rankings_includes_avatar_field():
+    """Rankings response dicts must contain the 'avatar' key."""
+    row = _make_rankings_row(full_name="Alice Smith", avatar="AS", profile_picture_url=None)
+    session = _make_session_for_rankings([row])
+
+    result = await get_rankings(session)
+
+    assert len(result) == 1
+    assert "avatar" in result[0]
+
+
+async def test_get_rankings_avatar_prefers_profile_picture_url():
+    """avatar should be profile_picture_url when present, overriding avatar and initials."""
+    row = _make_rankings_row(
+        full_name="Bob Jones",
+        profile_picture_url="https://cdn.example.com/bob.jpg",
+        avatar="BJ",
+    )
+    session = _make_session_for_rankings([row])
+
+    result = await get_rankings(session)
+
+    assert result[0]["avatar"] == "https://cdn.example.com/bob.jpg"
+
+
+async def test_get_rankings_avatar_falls_back_to_avatar_field():
+    """When profile_picture_url is absent, avatar should fall back to the avatar field."""
+    row = _make_rankings_row(
+        full_name="Carol Davis",
+        profile_picture_url=None,
+        avatar="CD_custom",
+    )
+    session = _make_session_for_rankings([row])
+
+    result = await get_rankings(session)
+
+    assert result[0]["avatar"] == "CD_custom"
+
+
+async def test_get_rankings_avatar_falls_back_to_initials():
+    """When both profile_picture_url and avatar are absent, avatar should be the player initials."""
+    row = _make_rankings_row(
+        full_name="Dave Evans",
+        profile_picture_url=None,
+        avatar=None,
+    )
+    session = _make_session_for_rankings([row])
+
+    result = await get_rankings(session)
+
+    # Initials for "Dave Evans" are "DE"
+    assert result[0]["avatar"] == "DE"
+
+
+async def test_get_rankings_avatar_empty_string_treated_as_falsy():
+    """Empty-string profile_picture_url should fall through to avatar, then initials."""
+    row = _make_rankings_row(
+        full_name="Eve Foster",
+        profile_picture_url="",
+        avatar=None,
+    )
+    session = _make_session_for_rankings([row])
+
+    result = await get_rankings(session)
+
+    # Empty string is falsy, so should fall back to initials "EF"
+    assert result[0]["avatar"] == "EF"

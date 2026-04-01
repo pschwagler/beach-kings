@@ -33,13 +33,13 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   const router = useRouter();
   const { openModal } = useModal();
   const autoOpenFiredRef = useRef(false);
-  const { 
-    league, 
+  const {
+    league,
     leagueId,
-    seasons, 
-    members, 
+    seasons,
+    members,
     isSeasonActive,
-    selectedSeasonData,
+    matchesSeasonData: selectedSeasonData,
     seasonData,
     seasonDataLoadingMap,
     loadSeasonData,
@@ -48,8 +48,8 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
     refreshMatchData,
     refreshAllSeasonsMatches,
     isLeagueAdmin,
-    selectedSeasonId,
-    setSelectedSeasonId,
+    matchesSeasonId: selectedSeasonId,
+    setMatchesSeasonId: setSelectedSeasonId,
     selectedPlayerId,
     selectedPlayerName,
     playerSeasonStats,
@@ -87,6 +87,16 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   // Build set of placeholder player IDs for match display badges
   const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
 
+  // Refs for values used inside the autoOpenAddMatch effect but that should not
+  // re-trigger it. The ref guard (autoOpenFiredRef) ensures the body runs once,
+  // but unstable deps can still cause excessive effect invocations during init.
+  const membersRef = useRef(members);
+  membersRef.current = members;
+  const leagueRef = useRef(league);
+  leagueRef.current = league;
+  const selectedSeasonIdRef = useRef(selectedSeasonId);
+  selectedSeasonIdRef.current = selectedSeasonId;
+
   // Build player objects and name mappings from members
   const { allPlayers, allPlayerNames, playerNameToId, playerIdToName } = useMemo(() => {
     const idToName = new Map<number, string>();
@@ -108,6 +118,9 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       playerIdToName: idToName,
     };
   }, [members]);
+
+  const allPlayerNamesRef = useRef(allPlayerNames);
+  allPlayerNamesRef.current = allPlayerNames;
 
   const matchOperations = useMatchOperations({
     playerNameToId,
@@ -145,37 +158,41 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
 
   // Season data loading is now handled automatically by LeagueContext when selectedSeasonId changes
 
-  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param
+  // Auto-open AddMatchModal when navigated from CreateGameModal with autoAddMatch param.
+  // Uses refs for values that change during init but are only read inside the effect body.
+  // Only `autoOpenAddMatch`, `seasons`, and stable callbacks remain in the dep array.
   useEffect(() => {
     if (!autoOpenAddMatch || autoOpenFiredRef.current) return;
-    // Wait until league data is ready: members loaded + seasons available + at least 4 players
-    if (!members || members.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
+    const currentMembers = membersRef.current;
+    if (!currentMembers || currentMembers.length < MIN_PLAYERS_FOR_MATCH || !seasons || seasons.length === 0) return;
 
     autoOpenFiredRef.current = true;
 
     openModal(MODAL_TYPES.ADD_MATCH, {
-      allPlayerNames,
+      allPlayerNames: allPlayerNamesRef.current,
       leagueMatchOnly: true,
       defaultLeagueId: leagueId,
-      members,
-      league,
-      defaultSeasonId: selectedSeasonId,
+      members: currentMembers,
+      league: leagueRef.current,
+      defaultSeasonId: selectedSeasonIdRef.current,
       onSeasonChange: setSelectedSeasonId,
       onSubmit: async (matchData: Record<string, unknown>) => {
         const payload = { ...matchData, league_id: leagueId };
         await handleCreateMatch(payload);
       },
       onDelete: handleDeleteMatch,
+      leagueHomeCourts: leagueRef.current?.home_courts || [],
     });
 
     // Clean URL param to prevent re-open on refresh
     const url = new URL(window.location.href);
     url.searchParams.delete('autoAddMatch');
     router.replace(url.pathname + url.search, { scroll: false });
-    // handleCreateMatch/handleDeleteMatch omitted — defined later in function body (TDZ),
-    // safe because autoOpenFiredRef gates this to a single fire per mount.
+    // handleCreateMatch/handleDeleteMatch are defined later in the function body;
+    // safe because autoOpenFiredRef gates this to a single fire per mount and
+    // the closures are only invoked after the full render completes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenAddMatch, members, seasons, league, leagueId, selectedSeasonId, setSelectedSeasonId, openModal, router, allPlayerNames]);
+  }, [autoOpenAddMatch, seasons, leagueId, setSelectedSeasonId, openModal, router]);
 
   // Transform matches from context for display
   const matches = useMemo(() => {

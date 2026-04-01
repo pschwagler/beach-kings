@@ -185,6 +185,8 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 Player.full_name,
                 Player.nickname,
                 Player.is_placeholder,
+                Player.avatar,
+                Player.profile_picture_url,
                 PlayerGlobalStats.current_rating,
                 stats_subq.c.points,
                 stats_subq.c.games,
@@ -213,6 +215,7 @@ async def get_rankings(session: AsyncSession, body: Optional[Dict] = None) -> Li
                 {
                     "player_id": row.id,
                     "name": name,
+                    "avatar": row.profile_picture_url or row.avatar or initials,
                     "initials": initials,
                     "is_placeholder": row.is_placeholder or False,
                     "elo": round(row.current_rating) if row.current_rating else INITIAL_ELO,
