@@ -239,7 +239,7 @@ export function mergeBufferWithMatches(
   added.forEach((payload, index) => {
     result.push({
       id: `${PENDING_ID_PREFIX}${index}`,
-      Date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split('T')[0],
       session_id: payload.session_id ?? null,
       session_name: '',
       session_status: 'ACTIVE',

@@ -322,8 +322,12 @@ async def list_public_courts(
     has_parking: Optional[bool] = Query(None, description="Filter courts with parking"),
     nets_provided: Optional[bool] = Query(None, description="Filter courts with nets"),
     search: Optional[str] = Query(None, description="Search by name or address"),
-    user_lat: Optional[float] = Query(None, ge=-90.0, le=90.0, description="User latitude for distance sort"),
-    user_lng: Optional[float] = Query(None, ge=-180.0, le=180.0, description="User longitude for distance sort"),
+    user_lat: Optional[float] = Query(
+        None, ge=-90.0, le=90.0, description="User latitude for distance sort"
+    ),
+    user_lng: Optional[float] = Query(
+        None, ge=-180.0, le=180.0, description="User longitude for distance sort"
+    ),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=500, description="Items per page"),
     session: AsyncSession = Depends(get_db_session),

@@ -97,7 +97,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   }, [matchesSeasonId, seasonData]);
 
   // Load season data with progressive loading
-  const loadSeasonData = useCallback(async (seasonId: any, forceReload = false) => {
+  const loadSeasonData = useCallback(async (seasonId: number, forceReload = false) => {
     if (!seasonId) return;
 
     // Check if already loading - even for force reload, prevent concurrent loads
@@ -214,7 +214,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   }, []); // Empty deps - function is stable, uses refs for state checks
 
   // Lightweight function to refresh only matches (not stats/rankings)
-  const refreshMatchData = useCallback(async (seasonId: any, forceClear = false) => {
+  const refreshMatchData = useCallback(async (seasonId: number, forceClear = false) => {
     if (!seasonId) return;
 
     try {
@@ -273,7 +273,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     }
   }, []);
 
-  const refreshSeasonData = useCallback(async (seasonId: any) => {
+  const refreshSeasonData = useCallback(async (seasonId: number) => {
     if (!seasonId) return;
 
     // Check if already loading to prevent duplicate refreshes

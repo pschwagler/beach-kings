@@ -43,7 +43,7 @@ const DEFAULT_SORT_DIR: Record<string, string> = { name: 'asc', games: 'desc', r
 const SORTABLE_COLUMNS = { name: 'name', games: 'games', rating: 'rating' };
 
 interface FriendBadgeProps {
-  friendStatuses: any;
+  friendStatuses: { statuses: Record<string, string>; mutual_counts: Record<string, number> } | null;
   playerId: number;
 }
 
@@ -144,7 +144,7 @@ export default function FindPlayersPage() {
   const [viewMode, setViewMode] = useState('table');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [friendStatuses, setFriendStatuses] = useState(null);
+  const [friendStatuses, setFriendStatuses] = useState<{ statuses: Record<string, string>; mutual_counts: Record<string, number> } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 

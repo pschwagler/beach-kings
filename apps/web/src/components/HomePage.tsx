@@ -21,6 +21,9 @@ import MessagesTab from "./home/MessagesTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
+/** Delay before showing the profile-completion modal, so page content renders first */
+const PROFILE_MODAL_DELAY_MS = 500;
+
 interface HomePageProps {
   initialTab?: string;
 }
@@ -68,7 +71,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
             await fetchCurrentUser();
           },
         });
-      }, 500);
+      }, PROFILE_MODAL_DELAY_MS);
 
       return () => clearTimeout(timeoutId);
     }

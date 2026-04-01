@@ -59,21 +59,11 @@ export const LeagueProvider = ({ children, leagueId }: { children: ReactNode; le
     ...player,
   }), [
     leagueId,
-    core.league, core.seasons, core.members, core.loading, core.error,
-    core.refreshLeague, core.refreshSeasons, core.refreshMembers,
-    core.updateLeague, core.updateMember,
-    core.activeSeasons, core.isSeasonActive, core.isSeasonPast,
-    core.isLeagueMember, core.isLeagueAdmin,
-    season.seasonData, season.seasonDataLoadingMap,
-    season.rankingsSeasonId, season.setRankingsSeasonId, season.rankingsSeasonData,
-    season.matchesSeasonId, season.setMatchesSeasonId, season.matchesSeasonData,
-    season.loadSeasonData, season.refreshSeasonData,
-    season.refreshMatchData, season.refreshAllSeasonsMatches, season.loadAllSeasonsRankings,
+    core,
+    season,
     selectedSeasonId, setSelectedSeasonId, selectedSeasonData,
     activeLeagueTab, setActiveLeagueTab,
-    player.selectedPlayerId, player.selectedPlayerName,
-    player.playerSeasonStats, player.playerMatchHistory,
-    player.setSelectedPlayer,
+    player,
   ]);
 
   return <LeagueContext.Provider value={value}>{children}</LeagueContext.Provider>;

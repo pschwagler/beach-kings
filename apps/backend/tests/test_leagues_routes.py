@@ -616,7 +616,9 @@ class TestLeagueHomeCourts:
         client, headers = _make_admin_client(monkeypatch)
 
         async def fake_get_league_home_courts(session, league_id):
-            return [{"id": 1, "court_id": COURT_ID, "position": 0}]
+            return [
+                {"id": COURT_ID, "name": "Test Court", "address": "123 Main St", "position": 0}
+            ]
 
         monkeypatch.setattr(
             data_service, "get_league_home_courts", fake_get_league_home_courts, raising=True
@@ -626,14 +628,14 @@ class TestLeagueHomeCourts:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert data[0]["court_id"] == COURT_ID
+        assert data[0]["id"] == COURT_ID
 
     def test_add_home_court_success(self, monkeypatch):
         """League admin can add a home court."""
         client, headers = _make_admin_client(monkeypatch)
 
         async def fake_add_league_home_court(session, league_id, court_id):
-            return {"id": 1, "court_id": court_id, "position": 0}
+            return {"id": court_id, "name": "Test Court", "address": "123 Main St", "position": 0}
 
         monkeypatch.setattr(
             data_service, "add_league_home_court", fake_add_league_home_court, raising=True
@@ -645,7 +647,7 @@ class TestLeagueHomeCourts:
             headers=headers,
         )
         assert response.status_code == 200
-        assert response.json()["court_id"] == COURT_ID
+        assert response.json()["id"] == COURT_ID
 
     def test_add_home_court_missing_court_id(self, monkeypatch):
         """Missing court_id returns 400."""
@@ -681,7 +683,8 @@ class TestLeagueHomeCourts:
 
         async def fake_set_league_home_courts(session, league_id, court_ids):
             return [
-                {"id": i + 1, "court_id": cid, "position": i} for i, cid in enumerate(court_ids)
+                {"id": cid, "name": f"Court {cid}", "address": None, "position": i}
+                for i, cid in enumerate(court_ids)
             ]
 
         monkeypatch.setattr(

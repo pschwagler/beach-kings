@@ -91,7 +91,6 @@ async def create_league_message(
     )
     session.add(msg)
     await session.flush()
-    await session.commit()
     await session.refresh(msg)
 
     # Resolve player name for the response

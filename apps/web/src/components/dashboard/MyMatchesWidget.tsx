@@ -1,30 +1,10 @@
 import React, { useState } from 'react';
-import type { Player } from '../../types';
+import type { Player, MatchRecord } from '../../types';
 import { Calendar, Trophy } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 import ShareInviteIcon from '../player/ShareInviteIcon';
 
-/** Shape of one match history record returned by the player match history API (snake_case). */
-export interface MatchRecord {
-  result?: string;
-  score?: string;
-  date?: string;
-  partner?: string;
-  partner_id?: number | null;
-  partner_is_placeholder?: boolean;
-  opponent_1?: string;
-  opponent_1_id?: number | null;
-  opponent_1_is_placeholder?: boolean;
-  opponent_2?: string;
-  opponent_2_id?: number | null;
-  opponent_2_is_placeholder?: boolean;
-  league_name?: string;
-  league_id?: number | string | null;
-  court_name?: string;
-  session_code?: string | null;
-  session_status?: string;
-  season_id?: number | string | null;
-}
+export type { MatchRecord };
 
 /**
  * Displays user's match history.

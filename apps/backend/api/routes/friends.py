@@ -9,11 +9,13 @@ from backend.database.db import get_db_session
 from backend.services import friend_service
 from backend.api.auth_dependencies import require_verified_player
 from backend.models.schemas import (
-    FriendRequestCreate,
-    FriendRequestResponse,
-    FriendListResponse,
     FriendBatchStatusRequest,
     FriendBatchStatusResponse,
+    FriendListResponse,
+    FriendRequestCreate,
+    FriendRequestResponse,
+    FriendSuggestionItem,
+    MutualFriendItem,
     StatusResponse,
 )
 
@@ -126,7 +128,7 @@ async def get_friends(
         raise HTTPException(status_code=500, detail="Error fetching friends")
 
 
-@router.get("/api/friends/requests", response_model=list)
+@router.get("/api/friends/requests", response_model=list[FriendRequestResponse])
 async def get_friend_requests(
     direction: str = Query("both", pattern="^(incoming|outgoing|both)$"),
     user: dict = Depends(require_verified_player),
@@ -143,7 +145,7 @@ async def get_friend_requests(
         raise HTTPException(status_code=500, detail="Error fetching friend requests")
 
 
-@router.get("/api/friends/suggestions", response_model=list)
+@router.get("/api/friends/suggestions", response_model=list[FriendSuggestionItem])
 async def get_friend_suggestions(
     limit: int = Query(10, ge=1, le=50),
     user: dict = Depends(require_verified_player),
@@ -177,7 +179,7 @@ async def batch_friend_status(
         raise HTTPException(status_code=500, detail="Error fetching friend statuses")
 
 
-@router.get("/api/friends/mutual/{other_player_id}", response_model=dict)
+@router.get("/api/friends/mutual/{other_player_id}", response_model=list[MutualFriendItem])
 async def get_mutual_friends(
     other_player_id: int,
     user: dict = Depends(require_verified_player),

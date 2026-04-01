@@ -1,9 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ChevronDown, Trophy, Plus, Search, Users } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownSection from './NavDropdownSection';
 import NavDropdownItem from './NavDropdownItem';
 import type { League } from '../../../types';
+import { useClickOutside } from '../../../hooks/useClickOutside';
 
 interface LeaguesMenuProps {
   isLoggedIn?: boolean;
@@ -27,16 +28,7 @@ export default function LeaguesMenu({
 }: LeaguesMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  useClickOutside(menuRef, isOpen, onClose);
 
   const handleItemClick = (action: string, leagueId: number | null = null) => {
     onClose();

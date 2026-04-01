@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { User, LogIn, UserPlus, Home, UserCircle, MessageSquare, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 import type { User as UserType, Player } from '../../../types';
+import { useClickOutside } from '../../../hooks/useClickOutside';
 
 /**
  * Gets the avatar image URL and fallback initial for the navbar.
@@ -73,16 +74,7 @@ export default function UserMenu({
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  useClickOutside(menuRef, isOpen, onClose);
 
   const handleItemClick = (action: string) => {
     onClose();

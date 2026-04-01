@@ -875,6 +875,25 @@ class FriendBatchStatusResponse(BaseModel):
     mutual_counts: dict  # { player_id: int }
 
 
+class FriendSuggestionItem(BaseModel):
+    """Single friend suggestion item."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    level: Optional[str] = None
+    location_name: Optional[str] = None
+    shared_league_count: int
+
+
+class MutualFriendItem(BaseModel):
+    """Single mutual friend item."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+
+
 # Update SessionResponse to include new fields
 class SessionResponse(BaseModel):
     """Session data."""

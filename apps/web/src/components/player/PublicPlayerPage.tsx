@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AxiosError } from 'axios';
 import { UserPlus, UserCheck, Clock, Users, MessageCircle, MapPin, Star } from 'lucide-react';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,16 +28,47 @@ import PlayerTrophies from './PlayerTrophies';
 import CourtSelector from '../court/CourtSelector';
 import './PublicPlayerPage.css';
 
+interface PublicPlayerStats {
+  current_rating: number;
+  total_games: number;
+  total_wins: number;
+  win_rate: number;
+}
+
+interface PublicPlayerLocation {
+  id: string;
+  slug: string;
+  city: string;
+  state: string;
+}
+
+interface PublicPlayerLeagueMembership {
+  league_id: number;
+  league_name: string;
+}
+
+interface PublicPlayer {
+  id: number;
+  full_name: string;
+  avatar: string | null;
+  gender: string | null;
+  level: string | null;
+  is_placeholder: boolean;
+  location: PublicPlayerLocation | null;
+  stats: PublicPlayerStats | null;
+  league_memberships: PublicPlayerLeagueMembership[];
+}
+
 /**
  * Public player profile page for SEO and unauthenticated visitors.
  * Shows player info, stats, location, league memberships, and friend actions.
  *
  * @param {Object} props
- * @param {Object} props.player - Public player data from the API
+ * @param {PublicPlayer} props.player - Public player data from the API
  * @param {boolean} props.isAuthenticated - Whether the current user is logged in
  */
 interface PublicPlayerPageProps {
-  player: any;
+  player: PublicPlayer;
   isAuthenticated: boolean;
 }
 
@@ -113,8 +145,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
     try {
       await sendFriendRequest(player.id);
       setFriendStatus('pending_outgoing');
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to send friend request', 'error');
+    } catch (err: unknown) {
+      const detail = err instanceof AxiosError ? err.response?.data?.detail : undefined;
+      showToast(detail || 'Failed to send friend request', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -127,8 +160,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
       await acceptFriendRequest(incomingRequestId);
       setFriendStatus('friend');
       showToast('Friend request accepted!', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to accept friend request', 'error');
+    } catch (err: unknown) {
+      const detail = err instanceof AxiosError ? err.response?.data?.detail : undefined;
+      showToast(detail || 'Failed to accept friend request', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -139,8 +173,9 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
     try {
       await removeFriend(player.id);
       setFriendStatus('none');
-    } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to remove friend', 'error');
+    } catch (err: unknown) {
+      const detail = err instanceof AxiosError ? err.response?.data?.detail : undefined;
+      showToast(detail || 'Failed to remove friend', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -209,7 +244,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
         <button
           className="public-player__back-btn"
           data-testid="back-button"
-          onClick={() => router.back()}
+          onClick={() => window.history.length > 1 ? router.back() : router.push('/find-players')}
           type="button"
         >
           ← Back
@@ -221,7 +256,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           {isImageUrl(player.avatar) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={player.avatar}
+              src={player.avatar ?? undefined}
               alt={player.full_name}
               style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
             />

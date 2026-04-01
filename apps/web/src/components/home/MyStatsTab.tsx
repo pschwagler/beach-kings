@@ -1,34 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Player } from '../../types';
+import type { Player, MatchRecord } from '../../types';
 import { Loader2, TrendingUp, Trophy, Target, Percent, Flame, Diff } from 'lucide-react';
 import StatCard from '../ui/StatCard';
 import RatingChart from './RatingChart';
 import PlayerTrophies from '../player/PlayerTrophies';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
-
-/** Shape of one match history record returned by the API (snake_case). */
-interface MatchRecord {
-  [key: string]: string | number | boolean | null | undefined;
-  session_status?: string | null;
-  elo_after?: number | null;
-  elo_before?: number | null;
-  partner?: string | null;
-  partner_id?: number | null;
-  opponent_1?: string | null;
-  opponent_1_id?: number | null;
-  opponent_2?: string | null;
-  opponent_2_id?: number | null;
-  result?: string | null;
-  score?: string | null;
-  date?: string | null;
-  is_ranked?: boolean | null;
-  league_id?: number | null;
-  league_name?: string | null;
-  season_id?: number | null;
-  season_name?: string | null;
-}
 
 /** Shape of global player stats returned by getPlayerStats. */
 interface GlobalStats {

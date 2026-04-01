@@ -181,11 +181,15 @@ class PlayerStats:
             initial_rating if initial_rating is not None else INITIAL_ELO
         )  # Season-specific ELO
         self.initial_rating = initial_rating  # Store initial rating for season
-        self.scoring_config = scoring_config if scoring_config is not None else {
-            "type": "points_system",
-            "points_per_win": 3,
-            "points_per_loss": 1,
-        }
+        self.scoring_config = (
+            scoring_config
+            if scoring_config is not None
+            else {
+                "type": "points_system",
+                "points_per_win": 3,
+                "points_per_loss": 1,
+            }
+        )
         self.game_count = 0
         self.win_count = 0
         self.wins_with: Dict[int, int] = {}  # wins partnered with each player (by ID)
@@ -309,11 +313,15 @@ class StatsTracker:
         """
         self.players: Dict[int, PlayerStats] = {}
         self.initial_ratings = initial_ratings or {}
-        self.scoring_config = scoring_config if scoring_config is not None else {
-            "type": "points_system",
-            "points_per_win": 3,
-            "points_per_loss": 1,
-        }
+        self.scoring_config = (
+            scoring_config
+            if scoring_config is not None
+            else {
+                "type": "points_system",
+                "points_per_win": 3,
+                "points_per_loss": 1,
+            }
+        )
         self.is_season_rating = self.scoring_config.get("type") == "season_rating"
 
     def get_player(self, player_id: int) -> PlayerStats:

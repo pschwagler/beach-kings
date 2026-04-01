@@ -102,7 +102,7 @@ export default function AddMatchModal({
   const [isRanked, setIsRanked] = useState(true);
 
   // Date defaults to today; court defaults to league's first home court
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('sv-SE');
   const [matchDate, setMatchDate] = useState(todayStr);
   const [matchCourtId, setMatchCourtId] = useState<number | null>(
     leagueHomeCourts.length > 0 ? leagueHomeCourts[0].id : null
@@ -252,21 +252,31 @@ export default function AddMatchModal({
         formData: mapEditMatchToFormData(editMatch, playerNameToIdMap)
       });
       setFormError(null);
+      // Populate date and court from the match being edited
+      if (editMatch.date && typeof editMatch.date === 'string') {
+        setMatchDate(editMatch.date);
+      }
+      if (editMatch.court_id != null && typeof editMatch.court_id === 'number') {
+        setMatchCourtId(editMatch.court_id);
+      }
     }
   }, [editMatch, playerNameToIdMap, dispatchForm, setFormError]);
 
   // Reset form when modal opens for a new match (not editing).
   // Deliberately excludes playerNameToIdMap — adding a local placeholder
   // should NOT wipe the form.
+  // Also excludes leagueHomeCourts to avoid re-triggering when the reference
+  // changes (unstable `|| []` fallback in callers).
   useEffect(() => {
     if (!editMatch) {
       dispatchForm({ type: 'RESET' });
       setFormError(null);
       setIsRanked(true);
-      setMatchDate(new Date().toISOString().split('T')[0]);
+      setMatchDate(new Date().toLocaleDateString('sv-SE'));
       setMatchCourtId(leagueHomeCourts.length > 0 ? leagueHomeCourts[0].id : null);
     }
-  }, [editMatch, isOpen, dispatchForm, setFormError, leagueHomeCourts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMatch, isOpen, dispatchForm, setFormError]);
 
 
   // Use validation hook

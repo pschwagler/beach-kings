@@ -148,9 +148,10 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
         setExistingSession({ id: active.id, code: active.code, date: active.date ?? '' });
         return;
       }
-    } catch {
+    } catch (err) {
       // If the check fails, fall through and attempt creation; the create call
       // will surface its own error if it also fails.
+      console.warn('[CreateGameModal] open-session check failed:', err);
     }
     await doCreateNewSession();
   }, [creatingPickup, doCreateNewSession]);

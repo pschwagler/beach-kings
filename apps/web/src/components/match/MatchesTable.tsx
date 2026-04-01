@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
 import type { Season, Match, Session } from '../../types';
 
@@ -117,7 +117,7 @@ export function compareSessionGroups(
   const createdB = b.createdAt ?? null;
 
   if (createdA && createdB) {
-    const timeDiff = new Date(createdB).getTime() - new Date(createdA).getTime();
+    const timeDiff = Date.parse(createdB) - Date.parse(createdA);
     if (timeDiff !== 0) return timeDiff;
   }
 
@@ -153,6 +153,11 @@ function createSessionGroup(
   };
 }
 
+const EMPTY_PLAYER_MAP = new Map<number, string>();
+const EMPTY_SESSIONS_SET = new Set<number>();
+const EMPTY_MATCH_CHANGES_MAP = new Map<number, SessionChanges>();
+const EMPTY_SESSION_METADATA_MAP = new Map<number, SessionMetadata>();
+
 export default function MatchesTable({
   matches,
   onPlayerClick,
@@ -166,15 +171,15 @@ export default function MatchesTable({
   onUpdateMatch,
   onDeleteMatch,
   allPlayerNames,
-  playerIdToName = new Map(),
+  playerIdToName = EMPTY_PLAYER_MAP,
   leagueId = null,
   isAdmin = false,
-  editingSessions = new Set(),
+  editingSessions = EMPTY_SESSIONS_SET,
   onEnterEditMode,
   onSaveEditedSession,
   onCancelEdit,
-  pendingMatchChanges = new Map(),
-  editingSessionMetadata = new Map(),
+  pendingMatchChanges = EMPTY_MATCH_CHANGES_MAP,
+  editingSessionMetadata = EMPTY_SESSION_METADATA_MAP,
   seasons = [],
   selectedSeasonId = null,
   onUpdateSessionSeason = null,
@@ -188,8 +193,6 @@ export default function MatchesTable({
 }: MatchesTableProps) {
   const { isLeagueMember, members, league } = useLeague();
   const { openModal, closeModal } = useModal();
-  const hasRenderedMatchesRef = useRef(false);
-  
   // Photo upload state
   const [photoJobId, setPhotoJobId] = useState<string | null>(null);
   const [photoSessionId, setPhotoSessionId] = useState<number | null>(null);
@@ -413,14 +416,6 @@ export default function MatchesTable({
     return grouped;
   }, [matchesWithPendingChanges, editingSessions, editingSessionMetadata, matches, sessionsMap]);
 
-  useEffect(() => {
-    if (!loading && matches !== null && Array.isArray(matches) && matchesWithPendingChanges !== null) {
-      hasRenderedMatchesRef.current = true;
-    } else if (loading || matches === null) {
-      hasRenderedMatchesRef.current = false;
-    }
-  }, [loading, matches, matchesWithPendingChanges]);
-
   const activeSessionMatches = useMemo(() => {
     if (!activeSession) return [];
     
@@ -461,11 +456,10 @@ export default function MatchesTable({
   const showAddMatchCard = isDataReady && !activeSession;
   
   const shouldShowEmptyState = useMemo(() => {
-    return showAddMatchCard && 
-           hasRenderedMatchesRef.current && 
-           !matches?.length && 
-           !matchesWithPendingChanges?.length && 
-           !sessionGroups?.length && 
+    return showAddMatchCard &&
+           !matches?.length &&
+           !matchesWithPendingChanges?.length &&
+           !sessionGroups?.length &&
            !activeSession;
   }, [showAddMatchCard, matches, matchesWithPendingChanges, sessionGroups, activeSession]);
 

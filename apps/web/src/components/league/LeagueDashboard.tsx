@@ -40,10 +40,10 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
   // Sync the server-provided initialTab into context once after mount.
   // This must be a useEffect (post-mount), never a useState initializer, to
   // avoid calling a context setter during render which triggers an infinite loop.
+  // Re-runs if initialTab changes (e.g. navigation to same page with different tab).
   useEffect(() => {
     setActiveLeagueTab(initialTab);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialTab, setActiveLeagueTab]);
 
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
   

@@ -232,9 +232,25 @@ describe('PublicPlayerPage — Back button', () => {
     expect(screen.queryByTestId('back-button')).not.toBeInTheDocument();
   });
 
-  it('calls router.back() when Back button is clicked', async () => {
+  it('calls router.back() when history exists', async () => {
+    const originalLength = Object.getOwnPropertyDescriptor(window.history, 'length');
+    Object.defineProperty(window.history, 'length', { value: 2, configurable: true });
     render(<PublicPlayerPage player={basePlayer} isAuthenticated={true} />);
     await userEvent.click(screen.getByTestId('back-button'));
     expect(mockRouterBack).toHaveBeenCalled();
+    if (originalLength) {
+      Object.defineProperty(window.history, 'length', originalLength);
+    }
+  });
+
+  it('navigates to /find-players when no history', async () => {
+    const originalLength = Object.getOwnPropertyDescriptor(window.history, 'length');
+    Object.defineProperty(window.history, 'length', { value: 1, configurable: true });
+    render(<PublicPlayerPage player={basePlayer} isAuthenticated={true} />);
+    await userEvent.click(screen.getByTestId('back-button'));
+    expect(mockRouterPush).toHaveBeenCalledWith('/find-players');
+    if (originalLength) {
+      Object.defineProperty(window.history, 'length', originalLength);
+    }
   });
 });

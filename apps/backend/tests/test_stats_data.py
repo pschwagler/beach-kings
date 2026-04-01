@@ -5,6 +5,7 @@ Tests verify that the re-export shim works and that core stat calculation
 helper functions behave correctly in isolation without needing a live DB.
 """
 
+import pytest
 from unittest.mock import AsyncMock, MagicMock
 from backend.services import stats_data
 from backend.services.stats_read_data import (
@@ -336,6 +337,7 @@ def _make_session_for_rankings(rows: list) -> AsyncMock:
     return session
 
 
+@pytest.mark.asyncio
 async def test_get_rankings_includes_avatar_field():
     """Rankings response dicts must contain the 'avatar' key."""
     row = _make_rankings_row(full_name="Alice Smith", avatar="AS", profile_picture_url=None)
@@ -347,6 +349,7 @@ async def test_get_rankings_includes_avatar_field():
     assert "avatar" in result[0]
 
 
+@pytest.mark.asyncio
 async def test_get_rankings_avatar_prefers_profile_picture_url():
     """avatar should be profile_picture_url when present, overriding avatar and initials."""
     row = _make_rankings_row(
@@ -361,6 +364,7 @@ async def test_get_rankings_avatar_prefers_profile_picture_url():
     assert result[0]["avatar"] == "https://cdn.example.com/bob.jpg"
 
 
+@pytest.mark.asyncio
 async def test_get_rankings_avatar_falls_back_to_avatar_field():
     """When profile_picture_url is absent, avatar should fall back to the avatar field."""
     row = _make_rankings_row(
@@ -375,6 +379,7 @@ async def test_get_rankings_avatar_falls_back_to_avatar_field():
     assert result[0]["avatar"] == "CD_custom"
 
 
+@pytest.mark.asyncio
 async def test_get_rankings_avatar_falls_back_to_initials():
     """When both profile_picture_url and avatar are absent, avatar should be the player initials."""
     row = _make_rankings_row(
@@ -390,6 +395,7 @@ async def test_get_rankings_avatar_falls_back_to_initials():
     assert result[0]["avatar"] == "DE"
 
 
+@pytest.mark.asyncio
 async def test_get_rankings_avatar_empty_string_treated_as_falsy():
     """Empty-string profile_picture_url should fall through to avatar, then initials."""
     row = _make_rankings_row(

@@ -84,6 +84,13 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
   });
   const { activeSession, allSessions, loadActiveSession, loadAllSessions, refreshSession } = activeSessionHook;
 
+  // Stabilize leagueHomeCourts so callers get a referentially stable empty array
+  // instead of a new `[]` on every render when home_courts is falsy.
+  const leagueHomeCourts = useMemo(
+    () => league?.home_courts ?? [],
+    [league?.home_courts]
+  );
+
   // Build set of placeholder player IDs for match display badges
   const placeholderPlayerIds = useMemo(() => buildPlaceholderIdSet(members), [members]);
 
@@ -181,7 +188,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         await handleCreateMatch(payload);
       },
       onDelete: handleDeleteMatch,
-      leagueHomeCourts: leagueRef.current?.home_courts || [],
+      leagueHomeCourts,
     });
 
     // Clean URL param to prevent re-open on refresh
@@ -567,7 +574,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         selectedSeasonId={selectedSeasonId}
         onUpdateSessionSeason={handleUpdateSessionSeason}
         onUpdateSessionCourt={handleUpdateSessionCourt}
-        leagueHomeCourts={league?.home_courts || []}
+        leagueHomeCourts={leagueHomeCourts}
         onSeasonChange={setSelectedSeasonId}
         onRefreshData={refreshData}
         contentVariant={viewMode === 'clipboard' ? 'clipboard' : 'cards'}

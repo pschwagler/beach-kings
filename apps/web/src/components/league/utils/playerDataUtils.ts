@@ -123,18 +123,18 @@ export function formatPlayerMatchHistory(matches: any[], playerId: number | stri
     const eloChangeValue = eloChange?.elo_change;
     
     return {
-      Date: match.date,
-      Partner: partner || '',
-      'Partner ID': partnerId,
-      'Opponent 1': opponent1 || '',
-      'Opponent 1 ID': opponent1Id,
-      'Opponent 2': opponent2 || '',
-      'Opponent 2 ID': opponent2Id,
-      Result: result,
-      Score: `${playerScore}-${opponentScore}`,
-      'ELO After': eloAfter,
-      'ELO Change': eloChangeValue,
-      'Session Status': match.session_status || null
+      date: match.date,
+      partner: partner || '',
+      partner_id: partnerId,
+      opponent_1: opponent1 || '',
+      opponent_1_id: opponent1Id,
+      opponent_2: opponent2 || '',
+      opponent_2_id: opponent2Id,
+      result: result,
+      score: `${playerScore}-${opponentScore}`,
+      elo_after: eloAfter,
+      elo_change: eloChangeValue,
+      session_status: match.session_status || null
     };
   });
 }
