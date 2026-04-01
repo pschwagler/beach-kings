@@ -20,12 +20,13 @@ async function authenticateAndGoto(page, user, path) {
     window.localStorage.setItem('beach_refresh_token', refreshToken);
   }, { accessToken: user.token, refreshToken: user.refreshToken });
 
-  const authMePromise = page.waitForResponse(
-    resp => resp.url().includes('/api/auth/me'),
-    { timeout: 15000 },
-  );
-  await page.goto(path);
-  await authMePromise;
+  await Promise.all([
+    page.waitForResponse(
+      resp => resp.url().includes('/api/auth/me'),
+      { timeout: 15000 },
+    ),
+    page.goto(path),
+  ]);
 }
 
 /**

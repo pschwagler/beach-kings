@@ -216,8 +216,8 @@ test.describe('Admin Courts Tab', () => {
 
 test.describe('Court Detail Empty State', () => {
   test('court without photos shows empty-state CTA', async ({ page }) => {
-    // South Mission Beach is a known seeded court without court_photos
-    await page.goto('/courts/south-mission-beach-volleyball-courts-san-diego');
+    // Ocean Beach is a known seeded court without court_photos (avoids race with court-photos.spec.js which seeds South Mission Beach)
+    await page.goto('/courts/ocean-beach-volleyball-courts-san-diego');
 
     // Wait for page to load
     await expect(page.locator('.court-detail__name')).toBeVisible({ timeout: 15000 });
@@ -229,7 +229,7 @@ test.describe('Court Detail Empty State', () => {
   });
 
   test('empty-state CTA navigates to photos page on click', async ({ page }) => {
-    await page.goto('/courts/south-mission-beach-volleyball-courts-san-diego');
+    await page.goto('/courts/ocean-beach-volleyball-courts-san-diego');
 
     await expect(page.locator('.court-detail__name')).toBeVisible({ timeout: 15000 });
 
@@ -238,7 +238,7 @@ test.describe('Court Detail Empty State', () => {
 
     // Click and verify navigation
     await emptyCta.click();
-    await page.waitForURL('**/courts/south-mission-beach-volleyball-courts-san-diego/photos', {
+    await page.waitForURL('**/courts/ocean-beach-volleyball-courts-san-diego/photos', {
       timeout: 15000,
     });
     expect(page.url()).toContain('/photos');
