@@ -42,6 +42,7 @@
   --sand: #f4e4c1;
   --sand-rgb: 244, 228, 193;
   --sand-light: #faf0d8;
+  --cream: #fdf8f0;
   --sand-dark: #d6c19c;
   --deep-ocean: #2c7a8f;
   --warm-brown: #8b6f47;
@@ -67,7 +68,6 @@
   --ocean-gray-dark: #6f7b7d;
   --ocean-gray-darker: #3d4445;
   --navy-logo-bg: #0f172a;
-  --muted-red: #cc4e4e;
 
   /* Gold gradient */
   --gold-gradient: linear-gradient(
@@ -98,8 +98,14 @@
   --success-light: #e8fbf0;
   --success-lighter: #f4fdf8;
   --danger: #ef4444;
+  --danger-dark: #dc2626;
+  --danger-darker: #b91c1c;
+  --danger-darkest: #991b1b;
+  --danger-rgb: 220, 38, 38;
   --danger-light: #ffeceb;
   --danger-lighter: #fef2f2;
+  --danger-bg: #fee2e2;
+  --danger-bg-hover: #fecaca;
 
   --warning: #f59e0b;
   --warning-dark: #92400e;
