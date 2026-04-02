@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Calendar, Trophy, UserPlus, User, MapPin } from 'lucide-react';
 import { getOpenSessions } from '../../services/api';
 import { formatDate } from '../../utils/dateUtils';
+import { navigateToSession } from '../../utils/navigation';
 
 interface SessionItem {
   id: number;
@@ -70,9 +71,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
       onSessionClick(session);
       return;
     }
-    if (session.code) {
-      router.push(`/session/${session.code}`);
-    }
+    navigateToSession(router, session);
   };
 
   const participationLabel = (session: SessionItem) => {

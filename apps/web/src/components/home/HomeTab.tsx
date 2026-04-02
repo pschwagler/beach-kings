@@ -9,6 +9,7 @@ import { MySessionsWidget } from './OpenSessionsList';
 import NearYouSection from './NearYouSection';
 import { getPlayerMatchHistory } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
+import { navigateToMatch } from '../../utils/navigation';
 import type { Player, League, MatchRecord } from '../../types';
 
 const getAvatarInitial = (currentUserPlayer: Player | null): string => {
@@ -82,21 +83,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
   };
 
   const handleMatchClick = (match: MatchRecord) => {
-    const sessionCode = match?.session_code;
-    if (sessionCode) {
-      router.push(`/session/${sessionCode}`);
-      return;
-    }
-    const leagueId = match.league_id;
-    if (leagueId) {
-      const params = new URLSearchParams();
-      params.set('tab', 'matches');
-      const seasonId = match.season_id;
-      if (seasonId) {
-        params.set('season', seasonId.toString());
-      }
-      router.push(`/league/${leagueId}?${params.toString()}`);
-    }
+    navigateToMatch(router, match);
   };
 
   const avatarInitial = getAvatarInitial(currentUserPlayer);

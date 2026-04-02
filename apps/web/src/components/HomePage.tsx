@@ -7,6 +7,7 @@ import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
 import { getUserLeagues, createLeague, addLeagueHomeCourt } from "../services/api";
 import type { League } from "../types";
+import { navigateToMatch } from "../utils/navigation";
 import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
@@ -227,20 +228,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
                 <MyGamesTab
                   currentUserPlayer={currentUserPlayer}
                   onTabChange={handleTabChange}
-                  onMatchClick={(match) => {
-                    const sessionCode = match?.session_code;
-                    if (sessionCode) {
-                      router.push(`/session/${sessionCode}`);
-                      return;
-                    }
-                    const leagueId = match?.league_id;
-                    if (leagueId) {
-                      const params = new URLSearchParams();
-                      params.set("tab", "matches");
-                      if (match.season_id) params.set("season", String(match.season_id));
-                      router.push(`/league/${leagueId}?${params.toString()}`);
-                    }
-                  }}
+                  onMatchClick={(match) => navigateToMatch(router, match)}
                 />
               )}
 

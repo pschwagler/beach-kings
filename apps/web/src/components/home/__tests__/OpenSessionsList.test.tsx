@@ -93,7 +93,7 @@ describe('MySessionsWidget — session click navigation', () => {
     );
   });
 
-  it('navigates to /session/{code} for a league session (not to the league page)', async () => {
+  it('navigates to league matches tab for a league session', async () => {
     (getOpenSessions as ReturnType<typeof vi.fn>).mockResolvedValue([
       makeSession({ code: 'LEAGUE1', league_id: 42, season_id: 7 }),
     ]);
@@ -106,11 +106,9 @@ describe('MySessionsWidget — session click navigation', () => {
 
     fireEvent.click(screen.getByText('Test Session'));
 
-    expect(mockPush).toHaveBeenCalledWith('/session/LEAGUE1');
-    // Must NOT route to the league page
-    expect(mockPush).not.toHaveBeenCalledWith(
-      expect.stringContaining('/league/42'),
-    );
+    expect(mockPush).toHaveBeenCalledWith('/league/42?tab=matches&season=7');
+    // Must NOT route to the session page
+    expect(mockPush).not.toHaveBeenCalledWith('/session/LEAGUE1');
   });
 
   it('does not navigate when session has no code', async () => {
