@@ -193,22 +193,22 @@
 
 /* Danger confirm button in modals - keep red and prominent */
 .modal-actions .button.btn-danger {
-  background: #dc2626;
+  background: var(--danger-dark);
   color: white;
   font-weight: 600;
   border: none;
-  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+  box-shadow: 0 2px 4px rgba(var(--danger-rgb), 0.3);
 }
 
 .modal-actions .button.btn-danger:hover {
-  background: #b91c1c;
+  background: var(--danger-darker);
   color: white;
-  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 4px 8px rgba(var(--danger-rgb), 0.4);
   transform: translateY(-1px);
 }
 
 .modal-actions .button.btn-danger:active {
-  background: #991b1b;
+  background: var(--danger-darkest);
   transform: translateY(0);
 }
 
@@ -238,7 +238,7 @@
   height: 48px;
   border-radius: 50%;
   background: var(--danger-lighter);
-  color: #dc2626;
+  color: var(--danger-dark);
 }
 
 .confirmation-modal-context {

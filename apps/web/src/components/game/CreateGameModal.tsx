@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Trophy, Users, ArrowLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getUserLeagues, createSession } from '../../services/api';
+import { getUserLeagues, createSession, getOpenSessions } from '../../services/api';
 import './CreateGameModal.css';
 import type { League } from '../../types';
 
@@ -11,8 +11,19 @@ import type { League } from '../../types';
  * CreateGameModal — unified entry point for creating a game.
  * Step 1: Choose League Game or Pickup Game.
  * Step 2 (league only): Pick a league from the user's leagues.
- * Pickup path creates a session inline and navigates to /session/[code].
+ * Step 3 (pickup only): If an active session already exists, prompt the user to
+ *   continue it or start a fresh one. POST /api/sessions always creates a new
+ *   session — it never finds an existing one — so the modal checks
+ *   GET /api/sessions/open first to surface the choice.
+ * Pickup path navigates to /session/[code].
  */
+
+interface ActiveSessionInfo {
+  id: number;
+  code: string;
+  date: string;
+}
+
 interface CreateGameModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +38,9 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
   const [creatingPickup, setCreatingPickup] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // When non-null, step 1 shows the "continue or new?" dialog instead of the main options.
+  const [existingSession, setExistingSession] = useState<ActiveSessionInfo | null>(null);
+
   // Fetch user leagues on modal open
   useEffect(() => {
     if (!isOpen) return;
@@ -34,6 +48,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
     setError(null);
     setLeagueLoadError(false);
     setCreatingPickup(false);
+    setExistingSession(null);
     let cancelled = false;
 
     const fetchLeagues = async () => {
@@ -42,7 +57,6 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
         const data = await getUserLeagues();
         if (!cancelled) setLeagues(data || []);
       } catch (err: unknown) {
-        console.error('Error fetching user leagues:', err);
         if (!cancelled) {
           setLeagues([]);
           setLeagueLoadError(true);
@@ -75,29 +89,38 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
   const handleLeagueGame = useCallback(() => {
     if (leagues.length === 0) return;
     if (leagues.length === 1) {
-      // Auto-select the only league
       selectLeague(leagues[0].id);
       return;
     }
     setStep(2);
   }, [leagues, selectLeague]);
 
-  /** Handle "Pickup Game" click — create session and navigate. */
-  const handlePickupGame = useCallback(async () => {
-    if (creatingPickup) return;
+  /**
+   * Navigate to a session by code. Shared by both "continue existing" and
+   * "new session created" paths.
+   */
+  const navigateToSession = useCallback((code: string) => {
+    onClose();
+    router.push(`/session/${code}`);
+  }, [onClose, router]);
+
+  /**
+   * Call the backend to create a brand-new session, then navigate to it.
+   * POST /api/sessions always creates a fresh session — it never reuses an
+   * existing one.
+   */
+  const doCreateNewSession = useCallback(async () => {
     setCreatingPickup(true);
     setError(null);
     try {
       const res = await createSession({});
       const sess = res?.session || res;
       if (sess?.code) {
-        onClose();
-        router.push(`/session/${sess.code}`);
+        navigateToSession(sess.code);
       } else {
         setError('Session created but no share link available. Please try again.');
       }
     } catch (err: unknown) {
-      console.error('Error creating pickup session:', err);
       const e = err as Record<string, unknown>;
       const detail = (e?.response as Record<string, unknown> | undefined)?.data
         ? ((e.response as Record<string, unknown>).data as Record<string, unknown>)?.detail as string | undefined
@@ -106,7 +129,32 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
     } finally {
       setCreatingPickup(false);
     }
-  }, [creatingPickup, onClose, router]);
+  }, [navigateToSession]);
+
+  /**
+   * Handle "Pickup Game" click.
+   * Checks for an existing active session first. If one is found the user is
+   * prompted to continue it or start a new one. If none exists, a new session
+   * is created immediately.
+   */
+  const handlePickupGame = useCallback(async () => {
+    if (creatingPickup) return;
+    setError(null);
+    try {
+      const sessions: Array<{ id: number; code: string; date?: string; status?: string }> =
+        await getOpenSessions();
+      const active = sessions.find((s) => s.status === 'ACTIVE' || !s.status);
+      if (active) {
+        setExistingSession({ id: active.id, code: active.code, date: active.date ?? '' });
+        return;
+      }
+    } catch (err) {
+      // If the check fails, fall through and attempt creation; the create call
+      // will surface its own error if it also fails.
+      console.warn('[CreateGameModal] open-session check failed:', err);
+    }
+    await doCreateNewSession();
+  }, [creatingPickup, doCreateNewSession]);
 
   if (!isOpen) return null;
 
@@ -123,17 +171,20 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
       >
         {/* Header */}
         <div className="create-game-modal__header">
-          {step === 2 && (
+          {(step === 2 || existingSession) && (
             <button
               className="create-game-modal__back-btn"
-              onClick={() => setStep(1)}
+              onClick={() => {
+                setStep(1);
+                setExistingSession(null);
+              }}
               aria-label="Back"
             >
               <ArrowLeft size={20} />
             </button>
           )}
           <h2 id="create-game-title" className="create-game-modal__title">
-            {step === 1 ? 'Create Game' : 'Select League'}
+            {existingSession ? 'Active Session' : step === 1 ? 'Create Game' : 'Select League'}
           </h2>
           <button className="create-game-modal__close-btn" onClick={onClose} aria-label="Close">
             <X size={20} />
@@ -147,8 +198,47 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
           </div>
         )}
 
+        {/* Active session confirmation — shown when a pickup session already exists */}
+        {existingSession && (
+          <div className="create-game-modal__existing-session">
+            <p className="create-game-modal__existing-session-text">
+              You have an active session{existingSession.date ? ` from ${existingSession.date}` : ''}.
+              Would you like to continue it or start a new one?
+            </p>
+            <div className="create-game-modal__existing-session-actions">
+              <button
+                className="create-game-modal__option create-game-modal__option--session"
+                onClick={() => navigateToSession(existingSession.code)}
+              >
+                <div className="create-game-modal__option-text">
+                  <span className="create-game-modal__option-label">Continue Session</span>
+                  <span className="create-game-modal__option-desc">
+                    Resume the session{existingSession.date ? ` from ${existingSession.date}` : ''}
+                  </span>
+                </div>
+                <ChevronRight size={20} className="create-game-modal__option-arrow" />
+              </button>
+              <button
+                className="create-game-modal__option create-game-modal__option--session"
+                onClick={doCreateNewSession}
+                disabled={creatingPickup}
+              >
+                <div className="create-game-modal__option-text">
+                  <span className="create-game-modal__option-label">
+                    {creatingPickup ? 'Creating...' : 'New Session'}
+                  </span>
+                  <span className="create-game-modal__option-desc">
+                    Start a fresh pickup session
+                  </span>
+                </div>
+                <ChevronRight size={20} className="create-game-modal__option-arrow" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Step 1: Choose type */}
-        {step === 1 && (
+        {!existingSession && step === 1 && (
           <div className="create-game-modal__options">
             <button
               className={`create-game-modal__option ${!hasLeagues ? 'create-game-modal__option--disabled' : ''}`}
@@ -195,7 +285,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
         )}
 
         {/* Step 2: Pick a league */}
-        {step === 2 && (
+        {!existingSession && step === 2 && (
           <div className="create-game-modal__leagues">
             {leagues.map((league) => (
               <button

@@ -54,31 +54,31 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
             return (
               <tr key={idx} className={rowClass}>
                 <td>
-                  {match.Date}
+                  {match.date}
                   {isActiveSession && (
                     <span className="active-session-badge-small"> Pending</span>
                   )}
                 </td>
                 <td>
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match.partner_id ?? match.Partner)}>
-                    {match.Partner}
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match.partner_id ?? match.partner)}>
+                    {match.partner}
                   </span>
                 </td>
                 <td>
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_1_id ?? match['Opponent 1'])}>
-                    {match['Opponent 1']}
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_1_id ?? match.opponent_1)}>
+                    {match.opponent_1}
                   </span>
                   {' / '}
-                  <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_2_id ?? match['Opponent 2'])}>
-                    {match['Opponent 2']}
+                  <span className="player-name-modern" onClick={() => onPlayerChange(match.opponent_2_id ?? match.opponent_2)}>
+                    {match.opponent_2}
                   </span>
                 </td>
                 <td>
-                  <strong className={match.Result === 'W' ? 'result-win' : 'result-loss'}>
-                    {match.Result}
+                  <strong className={match.result === 'W' ? 'result-win' : 'result-loss'}>
+                    {match.result}
                   </strong>
                 </td>
-                <td>{match.Score}</td>
+                <td>{match.score}</td>
                 <td>
                   {isActiveSession ? (
                     <span className="pending-text">Pending</span>

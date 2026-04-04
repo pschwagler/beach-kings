@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, Target, Award } from 'lucide-react';
+import { Users, TrendingUp, Target, Award, Swords } from 'lucide-react';
 import MyLeaguesBar from '../dashboard/MyLeaguesBar';
 import MyMatchesWidget from '../dashboard/MyMatchesWidget';
 import { MySessionsWidget } from './OpenSessionsList';
 import NearYouSection from './NearYouSection';
 import { getPlayerMatchHistory } from '../../services/api';
 import { isImageUrl } from '../../utils/avatar';
-import type { Player, League } from '../../types';
+import { navigateToMatch } from '../../utils/navigation';
+import type { Player, League, MatchRecord } from '../../types';
 
 const getAvatarInitial = (currentUserPlayer: Player | null): string => {
   if (currentUserPlayer?.nickname) {
@@ -21,16 +22,6 @@ const getAvatarInitial = (currentUserPlayer: Player | null): string => {
   return '?';
 };
 
-interface MatchHistoryRecord {
-  Date?: string;
-  Result?: string;
-  session_status?: string;
-  elo_after?: number | null;
-  league_id?: number | string | null;
-  season_id?: number | string | null;
-  session_code?: string | null;
-}
-
 interface HomeTabProps {
   currentUserPlayer: Player | null;
   userLeagues: League[];
@@ -40,7 +31,7 @@ interface HomeTabProps {
 
 export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, onLeaguesUpdate }: HomeTabProps) {
   const router = useRouter();
-  const [userMatches, setUserMatches] = useState<MatchHistoryRecord[]>([]);
+  const [userMatches, setUserMatches] = useState<MatchRecord[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [sessionsRefreshTrigger, setSessionsRefreshTrigger] = useState(0);
 
@@ -71,8 +62,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         const matches = await getPlayerMatchHistory(playerId);
         const sortedMatches = (matches || [])
           .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-            const dateA = a.Date ? new Date(a.Date as string).getTime() : 0;
-            const dateB = b.Date ? new Date(b.Date as string).getTime() : 0;
+            const dateA = a.date ? new Date(a.date as string).getTime() : 0;
+            const dateB = b.date ? new Date(b.date as string).getTime() : 0;
             return dateB - dateA;
           });
         setUserMatches(sortedMatches);
@@ -91,22 +82,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     router.push(`/league/${leagueId}`);
   };
 
-  const handleMatchClick = (match: MatchHistoryRecord) => {
-    const sessionCode = match?.session_code;
-    if (sessionCode) {
-      router.push(`/session/${sessionCode}`);
-      return;
-    }
-    const leagueId = match.league_id;
-    if (leagueId) {
-      const params = new URLSearchParams();
-      params.set('tab', 'matches');
-      const seasonId = match.season_id;
-      if (seasonId) {
-        params.set('season', seasonId.toString());
-      }
-      router.push(`/league/${leagueId}?${params.toString()}`);
-    }
+  const handleMatchClick = (match: MatchRecord) => {
+    navigateToMatch(router, match);
   };
 
   const avatarInitial = getAvatarInitial(currentUserPlayer);
@@ -138,8 +115,8 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     if (completedMatches.length > 0) {
       // Sort by date to get most recent
       const sortedMatches = [...completedMatches].sort((a, b) => {
-        const dateA = a.Date ? new Date(a.Date).getTime() : 0;
-        const dateB = b.Date ? new Date(b.Date).getTime() : 0;
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
         return dateB - dateA;
       });
 
@@ -155,13 +132,13 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const recentMatches = completedMatches.filter(match => {
-      if (!match.Date) return false;
-      const matchDate = new Date(match.Date);
+      if (!match.date) return false;
+      const matchDate = new Date(match.date);
       return matchDate >= thirtyDaysAgo;
     });
 
     const games30Days = recentMatches.length;
-    const wins = recentMatches.filter(match => match.Result === 'W').length;
+    const wins = recentMatches.filter(match => match.result === 'W').length;
     const winRate30Days = games30Days > 0 ? Math.round((wins / games30Days) * 100) : 0;
 
     return { totalGames, currentRating, games30Days, winRate30Days };
@@ -211,7 +188,7 @@ export default function HomeTab({ currentUserPlayer, userLeagues, onTabChange, o
         {[
           { icon: Target, label: 'Total Games Played', value: totalGames },
           { icon: TrendingUp, label: 'Rating', value: totalGames === 0 && currentRating === 0 ? '\u2014' : Math.round(currentRating) },
-          { icon: Target, label: 'Games Played (Last 30 days)', value: games30Days },
+          { icon: Swords, label: 'Games Played (Last 30 days)', value: games30Days },
           { icon: Award, label: 'Win Rate (Last 30 days)', value: games30Days > 0 ? `${winRate30Days}%` : '\u2014' },
         ].map(({ icon: Icon, label, value }) => (
           <div

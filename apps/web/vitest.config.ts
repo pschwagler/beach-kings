@@ -6,14 +6,19 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.{test,spec}.{js,jsx,ts,tsx}"],
+    include: [
+      "src/**/*.{test,spec}.{js,jsx,ts,tsx}",
+      "app/**/*.{test,spec}.{js,jsx,ts,tsx}",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      include: ["src/**/*.{js,jsx,ts,tsx}"],
+      include: ["src/**/*.{js,jsx,ts,tsx}", "app/**/*.{js,jsx,ts,tsx}"],
       exclude: [
         "src/**/*.{test,spec}.{js,jsx,ts,tsx}",
         "src/**/__tests__/**",
+        "app/**/*.{test,spec}.{js,jsx,ts,tsx}",
+        "app/**/__tests__/**",
       ],
     },
   },

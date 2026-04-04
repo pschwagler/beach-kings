@@ -875,6 +875,25 @@ class FriendBatchStatusResponse(BaseModel):
     mutual_counts: dict  # { player_id: int }
 
 
+class FriendSuggestionItem(BaseModel):
+    """Single friend suggestion item."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+    level: Optional[str] = None
+    location_name: Optional[str] = None
+    shared_league_count: int
+
+
+class MutualFriendItem(BaseModel):
+    """Single mutual friend item."""
+
+    player_id: int
+    full_name: str
+    avatar: Optional[str] = None
+
+
 # Update SessionResponse to include new fields
 class SessionResponse(BaseModel):
     """Session data."""
@@ -1012,7 +1031,7 @@ class SessionMatchItemResponse(BaseModel):
     team2_player2_name: str = ""
     team1_score: Optional[int] = None
     team2_score: Optional[int] = None
-    winner: Optional[str] = None
+    winner: Optional[int] = None
     is_ranked: Optional[bool] = None
     ranked_intent: Optional[bool] = None
 
@@ -1170,7 +1189,8 @@ class LeagueMessageResponse(BaseModel):
     id: int
     league_id: int
     user_id: int
-    player_name: str
+    player_id: Optional[int] = None
+    player_name: Optional[str] = None
     message: str
     created_at: str
 

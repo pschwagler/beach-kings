@@ -6,17 +6,17 @@ Extracted from data_service.py.  Provides read/write access to the
 ``users`` and ``players`` tables.
 """
 
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 __all__ = [
     "get_league_messages",
     "create_league_message",
 ]
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import LeagueMessage, User, Player
+from backend.database.models import LeagueMessage, Player
 
 
 async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dict]:
@@ -24,8 +24,7 @@ async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dic
     Return all messages for a league, ordered oldest-first.
 
     Each message dict contains the author's ``player_name`` joined from
-    the ``players`` table (falling back to the ``users`` table if no
-    player row exists).
+    the ``players`` table via the shared ``user_id`` foreign key.
 
     Args:
         session: Async database session.
@@ -34,20 +33,19 @@ async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dic
     Returns:
         List of message dicts with keys:
         ``id``, ``league_id``, ``user_id``, ``player_id``,
-        ``player_name``, ``content``, ``created_at``.
+        ``player_name``, ``message``, ``created_at``.
     """
     result = await session.execute(
         select(
             LeagueMessage.id,
             LeagueMessage.league_id,
             LeagueMessage.user_id,
-            LeagueMessage.player_id,
+            Player.id.label("player_id"),
             Player.full_name.label("player_name"),
-            LeagueMessage.content,
+            LeagueMessage.message_text.label("message"),
             LeagueMessage.created_at,
         )
-        .outerjoin(User, LeagueMessage.user_id == User.id)
-        .outerjoin(Player, LeagueMessage.player_id == Player.id)
+        .outerjoin(Player, LeagueMessage.user_id == Player.user_id)
         .where(LeagueMessage.league_id == league_id)
         .order_by(LeagueMessage.created_at.asc())
     )
@@ -59,7 +57,7 @@ async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dic
             "user_id": row.user_id,
             "player_id": row.player_id,
             "player_name": row.player_name,
-            "content": row.content,
+            "message": row.message,
             "created_at": row.created_at.isoformat() if row.created_at else None,
         }
         for row in rows
@@ -70,8 +68,7 @@ async def create_league_message(
     session: AsyncSession,
     league_id: int,
     user_id: int,
-    player_id: Optional[int],
-    content: str,
+    message_text: str,
 ) -> Dict:
     """
     Create a new message in a league.
@@ -80,39 +77,39 @@ async def create_league_message(
         session: Async database session.
         league_id: League to post the message to.
         user_id: ID of the user posting the message.
-        player_id: Optional player profile ID of the author.
-        content: Message body text.
+        message_text: Message body text.
 
     Returns:
         Message dict with keys:
         ``id``, ``league_id``, ``user_id``, ``player_id``,
-        ``player_name``, ``content``, ``created_at``.
+        ``player_name``, ``message``, ``created_at``.
     """
-    message = LeagueMessage(
+    msg = LeagueMessage(
         league_id=league_id,
         user_id=user_id,
-        player_id=player_id,
-        content=content,
+        message_text=message_text,
     )
-    session.add(message)
+    session.add(msg)
     await session.flush()
-    await session.commit()
-    await session.refresh(message)
+    await session.refresh(msg)
 
     # Resolve player name for the response
+    player_id: Optional[int] = None
     player_name: Optional[str] = None
-    if player_id is not None:
-        player_result = await session.execute(
-            select(Player.full_name).where(Player.id == player_id)
-        )
-        player_name = player_result.scalar_one_or_none()
+    player_result = await session.execute(
+        select(Player.id, Player.full_name).where(Player.user_id == user_id)
+    )
+    player_row = player_result.one_or_none()
+    if player_row is not None:
+        player_id = player_row.id
+        player_name = player_row.full_name
 
     return {
-        "id": message.id,
-        "league_id": message.league_id,
-        "user_id": message.user_id,
-        "player_id": message.player_id,
+        "id": msg.id,
+        "league_id": msg.league_id,
+        "user_id": msg.user_id,
+        "player_id": player_id,
         "player_name": player_name,
-        "content": message.content,
-        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "message": msg.message_text,
+        "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }

@@ -10,13 +10,34 @@ interface MatchCardProps {
 }
 
 /**
+ * Builds the tooltip text for the Pending badge.
+ * Names specific unregistered (placeholder) players when available.
+ */
+function buildPendingTooltip(match: any): string {
+  const slots = [
+    { name: match.team_1_player_1, isPlaceholder: match.team_1_player_1_is_placeholder },
+    { name: match.team_1_player_2, isPlaceholder: match.team_1_player_2_is_placeholder },
+    { name: match.team_2_player_1, isPlaceholder: match.team_2_player_1_is_placeholder },
+    { name: match.team_2_player_2, isPlaceholder: match.team_2_player_2_is_placeholder },
+  ];
+  const names = slots
+    .filter((s) => s.isPlaceholder && s.name)
+    .map((s) => s.name as string);
+
+  if (names.length > 0) {
+    return `Waiting for ${names.join(', ')} to register to finalize this game`;
+  }
+  return 'Waiting for unregistered player(s) to join to finalize this game';
+}
+
+/**
  * MatchCard Component — individual match display.
  * Shows two teams with players, scores, and winner highlight.
  * Displays ShareInviteIcon next to placeholder player names.
  */
 export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = false }: MatchCardProps) {
-  const team1Won = match.Winner === 'Team 1';
-  const team2Won = match.Winner === 'Team 2';
+  const team1Won = match.winner === 'Team 1';
+  const team2Won = match.winner === 'Team 2';
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger card click if clicking on player name
@@ -82,7 +103,7 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
         ) : match.ranked_intent ? (
           <span
             className="match-card-badge match-card-badge--pending"
-            data-tooltip="Will become ranked when all players register"
+            data-tooltip={buildPendingTooltip(match)}
           >
             Pending
           </span>

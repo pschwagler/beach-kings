@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trophy, Users, ChevronDown, Camera } from 'lucide-react';
 import type { Season, Match, Session } from '../../types';
 
@@ -92,6 +92,41 @@ interface DateGroup {
 /** Either a session group or a date group. */
 type MatchGroup = ReturnType<typeof createSessionGroup> | DateGroup;
 
+/**
+ * Comparator for sorting session/date groups in descending order.
+ *
+ * Primary key: `date` (YYYY-MM-DD) — descending lexicographic comparison.
+ * When `date` is absent on either side the date comparison is skipped entirely
+ * to avoid using the display name string as a proxy date.
+ * Tiebreaker: `createdAt` timestamp — descending.
+ * Groups that have a `createdAt` value sort before groups that do not.
+ */
+export function compareSessionGroups(
+  a: { date?: string | null; createdAt?: string | null },
+  b: { date?: string | null; createdAt?: string | null }
+): number {
+  const dateA = a.date ?? null;
+  const dateB = b.date ?? null;
+
+  if (dateA && dateB) {
+    const dateCmp = dateB.localeCompare(dateA);
+    if (dateCmp !== 0) return dateCmp;
+  }
+
+  const createdA = a.createdAt ?? null;
+  const createdB = b.createdAt ?? null;
+
+  if (createdA && createdB) {
+    const timeDiff = Date.parse(createdB) - Date.parse(createdA);
+    if (timeDiff !== 0) return timeDiff;
+  }
+
+  if (createdA && !createdB) return -1;
+  if (!createdA && createdB) return 1;
+
+  return 0;
+}
+
 function createSessionGroup(
   sessionId: number | string,
   sessionName: string,
@@ -118,6 +153,11 @@ function createSessionGroup(
   };
 }
 
+const EMPTY_PLAYER_MAP = new Map<number, string>();
+const EMPTY_SESSIONS_SET = new Set<number>();
+const EMPTY_MATCH_CHANGES_MAP = new Map<number, SessionChanges>();
+const EMPTY_SESSION_METADATA_MAP = new Map<number, SessionMetadata>();
+
 export default function MatchesTable({
   matches,
   onPlayerClick,
@@ -131,15 +171,15 @@ export default function MatchesTable({
   onUpdateMatch,
   onDeleteMatch,
   allPlayerNames,
-  playerIdToName = new Map(),
+  playerIdToName = EMPTY_PLAYER_MAP,
   leagueId = null,
   isAdmin = false,
-  editingSessions = new Set(),
+  editingSessions = EMPTY_SESSIONS_SET,
   onEnterEditMode,
   onSaveEditedSession,
   onCancelEdit,
-  pendingMatchChanges = new Map(),
-  editingSessionMetadata = new Map(),
+  pendingMatchChanges = EMPTY_MATCH_CHANGES_MAP,
+  editingSessionMetadata = EMPTY_SESSION_METADATA_MAP,
   seasons = [],
   selectedSeasonId = null,
   onUpdateSessionSeason = null,
@@ -153,8 +193,6 @@ export default function MatchesTable({
 }: MatchesTableProps) {
   const { isLeagueMember, members, league } = useLeague();
   const { openModal, closeModal } = useModal();
-  const hasRenderedMatchesRef = useRef(false);
-  
   // Photo upload state
   const [photoJobId, setPhotoJobId] = useState<string | null>(null);
   const [photoSessionId, setPhotoSessionId] = useState<number | null>(null);
@@ -219,7 +257,7 @@ export default function MatchesTable({
             team_2_player_2: (updatedData.team2_player2 as string | undefined) || match.team_2_player_2,
             team_1_score: team1Score as number | null,
             team_2_score: team2Score as number | null,
-            Winner: calculateWinner(team1Score as number, team2Score as number)
+            winner: calculateWinner(team1Score as number, team2Score as number)
           };
         }
       });
@@ -252,9 +290,9 @@ export default function MatchesTable({
           team_2_player_2: getPlayerName((newMatchData.team2_player2_id || newMatchData.team2_player2) as string | number | null | undefined),
           team_1_score: newMatchData.team1_score as number | null,
           team_2_score: newMatchData.team2_score as number | null,
-          Winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
-          'Team 1 ELO Change': 0,
-          'Team 2 ELO Change': 0,
+          winner: calculateWinner(newMatchData.team1_score as number, newMatchData.team2_score as number),
+          team_1_elo_change: 0,
+          team_2_elo_change: 0,
         };
         updatedMatches.push(pendingMatch);
       });
@@ -286,7 +324,7 @@ export default function MatchesTable({
           const sessionCreatedAt = sessionData?.created_at || match.session_created_at;
           const sessionName = sessionData?.name || match.session_name;
           const sessionStatus = sessionData?.status || match.session_status;
-          const sessionDate = sessionData?.date || match.Date;
+          const sessionDate = sessionData?.date || match.date;
 
           acc[key] = createSessionGroup(
             sessionId,
@@ -316,11 +354,11 @@ export default function MatchesTable({
           sessionGroup.lastUpdated = match.session_updated_at;
         }
       } else {
-        const key = `date-${match.Date}`;
+        const key = `date-${match.date}`;
         if (!acc[key]) {
           acc[key] = {
             type: 'date',
-            name: match.Date,
+            name: match.date,
             createdAt: null,
             lastUpdated: null,
             createdBy: null,
@@ -359,7 +397,7 @@ export default function MatchesTable({
             // Use session data from allSessions if available
             const sessionData = sessionsMap.get(sessionId);
             const sessionCreatedAt = sessionData?.created_at || sessionMatch.session_created_at;
-            const sessionDate = sessionData?.date || sessionMatch.Date;
+            const sessionDate = sessionData?.date || sessionMatch.date;
 
             grouped[key] = createSessionGroup(
               sessionId,
@@ -377,14 +415,6 @@ export default function MatchesTable({
     });
     return grouped;
   }, [matchesWithPendingChanges, editingSessions, editingSessionMetadata, matches, sessionsMap]);
-
-  useEffect(() => {
-    if (!loading && matches !== null && Array.isArray(matches) && matchesWithPendingChanges !== null) {
-      hasRenderedMatchesRef.current = true;
-    } else if (loading || matches === null) {
-      hasRenderedMatchesRef.current = false;
-    }
-  }, [loading, matches, matchesWithPendingChanges]);
 
   const activeSessionMatches = useMemo(() => {
     if (!activeSession) return [];
@@ -412,31 +442,12 @@ export default function MatchesTable({
   }, [activeSessionMatches]);
 
   const sessionGroups: [string, MatchGroup][] = useMemo(() => {
-    return Object.entries(matchesBySession).sort(([, groupA], [, groupB]) => {
-      // Primary sort: session date descending (matches backend ORDER BY date DESC)
-      // Session date is a YYYY-MM-DD string — lexicographic comparison works correctly
-      const sessionDateA = (groupA as ReturnType<typeof createSessionGroup>).date || groupA.name;
-      const sessionDateB = (groupB as ReturnType<typeof createSessionGroup>).date || groupB.name;
-
-      if (sessionDateA && sessionDateB) {
-        const dateCmp = sessionDateB.localeCompare(sessionDateA);
-        if (dateCmp !== 0) return dateCmp;
-      }
-
-      // Tiebreaker: created_at descending (matches backend ORDER BY created_at DESC)
-      const createdA = groupA.createdAt;
-      const createdB = groupB.createdAt;
-
-      if (createdA && createdB) {
-        const timeDiff = new Date(createdB).getTime() - new Date(createdA).getTime();
-        if (timeDiff !== 0) return timeDiff;
-      }
-
-      if (createdA && !createdB) return -1;
-      if (!createdA && createdB) return 1;
-
-      return 0;
-    });
+    return Object.entries(matchesBySession).sort(([, groupA], [, groupB]) =>
+      compareSessionGroups(
+        { date: (groupA as ReturnType<typeof createSessionGroup>).date, createdAt: groupA.createdAt },
+        { date: (groupB as ReturnType<typeof createSessionGroup>).date, createdAt: groupB.createdAt }
+      )
+    );
   }, [matchesBySession]);
 
   const isDataReady = !loading && matches !== null && Array.isArray(matches) && 
@@ -445,11 +456,10 @@ export default function MatchesTable({
   const showAddMatchCard = isDataReady && !activeSession;
   
   const shouldShowEmptyState = useMemo(() => {
-    return showAddMatchCard && 
-           hasRenderedMatchesRef.current && 
-           !matches?.length && 
-           !matchesWithPendingChanges?.length && 
-           !sessionGroups?.length && 
+    return showAddMatchCard &&
+           !matches?.length &&
+           !matchesWithPendingChanges?.length &&
+           !sessionGroups?.length &&
            !activeSession;
   }, [showAddMatchCard, matches, matchesWithPendingChanges, sessionGroups, activeSession]);
 
@@ -523,7 +533,8 @@ export default function MatchesTable({
       league,
       sessionSeasonId: (match as DisplayMatch).session_season_id ?? null,
       defaultSeasonId: selectedSeasonId,
-      onSeasonChange: onSeasonChange
+      onSeasonChange: onSeasonChange,
+      leagueHomeCourts,
     });
   };
 
@@ -549,7 +560,8 @@ export default function MatchesTable({
               members,
               league,
               defaultSeasonId: selectedSeasonId,
-              onSeasonChange: onSeasonChange
+              onSeasonChange: onSeasonChange,
+              leagueHomeCourts,
             })}
           >
             <h2 className="add-matches-title">Add Games</h2>
@@ -609,7 +621,8 @@ export default function MatchesTable({
               sessionId: activeSession?.id,
               sessionSeasonId: activeSession?.season_id,
               defaultSeasonId: selectedSeasonId,
-              onSeasonChange: onSeasonChange
+              onSeasonChange: onSeasonChange,
+              leagueHomeCourts,
             })}
             onEditMatch={handleEditMatch}
             onRequestDeleteSession={() => {
@@ -686,10 +699,18 @@ export default function MatchesTable({
             // Get season_id from the first match in the group, or from session metadata
             const sessionMatch = group.matches && group.matches.length > 0 ? group.matches[0] : null;
             const seasonId = sessionMatch?.session_season_id || null;
+            const sessionData = sessionsMap.get(group.id as number);
             return (
               <div data-session-id={group.id} key={key}>
                 <ActiveSessionPanel
-                  activeSession={{ id: group.id as number, name: group.name, season_id: seasonId }}
+                  activeSession={{
+                    id: group.id as number,
+                    name: group.name,
+                    season_id: seasonId,
+                    court_id: sessionData?.court_id ?? null,
+                    court_name: sessionData?.court_name ?? null,
+                    court_slug: sessionData?.court_slug ?? null,
+                  }}
                   activeSessionMatches={group.matches}
                   onPlayerClick={onPlayerClick as (playerId: number | null, playerName: string, e: React.MouseEvent) => void}
                   contentVariant={contentVariant}
@@ -705,7 +726,8 @@ export default function MatchesTable({
                     sessionId: group.id,
                     sessionSeasonId: seasonId,
                     defaultSeasonId: selectedSeasonId,
-                    onSeasonChange: onSeasonChange
+                    onSeasonChange: onSeasonChange,
+                    leagueHomeCourts,
                   })}
                   onEditMatch={handleEditMatch}
                   onSaveClick={() => onSaveEditedSession?.(group.id as number)}

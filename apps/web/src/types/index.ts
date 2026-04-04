@@ -412,6 +412,42 @@ export interface EloChange {
 }
 
 // ---------------------------------------------------------------------------
+// MatchRecord (match history row — used by MyMatchesWidget, MyStatsTab, MyGamesTab)
+// ---------------------------------------------------------------------------
+
+/**
+ * One row of a player's match history as returned by the match history API.
+ * This is a superset of all fields consumed by widgets and stats components.
+ * Index signature allows extra dynamic keys (e.g. from league-level formatters).
+ */
+export interface MatchRecord {
+  [key: string]: string | number | boolean | null | undefined;
+  result?: string | null;
+  score?: string | null;
+  date?: string | null;
+  partner?: string | null;
+  partner_id?: number | null;
+  partner_is_placeholder?: boolean;
+  opponent_1?: string | null;
+  opponent_1_id?: number | null;
+  opponent_1_is_placeholder?: boolean;
+  opponent_2?: string | null;
+  opponent_2_id?: number | null;
+  opponent_2_is_placeholder?: boolean;
+  session_status?: string | null;
+  session_code?: string | null;
+  elo_after?: number | null;
+  elo_before?: number | null;
+  elo_change?: number | null;
+  is_ranked?: boolean | null;
+  league_id?: number | string | null;
+  league_name?: string | null;
+  court_name?: string | null;
+  season_id?: number | string | null;
+  season_name?: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Match
 // ---------------------------------------------------------------------------
 

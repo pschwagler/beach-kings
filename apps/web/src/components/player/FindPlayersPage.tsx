@@ -17,7 +17,20 @@ import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
 import { formatGender } from '../../utils/formatters';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
-import type { PublicPlayerResponse, Location, League } from '../../types';
+import type { Location, League } from '../../types';
+
+/** Flat shape returned by the public players search endpoint. */
+interface PublicPlayerSearchResult {
+  id: number;
+  full_name: string;
+  avatar?: string | null;
+  gender?: string | null;
+  level?: string | null;
+  is_placeholder?: boolean;
+  location_name?: string | null;
+  total_games?: number | null;
+  current_rating?: number | null;
+}
 import './FindPlayersPage.css';
 
 /** Max players per page. */
@@ -30,7 +43,7 @@ const DEFAULT_SORT_DIR: Record<string, string> = { name: 'asc', games: 'desc', r
 const SORTABLE_COLUMNS = { name: 'name', games: 'games', rating: 'rating' };
 
 interface FriendBadgeProps {
-  friendStatuses: any;
+  friendStatuses: { statuses: Record<string, string>; mutual_counts: Record<string, number> } | null;
   playerId: number;
 }
 
@@ -113,7 +126,7 @@ export default function FindPlayersPage() {
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
-  const [players, setPlayers] = useState<PublicPlayerResponse[]>([]);
+  const [players, setPlayers] = useState<PublicPlayerSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -131,7 +144,7 @@ export default function FindPlayersPage() {
   const [viewMode, setViewMode] = useState('table');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [friendStatuses, setFriendStatuses] = useState(null);
+  const [friendStatuses, setFriendStatuses] = useState<{ statuses: Record<string, string>; mutual_counts: Record<string, number> } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
 
@@ -626,11 +639,11 @@ export default function FindPlayersPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="find-players__table-cell--secondary">{player.location?.name || '—'}</td>
+                                <td className="find-players__table-cell--secondary">{player.location_name || '—'}</td>
                                 <td className="find-players__table-cell--secondary">{player.gender ? formatGender(player.gender) : '—'}</td>
                                 <td>{player.level ? <LevelBadge level={player.level} /> : '—'}</td>
-                                <td className="find-players__table-cell--secondary">{player.stats?.total_games}</td>
-                                <td className="find-players__table-cell--secondary">{Math.round(player.stats?.current_rating || 1200)}</td>
+                                <td className="find-players__table-cell--secondary">{player.total_games}</td>
+                                <td className="find-players__table-cell--secondary">{Math.round(player.current_rating || 1200)}</td>
                                 <td><FriendBadge friendStatuses={friendStatuses} playerId={player.id} /></td>
                               </tr>
                             ))}
@@ -660,10 +673,10 @@ export default function FindPlayersPage() {
                                 <span className="find-players__card-badge find-players__card-badge--placeholder">Unregistered</span>
                               )}
                             </div>
-                            {player.location?.name && (
+                            {player.location_name && (
                               <span className="find-players__card-location">
                                 <MapPin size={12} />
-                                {player.location.name}
+                                {player.location_name}
                               </span>
                             )}
                             <div className="find-players__card-meta">
@@ -672,10 +685,10 @@ export default function FindPlayersPage() {
                               )}
                               {player.level && <LevelBadge level={player.level} />}
                               <span className="find-players__card-games">
-                                {player.stats?.total_games} game{player.stats?.total_games !== 1 ? 's' : ''}
+                                {player.total_games} game{player.total_games !== 1 ? 's' : ''}
                               </span>
                               <span className="find-players__card-rating">
-                                {Math.round(player.stats?.current_rating || 1200)}
+                                {Math.round(player.current_rating || 1200)}
                               </span>
                               <FriendBadge friendStatuses={friendStatuses} playerId={player.id} />
                             </div>

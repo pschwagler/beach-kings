@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../../components/league/utils/matchUtils', () => ({
-  calculateWinner: vi.fn((s1, s2) => (s1 > s2 ? 'Team 1' : 'Team 2')),
+  calculateWinner: vi.fn((s1: number, s2: number) => (s1 > s2 ? 'Team 1' : 'Team 2')),
 }));
 
 import { useEditBuffer, mergeBufferWithMatches } from '../useEditBuffer';
@@ -266,7 +266,7 @@ describe('mergeBufferWithMatches', () => {
       team_2_player_2: 'Dave',
       team_1_score: 21,
       team_2_score: 15,
-      Winner: 'Team 1',
+      winner: 'Team 1',
     },
     {
       id: 2,
@@ -276,7 +276,7 @@ describe('mergeBufferWithMatches', () => {
       team_2_player_2: 'Hank',
       team_1_score: 10,
       team_2_score: 21,
-      Winner: 'Team 2',
+      winner: 'Team 2',
     },
   ];
 

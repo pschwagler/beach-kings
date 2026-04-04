@@ -382,7 +382,7 @@ table:not([class]) tr:last-child td {
 
 .league-leave-text-button:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  color: var(--danger-dark);
 }
 
 .league-details-footer-row {
@@ -2737,13 +2737,13 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .delete-match-text-btn:hover {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--danger-bg);
+  color: var(--danger-darker);
   text-decoration: none;
 }
 
 .delete-match-text-btn:active {
-  background: #fecaca;
+  background: var(--danger-bg-hover);
 }
 
 .delete-match-text-btn:disabled {
@@ -5189,7 +5189,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .session-players-message {
-  color: var(--color-error, #dc2626);
+  color: var(--danger-dark);
   margin-bottom: 8px;
   font-size: 0.9rem;
 }
@@ -5664,7 +5664,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .session-page-delete-link {
   font-size: small;
-  color: var(--color-error, #dc2626);
+  color: var(--danger-dark);
   text-decoration: underline;
   background: none;
   border: none;
@@ -5674,7 +5674,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .session-page-delete-link:hover {
-  color: var(--color-error-dark, #b91c1c);
+  color: var(--danger-darker);
 }
 
 .session-page-created-by {
@@ -6250,19 +6250,19 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .btn-end-session-header {
   background: var(--danger);
-  border-color: #dc2626;
-  box-shadow: 4px 4px 0px #dc2626;
+  border-color: var(--danger-dark);
+  box-shadow: 4px 4px 0px var(--danger-dark);
   padding: 10px 20px;
   font-size: 0.9em;
 }
 
 .btn-end-session-header:hover {
-  background: #f87171;
-  box-shadow: 6px 6px 0px #dc2626;
+  background: var(--danger);
+  box-shadow: 6px 6px 0px var(--danger-dark);
 }
 
 .btn-end-session-header:active {
-  box-shadow: 2px 2px 0px #dc2626;
+  box-shadow: 2px 2px 0px var(--danger-dark);
 }
 
 /* Add Match Card */
@@ -7275,30 +7275,30 @@ button.match-config-toggle.inline svg {
 }
 
 .session-btn-upload {
-  background: var(--secondary, #6366f1);
+  background: var(--dusk-purple-light);
   color: white;
 }
 
 .session-btn-upload:hover {
-  background: var(--secondary-dark, #4f46e5);
+  background: var(--dusk-purple);
 }
 
 .session-btn-upload:active {
-  background: var(--secondary-dark, #4338ca);
+  background: var(--dusk-purple-dark);
 }
 
 .session-btn-delete {
-  background: #dc2626;
+  background: var(--danger-dark);
   color: white;
 }
 
 .session-btn-delete:hover {
-  background: #b91c1c;
+  background: var(--danger-darker);
   color: white;
 }
 
 .session-btn-delete:active {
-  background: #991b1b;
+  background: var(--danger-darkest);
   color: white;
 }
 
@@ -7352,7 +7352,7 @@ button.match-config-toggle.inline svg {
 /* Delete header button: red underlined text, matches session page style */
 .session-btn.session-btn-delete.session-btn-delete-header {
   font-size: small;
-  color: var(--color-error, #dc2626);
+  color: var(--danger-dark);
   text-decoration: underline;
   background: none;
   border: none;
@@ -7363,7 +7363,7 @@ button.match-config-toggle.inline svg {
 }
 
 .session-btn.session-btn-delete.session-btn-delete-header:hover {
-  color: var(--color-error-dark, #b91c1c);
+  color: var(--danger-darker);
   background: none;
   transform: none;
 }

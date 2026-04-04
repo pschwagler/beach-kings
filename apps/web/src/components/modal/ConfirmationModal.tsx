@@ -10,7 +10,7 @@ interface SessionMatch {
   team_2_player_2?: string;
   team_1_score?: string | number;
   team_2_score?: string | number;
-  Winner?: string;
+  winner?: string;
 }
 
 // Helper function to calculate player statistics from matches
@@ -24,7 +24,7 @@ function calculatePlayerStats(matches: SessionMatch[]) {
     const team2Score = parseInt(String(match.team_2_score ?? '')) || 0;
     
     // Determine winner from scores if not explicitly set
-    let winner = match.Winner;
+    let winner = match.winner;
     if (!winner || (winner !== 'Team 1' && winner !== 'Team 2')) {
       if (team1Score > team2Score) {
         winner = 'Team 1';

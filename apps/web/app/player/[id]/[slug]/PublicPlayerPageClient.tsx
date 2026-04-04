@@ -7,6 +7,7 @@ import { useAuthModal } from '../../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../../src/contexts/ModalContext';
 import { getUserLeagues, createLeague } from '../../../../src/services/api';
 import NavBar from '../../../../src/components/layout/NavBar';
+import HomeMenuBar from '../../../../src/components/home/HomeMenuBar';
 import PublicPlayerPage from '../../../../src/components/player/PublicPlayerPage';
 
 /**
@@ -65,10 +66,17 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
         onSignIn={() => openAuthModal('sign-in')}
         onSignUp={() => openAuthModal('sign-up')}
       />
-      <PublicPlayerPage
-        player={player}
-        isAuthenticated={isAuthenticated}
-      />
+      <div className="league-dashboard-container">
+        <div className="league-dashboard">
+          <HomeMenuBar activeTab="" />
+          <div className="league-dashboard__content">
+            <PublicPlayerPage
+              player={player}
+              isAuthenticated={isAuthenticated}
+            />
+          </div>
+        </div>
+      </div>
     </>
   );
 }

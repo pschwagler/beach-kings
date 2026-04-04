@@ -83,20 +83,32 @@ async function globalSetup(config) {
     console.warn('⚠ Continuing anyway - tests will fail if database is unavailable');
   }
   
-  // Check if API is available
+  // Wait for API to be ready (retry loop so cold-start backends don't cause all tests to fail)
   const apiUrl = process.env.TEST_API_URL || 'http://localhost:8001';
-  try {
-    const response = await fetch(`${apiUrl}/api/leagues`).catch(() => null);
-    if (!response) {
-      console.warn('⚠ API health check failed, but continuing...');
-      console.warn('Make sure the backend API is running on', apiUrl);
-    } else {
-      console.log('✓ API connection successful');
+  const MAX_RETRIES = 30;
+  const RETRY_DELAY_MS = 2000;
+  let backendReady = false;
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      const response = await fetch(`${apiUrl}/api/leagues`);
+      if (response.ok) {
+        backendReady = true;
+        break;
+      }
+    } catch {
+      // backend not yet reachable
     }
-  } catch (error) {
-    console.warn('⚠ API health check failed, but continuing...');
-    console.warn('Make sure the backend API is running on', apiUrl);
+    if (i < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    }
   }
+  if (!backendReady) {
+    throw new Error(
+      `Backend API not ready after ${(MAX_RETRIES * RETRY_DELAY_MS) / 1000}s. ` +
+      `Make sure the backend is running on ${apiUrl}`
+    );
+  }
+  console.log('✓ API connection successful');
   
   console.log('Global setup complete');
 }

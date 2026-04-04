@@ -285,9 +285,7 @@ async def test_no_location_hub_within_cap():
         new_callable=AsyncMock,
         return_value=None,
     ):
-        lat, lon, loc_id = await resolve_session_geo(
-            db, browser_lat=0.0, browser_lon=0.0
-        )
+        lat, lon, loc_id = await resolve_session_geo(db, browser_lat=0.0, browser_lon=0.0)
     assert lat == 0.0
     assert lon == 0.0
     assert loc_id is None

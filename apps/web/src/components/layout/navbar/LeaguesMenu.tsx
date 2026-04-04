@@ -1,33 +1,37 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ChevronDown, Trophy, Plus, Search, Users } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownSection from './NavDropdownSection';
 import NavDropdownItem from './NavDropdownItem';
 import type { League } from '../../../types';
+import { useClickOutside } from '../../../hooks/useClickOutside';
 
 interface LeaguesMenuProps {
   isLoggedIn?: boolean;
   userLeagues?: League[];
   onMenuClick?: (action: string, leagueId?: number | null) => void;
+  /** Controlled open state lifted into NavBar. */
+  isOpen: boolean;
+  /** Called when the trigger button is clicked; parent toggles the state. */
+  onToggle: () => void;
+  /** Called to explicitly close the menu (e.g. click-outside, item click). */
+  onClose: () => void;
 }
 
-export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick }: LeaguesMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function LeaguesMenu({
+  isLoggedIn,
+  userLeagues = [],
+  onMenuClick,
+  isOpen,
+  onToggle,
+  onClose,
+}: LeaguesMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(menuRef, isOpen, onClose);
 
   const handleItemClick = (action: string, leagueId: number | null = null) => {
-    setIsOpen(false);
+    onClose();
     if (onMenuClick) {
       onMenuClick(action, leagueId);
     }
@@ -37,7 +41,7 @@ export default function LeaguesMenu({ isLoggedIn, userLeagues = [], onMenuClick 
     <div className="navbar-menu-group" ref={menuRef}>
       <button
         className="navbar-menu-button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={onToggle}
         aria-label="Leagues menu"
       >
         <Trophy size={16} />

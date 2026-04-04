@@ -324,7 +324,7 @@ class TestGetFriendRequests:
 
         async def fake_get(session, player_id, direction="both"):
             captured["direction"] = direction
-            return {"incoming": [], "outgoing": []}
+            return []  # real service returns a list, not a dict
 
         monkeypatch.setattr(friend_service, "get_friend_requests", fake_get, raising=True)
 
@@ -333,20 +333,57 @@ class TestGetFriendRequests:
         assert captured["direction"] == "both"
 
     def test_get_requests_incoming(self, client, headers, monkeypatch):
-        """Filter by incoming."""
+        """Filter by incoming returns a list of request dicts."""
 
         async def fake_get(session, player_id, direction="both"):
-            return {"incoming": [{"id": 1}], "outgoing": []}
+            # real service returns a flat list of request dicts
+            return [{"id": 1, "status": "pending"}]
 
         monkeypatch.setattr(friend_service, "get_friend_requests", fake_get, raising=True)
 
         response = client.get("/api/friends/requests?direction=incoming", headers=headers)
         assert response.status_code == 200
+        body = response.json()
+        assert isinstance(body, list)
+        assert body[0]["id"] == 1
 
     def test_get_requests_invalid_direction(self, client, headers):
         """Invalid direction returns 422."""
         response = client.get("/api/friends/requests?direction=invalid", headers=headers)
         assert response.status_code == 422
+
+    def test_get_requests_returns_list_not_500(self, client, headers, monkeypatch):
+        """Endpoint must return a JSON list (not a 500 from response_model mismatch).
+
+        Regression test for the bug where response_model=dict caused FastAPI to
+        fail serialisation when the service returned a list.  The fix changed the
+        response_model to list.
+        """
+
+        async def fake_get(session, player_id, direction="both"):
+            return [
+                {
+                    "id": 1,
+                    "sender_player_id": 20,
+                    "sender_name": "Other Player",
+                    "sender_avatar": None,
+                    "receiver_player_id": 10,
+                    "receiver_name": "Test User",
+                    "receiver_avatar": None,
+                    "status": "pending",
+                    "created_at": "2024-01-01T00:00:00Z",
+                }
+            ]
+
+        monkeypatch.setattr(friend_service, "get_friend_requests", fake_get, raising=True)
+
+        response = client.get("/api/friends/requests", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert isinstance(body, list), f"Expected list, got {type(body).__name__}: {body}"
+        assert len(body) == 1
+        assert body[0]["id"] == 1
+        assert body[0]["status"] == "pending"
 
 
 # ============================================================================

@@ -78,7 +78,12 @@ async def send_message(
     try:
         receiver_user_id = await _get_user_id_for_player(session, receiver_player_id)
     except Exception as e:
-        logger.warning("Could not resolve receiver user_id for player %s: %s", receiver_player_id, e, exc_info=True)
+        logger.warning(
+            "Could not resolve receiver user_id for player %s: %s",
+            receiver_player_id,
+            e,
+            exc_info=True,
+        )
 
     # WebSocket: deliver to receiver in real-time
     if receiver_user_id:
@@ -89,7 +94,12 @@ async def send_message(
                 {"type": "direct_message", "message": message_dict},
             )
         except Exception as e:
-            logger.warning("Failed to send DM via WebSocket to player %s: %s", receiver_player_id, e, exc_info=True)
+            logger.warning(
+                "Failed to send DM via WebSocket to player %s: %s",
+                receiver_player_id,
+                e,
+                exc_info=True,
+            )
 
     # Summary bell notification (upsert: one notification per user for all unread DMs)
     if receiver_user_id:
@@ -313,7 +323,11 @@ async def mark_thread_read(
             if user_id:
                 await _update_or_dismiss_dm_notification(session, user_id, player_id)
         except Exception as e:
-            logger.warning("Failed to update DM summary notification after mark_thread_read: %s", e, exc_info=True)
+            logger.warning(
+                "Failed to update DM summary notification after mark_thread_read: %s",
+                e,
+                exc_info=True,
+            )
 
     return len(marked_ids)
 
@@ -375,13 +389,15 @@ async def _upsert_dm_summary_notification(
 
     # Look for existing unread DM summary notification (lock row to prevent duplicates)
     existing = await session.execute(
-        select(Notification).where(
+        select(Notification)
+        .where(
             and_(
                 Notification.user_id == user_id,
                 Notification.type == NotificationType.DIRECT_MESSAGE.value,
                 Notification.is_read.is_(False),
             )
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     notif = existing.scalar_one_or_none()
 

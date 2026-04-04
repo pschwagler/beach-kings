@@ -7,6 +7,7 @@ import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
 import { getUserLeagues, createLeague, addLeagueHomeCourt } from "../services/api";
 import type { League } from "../types";
+import { navigateToMatch } from "../utils/navigation";
 import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
 import HomeTab from "./home/HomeTab";
@@ -21,6 +22,9 @@ import MessagesTab from "./home/MessagesTab";
 import HomeMenuBar from "./home/HomeMenuBar";
 import { isProfileIncomplete } from "../utils/playerUtils";
 
+/** Delay before showing the profile-completion modal, so page content renders first */
+const PROFILE_MODAL_DELAY_MS = 500;
+
 interface HomePageProps {
   initialTab?: string;
 }
@@ -31,7 +35,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
   const { user, currentUserPlayer, isAuthenticated, isInitializing, sessionExpired, fetchCurrentUser, logout } =
     useAuth();
   const { openAuthModal } = useAuthModal();
-  const { openModal } = useModal();
+  const { openModal, isOpen: isModalOpen } = useModal();
 
   // Use searchParams for client-side navigation, fall back to server-provided initialTab
   const activeTab = searchParams?.get("tab") || initialTab;
@@ -45,34 +49,34 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     }
   }, [isAuthenticated, isInitializing, sessionExpired, router]);
 
-  // Check if profile is incomplete and open modal if needed
-  // This runs every time the user visits the home page or when currentUserPlayer changes
+  // Check if profile is incomplete and open modal if needed.
+  // This runs every time the user visits the home page or when currentUserPlayer changes.
   useEffect(() => {
-    if (isAuthenticated) {
-      // If currentUserPlayer hasn't loaded yet, fetch it first
-      if (currentUserPlayer === undefined) {
-        fetchCurrentUser();
-        return; // Will re-run when currentUserPlayer updates
-      }
+    if (!isAuthenticated) return;
 
-      // Check if profile is incomplete (missing gender, level, or city)
-      const profileIncomplete = isProfileIncomplete(currentUserPlayer);
+    // null means the player record has not loaded yet — wait for it.
+    if (currentUserPlayer === null) return;
 
-      if (profileIncomplete) {
-        // Small delay to ensure page is rendered and avoid conflicts with other modals
-        const timeoutId = setTimeout(() => {
-          openModal(MODAL_TYPES.PLAYER_PROFILE, {
-            currentUserPlayer: currentUserPlayer,
-            onSuccess: async () => {
-              await fetchCurrentUser();
-            },
-          });
-        }, 500);
+    // Avoid re-opening the modal while it is already showing.
+    if (isModalOpen) return;
 
-        return () => clearTimeout(timeoutId);
-      }
+    // Check if profile is incomplete (missing gender, level, or city).
+    const profileIncomplete = isProfileIncomplete(currentUserPlayer);
+
+    if (profileIncomplete) {
+      // Small delay to ensure the page is rendered and avoid conflicts with other modals.
+      const timeoutId = setTimeout(() => {
+        openModal(MODAL_TYPES.PLAYER_PROFILE, {
+          currentUserPlayer: currentUserPlayer,
+          onSuccess: async () => {
+            await fetchCurrentUser();
+          },
+        });
+      }, PROFILE_MODAL_DELAY_MS);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, currentUserPlayer, openModal, fetchCurrentUser]);
+  }, [isAuthenticated, currentUserPlayer, isModalOpen, openModal, fetchCurrentUser]);
 
   // Navigation blocking is now handled by ProfileTab using useBlocker hook
 
@@ -224,20 +228,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
                 <MyGamesTab
                   currentUserPlayer={currentUserPlayer}
                   onTabChange={handleTabChange}
-                  onMatchClick={(match) => {
-                    const sessionCode = match?.["Session Code"];
-                    if (sessionCode) {
-                      router.push(`/session/${sessionCode}`);
-                      return;
-                    }
-                    const leagueId = match?.["League ID"];
-                    if (leagueId) {
-                      const params = new URLSearchParams();
-                      params.set("tab", "matches");
-                      if (match["Season ID"]) params.set("season", String(match["Season ID"]));
-                      router.push(`/league/${leagueId}?${params.toString()}`);
-                    }
-                  }}
+                  onMatchClick={(match) => navigateToMatch(router, match)}
                 />
               )}
 

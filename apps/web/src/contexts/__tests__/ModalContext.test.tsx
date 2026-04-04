@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, renderHook } from '@testing-library/react';
 import { ModalProvider, useModal, MODAL_TYPES } from '../ModalContext';
 
 function ModalConsumer() {
@@ -148,6 +148,43 @@ describe('ModalProvider', () => {
       expect(() => render(<Orphan />)).toThrow('useModal must be used within a ModalProvider');
 
       consoleError.mockRestore();
+    });
+  });
+
+  describe('context value referential stability', () => {
+    it('returns the same context value object reference across re-renders when state has not changed', () => {
+      /**
+       * This test guards against the infinite render loop caused by a plain object literal
+       * being created on every render in ModalProvider. With useMemo the reference must be
+       * stable when none of the memoized dependencies change.
+       */
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ModalProvider>{children}</ModalProvider>
+      );
+
+      const { result, rerender } = renderHook(() => useModal(), { wrapper });
+
+      const firstRef = result.current;
+      rerender();
+      const secondRef = result.current;
+
+      expect(secondRef).toBe(firstRef);
+    });
+
+    it('returns a new context value reference only when state changes', () => {
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ModalProvider>{children}</ModalProvider>
+      );
+
+      const { result } = renderHook(() => useModal(), { wrapper });
+
+      const firstRef = result.current;
+
+      act(() => {
+        result.current.openModal(MODAL_TYPES.CREATE_LEAGUE);
+      });
+
+      expect(result.current).not.toBe(firstRef);
     });
   });
 

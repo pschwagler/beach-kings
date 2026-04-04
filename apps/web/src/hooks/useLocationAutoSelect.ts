@@ -9,7 +9,7 @@ interface CityData {
   city_longitude: number | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic form updater, callers use their own specific form types
+ 
 type FormUpdater = (updater: (prev: any) => any) => void;
 
 /**

@@ -345,6 +345,7 @@ class TestWebSocketNotifications:
 
     def test_websocket_accepts_valid_token(self, monkeypatch):
         """WebSocket with a valid token is accepted and responds to ping."""
+        import json
 
         def fake_verify_token(token: str):
             return {"user_id": 1}
@@ -369,7 +370,10 @@ class TestWebSocketNotifications:
         monkeypatch.setattr(manager, "update_activity", fake_update_activity)
 
         client = TestClient(app)
-        with client.websocket_connect("/api/ws/notifications?token=valid_token") as ws:
+        with client.websocket_connect("/api/ws/notifications") as ws:
+            # The handler requires an auth message as the first message before
+            # any other messages are processed.
+            ws.send_text(json.dumps({"type": "auth", "token": "valid_token"}))
             # Send ping, expect pong
             ws.send_text("ping")
             data = ws.receive_text()

@@ -36,7 +36,7 @@ export interface RawMatch {
 /** A display-format match object (snake_case). */
 export interface DisplayMatch {
   id: number | string;
-  Date?: string | null;
+  date?: string | null;
   session_id?: number | null;
   session_name?: string | null;
   session_status?: string | null;
@@ -55,15 +55,15 @@ export interface DisplayMatch {
   team_2_player_2_id?: number | null;
   team_1_score?: number | null;
   team_2_score?: number | null;
-  Winner?: string;
+  winner?: string;
   is_ranked?: boolean | null;
   ranked_intent?: string | boolean | null;
   team_1_player_1_is_placeholder?: boolean;
   team_1_player_2_is_placeholder?: boolean;
   team_2_player_1_is_placeholder?: boolean;
   team_2_player_2_is_placeholder?: boolean;
-  'Team 1 ELO Change'?: number;
-  'Team 2 ELO Change'?: number;
+  team_1_elo_change?: number;
+  team_2_elo_change?: number;
   [key: string]: unknown;
 }
 
@@ -168,7 +168,7 @@ export function sessionMatchToDisplayFormat(match: RawMatch, placeholderPlayerId
   const winner = match.winner === 1 ? 'Team 1' : match.winner === 2 ? 'Team 2' : 'Tie';
   const displayMatch: DisplayMatch = {
     id: match.id,
-    Date: match.date,
+    date: match.date,
     session_id: match.session_id,
     session_name: match.session_name || match.date,
     session_status: match.session_status || null,
@@ -182,11 +182,11 @@ export function sessionMatchToDisplayFormat(match: RawMatch, placeholderPlayerId
     [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
     team_1_score: match.team1_score,
     team_2_score: match.team2_score,
-    Winner: winner,
+    winner,
     is_ranked: match.is_ranked ?? true,
     ranked_intent: match.ranked_intent ?? true,
-    'Team 1 ELO Change': 0,
-    'Team 2 ELO Change': 0,
+    team_1_elo_change: 0,
+    team_2_elo_change: 0,
   };
   return applyPlaceholderFlags(displayMatch, match, placeholderPlayerIds);
 }
@@ -230,7 +230,7 @@ export function transformMatchData(matches: RawMatch[], placeholderPlayerIds?: S
 
     const displayMatch: DisplayMatch = {
       id: match.id,
-      Date: match.date,
+      date: match.date,
       session_id: match.session_id,
       session_name: match.session_name || match.date,
       session_status: match.session_status || null,
@@ -249,11 +249,11 @@ export function transformMatchData(matches: RawMatch[], placeholderPlayerIds?: S
       [MATCH_POSITION_KEYS.T2P2_ID]: match.team2_player2_id ?? null,
       team_1_score: match.team1_score,
       team_2_score: match.team2_score,
-      Winner: winner,
+      winner,
       is_ranked: match.is_ranked ?? true,
       ranked_intent: match.ranked_intent ?? true,
-      'Team 1 ELO Change': team1EloChange,
-      'Team 2 ELO Change': team2EloChange,
+      team_1_elo_change: team1EloChange,
+      team_2_elo_change: team2EloChange,
     };
     return applyPlaceholderFlags(displayMatch, match, placeholderPlayerIds);
   });

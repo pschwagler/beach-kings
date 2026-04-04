@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Calendar, Trophy, UserPlus, User, MapPin } from 'lucide-react';
 import { getOpenSessions } from '../../services/api';
 import { formatDate } from '../../utils/dateUtils';
+import { navigateToSession } from '../../utils/navigation';
 
 interface SessionItem {
   id: number;
@@ -70,14 +71,7 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
       onSessionClick(session);
       return;
     }
-    if (session.league_id != null) {
-      const params = new URLSearchParams();
-      params.set('tab', 'matches');
-      if (session.season_id != null) params.set('season', String(session.season_id));
-      router.push(`/league/${session.league_id}?${params.toString()}`);
-    } else if (session.code) {
-      router.push(`/session/${session.code}`);
-    }
+    navigateToSession(router, session);
   };
 
   const participationLabel = (session: SessionItem) => {

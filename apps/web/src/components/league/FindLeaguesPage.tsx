@@ -59,7 +59,7 @@ export default function FindLeaguesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
-  const [showJoinedLeagues, setShowJoinedLeagues] = useState(false);
+  const [showJoinedLeagues, setShowJoinedLeagues] = useState(true);
   const [pendingRequests, setPendingRequests] = useState(new Set<number>());
 
   // Load user leagues for navbar
@@ -438,6 +438,7 @@ export default function FindLeaguesPage() {
                   data={leagues || []}
                   columns={columns}
                   renderRow={renderRow}
+                  emptyMessage="No leagues found. Try adjusting your filter to see more leagues."
                   searchPlaceholder="Search leagues..."
                   filters={filters}
                   filterOptions={filterOptions}
@@ -452,7 +453,7 @@ export default function FindLeaguesPage() {
                             setShowJoinedLeagues(e.target.checked);
                           }}
                         />
-                        <span>Show joined leagues</span>
+                        <span>Hide joined leagues</span>
                       </label>
                     )
                   }

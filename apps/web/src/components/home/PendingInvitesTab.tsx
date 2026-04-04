@@ -189,7 +189,8 @@ export default function PendingInvitesTab() {
                   variant="ghost"
                   className="pending-invites__delete-btn"
                   onClick={() => handleDeleteClick(p)}
-                  title="Delete placeholder"
+                  title="Delete invite"
+                  aria-label="Delete invite"
                 >
                   <Trash2 size={16} />
                 </Button>

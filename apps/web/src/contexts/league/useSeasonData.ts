@@ -47,34 +47,57 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   const [seasonData, setSeasonData] = useState<Record<string | number, SeasonDataEntry>>({}); // Maps season_id to data
   const [seasonDataLoading, setSeasonDataLoading] = useState<Record<string | number, boolean>>({}); // Maps season_id to loading state
 
-  // Selected season state (shared across tabs)
-  // null = "All Seasons", number = specific season ID
-  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
+  // Per-tab season state: each tab has its own independent selection
+  // Rankings defaults to active season (auto-selected below), Matches defaults to All Seasons
+  const [rankingsSeasonId, setRankingsSeasonId] = useState<number | null>(null);
+  const [matchesSeasonId, setMatchesSeasonId] = useState<number | null>(null);
+
+  // Backward-compat aliases (used by shared consumers via LeagueContext derived values)
+  const selectedSeasonId = rankingsSeasonId;
+  const setSelectedSeasonId = setRankingsSeasonId;
 
   // Refs mirror state for synchronous reads inside async callbacks.
   // Written at every mutation site — no sync effects needed.
   const loadingRef = useRef<Record<string | number, boolean>>({});
   const dataRef = useRef<Record<string | number, SeasonDataEntry>>({});
 
-  // Compute selectedSeasonData once for all tabs to use
-  // This ensures consistency across RankingsTab and MatchesTab
+  // Auto-select active season for rankings tab on initial load
+  const hasAutoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (hasAutoSelectedRef.current || !Array.isArray(seasons) || seasons.length === 0) return;
+    hasAutoSelectedRef.current = true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const activeSeason = (seasons as Array<{ id: number; start_date?: string; end_date?: string }>).find(s => {
+      if (!s.start_date || !s.end_date) return false;
+      const start = new Date(s.start_date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(s.end_date);
+      end.setHours(0, 0, 0, 0);
+      return today >= start && today <= end;
+    });
+    if (activeSeason) { setRankingsSeasonId(activeSeason.id); return; }
+    const sorted = [...(seasons as Array<{ id: number; end_date?: string }>)]
+      .filter(s => s.end_date)
+      .sort((a, b) => new Date(b.end_date!).getTime() - new Date(a.end_date!).getTime());
+    if (sorted.length > 0) { setRankingsSeasonId(sorted[0].id); }
+  }, [seasons]);
+
+  // Per-tab derived data
   const selectedSeasonData = useMemo(() => {
-    if (!selectedSeasonId) {
-      // "All Seasons" selected - use league stats data from ALL_SEASONS_KEY
-      // loadAllSeasonsRankings already loads all matches via getMatchesWithElo
-      const allSeasonsData = seasonData[ALL_SEASONS_KEY];
-      if (allSeasonsData) {
-        // Use matches directly from all-seasons data (already contains all matches)
-        return allSeasonsData;
-      }
-      return null;
-    }
-    // Get data from seasonData map for specific season
+    if (!selectedSeasonId) return seasonData[ALL_SEASONS_KEY] || null;
     return seasonData[selectedSeasonId] || null;
   }, [selectedSeasonId, seasonData]);
 
+  const rankingsSeasonData = selectedSeasonData;
+
+  const matchesSeasonData = useMemo(() => {
+    if (!matchesSeasonId) return seasonData[ALL_SEASONS_KEY] || null;
+    return seasonData[matchesSeasonId] || null;
+  }, [matchesSeasonId, seasonData]);
+
   // Load season data with progressive loading
-  const loadSeasonData = useCallback(async (seasonId: any, forceReload = false) => {
+  const loadSeasonData = useCallback(async (seasonId: number, forceReload = false) => {
     if (!seasonId) return;
 
     // Check if already loading - even for force reload, prevent concurrent loads
@@ -191,7 +214,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
   }, []); // Empty deps - function is stable, uses refs for state checks
 
   // Lightweight function to refresh only matches (not stats/rankings)
-  const refreshMatchData = useCallback(async (seasonId: any, forceClear = false) => {
+  const refreshMatchData = useCallback(async (seasonId: number, forceClear = false) => {
     if (!seasonId) return;
 
     try {
@@ -250,7 +273,7 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     }
   }, []);
 
-  const refreshSeasonData = useCallback(async (seasonId: any) => {
+  const refreshSeasonData = useCallback(async (seasonId: number) => {
     if (!seasonId) return;
 
     // Check if already loading to prevent duplicate refreshes
@@ -425,26 +448,38 @@ export function useSeasonData(leagueId: number, seasons: unknown[]) {
     }
   }, [leagueId]); // Stable deps only — uses refs for runtime data checks
 
-  // Automatically load season data when selectedSeasonId changes
-  // Uses refs for data checks to avoid re-running on every seasonData update
+  // Load data when rankings tab's season changes
   useEffect(() => {
-    if (selectedSeasonId) {
-      // Load specific season if not already loaded (ref check avoids stale deps)
-      if (!dataRef.current[selectedSeasonId]) {
-        loadSeasonData(selectedSeasonId);
-      }
+    if (rankingsSeasonId) {
+      if (!dataRef.current[rankingsSeasonId]) loadSeasonData(rankingsSeasonId);
     } else {
-      // "All Seasons" selected - load rankings for all seasons in the league
       loadAllSeasonsRankings();
     }
-  }, [selectedSeasonId, loadSeasonData, loadAllSeasonsRankings]);
+  }, [rankingsSeasonId, loadSeasonData, loadAllSeasonsRankings]);
+
+  // Load data when matches tab's season changes
+  useEffect(() => {
+    if (matchesSeasonId) {
+      if (!dataRef.current[matchesSeasonId]) loadSeasonData(matchesSeasonId);
+    } else {
+      loadAllSeasonsRankings();
+    }
+  }, [matchesSeasonId, loadSeasonData, loadAllSeasonsRankings]);
 
   return {
     seasonData,
     seasonDataLoadingMap: seasonDataLoading,
+    // Backward-compat (used by shared consumers)
     selectedSeasonId,
     setSelectedSeasonId,
     selectedSeasonData,
+    // Per-tab state
+    rankingsSeasonId,
+    setRankingsSeasonId,
+    rankingsSeasonData,
+    matchesSeasonId,
+    setMatchesSeasonId,
+    matchesSeasonData,
     loadSeasonData,
     refreshSeasonData,
     refreshMatchData,

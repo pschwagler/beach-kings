@@ -590,13 +590,9 @@ export default function MessagesTab() {
                 isFriend: statusData.statuses?.[String(p.id)] === 'friend',
               });
             } catch (innerErr) {
+              // Do not open the thread with isFriend: false — a transient lookup failure
+              // must not silently lock the UI into read-only "not friends" mode.
               console.error('Error fetching thread player info:', innerErr);
-              setThreadInfo({
-                playerId: Number(threadPlayerId),
-                name: 'Unknown Player',
-                avatar: null,
-                isFriend: false,
-              });
             }
           }
         } catch (err: unknown) {

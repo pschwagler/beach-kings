@@ -74,8 +74,8 @@ export default function SessionMatchesClipboardTable({
               const t2p2Id = match.team_2_player_2_id;
               const t1Score = match.team_1_score;
               const t2Score = match.team_2_score;
-              const isTeam1Winner = match.Winner === 'Team 1';
-              const isTeam2Winner = match.Winner === 'Team 2';
+              const isTeam1Winner = match.winner === 'Team 1';
+              const isTeam2Winner = match.winner === 'Team 2';
               const team1Class = isTeam1Winner ? 'clipboard-winner' : 'clipboard-loser';
               const team2Class = isTeam2Winner ? 'clipboard-winner' : 'clipboard-loser';
 

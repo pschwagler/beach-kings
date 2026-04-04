@@ -39,6 +39,8 @@ interface UseMatchPayloadParams {
   isRanked: boolean;
   getPlayerId: (playerOption: PlayerOption) => number | string | null;
   formData: MatchFormData;
+  date?: string | null;
+  courtId?: number | null;
 }
 
 export function useMatchPayload({
@@ -49,7 +51,9 @@ export function useMatchPayload({
   sessionId,
   isRanked,
   getPlayerId,
-  formData
+  formData,
+  date = null,
+  courtId = null,
 }: UseMatchPayloadParams) {
   const buildMatchPayload = useCallback((scoresValidation: ScoresValidation) => {
     // Extract player IDs from form data
@@ -87,6 +91,16 @@ export function useMatchPayload({
       matchPayload.session_id = sessionId;
     }
 
+    // Add date if provided (per-session date, defaults to today in the UI)
+    if (date) {
+      matchPayload.date = date;
+    }
+
+    // Add court_id if provided (per-session court)
+    if (courtId) {
+      matchPayload.court_id = courtId;
+    }
+
     return matchPayload;
   }, [
     matchType,
@@ -96,7 +110,9 @@ export function useMatchPayload({
     sessionId,
     isRanked,
     getPlayerId,
-    formData
+    formData,
+    date,
+    courtId,
   ]);
 
   return { buildMatchPayload };

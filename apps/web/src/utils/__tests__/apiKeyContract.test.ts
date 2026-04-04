@@ -28,7 +28,7 @@ function assertSnakeCaseKeys(obj: Record<string, unknown>, context: string): voi
 // ---------------------------------------------------------------------------
 
 const RANKING_KEYS = [
-  'player_id', 'name', 'initials', 'is_placeholder',
+  'player_id', 'name', 'avatar', 'initials', 'is_placeholder',
   'elo', 'points', 'games', 'wins', 'losses',
   'win_rate', 'avg_pt_diff', 'season_rank',
 ];
@@ -106,7 +106,7 @@ describe('API key contract — snake_case enforcement', () => {
 
 describe('API key contract — canonical key completeness', () => {
   it('ranking response includes all expected fields', () => {
-    const required = ['player_id', 'name', 'elo', 'points', 'games', 'wins', 'losses', 'win_rate', 'avg_pt_diff'];
+    const required = ['player_id', 'name', 'avatar', 'elo', 'points', 'games', 'wins', 'losses', 'win_rate', 'avg_pt_diff'];
     for (const key of required) {
       expect(RANKING_KEYS).toContain(key);
     }
