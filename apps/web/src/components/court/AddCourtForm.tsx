@@ -107,8 +107,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
       <form onSubmit={handleSubmit}>
         <div className="add-court-form__grid">
           <div className="add-court-form__field add-court-form__field--full">
-            <label>Court Name *</label>
+            <label htmlFor="court-name">Court Name *</label>
             <input
+              id="court-name"
               type="text"
               value={form.name}
               onChange={(e) => handleChange('name', e.target.value)}
@@ -118,8 +119,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field add-court-form__field--full">
-            <label>Address *</label>
+            <label htmlFor="court-address">Address *</label>
             <input
+              id="court-address"
               type="text"
               value={form.address}
               onChange={(e) => handleChange('address', e.target.value)}
@@ -129,8 +131,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Location Hub *</label>
+            <label htmlFor="court-location">Location Hub *</label>
             <select
+              id="court-location"
               value={form.location_id}
               onChange={(e) => handleChange('location_id', e.target.value)}
               required
@@ -143,8 +146,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Number of Courts</label>
+            <label htmlFor="court-count">Number of Courts</label>
             <input
+              id="court-count"
               type="number"
               min="1"
               max="50"
@@ -155,8 +159,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Surface Type</label>
+            <label htmlFor="court-surface-type">Surface Type</label>
             <select
+              id="court-surface-type"
               value={form.surface_type}
               onChange={(e) => handleChange('surface_type', e.target.value)}
             >
@@ -167,8 +172,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field add-court-form__field--full">
-            <label>Description</label>
+            <label htmlFor="court-description">Description</label>
             <textarea
+              id="court-description"
               value={form.description}
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Describe the courts..."
@@ -199,8 +205,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Hours</label>
+            <label htmlFor="court-hours">Hours</label>
             <input
+              id="court-hours"
               type="text"
               value={form.hours}
               onChange={(e) => handleChange('hours', e.target.value)}
@@ -209,8 +216,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Website</label>
+            <label htmlFor="court-website">Website</label>
             <input
+              id="court-website"
               type="url"
               value={form.website}
               onChange={(e) => handleChange('website', e.target.value)}
@@ -219,8 +227,9 @@ export default function AddCourtForm({ onClose, onSuccess }: AddCourtFormProps) 
           </div>
 
           <div className="add-court-form__field">
-            <label>Phone</label>
+            <label htmlFor="court-phone">Phone</label>
             <input
+              id="court-phone"
               type="tel"
               value={form.phone}
               onChange={(e) => handleChange('phone', e.target.value)}

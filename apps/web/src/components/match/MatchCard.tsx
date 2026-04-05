@@ -104,6 +104,7 @@ export default function MatchCard({ match, onPlayerClick, onEdit, showEdit = fal
           <span
             className="match-card-badge match-card-badge--pending"
             data-tooltip={buildPendingTooltip(match)}
+            aria-label={buildPendingTooltip(match)}
           >
             Pending
           </span>

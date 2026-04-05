@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useAuthModal } from '../../src/contexts/AuthModalContext';
@@ -8,8 +8,9 @@ import { useModal, MODAL_TYPES } from '../../src/contexts/ModalContext';
 import { getUserLeagues, createLeague, getPublicCourts } from '../../src/services/api';
 import NavBar from '../../src/components/layout/NavBar';
 import CourtListView from '../../src/components/court/CourtListView';
-import CourtMap from '../../src/components/court/CourtMap';
 import AddCourtForm from '../../src/components/court/AddCourtForm';
+
+const CourtMap = lazy(() => import('../../src/components/court/CourtMap'));
 import { Button } from '../../src/components/ui/UI';
 import { Plus, Map, List } from 'lucide-react';
 import '../../src/components/court/CourtDirectory.css';
@@ -157,15 +158,17 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
         )}
 
         {viewMode === 'map' ? (
-          <CourtMap
-            courts={mapCourts || initialCourts?.items || []}
-            userLocation={
-              currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
-                ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
-                : undefined
-            }
-            locationFilter={locationParam ?? undefined}
-          />
+          <Suspense fallback={null}>
+            <CourtMap
+              courts={mapCourts || initialCourts?.items || []}
+              userLocation={
+                currentUserPlayer?.city_latitude && currentUserPlayer?.city_longitude
+                  ? { latitude: currentUserPlayer.city_latitude, longitude: currentUserPlayer.city_longitude }
+                  : undefined
+              }
+              locationFilter={locationParam ?? undefined}
+            />
+          </Suspense>
         ) : (
           <CourtListView
             initialCourts={locationParam ? null : initialCourts}

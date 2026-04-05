@@ -172,6 +172,7 @@ export default function PlayerPopover({
                   <span
                     className="player-popover__item player-popover__item--disabled"
                     data-tooltip="Player must be a friend before messaging"
+                    aria-label="Player must be a friend before messaging"
                   >
                     <MessageCircle size={16} />
                     Message

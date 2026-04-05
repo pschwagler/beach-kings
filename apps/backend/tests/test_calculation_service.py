@@ -214,13 +214,17 @@ def create_mock_match(
     """Helper to create a mock Match object."""
 
     # Create a simple mock object that matches the Match model interface
+    class MockSession:
+        def __init__(self, date):
+            self.date = date
+
     class MockMatch:
         def __init__(self, player_ids, team1_score, team2_score, match_id, date, is_ranked=True):
             self.player_ids = player_ids  # List of [team1_ids, team2_ids]
             self.team1_score = team1_score
             self.team2_score = team2_score
             self.id = match_id
-            self.date = date or "2024-01-01"
+            self.session = MockSession(date or "2024-01-01")
             self.is_ranked = is_ranked
 
     return MockMatch(

@@ -4,17 +4,10 @@ import NavBar from '../src/components/layout/NavBar';
 import { useAuth } from '../src/contexts/AuthContext';
 
 /**
- * Root error boundary — catches unhandled errors across all routes.
- * Next.js App Router requires this to be a 'use client' component
- * with `error` and `reset` props.
- * Includes NavBar per project rule that every page must include the Navbar.
+ * Custom 404 page — renders with NavBar per project rule
+ * that every page must include the Navbar.
  */
-interface RootErrorProps {
-  error: Error & { digest?: string };
-  reset: () => void;
-}
-
-export default function RootError({ error, reset }: RootErrorProps) {
+export default function NotFound() {
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
 
   return (
@@ -36,13 +29,13 @@ export default function RootError({ error, reset }: RootErrorProps) {
         marginTop: 'var(--navbar-height)',
       }}>
         <h2 style={{ fontSize: '22px', fontWeight: 600, marginBottom: '12px' }}>
-          Something went wrong
+          Page not found
         </h2>
-        <p style={{ fontSize: '15px', color: '#595959', marginBottom: '24px', maxWidth: '400px' }}>
-          An unexpected error occurred. Try refreshing the page.
+        <p style={{ fontSize: '15px', color: '#757575', marginBottom: '24px', maxWidth: '400px' }}>
+          The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
-        <button
-          onClick={reset}
+        <a
+          href="/home"
           style={{
             padding: '10px 24px',
             fontSize: '15px',
@@ -51,11 +44,12 @@ export default function RootError({ error, reset }: RootErrorProps) {
             backgroundColor: '#2c7a8f',
             border: 'none',
             borderRadius: '8px',
+            textDecoration: 'none',
             cursor: 'pointer',
           }}
         >
-          Try again
-        </button>
+          Go home
+        </a>
       </div>
     </>
   );

@@ -37,7 +37,7 @@ const SESSION_VIEW_STORAGE_KEY = 'beach-kings:session-matches-view';
 
 /**
  * Session page by shareable code.
- * Shows session info and matches; league sessions redirect to league page.
+ * Shows session info and matches for both pickup and league sessions.
  * Uses NavBar + full sidebar (no tab active). Reuses ActiveSessionPanel with Cards/Table toggle.
  */
 export default function SessionByCodePage() {
@@ -74,6 +74,7 @@ export default function SessionByCodePage() {
   const [creatingFromPlayers, setCreatingFromPlayers] = useState(false);
   const [popover, setPopover] = useState<{ playerId: number; playerName: string; anchorRect: DOMRect | null } | null>(null);
   const friendStatusCacheRef = useRef({});
+  const isFirstMatchRef = useRef(false);
 
   const visitActionsRef = useRef<{ sessionCode: string | null | undefined; autoJoinDone: boolean; managePlayersAutoOpened: boolean }>({
     sessionCode: null,
@@ -183,6 +184,15 @@ export default function SessionByCodePage() {
     if (editMatchId != null) {
       await updateMatch(editMatchId, matchPayload);
     } else {
+      // When creating the first match, update session date/court from the payload
+      if (isFirstMatchRef.current) {
+        const sessionUpdates: Record<string, unknown> = {};
+        if (matchPayload.date) sessionUpdates.date = matchPayload.date;
+        if (matchPayload.court_id != null) sessionUpdates.court_id = matchPayload.court_id;
+        if (Object.keys(sessionUpdates).length > 0) {
+          await updateSession(session.id, sessionUpdates);
+        }
+      }
       await createMatch({ ...matchPayload, session_id: session.id });
     }
     refresh();
@@ -203,8 +213,15 @@ export default function SessionByCodePage() {
     closeModal();
   };
 
+  /** Build home courts array from session's court for the court selector quick-pick. */
+  const sessionHomeCourts = useMemo(() => {
+    if (!session?.court_id || !session?.court_name) return [];
+    return [{ id: session.court_id, name: session.court_name }];
+  }, [session?.court_id, session?.court_name]);
+
   const handleEditMatch = (match: Match) => {
     if (!session) return;
+    isFirstMatchRef.current = false;
     openModal(MODAL_TYPES.ADD_MATCH, {
       editMatch: match,
       sessionId: session.id,
@@ -213,17 +230,25 @@ export default function SessionByCodePage() {
       allPlayerNames: [],
       onSubmit: handleAddMatch,
       onDelete: handleDeleteMatch,
+      leagueHomeCourts: sessionHomeCourts,
+      locationId: currentUserPlayer?.location_id ?? null,
+      isFirstMatch: false,
     });
   };
 
   const handleAddMatchClick = () => {
     if (hasLessThanFourPlayers || !session) return;
+    const firstMatch = displayMatches.length === 0;
+    isFirstMatchRef.current = firstMatch;
     openModal(MODAL_TYPES.ADD_MATCH, {
       sessionId: session.id,
       sessionOnly: true,
       members: membersForModal,
       allPlayerNames: [],
       onSubmit: handleAddMatch,
+      leagueHomeCourts: sessionHomeCourts,
+      locationId: currentUserPlayer?.location_id ?? null,
+      isFirstMatch: firstMatch,
     });
   };
 

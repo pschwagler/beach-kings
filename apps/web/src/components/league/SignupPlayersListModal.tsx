@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import type { SignupPlayer } from '../../types';
+import { useDialog } from '../../hooks/useDialog';
 
 // Helper function to format datetime with timezone
 function formatDateTimeWithTimezone(isoString: string | null | undefined): string {
@@ -33,16 +34,18 @@ interface SignupPlayersListModalProps {
 }
 
 export default function SignupPlayersListModal({ signup, onClose }: SignupPlayersListModalProps) {
+  const dialogRef = useDialog(onClose);
+
   if (!signup || !signup.players) {
     return null;
   }
   
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="signup-players-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Players Signed Up</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="signup-players-title">Players Signed Up</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

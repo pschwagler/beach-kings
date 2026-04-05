@@ -50,6 +50,7 @@ interface CourtSelectorProps {
   preFilterLocationId?: string;
   label?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
 export default function CourtSelector({
@@ -68,6 +69,7 @@ export default function CourtSelector({
   preFilterLocationId,
   label,
   required = false,
+  disabled = false,
 }: CourtSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
@@ -334,8 +336,9 @@ export default function CourtSelector({
       <button
         ref={triggerRef}
         type="button"
-        className={`court-selector__trigger${isOpen ? ' court-selector__trigger--open' : ''}`}
-        onClick={() => { if (!isOpen) checkDropdownDirection(); setIsOpen(!isOpen); }}
+        className={`court-selector__trigger${isOpen ? ' court-selector__trigger--open' : ''}${disabled ? ' court-selector__trigger--disabled' : ''}`}
+        onClick={() => { if (disabled) return; if (!isOpen) checkDropdownDirection(); setIsOpen(!isOpen); }}
+        disabled={disabled}
       >
         <span className={`court-selector__value${!displayName && !isPlaceholder ? ' court-selector__value--placeholder' : ''}`}>
           {isPlaceholder ? (

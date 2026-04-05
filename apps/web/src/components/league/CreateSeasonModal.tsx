@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { createLeagueSeason } from "../../services/api";
+import { useDialog } from '../../hooks/useDialog';
 import { useLeague } from "../../contexts/LeagueContext";
 import { useToast } from '../../contexts/ToastContext';
 import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
@@ -12,6 +13,7 @@ interface CreateSeasonModalProps {
 }
 
 export default function CreateSeasonModal({ isOpen, onClose, onSuccess }: CreateSeasonModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
   const { leagueId } = useLeague();
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
@@ -106,10 +108,10 @@ export default function CreateSeasonModal({ isOpen, onClose, onSuccess }: Create
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-season-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create New Season</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="create-season-title">Create New Season</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

@@ -7,15 +7,18 @@ from `design-tokens.css`. Work file-by-file, highest-visibility first.
 
 - [x] `app/league/[id]/PublicLeaguePage.css` — 0 hard-coded hex remaining
 - [x] `src/components/league/JoinLeaguePrompt.css` — 0 hard-coded hex remaining
+- [x] `src/components/ui/Button.css` — danger hex migrated to `--danger-dark/darker/darkest`
+- [x] `src/components/ui/Forms.css` — danger hex migrated to `--danger-dark`, `--danger-bg`
+- [x] `src/components/modal/Modal.css` — danger hex + rgba migrated to `--danger-*` tokens
 
 ## Priority 1 — High visibility / many hard-coded values
 
 - [ ] **`src/App.css`** (~98 hex occurrences across many sections)
   - [ ] Legal pages (`.legal-page-*`): ~15 values — Tailwind grays (#111827, #374151, #6b7280, etc.)
   - [ ] Table / data display sections: #e0e0e0, #f0f0f0, #fafbfc grays
-  - [ ] Error / status states: #dc2626, #b91c1c, #991b1b reds; #10b981 greens
-  - [ ] Button variants (leave, danger, indigo): #ef4444, #6366f1, etc.
-  - [ ] Session / match config buttons: #dc2626, #f87171, #ccc, #666
+  - [x] Error / status states: #dc2626, #b91c1c, #991b1b reds migrated to `--danger-*` tokens
+  - [x] Button variants (leave, danger): migrated to `--danger-*`; indigo upload → `--dusk-purple-*`
+  - [x] Session / match config buttons: danger hex migrated; #f87171, #ccc, #666 remain
   - [ ] Scrollbar theming: #dc2626 error-state scrollbars
   - [ ] Warning / alert boxes: amber (#fef3c7, #92400e), green (#d1fae5, #065f46)
   - [ ] body background gradient: #f7f8f9, #fafbfc

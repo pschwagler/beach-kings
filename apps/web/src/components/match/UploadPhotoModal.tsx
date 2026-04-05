@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { X, Upload, Image as ImageIcon, Camera, AlertCircle, Loader } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { useDialog } from '../../hooks/useDialog';
 import { uploadMatchPhoto } from '../../services/api';
 import { heicTo, isHeic } from 'heic-to';
 
@@ -121,6 +122,8 @@ export default function UploadPhotoModal({
     }
   }, [isUploading, isConverting, onClose, resetState]);
 
+  const dialogRef = useDialog(handleClose, isOpen);
+
   const validateFile = useCallback((file: File | null) => {
     if (!file) {
       return 'Please select a file';
@@ -234,9 +237,9 @@ export default function UploadPhotoModal({
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content upload-photo-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="upload-photo-title" className="modal-content upload-photo-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>
+          <h2 id="upload-photo-title">
             <Camera size={20} style={{ marginRight: '8px' }} />
             Upload Score Photo
           </h2>

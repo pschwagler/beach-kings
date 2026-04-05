@@ -166,7 +166,6 @@ async def rich_user(db_session):
 
     match = Match(
         session_id=sess.id,
-        date="2024-06-01",
         team1_player1_id=p1,
         team1_player2_id=p2,
         team2_player1_id=p3,

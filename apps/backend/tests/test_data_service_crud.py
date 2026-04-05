@@ -1081,7 +1081,7 @@ async def test_create_match_async(db_session, test_player):
     )
 
     match_id = await data_service.create_match_async(
-        session=db_session, match_request=match_request, session_id=sess["id"], date="2024-01-15"
+        session=db_session, match_request=match_request, session_id=sess["id"]
     )
 
     assert match_id > 0
@@ -1116,7 +1116,7 @@ async def test_get_match_async(db_session, test_player):
     )
 
     created_id = await data_service.create_match_async(
-        session=db_session, match_request=match_request, session_id=sess["id"], date="2024-01-15"
+        session=db_session, match_request=match_request, session_id=sess["id"]
     )
 
     match = await data_service.get_match_async(db_session, created_id)
@@ -1149,7 +1149,7 @@ async def test_update_match_async(db_session, test_player):
     )
 
     created_id = await data_service.create_match_async(
-        session=db_session, match_request=match_request, session_id=sess["id"], date="2024-01-15"
+        session=db_session, match_request=match_request, session_id=sess["id"]
     )
 
     # Update with new scores
@@ -1198,7 +1198,7 @@ async def test_delete_match_async(db_session, test_player):
     )
 
     created_id = await data_service.create_match_async(
-        session=db_session, match_request=match_request, session_id=sess["id"], date="2024-01-15"
+        session=db_session, match_request=match_request, session_id=sess["id"]
     )
 
     result = await data_service.delete_match_async(db_session, created_id)
@@ -1684,7 +1684,6 @@ async def test_create_match_session_id_only(db_session, four_players):
         db_session,
         match_request=match_request,
         session_id=created["id"],
-        date=created["date"],
     )
     assert match_id > 0
     match = await data_service.get_match_async(db_session, match_id)

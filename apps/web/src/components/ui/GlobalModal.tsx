@@ -1,16 +1,16 @@
 import { Suspense, lazy } from 'react';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
 import '../modal/Modal.css';
-import CreateLeagueModal from '../league/CreateLeagueModal';
-import PlayerProfileModal from '../player/PlayerProfileModal';
-import AddMatchModal from '../match/AddMatchModal';
-import EditWeeklyScheduleModal from '../league/EditWeeklyScheduleModal';
-import SignupModal from '../league/SignupModal';
-import ConfirmationModal from '../modal/ConfirmationModal';
-import SessionSummaryModal from '../modal/SessionSummaryModal';
 import ErrorBoundary from './ErrorBoundary';
-import FeedbackModal from '../FeedbackModal';
 
+const CreateLeagueModal = lazy(() => import('../league/CreateLeagueModal'));
+const PlayerProfileModal = lazy(() => import('../player/PlayerProfileModal'));
+const AddMatchModal = lazy(() => import('../match/AddMatchModal'));
+const EditWeeklyScheduleModal = lazy(() => import('../league/EditWeeklyScheduleModal'));
+const SignupModal = lazy(() => import('../league/SignupModal'));
+const ConfirmationModal = lazy(() => import('../modal/ConfirmationModal'));
+const SessionSummaryModal = lazy(() => import('../modal/SessionSummaryModal'));
+const FeedbackModal = lazy(() => import('../FeedbackModal'));
 const UploadPhotoModal = lazy(() => import('../match/UploadPhotoModal'));
 const PhotoMatchReviewModal = lazy(() => import('../match/PhotoMatchReviewModal'));
 const CreateGameModal = lazy(() => import('../game/CreateGameModal'));

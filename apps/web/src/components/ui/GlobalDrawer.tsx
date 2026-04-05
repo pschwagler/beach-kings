@@ -1,6 +1,8 @@
+import { Suspense, lazy } from 'react';
 import { useDrawer, DRAWER_TYPES } from '../../contexts/DrawerContext';
-import PlayerDetailsPanel from '../player/PlayerDetailsPanel';
 import ErrorBoundary from './ErrorBoundary';
+
+const PlayerDetailsPanel = lazy(() => import('../player/PlayerDetailsPanel'));
 
 export default function GlobalDrawer() {
   const { isOpen, drawerType, drawerProps, closeDrawer } = useDrawer();
@@ -11,11 +13,13 @@ export default function GlobalDrawer() {
     case DRAWER_TYPES.PLAYER_DETAILS:
       return (
         <ErrorBoundary onReset={closeDrawer}>
-          <PlayerDetailsPanel
-            isPanelOpen={isOpen}
-            onClose={closeDrawer}
-            {...(drawerProps as any)}
-          />
+          <Suspense fallback={null}>
+            <PlayerDetailsPanel
+              isPanelOpen={isOpen}
+              onClose={closeDrawer}
+              {...(drawerProps as any)}
+            />
+          </Suspense>
         </ErrorBoundary>
       );
     default:

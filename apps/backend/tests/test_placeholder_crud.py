@@ -245,7 +245,6 @@ class TestListPlaceholders:
         # Create a match with the placeholder
         match = Match(
             session_id=test_session.id,
-            date="2/15/2026",
             team1_player1_id=creator_player.id,
             team1_player2_id=ph.player_id,
             team2_player1_id=other_player.id,
@@ -303,7 +302,6 @@ class TestDeletePlaceholder:
 
         match = Match(
             session_id=test_session.id,
-            date="2/15/2026",
             team1_player1_id=creator_player.id,
             team1_player2_id=ph.player_id,
             team2_player1_id=other_player.id,
@@ -343,7 +341,6 @@ class TestDeletePlaceholder:
 
         match = Match(
             session_id=test_session.id,
-            date="2/15/2026",
             team1_player1_id=creator_player.id,
             team1_player2_id=ph.player_id,
             team2_player1_id=other_player.id,
@@ -520,7 +517,6 @@ class TestIsRankedEnforcement:
 
         match_request = CreateMatchRequest(
             session_id=test_session.id,
-            date="2/15/2026",
             team1_player1_id=creator_player.id,
             team1_player2_id=ph.player_id,
             team2_player1_id=other_player.id,
@@ -534,7 +530,6 @@ class TestIsRankedEnforcement:
             db_session,
             match_request=match_request,
             session_id=test_session.id,
-            date="2/15/2026",
         )
 
         match = await db_session.get(Match, match_id)
@@ -563,7 +558,6 @@ class TestIsRankedEnforcement:
             db_session,
             match_request=match_request,
             session_id=test_session.id,
-            date="2/15/2026",
         )
 
         match = await db_session.get(Match, match_id)
@@ -592,7 +586,6 @@ class TestIsRankedEnforcement:
             db_session,
             match_request=match_request,
             session_id=test_session.id,
-            date="2/15/2026",
         )
 
         match = await db_session.get(Match, match_id)

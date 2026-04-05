@@ -119,11 +119,10 @@ def _fresh_time():
     return utcnow() - timedelta(hours=1)
 
 
-def _make_match(session_id: int, players: list, match_date: str = "2024-06-01") -> Match:
+def _make_match(session_id: int, players: list) -> Match:
     """Create a valid Match ORM object with all required fields."""
     return Match(
         session_id=session_id,
-        date=match_date,
         team1_player1_id=players[0].id,
         team1_player2_id=players[1].id,
         team2_player1_id=players[2].id,
@@ -511,7 +510,6 @@ async def test_match_create_bumps_session_updated_at(db_session, test_players, l
         session=db_session,
         match_request=match_req,
         session_id=session_id,
-        date="2024-06-01",
     )
 
     # Rollback and requery to see committed changes

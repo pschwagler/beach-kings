@@ -29,7 +29,12 @@ interface UseHomeCourtsOptions {
 
 export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeCourtsOptions) {
   const { showToast } = useToast();
-  const [homeCourts, setHomeCourts] = useState<Court[]>(initialCourts || []);
+
+  // Tracks optimistic/local mutations. null means "no local override — defer to initialCourts".
+  const [localCourts, setLocalCourts] = useState<Court[] | null>(null);
+
+  // Derive the effective list: local optimistic state takes precedence, then the prop, then empty.
+  const homeCourts: Court[] = localCourts ?? initialCourts ?? [];
 
   // Keep api in a ref so callbacks don't depend on its object identity
   const apiRef = useRef(api);
@@ -37,19 +42,11 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
     apiRef.current = api;
   }, [api]);
 
-  // Sync from external source (e.g. league prop changes)
-  useEffect(() => {
-    if (initialCourts) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop to local state
-      setHomeCourts(initialCourts);
-    }
-  }, [initialCourts]);
-
   // Fetch on mount if no initialCourts and we have a getter
   useEffect(() => {
     if (!initialCourts && entityId && apiRef.current.get) {
       apiRef.current.get(entityId)
-        .then((courts) => setHomeCourts(courts || []))
+        .then((courts) => setLocalCourts(courts || []))
         .catch(() => {});
     }
   }, [entityId, initialCourts]);
@@ -58,7 +55,7 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
   const refetch = useCallback(async () => {
     if (apiRef.current.get && entityId) {
       const courts = await apiRef.current.get(entityId);
-      setHomeCourts(courts || []);
+      setLocalCourts(courts || []);
     }
   }, [entityId]);
 
@@ -68,9 +65,9 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
    */
   const handleSet = useCallback(async (newCourts: Court[]) => {
     if (entityId == null) return;
-    const prev = homeCourts;
+    const prev = localCourts;
     const courtsWithPosition = newCourts.map((c, i) => ({ ...c, position: i }));
-    setHomeCourts(courtsWithPosition);
+    setLocalCourts(courtsWithPosition);
     try {
       await apiRef.current.set(entityId, newCourts.map((c) => c.id as number));
     } catch (err: any) {
@@ -78,12 +75,13 @@ export default function useHomeCourts({ entityId, initialCourts, api }: UseHomeC
       if (apiRef.current.get) {
         await refetch();
       } else if (initialCourts) {
-        setHomeCourts(initialCourts);
+        // Reset local override so the derived value falls back to initialCourts
+        setLocalCourts(null);
       } else {
-        setHomeCourts(prev);
+        setLocalCourts(prev);
       }
     }
-  }, [homeCourts, entityId, initialCourts, showToast, refetch]);
+  }, [localCourts, entityId, initialCourts, showToast, refetch]);
 
   /** Remove a single home court. */
   const handleRemove = useCallback(async (courtId: string | number) => {

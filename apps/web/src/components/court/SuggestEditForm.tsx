@@ -79,8 +79,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       {error && <p className="court-review-form__error">{error}</p>}
 
       <div className="court-review-form__field">
-        <label>Court Name</label>
+        <label htmlFor="suggest-court-name">Court Name</label>
         <input
+          id="suggest-court-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -89,8 +90,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       </div>
 
       <div className="court-review-form__field">
-        <label>Address</label>
+        <label htmlFor="suggest-court-address">Address</label>
         <input
+          id="suggest-court-address"
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -100,8 +102,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Courts</label>
+          <label htmlFor="suggest-court-count">Courts</label>
           <input
+            id="suggest-court-count"
             type="number"
             min="1"
             value={courtCount}
@@ -110,8 +113,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
           />
         </div>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Surface</label>
+          <label htmlFor="suggest-surface-type">Surface</label>
           <select
+            id="suggest-surface-type"
             value={surfaceType}
             onChange={(e) => setSurfaceType(e.target.value)}
             style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--gray-300)', borderRadius: '6px', fontSize: '14px' }}
@@ -124,8 +128,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       </div>
 
       <div className="court-review-form__field">
-        <label>Hours</label>
+        <label htmlFor="suggest-hours">Hours</label>
         <input
+          id="suggest-hours"
           type="text"
           value={hours}
           onChange={(e) => setHours(e.target.value)}
@@ -136,8 +141,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Phone</label>
+          <label htmlFor="suggest-phone">Phone</label>
           <input
+            id="suggest-phone"
             type="text"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -145,8 +151,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
           />
         </div>
         <div className="court-review-form__field" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Website</label>
+          <label htmlFor="suggest-website">Website</label>
           <input
+            id="suggest-website"
             type="url"
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
@@ -156,8 +163,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       </div>
 
       <div className="court-review-form__field">
-        <label>Cost Info</label>
+        <label htmlFor="suggest-cost-info">Cost Info</label>
         <input
+          id="suggest-cost-info"
           type="text"
           value={costInfo}
           onChange={(e) => setCostInfo(e.target.value)}
@@ -167,8 +175,9 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
       </div>
 
       <div className="court-review-form__field">
-        <label>Parking Info</label>
+        <label htmlFor="suggest-parking-info">Parking Info</label>
         <input
+          id="suggest-parking-info"
           type="text"
           value={parkingInfo}
           onChange={(e) => setParkingInfo(e.target.value)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { getLocations } from '../services/api';
 import type { Location } from '../types';
@@ -37,12 +37,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadLocations();
   }, [loadLocations]);
 
-  const value = {
+  const value = useMemo(() => ({
     locations,
     locationsLoading,
     locationsError,
     refreshLocations: loadLocations,
-  };
+  }), [locations, locationsLoading, locationsError, loadLocations]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

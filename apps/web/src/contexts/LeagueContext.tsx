@@ -24,9 +24,9 @@ type LeagueContextValue = { leagueId: number } &
 
 const LeagueContext = createContext<LeagueContextValue | null>(null);
 
-export const LeagueProvider = ({ children, leagueId }: { children: ReactNode; leagueId: number }) => {
+export const LeagueProvider = ({ children, leagueId, initialTab }: { children: ReactNode; leagueId: number; initialTab?: string }) => {
   const { currentUserPlayer, isInitializing: isAuthInitializing } = useAuth();
-  const [activeLeagueTab, setActiveLeagueTab] = useState<string>('rankings');
+  const [activeLeagueTab, setActiveLeagueTab] = useState<string>(initialTab || 'rankings');
 
   const core = useLeagueCore(leagueId, isAuthInitializing, currentUserPlayer);
   const season = useSeasonData(leagueId, core.seasons);

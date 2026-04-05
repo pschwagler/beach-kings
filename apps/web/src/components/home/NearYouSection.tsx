@@ -62,10 +62,13 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
   const [levelFilter, setLevelFilter] = useState('');
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
-  // Fetch courts — geolocation = proximity only, profile = filter by location_id
+  // Fetch courts and location data concurrently when location/position changes
   useEffect(() => {
     if (!locationId && !userPos) return;
 
+    const fetches: Promise<void>[] = [];
+
+    // Courts fetch — geolocation = proximity only, profile = filter by location_id
     const courtParams: Record<string, unknown> = { page_size: 4 };
     if (posSource === 'geolocation' && userPos) {
       // User is somewhere specific — show courts near their actual position
@@ -79,22 +82,27 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
         courtParams.user_lng = userPos.longitude;
       }
     }
-    getPublicCourts(courtParams)
-      .then((data) => setCourts(data.items || []))
-      .catch(() => {});
-  }, [locationId, userPos, posSource]);
+    fetches.push(
+      getPublicCourts(courtParams)
+        .then((data) => setCourts(data.items || []))
+        .catch(() => {})
+    );
 
-  // Fetch location data for stats widget (always based on profile location)
-  useEffect(() => {
-    if (!locationId) return;
-    getPublicLocations()
-      .then((data) => {
-        const allLocations = ((data.regions || []) as Array<{ locations?: LocationData[] }>).flatMap((r) => r.locations || []);
-        const match = allLocations.find((loc) => loc.id === locationId);
-        if (match) setLocationData(match);
-      })
-      .catch(() => {});
-  }, [locationId]);
+    // Location data fetch for stats widget (always based on profile location)
+    if (locationId) {
+      fetches.push(
+        getPublicLocations()
+          .then((data) => {
+            const allLocations = ((data.regions || []) as Array<{ locations?: LocationData[] }>).flatMap((r) => r.locations || []);
+            const match = allLocations.find((loc) => loc.id === locationId);
+            if (match) setLocationData(match);
+          })
+          .catch(() => {})
+      );
+    }
+
+    Promise.all(fetches);
+  }, [locationId, userPos, posSource]);
 
   // Fetch players (re-runs on level filter change)
   const fetchPlayers = useCallback(async () => {

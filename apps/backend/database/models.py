@@ -698,8 +698,10 @@ class Match(Base):
     __tablename__ = "matches"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    # session_id is nullable for legacy/defensive reasons. In practice, the API
+    # always creates or resolves a session before inserting a match, so every
+    # active match has a session. Date lives on Session, not Match.
     session_id = Column(Integer, ForeignKey("sessions.id"), nullable=True)
-    date = Column(String, nullable=False)
     team1_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     team1_player2_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     team2_player1_id = Column(Integer, ForeignKey("players.id"), nullable=False)
@@ -773,7 +775,6 @@ class Match(Base):
 
     __table_args__ = (
         Index("idx_matches_session", "session_id"),
-        Index("idx_matches_date", "date"),
         Index("idx_matches_team1_p1", "team1_player1_id"),
         Index("idx_matches_team1_p2", "team1_player2_id"),
         Index("idx_matches_team2_p1", "team2_player1_id"),

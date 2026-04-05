@@ -11,9 +11,10 @@ from backend.services import auth_service, user_service, rate_limiting_service
 
 
 @pytest.fixture(autouse=True)
-def clear_rate_limit_storage():
-    """Clear rate limit storage before each test to ensure clean state."""
+def clear_rate_limit_storage(monkeypatch):
+    """Clear rate limit storage and enable rate limiting for these tests."""
     rate_limiting_service.reset_phone_rate_limit_storage()
+    monkeypatch.setattr(rate_limiting_service, "IS_TEST_ENV", False)
     yield
     rate_limiting_service.reset_phone_rate_limit_storage()
 

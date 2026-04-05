@@ -212,6 +212,7 @@ export default function NotificationsTab() {
                         className="notifications-tab-item-mark-read"
                         data-testid="notification-mark-read"
                         onClick={(e) => handleMarkAsRead(e, notification.id)}
+                        aria-label="Mark as read"
                         title="Mark as read"
                         type="button"
                       >

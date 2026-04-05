@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, UserPlus, UserCheck, Clock, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import PlayerSelector from './PlayerSelector';
@@ -29,6 +29,13 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
   const [friendLoading, setFriendLoading] = useState(false);
   const [showFriendSentBubble, setShowFriendSentBubble] = useState(false);
   const isSelf = currentUserPlayer?.id === playerId;
+  const friendBubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (friendBubbleTimerRef.current) clearTimeout(friendBubbleTimerRef.current);
+    };
+  }, []);
 
   // Fetch friend status for registered players only
   useEffect(() => {
@@ -57,7 +64,8 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
       await sendFriendRequest(playerId);
       setFriendStatus('pending_outgoing');
       setShowFriendSentBubble(true);
-      setTimeout(() => setShowFriendSentBubble(false), 2500);
+      if (friendBubbleTimerRef.current) clearTimeout(friendBubbleTimerRef.current);
+      friendBubbleTimerRef.current = setTimeout(() => setShowFriendSentBubble(false), 2500);
     } catch (_) {
       // Silently fail — user can retry from full profile
     } finally {
@@ -145,17 +153,18 @@ export default function PlayerDetails({ playerId, playerName, stats, matchHistor
                   onClick={handleAddFriend}
                   disabled={friendLoading}
                   data-tooltip="Add friend"
+                  aria-label="Add friend"
                 >
                   <UserPlus size={15} />
                 </button>
               )}
               {isAuthenticated && !isSelf && friendStatus === 'pending_outgoing' && (
-                <span className="player-details__friend-btn player-details__friend-btn--pending" data-tooltip="Friend request sent">
+                <span className="player-details__friend-btn player-details__friend-btn--pending" data-tooltip="Friend request sent" aria-label="Friend request sent">
                   <Clock size={15} />
                 </span>
               )}
               {isAuthenticated && !isSelf && friendStatus === 'friend' && (
-                <span className="player-details__friend-btn player-details__friend-btn--active" data-tooltip="Friends">
+                <span className="player-details__friend-btn player-details__friend-btn--active" data-tooltip="Friends" aria-label="Friends">
                   <UserCheck size={15} />
                 </span>
               )}

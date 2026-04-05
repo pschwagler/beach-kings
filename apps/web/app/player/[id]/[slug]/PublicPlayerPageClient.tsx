@@ -69,12 +69,12 @@ export default function PublicPlayerPageClient({ player, canonicalSlug, currentS
       <div className="league-dashboard-container">
         <div className="league-dashboard">
           <HomeMenuBar activeTab="" />
-          <div className="league-dashboard__content">
+          <main className="home-content">
             <PublicPlayerPage
               player={player}
               isAuthenticated={isAuthenticated}
             />
-          </div>
+          </main>
         </div>
       </div>
     </>

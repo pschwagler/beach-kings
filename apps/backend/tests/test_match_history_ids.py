@@ -79,7 +79,6 @@ async def match_scenario(db_session):
 
     match = Match(
         session_id=sess.id,
-        date="2024-06-01",
         team1_player1_id=p1.id,
         team1_player2_id=p2.id,
         team2_player1_id=p3.id,
@@ -229,7 +228,6 @@ async def test_same_named_players_have_distinct_ids(db_session):
     # Game 1: p1 partners with p2 (both "John Smith")
     m1 = Match(
         session_id=sess.id,
-        date="2024-06-01",
         team1_player1_id=p1.id,
         team1_player2_id=p2.id,
         team2_player1_id=p3.id,
@@ -243,7 +241,6 @@ async def test_same_named_players_have_distinct_ids(db_session):
     # Game 2: p1 partners with p3, opponents include p2 (another "John Smith")
     m2 = Match(
         session_id=sess.id,
-        date="2024-06-01",
         team1_player1_id=p1.id,
         team1_player2_id=p3.id,
         team2_player1_id=p2.id,
@@ -306,7 +303,6 @@ async def test_placeholder_flags_in_match_history(db_session):
     await db_session.flush()
     match = Match(
         session_id=sess.id,
-        date="2024-06-01",
         team1_player1_id=p1.id,
         team1_player2_id=p2.id,
         team2_player1_id=p3.id,

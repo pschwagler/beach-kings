@@ -159,6 +159,7 @@ export default function FriendsTab() {
 
   // Load all data on mount
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
@@ -168,18 +169,21 @@ export default function FriendsTab() {
           getFriendRequests('outgoing'),
           getFriendSuggestions(SUGGESTIONS_FETCH_COUNT),
         ]);
-        setFriends(friendsData.items || []);
-        setFriendsTotalCount(friendsData.total_count || 0);
-        setIncomingRequests(inData || []);
-        setOutgoingRequests(outData || []);
-        setSuggestionBuffer(suggestionsData || []);
+        if (!cancelled) {
+          setFriends(friendsData.items || []);
+          setFriendsTotalCount(friendsData.total_count || 0);
+          setIncomingRequests(inData || []);
+          setOutgoingRequests(outData || []);
+          setSuggestionBuffer(suggestionsData || []);
+        }
       } catch (err) {
-        console.error('Error loading friends data:', err);
+        if (!cancelled) console.error('Error loading friends data:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, []);
 
   const setActionLoadingFor = (key: string, value: boolean) => {

@@ -360,7 +360,7 @@ async def get_season_matches_with_elo(session: AsyncSession, season_id: int) -> 
     query = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Session.name.label("session_name"),
             Session.status.label("session_status"),
@@ -413,7 +413,7 @@ async def get_league_matches_with_elo(session: AsyncSession, league_id: int) -> 
     query = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Session.name.label("session_name"),
             Session.status.label("session_status"),
@@ -496,7 +496,7 @@ async def query_matches(
     query = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Session.name.label("session_name"),
             Session.status.label("session_status"),
@@ -545,7 +545,7 @@ async def query_matches(
     if conditions:
         query = query.where(and_(*conditions))
 
-    order_column = Match.date if sort_by == "date" else Match.id
+    order_column = Session.date if sort_by == "date" else Match.id
     if sort_dir.lower() == "asc":
         query = query.order_by(order_column.asc())
     else:
@@ -1068,7 +1068,7 @@ async def export_matches_to_csv(session: AsyncSession) -> str:
 
     query = (
         select(
-            Match.date,
+            Session.date.label("date"),
             p1.full_name.label("team1_player1_name"),
             p2.full_name.label("team1_player2_name"),
             p3.full_name.label("team2_player1_name"),
@@ -1134,7 +1134,7 @@ async def get_player_match_history_by_id(
     query = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Match.team1_player1_id,
             Match.team1_player2_id,

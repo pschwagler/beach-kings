@@ -37,3 +37,7 @@ Note - this is a public repo. Don't leak any PII or anything that could compromi
 # General
 - Prefer immutability
 - Many small files over few large ones (200-400 lines typical, 800 max)
+
+# Tools
+
+Always use headless mode when using agent-browser, playwright, chrome devtools if you can

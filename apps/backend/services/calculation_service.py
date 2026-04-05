@@ -503,8 +503,9 @@ class StatsTracker:
             )
             for team_idx, team in enumerate(teams):
                 for player_id in team:
+                    match_date = match.session.date if match.session else None
                     self.get_player(player_id).update_elo(
-                        global_deltas[team_idx], match.date, match.id
+                        global_deltas[team_idx], match_date, match.id
                     )
 
         # Season ELO (always calculated, even for placeholder matches)
@@ -517,9 +518,10 @@ class StatsTracker:
             )
             for team_idx, team in enumerate(teams):
                 for player_id in team:
+                    match_date = match.session.date if match.session else None
                     self.get_player(player_id).update_season_rating(
                         season_deltas[team_idx],
-                        match.date,
+                        match_date,
                         match.id,
                     )
 

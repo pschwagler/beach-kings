@@ -339,7 +339,6 @@ async def test_get_public_leagues_with_games_played(db_session, test_location, t
 
     match = Match(
         session_id=sess.id,
-        date="2026-02-01",
         team1_player1_id=test_player.id,
         team1_player2_id=p2.id,
         team2_player1_id=p3.id,
@@ -524,7 +523,6 @@ async def public_league_full(db_session, test_location, test_player):
 
     match = Match(
         session_id=sess.id,
-        date="2026-02-01",
         team1_player1_id=test_player.id,
         team1_player2_id=player2.id,
         team2_player1_id=player3.id,
@@ -1119,7 +1117,6 @@ async def test_get_public_location_match_count(db_session, test_location, test_p
 
     match = Match(
         session_id=sess.id,
-        date="2026-02-01",
         team1_player1_id=test_player.id,
         team1_player2_id=p2.id,
         team2_player1_id=p3.id,

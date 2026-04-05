@@ -24,14 +24,14 @@ export default function MyMatchesWidget({ matches, currentUserPlayer, onMatchCli
   const isFull = variant === 'full';
 
   const titleElement = onViewAll ? (
-    <h3
-      className="dashboard-widget-title dashboard-widget-title--clickable"
-      onClick={onViewAll}
-      role="link"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } }}
-    >
-      My Games
+    <h3 className="dashboard-widget-title dashboard-widget-title--clickable">
+      <button
+        type="button"
+        className="dashboard-widget-title__btn"
+        onClick={onViewAll}
+      >
+        My Games
+      </button>
     </h3>
   ) : (
     <h3 className={isFull ? 'my-games-tab-section-title' : 'dashboard-widget-title'}>My Games</h3>

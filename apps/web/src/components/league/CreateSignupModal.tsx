@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
+import { useDialog } from '../../hooks/useDialog';
 import { useLeague } from '../../contexts/LeagueContext';
 import CourtSelector from '../court/CourtSelector';
 
@@ -62,6 +63,7 @@ interface CreateSignupModalProps {
 }
 
 export default function CreateSignupModal({ seasonId, onClose, onSubmit }: CreateSignupModalProps) {
+  const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
   const { league, isLeagueAdmin } = useLeague();
 
@@ -100,10 +102,10 @@ export default function CreateSignupModal({ seasonId, onClose, onSubmit }: Creat
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-signup-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Schedule New Session for Sign Ups</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="create-signup-title">Schedule New Session for Sign Ups</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

@@ -1,16 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
-const { mockReplace, mockRouter } = vi.hoisted(() => {
-  const mockReplace = vi.fn();
-  const mockRouter = { push: vi.fn(), replace: mockReplace, refresh: vi.fn() };
-  return { mockReplace, mockRouter };
-});
-
-vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => mockRouter),
-}));
-
 vi.mock('../../services/api', () => ({
   getSessionByCode: vi.fn(),
   getSessionMatches: vi.fn(),
@@ -76,20 +66,6 @@ describe('usePickupSession', () => {
       expect(result.current.matches).toEqual(matches);
       expect(result.current.participants).toEqual(participants);
       expect(result.current.error).toBeNull();
-    });
-  });
-
-  describe('league session redirect', () => {
-    it('calls router.replace with correct URL when session has league_id and season_id', async () => {
-      const session = { id: 20, code: 'XYZ', league_id: 5, season_id: 2, created_by: 1 };
-
-      getSessionByCode.mockResolvedValue(session);
-
-      renderHook(() => usePickupSession('XYZ'));
-
-      await waitFor(() => expect(mockReplace).toHaveBeenCalled());
-
-      expect(mockReplace).toHaveBeenCalledWith('/league/5?tab=matches&season=2');
     });
   });
 

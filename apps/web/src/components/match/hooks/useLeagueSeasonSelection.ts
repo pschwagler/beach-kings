@@ -112,7 +112,10 @@ export function useLeagueSeasonSelection({
       setSelectedLeagueId(null);
       setActiveSeason(null);
     }
-  }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league]);
+  // Depend on league primitives — not the object reference — to avoid
+  // infinite re-render loops when the caller creates a new object each render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league?.id, league?.name]);
 
   // Load seasons when league is selected
   useEffect(() => {

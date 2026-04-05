@@ -122,7 +122,6 @@ async def create_match(
     winner = 1 if team1_score > team2_score else (2 if team2_score > team1_score else -1)
     match = Match(
         session_id=session.id,
-        date=session.date,
         team1_player1_id=team1_p1.id,
         team1_player2_id=team1_p2.id,
         team2_player1_id=team2_p1.id,
@@ -962,7 +961,6 @@ async def test_matches_without_session_included(db_session, test_players):
     # Create a match without a session (session_id = None)
     match = Match(
         session_id=None,
-        date="2024-01-15",
         team1_player1_id=alice.id,
         team1_player2_id=bob.id,
         team2_player1_id=charlie.id,

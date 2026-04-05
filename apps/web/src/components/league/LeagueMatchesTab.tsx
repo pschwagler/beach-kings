@@ -189,6 +189,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
       },
       onDelete: handleDeleteMatch,
       leagueHomeCourts,
+      isFirstMatch: true,
     });
 
     // Clean URL param to prevent re-open on refresh

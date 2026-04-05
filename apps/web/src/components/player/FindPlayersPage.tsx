@@ -9,15 +9,17 @@ import HomeMenuBar from '../home/HomeMenuBar';
 import LevelBadge from '../ui/LevelBadge';
 import { Button } from '../ui/UI';
 import SearchableMultiSelect from '../ui/SearchableMultiSelect';
-import { getPublicPlayers, getLocations, getUserLeagues, createLeague, batchFriendStatus } from '../../services/api';
+import { getPublicPlayers, getUserLeagues, createLeague, batchFriendStatus } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
+import { useApp } from '../../contexts/AppContext';
+import { useDebounce } from '../../hooks/useDebounce';
 import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
 import { formatGender } from '../../utils/formatters';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
-import type { Location, League } from '../../types';
+import type { League } from '../../types';
 
 /** Flat shape returned by the public players search endpoint. */
 interface PublicPlayerSearchResult {
@@ -125,13 +127,12 @@ export default function FindPlayersPage() {
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
+  const { locations } = useApp();
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
   const [players, setPlayers] = useState<PublicPlayerSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
-  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [locationIds, setLocationIds] = useState(() => {
     const initial = searchParams.get('location_id');
     return initial ? initial.split(',') : [];
@@ -139,7 +140,6 @@ export default function FindPlayersPage() {
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'games');
   const [sortDir, setSortDir] = useState(() => DEFAULT_SORT_DIR[searchParams.get('sort') || 'games']);
   const [minGames, setMinGames] = useState('');
-  const [debouncedMinGames, setDebouncedMinGames] = useState('');
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [viewMode, setViewMode] = useState('table');
   const [page, setPage] = useState(1);
@@ -147,6 +147,9 @@ export default function FindPlayersPage() {
   const [friendStatuses, setFriendStatuses] = useState<{ statuses: Record<string, string>; mutual_counts: Record<string, number> } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const debouncedMinGames = useDebounce(minGames, 400);
 
   // Restore saved view mode from localStorage (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -166,18 +169,6 @@ export default function FindPlayersPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isFilterOpen]);
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Debounce min games input
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedMinGames(minGames), 400);
-    return () => clearTimeout(timer);
-  }, [minGames]);
-
   // Load user leagues for navbar
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -185,13 +176,6 @@ export default function FindPlayersPage() {
       .then(setUserLeagues)
       .catch((err) => console.error('Error loading user leagues:', err));
   }, [isAuthenticated]);
-
-  // Load locations for filter dropdown
-  useEffect(() => {
-    getLocations()
-      .then((data) => setLocations(data || []))
-      .catch((err) => console.error('Error loading locations:', err));
-  }, []);
 
   // Fetch players when filters, search, sort, or page change
   useEffect(() => {
@@ -219,8 +203,16 @@ export default function FindPlayersPage() {
           params.include_placeholders = true;
         }
         const data = await getPublicPlayers(params, { signal: controller.signal });
-        setPlayers(data.items || []);
+        const items = data.items || [];
+        setPlayers(items);
         setTotalCount(data.total_count || 0);
+        if (isAuthenticated && items.length > 0) {
+          batchFriendStatus(items.map((p) => p.id))
+            .then(setFriendStatuses)
+            .catch((err) => console.error('Error fetching friend statuses:', err));
+        } else {
+          setFriendStatuses(null);
+        }
       } catch (err) {
         if (err.name === 'AbortError' || err.name === 'CanceledError') return;
         console.error('Error fetching players:', err);
@@ -230,19 +222,7 @@ export default function FindPlayersPage() {
     };
     fetchPlayers();
     return () => controller.abort();
-  }, [filters, locationIds, debouncedSearch, sortBy, sortDir, debouncedMinGames, showPlaceholders, page]);
-
-  // Fetch friend statuses when players load (authenticated only)
-  useEffect(() => {
-    if (!isAuthenticated || players.length === 0) {
-      setFriendStatuses(null);
-      return;
-    }
-    const playerIds = players.map((p) => p.id);
-    batchFriendStatus(playerIds)
-      .then(setFriendStatuses)
-      .catch((err) => console.error('Error fetching friend statuses:', err));
-  }, [isAuthenticated, players]);
+  }, [filters, locationIds, debouncedSearch, sortBy, sortDir, debouncedMinGames, showPlaceholders, page, isAuthenticated]);
 
   const handleSignOut = async () => {
     try {
@@ -286,7 +266,6 @@ export default function FindPlayersPage() {
     setFilters({});
     setLocationIds([]);
     setMinGames('');
-    setDebouncedMinGames('');
     setShowPlaceholders(false);
     setSearchQuery('');
     setSortBy('games');
