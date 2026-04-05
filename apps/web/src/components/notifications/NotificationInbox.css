@@ -8,8 +8,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   background: none;
   border: none;
   cursor: pointer;
@@ -192,11 +194,52 @@
   margin-top: 6px;
 }
 
-/* Mobile responsive */
-@media (max-width: 640px) {
+.notification-inbox-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--gray-600);
+  transition: background-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.notification-inbox-close:hover {
+  background-color: var(--gray-100);
+  color: var(--gray-900);
+}
+
+/* Mobile: full-screen overlay */
+@media (max-width: 768px) {
   .notification-inbox {
-    width: 320px;
-    right: -40px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    z-index: 1100;
+  }
+
+  .notification-inbox-header {
+    padding: 16px;
+  }
+
+  .notification-inbox-content {
+    max-height: none;
+    flex: 1;
+  }
+
+  .notification-inbox-close {
+    display: flex;
   }
 }
 
@@ -339,8 +382,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   background: none;
   border: 1px solid var(--gray-300);
   border-radius: 6px;

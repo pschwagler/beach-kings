@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../../contexts/NotificationContext';
 import type { Notification, NotificationAction } from '../../contexts/NotificationContext';
+import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { approveLeagueJoinRequest, rejectLeagueJoinRequest, acceptFriendRequest, declineFriendRequest } from '../../services/api';
 import './NotificationInbox.css';
@@ -127,15 +128,25 @@ export default function NotificationInbox({ onClose }: NotificationInboxProps) {
     <div className="notification-inbox">
       <div className="notification-inbox-header">
         <h3 className="notification-inbox-title">Notifications</h3>
-        {hasUnread && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {hasUnread && (
+            <button
+              type="button"
+              className="notification-inbox-mark-all"
+              onClick={handleMarkAllAsRead}
+            >
+              Mark all as read
+            </button>
+          )}
           <button
             type="button"
-            className="notification-inbox-mark-all"
-            onClick={handleMarkAllAsRead}
+            className="notification-inbox-close"
+            onClick={onClose}
+            aria-label="Close notifications"
           >
-            Mark all as read
+            <X size={18} />
           </button>
-        )}
+        </div>
       </div>
 
       <div className="notification-inbox-content">

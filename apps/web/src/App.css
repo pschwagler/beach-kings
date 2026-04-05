@@ -645,12 +645,30 @@ h1 {
 }
 
 .dashboard-widget-title--clickable {
-  cursor: pointer;
-  transition: color 0.2s ease;
+  /* kept for backwards-compat; interaction is now on the inner button */
 }
 
-.dashboard-widget-title--clickable:hover {
+/* Inner <button> inside a clickable widget title heading */
+.dashboard-widget-title__btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-align: left;
+}
+
+.dashboard-widget-title__btn:hover {
   color: var(--primary);
+}
+
+.dashboard-widget-title__btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .dashboard-widget-create-btn {
@@ -1460,6 +1478,12 @@ h1 {
   padding: 4px;
 }
 
+/* Dual-render: desktop tables visible by default, mobile hidden */
+.match-history-desktop { display: block; }
+.match-history-mobile  { display: none; }
+.player-stats-desktop  { display: block; }
+.player-stats-mobile   { display: none; }
+
 .table-scroll-wrapper::-webkit-scrollbar {
   height: 8px;
 }
@@ -1869,8 +1893,10 @@ body.drawer-open {
 
 /* Friend icon in player drawer */
 .player-details__friend-btn {
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1.5px solid var(--gray-300);
   background: #fff;
@@ -2053,8 +2079,10 @@ body.drawer-open {
   color: var(--gray-600);
   padding: 8px;
   box-shadow: none;
-  width: 36px;
-  height: 36px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   transition: all 0.15s ease;
   display: flex;
@@ -3266,8 +3294,10 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--gray-300);
   border-radius: 6px;
@@ -3560,6 +3590,84 @@ body:hover ::-webkit-scrollbar-thumb {
   .leagues-table-member-indicator {
     font-size: 0.75em;
     padding: 2px 6px;
+  }
+}
+
+/* FilterableTable: desktop/mobile toggle */
+.filterable-table-mobile {
+  display: none;
+}
+
+/* Find League mobile card styles */
+.filterable-table-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.find-league-card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.find-league-card:hover {
+  border-color: var(--gray-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.find-league-card__name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--gray-900);
+}
+
+.find-league-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.find-league-card__location,
+.find-league-card__members {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-league-card__details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.find-league-card__access {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+.find-league-card__action {
+  padding-top: 6px;
+  border-top: 1px solid var(--gray-100);
+}
+
+@media (max-width: 768px) {
+  .filterable-table-desktop {
+    display: none;
+  }
+
+  .filterable-table-mobile {
+    display: block;
   }
 }
 
@@ -4300,8 +4408,10 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
@@ -4414,8 +4524,10 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: rgba(59, 130, 200, 0.1);
   color: var(--primary);
@@ -5217,8 +5329,10 @@ body:hover ::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
@@ -6099,6 +6213,29 @@ body:hover ::-webkit-scrollbar-thumb {
   margin: 0;
 }
 
+/* Inner <button> inside the bar title heading */
+.home-leagues-bar__title__btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-align: left;
+}
+
+.home-leagues-bar__title__btn:hover {
+  color: var(--primary);
+}
+
+.home-leagues-bar__title__btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .home-leagues-bar__actions {
   display: flex;
   gap: 8px;
@@ -6367,11 +6504,98 @@ button.match-config-toggle.inline svg {
 
 .match-config-inline-controls {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 12px;
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Toggles row — match type + ranked side by side */
+.match-config-toggles-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Date + Court row inside Game Info config */
+.match-config-date-court-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.match-config-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.match-config-court-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.match-config-date-input {
+  padding: 7px 10px;
+  min-height: 36px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-family: "Urbanist", sans-serif;
+  font-weight: 500;
+  color: var(--gray-800);
+  background: white;
+  min-height: 36px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.match-config-date-input:hover {
+  border-color: var(--gray-400);
+}
+
+.match-config-date-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* Consistent label for date/court fields */
+.match-config-date-court-row .match-config-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Court selector label inside the config row — match the date label style */
+.match-config-court-field .form-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0;
+}
+
+/* Compact court selector trigger inside config row */
+.match-config-court-field .court-selector__trigger {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 0.8125rem;
+  background: white;
 }
 
 .match-config-content {
@@ -6446,6 +6670,11 @@ button.match-config-toggle.inline svg {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 200, 0.1);
+}
+
+.player-dropdown-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .player-dropdown-input:hover {
@@ -6547,6 +6776,11 @@ button.match-config-toggle.inline svg {
   outline: none;
   background: white;
   border-bottom-color: var(--primary);
+}
+
+.player-dropdown-search:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .player-dropdown-options {
@@ -6677,8 +6911,10 @@ button.match-config-toggle.inline svg {
   gap: 0 !important;
 
   /* Simple X button styling */
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6895,6 +7131,11 @@ button.match-config-toggle.inline svg {
   outline: none;
   background: transparent;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.phone-input__input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .phone-input__input--error {
@@ -7207,6 +7448,22 @@ button.match-config-toggle.inline svg {
 
 .session-stats-clickable:hover {
   opacity: 0.8;
+}
+
+button.session-stats-clickable {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.session-stats-clickable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .session-stat {
@@ -7692,8 +7949,10 @@ button.match-config-toggle.inline svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: transparent;
   color: var(--danger);
@@ -8849,86 +9108,167 @@ button.match-config-toggle.inline svg {
     padding-left: 12px;
   }
 
-  /* Player Stats Table Mobile Styling */
-  .player-details table.player-stats-table {
-    min-width: auto;
+  /* --- Dual-render: swap desktop tables for mobile layouts --- */
+  .match-history-desktop { display: none; }
+  .match-history-mobile  { display: flex; flex-direction: column; gap: 10px; }
+  .player-stats-desktop  { display: none; }
+  .player-stats-mobile   { display: block; }
+
+  /* --- Match History: mobile card layout --- */
+  .mh-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
   }
 
-  .player-stats-table {
-    min-width: 100%;
-    width: 100%;
+  .mh-card--active {
+    border-left: 3px solid var(--success);
+    background: rgba(16, 185, 129, 0.03);
+  }
+
+  .mh-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-50);
+  }
+
+  .mh-card__date {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--gray-600);
+    letter-spacing: 0.3px;
+  }
+
+  .mh-card__body {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+
+  .mh-card__row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.9em;
+  }
+
+  .mh-card__label {
+    flex-shrink: 0;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--gray-400);
+    font-weight: 600;
+    width: 52px;
+  }
+
+  .mh-card__footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
     font-size: 0.875em;
   }
 
-  .player-stats-table th {
-    padding: 12px 4px;
-    font-size: 0.72em;
-    white-space: nowrap;
+  .mh-card__score {
+    color: var(--gray-700);
+    font-weight: 500;
+    flex: 1;
   }
 
-  .player-stats-table td {
-    padding: 12px 4px;
-    font-size: 0.85em;
+  .mh-card__rating {
+    color: var(--gray-700);
+    font-weight: 500;
+    text-align: right;
   }
 
-  /* Show mobile labels, hide desktop labels on mobile */
-  .player-stats-table th .desktop-label {
-    display: none;
+  /* --- Player Stats: mobile 4-column compact table --- */
+  .player-details .pst-mobile {
+    width: 100%;
+    min-width: 0;
+    border-collapse: collapse;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: white;
+    box-shadow: var(--shadow-sm);
+    table-layout: fixed;
   }
 
-  .player-stats-table th .mobile-label {
-    display: inline;
-  }
-
-  /* Make name column sticky and narrower on mobile */
-  .player-stats-table th.player-stats-name-col {
-    position: sticky;
-    left: 0;
-    z-index: 10;
+  .pst-mobile thead {
     background: linear-gradient(
       135deg,
       var(--primary-darker) 0%,
       var(--primary-dark) 100%
     );
-    min-width: 100px;
-    max-width: 120px;
-    box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
-    padding: 12px 6px;
   }
 
-  .player-stats-table td.player-stats-name-col {
-    position: sticky;
-    left: 0;
-    z-index: 9;
-    background: white;
-    min-width: 100px;
-    max-width: 120px;
-    box-shadow: 2px 0 2px rgba(0, 0, 0, 0.03);
-    padding: 12px 6px;
+  .pst-mobile thead th {
+    color: white;
+    font-weight: 600;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
   }
 
-  /* Alternate sticky column background to match row colors */
-  .player-stats-table tbody tr.row-gray td.player-stats-name-col {
+  .pst-mobile__name-col {
+    width: 50%;
+    padding: 11px 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pst-mobile__stat-col {
+    width: calc(50% / 3);
+    text-align: center;
+    padding: 11px 4px;
+    white-space: nowrap;
+    font-size: 0.85em;
+  }
+
+  .pst-mobile tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+  }
+
+  .pst-mobile tbody tr.row-gray {
     background: var(--gray-50);
   }
 
-  .player-stats-table tbody tr:hover td.player-stats-name-col {
-    background: rgba(0, 0, 0, 0.03);
+  .pst-mobile tbody tr.overall-row {
+    background: var(--gray-50);
+    font-weight: 600;
   }
 
-  /* Make stat columns narrower and closer together */
-  .player-stats-table th:not(.player-stats-name-col),
-  .player-stats-table td.player-stats-stat-cell {
-    padding: 12px 3px;
-    white-space: nowrap;
-    min-width: auto;
-    width: auto;
+  .pst-mobile tbody tr.section-header td {
+    background: var(--gray-100);
+    padding: 10px 10px;
+    font-size: 0.72em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-900);
+    border-bottom: 1px solid var(--gray-200);
   }
 
-  /* First stat column after sticky name column needs more left padding */
-  .player-stats-table th:nth-child(2),
-  .player-stats-table td:nth-child(2) {
-    padding-left: 8px;
+  .pst-mobile tbody td {
+    color: var(--gray-700);
+    font-size: 0.88em;
+    font-weight: 500;
+    border: none;
+    vertical-align: middle;
+  }
+
+  .pst-mobile .spacer-row {
+    padding: 8px;
+    background: transparent;
   }
 
   /* League section - reduce padding on mobile (league-content already has padding) */
@@ -9489,8 +9829,8 @@ button.match-config-toggle.inline svg {
     transform: none;
     width: 100%;
     max-width: 100%;
-    border-radius: 20px 20px 0 0;
-    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    max-height: 95vh;
     animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
@@ -9509,15 +9849,33 @@ button.match-config-toggle.inline svg {
   }
 
   .match-config-inline-controls {
-    flex-wrap: nowrap;
-    gap: 16px;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .match-config-toggles-row {
+    gap: 6px;
   }
 
   .match-type-option.compact,
   .ranked-toggle-option.compact {
-    padding: 6px 10px; /* Slightly smaller padding */
+    padding: 5px 8px;
     font-size: 0.75rem;
     white-space: nowrap;
+  }
+
+  /* Date-court row stays horizontal on mobile to save vertical space */
+  .match-config-date-court-row {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .match-config-date-input {
+    font-size: 0.8125rem;
+    padding: 7px 10px;
+    min-height: 36px;
+    width: 100%;
   }
 
   /* Ensure title doesn't shrink too much but allows controls to fit */
@@ -9534,17 +9892,18 @@ button.match-config-toggle.inline svg {
   }
 
   .add-match-form {
-    padding: 20px;
-    margin-bottom: 32px;
+    padding: 12px;
+    margin-bottom: 0;
+    gap: 8px;
   }
 
   .create-league-form {
-    padding: 20px;
+    padding: 12px;
     margin-bottom: 0;
   }
 
   .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .radio-card {
@@ -9556,46 +9915,22 @@ button.match-config-toggle.inline svg {
     font-size: 0.9em;
   }
 
-  .team-section {
-    padding: 14px;
-    gap: 8px;
+  /* Keep teams side-by-side on mobile */
+  .teams-container {
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
   }
 
-  .player-dropdown-trigger {
-    padding: 14px 16px;
-  }
-
-  .player-dropdown-input {
-    padding: 14px 16px;
-    font-size: 16px; /* Prevent iOS zoom on focus */
-    min-height: 48px; /* Make it easier to tap */
-  }
-
-  .team-inputs-row {
-    gap: 8px;
-  }
-
-  .score-input {
-    width: 60px;
-    font-size: 1.8em;
-  }
-
-  .scorecard-digit-input {
-    width: 45px;
-    height: 60px;
-    font-size: 1.8em;
-  }
-
-  .team-header {
-    position: absolute;
-    right: 12px;
-    top: 12px;
-    gap: 8px;
-    margin-bottom: 0;
-    padding-right: 21px;
+  .vs-divider-column {
+    display: flex;
+    font-size: 0.7rem;
+    padding: 0 4px;
+    color: var(--gray-400);
   }
 
   .team-section {
+    padding: 10px;
+    gap: 6px;
     position: relative;
   }
 
@@ -9603,21 +9938,77 @@ button.match-config-toggle.inline svg {
     border: 2px solid var(--success);
   }
 
+  .team-header {
+    gap: 6px;
+    margin-bottom: 0;
+  }
+
   .team-section h3 {
-    font-size: 0.95em;
+    font-size: 0.75rem;
   }
 
   .winner-badge {
-    display: none;
+    padding: 2px 6px;
+    font-size: 0.6em;
+  }
+
+  /* Stack score below players in narrow columns */
+  .team-inputs-row {
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .player-inputs {
+    gap: 6px;
+  }
+
+  .scorecard-container {
+    justify-content: center;
+  }
+
+  .player-dropdown-trigger {
+    padding: 8px 10px;
+    border-width: 1.5px;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+  }
+
+  .player-dropdown-input {
+    padding: 8px 10px;
+    font-size: 16px; /* Prevent iOS zoom on focus */
+    min-height: 36px;
+    border-width: 1.5px;
+    border-radius: 6px;
+  }
+
+  .player-dropdown-value {
+    font-size: 0.8125rem;
+  }
+
+  .player-dropdown-placeholder {
+    font-size: 0.8125rem;
+  }
+
+  .scorecard-digit-input {
+    width: 45px;
+    height: 58px;
+    font-size: 1.75em;
+    border-radius: 6px;
+  }
+
+  .score-input {
+    width: 50px;
+    font-size: 1.5em;
   }
 
   .vs-divider {
-    font-size: 1.2em;
-    padding: 4px 0;
+    font-size: 1em;
+    padding: 2px 0;
   }
 
   .player-dropdown-option {
-    font-size: 0.9em;
+    font-size: 0.85em;
   }
 
   .form-error {
@@ -9875,7 +10266,7 @@ button.match-config-toggle.inline svg {
   }
 
   .add-match-form {
-    padding-bottom: 16px;
+    padding-bottom: 8px;
   }
 
   .create-league-form {
@@ -9883,7 +10274,7 @@ button.match-config-toggle.inline svg {
   }
 
   .modal-header {
-    padding: 12px 14px;
+    padding: 10px 14px;
     flex-shrink: 0;
   }
 
@@ -9892,7 +10283,7 @@ button.match-config-toggle.inline svg {
   }
 
   .modal-body {
-    padding: 12px;
+    padding: 10px;
   }
 
   .form-group-row {
@@ -9957,30 +10348,33 @@ button.match-config-toggle.inline svg {
   }
 
   .add-match-form {
-    padding: 16px;
-    margin-bottom: 32px;
-    gap: 16px;
+    padding: 10px;
+    margin-bottom: 0;
+    gap: 6px;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
   }
 
   .create-league-form {
-    padding: 16px;
+    padding: 10px;
     margin-bottom: 0;
-    gap: 16px;
+    gap: 10px;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
   }
 
+  /* Keep teams side-by-side — never stack */
   .teams-container {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
   }
 
   .vs-divider-column {
-    display: none;
+    display: flex;
+    font-size: 0.65rem;
+    padding: 0 3px;
   }
 }
 
@@ -10016,12 +10410,12 @@ button.match-config-toggle.inline svg {
   }
 
   .team-section {
-    padding: 14px;
-    gap: 12px;
+    padding: 8px;
+    gap: 4px;
   }
 
   .match-config-section {
-    padding: 12px 16px;
+    padding: 8px 10px;
     gap: 4px;
     animation: slideDown 0.2s ease-out;
   }
@@ -10059,6 +10453,28 @@ button.match-config-toggle.inline svg {
     font-size: 0.6875rem;
   }
 
+  .match-config-inline-controls {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .match-config-date-input {
+    font-size: 0.75rem;
+    min-height: 32px;
+    padding: 6px 8px;
+  }
+
+  .match-config-court-field .court-selector__trigger {
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .match-config-date-court-row .match-config-label,
+  .match-config-court-field .form-label {
+    font-size: 0.625rem;
+  }
+
   .league-dropdown-trigger.compact {
     padding: 4px 8px;
     font-size: 0.6875rem;
@@ -10087,33 +10503,34 @@ button.match-config-toggle.inline svg {
   }
 
   .team-inputs-row {
-    gap: 18px;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .score-input {
-    width: 60px;
-    font-size: 1.6em;
-    height: 50px;
+    width: 50px;
+    font-size: 1.3em;
+    height: 40px;
   }
 
   .scorecard-digit-input {
-    width: 45px;
-    height: 56px;
+    width: 42px;
+    height: 52px;
     font-size: 1.6em;
   }
 
   .team-header {
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: 4px;
+    margin-bottom: 2px;
   }
 
   .team-section h3 {
-    font-size: 0.9em;
+    font-size: 0.7rem;
   }
 
   .winner-badge {
-    padding: 3px 8px;
-    font-size: 0.65em;
+    padding: 2px 6px;
+    font-size: 0.6em;
   }
 
   .vs-divider {
@@ -10281,6 +10698,13 @@ button.match-config-toggle.inline svg {
   .league-signups-section,
   .league-schedules-section {
     padding: 8px 4px;
+  }
+
+  .league-signups-list,
+  .league-schedules-list,
+  .league-signup-row,
+  .league-schedule-row {
+    min-width: 0;
   }
 }
 @media (max-width: 768px) {
@@ -10680,6 +11104,11 @@ button.match-config-toggle.inline svg {
 }
 .player-dropdown-create-input:focus {
   border-color: var(--primary);
+}
+
+.player-dropdown-create-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .player-dropdown-create-btn {

@@ -27,6 +27,9 @@ interface FilterableTableProps {
   onFilterChange?: (filters: Record<string, string>) => void;
   loading?: boolean;
   renderRow: (item: any, idx: number) => ReactNode;
+  /** Optional mobile card renderer. When provided, the table is hidden on mobile
+   *  and cards are shown instead (toggled via CSS display). */
+  renderMobileItem?: (item: any, idx: number) => ReactNode;
   emptyMessage?: string;
   extraFiltersContent?: ReactNode;
   page?: number;
@@ -45,6 +48,7 @@ export default function FilterableTable({
   onFilterChange,
   loading,
   renderRow,
+  renderMobileItem,
   emptyMessage = "No results found.",
   extraFiltersContent,
   // Optional server-side pagination props
@@ -216,8 +220,8 @@ export default function FilterableTable({
         </div>
       )}
 
-      {/* Table */}
-      <div className="filterable-table-content">
+      {/* Table (desktop) */}
+      <div className={`filterable-table-content ${renderMobileItem ? 'filterable-table-desktop' : ''}`}>
         {!loading && filteredData.length === 0 ? (
           <div className="empty-state">
             <p>{emptyMessage}</p>
@@ -241,6 +245,21 @@ export default function FilterableTable({
           </table>
         )}
       </div>
+
+      {/* Mobile cards (shown only when renderMobileItem is provided) */}
+      {renderMobileItem && (
+        <div className="filterable-table-mobile">
+          {!loading && filteredData.length === 0 ? (
+            <div className="empty-state">
+              <p>{emptyMessage}</p>
+            </div>
+          ) : (
+            <div className="filterable-table-cards">
+              {filteredData.map((item, idx) => renderMobileItem(item, idx))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Optional pagination footer */}
       {typeof page === 'number' && typeof pageSize === 'number' && typeof totalCount === 'number' && onPageChange && (
