@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import KobSetup from "../../../../src/components/kob/KobSetup";
 
 export const metadata = {
-  title: "Setup Tournament | Beach Kings",
+  title: "Setup Tournament | Beach League",
   description: "Set up your King/Queen of the Beach tournament",
 };
 

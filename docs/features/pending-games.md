@@ -2,7 +2,7 @@
 
 ## What is a pending game?
 
-A game is **pending** when at least one player in the match has not yet registered (linked) their account to Beach Kings. The match data is captured in full — scores, teams, date — but ELO calculations are deferred until every player is a registered user.
+A game is **pending** when at least one player in the match has not yet registered (linked) their account to Beach League. The match data is captured in full — scores, teams, date — but ELO calculations are deferred until every player is a registered user.
 
 A match is pending when:
 

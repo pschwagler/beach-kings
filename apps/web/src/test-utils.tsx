@@ -1,5 +1,5 @@
 /**
- * Shared test utilities for the Beach Kings web app.
+ * Shared test utilities for the Beach League web app.
  *
  * Provides reusable helpers to reduce boilerplate across test files.
  * Import as: import { createConsumer, mockNextNavigation, mockApi } from '@/test-utils';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
-<title>Active Pickup Session - Beach Kings Mobile</title>
+<title>Active Pickup Session - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,9 +63,14 @@
   .match-badge.win { background: #dcfce7; color: #15803d; }
   .match-badge.loss { background: #fee2e2; color: #b91c1c; }
 
+  /* Match Edit */
+  .match-edit { color: #ccc; font-size: 14px; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; margin: -6px -8px -6px 0; }
+
   /* Action Buttons */
   .action-buttons { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .btn-add-match { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; }
+  .action-row { display: flex; gap: 10px; }
+  .btn-add-match { flex: 1; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-camera { width: 56px; padding: 16px 0; border-radius: 12px; border: 1.5px solid #d4a843; background: transparent; color: #d4a843; font-size: 20px; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .btn-submit { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #15803d; background: transparent; color: #15803d; font-size: 14px; font-weight: 700; text-align: center; }
 
   /* Tab Bar */
@@ -171,6 +176,7 @@
     <div class="match-footer">
       <span class="match-num">Match 3</span>
       <span class="match-badge win">WIN</span>
+      <a href="score-scoreboard.html" class="match-edit" title="Edit match">&#9998;</a>
     </div>
   </div>
 
@@ -189,6 +195,7 @@
     <div class="match-footer">
       <span class="match-num">Match 2</span>
       <span class="match-badge win">WIN</span>
+      <a href="score-scoreboard.html" class="match-edit" title="Edit match">&#9998;</a>
     </div>
   </div>
 
@@ -207,11 +214,15 @@
     <div class="match-footer">
       <span class="match-num">Match 1</span>
       <span class="match-badge loss" style="visibility: hidden;">&nbsp;</span>
+      <a href="score-scoreboard.html" class="match-edit" title="Edit match">&#9998;</a>
     </div>
   </div>
 
   <div class="action-buttons">
-    <button class="btn-add-match" onclick="window.location.href='score-modal.html'">+ Add Match</button>
+    <div class="action-row">
+      <button class="btn-add-match" onclick="window.location.href='score-scoreboard.html'">+ Add Match</button>
+      <button class="btn-camera" onclick="window.location.href='ai-score-capture.html'" title="Score from photo">&#128247;</button>
+    </div>
     <button class="btn-submit" onclick="window.location.href='session-detail.html'">Submit Session</button>
   </div>
 

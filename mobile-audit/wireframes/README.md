@@ -1,6 +1,6 @@
-# Beach Kings Mobile App Wireframes
+# Beach League Mobile App Wireframes
 
-Static HTML wireframes (390x844px, iPhone 14) for designing the native mobile app migration of the Beach Kings web app.
+Static HTML wireframes (390x844px, iPhone 14) for designing the native mobile app migration of the Beach League web app.
 
 ## Purpose
 

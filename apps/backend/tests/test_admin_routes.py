@@ -453,7 +453,7 @@ class TestWhatsAppEndpoints:
         """Admin can list WhatsApp groups via proxy."""
 
         async def fake_proxy(method, path, body=None, timeout=30.0):
-            return {"groups": [{"id": "g1", "name": "Beach Kings"}]}
+            return {"groups": [{"id": "g1", "name": "Beach League"}]}
 
         monkeypatch.setattr(
             "backend.api.routes.admin.proxy_whatsapp_request", fake_proxy, raising=True

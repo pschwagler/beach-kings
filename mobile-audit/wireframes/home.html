@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
-<title>Home - Beach Kings Mobile</title>
+<title>Home - Beach League Mobile</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
@@ -21,6 +21,21 @@
   .state-session-active { display: block; }
   body.no-tournament .state-tournament-live { display: none !important; }
   body.no-session .state-session-active { display: none !important; }
+  .state-profile-incomplete { display: none; }
+  body.profile-incomplete .state-profile-incomplete { display: block !important; }
+
+  /* Profile Completion Banner */
+  .profile-banner { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 3px solid #d4a843; display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; position: relative; }
+  .profile-banner .banner-ring { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+  .profile-banner .banner-ring svg { transform: rotate(-90deg); }
+  .profile-banner .banner-ring .ring-bg { fill: none; stroke: #f0f0f0; stroke-width: 4; }
+  .profile-banner .banner-ring .ring-fill { fill: none; stroke: #d4a843; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 22 88; }
+  .profile-banner .banner-ring .ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #1a3a4a; }
+  .profile-banner .banner-body { flex: 1; min-width: 0; }
+  .profile-banner .banner-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .profile-banner .banner-subtitle { font-size: 12px; color: #888; line-height: 1.3; }
+  .profile-banner .banner-arrow { color: #ccc; font-size: 18px; flex-shrink: 0; font-weight: 300; }
+  .profile-banner .banner-dismiss { position: absolute; top: 8px; right: 10px; width: 22px; height: 22px; border-radius: 50%; background: #f0f0f0; border: none; font-size: 11px; color: #999; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
 
   /* Status Bar */
   .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
@@ -106,6 +121,8 @@
   .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
   .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
   .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+  .tab-dot { position: absolute; top: 4px; right: 50%; transform: translateX(16px); width: 8px; height: 8px; border-radius: 50%; background: #ef4444; border: 1.5px solid #fff; display: none; }
+  body.profile-incomplete .tab-dot.profile-dot { display: block; }
 </style>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 </head>
@@ -119,6 +136,7 @@
     <button class="sw-pill" onclick="setState('session-only')">Session Only</button>
     <button class="sw-pill" onclick="setState('tournament-only')">Tournament Only</button>
     <button class="sw-pill" onclick="setState('empty')">Nothing Active</button>
+    <button class="sw-pill" onclick="setState('profile-incomplete')">Profile Incomplete</button>
   </div>
 </div>
 
@@ -130,7 +148,7 @@
 <div class="top-nav">
   <div class="brand">
     <span class="crown" style="color: #d4a843;">&#128081;</span>
-    <span>BEACH KINGS</span>
+    <span>BEACH LEAGUE</span>
   </div>
   <div class="nav-actions">
     <a href="messages.html" class="icon-btn">&#128172;<span class="badge">1</span></a>
@@ -141,11 +159,30 @@
 
 <div class="quick-stats">
   <div class="greeting">Hey Patrick</div>
-  <span class="stat-pill"><span class="val">1,438</span> Rating</span>
+  <span class="stat-pill"><span class="val">1438</span> Rating</span>
   <span class="stat-pill"><span class="val">66</span>-28</span>
 </div>
 
 <div class="content">
+
+  <!-- Profile Completion Banner -->
+  <div class="section state-profile-incomplete">
+    <a href="profile.html" class="profile-banner">
+      <div class="banner-ring">
+        <svg width="44" height="44" viewBox="0 0 44 44">
+          <circle class="ring-bg" cx="22" cy="22" r="14" />
+          <circle class="ring-fill" cx="22" cy="22" r="14" />
+        </svg>
+        <div class="ring-text">25%</div>
+      </div>
+      <div class="banner-body">
+        <div class="banner-title">Finish setting up your profile</div>
+        <div class="banner-subtitle">Add your level and location to get matched with players</div>
+      </div>
+      <div class="banner-arrow">&#8250;</div>
+      <button class="banner-dismiss" onclick="event.preventDefault(); this.closest('.section').style.display='none';">&#10005;</button>
+    </a>
+  </div>
 
   <!-- Tournament (live) -->
   <div class="section state-tournament-live">
@@ -293,6 +330,7 @@
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab">
+    <div class="tab-dot profile-dot"></div>
     <div class="tab-icon">&#128100;</div>
     <div class="tab-label">Profile</div>
   </a>
@@ -300,10 +338,14 @@
 
 <script>
 function setState(state) {
-  document.body.classList.remove('no-tournament', 'no-session');
+  document.body.classList.remove('no-tournament', 'no-session', 'profile-incomplete');
   if (state === 'session-only') document.body.classList.add('no-tournament');
   if (state === 'tournament-only') document.body.classList.add('no-session');
   if (state === 'empty') { document.body.classList.add('no-tournament', 'no-session'); }
+  if (state === 'profile-incomplete') { document.body.classList.add('profile-incomplete'); }
+  /* Re-show the banner in case it was dismissed */
+  var banner = document.querySelector('.state-profile-incomplete');
+  if (banner) banner.style.display = '';
   document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
   event.target.classList.add('active');
 }

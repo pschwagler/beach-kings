@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
-<title>Messages - Beach Kings Mobile</title>
+<title>Messages - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,17 +31,20 @@
   .content { padding: 0 0 100px; }
 
   /* Conversation Item */
-  .convo-item { display: flex; gap: 12px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; align-items: center; }
+  .convo-item { display: flex; gap: 12px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; align-items: center; text-decoration: none; color: inherit; }
   .convo-item.unread { background: #fdf8ed; }
   .convo-avatar { width: 48px; height: 48px; border-radius: 50%; background: #ddd; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #666; }
   .convo-avatar.online { border: 2px solid #15803d; }
+  .convo-avatar.league { border-radius: 12px; background: #1a3a4a; color: #fff; font-size: 18px; }
   .convo-body { flex: 1; min-width: 0; }
   .convo-top { display: flex; justify-content: space-between; align-items: center; }
   .convo-name { font-size: 15px; font-weight: 600; }
   .convo-name.unread { font-weight: 700; }
+  .convo-members { font-size: 11px; color: #999; margin-left: 6px; }
   .convo-time { font-size: 11px; color: #666; flex-shrink: 0; }
   .convo-preview { font-size: 13px; color: #666; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .convo-preview.unread { color: #1a1a1a; font-weight: 500; }
+  .convo-sender { font-weight: 600; color: #555; }
   .unread-dot { width: 10px; height: 10px; border-radius: 50%; background: #2a7d9c; flex-shrink: 0; }
   .chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
 
@@ -91,7 +94,19 @@
 
 <div class="content">
 
-  <a href="message-thread.html" class="convo-item unread" style="text-decoration:none; color:inherit;">
+  <a href="league-chat.html" class="convo-item unread">
+    <div class="convo-avatar league">&#127942;</div>
+    <div class="convo-body">
+      <div class="convo-top">
+        <span class="convo-name unread">QBK Open Men<span class="convo-members">27</span></span>
+        <span class="convo-time">1h ago</span>
+      </div>
+      <div class="convo-preview unread"><span class="convo-sender">Karim F:</span> Got it, I'll bring the ratchet. See everyone at 8!</div>
+    </div>
+    <div class="unread-dot"></div>
+  </a>
+
+  <a href="message-thread.html" class="convo-item unread">
     <div class="convo-avatar" style="background: #7fb3c7; color: #fff;">CG</div>
     <div class="convo-body">
       <div class="convo-top">
@@ -103,7 +118,7 @@
     <div class="unread-dot"></div>
   </a>
 
-  <div class="convo-item">
+  <a href="#" class="convo-item">
     <div class="convo-avatar" style="background: #e8d5b7; color: #8b6914;">KF</div>
     <div class="convo-body">
       <div class="convo-top">
@@ -113,9 +128,21 @@
       <div class="convo-preview">See you at QBK tomorrow morning</div>
     </div>
     <span class="chevron">&rsaquo;</span>
-  </div>
+  </a>
 
-  <div class="convo-item">
+  <a href="#" class="convo-item">
+    <div class="convo-avatar league" style="background: #2a7d9c;">&#127942;</div>
+    <div class="convo-body">
+      <div class="convo-top">
+        <span class="convo-name">SD Doubles League<span class="convo-members">14</span></span>
+        <span class="convo-time">2d ago</span>
+      </div>
+      <div class="convo-preview"><span class="convo-sender">Mike B:</span> Schedule is posted for next week</div>
+    </div>
+    <span class="chevron">&rsaquo;</span>
+  </a>
+
+  <a href="#" class="convo-item">
     <div class="convo-avatar" style="background: #c8e6c9; color: #2e7d32;">AM</div>
     <div class="convo-body">
       <div class="convo-top">
@@ -125,9 +152,9 @@
       <div class="convo-preview">Great games today, next time we team up</div>
     </div>
     <span class="chevron">&rsaquo;</span>
-  </div>
+  </a>
 
-  <div class="convo-item">
+  <a href="#" class="convo-item">
     <div class="convo-avatar" style="background: #e8f4f8; color: #2a7d9c;">SJ</div>
     <div class="convo-body">
       <div class="convo-top">
@@ -137,9 +164,9 @@
       <div class="convo-preview">Are you playing in the tournament?</div>
     </div>
     <span class="chevron">&rsaquo;</span>
-  </div>
+  </a>
 
-  <div class="convo-item">
+  <a href="#" class="convo-item">
     <div class="convo-avatar" style="background: #f0f0f0; color: #555;">RB</div>
     <div class="convo-body">
       <div class="convo-top">
@@ -149,29 +176,29 @@
       <div class="convo-preview">Let's run it back next week</div>
     </div>
     <span class="chevron">&rsaquo;</span>
-  </div>
+  </a>
 
 </div>
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">🏠</div>
+    <div class="tab-icon">&#127968;</div>
     <div class="tab-label">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">🏆</div>
+    <div class="tab-icon">&#127942;</div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">➕</div>
+    <div class="tab-icon">&#10133;</div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon active">💬</div>
+    <div class="tab-icon active">&#128172;</div>
     <div class="tab-label active">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">👤</div>
+    <div class="tab-icon">&#128100;</div>
     <div class="tab-label">Profile</div>
   </a>
 </div>

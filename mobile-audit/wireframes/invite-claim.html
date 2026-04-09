@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Claim Your Matches - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  /* ── State Switcher ── */
+  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
+  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
+  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
+
+  .state { display: none; }
+  .state.active { display: block; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .spacer { min-width: 44px; }
+
+  /* Welcome Header */
+  .welcome-header { background: #fff; padding: 24px 16px; text-align: center; border-bottom: 1px solid #eee; }
+  .welcome-icon { font-size: 40px; margin-bottom: 12px; }
+  .welcome-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .welcome-sub { font-size: 14px; color: #666; line-height: 1.5; }
+  .welcome-league { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 14px; border-radius: 20px; background: #e8f4f8; }
+  .welcome-league .league-icon { font-size: 14px; }
+  .welcome-league .league-name { font-size: 13px; font-weight: 600; color: #1a3a4a; }
+
+  /* Content */
+  .content { padding: 0 16px 36px; }
+
+  .claim-summary { display: flex; align-items: center; gap: 12px; padding: 16px; margin: 16px 0; background: #fdf8ed; border-radius: 12px; border: 1px solid #f0e0b0; }
+  .claim-count { font-size: 32px; font-weight: 900; color: #d4a843; line-height: 1; }
+  .claim-text { font-size: 14px; color: #666; line-height: 1.4; }
+  .claim-text strong { color: #1a1a1a; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Match Summary Cards */
+  .claim-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .claim-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .claim-session { font-size: 12px; font-weight: 600; color: #888; }
+  .claim-date { font-size: 11px; color: #999; }
+  .claim-teams { display: flex; align-items: center; gap: 8px; }
+  .claim-team { flex: 1; }
+  .claim-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .claim-team-names .you { color: #d4a843; font-weight: 700; }
+  .claim-team.right { text-align: right; }
+  .claim-score { text-align: center; min-width: 56px; flex-shrink: 0; }
+  .claim-score .score { font-size: 18px; font-weight: 800; color: #1a3a4a; }
+  .claim-score .sep { color: #ccc; margin: 0 2px; }
+
+  /* Claim Button */
+  .claim-actions { margin-top: 20px; }
+  .btn-claim { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-skip { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
+
+  /* ── Success State ── */
+  .success-area { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; min-height: 500px; gap: 20px; }
+  .success-icon { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+  .success-title { font-size: 22px; font-weight: 800; text-align: center; }
+  .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.5; max-width: 300px; }
+  .success-stats { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .stat-label { font-size: 13px; color: #666; }
+  .stat-value { font-size: 13px; font-weight: 700; }
+  .btn-go-home { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Invite Claim Flow</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('review')">Review Matches</button>
+    <button class="sw-pill" onclick="setState('success')">Claimed</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="#" class="back">&larr;</a>
+  <div class="title">Claim Your Matches</div>
+  <div class="spacer"></div>
+</div>
+
+<!-- ══ STATE 1: Review Matches ══ -->
+<div class="state active" id="state-review">
+
+  <div class="welcome-header">
+    <div class="welcome-icon">&#127952;</div>
+    <div class="welcome-title">Welcome to Beach League!</div>
+    <div class="welcome-sub">Someone recorded matches with you. Claim them to start tracking your stats.</div>
+    <div class="welcome-league">
+      <span class="league-icon">&#127942;</span>
+      <span class="league-name">QBK Open Men - Mornings</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="claim-summary">
+      <div class="claim-count">5</div>
+      <div class="claim-text"><strong>5 unclaimed matches</strong><br/>from 2 sessions this week</div>
+    </div>
+
+    <div class="section-title">Your Matches</div>
+
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-session">Sunday at QBK</span>
+        <span class="claim-date">Apr 6</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names"><span class="you">You</span><br/>Karim F</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep">-</span>18</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names">Mike B<br/>Jake R</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-session">Sunday at QBK</span>
+        <span class="claim-date">Apr 6</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names"><span class="you">You</span><br/>Mike B</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep">-</span>15</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names">Karim F<br/>Alex T</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-card">
+      <div class="claim-card-header">
+        <span class="claim-session">Saturday at QBK</span>
+        <span class="claim-date">Apr 5</span>
+      </div>
+      <div class="claim-teams">
+        <div class="claim-team">
+          <div class="claim-team-names">Devon M<br/>Jake R</div>
+        </div>
+        <div class="claim-score">
+          <span class="score">21<span class="sep">-</span>19</span>
+        </div>
+        <div class="claim-team right">
+          <div class="claim-team-names"><span class="you">You</span><br/>Dan P</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="claim-actions">
+      <button class="btn-claim">Claim My Matches</button>
+      <button class="btn-skip">Not me, skip</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ══ STATE 2: Success ══ -->
+<div class="state" id="state-success">
+  <div class="success-area">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-title">Matches Claimed!</div>
+    <div class="success-desc">Your match history has been linked to your profile. You're all set to start tracking your stats.</div>
+    <div class="success-stats">
+      <div class="stat-row">
+        <span class="stat-label">Matches claimed</span>
+        <span class="stat-value">5</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win record</span>
+        <span class="stat-value" style="color: #15803d;">3W - 2L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">League</span>
+        <span class="stat-value">QBK Open Men</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Starting rating</span>
+        <span class="stat-value">1200</span>
+      </div>
+    </div>
+    <button class="btn-go-home" onclick="window.location.href='home.html'">Go to Home</button>
+  </div>
+</div>
+
+<script>
+function setState(state) {
+  document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('state-' + state).classList.add('active');
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

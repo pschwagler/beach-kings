@@ -1,4 +1,4 @@
-# Frontend Audit Report — Beach Kings (`apps/web`)
+# Frontend Audit Report — Beach League (`apps/web`)
 
 Generated: 2026-04-01
 

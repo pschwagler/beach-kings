@@ -4,7 +4,7 @@ import KobLive from "../../../src/components/kob/KobLive";
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   return {
-    title: `Tournament ${code} | Beach Kings`,
+    title: `Tournament ${code} | Beach League`,
     description: "Live King/Queen of the Beach tournament",
   };
 }

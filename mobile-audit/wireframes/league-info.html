@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
-<title>League Info - Beach Kings Mobile</title>
+<title>League Info - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,7 +27,7 @@
 
   /* Segment Control */
   .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
-  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 10px 4px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
   .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
   /* Content */
@@ -114,6 +114,8 @@
 <div class="segment-control">
   <a href="league-dashboard.html" class="segment" style="text-decoration:none; color:#888;">Standings</a>
   <a href="league-matches.html" class="segment" style="text-decoration:none; color:#888;">Matches</a>
+  <a href="league-chat.html" class="segment" style="text-decoration:none; color:#888;">Chat</a>
+  <a href="league-signups.html" class="segment" style="text-decoration:none; color:#888;">Sign Ups</a>
   <div class="segment active">Info</div>
 </div>
 
@@ -245,24 +247,24 @@
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">🏠</div>
+    <div class="tab-icon">&#127968;</div>
     <div class="tab-label">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon active">🏆</div>
+    <div class="tab-icon active">&#127942;</div>
     <div class="tab-label active">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">➕</div>
+    <div class="tab-icon">&#10133;</div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">💬</div>
+    <div class="tab-icon">&#128172;</div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">👤</div>
+    <div class="tab-icon">&#128100;</div>
     <div class="tab-label">Profile</div>
   </a>
 </div>

@@ -1,5 +1,5 @@
 /**
- * Lightweight domain interfaces for Beach Kings.
+ * Lightweight domain interfaces for Beach League.
  * These define the minimal known shape of each domain object.
  * Do not add index signatures — consumers that need extra fields should use
  * type assertions or extend the interface.
@@ -231,7 +231,6 @@ export interface ReviewActionResponse {
 export interface Court {
   id: number | string;
   name: string;
-  surface?: string | null;
   surface_type?: string | null;
   city?: string | null;
   state?: string | null;
