@@ -40,7 +40,7 @@ from backend.models.schemas import (
 
 logger = logging.getLogger(__name__)
 
-FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachkings.com")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "https://beachleaguevb.com")
 
 # --- Module-level constants ---
 
