@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Score Entry: Option A — Inline - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  /* ── State Switcher ── */
+  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
+  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
+  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
+
+  .state-picking { display: block; }
+  .state-ready { display: none; }
+  body.ready .state-picking { display: none !important; }
+  body.ready .state-ready { display: block !important; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #fff; font-size: 20px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; text-decoration: none; }
+
+  /* Session Info (compact for this view) */
+  .session-info-compact { background: #fff; padding: 10px 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+  .session-info-compact .info-left { font-size: 13px; font-weight: 600; color: #555; }
+  .session-info-compact .info-right { font-size: 11px; color: #999; }
+
+  /* Roster Strip — Interactive Picker Mode */
+  .roster-strip { display: flex; gap: 10px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #eee; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .roster-strip::-webkit-scrollbar { display: none; }
+  .roster-hint { background: #fff; padding: 6px 16px 0; font-size: 11px; color: #2a7d9c; font-weight: 600; }
+  .roster-player { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 44px; flex-shrink: 0; cursor: pointer; }
+  .roster-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; border: 3px solid transparent; transition: border-color 0.15s; }
+  .roster-avatar.team1 { border-color: #2a7d9c; }
+  .roster-avatar.team2 { border-color: #d4a843; }
+  .roster-avatar.used { opacity: 0.3; }
+  .roster-name { font-size: 10px; color: #666; white-space: nowrap; }
+  .roster-player.you .roster-name { color: #d4a843; font-weight: 600; }
+  .team-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: -2px; }
+  .team-dot.t1 { background: #2a7d9c; }
+  .team-dot.t2 { background: #d4a843; }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 8px; }
+  .section-title { font-size: 14px; font-weight: 700; }
+  .section-subtitle { font-size: 12px; color: #999; }
+
+  /* Compact Match Card */
+  .match-card { background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .match-teams { display: flex; align-items: center; gap: 6px; }
+  .match-team { flex: 1; }
+  .match-team-names { font-size: 12px; font-weight: 500; line-height: 1.3; }
+  .match-team-names .you { color: #d4a843; font-weight: 600; }
+  .match-team.right { text-align: right; }
+  .match-score { text-align: center; min-width: 50px; flex-shrink: 0; }
+  .match-score .score { font-size: 17px; font-weight: 800; color: #1a3a4a; }
+  .match-score .sep { color: #ccc; margin: 0 1px; }
+  .match-team.winner .match-team-names { font-weight: 700; }
+
+  /* ── Inline Score Entry Form ── */
+  .inline-form { background: #fff; border-radius: 12px; padding: 16px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1.5px solid #2a7d9c; }
+  .inline-form-title { font-size: 14px; font-weight: 700; color: #1a3a4a; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .inline-form-title .cancel { font-size: 13px; font-weight: 500; color: #999; }
+
+  .teams-row { display: flex; gap: 12px; margin-bottom: 14px; }
+  .team-col { flex: 1; }
+  .team-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid; }
+  .team-label.t1 { color: #2a7d9c; border-color: #2a7d9c; }
+  .team-label.t2 { color: #d4a843; border-color: #d4a843; }
+
+  .player-slot { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; min-height: 40px; }
+  .player-slot.filled { background: #f8f9fa; }
+  .player-slot.empty { background: #f8f9fa; border: 1.5px dashed #ccc; }
+  .player-slot.active { border: 1.5px dashed #2a7d9c; background: #e8f4f8; }
+  .player-slot.active.t2 { border-color: #d4a843; background: #fdf8ed; }
+  .slot-avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .slot-name { font-size: 13px; font-weight: 600; }
+  .slot-placeholder { font-size: 12px; color: #bbb; }
+
+  .vs-divider { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #ccc; padding: 0 4px; }
+
+  /* Score Row */
+  .score-row { display: flex; align-items: center; gap: 12px; }
+  .score-input-group { flex: 1; text-align: center; }
+  .score-input-label { font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .score-input { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 24px; font-weight: 800; text-align: center; color: #1a3a4a; background: #f8f9fa; }
+  .score-input.has-value { background: #fff; border-color: #1a3a4a; }
+  .score-dash { font-size: 20px; font-weight: 700; color: #ccc; }
+
+  /* Save Button */
+  .btn-save-match { display: block; width: 100%; padding: 14px; border-radius: 10px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; margin-top: 14px; }
+  .btn-save-match.disabled { opacity: 0.4; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher ── -->
+<div class="state-switcher">
+  <div class="sw-label">Option A: Inline Score Entry</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('picking')">Selecting Players</button>
+    <button class="sw-pill" onclick="setState('ready')">Ready to Save</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&larr; Add Games</a>
+  <div class="title">Session</div>
+  <a href="#" class="action">&#8943;</a>
+</div>
+
+<div class="session-info-compact">
+  <div class="info-left">Sunday at QBK &middot; Pickup</div>
+  <div class="info-right">Apr 8 &middot; QBK Sports</div>
+</div>
+
+<!-- Roster as interactive picker — tap to assign teams -->
+<div class="roster-hint">Tap players to assign to teams</div>
+<div class="roster-strip">
+  <div class="roster-player you">
+    <div class="roster-avatar team1" style="background: #1a3a4a;">PS</div>
+    <div class="team-dot t1"></div>
+    <div class="roster-name">You</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar team1" style="background: #2a7d9c;">KF</div>
+    <div class="team-dot t1"></div>
+    <div class="roster-name">Karim</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar team2" style="background: #15803d;">MB</div>
+    <div class="team-dot t2"></div>
+    <div class="roster-name">Mike</div>
+  </div>
+
+  <!-- State: Picking — one slot empty on Team 2 -->
+  <div class="state-picking">
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #b91c1c;">JR</div>
+    <div class="roster-name">Jake</div>
+  </div>
+  </div>
+  <div class="state-ready">
+  <div class="roster-player">
+    <div class="roster-avatar team2" style="background: #b91c1c;">JR</div>
+    <div class="team-dot t2"></div>
+    <div class="roster-name">Jake</div>
+  </div>
+  </div>
+
+  <div class="roster-player">
+    <div class="roster-avatar used" style="background: #7c3aed;">AT</div>
+    <div class="roster-name" style="opacity:0.4;">Alex</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar used" style="background: #ea580c;">DM</div>
+    <div class="roster-name" style="opacity:0.4;">Devon</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar used" style="background: #db2777;">CL</div>
+    <div class="roster-name" style="opacity:0.4;">Chris</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar used" style="background: #475569;">DP</div>
+    <div class="roster-name" style="opacity:0.4;">Dan</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section-header">
+    <div class="section-title">Matches</div>
+    <div class="section-subtitle">3 recorded</div>
+  </div>
+
+  <!-- Existing matches (compact) -->
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team winner"><div class="match-team-names"><span class="you">Pat S</span><br/>Karim F</div></div>
+      <div class="match-score"><span class="score">21<span class="sep">-</span>18</span></div>
+      <div class="match-team right"><div class="match-team-names">Mike B<br/>Jake R</div></div>
+    </div>
+  </div>
+
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team winner"><div class="match-team-names"><span class="you">Pat S</span><br/>Mike B</div></div>
+      <div class="match-score"><span class="score">21<span class="sep">-</span>15</span></div>
+      <div class="match-team right"><div class="match-team-names">Karim F<br/>Alex T</div></div>
+    </div>
+  </div>
+
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team"><div class="match-team-names">Devon M<br/>Jake R</div></div>
+      <div class="match-score"><span class="score">18<span class="sep">-</span>21</span></div>
+      <div class="match-team right winner"><div class="match-team-names">Chris L<br/>Dan P</div></div>
+    </div>
+  </div>
+
+  <!-- ── INLINE SCORE ENTRY FORM ── -->
+  <div class="inline-form">
+    <div class="inline-form-title">
+      <span>Match 4</span>
+      <button class="cancel" onclick="window.location.href='session-active.html'" style="background:none; border:none; cursor:pointer;">Cancel</button>
+    </div>
+
+    <div class="teams-row">
+      <div class="team-col">
+        <div class="team-label t1">Team 1</div>
+        <div class="player-slot filled">
+          <div class="slot-avatar" style="background: #1a3a4a;">PS</div>
+          <div class="slot-name">Pat S</div>
+        </div>
+        <div class="player-slot filled">
+          <div class="slot-avatar" style="background: #2a7d9c;">KF</div>
+          <div class="slot-name">Karim F</div>
+        </div>
+      </div>
+      <div class="vs-divider">VS</div>
+      <div class="team-col">
+        <div class="team-label t2">Team 2</div>
+        <div class="player-slot filled">
+          <div class="slot-avatar" style="background: #15803d;">MB</div>
+          <div class="slot-name">Mike B</div>
+        </div>
+        <!-- Picking state: empty slot -->
+        <div class="state-picking">
+          <div class="player-slot active t2">
+            <span class="slot-placeholder">Tap player above</span>
+          </div>
+        </div>
+        <!-- Ready state: filled slot -->
+        <div class="state-ready">
+          <div class="player-slot filled">
+            <div class="slot-avatar" style="background: #b91c1c;">JR</div>
+            <div class="slot-name">Jake R</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Picking state: scores disabled -->
+    <div class="state-picking">
+      <div class="score-row">
+        <div class="score-input-group">
+          <div class="score-input-label">Team 1</div>
+          <input class="score-input" type="text" placeholder="--" disabled style="opacity: 0.4;" />
+        </div>
+        <div class="score-dash">-</div>
+        <div class="score-input-group">
+          <div class="score-input-label">Team 2</div>
+          <input class="score-input" type="text" placeholder="--" disabled style="opacity: 0.4;" />
+        </div>
+      </div>
+      <button class="btn-save-match disabled">Save Match</button>
+    </div>
+
+    <!-- Ready state: scores entered -->
+    <div class="state-ready">
+      <div class="score-row">
+        <div class="score-input-group">
+          <div class="score-input-label">Team 1</div>
+          <input class="score-input has-value" type="text" value="21" readonly />
+        </div>
+        <div class="score-dash">-</div>
+        <div class="score-input-group">
+          <div class="score-input-label">Team 2</div>
+          <input class="score-input has-value" type="text" value="17" readonly />
+        </div>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 8px; margin-top: 10px;">
+        <div style="padding: 6px 14px; border-radius: 16px; background: #e8f4f8; border: 1.5px solid #2a7d9c; font-size: 11px; font-weight: 600; color: #2a7d9c;">Ranked</div>
+        <div style="padding: 6px 14px; border-radius: 16px; border: 1.5px solid #e0e0e0; font-size: 11px; font-weight: 600; color: #666;">Unranked</div>
+      </div>
+      <button class="btn-save-match" onclick="window.location.href='session-active.html'">Save Match</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  document.body.classList.remove('ready');
+  if (state === 'ready') document.body.classList.add('ready');
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

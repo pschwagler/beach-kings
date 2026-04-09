@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Add Games - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  /* ── State Switcher (design tool, not part of UI) ── */
+  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
+  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
+  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
+
+  /* State visibility */
+  .state-has-session { display: block; }
+  .state-no-session { display: none; }
+  body.no-session .state-has-session { display: none !important; }
+  body.no-session .state-no-session { display: block !important; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .spacer { width: 60px; }
+
+  /* Content */
+  .content { padding: 16px; padding-bottom: 100px; }
+
+  .section-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .page-desc { font-size: 14px; color: #666; margin-bottom: 24px; line-height: 1.5; }
+
+  /* Active Session Card */
+  .active-session-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; border-left: 4px solid #22c55e; text-decoration: none; color: inherit; display: block; }
+  .active-session-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .active-session-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; }
+  .active-session-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+  .active-session-time { font-size: 11px; color: #999; }
+  .active-session-title { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .active-session-league { font-size: 13px; color: #2a7d9c; font-weight: 600; margin-bottom: 12px; }
+  .active-session-stats { display: flex; gap: 16px; margin-bottom: 14px; }
+  .active-session-stats .stat { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
+  .active-session-stats .stat .val { font-weight: 700; color: #1a3a4a; }
+  .active-session-players { display: flex; margin-bottom: 14px; }
+  .avatar-stack { display: flex; }
+  .avatar-stack .avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; }
+  .avatar-stack .avatar:first-child { margin-left: 0; }
+  .avatar-stack .avatar.a1 { background: #7fb3c7; }
+  .avatar-stack .avatar.a2 { background: #d4a843; }
+  .avatar-stack .avatar.a3 { background: #c77f7f; }
+  .avatar-stack .avatar.a4 { background: #7fc79b; }
+  .continue-btn { display: block; width: 100%; padding: 14px; border-radius: 10px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; }
+
+  /* Divider */
+  .divider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .divider-row .line { flex: 1; height: 1px; background: #e0e0e0; }
+  .divider-row .or-text { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Game Type Cards */
+  .game-type-card { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 14px; padding: 18px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px; text-decoration: none; color: inherit; border: 1.5px solid transparent; }
+  .game-type-card:active { border-color: #2a7d9c; background: #f8fcfd; }
+  .game-type-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .game-type-icon.league { background: #e8f4f8; }
+  .game-type-icon.pickup { background: #fef3cd; }
+  .game-type-info { flex: 1; }
+  .game-type-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 3px; }
+  .game-type-desc { font-size: 12px; color: #666; line-height: 1.4; }
+  .game-type-chevron { color: #ccc; font-size: 18px; font-weight: 300; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">View State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('has-session')">Has Active Session</button>
+    <button class="sw-pill" onclick="setState('no-session')">No Active Session</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="spacer"></div>
+  <div class="title">Add Games</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <!-- ── State: Has Active Session ── -->
+  <div class="state-has-session">
+    <div class="section-label">Active Session</div>
+    <a href="session-active.html" class="active-session-card">
+      <div class="active-session-header">
+        <span class="active-session-badge"><span class="dot"></span> Active</span>
+        <span class="active-session-time">Started 2h ago</span>
+      </div>
+      <div class="active-session-title">3/19/2026 - Session #3</div>
+      <div class="active-session-league">QBK Open Men - Mornings</div>
+      <div class="active-session-stats">
+        <div class="stat"><span class="val">7</span> games</div>
+        <div class="stat"><span class="val">4</span> players</div>
+        <div class="stat"><span class="val">5-2</span> your W-L</div>
+      </div>
+      <div class="active-session-players">
+        <div class="avatar-stack">
+          <div class="avatar a1"></div>
+          <div class="avatar a2"></div>
+          <div class="avatar a3"></div>
+          <div class="avatar a4"></div>
+        </div>
+      </div>
+      <div class="continue-btn">Continue Session</div>
+    </a>
+
+    <div class="divider-row">
+      <div class="line"></div>
+      <span class="or-text">or start new</span>
+      <div class="line"></div>
+    </div>
+  </div>
+
+  <!-- ── State: No Active Session ── -->
+  <div class="state-no-session">
+    <div class="page-desc">Record your beach volleyball games to track your stats and climb the rankings.</div>
+    <div class="section-label">What are you playing?</div>
+  </div>
+
+  <!-- ── Always visible: Game type selection ── -->
+  <a href="add-games-league-select.html" class="game-type-card">
+    <div class="game-type-icon league">&#127942;</div>
+    <div class="game-type-info">
+      <div class="game-type-title">League Game</div>
+      <div class="game-type-desc">Record a match in one of your leagues</div>
+    </div>
+    <span class="game-type-chevron">&#8250;</span>
+  </a>
+
+  <a href="add-games-pickup.html" class="game-type-card">
+    <div class="game-type-icon pickup">&#127952;</div>
+    <div class="game-type-info">
+      <div class="game-type-title">Pickup Game</div>
+      <div class="game-type-desc">Start a new session for casual play</div>
+    </div>
+    <span class="game-type-chevron">&#8250;</span>
+  </a>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  document.body.classList.remove('no-session');
+  if (state === 'no-session') document.body.classList.add('no-session');
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

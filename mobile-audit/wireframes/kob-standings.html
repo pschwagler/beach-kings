@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>KoB Standings - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; text-decoration: none; }
+
+  /* Tournament Header */
+  .tourney-header { background: #fff; padding: 16px; border-bottom: 1px solid #eee; }
+  .tourney-header .tourney-name { font-size: 18px; font-weight: 700; }
+  .tourney-header .tourney-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .tourney-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .tourney-header .badge.active { background: #dcfce7; color: #15803d; }
+  .tourney-header .badge.round { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  /* Standings Table */
+  .standings-table { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+  .standings-table table { width: 100%; border-collapse: collapse; }
+  .standings-table th { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; padding: 10px 6px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .standings-table th.left { text-align: left; padding-left: 10px; }
+  .standings-table td { font-size: 13px; padding: 10px 6px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .standings-table td.left { text-align: left; font-weight: 600; padding-left: 10px; }
+  .standings-table tr:last-child td { border-bottom: none; }
+  .standings-table .rank-1 { color: #d4a843; font-weight: 700; font-size: 15px; }
+  .standings-table .rank-2 { color: #666; font-weight: 700; }
+  .standings-table .rank-3 { color: #b87333; font-weight: 700; }
+  .standings-table .you { background: #f8fdf8; }
+  .standings-table .positive { color: #15803d; font-weight: 600; }
+  .standings-table .negative { color: #b91c1c; font-weight: 600; }
+
+  .standings-note { text-align: center; font-size: 11px; color: #666; margin-top: 12px; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournaments.html" class="back">&larr; Tournaments</a>
+  <div class="title">Tournament</div>
+  <a href="#" class="action">Share</a>
+</div>
+
+<div class="tourney-header">
+  <div class="tourney-name">Saturday Morning KoB</div>
+  <div class="tourney-meta">
+    <span class="badge active">Active</span>
+    <span class="badge round">Round 3 of 7</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <a href="kob-live.html" class="segment" style="text-decoration:none; color:#888;">Now Playing</a>
+  <div class="segment active">Standings</div>
+  <a href="kob-schedule.html" class="segment" style="text-decoration:none; color:#888;">Schedule</a>
+</div>
+
+<div class="content">
+
+  <div class="standings-table">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30px;">#</th>
+          <th class="left">Player</th>
+          <th>W</th>
+          <th>L</th>
+          <th>PF</th>
+          <th>PA</th>
+          <th>+/-</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="you">
+          <td><span class="rank-1">&#127942;</span></td>
+          <td class="left">Patrick S.</td>
+          <td>4</td>
+          <td>0</td>
+          <td>84</td>
+          <td>51</td>
+          <td class="positive">+33</td>
+        </tr>
+        <tr>
+          <td><span class="rank-2">2</span></td>
+          <td class="left">Ken F.</td>
+          <td>3</td>
+          <td>1</td>
+          <td>78</td>
+          <td>59</td>
+          <td class="positive">+19</td>
+        </tr>
+        <tr>
+          <td><span class="rank-3">3</span></td>
+          <td class="left">Colan G.</td>
+          <td>3</td>
+          <td>1</td>
+          <td>75</td>
+          <td>62</td>
+          <td class="positive">+13</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td class="left">Alex M.</td>
+          <td>2</td>
+          <td>2</td>
+          <td>70</td>
+          <td>68</td>
+          <td class="positive">+2</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="left">Jake D.</td>
+          <td>2</td>
+          <td>2</td>
+          <td>65</td>
+          <td>71</td>
+          <td class="negative">-6</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td class="left">Marco S.</td>
+          <td>1</td>
+          <td>3</td>
+          <td>58</td>
+          <td>74</td>
+          <td class="negative">-16</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td class="left">Sam J.</td>
+          <td>1</td>
+          <td>3</td>
+          <td>55</td>
+          <td>76</td>
+          <td class="negative">-21</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td class="left">Rafael T.</td>
+          <td>0</td>
+          <td>4</td>
+          <td>47</td>
+          <td>84</td>
+          <td class="negative">-37</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="standings-note">Tiebreakers: Wins > Point Diff. Ties broken by coin flip.</div>
+
+</div>
+
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">🏠</div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">🏆</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">➕</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">💬</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">👤</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

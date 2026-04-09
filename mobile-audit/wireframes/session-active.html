@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Active Pickup Session - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #fff; font-size: 20px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; text-decoration: none; }
+
+  /* Session Info */
+  .session-info { background: #fff; padding: 14px 16px; border-bottom: 1px solid #eee; }
+  .session-name-row { display: flex; align-items: center; justify-content: space-between; }
+  .session-name { font-size: 18px; font-weight: 700; }
+  .session-edit { font-size: 14px; color: #999; }
+  .session-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .meta-tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; }
+  .meta-tag.pickup { background: #fef3cd; color: #92400e; }
+  .meta-tag.date { background: #f0f0f0; color: #555; }
+  .meta-tag.court { background: #e8f4f8; color: #2a7d9c; }
+  .meta-tag.players { background: #f0f0f0; color: #555; }
+  .session-status { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+  .status-text { font-size: 11px; font-weight: 600; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Roster Strip */
+  .roster-strip { display: flex; gap: 14px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .roster-strip::-webkit-scrollbar { display: none; }
+  .roster-player { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; flex-shrink: 0; }
+  .roster-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .roster-name { font-size: 10px; color: #666; white-space: nowrap; }
+  .roster-player.you .roster-name { color: #d4a843; font-weight: 600; }
+  .roster-add { width: 40px; height: 40px; border-radius: 50%; border: 1.5px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #ccc; background: transparent; }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 10px; }
+  .section-title { font-size: 15px; font-weight: 700; }
+  .section-subtitle { font-size: 12px; color: #999; }
+
+  /* Compact Match Card */
+  .match-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .match-teams { display: flex; align-items: center; gap: 8px; }
+  .match-team { flex: 1; }
+  .match-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .match-team-names .you { color: #d4a843; font-weight: 600; }
+  .match-team.right { text-align: right; }
+  .match-score { text-align: center; min-width: 56px; flex-shrink: 0; }
+  .match-score .score { font-size: 20px; font-weight: 800; color: #1a3a4a; letter-spacing: -0.5px; }
+  .match-score .sep { color: #ccc; margin: 0 2px; }
+  .match-team.winner .match-team-names { font-weight: 700; }
+  .match-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f5f5f5; }
+  .match-num { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .match-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+  .match-badge.win { background: #dcfce7; color: #15803d; }
+  .match-badge.loss { background: #fee2e2; color: #b91c1c; }
+
+  /* Action Buttons */
+  .action-buttons { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .btn-add-match { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; }
+  .btn-submit { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #15803d; background: transparent; color: #15803d; font-size: 14px; font-weight: 700; text-align: center; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&larr; Add Games</a>
+  <div class="title">Session</div>
+  <a href="#" class="action">&#8943;</a>
+</div>
+
+<div class="session-info">
+  <div class="session-name-row">
+    <div class="session-name">Sunday at QBK</div>
+    <span class="session-edit">&#9998;</span>
+  </div>
+  <div class="session-meta">
+    <span class="meta-tag pickup">Pickup</span>
+    <span class="meta-tag date">Apr 8</span>
+    <span class="meta-tag court">QBK Sports</span>
+    <span class="meta-tag players">8 players</span>
+  </div>
+  <div class="session-status">
+    <span class="status-dot"></span>
+    <span class="status-text">Active</span>
+  </div>
+</div>
+
+<div class="roster-strip">
+  <div class="roster-player you">
+    <div class="roster-avatar" style="background: #1a3a4a;">PS</div>
+    <div class="roster-name">You</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #2a7d9c;">KF</div>
+    <div class="roster-name">Karim</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #15803d;">MB</div>
+    <div class="roster-name">Mike</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #b91c1c;">JR</div>
+    <div class="roster-name">Jake</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #7c3aed;">AT</div>
+    <div class="roster-name">Alex</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #ea580c;">DM</div>
+    <div class="roster-name">Devon</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #db2777;">CL</div>
+    <div class="roster-name">Chris</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #475569;">DP</div>
+    <div class="roster-name">Dan</div>
+  </div>
+  <div class="roster-player">
+    <button class="roster-add">+</button>
+    <div class="roster-name" style="color: #ccc;">Add</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section-header">
+    <div class="section-title">Matches</div>
+    <div class="section-subtitle">3 recorded</div>
+  </div>
+
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team winner">
+        <div class="match-team-names"><span class="you">Pat S</span><br/>Karim F</div>
+      </div>
+      <div class="match-score">
+        <span class="score">21<span class="sep">-</span>18</span>
+      </div>
+      <div class="match-team right">
+        <div class="match-team-names">Mike B<br/>Jake R</div>
+      </div>
+    </div>
+    <div class="match-footer">
+      <span class="match-num">Match 3</span>
+      <span class="match-badge win">WIN</span>
+    </div>
+  </div>
+
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team winner">
+        <div class="match-team-names"><span class="you">Pat S</span><br/>Mike B</div>
+      </div>
+      <div class="match-score">
+        <span class="score">21<span class="sep">-</span>15</span>
+      </div>
+      <div class="match-team right">
+        <div class="match-team-names">Karim F<br/>Alex T</div>
+      </div>
+    </div>
+    <div class="match-footer">
+      <span class="match-num">Match 2</span>
+      <span class="match-badge win">WIN</span>
+    </div>
+  </div>
+
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team">
+        <div class="match-team-names">Devon M<br/>Jake R</div>
+      </div>
+      <div class="match-score">
+        <span class="score">18<span class="sep">-</span>21</span>
+      </div>
+      <div class="match-team right winner">
+        <div class="match-team-names">Chris L<br/>Dan P</div>
+      </div>
+    </div>
+    <div class="match-footer">
+      <span class="match-num">Match 1</span>
+      <span class="match-badge loss" style="visibility: hidden;">&nbsp;</span>
+    </div>
+  </div>
+
+  <div class="action-buttons">
+    <button class="btn-add-match" onclick="window.location.href='score-modal.html'">+ Add Match</button>
+    <button class="btn-submit" onclick="window.location.href='session-detail.html'">Submit Session</button>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

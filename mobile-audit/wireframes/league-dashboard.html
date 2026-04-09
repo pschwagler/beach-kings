@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>League Dashboard - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; }
+
+  /* League Header */
+  .league-header { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
+  .league-header .league-name { font-size: 20px; font-weight: 700; }
+  .league-header .league-meta { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #666; }
+  .league-header .league-badges { display: flex; gap: 8px; margin-top: 10px; }
+  .league-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .league-header .badge.active { background: #dcfce7; color: #15803d; }
+  .league-header .badge.rank { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Standings Table */
+  .standings { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .standings .header-row { display: flex; padding: 10px 14px; background: #f8f9fa; font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .standings .header-row .col-rank { width: 30px; }
+  .standings .header-row .col-player { flex: 1; }
+  .standings .header-row .col-stat { width: 50px; text-align: center; }
+
+  .standings .player-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+  .standings .player-row:last-child { border-bottom: none; }
+  .standings .player-row.you { background: #fdf8ed; }
+  .standings .col-rank { width: 30px; font-size: 14px; font-weight: 700; color: #1a3a4a; }
+  .standings .col-player { flex: 1; display: flex; align-items: center; gap: 8px; }
+  .standings .col-player .avatar-xs { width: 28px; height: 28px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .standings .col-player .player-name { font-size: 13px; font-weight: 600; }
+  .standings .col-player .you-badge { font-size: 11px; color: #d4a843; font-weight: 600; }
+  .standings .col-stat { width: 50px; text-align: center; font-size: 13px; color: #555; }
+
+  /* Season Info */
+  .season-info { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 12px; }
+  .season-info .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .season-info .row .label { color: #666; }
+  .season-info .row .value { font-weight: 600; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="leagues-tab.html" class="back">&larr; Leagues</a>
+  <div class="title">League</div>
+  <a href="score-league.html" class="action" style="text-decoration:none; color:#d4a843; font-size: 12px; font-weight: 700; background: #d4a843; color: #fff; padding: 8px 14px; border-radius: 8px;">+ Add Game</a>
+</div>
+
+<div class="league-header">
+  <div class="league-name">QBK Open Men - Mornings</div>
+  <div class="league-meta">
+    <span>Queens, NY</span>
+    <span>27 members</span>
+  </div>
+  <div class="league-badges">
+    <span class="badge active">Season Active</span>
+    <span class="badge rank">#1 Ranked</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <div class="segment active">Standings</div>
+  <a href="league-matches.html" class="segment" style="text-decoration:none; color:#888;">Matches</a>
+  <a href="league-dashboard.html" class="segment" style="text-decoration:none; color:#888;">Info</a>
+</div>
+
+<div class="content">
+
+  <div class="section-title">Current Standings</div>
+
+  <div class="standings">
+    <div class="header-row">
+      <div class="col-rank">#</div>
+      <div class="col-player">Player</div>
+      <div class="col-stat">W-L</div>
+      <div class="col-stat">Win%</div>
+      <div class="col-stat">Rtg</div>
+    </div>
+    <div class="player-row you">
+      <div class="col-rank">1</div>
+      <div class="col-player">
+        <div class="avatar-xs" style="background: #7fb3c7;"></div>
+        <div>
+          <div class="player-name">P. Schwagler</div>
+          <div class="you-badge">You</div>
+        </div>
+      </div>
+      <div class="col-stat">34-13</div>
+      <div class="col-stat">72%</div>
+      <div class="col-stat">1438</div>
+    </div>
+    <div class="player-row">
+      <div class="col-rank">2</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">K. Fawwar</div></div>
+      </div>
+      <div class="col-stat">30-17</div>
+      <div class="col-stat">64%</div>
+      <div class="col-stat">1405</div>
+    </div>
+    <div class="player-row">
+      <div class="col-rank">3</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">A. Marthey</div></div>
+      </div>
+      <div class="col-stat">28-19</div>
+      <div class="col-stat">60%</div>
+      <div class="col-stat">1380</div>
+    </div>
+    <div class="player-row">
+      <div class="col-rank">4</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">S. Jindash</div></div>
+      </div>
+      <div class="col-stat">25-22</div>
+      <div class="col-stat">53%</div>
+      <div class="col-stat">1355</div>
+    </div>
+    <div class="player-row">
+      <div class="col-rank">5</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">J. Drabos</div></div>
+      </div>
+      <div class="col-stat">22-25</div>
+      <div class="col-stat">47%</div>
+      <div class="col-stat">1320</div>
+    </div>
+    <div class="player-row">
+      <div class="col-rank">6</div>
+      <div class="col-player">
+        <div class="avatar-xs"></div>
+        <div><div class="player-name">M. Salizar</div></div>
+      </div>
+      <div class="col-stat">20-27</div>
+      <div class="col-stat">43%</div>
+      <div class="col-stat">1295</div>
+    </div>
+  </div>
+
+  <div class="section-title">Season Info</div>
+  <div class="season-info">
+    <div class="row"><span class="label">Season</span><span class="value">Spring 2026</span></div>
+    <div class="row"><span class="label">Started</span><span class="value">Jan 15, 2026</span></div>
+    <div class="row"><span class="label">Sessions</span><span class="value">12 completed</span></div>
+    <div class="row"><span class="label">Total Games</span><span class="value">187</span></div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">🏠</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">🏆</div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">➕</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">💬</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">👤</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

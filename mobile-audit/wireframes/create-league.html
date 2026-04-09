@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Create League - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .spacer { width: 60px; }
+
+  .content { padding: 20px 16px 40px; }
+
+  .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; margin-top: 20px; }
+  .section-title:first-child { margin-top: 0; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; }
+  .form-input::placeholder { color: #bbb; }
+  .form-textarea { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #fff; color: #1a1a1a; min-height: 80px; resize: none; font-family: inherit; }
+  .form-textarea::placeholder { color: #bbb; }
+  .form-select { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; appearance: none; }
+  .form-hint { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* Toggle Cards */
+  .toggle-row { display: flex; gap: 10px; }
+  .toggle-card { flex: 1; padding: 14px 12px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: #fff; text-align: center; min-height: 44px; }
+  .toggle-card.active { border-color: #2a7d9c; background: #e8f4f8; }
+  .toggle-card .toggle-title { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .toggle-card .toggle-desc { font-size: 11px; color: #666; margin-top: 3px; }
+  .toggle-card.active .toggle-title { color: #2a7d9c; }
+
+  /* Pill Buttons */
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { padding: 10px 16px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 13px; font-weight: 600; color: #555; min-height: 44px; }
+  .pill.active { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; }
+  .pill.disabled { opacity: 0.4; }
+
+  /* Court Selector */
+  .court-selector { background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .court-selector .court-name { font-size: 14px; font-weight: 600; }
+  .court-selector .court-loc { font-size: 12px; color: #666; margin-top: 2px; }
+  .court-selector .chevron { color: #ccc; font-size: 18px; }
+
+  /* Submit */
+  .btn-create { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="leagues-tab.html" class="back">&larr; Cancel</a>
+  <div class="title">Create League</div>
+  <div class="action" style="color: rgba(212,168,67,0.4); font-size: 15px; font-weight: 600;">Create</div>
+</div>
+
+<div class="content">
+
+  <div class="section-title">League Details</div>
+
+  <div class="form-group">
+    <div class="form-label">League Name</div>
+    <input class="form-input" type="text" placeholder="Central Park Weekday AA Men's" />
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Description</div>
+    <textarea class="form-textarea" placeholder="Tell players about your league..."></textarea>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Access</div>
+    <div class="toggle-row">
+      <div class="toggle-card active">
+        <div class="toggle-title">Open League</div>
+        <div class="toggle-desc">Anyone can join</div>
+      </div>
+      <div class="toggle-card">
+        <div class="toggle-title">Invite Only</div>
+        <div class="toggle-desc">Members must be invited</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Settings</div>
+
+  <div class="form-group">
+    <div class="form-label">Gender</div>
+    <div class="pill-row">
+      <div class="pill active">Men's</div>
+      <div class="pill">Women's</div>
+      <div class="pill disabled">Mixed</div>
+    </div>
+    <div class="form-hint">Mixed leagues coming soon</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Level</div>
+    <select class="form-select">
+      <option value="" disabled>Select level</option>
+      <option>Beginner</option>
+      <option>Intermediate</option>
+      <option selected>Advanced</option>
+      <option>Open</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Location</div>
+    <select class="form-select">
+      <option value="" disabled>Select location</option>
+      <option selected>NY - New York City Metro</option>
+      <option>CA - Los Angeles</option>
+      <option>CA - San Diego</option>
+      <option>FL - Miami</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Home Court</div>
+    <div class="court-selector">
+      <div>
+        <div class="court-name">QBK Sports</div>
+        <div class="court-loc">Queens, NY</div>
+      </div>
+      <div class="chevron">&rsaquo;</div>
+    </div>
+    <div class="form-hint">Select from courts at your location</div>
+  </div>
+
+  <button class="btn-create" onclick="window.location.href='league-dashboard.html'">Create League</button>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Tournaments - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  /* ── State Switcher (design tool, not part of UI) ── */
+  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
+  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
+  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
+
+  /* State visibility */
+  .state-has-live { display: block; }
+  .state-no-live { display: none; }
+  body.no-live .state-has-live { display: none !important; }
+  body.no-live .state-no-live { display: block !important; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; text-decoration: none; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  .section-label { font-size: 15px; font-weight: 700; color: #1a1a1a; margin: 14px 0 10px; }
+
+  /* Active Tournament Card */
+  .tourney-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px; overflow: hidden; text-decoration: none; color: inherit; display: block; }
+  .tourney-card .tourney-live-bar { background: #15803d; color: #fff; padding: 6px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+  .tourney-card .tourney-live-bar .pulse { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .tourney-card .tourney-body { padding: 14px; }
+  .tourney-card .tourney-name { font-size: 16px; font-weight: 700; }
+  .tourney-card .tourney-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .tourney-card .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .tourney-card .badge.round { background: #e8f4f8; color: #2a7d9c; }
+  .tourney-card .badge.players { background: #f0f0f0; color: #666; }
+  .tourney-card .tourney-stats { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+  .tourney-card .tourney-stat { text-align: center; flex: 1; }
+  .tourney-card .tourney-stat .val { font-size: 16px; font-weight: 700; color: #1a3a4a; }
+  .tourney-card .tourney-stat .label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .tourney-card .tourney-rank { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+  .tourney-card .rank-badge { background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 10px; }
+  .tourney-card .chevron { color: #ccc; font-size: 18px; }
+
+  /* Upcoming Tournament Card */
+  .tourney-card-upcoming { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); padding: 14px; margin-bottom: 10px; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
+  .tourney-card-upcoming .tourney-icon { width: 44px; height: 44px; border-radius: 12px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .tourney-card-upcoming .tourney-info { flex: 1; }
+  .tourney-card-upcoming .tourney-name { font-size: 14px; font-weight: 600; }
+  .tourney-card-upcoming .tourney-detail { font-size: 12px; color: #666; margin-top: 3px; }
+  .tourney-card-upcoming .tourney-date { font-size: 12px; font-weight: 600; color: #2a7d9c; }
+  .tourney-card-upcoming .chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
+
+  /* Past Tournament Card */
+  .tourney-card-past { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); padding: 14px; margin-bottom: 10px; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
+  .tourney-card-past .tourney-icon { width: 44px; height: 44px; border-radius: 12px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .tourney-card-past .tourney-info { flex: 1; }
+  .tourney-card-past .tourney-name { font-size: 14px; font-weight: 600; }
+  .tourney-card-past .tourney-detail { font-size: 12px; color: #666; margin-top: 3px; }
+  .tourney-card-past .tourney-result { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; flex-shrink: 0; }
+  .tourney-card-past .chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
+
+  /* Create CTA */
+  .create-cta { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 8px; border: 1.5px dashed #ccc; display: block; text-decoration: none; color: inherit; }
+  .create-cta .cta-icon { font-size: 28px; margin-bottom: 6px; }
+  .create-cta .cta-title { font-size: 14px; font-weight: 600; color: #2a7d9c; }
+  .create-cta .cta-desc { font-size: 12px; color: #666; margin-top: 4px; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">View State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('has-live')">Has Live Tournament</button>
+    <button class="sw-pill" onclick="setState('no-live')">No Live Tournament</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="home.html" class="back">&larr; Home</a>
+  <div class="title">Tournaments</div>
+  <a href="kob-create.html" class="action">+ New</a>
+</div>
+
+<div class="content">
+
+  <div class="state-has-live">
+  <div class="section-label">Active Now</div>
+
+  <a href="kob-live.html" class="tourney-card">
+    <div class="tourney-live-bar">
+      <span class="pulse"></span>
+      Live - Round 3 of 7
+    </div>
+    <div class="tourney-body">
+      <div class="tourney-name">Saturday Morning KoB</div>
+      <div class="tourney-meta">
+        <span class="badge round">King of the Beach</span>
+        <span class="badge players">8 players</span>
+      </div>
+      <div class="tourney-stats">
+        <div class="tourney-stat">
+          <div class="val">4-0</div>
+          <div class="label">Your Record</div>
+        </div>
+        <div class="tourney-stat">
+          <div class="val">#1</div>
+          <div class="label">Rank</div>
+        </div>
+        <div class="tourney-stat">
+          <div class="val">+33</div>
+          <div class="label">Pt. Diff</div>
+        </div>
+      </div>
+      <div class="tourney-rank">
+        <span class="rank-badge">Leading</span>
+        <span class="chevron">&rsaquo;</span>
+      </div>
+    </div>
+  </a>
+
+  </div>
+
+  <div class="section-label">Upcoming</div>
+
+  <a href="#" class="tourney-card-upcoming">
+    <div class="tourney-icon">&#9978;</div>
+    <div class="tourney-info">
+      <div class="tourney-name">Sunday Showdown KoB</div>
+      <div class="tourney-detail">QBK Sports · 12 players registered</div>
+      <div class="tourney-date">Apr 13 · 9:00 AM</div>
+    </div>
+    <span class="chevron">&rsaquo;</span>
+  </a>
+
+  <a href="#" class="tourney-card-upcoming">
+    <div class="tourney-icon">&#9978;</div>
+    <div class="tourney-info">
+      <div class="tourney-name">Domino Park Spring Classic</div>
+      <div class="tourney-detail">Domino Park · 16 player cap</div>
+      <div class="tourney-date">Apr 20 · 10:00 AM</div>
+    </div>
+    <span class="chevron">&rsaquo;</span>
+  </a>
+
+  <div class="section-label">Past Tournaments</div>
+
+  <a href="kob-standings.html" class="tourney-card-past">
+    <div class="tourney-icon">&#127942;</div>
+    <div class="tourney-info">
+      <div class="tourney-name">March Madness KoB</div>
+      <div class="tourney-detail">Mar 29 · QBK Sports · 10 players</div>
+    </div>
+    <span class="tourney-result">1st Place</span>
+    <span class="chevron">&rsaquo;</span>
+  </a>
+
+  <a href="#" class="tourney-card-past">
+    <div class="tourney-icon">&#127942;</div>
+    <div class="tourney-info">
+      <div class="tourney-name">St. Patrick's Day KoB</div>
+      <div class="tourney-detail">Mar 15 · Domino Park · 8 players</div>
+    </div>
+    <span class="tourney-result">3rd Place</span>
+    <span class="chevron">&rsaquo;</span>
+  </a>
+
+  <a href="kob-create.html" class="create-cta">
+    <div class="cta-icon">&#127942;</div>
+    <div class="cta-title">Create a Tournament</div>
+    <div class="cta-desc">Run a King of the Beach or custom bracket</div>
+  </a>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  document.body.classList.remove('no-live');
+  if (state === 'no-live') document.body.classList.add('no-live');
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Profile - Beach Kings Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; }
+  .top-nav .spacer { width: 60px; }
+
+  /* Profile Header */
+  .profile-header { background: #fff; padding: 24px 16px 20px; text-align: center; }
+  .profile-header .avatar-area { position: relative; width: 88px; height: 88px; margin: 0 auto 12px; }
+  .profile-header .avatar { width: 88px; height: 88px; border-radius: 50%; background: #7fb3c7; border: 3px solid #e8f4f8; }
+  .profile-header .edit-avatar { position: absolute; bottom: -8px; right: -12px; width: 44px; height: 44px; border-radius: 50%; background: #1a3a4a; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+  .profile-header .name { font-size: 22px; font-weight: 700; }
+  .profile-header .meta { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: #666; }
+  .profile-header .level-badge { background: #e8f4f8; color: #2a7d9c; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+
+  /* Stats Bar */
+  .stats-bar { display: flex; background: #fff; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #eee; }
+  .stats-bar .stat { flex: 1; text-align: center; padding: 12px 4px; }
+  .stats-bar .stat .val { font-size: 18px; font-weight: 700; color: #1a3a4a; }
+  .stats-bar .stat .label { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stats-bar .stat + .stat { border-left: 1px solid #f0f0f0; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Form Fields */
+  .form-group { margin-bottom: 14px; }
+  .form-group .form-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-group .form-value { background: #f8f9fa; padding: 12px 14px; border-radius: 10px; font-size: 14px; border: 1.5px solid #e8e8e8; }
+  .form-group .form-value.editable { border-color: #ccc; }
+
+  /* Home Courts Tags */
+  .court-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .court-tag { background: #e8f4f8; color: #2a7d9c; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; }
+
+  /* Trophies */
+  .trophy-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); }
+  .trophy-row::-webkit-scrollbar { display: none; }
+  .trophy-card { min-width: 110px; background: #fdf8ed; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #f0e6cc; }
+  .trophy-card .trophy-icon { font-size: 24px; margin-bottom: 4px; }
+  .trophy-card .trophy-place { font-size: 11px; font-weight: 700; color: #b8860b; }
+  .trophy-card .trophy-league { font-size: 11px; color: #666; margin-top: 3px; line-height: 1.3; }
+
+  /* Save Button */
+  .save-btn { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; margin-top: 20px; text-align: center; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
+  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
+  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
+  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
+  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
+  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
+  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
+  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
+  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="spacer"></div>
+  <div class="title">Profile</div>
+  <a href="settings.html" class="action" style="text-decoration:none; color:#d4a843;">Settings</a>
+</div>
+
+<div class="profile-header">
+  <div class="avatar-area">
+    <div class="avatar"></div>
+    <div class="edit-avatar">&#9998;</div>
+  </div>
+  <div class="name">Patrick Schwagler</div>
+  <div class="meta">
+    <span>New York, NY</span>
+    <span>--</span>
+    <span class="level-badge">Open</span>
+    <span>--</span>
+    <a href="friends.html" style="text-decoration:none; color:#2a7d9c; font-weight:600;">12 Friends</a>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="val">94</div><div class="label">Games</div></div>
+  <div class="stat"><div class="val">1,438</div><div class="label">Rating</div></div>
+  <div class="stat"><div class="val">66-28</div><div class="label">W-L</div></div>
+  <div class="stat"><div class="val">70%</div><div class="label">Win Rate</div></div>
+</div>
+
+<div class="segment-control">
+  <div class="segment active">Profile</div>
+  <a href="my-stats.html" class="segment" style="text-decoration:none; color:#888;">Stats</a>
+</div>
+
+<div class="content">
+
+  <div class="section-title">Player Profile</div>
+
+  <div class="form-group">
+    <div class="form-label">Full Name</div>
+    <div class="form-value">Patrick Schwagler</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Nickname</div>
+    <div class="form-value editable">Schwags</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Gender</div>
+    <div class="form-value">Male</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Level</div>
+    <div class="form-value">Open</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Location</div>
+    <div class="form-value">NY - New York City Metro</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Preferred Side</div>
+    <div class="form-value editable">Left</div>
+  </div>
+
+  <div class="section-title">Trophies</div>
+  <div class="trophy-row">
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men - Mornings</div>
+    </div>
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men - Mornings</div>
+    </div>
+  </div>
+
+  <div class="section-title">Home Courts</div>
+  <div class="court-tags">
+    <span class="court-tag">QBK Sports</span>
+    <span class="court-tag">Central Park Volleyball Courts</span>
+    <span class="court-tag">Hunter's Point South Park</span>
+    <span class="court-tag">Pier 6 Brooklyn Bridge Park</span>
+  </div>
+
+  <button class="save-btn">Save Changes</button>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">🏠</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">🏆</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">➕</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">💬</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">👤</div>
+    <div class="tab-label active">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>
