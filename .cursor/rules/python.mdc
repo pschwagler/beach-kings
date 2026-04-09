@@ -1,5 +1,5 @@
 ---
-description: Python best practices and patterns for modern software development with Flask and SQLite
+description: Python best practices and patterns for modern software development with FastAPI and PostgreSQL
 globs: **/*.py, src/**/*.py, tests/**/*.py
 ---
 

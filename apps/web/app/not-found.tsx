@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import NavBar from '../src/components/layout/NavBar';
 import { useAuth } from '../src/contexts/AuthContext';
 
@@ -34,7 +35,7 @@ export default function NotFound() {
         <p style={{ fontSize: '15px', color: '#757575', marginBottom: '24px', maxWidth: '400px' }}>
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
-        <a
+        <Link
           href="/home"
           style={{
             padding: '10px 24px',
@@ -49,7 +50,7 @@ export default function NotFound() {
           }}
         >
           Go home
-        </a>
+        </Link>
       </div>
     </>
   );

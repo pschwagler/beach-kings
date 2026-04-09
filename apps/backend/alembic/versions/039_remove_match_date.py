@@ -20,7 +20,7 @@ depends_on = None
 
 
 def _column_exists(table: str, column: str) -> bool:
-    """Check whether a column exists on a table (SQLite + PostgreSQL)."""
+    """Check whether a column exists on a table."""
     bind = op.get_bind()
     insp = sa.inspect(bind)
     columns = [c["name"] for c in insp.get_columns(table)]
@@ -28,7 +28,7 @@ def _column_exists(table: str, column: str) -> bool:
 
 
 def upgrade() -> None:
-    # Pre-flight: verify every match with a session has a matching session date.
+    # Pre-flight: verify every match has a session with a valid date.
     bind = op.get_bind()
     orphan_count = bind.execute(
         sa.text(

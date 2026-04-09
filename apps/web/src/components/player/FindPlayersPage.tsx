@@ -9,7 +9,7 @@ import HomeMenuBar from '../home/HomeMenuBar';
 import LevelBadge from '../ui/LevelBadge';
 import { Button } from '../ui/UI';
 import SearchableMultiSelect from '../ui/SearchableMultiSelect';
-import { getPublicPlayers, getUserLeagues, createLeague, batchFriendStatus } from '../../services/api';
+import { getPublicPlayers, createLeague, batchFriendStatus } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
@@ -19,7 +19,6 @@ import { slugify } from '../../utils/slugify';
 import { isImageUrl } from '../../utils/avatar';
 import { formatGender } from '../../utils/formatters';
 import { PLAYER_LEVEL_FILTER_OPTIONS } from '../../utils/playerFilterOptions';
-import type { League } from '../../types';
 
 /** Flat shape returned by the public players search endpoint. */
 interface PublicPlayerSearchResult {
@@ -127,8 +126,7 @@ export default function FindPlayersPage() {
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const { locations } = useApp();
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
+  const { locations, userLeagues, refreshLeagues } = useApp();
   const [players, setPlayers] = useState<PublicPlayerSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => parseInitialFilters(searchParams));
@@ -169,14 +167,6 @@ export default function FindPlayersPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isFilterOpen]);
 
-  // Load user leagues for navbar
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch((err) => console.error('Error loading user leagues:', err));
-  }, [isAuthenticated]);
-
   // Fetch players when filters, search, sort, or page change
   useEffect(() => {
     const controller = new AbortController();
@@ -208,8 +198,8 @@ export default function FindPlayersPage() {
         setTotalCount(data.total_count || 0);
         if (isAuthenticated && items.length > 0) {
           batchFriendStatus(items.map((p) => p.id))
-            .then(setFriendStatuses)
-            .catch((err) => console.error('Error fetching friend statuses:', err));
+            .then((result) => { if (!controller.signal.aborted) setFriendStatuses(result); })
+            .catch((err) => { if (!controller.signal.aborted) console.error('Error fetching friend statuses:', err); });
         } else {
           setFriendStatuses(null);
         }
@@ -241,8 +231,7 @@ export default function FindPlayersPage() {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: any) => {
           const newLeague = await createLeague(leagueData);
-          const leagues = await getUserLeagues();
-          setUserLeagues(leagues);
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });
