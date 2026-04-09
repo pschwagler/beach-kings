@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { submitFeedback } from '../services/api';
+import { useDialog } from '../hooks/useDialog';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface FeedbackModalProps {
 }
 
 export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
   const [feedback, setFeedback] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,9 +54,9 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
   return (
     <div className="auth-modal-overlay">
-      <div className="auth-modal feedback-modal">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title" className="auth-modal feedback-modal">
         <div className="auth-modal__header">
-          <h2>Leave Feedback</h2>
+          <h2 id="feedback-modal-title">Leave Feedback</h2>
           <button className="auth-modal__close" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>

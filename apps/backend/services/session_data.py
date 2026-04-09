@@ -928,7 +928,7 @@ async def get_matches(session: AsyncSession, limit: Optional[int] = None) -> Lis
     query = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Session.name.label("session_name"),
             Session.status.label("session_status"),
@@ -992,7 +992,7 @@ async def get_session_matches(db_session: AsyncSession, session_id: int) -> List
     q = (
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.session_id,
             Session.name.label("session_name"),
             Session.status.label("session_status"),
@@ -1058,7 +1058,11 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
         Match dict or None if not found
     """
     result = await session.execute(
-        select(Match, Session.status.label("session_status"))
+        select(
+            Match,
+            Session.status.label("session_status"),
+            Session.date.label("session_date"),
+        )
         .outerjoin(Session, Match.session_id == Session.id)
         .where(Match.id == match_id)
     )
@@ -1067,7 +1071,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
     if not row:
         return None
 
-    match, session_status = row
+    match, session_status, session_date = row
 
     team1_p1 = await session.get(Player, match.team1_player1_id)
     team1_p2 = await session.get(Player, match.team1_player2_id)
@@ -1077,7 +1081,7 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
     return {
         "id": match.id,
         "session_id": match.session_id,
-        "date": match.date,
+        "date": session_date,
         "team1_player1": team1_p1.full_name if team1_p1 else None,
         "team1_player2": team1_p2.full_name if team1_p2 else None,
         "team2_player1": team2_p1.full_name if team2_p1 else None,
@@ -1094,16 +1098,17 @@ async def get_match_async(session: AsyncSession, match_id: int) -> Optional[Dict
 
 
 async def create_match_async(
-    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int, date: str
+    session: AsyncSession, match_request: "CreateMatchRequest", session_id: int
 ) -> int:
     """
     Create a new match in a session - async version.
+
+    Date is a session-level concern and lives on the Session, not the Match.
 
     Args:
         session: Database session
         match_request: CreateMatchRequest schema with player IDs
         session_id: Session ID
-        date: Match date
 
     Returns:
         Match ID
@@ -1132,7 +1137,6 @@ async def create_match_async(
 
     new_match = Match(
         session_id=session_id,
-        date=date,
         team1_player1_id=match_request.team1_player1_id,
         team1_player2_id=match_request.team1_player2_id,
         team2_player1_id=match_request.team2_player1_id,

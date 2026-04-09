@@ -56,16 +56,18 @@ export default function MyLeaguesBar({ leagues, onLeagueClick, onLeaguesUpdate, 
     router.push('/find-leagues');
   };
 
-  const titleElement = (
-    <h3
-      className={`home-leagues-bar__title${onViewAll ? ' dashboard-widget-title--clickable' : ''}`}
-      onClick={onViewAll || undefined}
-      role={onViewAll ? 'button' : undefined}
-      tabIndex={onViewAll ? 0 : undefined}
-      onKeyDown={onViewAll ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } } : undefined}
-    >
-      My Leagues
+  const titleElement = onViewAll ? (
+    <h3 className="home-leagues-bar__title">
+      <button
+        type="button"
+        className="home-leagues-bar__title__btn"
+        onClick={onViewAll}
+      >
+        My Leagues
+      </button>
     </h3>
+  ) : (
+    <h3 className="home-leagues-bar__title">My Leagues</h3>
   );
 
   return (

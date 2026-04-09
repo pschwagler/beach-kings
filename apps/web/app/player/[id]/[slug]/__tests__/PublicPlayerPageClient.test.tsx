@@ -148,6 +148,6 @@ describe('PublicPlayerPageClient', () => {
     );
     expect(container.querySelector('.league-dashboard-container')).toBeInTheDocument();
     expect(container.querySelector('.league-dashboard')).toBeInTheDocument();
-    expect(container.querySelector('.league-dashboard__content')).toBeInTheDocument();
+    expect(container.querySelector('.home-content')).toBeInTheDocument();
   });
 });

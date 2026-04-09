@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { X, Trophy, Users } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { useDialog } from '../../hooks/useDialog';
 import type { Season } from '../../types';
 
 interface SessionMatch {
@@ -93,6 +94,8 @@ export default function SessionSummaryModal({
   matches,
   season,
 }: SessionSummaryModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
+
   const playerStats = useMemo(() => {
     if (!matches || matches.length === 0) return [];
     return calculatePlayerStats(matches);
@@ -106,9 +109,9 @@ export default function SessionSummaryModal({
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal-content confirmation-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="session-summary-title" className="modal-content confirmation-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{title}</h2>
+          <h2 id="session-summary-title">{title}</h2>
           <div className="modal-header-right">
             {season && (
               <span className="season-badge">

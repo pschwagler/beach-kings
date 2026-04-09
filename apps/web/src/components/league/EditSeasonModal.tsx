@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { updateSeason } from "../../services/api";
+import { useDialog } from '../../hooks/useDialog';
 import { useToast } from '../../contexts/ToastContext';
 import { SEASON_RATING_DESCRIPTION } from "./utils/leagueUtils";
 import type { Season } from '../../types';
@@ -18,6 +19,7 @@ interface EditSeasonModalProps {
 }
 
 export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }: EditSeasonModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
@@ -115,10 +117,10 @@ export default function EditSeasonModal({ isOpen, onClose, onSuccess, season }: 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-season-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Edit Season</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="edit-season-title">Edit Season</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

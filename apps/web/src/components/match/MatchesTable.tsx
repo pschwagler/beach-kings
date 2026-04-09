@@ -535,6 +535,7 @@ export default function MatchesTable({
       defaultSeasonId: selectedSeasonId,
       onSeasonChange: onSeasonChange,
       leagueHomeCourts,
+      isFirstMatch: false,
     });
   };
 
@@ -562,6 +563,7 @@ export default function MatchesTable({
               defaultSeasonId: selectedSeasonId,
               onSeasonChange: onSeasonChange,
               leagueHomeCourts,
+              isFirstMatch: true,
             })}
           >
             <h2 className="add-matches-title">Add Games</h2>
@@ -623,6 +625,7 @@ export default function MatchesTable({
               defaultSeasonId: selectedSeasonId,
               onSeasonChange: onSeasonChange,
               leagueHomeCourts,
+              isFirstMatch: activeSessionMatches.length === 0,
             })}
             onEditMatch={handleEditMatch}
             onRequestDeleteSession={() => {
@@ -728,6 +731,7 @@ export default function MatchesTable({
                     defaultSeasonId: selectedSeasonId,
                     onSeasonChange: onSeasonChange,
                     leagueHomeCourts,
+                    isFirstMatch: false,
                   })}
                   onEditMatch={handleEditMatch}
                   onSaveClick={() => onSaveEditedSession?.(group.id as number)}

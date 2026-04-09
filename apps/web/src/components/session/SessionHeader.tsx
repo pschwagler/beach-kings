@@ -36,16 +36,29 @@ export default function SessionHeader({ sessionName, gameCount, playerCount, isE
       </div>
 
       <div className="session-stats-row">
-        <div className={`session-stats ${onStatsClick ? 'session-stats-clickable' : ''}`} onClick={onStatsClick}>
-          <div className="session-stat">
-            <Trophy size={18} />
-            {gameCount} {gameCount === 1 ? 'game' : 'games'}
+        {onStatsClick ? (
+          <button type="button" className="session-stats session-stats-clickable" onClick={onStatsClick}>
+            <div className="session-stat">
+              <Trophy size={18} />
+              {gameCount} {gameCount === 1 ? 'game' : 'games'}
+            </div>
+            <div className="session-stat">
+              <Users size={18} />
+              {playerCount} {playerCount === 1 ? 'player' : 'players'}
+            </div>
+          </button>
+        ) : (
+          <div className="session-stats">
+            <div className="session-stat">
+              <Trophy size={18} />
+              {gameCount} {gameCount === 1 ? 'game' : 'games'}
+            </div>
+            <div className="session-stat">
+              <Users size={18} />
+              {playerCount} {playerCount === 1 ? 'player' : 'players'}
+            </div>
           </div>
-          <div className="session-stat">
-            <Users size={18} />
-            {playerCount} {playerCount === 1 ? 'player' : 'players'}
-          </div>
-        </div>
+        )}
         {sessionAction && (
           <button
             type="button"

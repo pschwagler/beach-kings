@@ -907,7 +907,7 @@ class TestMatchEndpoints:
         async def fake_get_player_by_user_id(session, user_id):
             return {"id": 1, "user_id": user_id, "full_name": "Test Player"}
 
-        async def fake_create_match_async(session, match_request, session_id, date):
+        async def fake_create_match_async(session, match_request, session_id):
             return 1001
 
         monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)

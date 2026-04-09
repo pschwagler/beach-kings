@@ -336,8 +336,14 @@ class TestGetFriendRequests:
         """Filter by incoming returns a list of request dicts."""
 
         async def fake_get(session, player_id, direction="both"):
-            # real service returns a flat list of request dicts
-            return [{"id": 1, "status": "pending"}]
+            return [{
+                "id": 1,
+                "status": "pending",
+                "sender_player_id": 20,
+                "sender_name": "Sender",
+                "receiver_player_id": 10,
+                "receiver_name": "Test User",
+            }]
 
         monkeypatch.setattr(friend_service, "get_friend_requests", fake_get, raising=True)
 
@@ -398,7 +404,7 @@ class TestGetFriendSuggestions:
         """Returns suggestions list."""
 
         async def fake_get(session, player_id, limit=10):
-            return [{"player_id": 30, "full_name": "Suggested Player", "mutual_leagues": 2}]
+            return [{"player_id": 30, "full_name": "Suggested Player", "shared_league_count": 2}]
 
         monkeypatch.setattr(friend_service, "get_friend_suggestions", fake_get, raising=True)
 
@@ -460,10 +466,7 @@ class TestGetMutualFriends:
         """Returns mutual friends list."""
 
         async def fake_mutual(session, player_id, other_id):
-            return {
-                "mutual_friends": [{"player_id": 50, "full_name": "Mutual Friend"}],
-                "count": 1,
-            }
+            return [{"player_id": 50, "full_name": "Mutual Friend"}]
 
         monkeypatch.setattr(friend_service, "get_mutual_friends", fake_mutual, raising=True)
 

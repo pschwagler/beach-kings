@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, ChevronDown, Settings } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { useDialog } from '../../hooks/useDialog';
 import PlayerDropdown from '../player/PlayerDropdown';
 import ConfirmationModal from '../modal/ConfirmationModal';
 import { useMatchFormReducer } from './useMatchFormReducer';
@@ -78,6 +79,10 @@ interface AddMatchModalProps {
   defaultSeasonId?: number | null;
   onSeasonChange?: ((id: number) => void) | null;
   leagueHomeCourts?: HomeCourtOption[];
+  /** Location ID for the court selector — enables "Private / Other Court" option and location filtering. */
+  locationId?: string | null;
+  /** When false, date and court fields are disabled (not the first match in a session). Defaults to true. */
+  isFirstMatch?: boolean;
 }
 
 export default function AddMatchModal({
@@ -97,7 +102,10 @@ export default function AddMatchModal({
   defaultSeasonId = null,
   onSeasonChange = null,
   leagueHomeCourts = [],
+  locationId = null,
+  isFirstMatch = true,
 }: AddMatchModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
   const [formData, dispatchForm, INITIAL_FORM_STATE] = useMatchFormReducer();
   const [isRanked, setIsRanked] = useState(true);
 
@@ -407,9 +415,9 @@ export default function AddMatchModal({
 
   return (
     <div className="modal-overlay" onClick={onClose} data-testid="add-match-modal-overlay">
-      <div className="drawer-modal" onClick={(e) => e.stopPropagation()} data-testid="add-match-modal">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-match-title" className="drawer-modal" onClick={(e) => e.stopPropagation()} data-testid="add-match-modal">
         <div className="modal-header">
-          <h2>{editMatch ? 'Edit Game' : 'Add New Game'}</h2>
+          <h2 id="add-match-title">{editMatch ? 'Edit Game' : 'Add New Game'}</h2>
           <Button variant="close" onClick={onClose}>
             <X size={20} />
           </Button>
@@ -417,7 +425,7 @@ export default function AddMatchModal({
 
         <form id="add-match-form" onSubmit={handleSubmit} className="add-match-form" data-testid="add-match-form">
           {formError && (
-            <div className="form-error">
+            <div className="form-error" role="alert">
               {formError}
             </div>
           )}
@@ -473,59 +481,63 @@ export default function AddMatchModal({
 
               {isConfigExpanded && (
                 <div className="match-config-inline-controls">
-                  {!sessionOnly && (
+                  <div className="match-config-toggles-row">
                     <div className="match-type-toggle compact">
                       <button
                         type="button"
                         className={`match-type-option compact ${matchType === 'non-league' ? 'active' : ''}`}
                         onClick={() => {
-                          if (!leagueMatchOnly) {
+                          if (!leagueMatchOnly && !sessionOnly) {
                             setMatchType('non-league');
                           }
                         }}
-                        disabled={leagueMatchOnly}
+                        disabled={leagueMatchOnly || sessionOnly}
                       >
                         Non-League
                       </button>
                       <button
                         type="button"
                         className={`match-type-option compact ${matchType === 'league' ? 'active' : ''}`}
-                        onClick={() => setMatchType('league')}
-                        disabled={leagueMatchOnly}
+                        onClick={() => {
+                          if (!sessionOnly) {
+                            setMatchType('league');
+                          }
+                        }}
+                        disabled={leagueMatchOnly || sessionOnly}
                       >
                         League
                       </button>
                     </div>
-                  )}
 
-                  <div className="ranked-toggle-switch compact">
-                    <button
-                      type="button"
-                      className={`ranked-toggle-option compact ${!isRanked ? 'active' : ''}`}
-                      onClick={() => {
-                        if (matchType === 'non-league') {
-                          setIsRanked(false);
-                        }
-                      }}
-                      disabled={matchType === 'league'}
-                    >
-                      Unranked
-                    </button>
-                    <button
-                      type="button"
-                      className={`ranked-toggle-option compact ${isRanked ? 'active' : ''}`}
-                      onClick={() => {
-                        if (matchType === 'non-league') {
-                          setIsRanked(true);
-                        }
-                      }}
-                      disabled={matchType === 'league'}
-                    >
-                      Ranked
-                    </button>
+                    <div className="ranked-toggle-switch compact">
+                      <button
+                        type="button"
+                        className={`ranked-toggle-option compact ${!isRanked ? 'active' : ''}`}
+                        onClick={() => {
+                          if (matchType === 'non-league') {
+                            setIsRanked(false);
+                          }
+                        }}
+                        disabled={matchType === 'league'}
+                      >
+                        Unranked
+                      </button>
+                      <button
+                        type="button"
+                        className={`ranked-toggle-option compact ${isRanked ? 'active' : ''}`}
+                        onClick={() => {
+                          if (matchType === 'non-league') {
+                            setIsRanked(true);
+                          }
+                        }}
+                        disabled={matchType === 'league'}
+                      >
+                        Ranked
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Date and Court — per-session fields */}
+                  {/* Date and Court */}
                   <div className="match-config-date-court-row">
                     <div className="match-config-date-field">
                       <label htmlFor="match-date" className="match-config-label">Date</label>
@@ -535,20 +547,21 @@ export default function AddMatchModal({
                         className="match-config-date-input"
                         value={matchDate}
                         onChange={(e) => setMatchDate(e.target.value)}
+                        disabled={!isFirstMatch}
                         data-testid="match-date-input"
                       />
                     </div>
-                    {leagueHomeCourts.length > 0 && (
-                      <div className="match-config-court-field">
-                        <CourtSelector
-                          mode="single"
-                          value={matchCourtId}
-                          onChange={(courtId) => setMatchCourtId(courtId)}
-                          homeCourts={leagueHomeCourts}
-                          label="Court"
-                        />
-                      </div>
-                    )}
+                    <div className="match-config-court-field">
+                      <CourtSelector
+                        mode="single"
+                        value={matchCourtId}
+                        onChange={(courtId) => setMatchCourtId(courtId)}
+                        homeCourts={leagueHomeCourts}
+                        preFilterLocationId={locationId ?? league?.location_id ?? undefined}
+                        label="Court"
+                        disabled={!isFirstMatch}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

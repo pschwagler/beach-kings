@@ -193,7 +193,6 @@ def _make_match(session_id, p1, p2, p3, p4, is_ranked=False, ranked_intent=True)
     """Create a Match object with sensible defaults."""
     return Match(
         session_id=session_id,
-        date="2/15/2026",
         team1_player1_id=p1,
         team1_player2_id=p2,
         team2_player1_id=p3,

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { useDialog } from '../../hooks/useDialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import { GENDER_OPTIONS_LEAGUE, LEVEL_OPTIONS } from '../../utils/playerFilterOptions';
@@ -40,6 +41,7 @@ interface CreateLeagueModalProps {
 }
 
 export default function CreateLeagueModal({ isOpen, onClose, onSubmit }: CreateLeagueModalProps) {
+  const dialogRef = useDialog(onClose, isOpen);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -172,9 +174,9 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }: CreateL
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-league-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create League</h2>
+          <h2 id="create-league-title">Create League</h2>
           <Button variant="close" onClick={onClose}>
             <X size={20} />
           </Button>
@@ -182,7 +184,7 @@ export default function CreateLeagueModal({ isOpen, onClose, onSubmit }: CreateL
 
         <form id="create-league-form" onSubmit={handleSubmit} className="create-league-form">
           {formError && (
-            <div className="form-error">
+            <div className="form-error" role="alert">
               {formError}
             </div>
           )}

@@ -86,7 +86,7 @@ export default function ImageLightbox({ photos, startIndex = 0, onClose }: Image
       onTouchEnd={handleTouchEnd}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={photo.url} alt="" className="image-lightbox__img" />
+      <img src={photo.url} alt={`Photo ${index + 1} of ${total}`} className="image-lightbox__img" />
 
       <button className="image-lightbox__close" onClick={onClose} aria-label="Close lightbox">
         <X size={20} />

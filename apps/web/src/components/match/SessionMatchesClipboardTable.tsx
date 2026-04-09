@@ -127,6 +127,7 @@ export default function SessionMatchesClipboardTable({
                       <span
                         className="clipboard-ranked-badge clipboard-ranked-badge--pending"
                         data-tooltip="Will become ranked when all players register"
+                        aria-label="Will become ranked when all players register"
                       >
                         Pending
                       </span>

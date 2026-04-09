@@ -273,6 +273,11 @@
   border-color: var(--primary);
 }
 
+.kob-score-card__score-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .kob-score-card__score {
   font-size: 24px;
   font-weight: 600;

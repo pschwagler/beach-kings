@@ -297,8 +297,9 @@ export default function CourtBrowserModal({
           <div className="court-browser__filters">
             {regions.length > 0 && (
               <div className="court-browser__filter-group">
-                <label className="court-browser__filter-label">Region</label>
+                <label htmlFor="filter-region" className="court-browser__filter-label">Region</label>
                 <select
+                  id="filter-region"
                   value={selectedRegionId}
                   onChange={(e) => handleRegionChange(e.target.value)}
                   className="court-browser__filter-select"
@@ -312,7 +313,6 @@ export default function CourtBrowserModal({
             )}
             {locations.length > 0 && (
               <div className="court-browser__filter-group">
-                <label className="court-browser__filter-label">Location</label>
                 <SearchableMultiSelect
                   options={locationOptions}
                   selectedIds={locationIds}
@@ -322,12 +322,14 @@ export default function CourtBrowserModal({
                     )
                   }
                   placeholder="Search locations..."
+                  label="Location"
                 />
               </div>
             )}
             <div className="court-browser__filter-group">
-              <label className="court-browser__filter-label">Surface</label>
+              <label htmlFor="filter-surface" className="court-browser__filter-label">Surface</label>
               <select
+                id="filter-surface"
                 value={surfaceType}
                 onChange={(e) => setSurfaceType(e.target.value)}
                 className="court-browser__filter-select"
@@ -338,8 +340,9 @@ export default function CourtBrowserModal({
               </select>
             </div>
             <div className="court-browser__filter-group">
-              <label className="court-browser__filter-label">Cost</label>
+              <label htmlFor="filter-cost" className="court-browser__filter-label">Cost</label>
               <select
+                id="filter-cost"
                 value={isFree === null ? '' : isFree ? 'true' : 'false'}
                 onChange={(e) =>
                   setIsFree(e.target.value === '' ? null : e.target.value === 'true')
@@ -352,8 +355,9 @@ export default function CourtBrowserModal({
               </select>
             </div>
             <div className="court-browser__filter-group">
-              <label className="court-browser__filter-label">Min Rating</label>
+              <label htmlFor="filter-min-rating" className="court-browser__filter-label">Min Rating</label>
               <select
+                id="filter-min-rating"
                 value={minRating || ''}
                 onChange={(e) =>
                   setMinRating(e.target.value ? parseFloat(e.target.value) : null)

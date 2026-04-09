@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Settings, Edit2, Check, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import NavBar from '../layout/NavBar';
@@ -25,34 +25,22 @@ import './LeagueDashboard.css';
 interface LeagueDashboardContentProps {
   leagueId: number;
   publicLeagueData?: PublicLeagueData | null;
-  initialTab?: string;
 }
 
-function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rankings' }: LeagueDashboardContentProps) {
+function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab, activeLeagueTab } = useLeague();
+  const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab, activeLeagueTab, isLeagueAdmin, isLeagueMember } = useLeague();
   const { showToast } = useToast();
-
-  // Sync the server-provided initialTab into context once after mount.
-  // This must be a useEffect (post-mount), never a useState initializer, to
-  // avoid calling a context setter during render which triggers an infinite loop.
-  // Re-runs if initialTab changes (e.g. navigation to same page with different tab).
-  useEffect(() => {
-    setActiveLeagueTab(initialTab);
-  }, [initialTab, setActiveLeagueTab]);
 
   const [userLeagues, setUserLeagues] = useState<League[]>([]);
   
   // League name editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [leagueName, setLeagueName] = useState('');
-
-  // Get isLeagueAdmin and isLeagueMember from context
-  const { isLeagueAdmin, isLeagueMember } = useLeague();
 
   // Client-side fallback for publicLeagueData (in case SSR fetch failed)
   const [clientPublicData, setClientPublicData] = useState<PublicLeagueData | null | undefined>(publicLeagueData);
@@ -87,14 +75,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
       loadLeagues();
     }
   }, [isAuthenticated]);
-
-  // Update league name when league changes
-  useEffect(() => {
-    if (league) {
-      setLeagueName(league.name || '');
-    }
-  }, [league]);
-
 
   const handleBack = () => {
     router.push('/');
@@ -386,7 +366,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
                     {isLeagueAdmin && (
                       <button
                         className="league-content-header-edit-btn"
-                        onClick={() => setIsEditingName(true)}
+                        onClick={() => { setLeagueName(league?.name || ''); setIsEditingName(true); }}
                         aria-label="Edit league name"
                       >
                         <Edit2 size={18} />
@@ -433,12 +413,11 @@ function LeagueDashboardContent({ leagueId, publicLeagueData, initialTab = 'rank
 interface LeagueDashboardProps {
   leagueId: number;
   publicLeagueData?: PublicLeagueData | null;
-  initialTab?: string;
 }
 
-export default function LeagueDashboard({ leagueId, publicLeagueData, initialTab }: LeagueDashboardProps) {
+export default function LeagueDashboard({ leagueId, publicLeagueData }: LeagueDashboardProps) {
   // leagueId is passed from the Next.js page component
   return (
-    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} />
+    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} />
   );
 }

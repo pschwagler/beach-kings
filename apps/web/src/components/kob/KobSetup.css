@@ -57,10 +57,17 @@
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
+  border: none;
+  font: inherit;
 }
 
 .kob-setup__code-badge:hover {
   background: var(--gray-200);
+}
+
+.kob-setup__code-badge:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .kob-setup__copied {

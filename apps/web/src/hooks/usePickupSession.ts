@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   getSessionByCode,
   getSessionMatches,
@@ -13,15 +12,14 @@ import { useAuth } from '../contexts/AuthContext';
 import type { Session, Match, League } from '../types';
 
 /**
- * Loads and exposes session-by-code data for the pickup session page.
- * Handles redirect when session is a league session; otherwise fetches matches and participants.
+ * Loads and exposes session-by-code data for the session page.
+ * Works for both pickup and league sessions.
  *
  * @param {string} code - Session shareable code (from route params)
  * @returns {Object} session, matches, participants, loading, error, refresh, userLeagues,
  *   isCreator, hasLessThanFourPlayers, membersForModal, transformedMatches
  */
 export function usePickupSession(code: string | undefined) {
-  const router = useRouter();
   const { currentUserPlayer, isAuthenticated } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -47,13 +45,6 @@ export function usePickupSession(code: string | undefined) {
         setParticipants([]);
         return;
       }
-      if (sess.league_id != null) {
-        const searchParams = new URLSearchParams();
-        searchParams.set('tab', 'matches');
-        if (sess.season_id != null) searchParams.set('season', String(sess.season_id));
-        router.replace(`/league/${sess.league_id}?${searchParams.toString()}`);
-        return;
-      }
       setSession(sess);
       const [list, partList] = await Promise.all([
         getSessionMatches(sess.id),
@@ -70,7 +61,7 @@ export function usePickupSession(code: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [code, router]);
+  }, [code]);
 
   useEffect(() => {
     load();

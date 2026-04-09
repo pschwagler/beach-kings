@@ -62,17 +62,17 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
   const [levelFilter, setLevelFilter] = useState('');
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
-  // Fetch courts — geolocation = proximity only, profile = filter by location_id
+  // Fetch courts and location data concurrently when location/position changes
   useEffect(() => {
     if (!locationId && !userPos) return;
+    let cancelled = false;
 
+    // Courts fetch — geolocation = proximity only, profile = filter by location_id
     const courtParams: Record<string, unknown> = { page_size: 4 };
     if (posSource === 'geolocation' && userPos) {
-      // User is somewhere specific — show courts near their actual position
       courtParams.user_lat = userPos.latitude;
       courtParams.user_lng = userPos.longitude;
     } else if (locationId) {
-      // Fall back to profile's location hub
       courtParams.location_id = locationId;
       if (userPos) {
         courtParams.user_lat = userPos.latitude;
@@ -80,21 +80,23 @@ export default function NearYouSection({ currentUserPlayer, onTabChange }: NearY
       }
     }
     getPublicCourts(courtParams)
-      .then((data) => setCourts(data.items || []))
+      .then((data) => { if (!cancelled) setCourts(data.items || []); })
       .catch(() => {});
-  }, [locationId, userPos, posSource]);
 
-  // Fetch location data for stats widget (always based on profile location)
-  useEffect(() => {
-    if (!locationId) return;
-    getPublicLocations()
-      .then((data) => {
-        const allLocations = ((data.regions || []) as Array<{ locations?: LocationData[] }>).flatMap((r) => r.locations || []);
-        const match = allLocations.find((loc) => loc.id === locationId);
-        if (match) setLocationData(match);
-      })
-      .catch(() => {});
-  }, [locationId]);
+    // Location data fetch for stats widget (always based on profile location)
+    if (locationId) {
+      getPublicLocations()
+        .then((data) => {
+          if (cancelled) return;
+          const allLocations = ((data.regions || []) as Array<{ locations?: LocationData[] }>).flatMap((r) => r.locations || []);
+          const loc = allLocations.find((l) => l.id === locationId);
+          if (loc) setLocationData(loc);
+        })
+        .catch(() => {});
+    }
+
+    return () => { cancelled = true; };
+  }, [locationId, userPos, posSource]);
 
   // Fetch players (re-runs on level filter change)
   const fetchPlayers = useCallback(async () => {

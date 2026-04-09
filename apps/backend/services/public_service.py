@@ -396,7 +396,7 @@ async def get_public_league(session: AsyncSession, league_id: int) -> Optional[D
     matches_result = await session.execute(
         select(
             Match.id,
-            Match.date,
+            Session.date.label("date"),
             Match.team1_score,
             Match.team2_score,
             Match.winner,

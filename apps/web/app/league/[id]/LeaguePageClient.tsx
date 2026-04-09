@@ -25,9 +25,9 @@ export default function LeaguePageClient({ leagueId, publicLeagueData, initialTa
 
   if (isAuthenticated) {
     return (
-      <LeagueProvider leagueId={leagueId}>
+      <LeagueProvider leagueId={leagueId} initialTab={initialTab}>
         <Suspense fallback={<div>Loading...</div>}>
-          <LeagueDashboard leagueId={leagueId} publicLeagueData={publicLeagueData} initialTab={initialTab} />
+          <LeagueDashboard leagueId={leagueId} publicLeagueData={publicLeagueData} />
         </Suspense>
       </LeagueProvider>
     );

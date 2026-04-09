@@ -194,6 +194,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           onClick={handleUnfriend}
           disabled={actionLoading}
           data-tooltip="Friends — click to unfriend"
+          aria-label="Friends — click to unfriend"
         >
           <UserCheck size={20} />
         </button>
@@ -206,6 +207,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           data-testid="friend-pending-btn"
           disabled
           data-tooltip="Friend request sent"
+          aria-label="Friend request sent"
         >
           <Clock size={20} />
         </button>
@@ -219,6 +221,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
           onClick={handleAcceptRequest}
           disabled={actionLoading}
           data-tooltip="Accept friend request"
+          aria-label="Accept friend request"
         >
           <UserPlus size={20} />
         </button>
@@ -231,6 +234,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
         onClick={handleSendRequest}
         disabled={actionLoading}
         data-tooltip="Add friend"
+        aria-label="Add friend"
       >
         <UserPlus size={20} />
       </button>
@@ -293,6 +297,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
                 data-testid="player-message-btn"
                 onClick={() => router.push(`/home?tab=messages&thread=${player.id}`)}
                 data-tooltip="Send message"
+                aria-label="Send message"
               >
                 <MessageCircle size={20} />
               </button>
@@ -300,6 +305,7 @@ export default function PublicPlayerPage({ player, isAuthenticated }: PublicPlay
               <span
                 className="public-player__friend-icon public-player__friend-icon--disabled"
                 data-tooltip="Must be friends to message"
+                aria-label="Must be friends to message"
               >
                 <MessageCircle size={20} />
               </span>

@@ -606,6 +606,17 @@ class PlayerUpdate(BaseModel):
 
     full_name: Optional[str] = None
     nickname: Optional[str] = None
+
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def full_name_not_empty(cls, v: str | None) -> str | None:
+        """Reject empty or whitespace-only full_name values."""
+        if v is None:
+            return v
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("full_name must not be empty or whitespace-only")
+        return stripped
     gender: Optional[str] = None
     level: Optional[str] = None
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)

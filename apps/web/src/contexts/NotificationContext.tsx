@@ -169,8 +169,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   // Stable refs for callbacks passed to the WebSocket hook (avoids recreating WS on every render)
   const fetchUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchUnreadCount);
   const fetchDmUnreadCountRef = useRef<() => Promise<number | undefined>>(fetchDmUnreadCount);
-  useEffect(() => { fetchUnreadCountRef.current = fetchUnreadCount; }, [fetchUnreadCount]);
-  useEffect(() => { fetchDmUnreadCountRef.current = fetchDmUnreadCount; }, [fetchDmUnreadCount]);
+  fetchUnreadCountRef.current = fetchUnreadCount;
+  fetchDmUnreadCountRef.current = fetchDmUnreadCount;
 
   /**
    * Handle new notification from WebSocket
@@ -220,7 +220,6 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       fetchDmUnreadCount();
       connectWebSocket();
     } else {
-      disconnectWebSocket();
       setNotifications([]);
       setUnreadCount(0);
       setDmUnreadCount(0);

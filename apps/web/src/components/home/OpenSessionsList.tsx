@@ -199,14 +199,14 @@ export function MySessionsWidget({ onSessionClick, refreshTrigger, currentUserPl
 
   // --- Widget variant: dashboard card with header ---
   const titleElement = onViewAll ? (
-    <h3
-      className="dashboard-widget-title dashboard-widget-title--clickable"
-      onClick={onViewAll}
-      role="link"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewAll(); } }}
-    >
-      My Sessions
+    <h3 className="dashboard-widget-title dashboard-widget-title--clickable">
+      <button
+        type="button"
+        className="dashboard-widget-title__btn"
+        onClick={onViewAll}
+      >
+        My Sessions
+      </button>
     </h3>
   ) : (
     <h3 className="dashboard-widget-title">My Sessions</h3>

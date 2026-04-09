@@ -225,6 +225,11 @@
   background: var(--primary-lighter);
 }
 
+.kob-create__stepper-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* Format toggle group */
 .kob-create__format-options {
   display: flex;

@@ -1392,7 +1392,7 @@ async def create_matches_from_session(
             )
 
             match_id = await data_service.create_match_async(
-                db_session, match_request, session_obj["id"], match_date
+                db_session, match_request, session_obj["id"]
             )
             created_ids.append(match_id)
 

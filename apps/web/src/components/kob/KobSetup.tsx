@@ -278,11 +278,11 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
                 {" · "}Game to {tournament.game_to}
               </p>
             </div>
-            <div className="kob-setup__code-badge" onClick={handleCopyLink} title="Copy link">
+            <button type="button" className="kob-setup__code-badge" onClick={handleCopyLink} aria-label="Copy tournament link">
               <Copy size={14} />
               <span>{tournament.code}</span>
               {copied && <span className="kob-setup__copied">Copied!</span>}
-            </div>
+            </button>
           </div>
         </div>
 

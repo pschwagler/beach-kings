@@ -589,7 +589,6 @@ async def test_rising_star_with_elo_history(db_session):
     for i in range(4):
         m = Match(
             session_id=sess.id,
-            date=(start + timedelta(days=i * 7)).isoformat(),
             team1_player1_id=players[0].id,
             team1_player2_id=players[1].id,
             team2_player1_id=players[2].id,

@@ -551,13 +551,9 @@ export default function MessagesTab() {
   const threadPlayerId = searchParams?.get('thread');
   const [threadInfo, setThreadInfo] = useState<ThreadInfo | null>(null);
 
-  // Sync threadInfo with URL: clear when thread param is removed
-  useEffect(() => {
-    if (!threadPlayerId && threadInfo) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync URL param to local state
-      setThreadInfo(null);
-    }
-  }, [threadPlayerId, threadInfo]);
+  // Derive the active thread info from the URL param — no effect needed.
+  // When threadPlayerId is absent, activeThreadInfo is null automatically.
+  const activeThreadInfo = threadPlayerId ? threadInfo : null;
 
   // If URL has a thread param but we don't have player info yet, load conversations to find it
   useEffect(() => {
@@ -618,13 +614,13 @@ export default function MessagesTab() {
     startTransition(() => router.push(`/home?${params.toString()}`));
   }, [router, startTransition]);
 
-  if (threadInfo) {
+  if (activeThreadInfo) {
     return (
       <ThreadView
-        otherPlayerId={threadInfo.playerId}
-        otherPlayerName={threadInfo.name}
-        otherPlayerAvatar={threadInfo.avatar}
-        isFriend={threadInfo.isFriend}
+        otherPlayerId={activeThreadInfo.playerId}
+        otherPlayerName={activeThreadInfo.name}
+        otherPlayerAvatar={activeThreadInfo.avatar}
+        isFriend={activeThreadInfo.isFriend}
         onBack={closeThread}
       />
     );

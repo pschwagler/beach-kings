@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import type { Player, MatchRecord } from '../../types';
 import { Loader2, TrendingUp, Trophy, Target, Percent, Flame, Diff } from 'lucide-react';
 import StatCard from '../ui/StatCard';
-import RatingChart from './RatingChart';
+
+const RatingChart = lazy(() => import('./RatingChart'));
 import PlayerTrophies from '../player/PlayerTrophies';
 import { getPlayerStats, getPlayerMatchHistory } from '../../services/api';
 
@@ -743,7 +744,9 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
       <section className="my-stats-tab__section">
         <h3 className="my-stats-tab__section-title">Rating History</h3>
         <div className="my-stats-tab__chart-wrapper">
-          <RatingChart data={chartData} />
+          <Suspense fallback={null}>
+            <RatingChart data={chartData} />
+          </Suspense>
         </div>
       </section>
 

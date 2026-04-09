@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Camera, X, Loader } from 'lucide-react';
+import { useDialog } from '../../hooks/useDialog';
 import { heicTo, isHeic } from 'heic-to';
 import { Button } from '../ui/UI';
 import { uploadAvatar, deleteAvatar } from '../../services/api';
@@ -161,6 +162,8 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
     cleanupImageSrc();
   };
 
+  const cropDialogRef = useDialog(handleCloseCropModal, showCropModal && !!imageSrc);
+
   /** Revoke the object URL to prevent memory leaks. */
   const cleanupImageSrc = () => {
     if (imageSrc) {
@@ -211,10 +214,10 @@ export default function AvatarUpload({ currentUserPlayer, fetchCurrentUser }: Av
       {/* Crop modal */}
       {showCropModal && imageSrc && (
         <div className="modal-overlay" onClick={handleCloseCropModal}>
-          <div className="modal-content avatar-crop-modal" data-testid="avatar-crop-modal" onClick={(e) => e.stopPropagation()}>
+          <div ref={cropDialogRef} role="dialog" aria-modal="true" aria-labelledby="avatar-crop-title" className="modal-content avatar-crop-modal" data-testid="avatar-crop-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Crop Photo</h2>
-              <button className="modal-close" onClick={handleCloseCropModal}>
+              <h2 id="avatar-crop-title">Crop Photo</h2>
+              <button className="modal-close" onClick={handleCloseCropModal} aria-label="Close">
                 <X size={20} />
               </button>
             </div>

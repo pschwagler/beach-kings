@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { updateSessionSeason } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -36,6 +36,15 @@ export function useSessionSeasonUpdate({
   getSeasonIdForRefresh,
 }: UseSessionSeasonUpdateParams) {
   const { showToast } = useToast();
+  const scheduledTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      scheduledTimersRef.current.forEach(clearTimeout);
+      scheduledTimersRef.current = [];
+    };
+  }, []);
+
   /**
    * Update a session's season ID
    * Handles data loading, refresh logic, and filter updates
@@ -76,7 +85,7 @@ export function useSessionSeasonUpdate({
         
         // Refresh all affected seasons
         Array.from(seasonsToRefresh).forEach((sid: any) => {
-          setTimeout(() => {
+          const timerId = setTimeout(() => {
             try {
               refreshSeasonData(sid as number);
             } catch (error) {
@@ -84,6 +93,7 @@ export function useSessionSeasonUpdate({
               // Don't throw - stats refresh failure shouldn't affect session operation
             }
           }, 2000);
+          scheduledTimersRef.current = [...scheduledTimersRef.current, timerId];
         });
       }
       
@@ -96,9 +106,8 @@ export function useSessionSeasonUpdate({
         // so that activeSessionMatchesFromSeason can find the matches
         if (!seasonData?.[seasonId]?.matches && !seasonDataLoadingMap?.[seasonId]) {
           await loadSeasonData?.(seasonId);
-          // Give React a chance to update state after loadSeasonData completes
-          // The loadSeasonData function updates state asynchronously, so we need to wait
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Yield to microtask queue for React state flush
+          await Promise.resolve();
         }
       }
 

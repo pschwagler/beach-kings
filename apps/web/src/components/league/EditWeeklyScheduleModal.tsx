@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useDialog } from '../../hooks/useDialog';
 import CourtSelector from '../court/CourtSelector';
 
 const DAYS_OF_WEEK = [
@@ -60,6 +61,7 @@ interface EditWeeklyScheduleModalProps {
 }
 
 export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubmit }: EditWeeklyScheduleModalProps) {
+  const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
   const { league, isLeagueAdmin } = useLeague();
 
@@ -148,10 +150,10 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-schedule-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{isEditMode ? 'Edit Weekly Scheduled Session' : 'Add Weekly Scheduled Session'}</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="edit-schedule-title">{isEditMode ? 'Edit Weekly Scheduled Session' : 'Add Weekly Scheduled Session'}</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -164,14 +166,14 @@ export default function EditWeeklyScheduleModal({ schedule = {}, onClose, onSubm
               padding: '16px',
               marginBottom: '20px'
             }}>
-              <h3 style={{ marginTop: 0, marginBottom: '12px', color: '#856404' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '12px', color: '#664d03' }}>
                 ⚠️ Confirm Schedule Update
               </h3>
-              <p style={{ margin: 0, color: '#856404', lineHeight: '1.5' }}>
+              <p style={{ margin: 0, color: '#664d03', lineHeight: '1.5' }}>
                 Updating this schedule will <strong>delete all future week sessions</strong> (after the current week)
                 and regenerate them with the new schedule settings. <strong>Sessions from the current week will be preserved.</strong>
               </p>
-              <p style={{ margin: '12px 0 0 0', color: '#856404', fontSize: '14px' }}>
+              <p style={{ margin: '12px 0 0 0', color: '#664d03', fontSize: '14px' }}>
                 Are you sure you want to continue?
               </p>
             </div>

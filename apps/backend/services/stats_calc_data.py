@@ -41,6 +41,7 @@ __all__ = [
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from backend.database.models import (
     EloHistory,
@@ -132,7 +133,11 @@ async def load_stat_eligible_matches_async(
         ),
     ]
 
-    query = select(Match).outerjoin(Session, Match.session_id == Session.id)
+    query = (
+        select(Match)
+        .outerjoin(Session, Match.session_id == Session.id)
+        .options(selectinload(Match.session))
+    )
 
     if league_id is not None:
         query = query.outerjoin(Season, Session.season_id == Season.id)

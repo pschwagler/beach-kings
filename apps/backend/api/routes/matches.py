@@ -238,12 +238,11 @@ async def create_match(
                     )
                 session_id = session_obj["id"]
 
-        # Create the match using the session's date
+        # Create the match — date lives on the session, not the match
         match_id = await data_service.create_match_async(
             session=session,
             match_request=match_request,
             session_id=session_id,
-            date=session_obj["date"],
         )
 
         return {

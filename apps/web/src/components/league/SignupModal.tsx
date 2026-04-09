@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { getCourts } from '../../services/api';
+import { useDialog } from '../../hooks/useDialog';
 import { useToast } from '../../contexts/ToastContext';
 
 // Helper to convert local datetime to UTC ISO string
@@ -65,6 +66,7 @@ interface SignupModalProps {
 }
 
 export default function SignupModal({ signup, seasonId, onClose, onSubmit }: SignupModalProps) {
+  const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
   const isEditMode = !!signup;
   const [courts, setCourts] = useState<Array<{ id: number; name: string }>>([]);
@@ -124,10 +126,10 @@ export default function SignupModal({ signup, seasonId, onClose, onSubmit }: Sig
   
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="signup-modal-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{isEditMode ? 'Edit Session' : 'Schedule New Session for Sign Ups'}</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="signup-modal-title">{isEditMode ? 'Edit Session' : 'Schedule New Session for Sign Ups'}</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

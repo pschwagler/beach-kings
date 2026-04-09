@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X, Trophy, Users, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/UI';
+import { useDialog } from '../../hooks/useDialog';
 import type { Season } from '../../types';
 
 interface SessionMatch {
@@ -106,7 +107,8 @@ export default function ConfirmationModal({
   season,
 }: ConfirmationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const dialogRef = useDialog(onClose, isOpen);
+
   const playerStats = useMemo(() => {
     if (!matches || matches.length === 0) return [];
     return calculatePlayerStats(matches);
@@ -139,7 +141,7 @@ export default function ConfirmationModal({
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className={`modal-content confirmation-modal ${isDanger ? 'confirmation-modal-danger' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="confirmation-modal-title" className={`modal-content confirmation-modal ${isDanger ? 'confirmation-modal-danger' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-title-group">
             {isDanger && (
@@ -147,7 +149,7 @@ export default function ConfirmationModal({
                 <AlertTriangle size={28} />
               </div>
             )}
-            <h2>{title}</h2>
+            <h2 id="confirmation-modal-title">{title}</h2>
           </div>
           <div className="modal-header-right">
             {season && (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { useLeague } from '../../contexts/LeagueContext';
+import { useDialog } from '../../hooks/useDialog';
 import CourtSelector from '../court/CourtSelector';
 
 const DAYS_OF_WEEK = [
@@ -21,6 +22,7 @@ interface CreateWeeklyScheduleModalProps {
 }
 
 export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit }: CreateWeeklyScheduleModalProps) {
+  const dialogRef = useDialog(onClose);
   const { showToast } = useToast();
   const { league, isLeagueAdmin } = useLeague();
 
@@ -106,10 +108,10 @@ export default function CreateWeeklyScheduleModal({ seasonId, onClose, onSubmit 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-schedule-title" className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create Weekly Scheduled Session</h2>
-          <button className="modal-close-button" onClick={onClose}>
+          <h2 id="create-schedule-title">Create Weekly Scheduled Session</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

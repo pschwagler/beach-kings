@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { X, Users, MapPin, LogIn, UserRoundPlus, ExternalLink } from 'lucide-react';
+import { useDialog } from '../../hooks/useDialog';
 import { getLeagueMembers } from '../../services/api';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { slugify } from '../../utils/slugify';
@@ -44,19 +45,11 @@ export default function LeagueMembersModal({
   onJoin,
   onClose
 }: LeagueMembersModalProps) {
+  const dialogRef = useDialog(onClose);
   const [members, setMembers] = useState<LeagueMember[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -96,7 +89,7 @@ export default function LeagueMembersModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content league-members-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="league-members-title" className="modal-content league-members-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-content">
             <div>
@@ -106,13 +99,13 @@ export default function LeagueMembersModal({
                   className="league-members-link-inline"
                   onClick={handleGoToLeague}
                 >
-                  <span className="league-members-modal-title">
+                  <span id="league-members-title" className="league-members-modal-title">
                     {leagueName || 'League'}
                   </span>
                   <ExternalLink size={16} />
                 </button>
               ) : (
-                <h2 className="league-members-modal-title">{leagueName || 'League'}</h2>
+                <h2 id="league-members-title" className="league-members-modal-title">{leagueName || 'League'}</h2>
               )}
               {locationName && (
                 <div className="modal-subtitle">
@@ -127,6 +120,7 @@ export default function LeagueMembersModal({
               <span
                 className="leagues-table-member-indicator"
                 data-tooltip="You're already a member of this league"
+                aria-label="You're already a member of this league"
               >
                 You&apos;re a member
               </span>

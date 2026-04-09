@@ -89,3 +89,41 @@
   font-weight: 500;
   transition: color 0.15s ease;
 }
+
+@media (max-width: 768px) {
+  .court-leaderboard__table {
+    table-layout: fixed;
+  }
+
+  .court-leaderboard__th--rank,
+  .court-leaderboard__td--rank {
+    width: 32px;
+  }
+
+  .court-leaderboard__th--num,
+  .court-leaderboard__td--num {
+    width: 60px;
+  }
+
+  .court-leaderboard__player-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .court-leaderboard__th,
+  .court-leaderboard__td {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .court-leaderboard__avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .court-leaderboard__player {
+    gap: 6px;
+  }
+}

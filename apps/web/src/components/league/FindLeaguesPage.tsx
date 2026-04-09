@@ -322,6 +322,7 @@ export default function FindLeaguesPage() {
             <span
               className="leagues-table-member-indicator"
               data-tooltip="You're already a member of this league"
+              aria-label="You're already a member of this league"
             >
               You&apos;re a member
             </span>
@@ -359,6 +360,85 @@ export default function FindLeaguesPage() {
           )}
         </td>
       </tr>
+    );
+  };
+
+  const renderMobileItem = (league: FindLeague, idx: number) => {
+    const locationText = league.location_name || "N/A";
+    const isMember = Array.isArray(userLeagues) && userLeagues.some(
+      (userLeague) => userLeague.id === league.id
+    );
+
+    return (
+      <div
+        key={league.id || idx}
+        className="find-league-card"
+        onClick={() => handleLeagueClick(league)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleLeagueClick(league);
+          }
+        }}
+      >
+        <div className="find-league-card__name">{league.name}</div>
+        <div className="find-league-card__meta">
+          <span className="find-league-card__location">
+            <MapPin size={14} className="leagues-table-icon" />
+            {locationText}
+          </span>
+          <span className="find-league-card__members">
+            <Users size={14} />
+            {league.member_count || 0} members
+          </span>
+        </div>
+        <div className="find-league-card__details">
+          <LevelBadge level={league.level} />
+          <span className="find-league-card__access">
+            {league.is_open ? "Public" : "Invite Only"}
+          </span>
+        </div>
+        <div className="find-league-card__action">
+          {isMember ? (
+            <span className="leagues-table-member-indicator">
+              You&apos;re a member
+            </span>
+          ) : pendingRequests.has(league.id) ? (
+            <button
+              className="leagues-table-join-button leagues-table-join-button--cancel"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelRequest(league);
+              }}
+            >
+              <X size={14} />
+              Cancel Request
+            </button>
+          ) : (
+            <button
+              className="leagues-table-join-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleJoin(league);
+              }}
+            >
+              {league.is_open ? (
+                <>
+                  <LogIn size={14} />
+                  Join
+                </>
+              ) : (
+                <>
+                  <UserRoundPlus size={14} />
+                  Request to Join
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -438,6 +518,7 @@ export default function FindLeaguesPage() {
                   data={leagues || []}
                   columns={columns}
                   renderRow={renderRow}
+                  renderMobileItem={renderMobileItem}
                   emptyMessage="No leagues found. Try adjusting your filter to see more leagues."
                   searchPlaceholder="Search leagues..."
                   filters={filters}
