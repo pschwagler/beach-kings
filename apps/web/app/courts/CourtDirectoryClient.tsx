@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useAuthModal } from '../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague, getPublicCourts } from '../../src/services/api';
+import { createLeague, getPublicCourts } from '../../src/services/api';
+import { useApp } from '../../src/contexts/AppContext';
 import NavBar from '../../src/components/layout/NavBar';
 import CourtListView from '../../src/components/court/CourtListView';
 import AddCourtForm from '../../src/components/court/AddCourtForm';
@@ -33,7 +34,7 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
+  const { userLeagues, refreshLeagues } = useApp();
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [mapCourts, setMapCourts] = useState(null);
@@ -70,13 +71,6 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
     try { localStorage.setItem(VIEW_STORAGE_KEY, mode); } catch {}
   };
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch((err) => console.error('Error loading user leagues:', err));
-  }, [isAuthenticated]);
-
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
     router.push('/');
@@ -89,7 +83,7 @@ export default function CourtDirectoryClient({ initialCourts }: CourtDirectoryCl
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
-          setUserLeagues(await getUserLeagues());
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });

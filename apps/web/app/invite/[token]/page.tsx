@@ -6,7 +6,8 @@ import Image from 'next/image';
 import { CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../src/contexts/AuthModalContext';
-import { getInviteDetails, claimInvite, getUserLeagues } from '../../../src/services/api';
+import { getInviteDetails, claimInvite } from '../../../src/services/api';
+import { useApp } from '../../../src/contexts/AppContext';
 import NavBar from '../../../src/components/layout/NavBar';
 import { Button } from '../../../src/components/ui/UI';
 
@@ -25,9 +26,7 @@ export default function InviteLandingPage() {
   const token = params?.token;
   const { isAuthenticated, isInitializing, user, currentUserPlayer, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
-
-  // --- NavBar state ---
-  const [userLeagues, setUserLeagues] = useState([]);
+  const { userLeagues } = useApp();
 
   // --- Page state ---
   const [pageState, setPageState] = useState('loading'); // loading | loaded | error
@@ -66,18 +65,6 @@ export default function InviteLandingPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching async data on mount via stable callback
     fetchInvite();
   }, [fetchInvite]);
-
-  // Load user leagues for NavBar when authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting state when auth changes
-      setUserLeagues([]);
-      return;
-    }
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch(() => setUserLeagues([]));
-  }, [isAuthenticated]);
 
   // --- Auth handlers ---
   const handleSignOut = async () => {

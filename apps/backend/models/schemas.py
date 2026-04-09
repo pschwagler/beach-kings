@@ -1258,6 +1258,53 @@ class MarkAsReadRequest(BaseModel):
     pass
 
 
+class UnreadCountResponse(BaseModel):
+    """Unread notification count response."""
+
+    count: int
+
+
+# ---------------------------------------------------------------------------
+# Push token schemas
+# ---------------------------------------------------------------------------
+
+
+class RegisterPushTokenRequest(BaseModel):
+    """Request to register a device push token."""
+
+    token: str
+    platform: str  # "ios" or "android"
+
+    @field_validator("platform")
+    @classmethod
+    def validate_platform(cls, v: str) -> str:
+        """Validate platform is ios or android."""
+        if v not in ("ios", "android"):
+            raise ValueError("platform must be 'ios' or 'android'")
+        return v
+
+    @field_validator("token")
+    @classmethod
+    def validate_token(cls, v: str) -> str:
+        """Validate token is not empty and looks like an Expo push token."""
+        v = v.strip()
+        if not v:
+            raise ValueError("token must not be empty")
+        if not v.startswith("ExponentPushToken["):
+            raise ValueError("token must be a valid Expo push token")
+        return v
+
+
+class PushTokenResponse(BaseModel):
+    """Response after registering a push token."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    token: str
+    platform: str
+    created_at: str
+
+
 # ---------------------------------------------------------------------------
 # Session route request schemas
 # ---------------------------------------------------------------------------
@@ -1744,6 +1791,22 @@ class PaginatedPublicPlayersResponse(BaseModel):
     page_size: int = 25
 
 
+class DiscoverPlayerItem(PublicPlayerListItem):
+    """Player item with mutual friend count and friend status for discovery."""
+
+    mutual_friend_count: int = 0
+    friend_status: str = "none"
+
+
+class PaginatedDiscoverPlayersResponse(BaseModel):
+    """Response for GET /api/friends/discover."""
+
+    items: List[DiscoverPlayerItem] = []
+    total_count: int = 0
+    page: int = 1
+    page_size: int = 25
+
+
 # ============================================================================
 # Court Discovery & Reviews schemas
 # ============================================================================
@@ -1898,6 +1961,35 @@ class CourtNearbyItem(BaseModel):
     distance_miles: float
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
+
+class CourtCheckInResponse(BaseModel):
+    """A single check-in record."""
+
+    id: int
+    player_id: int
+    player_name: str
+    avatar: Optional[str] = None
+    checked_in_at: str
+    expires_at: str
+
+
+class CourtCheckInCountResponse(BaseModel):
+    """Active check-in count with player list."""
+
+    count: int
+    checked_in_players: List[CourtCheckInResponse] = []
+
+
+class CourtLeagueItem(BaseModel):
+    """A league that plays at a court."""
+
+    id: int
+    name: str
+    slug: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    member_count: int = 0
 
 
 class CreateCourtRequest(BaseModel):

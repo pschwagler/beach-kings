@@ -4,6 +4,11 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 
 vi.mock('../../services/api', () => ({
   getLocations: vi.fn(),
+  getUserLeagues: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../AuthContext', () => ({
+  useAuth: vi.fn(() => ({ isAuthenticated: false })),
 }));
 
 import { getLocations } from '../../services/api';

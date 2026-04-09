@@ -9079,9 +9079,9 @@ button.session-stats-clickable:focus-visible {
     display: none;
   }
 
-  /* Show all columns on mobile - don't hide any */
+  /* Hide less important columns on mobile to prevent horizontal scroll */
   .mobile-hide-col {
-    display: table-cell !important;
+    display: none !important;
   }
 
   .rankings-name-cell {

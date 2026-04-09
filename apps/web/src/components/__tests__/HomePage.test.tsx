@@ -64,9 +64,12 @@ vi.mock('../home/HomeMenuBar', () => ({ default: () => <nav data-testid="home-me
 vi.mock('../layout/NavBar', () => ({ default: () => <header data-testid="navbar" /> }));
 
 vi.mock('../../services/api', () => ({
-  getUserLeagues: vi.fn(() => Promise.resolve([])),
   createLeague: vi.fn(),
   addLeagueHomeCourt: vi.fn(),
+}));
+
+vi.mock('../../contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [], leaguesLoading: false, refreshLeagues: vi.fn() })),
 }));
 
 // ---------------------------------------------------------------------------

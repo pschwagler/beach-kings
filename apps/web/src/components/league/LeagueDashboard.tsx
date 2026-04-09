@@ -13,11 +13,11 @@ import LeagueAwardsTab from './LeagueAwardsTab';
 import LeagueMenuBar from './LeagueMenuBar';
 import PublicLeaguePage, { type PublicLeagueData } from './PublicLeaguePage';
 import { LeagueProvider, useLeague } from '../../contexts/LeagueContext';
-import type { League } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../contexts/ModalContext';
-import { getUserLeagues, updateLeague, createLeague, addLeagueHomeCourt, joinLeague, requestToJoinLeague } from '../../services/api';
+import { updateLeague, createLeague, addLeagueHomeCourt, joinLeague, requestToJoinLeague } from '../../services/api';
+import { useApp } from '../../contexts/AppContext';
 import { useToast } from '../../contexts/ToastContext';
 import { RankingsTableSkeleton, MatchesTableSkeleton, SignupListSkeleton, LeagueDetailsSkeleton } from '../ui/Skeletons';
 import './LeagueDashboard.css';
@@ -35,9 +35,8 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
   const { openModal } = useModal();
   const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab, activeLeagueTab, isLeagueAdmin, isLeagueMember } = useLeague();
   const { showToast } = useToast();
+  const { userLeagues, refreshLeagues } = useApp();
 
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
-  
   // League name editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [leagueName, setLeagueName] = useState('');
@@ -60,21 +59,6 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
   // Get URL query parameters for navigation
   const seasonIdParam = searchParams?.get('season');
   const autoAddMatch = searchParams?.get('autoAddMatch') === 'true';
-
-  // Load user leagues for the navbar
-  useEffect(() => {
-    if (isAuthenticated) {
-      const loadLeagues = async () => {
-        try {
-          const leagues = await getUserLeagues();
-          setUserLeagues(leagues);
-        } catch (err) {
-          console.error('Error loading user leagues:', err);
-        }
-      };
-      loadLeagues();
-    }
-  }, [isAuthenticated]);
 
   const handleBack = () => {
     router.push('/');
@@ -126,8 +110,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
       if (initial_court_id && newLeague?.id) {
         try { await addLeagueHomeCourt(newLeague.id as number, initial_court_id as number); } catch {}
       }
-      const leagues = await getUserLeagues();
-      setUserLeagues(leagues);
+      await refreshLeagues();
       router.push(`/league/${newLeague.id}?tab=details`);
       return newLeague;
     } catch (error) {
@@ -170,6 +153,7 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
         await joinLeague(leagueId);
         showToast(`Successfully joined ${league?.name}!`, 'success');
         await refreshLeague();
+        await refreshLeagues();
       } else {
         await requestToJoinLeague(leagueId);
         showToast(`Join request submitted for ${league?.name}. League admins will be notified.`, 'success');

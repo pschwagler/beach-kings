@@ -42,6 +42,10 @@
   .session-badge.active { background: #dcfce7; color: #15803d; }
   .session-badge.completed { background: #e8f4f8; color: #2a7d9c; }
 
+  /* Editable meta tags */
+  .session-meta .editable { cursor: pointer; position: relative; padding-right: 16px; }
+  .session-meta .editable::after { content: '\270E'; font-size: 10px; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+
   /* Game Row */
   .game-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
   .game-row:last-child { border-bottom: none; }
@@ -116,7 +120,7 @@
     <div class="session-header">
       <div>
         <div class="session-date">3/19/2026 · Session #3</div>
-        <div class="session-meta">4 players · 7 games · 2h ago</div>
+        <div class="session-meta"><span class="editable">3/19/2026</span> · <span class="editable">QBK Sports</span> · 4 players · 7 games</div>
       </div>
       <span class="session-badge active">Active</span>
     </div>
@@ -175,7 +179,7 @@
     <div class="session-header">
       <div>
         <div class="session-date">3/17/2026 · Session #2</div>
-        <div class="session-meta">6 players · 9 games</div>
+        <div class="session-meta">3/17/2026 · QBK Sports · 6 players · 9 games</div>
       </div>
       <span class="session-badge completed">Completed</span>
     </div>
@@ -234,7 +238,7 @@
     <div class="session-header">
       <div>
         <div class="session-date">3/14/2026 · Session #1</div>
-        <div class="session-meta">5 players · 8 games</div>
+        <div class="session-meta">3/14/2026 · QBK Sports · 5 players · 8 games</div>
       </div>
       <span class="session-badge completed">Completed</span>
     </div>

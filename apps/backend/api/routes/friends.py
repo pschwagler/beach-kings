@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.db import get_db_session
 from backend.services import friend_service
 from backend.api.auth_dependencies import require_verified_player
+from typing import Literal, Optional
+
 from backend.models.schemas import (
     FriendBatchStatusRequest,
     FriendBatchStatusResponse,
@@ -16,6 +18,7 @@ from backend.models.schemas import (
     FriendRequestResponse,
     FriendSuggestionItem,
     MutualFriendItem,
+    PaginatedDiscoverPlayersResponse,
     StatusResponse,
 )
 
@@ -107,6 +110,41 @@ async def remove_friend(
     except Exception as e:
         logger.error(f"Error removing friend: {e}")
         raise HTTPException(status_code=500, detail="Error removing friend")
+
+
+@router.get("/api/friends/discover", response_model=PaginatedDiscoverPlayersResponse)
+async def discover_players(
+    search: Optional[str] = Query(None),
+    location_id: Optional[str] = Query(None),
+    gender: Optional[Literal["male", "female"]] = Query(None),
+    level: Optional[str] = Query(None),
+    sort_by: Optional[Literal["mutuals", "games", "name", "rating"]] = Query(None),
+    sort_dir: Optional[Literal["asc", "desc"]] = Query(None),
+    min_games: Optional[int] = Query(None, ge=1),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Discover players with mutual friend counts and friend status."""
+    try:
+        result = await friend_service.discover_players(
+            session,
+            user["player_id"],
+            search=search,
+            location_id=location_id,
+            gender=gender,
+            level=level,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            min_games=min_games,
+            page=page,
+            page_size=page_size,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error discovering players: {e}")
+        raise HTTPException(status_code=500, detail="Error discovering players")
 
 
 @router.get("/api/friends", response_model=FriendListResponse)

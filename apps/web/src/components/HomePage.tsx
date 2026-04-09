@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
 import { useAuthModal } from "../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../contexts/ModalContext";
-import { getUserLeagues, createLeague, addLeagueHomeCourt } from "../services/api";
-import type { League } from "../types";
+import { createLeague, addLeagueHomeCourt } from "../services/api";
+import { useApp } from "../contexts/AppContext";
 import { navigateToMatch } from "../utils/navigation";
 import { Loader2 } from "lucide-react";
 import NavBar from "./layout/NavBar";
@@ -36,10 +36,10 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal, isOpen: isModalOpen } = useModal();
+  const { userLeagues, refreshLeagues } = useApp();
 
   // Use searchParams for client-side navigation, fall back to server-provided initialTab
   const activeTab = searchParams?.get("tab") || initialTab;
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
 
   // Redirect if not authenticated (wait for auth to finish initializing).
   // Skip redirect when session expired — show the expired message instead.
@@ -80,21 +80,6 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
 
   // Navigation blocking is now handled by ProfileTab using useBlocker hook
 
-  // Load user leagues
-  useEffect(() => {
-    const loadUserLeagues = async () => {
-      if (isAuthenticated) {
-        try {
-          const leagues = await getUserLeagues();
-          setUserLeagues(leagues);
-        } catch (err) {
-          console.error("Error loading user leagues:", err);
-        }
-      }
-    };
-    loadUserLeagues();
-  }, [isAuthenticated]);
-
   const handleSignOut = async () => {
     try {
       await logout();
@@ -123,8 +108,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
     if (initial_court_id && newLeague?.id) {
       try { await addLeagueHomeCourt(newLeague.id, initial_court_id as number); } catch {}
     }
-    const leagues = await getUserLeagues();
-    setUserLeagues(leagues);
+    await refreshLeagues();
     router.push(`/league/${newLeague.id}?tab=details`);
     return newLeague;
   };
@@ -198,10 +182,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
                   currentUserPlayer={currentUserPlayer}
                   userLeagues={userLeagues}
                   onTabChange={handleTabChange}
-                  onLeaguesUpdate={async () => {
-                    const leagues = await getUserLeagues();
-                    setUserLeagues(leagues);
-                  }}
+                  onLeaguesUpdate={refreshLeagues}
                 />
               )}
 
@@ -217,10 +198,7 @@ export default function HomePage({ initialTab = 'home' }: HomePageProps) {
                 <LeaguesTab
                   userLeagues={userLeagues}
                   onLeagueClick={handleLeaguesMenuClick}
-                  onLeaguesUpdate={async () => {
-                    const leagues = await getUserLeagues();
-                    setUserLeagues(leagues);
-                  }}
+                  onLeaguesUpdate={refreshLeagues}
                 />
               )}
 

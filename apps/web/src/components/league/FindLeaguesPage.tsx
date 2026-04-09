@@ -10,13 +10,13 @@ import {
   joinLeague,
   requestToJoinLeague,
   cancelJoinRequest,
-  getUserLeagues,
-  getLocations,
   createLeague,
+  getLocations,
 } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAuthModal } from "../../contexts/AuthModalContext";
 import { useModal, MODAL_TYPES } from "../../contexts/ModalContext";
+import { useApp } from "../../contexts/AppContext";
 import HomeMenuBar from "../home/HomeMenuBar";
 
 /**
@@ -50,7 +50,7 @@ export default function FindLeaguesPage() {
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal, closeModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState<FindLeague[]>([]);
+  const { userLeagues, refreshLeagues } = useApp();
   const [leagues, setLeagues] = useState<FindLeague[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Record<string, string>>(() => parseInitialFilters(searchParams));
@@ -61,21 +61,6 @@ export default function FindLeaguesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [showJoinedLeagues, setShowJoinedLeagues] = useState(true);
   const [pendingRequests, setPendingRequests] = useState(new Set<number>());
-
-  // Load user leagues for navbar
-  useEffect(() => {
-    const loadUserLeagues = async () => {
-      if (isAuthenticated) {
-        try {
-          const leagues = await getUserLeagues();
-          setUserLeagues(leagues);
-        } catch (err) {
-          console.error("Error loading user leagues:", err);
-        }
-      }
-    };
-    loadUserLeagues();
-  }, [isAuthenticated]);
 
   // Load locations for filters (regions are derived from locations)
   useEffect(() => {
@@ -107,8 +92,7 @@ export default function FindLeaguesPage() {
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
-          const leagues = await getUserLeagues();
-          setUserLeagues(leagues);
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });

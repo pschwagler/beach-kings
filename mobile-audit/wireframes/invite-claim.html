@@ -20,6 +20,7 @@
   .state { display: none; }
   .state.active { display: block; }
 
+  /* ── Chrome ── */
   .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
   .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
@@ -27,7 +28,7 @@
   .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
   .top-nav .spacer { min-width: 44px; }
 
-  /* Welcome Header */
+  /* ── Welcome Header ── */
   .welcome-header { background: #fff; padding: 24px 16px; text-align: center; border-bottom: 1px solid #eee; }
   .welcome-icon { font-size: 40px; margin-bottom: 12px; }
   .welcome-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
@@ -36,7 +37,7 @@
   .welcome-league .league-icon { font-size: 14px; }
   .welcome-league .league-name { font-size: 13px; font-weight: 600; color: #1a3a4a; }
 
-  /* Content */
+  /* ── Content ── */
   .content { padding: 0 16px 36px; }
 
   .claim-summary { display: flex; align-items: center; gap: 12px; padding: 16px; margin: 16px 0; background: #fdf8ed; border-radius: 12px; border: 1px solid #f0e0b0; }
@@ -44,9 +45,23 @@
   .claim-text { font-size: 14px; color: #666; line-height: 1.4; }
   .claim-text strong { color: #1a1a1a; }
 
+  /* ── Inherited Stats Callout ── */
+  .inherit-callout { background: #1a3a4a; border-radius: 12px; padding: 16px; margin: 0 0 16px; color: #fff; }
+  .inherit-callout-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .inherit-callout-icon { font-size: 18px; }
+  .inherit-callout-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #7fb3c8; }
+  .inherit-callout-body { display: flex; align-items: center; gap: 12px; }
+  .inherit-rating-badge { background: #d4a843; border-radius: 10px; padding: 10px 16px; text-align: center; flex-shrink: 0; }
+  .inherit-rating-value { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; }
+  .inherit-rating-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .inherit-details { flex: 1; }
+  .inherit-headline { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; margin-bottom: 4px; }
+  .inherit-sub { font-size: 12px; color: #7fb3c8; line-height: 1.4; }
+
+  /* ── Section Title ── */
   .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
 
-  /* Match Summary Cards */
+  /* ── Match Cards ── */
   .claim-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .claim-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .claim-session { font-size: 12px; font-weight: 600; color: #888; }
@@ -60,21 +75,65 @@
   .claim-score .score { font-size: 18px; font-weight: 800; color: #1a3a4a; }
   .claim-score .sep { color: #ccc; margin: 0 2px; }
 
-  /* Claim Button */
+  /* ── Claim Actions ── */
   .claim-actions { margin-top: 20px; }
-  .btn-claim { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; }
-  .btn-skip { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
+  .btn-primary { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
+  .btn-secondary { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; min-height: 44px; }
+  .btn-dark { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; min-height: 54px; }
+  .btn-outline { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #ddd; background: transparent; color: #555; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; min-height: 44px; }
+
+  /* ── Processing State ── */
+  .processing-area { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; min-height: 600px; gap: 24px; }
+  .spinner { width: 64px; height: 64px; border: 4px solid #e8f4f8; border-top-color: #2a7d9c; border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-title { font-size: 20px; font-weight: 800; text-align: center; color: #1a3a4a; }
+  .processing-steps { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .processing-step { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .step-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .step-dot.done { background: #22c55e; }
+  .step-dot.active { background: #2a7d9c; animation: pulse 1.2s ease-in-out infinite; }
+  .step-dot.pending { background: #ddd; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .step-label { font-size: 13px; font-weight: 600; color: #444; }
+  .step-label.active { color: #2a7d9c; }
+  .step-label.pending { color: #aaa; }
+  .processing-note { font-size: 12px; color: #888; text-align: center; line-height: 1.5; }
 
   /* ── Success State ── */
-  .success-area { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; min-height: 500px; gap: 20px; }
-  .success-icon { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 36px; }
-  .success-title { font-size: 22px; font-weight: 800; text-align: center; }
-  .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.5; max-width: 300px; }
-  .success-stats { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .success-area { display: flex; flex-direction: column; align-items: center; padding: 40px 24px 36px; gap: 20px; }
+  .success-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; border: 3px solid #22c55e; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #15803d; }
+  .success-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: #dcfce7; border: 1px solid #22c55e; }
+  .success-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+  .success-badge-text { font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.6px; }
+  .success-title { font-size: 24px; font-weight: 900; text-align: center; color: #1a1a1a; }
+  .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
+  .success-card { background: #fff; border-radius: 14px; padding: 20px; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .success-card-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+  .success-rating-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+  .success-rating-label { font-size: 14px; color: #555; }
+  .success-rating-badge { background: #d4a843; border-radius: 8px; padding: 6px 14px; }
+  .success-rating-number { font-size: 22px; font-weight: 900; color: #fff; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; }
+  .stat-row:not(:last-child) { border-bottom: 1px solid #f5f5f5; }
   .stat-label { font-size: 13px; color: #666; }
   .stat-value { font-size: 13px; font-weight: 700; }
-  .btn-go-home { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 12px; }
+
+  /* ── Error State ── */
+  .error-area { display: flex; flex-direction: column; align-items: center; padding: 60px 24px 36px; gap: 20px; }
+  .error-icon-wrap { width: 80px; height: 80px; border-radius: 50%; background: #fee2e2; border: 3px solid #ef4444; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #ef4444; }
+  .error-title { font-size: 22px; font-weight: 800; text-align: center; color: #1a1a1a; }
+  .error-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.55; max-width: 300px; }
+  .error-detail-card { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #ef4444; }
+  .error-detail-title { font-size: 12px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .error-detail-body { font-size: 13px; color: #555; line-height: 1.5; }
+  .error-tip { font-size: 12px; color: #999; text-align: center; line-height: 1.5; padding: 0 8px; }
+
+  /* ── Tab Bar ── */
+  .tab-bar { position: fixed; bottom: 0; left: 0; width: 390px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; padding: 8px 0 20px; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; cursor: pointer; }
+  .tab-icon { font-size: 20px; }
+  .tab-label { font-size: 10px; color: #999; }
+  .tab-item.active .tab-icon, .tab-item.active .tab-label { color: #2a7d9c; }
 </style>
 </head>
 <body>
@@ -83,24 +142,26 @@
 <div class="state-switcher">
   <div class="sw-label">Invite Claim Flow</div>
   <div class="sw-pills">
-    <button class="sw-pill active" onclick="setState('review')">Review Matches</button>
-    <button class="sw-pill" onclick="setState('success')">Claimed</button>
+    <button class="sw-pill active" onclick="setState('review', this)">Review</button>
+    <button class="sw-pill" onclick="setState('processing', this)">Processing</button>
+    <button class="sw-pill" onclick="setState('success', this)">Success</button>
+    <button class="sw-pill" onclick="setState('error', this)">Already Claimed</button>
   </div>
 </div>
 
-<div class="status-bar">
-  <span>9:41</span>
-  <span style="font-size: 11px; font-weight: 400;">* * *</span>
-</div>
-
-<div class="top-nav">
-  <a href="#" class="back">&larr;</a>
-  <div class="title">Claim Your Matches</div>
-  <div class="spacer"></div>
-</div>
-
-<!-- ══ STATE 1: Review Matches ══ -->
+<!-- ══ STATE: Review Matches ══ -->
 <div class="state active" id="state-review">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="#" class="back">&larr;</a>
+    <div class="title">Claim Your Matches</div>
+    <div class="spacer"></div>
+  </div>
 
   <div class="welcome-header">
     <div class="welcome-icon">&#127952;</div>
@@ -117,6 +178,24 @@
     <div class="claim-summary">
       <div class="claim-count">5</div>
       <div class="claim-text"><strong>5 unclaimed matches</strong><br/>from 2 sessions this week</div>
+    </div>
+
+    <!-- Inherited stats preview callout -->
+    <div class="inherit-callout">
+      <div class="inherit-callout-header">
+        <span class="inherit-callout-icon">&#127942;</span>
+        <span class="inherit-callout-label">What you'll inherit</span>
+      </div>
+      <div class="inherit-callout-body">
+        <div class="inherit-rating-badge">
+          <div class="inherit-rating-value">1380</div>
+          <div class="inherit-rating-label">Rating</div>
+        </div>
+        <div class="inherit-details">
+          <div class="inherit-headline">You'll inherit a 1380 rating from 12 matches</div>
+          <div class="inherit-sub">3W &ndash; 2L this week &middot; 8W &ndash; 4L overall</div>
+        </div>
+      </div>
     </div>
 
     <div class="section-title">Your Matches</div>
@@ -176,48 +255,187 @@
     </div>
 
     <div class="claim-actions">
-      <button class="btn-claim">Claim My Matches</button>
-      <button class="btn-skip">Not me, skip</button>
+      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Matches</button>
+      <button class="btn-secondary">Not me, skip</button>
     </div>
 
   </div>
 
 </div>
 
-<!-- ══ STATE 2: Success ══ -->
+<!-- ══ STATE: Processing ══ -->
+<div class="state" id="state-processing">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="#" class="back">&larr;</a>
+    <div class="title">Linking Account</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="processing-area">
+    <div class="spinner"></div>
+    <div class="processing-title">Linking your account&hellip;</div>
+
+    <div class="processing-steps">
+      <div class="processing-step">
+        <div class="step-dot done">&#10003;</div>
+        <span class="step-label">Token verified</span>
+      </div>
+      <div class="processing-step">
+        <div class="step-dot done">&#10003;</div>
+        <span class="step-label">Placeholder profile found</span>
+      </div>
+      <div class="processing-step">
+        <div class="step-dot active">&#8226;</div>
+        <span class="step-label active">Merging match history &amp; stats&hellip;</span>
+      </div>
+      <div class="processing-step">
+        <div class="step-dot pending">&#8226;</div>
+        <span class="step-label pending">Updating your profile</span>
+      </div>
+    </div>
+
+    <p class="processing-note">This usually takes just a second.<br/>Please don&rsquo;t close this screen.</p>
+  </div>
+
+</div>
+
+<!-- ══ STATE: Success ══ -->
 <div class="state" id="state-success">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="#" class="back" style="visibility: hidden;">&larr;</a>
+    <div class="title">Account Linked</div>
+    <div class="spacer"></div>
+  </div>
+
   <div class="success-area">
-    <div class="success-icon">&#10003;</div>
-    <div class="success-title">Matches Claimed!</div>
-    <div class="success-desc">Your match history has been linked to your profile. You're all set to start tracking your stats.</div>
-    <div class="success-stats">
+
+    <div class="success-icon-wrap">&#10003;</div>
+
+    <div class="success-badge">
+      <div class="success-badge-dot"></div>
+      <span class="success-badge-text">Account linked successfully</span>
+    </div>
+
+    <div class="success-title">You&rsquo;re all set!</div>
+
+    <div class="success-desc">Your match history and rating have been merged into your account. Welcome to the league.</div>
+
+    <div class="success-card">
+      <div class="success-card-title">Your profile at a glance</div>
+
+      <div class="success-rating-row">
+        <span class="success-rating-label">Current rating</span>
+        <div class="success-rating-badge">
+          <span class="success-rating-number">1380</span>
+        </div>
+      </div>
+
       <div class="stat-row">
-        <span class="stat-label">Matches claimed</span>
-        <span class="stat-value">5</span>
+        <span class="stat-label">Matches inherited</span>
+        <span class="stat-value">12</span>
       </div>
       <div class="stat-row">
-        <span class="stat-label">Win record</span>
-        <span class="stat-value" style="color: #15803d;">3W - 2L</span>
+        <span class="stat-label">Overall record</span>
+        <span class="stat-value" style="color: #15803d;">8W &ndash; 4L</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">League</span>
         <span class="stat-value">QBK Open Men</span>
       </div>
       <div class="stat-row">
-        <span class="stat-label">Starting rating</span>
-        <span class="stat-value">1200</span>
+        <span class="stat-label">Season</span>
+        <span class="stat-value">Spring 2025</span>
       </div>
     </div>
-    <button class="btn-go-home" onclick="window.location.href='home.html'">Go to Home</button>
+
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go to Dashboard</button>
+    <button class="btn-outline" style="width: 100%;">View My Stats</button>
+
+  </div>
+
+</div>
+
+<!-- ══ STATE: Error / Already Claimed ══ -->
+<div class="state" id="state-error">
+
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="font-size: 11px; font-weight: 400;">* * *</span>
+  </div>
+
+  <div class="top-nav">
+    <a href="#" class="back">&larr;</a>
+    <div class="title">Claim Your Matches</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="error-area">
+
+    <div class="error-icon-wrap">&#33;</div>
+
+    <div class="error-title">Invite Already Claimed</div>
+
+    <div class="error-desc">This invite link has already been used. Each token can only be claimed once to keep stats accurate.</div>
+
+    <div class="error-detail-card">
+      <div class="error-detail-title">What happened?</div>
+      <div class="error-detail-body">The token in this invite link was redeemed by another account. If that wasn&rsquo;t you, contact your league admin so they can send a new invite.</div>
+    </div>
+
+    <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
+    <button class="btn-outline" style="width: 100%;">Contact League Admin</button>
+
+    <p class="error-tip">Joined the league through a different link? Log in to your existing account to see your matches.</p>
+
+  </div>
+
+</div>
+
+<!-- ── Tab Bar ── -->
+<div class="tab-bar">
+  <div class="tab-item">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </div>
+  <div class="tab-item">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </div>
+  <div class="tab-item">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add</div>
+  </div>
+  <div class="tab-item">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-label">Messages</div>
+  </div>
+  <div class="tab-item active">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
   </div>
 </div>
 
 <script>
-function setState(state) {
+function setState(state, pill) {
   document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('state-' + state).classList.add('active');
-  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
-  event.target.classList.add('active');
+  if (pill) {
+    document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+  }
+  window.scrollTo(0, 0);
 }
 </script>
 

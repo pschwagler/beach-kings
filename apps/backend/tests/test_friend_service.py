@@ -8,7 +8,7 @@ batch status, and league-based suggestions.
 import pytest
 import pytest_asyncio
 from backend.services import friend_service
-from backend.database.models import User, Player, LeagueMember, League
+from backend.database.models import User, Player, LeagueMember, League, PlayerGlobalStats, Location
 
 
 async def _create_user_and_player(db_session, phone, name):
@@ -410,3 +410,298 @@ async def test_get_friend_ids_empty(db_session, players):
     """Test getting friend IDs when player has no friends."""
     friend_ids = await friend_service.get_friend_ids(db_session, players["alice"])
     assert friend_ids == set()
+
+
+# ──────────────────────────────────────────────────────────────
+# discover_players
+# ──────────────────────────────────────────────────────────────
+
+
+async def _create_player_with_stats(
+    db_session,
+    phone: str,
+    name: str,
+    total_games: int = 10,
+    current_rating: float = 1200.0,
+    gender: str | None = None,
+    level: str | None = None,
+    location_id: str | None = None,
+) -> tuple[int, int]:
+    """Helper: create user + player + global stats, return (user_id, player_id)."""
+    user_id, player_id = await _create_user_and_player(db_session, phone, name)
+    if gender or level or location_id:
+        result = await db_session.get(Player, player_id)
+        if gender:
+            result.gender = gender
+        if level:
+            result.level = level
+        if location_id:
+            result.location_id = location_id
+        await db_session.flush()
+    stats = PlayerGlobalStats(
+        player_id=player_id,
+        total_games=total_games,
+        current_rating=current_rating,
+    )
+    db_session.add(stats)
+    await db_session.flush()
+    return user_id, player_id
+
+
+async def _make_friends(db_session, player_a: int, player_b: int) -> None:
+    """Helper: send and accept a friend request between two players."""
+    req = await friend_service.send_friend_request(db_session, player_a, player_b)
+    await friend_service.accept_friend_request(db_session, req["id"], player_b)
+
+
+@pytest_asyncio.fixture
+async def discover_setup(db_session):
+    """Create players with stats and a friendship graph for discover tests.
+
+    Friendship graph (all bidirectional):
+        Alice -- Bob
+        Alice -- Carol
+        Bob   -- Dave
+        Carol -- Dave
+        Bob   -- Eve
+
+    Alice's friends = {Bob, Carol}
+    Mutual counts from Alice's POV:
+        Dave: 2 (Bob, Carol)
+        Eve:  1 (Bob)
+        Bob:  already a friend
+        Carol: already a friend
+    """
+    loc = Location(id="test_beach", name="Test Beach")
+    db_session.add(loc)
+    await db_session.flush()
+
+    _, alice = await _create_player_with_stats(
+        db_session, "+15552000001", "Alice Alpha",
+        total_games=50, current_rating=1400.0, gender="female",
+        level="intermediate", location_id="test_beach",
+    )
+    _, bob = await _create_player_with_stats(
+        db_session, "+15552000002", "Bob Beta",
+        total_games=30, current_rating=1350.0, gender="male",
+        level="advanced", location_id="test_beach",
+    )
+    _, carol = await _create_player_with_stats(
+        db_session, "+15552000003", "Carol Gamma",
+        total_games=20, current_rating=1250.0, gender="female",
+        level="beginner", location_id="test_beach",
+    )
+    _, dave = await _create_player_with_stats(
+        db_session, "+15552000004", "Dave Delta",
+        total_games=40, current_rating=1300.0, gender="male",
+        level="intermediate",
+    )
+    _, eve = await _create_player_with_stats(
+        db_session, "+15552000005", "Eve Epsilon",
+        total_games=5, current_rating=1200.0, gender="female",
+        level="advanced",
+    )
+
+    # Build friendship graph
+    await _make_friends(db_session, alice, bob)
+    await _make_friends(db_session, alice, carol)
+    await _make_friends(db_session, bob, dave)
+    await _make_friends(db_session, carol, dave)
+    await _make_friends(db_session, bob, eve)
+
+    return {
+        "alice": alice, "bob": bob, "carol": carol,
+        "dave": dave, "eve": eve,
+    }
+
+
+@pytest.mark.asyncio
+async def test_discover_players_sort_by_mutuals(db_session, discover_setup):
+    """Default sort (mutuals desc): Dave (2) before Eve (1)."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    items = result["items"]
+    ids = [item["id"] for item in items]
+
+    # Caller excluded
+    assert discover_setup["alice"] not in ids
+
+    # Dave has 2 mutuals, Eve has 1 — Dave should come first among non-friends
+    dave_idx = ids.index(discover_setup["dave"])
+    eve_idx = ids.index(discover_setup["eve"])
+    assert dave_idx < eve_idx
+
+
+@pytest.mark.asyncio
+async def test_discover_players_excludes_caller(db_session, discover_setup):
+    """Caller should never appear in results."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    assert discover_setup["alice"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_friend_status(db_session, discover_setup):
+    """Items include correct friend_status: friend, pending_outgoing, none."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    status_map = {item["id"]: item["friend_status"] for item in result["items"]}
+
+    assert status_map[discover_setup["bob"]] == "friend"
+    assert status_map[discover_setup["carol"]] == "friend"
+    assert status_map[discover_setup["dave"]] == "none"
+    assert status_map[discover_setup["eve"]] == "none"
+
+
+@pytest.mark.asyncio
+async def test_discover_players_pending_outgoing_status(db_session, discover_setup):
+    """Player with pending outgoing request shows pending_outgoing status."""
+    # Alice sends request to Dave (not yet accepted)
+    await friend_service.remove_friend(db_session, discover_setup["bob"], discover_setup["dave"])
+    await friend_service.remove_friend(db_session, discover_setup["carol"], discover_setup["dave"])
+    await friend_service.send_friend_request(
+        db_session, discover_setup["alice"], discover_setup["dave"]
+    )
+
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    status_map = {item["id"]: item["friend_status"] for item in result["items"]}
+    assert status_map[discover_setup["dave"]] == "pending_outgoing"
+
+
+@pytest.mark.asyncio
+async def test_discover_players_mutual_friend_count(db_session, discover_setup):
+    """Each item includes correct mutual_friend_count."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    counts = {item["id"]: item["mutual_friend_count"] for item in result["items"]}
+
+    assert counts[discover_setup["dave"]] == 2
+    assert counts[discover_setup["eve"]] == 1
+
+
+@pytest.mark.asyncio
+async def test_discover_players_search_filter(db_session, discover_setup):
+    """Search by name filters results."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], search="Dave",
+    )
+    assert result["total_count"] == 1
+    assert result["items"][0]["id"] == discover_setup["dave"]
+
+
+@pytest.mark.asyncio
+async def test_discover_players_gender_filter(db_session, discover_setup):
+    """Filter by gender returns only matching players."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], gender="male",
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    # Bob and Dave are male
+    assert discover_setup["bob"] in result_ids
+    assert discover_setup["dave"] in result_ids
+    # Carol and Eve are female
+    assert discover_setup["carol"] not in result_ids
+    assert discover_setup["eve"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_level_filter(db_session, discover_setup):
+    """Filter by level returns only matching players."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], level="advanced",
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    assert discover_setup["bob"] in result_ids
+    assert discover_setup["eve"] in result_ids
+    assert discover_setup["dave"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_min_games_filter(db_session, discover_setup):
+    """min_games excludes players below the threshold."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], min_games=25,
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    # Bob=30, Dave=40 pass; Carol=20, Eve=5 filtered out
+    assert discover_setup["bob"] in result_ids
+    assert discover_setup["dave"] in result_ids
+    assert discover_setup["carol"] not in result_ids
+    assert discover_setup["eve"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_location_filter(db_session, discover_setup):
+    """Filter by location_id returns only matching players."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], location_id="test_beach",
+    )
+    result_ids = {item["id"] for item in result["items"]}
+    # Bob and Carol are at test_beach; Dave and Eve have no location
+    assert discover_setup["bob"] in result_ids
+    assert discover_setup["carol"] in result_ids
+    assert discover_setup["dave"] not in result_ids
+    assert discover_setup["eve"] not in result_ids
+
+
+@pytest.mark.asyncio
+async def test_discover_players_sort_by_games(db_session, discover_setup):
+    """Sort by games descending orders by total_games."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], sort_by="games", sort_dir="desc",
+    )
+    games_list = [item["total_games"] for item in result["items"]]
+    assert games_list == sorted(games_list, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_discover_players_sort_by_name(db_session, discover_setup):
+    """Sort by name ascending orders alphabetically."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], sort_by="name", sort_dir="asc",
+    )
+    names = [item["full_name"] for item in result["items"]]
+    assert names == sorted(names)
+
+
+@pytest.mark.asyncio
+async def test_discover_players_pagination(db_session, discover_setup):
+    """Pagination returns correct page and page_size."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"], page=1, page_size=2,
+    )
+    assert len(result["items"]) == 2
+    assert result["page"] == 1
+    assert result["page_size"] == 2
+    assert result["total_count"] == 4  # 4 players besides Alice
+
+    result_p2 = await friend_service.discover_players(
+        db_session, discover_setup["alice"], page=2, page_size=2,
+    )
+    assert len(result_p2["items"]) == 2
+    # No overlap between pages
+    ids_p1 = {item["id"] for item in result["items"]}
+    ids_p2 = {item["id"] for item in result_p2["items"]}
+    assert ids_p1.isdisjoint(ids_p2)
+
+
+@pytest.mark.asyncio
+async def test_discover_players_includes_required_fields(db_session, discover_setup):
+    """Each item has all DiscoverPlayerItem fields."""
+    result = await friend_service.discover_players(
+        db_session, discover_setup["alice"],
+    )
+    item = result["items"][0]
+    required_fields = {
+        "id", "full_name", "avatar", "gender", "level",
+        "location_name", "total_games", "current_rating",
+        "mutual_friend_count", "friend_status",
+    }
+    assert required_fields.issubset(item.keys())

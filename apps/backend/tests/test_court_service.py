@@ -9,6 +9,9 @@ import pytest_asyncio
 from backend.database.models import (
     Court,
     CourtTag,
+    League,
+    LeagueHomeCourt,
+    LeagueMember,
     Location,
     Player,
     Region,
@@ -767,3 +770,158 @@ class TestSitemap:
         slugs = [s["slug"] for s in sitemap]
         assert court["slug"] in slugs
         assert "hidden-court" not in slugs
+
+
+# ============================================================================
+# Check-In Tests
+# ============================================================================
+
+
+class TestCheckIn:
+    """Tests for court check-in, check-out, and active check-in queries."""
+
+    @pytest.mark.asyncio
+    async def test_check_in_creates_record(self, db_session, court, test_player):
+        """Checking in returns check-in data with expiry."""
+        result = await court_service.check_in(db_session, court["id"], test_player.id)
+        assert result["court_id"] == court["id"]
+        assert "checked_in_at" in result
+        assert "expires_at" in result
+
+    @pytest.mark.asyncio
+    async def test_check_in_replaces_previous(self, db_session, court, test_player, location):
+        """Checking in to a new court removes old check-in."""
+        # Create a second court
+        court2 = Court(
+            name="Other Court",
+            slug="other-court",
+            location_id=location.id,
+            status="approved",
+            is_active=True,
+        )
+        db_session.add(court2)
+        await db_session.commit()
+        await db_session.refresh(court2)
+
+        # Check in to first court
+        await court_service.check_in(db_session, court["id"], test_player.id)
+
+        # Check in to second court — should remove first
+        await court_service.check_in(db_session, court2.id, test_player.id)
+
+        # First court should have 0 active check-ins
+        result = await court_service.get_active_check_ins(db_session, court["id"])
+        assert result["count"] == 0
+
+        # Second court should have 1
+        result2 = await court_service.get_active_check_ins(db_session, court2.id)
+        assert result2["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_check_out(self, db_session, court, test_player):
+        """Checking out removes the check-in record."""
+        await court_service.check_in(db_session, court["id"], test_player.id)
+        removed = await court_service.check_out(db_session, court["id"], test_player.id)
+        assert removed is True
+
+        result = await court_service.get_active_check_ins(db_session, court["id"])
+        assert result["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_check_out_nonexistent(self, db_session, court, test_player):
+        """Checking out without a check-in returns False."""
+        removed = await court_service.check_out(db_session, court["id"], test_player.id)
+        assert removed is False
+
+    @pytest.mark.asyncio
+    async def test_get_active_check_ins(self, db_session, court, test_player, second_player):
+        """Active check-ins returns count and player details."""
+        await court_service.check_in(db_session, court["id"], test_player.id)
+        await court_service.check_in(db_session, court["id"], second_player.id)
+
+        result = await court_service.get_active_check_ins(db_session, court["id"])
+        assert result["count"] == 2
+        names = [p["player_name"] for p in result["checked_in_players"]]
+        assert "Court Tester" in names
+        assert "Second Reviewer" in names
+
+    @pytest.mark.asyncio
+    async def test_expired_check_ins_excluded(self, db_session, court, test_player):
+        """Expired check-ins are not included in active count."""
+        from datetime import datetime, timedelta, timezone
+        from backend.database.models import CourtCheckIn
+
+        # Create an already-expired check-in
+        expired = CourtCheckIn(
+            court_id=court["id"],
+            player_id=test_player.id,
+            checked_in_at=datetime.now(timezone.utc) - timedelta(hours=5),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        db_session.add(expired)
+        await db_session.commit()
+
+        result = await court_service.get_active_check_ins(db_session, court["id"])
+        assert result["count"] == 0
+
+
+# ============================================================================
+# Leagues at Court Tests
+# ============================================================================
+
+
+class TestLeaguesAtCourt:
+    """Tests for court → league reverse lookup."""
+
+    @pytest.mark.asyncio
+    async def test_leagues_at_court(self, db_session, court, location, test_player):
+        """Returns public leagues linked to the court."""
+        league = League(
+            name="Beach League",
+            location_id=location.id,
+            is_public=True,
+            created_by=test_player.id,
+        )
+        db_session.add(league)
+        await db_session.commit()
+        await db_session.refresh(league)
+
+        # Link league to court
+        link = LeagueHomeCourt(league_id=league.id, court_id=court["id"])
+        db_session.add(link)
+
+        # Add a member
+        member = LeagueMember(league_id=league.id, player_id=test_player.id, role="member")
+        db_session.add(member)
+        await db_session.commit()
+
+        result = await court_service.get_leagues_at_court(db_session, court["id"])
+        assert len(result) == 1
+        assert result[0]["name"] == "Beach League"
+        assert result[0]["member_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_private_leagues_excluded(self, db_session, court, location, test_player):
+        """Private leagues are not returned."""
+        league = League(
+            name="Secret League",
+            location_id=location.id,
+            is_public=False,
+            created_by=test_player.id,
+        )
+        db_session.add(league)
+        await db_session.commit()
+        await db_session.refresh(league)
+
+        link = LeagueHomeCourt(league_id=league.id, court_id=court["id"])
+        db_session.add(link)
+        await db_session.commit()
+
+        result = await court_service.get_leagues_at_court(db_session, court["id"])
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_no_leagues_returns_empty(self, db_session, court):
+        """Court with no leagues returns empty list."""
+        result = await court_service.get_leagues_at_court(db_session, court["id"])
+        assert result == []

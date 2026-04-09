@@ -27,6 +27,8 @@
   .meta-tag.date { background: #f0f0f0; color: #555; }
   .meta-tag.court { background: #e8f4f8; color: #2a7d9c; }
   .meta-tag.players { background: #f0f0f0; color: #555; }
+  .meta-tag.editable { cursor: pointer; border: 1px dashed transparent; position: relative; padding-right: 18px; }
+  .meta-tag.editable::after { content: '\270E'; font-size: 10px; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
   .session-status { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
   .status-text { font-size: 11px; font-weight: 600; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -105,8 +107,8 @@
   </div>
   <div class="session-meta">
     <span class="meta-tag pickup">Pickup</span>
-    <span class="meta-tag date">Apr 8</span>
-    <span class="meta-tag court">QBK Sports</span>
+    <span class="meta-tag date editable">Apr 8</span>
+    <span class="meta-tag court editable">QBK Sports</span>
     <span class="meta-tag players">8 players</span>
   </div>
   <div class="session-status">

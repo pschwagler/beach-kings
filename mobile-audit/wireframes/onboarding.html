@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Complete Profile - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
+  /* Modal Overlay */
+  .modal-overlay { position: fixed; inset: 0; width: 390px; min-height: 844px; background: rgba(0,0,0,0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; z-index: 100; }
+
+  .modal-sheet { background: #fff; border-radius: 20px; width: calc(100% - 32px); max-width: 358px; padding: 28px 24px 32px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+
+  /* Header */
+  .modal-logo { text-align: center; margin-bottom: 8px; }
+  .modal-logo .crown { font-size: 36px; color: #d4a843; }
+  .modal-title { text-align: center; font-size: 20px; font-weight: 800; color: #1a3a4a; margin-bottom: 6px; }
+  .modal-desc { text-align: center; font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 24px; }
+
+  /* Required Badge */
+  .required-note { font-size: 11px; color: #ef4444; font-weight: 500; margin-bottom: 16px; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+  .form-label .req { color: #ef4444; font-weight: 700; }
+  .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; min-height: 48px; }
+  .form-input:focus { outline: none; border-color: #2a7d9c; }
+  .form-input::placeholder { color: #bbb; }
+
+  .form-select { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; min-height: 48px; }
+  .form-select.placeholder { color: #bbb; }
+
+  /* Divider */
+  .section-divider { border: none; border-top: 1px solid #f0f0f0; margin: 20px 0 16px; }
+  .section-subtitle { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+
+  /* Save Button */
+  .btn-save { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 24px; }
+  .btn-save:disabled { background: #e0d5c0; color: #fff; }
+
+  /* Helper text */
+  .helper-text { font-size: 11px; color: #999; margin-top: 4px; }
+
+  /* Error state (shown after submit attempt) */
+  .form-input.error, .form-select.error { border-color: #ef4444; }
+  .error-text { font-size: 11px; color: #ef4444; margin-top: 4px; display: none; }
+
+  /* Success State */
+  .success-content { display: none; text-align: center; padding: 20px 0; }
+  .success-content .check-circle { width: 64px; height: 64px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; color: #15803d; }
+  .success-content .success-title { font-size: 18px; font-weight: 700; color: #1a3a4a; margin-bottom: 6px; }
+  .success-content .success-desc { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 24px; }
+  .btn-start { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<!-- Background hint (blurred home screen) -->
+<div style="padding: 16px; opacity: 0.3;">
+  <div style="height: 44px; background: #1a3a4a; border-radius: 8px; margin-bottom: 12px;"></div>
+  <div style="height: 80px; background: #e0e0e0; border-radius: 12px; margin-bottom: 8px;"></div>
+  <div style="height: 80px; background: #e0e0e0; border-radius: 12px;"></div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay" id="form-state">
+  <div class="modal-sheet">
+
+    <div class="modal-logo"><span class="crown">&#128081;</span></div>
+    <div class="modal-title">Complete Your Profile</div>
+    <div class="modal-desc">Tell us about yourself so we can match you with the right leagues and players.</div>
+
+    <!-- Form State -->
+    <div id="form-content">
+
+      <div class="required-note">&#10033; Required fields</div>
+
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> Gender</div>
+        <select class="form-select placeholder">
+          <option value="" disabled selected>Select gender</option>
+          <option>Male</option>
+          <option>Female</option>
+          <option>Non-binary</option>
+          <option>Prefer not to say</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> City</div>
+        <input class="form-input" type="text" placeholder="Start typing a city..." />
+        <div class="helper-text">Used to find leagues and players near you</div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> Location</div>
+        <select class="form-select placeholder">
+          <option value="" disabled selected>Select location</option>
+          <option>NYC - Queens</option>
+          <option>NYC - Brooklyn</option>
+          <option>NYC - Manhattan</option>
+          <option>SoCal - San Diego</option>
+          <option>SoCal - Los Angeles</option>
+        </select>
+        <div class="helper-text">Your region for league matching</div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> Skill Level</div>
+        <select class="form-select placeholder">
+          <option value="" disabled selected>Select your level</option>
+          <option>Beginner (just starting)</option>
+          <option>B Level (recreational)</option>
+          <option>A Level (competitive)</option>
+          <option>AA Level (advanced)</option>
+          <option>Open (elite)</option>
+        </select>
+      </div>
+
+      <hr class="section-divider" />
+      <div class="section-subtitle">Optional</div>
+
+      <div class="form-group">
+        <div class="form-label">Nickname</div>
+        <input class="form-input" type="text" placeholder="What do people call you?" />
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Date of Birth</div>
+        <input class="form-input" type="text" placeholder="MM/DD/YYYY" />
+      </div>
+
+      <button class="btn-save" onclick="document.getElementById('form-content').style.display='none'; document.querySelector('.success-content').style.display='block';">Save Profile</button>
+
+    </div>
+
+    <!-- Success State -->
+    <div class="success-content">
+      <div class="check-circle">&#10003;</div>
+      <div class="success-title">Profile Complete!</div>
+      <div class="success-desc">You're all set. Now find leagues near you, connect with players, and start tracking your games.</div>
+      <button class="btn-start" onclick="window.location.href='home.html'">Get Started</button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

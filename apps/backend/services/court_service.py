@@ -17,12 +17,16 @@ from sqlalchemy.orm import selectinload
 
 from backend.database.models import (
     Court,
+    CourtCheckIn,
     CourtEditSuggestion,
     CourtPhoto,
     CourtReview,
     CourtReviewPhoto,
     CourtReviewTag,
     CourtTag,
+    League,
+    LeagueHomeCourt,
+    LeagueMember,
     Location,
     Match,
     Player,
@@ -1564,3 +1568,164 @@ async def get_placeholder_court(session: AsyncSession, location_id: str) -> Opti
     if not row:
         return None
     return {"id": row[0], "name": row[1], "location_id": row[2]}
+
+
+# ---------------------------------------------------------------------------
+# Check-ins
+# ---------------------------------------------------------------------------
+
+CHECK_IN_DURATION_HOURS = 4
+
+
+async def check_in(
+    session: AsyncSession,
+    court_id: int,
+    player_id: int,
+) -> Dict:
+    """
+    Check a player in to a court. Expires after CHECK_IN_DURATION_HOURS.
+
+    If the player already has an active check-in at this court, refreshes it.
+    If the player is checked in elsewhere, removes the old check-in first.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(hours=CHECK_IN_DURATION_HOURS)
+
+    # Remove any existing check-ins for this player (one active check-in at a time)
+    await session.execute(
+        CourtCheckIn.__table__.delete().where(CourtCheckIn.player_id == player_id)
+    )
+
+    check_in_record = CourtCheckIn(
+        court_id=court_id,
+        player_id=player_id,
+        checked_in_at=now,
+        expires_at=expires,
+    )
+    session.add(check_in_record)
+    await session.commit()
+    await session.refresh(check_in_record)
+
+    return {
+        "id": check_in_record.id,
+        "court_id": court_id,
+        "checked_in_at": check_in_record.checked_in_at.isoformat(),
+        "expires_at": check_in_record.expires_at.isoformat(),
+    }
+
+
+async def check_out(
+    session: AsyncSession,
+    court_id: int,
+    player_id: int,
+) -> bool:
+    """Remove a player's check-in at a court. Returns True if a row was deleted."""
+    result = await session.execute(
+        CourtCheckIn.__table__.delete().where(
+            and_(
+                CourtCheckIn.court_id == court_id,
+                CourtCheckIn.player_id == player_id,
+            )
+        )
+    )
+    await session.commit()
+    return result.rowcount > 0
+
+
+async def get_active_check_ins(
+    session: AsyncSession,
+    court_id: int,
+) -> Dict:
+    """
+    Get active (non-expired) check-ins at a court.
+
+    Returns count and list of checked-in players.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    q = (
+        select(CourtCheckIn, Player.full_name, Player.avatar)
+        .join(Player, CourtCheckIn.player_id == Player.id)
+        .where(
+            and_(
+                CourtCheckIn.court_id == court_id,
+                CourtCheckIn.expires_at > now,
+            )
+        )
+        .order_by(CourtCheckIn.checked_in_at.desc())
+    )
+    rows = (await session.execute(q)).all()
+
+    players = [
+        {
+            "id": ci.id,
+            "player_id": ci.player_id,
+            "player_name": name,
+            "avatar": avatar,
+            "checked_in_at": ci.checked_in_at.isoformat(),
+            "expires_at": ci.expires_at.isoformat(),
+        }
+        for ci, name, avatar in rows
+    ]
+
+    return {"count": len(players), "checked_in_players": players}
+
+
+# ---------------------------------------------------------------------------
+# Leagues at court
+# ---------------------------------------------------------------------------
+
+
+async def get_leagues_at_court(
+    session: AsyncSession,
+    court_id: int,
+) -> List[Dict]:
+    """
+    Get public leagues that have this court as a home court.
+
+    Returns list of leagues with member counts.
+    """
+    member_count_sq = (
+        select(
+            LeagueMember.league_id,
+            func.count(LeagueMember.id).label("member_count"),
+        )
+        .group_by(LeagueMember.league_id)
+        .subquery()
+    )
+
+    q = (
+        select(
+            League.id,
+            League.name,
+            League.gender,
+            League.level,
+            func.coalesce(member_count_sq.c.member_count, 0).label("member_count"),
+        )
+        .join(LeagueHomeCourt, LeagueHomeCourt.league_id == League.id)
+        .outerjoin(member_count_sq, League.id == member_count_sq.c.league_id)
+        .where(
+            and_(
+                LeagueHomeCourt.court_id == court_id,
+                League.is_public == True,  # noqa: E712
+            )
+        )
+        .order_by(League.name)
+    )
+
+    rows = (await session.execute(q)).all()
+    return [
+        {
+            "id": league_id,
+            "name": name,
+            "slug": None,  # Leagues use id-based routes
+            "gender": gender,
+            "level": level,
+            "member_count": member_count,
+        }
+        for league_id, name, gender, level, member_count in rows
+    ]

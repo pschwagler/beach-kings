@@ -1,18 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useAuthModal } from '../../../src/contexts/AuthModalContext';
 import { useModal, MODAL_TYPES } from '../../../src/contexts/ModalContext';
-import { getUserLeagues, createLeague, getNearbyCourts } from '../../../src/services/api';
+import {
+  createLeague,
+  getNearbyCourts,
+  getCourtCheckIns,
+  checkInToCourt,
+  checkOutOfCourt,
+  addPlayerHomeCourt,
+  removePlayerHomeCourt,
+  getPlayerHomeCourts,
+} from '../../../src/services/api';
+import { useApp } from '../../../src/contexts/AppContext';
 import NavBar from '../../../src/components/layout/NavBar';
 import CourtDetailHeader from '../../../src/components/court/CourtDetailHeader';
 import CourtAmenities from '../../../src/components/court/CourtAmenities';
 import CourtPhotoGallery from '../../../src/components/court/CourtPhotoGallery';
 import CourtReviewSection from '../../../src/components/court/CourtReviewSection';
 import CourtLeaderboard from '../../../src/components/court/CourtLeaderboard';
+import CourtLeaguesSection from '../../../src/components/court/CourtLeaguesSection';
 import NearbyCourtsList from '../../../src/components/court/NearbyCourtsList';
 import SuggestEditForm from '../../../src/components/court/SuggestEditForm';
 import { ArrowLeft } from 'lucide-react';
@@ -32,16 +43,18 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { openModal } = useModal();
-  const [userLeagues, setUserLeagues] = useState([]);
+  const { userLeagues, refreshLeagues } = useApp();
   const [nearbyCourts, setNearbyCourts] = useState([]);
   const [showSuggestEdit, setShowSuggestEdit] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then(setUserLeagues)
-      .catch((err) => console.error('Error loading user leagues:', err));
-  }, [isAuthenticated]);
+  // Check-in state
+  const [checkInCount, setCheckInCount] = useState(0);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(false);
+
+  // Home court state
+  const [isHomeCourt, setIsHomeCourt] = useState(false);
+  const [homeCourtLoading, setHomeCourtLoading] = useState(false);
 
   // Fetch nearby courts
   useEffect(() => {
@@ -50,6 +63,33 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
       .then(setNearbyCourts)
       .catch(() => {});
   }, [court?.latitude, court?.longitude, court?.id]);
+
+  // Fetch active check-ins
+  const refreshCheckIns = useCallback(() => {
+    if (!slug) return;
+    getCourtCheckIns(slug)
+      .then((data: { count: number; checked_in_players: { player_id: number }[] }) => {
+        setCheckInCount(data.count);
+        if (currentUserPlayer?.id) {
+          setIsCheckedIn(data.checked_in_players.some((p) => p.player_id === currentUserPlayer.id));
+        }
+      })
+      .catch(() => {});
+  }, [slug, currentUserPlayer?.id]);
+
+  useEffect(() => {
+    refreshCheckIns();
+  }, [refreshCheckIns]);
+
+  // Fetch home court status
+  useEffect(() => {
+    if (!currentUserPlayer?.id || !court?.id) return;
+    getPlayerHomeCourts(currentUserPlayer.id)
+      .then((courts: { id: number }[]) => {
+        setIsHomeCourt(courts.some((c: { id: number }) => c.id === court.id));
+      })
+      .catch(() => {});
+  }, [currentUserPlayer?.id, court?.id]);
 
   const handleSignOut = async () => {
     try { await logout(); } catch (e) { console.error('Logout error:', e); }
@@ -63,7 +103,7 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
       openModal(MODAL_TYPES.CREATE_LEAGUE, {
         onSubmit: async (leagueData: Record<string, unknown>) => {
           const newLeague = await createLeague(leagueData);
-          setUserLeagues(await getUserLeagues());
+          await refreshLeagues();
           router.push(`/league/${newLeague.id}?tab=details`);
         },
       });
@@ -76,6 +116,50 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
       return;
     }
     setShowSuggestEdit(true);
+  };
+
+  const handleCheckInToggle = async () => {
+    if (!isAuthenticated) {
+      openAuthModal('sign-in');
+      return;
+    }
+    if (!court?.id) return;
+    setCheckInLoading(true);
+    try {
+      if (isCheckedIn) {
+        await checkOutOfCourt(court.id);
+      } else {
+        await checkInToCourt(court.id);
+      }
+      refreshCheckIns();
+    } catch {
+      // silently handle - check-in is best-effort
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
+  const handleHomeCourtToggle = async () => {
+    if (!isAuthenticated) {
+      openAuthModal('sign-in');
+      return;
+    }
+    if (!currentUserPlayer?.id || !court?.id) return;
+    setHomeCourtLoading(true);
+    try {
+      if (isHomeCourt) {
+        await removePlayerHomeCourt(currentUserPlayer.id, court.id);
+        setIsHomeCourt(false);
+      } else {
+        await addPlayerHomeCourt(currentUserPlayer.id, court.id);
+        setIsHomeCourt(true);
+      }
+    } catch {
+      // revert on error
+      setIsHomeCourt((prev) => !prev);
+    } finally {
+      setHomeCourtLoading(false);
+    }
   };
 
   if (!court) {
@@ -133,6 +217,29 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
 
         <CourtDetailHeader court={court} onSuggestEdit={handleSuggestEdit} />
 
+        <div className="court-detail__action-row">
+          <button
+            className={`court-detail__action-btn ${isCheckedIn ? 'court-detail__action-btn--active' : 'court-detail__action-btn--primary'}`}
+            onClick={handleCheckInToggle}
+            disabled={checkInLoading}
+          >
+            {isCheckedIn ? 'Check Out' : 'Check In'}
+          </button>
+          <button
+            className={`court-detail__action-btn ${isHomeCourt ? 'court-detail__action-btn--active' : 'court-detail__action-btn--outline'}`}
+            onClick={handleHomeCourtToggle}
+            disabled={homeCourtLoading}
+          >
+            {isHomeCourt ? 'In My Courts' : 'Add to My Courts'}
+          </button>
+        </div>
+
+        {checkInCount > 0 && (
+          <p className="court-detail__checkin-count">
+            {checkInCount} {checkInCount === 1 ? 'person' : 'people'} here now
+          </p>
+        )}
+
         <CourtPhotoGallery photos={court.all_photos || []} slug={slug} />
 
         <CourtAmenities court={court} />
@@ -168,6 +275,8 @@ export default function CourtDetailClient({ court, slug }: CourtDetailClientProp
           currentPlayerId={currentUserPlayer?.id}
           onAuthRequired={() => openAuthModal('sign-in')}
         />
+
+        <CourtLeaguesSection slug={slug} />
 
         {showSuggestEdit && (
           <SuggestEditForm

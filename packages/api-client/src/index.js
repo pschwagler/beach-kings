@@ -384,6 +384,12 @@ export function initApiClient(baseURL = '', options = {}) {
       return response.data;
     },
 
+    // Player discovery
+    discoverPlayers: async (params = {}) => {
+      const response = await api.get('/api/friends/discover', { params });
+      return response.data;
+    },
+
     // Health
     healthCheck: async () => {
       const response = await api.get('/api/health');

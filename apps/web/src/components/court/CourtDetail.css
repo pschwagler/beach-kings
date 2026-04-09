@@ -657,6 +657,122 @@
   gap: 12px;
 }
 
+/* Action Row (Check In + My Courts) */
+
+.court-detail__action-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.court-detail__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.court-detail__action-btn--primary {
+  background: var(--primary);
+  color: white;
+}
+
+.court-detail__action-btn--primary:hover {
+  background: var(--primary-dark);
+}
+
+.court-detail__action-btn--primary.court-detail__action-btn--active {
+  background: var(--success);
+}
+
+.court-detail__action-btn--outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.court-detail__action-btn--outline:hover {
+  background: var(--primary-lighter);
+}
+
+.court-detail__action-btn--outline.court-detail__action-btn--active {
+  background: var(--primary);
+  color: white;
+}
+
+.court-detail__action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.court-detail__checkin-count {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 16px;
+}
+
+.court-detail__checkin-count strong {
+  color: var(--primary);
+}
+
+/* Leagues at Court */
+
+.court-detail__leagues {
+  margin-bottom: 24px;
+}
+
+.court-detail__leagues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.court-detail__league-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  background: white;
+  transition: box-shadow 0.15s ease;
+}
+
+.court-detail__league-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.court-detail__league-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.court-detail__league-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.court-detail__league-meta {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.court-detail__league-chevron {
+  font-size: 20px;
+  color: var(--gray-400);
+}
+
 /* Nearby Courts */
 
 .court-detail__nearby {
