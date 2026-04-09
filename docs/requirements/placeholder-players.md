@@ -75,7 +75,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 
 1. After match creation, user copies the invite link (from toast, match detail view, or profile "Pending Invites")
 2. User pastes the link into a text message, WhatsApp, etc. and sends it manually
-3. The link format: `https://beachkings.com/invite/{token}`
+3. The link format: `https://beachleaguevb.com/invite/{token}`
 
 ### Claim Flow (Invited Person's Perspective)
 
@@ -183,7 +183,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
   "player_id": 456,
   "name": "John Smith",
   "invite_token": "abc123...",
-  "invite_url": "https://beachkings.com/invite/abc123..."
+  "invite_url": "https://beachleaguevb.com/invite/abc123..."
 }
 ```
 
