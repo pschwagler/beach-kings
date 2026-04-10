@@ -3,29 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
-<title>Claim Your Matches - Beach League Mobile</title>
+<link rel="stylesheet" href="shared.css">
+<title>Claim Your Games - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  /* ── State Switcher ── */
-  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
-  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
-  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
-  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
 
   .state { display: none; }
   .state.active { display: block; }
 
   /* ── Chrome ── */
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
   .top-nav .spacer { min-width: 44px; }
 
   /* ── Welcome Header ── */
@@ -38,7 +26,7 @@
   .welcome-league .league-name { font-size: 13px; font-weight: 600; color: #1a3a4a; }
 
   /* ── Content ── */
-  .content { padding: 0 16px 36px; }
+  .content { padding: 0 16px 20px; }
 
   .claim-summary { display: flex; align-items: center; gap: 12px; padding: 16px; margin: 16px 0; background: #fdf8ed; border-radius: 12px; border: 1px solid #f0e0b0; }
   .claim-count { font-size: 32px; font-weight: 900; color: #d4a843; line-height: 1; }
@@ -64,7 +52,7 @@
   /* ── Match Cards ── */
   .claim-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .claim-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .claim-session { font-size: 12px; font-weight: 600; color: #888; }
+  .claim-session { font-size: 12px; font-weight: 600; color: #666; }
   .claim-date { font-size: 11px; color: #999; }
   .claim-teams { display: flex; align-items: center; gap: 8px; }
   .claim-team { flex: 1; }
@@ -97,7 +85,7 @@
   .step-label { font-size: 13px; font-weight: 600; color: #444; }
   .step-label.active { color: #2a7d9c; }
   .step-label.pending { color: #aaa; }
-  .processing-note { font-size: 12px; color: #888; text-align: center; line-height: 1.5; }
+  .processing-note { font-size: 12px; color: #666; text-align: center; line-height: 1.5; }
 
   /* ── Success State ── */
   .success-area { display: flex; flex-direction: column; align-items: center; padding: 40px 24px 36px; gap: 20px; }
@@ -128,12 +116,6 @@
   .error-detail-body { font-size: 13px; color: #555; line-height: 1.5; }
   .error-tip { font-size: 12px; color: #999; text-align: center; line-height: 1.5; padding: 0 8px; }
 
-  /* ── Tab Bar ── */
-  .tab-bar { position: fixed; bottom: 0; left: 0; width: 390px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; padding: 8px 0 20px; }
-  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; cursor: pointer; }
-  .tab-icon { font-size: 20px; }
-  .tab-label { font-size: 10px; color: #999; }
-  .tab-item.active .tab-icon, .tab-item.active .tab-label { color: #2a7d9c; }
 </style>
 </head>
 <body>
@@ -149,7 +131,7 @@
   </div>
 </div>
 
-<!-- ══ STATE: Review Matches ══ -->
+<!-- ══ STATE: Review Games ══ -->
 <div class="state active" id="state-review">
 
   <div class="status-bar">
@@ -158,15 +140,15 @@
   </div>
 
   <div class="top-nav">
-    <a href="#" class="back">&larr;</a>
-    <div class="title">Claim Your Matches</div>
+    <a href="welcome.html" class="back">&larr;</a>
+    <div class="title">Claim Your Games</div>
     <div class="spacer"></div>
   </div>
 
   <div class="welcome-header">
     <div class="welcome-icon">&#127952;</div>
     <div class="welcome-title">Welcome to Beach League!</div>
-    <div class="welcome-sub">Someone recorded matches with you. Claim them to start tracking your stats.</div>
+    <div class="welcome-sub">Someone recorded games with you. Claim them to start tracking your stats.</div>
     <div class="welcome-league">
       <span class="league-icon">&#127942;</span>
       <span class="league-name">QBK Open Men - Mornings</span>
@@ -177,7 +159,7 @@
 
     <div class="claim-summary">
       <div class="claim-count">5</div>
-      <div class="claim-text"><strong>5 unclaimed matches</strong><br/>from 2 sessions this week</div>
+      <div class="claim-text"><strong>5 unclaimed games</strong><br/>from 2 sessions this week</div>
     </div>
 
     <!-- Inherited stats preview callout -->
@@ -192,13 +174,13 @@
           <div class="inherit-rating-label">Rating</div>
         </div>
         <div class="inherit-details">
-          <div class="inherit-headline">You'll inherit a 1380 rating from 12 matches</div>
+          <div class="inherit-headline">You'll inherit a 1380 rating from 12 games</div>
           <div class="inherit-sub">3W &ndash; 2L this week &middot; 8W &ndash; 4L overall</div>
         </div>
       </div>
     </div>
 
-    <div class="section-title">Your Matches</div>
+    <div class="section-title">Your Games</div>
 
     <div class="claim-card">
       <div class="claim-card-header">
@@ -255,7 +237,7 @@
     </div>
 
     <div class="claim-actions">
-      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Matches</button>
+      <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Games</button>
       <button class="btn-secondary">Not me, skip</button>
     </div>
 
@@ -272,7 +254,7 @@
   </div>
 
   <div class="top-nav">
-    <a href="#" class="back">&larr;</a>
+    <a href="#" class="back" style="visibility: hidden;">&larr;</a>
     <div class="title">Linking Account</div>
     <div class="spacer"></div>
   </div>
@@ -292,7 +274,7 @@
       </div>
       <div class="processing-step">
         <div class="step-dot active">&#8226;</div>
-        <span class="step-label active">Merging match history &amp; stats&hellip;</span>
+        <span class="step-label active">Merging game history &amp; stats&hellip;</span>
       </div>
       <div class="processing-step">
         <div class="step-dot pending">&#8226;</div>
@@ -330,7 +312,7 @@
 
     <div class="success-title">You&rsquo;re all set!</div>
 
-    <div class="success-desc">Your match history and rating have been merged into your account. Welcome to the league.</div>
+    <div class="success-desc">Your game history and rating have been merged into your account. Welcome to the league.</div>
 
     <div class="success-card">
       <div class="success-card-title">Your profile at a glance</div>
@@ -343,7 +325,7 @@
       </div>
 
       <div class="stat-row">
-        <span class="stat-label">Matches inherited</span>
+        <span class="stat-label">Games inherited</span>
         <span class="stat-value">12</span>
       </div>
       <div class="stat-row">
@@ -376,8 +358,8 @@
   </div>
 
   <div class="top-nav">
-    <a href="#" class="back">&larr;</a>
-    <div class="title">Claim Your Matches</div>
+    <a href="welcome.html" class="back">&larr;</a>
+    <div class="title">Claim Your Games</div>
     <div class="spacer"></div>
   </div>
 
@@ -397,35 +379,12 @@
     <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
     <button class="btn-outline" style="width: 100%;">Contact League Admin</button>
 
-    <p class="error-tip">Joined the league through a different link? Log in to your existing account to see your matches.</p>
+    <p class="error-tip">Joined the league through a different link? Log in to your existing account to see your games.</p>
 
   </div>
 
 </div>
 
-<!-- ── Tab Bar ── -->
-<div class="tab-bar">
-  <div class="tab-item">
-    <div class="tab-icon">&#127968;</div>
-    <div class="tab-label">Home</div>
-  </div>
-  <div class="tab-item">
-    <div class="tab-icon">&#127942;</div>
-    <div class="tab-label">Leagues</div>
-  </div>
-  <div class="tab-item">
-    <div class="tab-icon">&#10133;</div>
-    <div class="tab-label">Add</div>
-  </div>
-  <div class="tab-item">
-    <div class="tab-icon">&#128172;</div>
-    <div class="tab-label">Messages</div>
-  </div>
-  <div class="tab-item active">
-    <div class="tab-icon">&#128100;</div>
-    <div class="tab-label">Profile</div>
-  </div>
-</div>
 
 <script>
 function setState(state, pill) {

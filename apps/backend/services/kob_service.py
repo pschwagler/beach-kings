@@ -580,9 +580,9 @@ async def submit_score(
     )
     match = result.scalar_one_or_none()
     if not match:
-        raise ValueError("Match not found")
+        raise ValueError("Game not found")
     if match.is_bye:
-        raise ValueError("Cannot score a bye match")
+        raise ValueError("Cannot score a bye game")
     if match.round_num != tournament.current_round:
         raise ValueError(
             f"Match is in round {match.round_num}, "
@@ -606,7 +606,7 @@ async def submit_score(
     else:
         # Single-game scoring (existing behavior)
         if match.winner is not None:
-            raise ValueError("Match already scored")
+            raise ValueError("Game already scored")
         match.team1_score = team1_score
         match.team2_score = team2_score
         match.winner = 1 if team1_score > team2_score else 2
@@ -662,7 +662,7 @@ async def update_score(
     )
     match = result.scalar_one_or_none()
     if not match:
-        raise ValueError("Match not found")
+        raise ValueError("Game not found")
 
     settings = _effective_game_settings(tournament, match.phase)
 

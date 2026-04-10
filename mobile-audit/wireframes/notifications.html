@@ -3,22 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>Notifications - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
-
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; }
 
   /* Social Sub-Nav */
   .social-subnav { display: flex; background: #fff; border-bottom: 1px solid #eee; padding: 0 16px; }
-  .social-subnav a { flex: 1; text-align: center; padding: 12px 0; font-size: 13px; font-weight: 600; color: #666; text-decoration: none; border-bottom: 2px solid transparent; }
+  .social-subnav a { flex: 1; text-align: center; padding: 12px 0; min-height: 44px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #666; text-decoration: none; border-bottom: 2px solid transparent; }
   .social-subnav a.active { color: #1a3a4a; border-bottom-color: #1a3a4a; }
 
   /* Segment Control */
@@ -34,7 +27,7 @@
 
   /* Notification Item */
   .notif-item { display: flex; gap: 12px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; }
-  .notif-item.unread { background: #f0f7ff; }
+  .notif-item.unread { background: #e8f4f8; }
   .notif-item .notif-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ddd; flex-shrink: 0; position: relative; }
   .notif-item .notif-avatar .notif-type { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; background: #1a3a4a; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; }
   .notif-item .notif-avatar .notif-type.friend { background: #2a7d9c; }
@@ -48,20 +41,10 @@
 
   /* Action Buttons (for friend requests) */
   .notif-actions { display: flex; gap: 8px; margin-top: 8px; }
-  .notif-actions .btn-sm { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; min-height: 44px; }
+  .notif-actions .btn-sm { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; min-height: 44px; cursor: pointer; }
   .notif-actions .btn-sm.accept { background: #1a3a4a; color: #fff; }
   .notif-actions .btn-sm.decline { background: #f0f0f0; color: #555; }
 
-  /* Tab Bar */
-  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
-  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
 </style>
 </head>
 <body>
@@ -102,14 +85,14 @@
       <div class="notif-text"><strong>Ken Fawwar</strong> sent you a friend request</div>
       <div class="notif-time">2 hours ago</div>
       <div class="notif-actions">
-        <button class="btn-sm accept">Accept</button>
-        <button class="btn-sm decline">Decline</button>
+        <button class="btn-sm accept" onclick="acceptRequest(this)">Accept</button>
+        <button class="btn-sm decline" onclick="declineRequest(this)">Decline</button>
       </div>
     </div>
     <div class="unread-dot"></div>
   </div>
 
-  <div class="notif-item unread">
+  <div class="notif-item unread" onclick="window.location.href='my-games.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #ddd;">
       <div class="notif-type game">&#10003;</div>
     </div>
@@ -120,9 +103,9 @@
     <div class="unread-dot"></div>
   </div>
 
-  <div class="notif-item unread">
+  <div class="notif-item unread" onclick="window.location.href='league-dashboard.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #e8d5b7;">
-      <div class="notif-type league">👑</div>
+      <div class="notif-type league">&#128081;</div>
     </div>
     <div class="notif-body">
       <div class="notif-text">You moved to <strong>#1</strong> in QBK Open Men standings!</div>
@@ -133,7 +116,7 @@
 
   <div class="section-label">Yesterday</div>
 
-  <div class="notif-item">
+  <div class="notif-item" onclick="window.location.href='my-games.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #ddd;">
       <div class="notif-type game">&#10003;</div>
     </div>
@@ -143,7 +126,7 @@
     </div>
   </div>
 
-  <div class="notif-item">
+  <div class="notif-item" onclick="window.location.href='player-profile.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #c8e6c9;">
       <div class="notif-type friend">+</div>
     </div>
@@ -155,9 +138,9 @@
 
   <div class="section-label">This Week</div>
 
-  <div class="notif-item">
+  <div class="notif-item" onclick="window.location.href='league-dashboard.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #e8d5b7;">
-      <div class="notif-type league">👑</div>
+      <div class="notif-type league">&#128081;</div>
     </div>
     <div class="notif-body">
       <div class="notif-text"><strong>NYC Fun League</strong> Spring 2026 season is now active. Check standings!</div>
@@ -165,7 +148,7 @@
     </div>
   </div>
 
-  <div class="notif-item">
+  <div class="notif-item" onclick="window.location.href='my-stats.html'" style="cursor:pointer;">
     <div class="notif-avatar" style="background: #ddd;">
       <div class="notif-type game">&#10003;</div>
     </div>
@@ -182,6 +165,10 @@
     <div class="notif-body">
       <div class="notif-text"><strong>S. Jindash</strong> sent you a friend request</div>
       <div class="notif-time">5 days ago</div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button style="flex:1; padding:8px; border-radius:8px; border:none; background:#1a3a4a; color:#fff; font-size:13px; font-weight:600; min-height:44px; cursor:pointer;" onclick="acceptRequest(this)">Accept</button>
+        <button style="flex:1; padding:8px; border-radius:8px; border:1.5px solid #e0e0e0; background:#fff; color:#1a1a1a; font-size:13px; font-weight:600; min-height:44px; cursor:pointer;" onclick="declineRequest(this)">Decline</button>
+      </div>
     </div>
   </div>
 
@@ -209,6 +196,15 @@
     <div class="tab-label">Profile</div>
   </a>
 </div>
+
+<script>
+function acceptRequest(btn) {
+  btn.parentNode.innerHTML = '<span style="color:#15803d;font-size:13px;font-weight:600">Accepted</span>';
+}
+function declineRequest(btn) {
+  btn.parentNode.innerHTML = '<span style="color:#999;font-size:13px">Declined</span>';
+}
+</script>
 
 </body>
 </html>

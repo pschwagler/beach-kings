@@ -85,7 +85,7 @@ export default function PendingInvitesTab() {
     try {
       const result = await deletePlaceholderPlayer(deleteTarget.player_id);
       showToast(
-        `Removed ${deleteTarget.name ?? 'player'}. ${result.affected_matches} match${result.affected_matches === 1 ? '' : 'es'} updated.`,
+        `Removed ${deleteTarget.name ?? 'player'}. ${result.affected_matches} game${result.affected_matches === 1 ? '' : 's'} updated.`,
         'success'
       );
       setPlaceholders((prev) =>
@@ -169,7 +169,7 @@ export default function PendingInvitesTab() {
                 )}
                 <div className="pending-invites__meta">
                   <span className="pending-invites__matches">
-                    {p.match_count} match{p.match_count === 1 ? '' : 'es'}
+                    {p.match_count} game{p.match_count === 1 ? '' : 's'}
                   </span>
                   <span className="pending-invites__date">{formatDate(p.created_at)}</span>
                 </div>
@@ -210,7 +210,7 @@ export default function PendingInvitesTab() {
         title="Delete Placeholder Player"
         message={
           deleteTarget
-            ? `This will replace "${deleteTarget.name}" with "Unknown Player" in ${deleteTarget.match_count} match${deleteTarget.match_count === 1 ? '' : 'es'}. Those matches will become permanently unranked. This cannot be undone.`
+            ? `This will replace "${deleteTarget.name}" with "Unknown Player" in ${deleteTarget.match_count} game${deleteTarget.match_count === 1 ? '' : 's'}. Those games will become permanently unranked. This cannot be undone.`
             : ''
         }
         confirmText="Delete"

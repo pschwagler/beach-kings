@@ -27,7 +27,7 @@ export default function SessionActions({
       {showAdd && (
         <Button variant="outline" onClick={onAddMatchClick} data-testid="session-btn-add" className="session-btn">
           <Plus size={16} />
-          Add New Match
+          Add New Game
         </Button>
       )}
       {showEditActions ? (

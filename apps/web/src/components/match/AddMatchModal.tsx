@@ -694,7 +694,7 @@ export default function AddMatchModal({
               disabled={isSubmitting}
               className="delete-match-text-btn"
             >
-              Delete match
+              Delete game
             </button>
           )}
           <Button type="button" onClick={onClose} disabled={isSubmitting}>

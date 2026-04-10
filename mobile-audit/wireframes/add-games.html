@@ -3,19 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>Add Games - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  /* ── State Switcher (design tool, not part of UI) ── */
-  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
-  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
-  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
-  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
+
 
   /* State visibility */
   .state-has-session { display: block; }
@@ -23,11 +16,7 @@
   body.no-session .state-has-session { display: none !important; }
   body.no-session .state-no-session { display: block !important; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .top-nav .spacer { width: 60px; }
 
   /* Content */
   .content { padding: 16px; padding-bottom: 100px; }
@@ -72,16 +61,6 @@
   .game-type-desc { font-size: 12px; color: #666; line-height: 1.4; }
   .game-type-chevron { color: #ccc; font-size: 18px; font-weight: 300; }
 
-  /* Tab Bar */
-  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
-  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
 </style>
 </head>
 <body>
@@ -152,7 +131,7 @@
     <div class="game-type-icon league">&#127942;</div>
     <div class="game-type-info">
       <div class="game-type-title">League Game</div>
-      <div class="game-type-desc">Record a match in one of your leagues</div>
+      <div class="game-type-desc">Record a game in one of your leagues</div>
     </div>
     <span class="game-type-chevron">&#8250;</span>
   </a>

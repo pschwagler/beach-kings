@@ -3,18 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>Log In - Beach League</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .top-nav .spacer { width: 60px; }
+
 
   .content { padding: 32px 24px; }
 
@@ -31,6 +26,8 @@
   .form-input::placeholder { color: #bbb; }
 
   .btn-login { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 24px; }
+
+  .forgot-link { font-size: 13px; color: #2a7d9c; text-align: right; display: block; margin-top: 8px; text-decoration: none; }
 
   /* Divider */
   .divider { display: flex; align-items: center; gap: 12px; margin: 28px 0; }
@@ -78,6 +75,8 @@
     <div class="form-label">Password</div>
     <input class="form-input" type="password" placeholder="Enter your password" />
   </div>
+
+  <a href="forgot-password.html" class="forgot-link">Forgot Password?</a>
 
   <button class="btn-login" onclick="window.location.href='home.html'">Log In</button>
 

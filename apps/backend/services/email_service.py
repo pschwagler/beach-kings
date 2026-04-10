@@ -73,6 +73,7 @@ async def send_feedback_email(
     user_phone: Optional[str] = None,
     timestamp: Optional[datetime] = None,
     session: Optional[AsyncSession] = None,
+    category: str = "feedback",
 ) -> bool:
     """
     Send feedback notification email to admin via SendGrid.
@@ -84,6 +85,7 @@ async def send_feedback_email(
         user_phone: Phone number of authenticated user (if logged in)
         timestamp: When the feedback was submitted
         session: Optional database session for checking database settings
+        category: "feedback" or "support"
 
     Returns:
         bool: True if email was sent successfully, False otherwise
@@ -101,11 +103,12 @@ async def send_feedback_email(
 
     try:
         # Format the email content
-        subject = f"New Feedback Received - {APP_NAME}"
+        label = "Support Request" if category == "support" else "Feedback"
+        subject = f"New {label} Received - {APP_NAME}"
 
         # Build the email body
         body_lines = [
-            "New feedback has been submitted:",
+            f"New {label.lower()} has been submitted:",
             "",
             "=" * 60,
             "FEEDBACK:",

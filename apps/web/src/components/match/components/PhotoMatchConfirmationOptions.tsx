@@ -40,7 +40,7 @@ export default function PhotoMatchConfirmationOptions({
         </select>
       </div>
       <div className="option-row">
-        <label>Match Date</label>
+        <label>Game Date</label>
         <input
           type="date"
           value={matchDate}

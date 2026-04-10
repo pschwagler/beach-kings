@@ -3,18 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>Complete Profile - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
+
 
   /* Modal Overlay */
   .modal-overlay { position: fixed; inset: 0; width: 390px; min-height: 844px; background: rgba(0,0,0,0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; z-index: 100; }
 
-  .modal-sheet { background: #fff; border-radius: 20px; width: calc(100% - 32px); max-width: 358px; padding: 28px 24px 32px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+  .modal-sheet { background: #fff; border-radius: 20px; width: calc(100% - 32px); max-width: 358px; padding: 28px 24px 32px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); overflow-y: auto; max-height: calc(100vh - 120px); }
 
   /* Header */
   .modal-logo { text-align: center; margin-bottom: 8px; }
@@ -43,6 +42,8 @@
   /* Save Button */
   .btn-save { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 24px; }
   .btn-save:disabled { background: #e0d5c0; color: #fff; }
+
+  .skip-link { font-size: 13px; color: #666; text-align: center; display: block; margin-top: 12px; text-decoration: none; }
 
   /* Helper text */
   .helper-text { font-size: 11px; color: #999; margin-top: 4px; }
@@ -98,12 +99,6 @@
       </div>
 
       <div class="form-group">
-        <div class="form-label"><span class="req">*</span> City</div>
-        <input class="form-input" type="text" placeholder="Start typing a city..." />
-        <div class="helper-text">Used to find leagues and players near you</div>
-      </div>
-
-      <div class="form-group">
         <div class="form-label"><span class="req">*</span> Location</div>
         <select class="form-select placeholder">
           <option value="" disabled selected>Select location</option>
@@ -138,10 +133,11 @@
 
       <div class="form-group">
         <div class="form-label">Date of Birth</div>
-        <input class="form-input" type="text" placeholder="MM/DD/YYYY" />
+        <input class="form-input" type="date" />
       </div>
 
       <button class="btn-save" onclick="document.getElementById('form-content').style.display='none'; document.querySelector('.success-content').style.display='block';">Save Profile</button>
+      <a href="home.html" class="skip-link">Skip for now</a>
 
     </div>
 

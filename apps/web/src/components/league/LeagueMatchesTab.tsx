@@ -447,7 +447,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         <div className="league-section">
           <div className="empty-state">
             <Swords size={48} className="large-empty-state-icon" />
-            <p>No seasons found. Please create a season to log league matches.</p>
+            <p>No seasons found. Please create a season to log league games.</p>
             <button 
               className="league-text-button primary" 
               onClick={() => setShowCreateSeasonModal(true)}
@@ -474,7 +474,7 @@ export default function LeagueMatchesTab({ seasonIdFromUrl = null, autoOpenAddMa
         <div className="league-section">
           <div className="empty-state">
             <Swords size={48} className="large-empty-state-icon" />
-            <p>This league has less than 4 registered players. Invite more players to begin logging league matches.</p>
+            <p>This league has less than 4 registered players. Invite more players to begin logging league games.</p>
             <button 
               className="league-text-button primary" 
               onClick={() => setShowAddPlayerModal(true)}

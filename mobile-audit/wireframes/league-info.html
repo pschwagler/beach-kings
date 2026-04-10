@@ -3,18 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>League Info - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
-
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; text-decoration: none; }
 
   /* League Header */
   .league-header { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
@@ -27,7 +20,7 @@
 
   /* Segment Control */
   .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
-  .segment-control .segment { flex: 1; text-align: center; padding: 10px 4px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 14px 4px; min-height: 44px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
   .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
   /* Content */
@@ -46,47 +39,116 @@
   /* Description */
   .description { font-size: 13px; line-height: 1.6; color: #555; }
 
-  /* Rules List */
-  .rules-list { list-style: none; }
-  .rules-list li { font-size: 13px; color: #555; padding: 6px 0; border-bottom: 1px solid #f0f0f0; display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
-  .rules-list li:last-child { border-bottom: none; }
-  .rules-list li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2a7d9c; margin-top: 6px; flex-shrink: 0; }
+  /* Details Header (title + action link) */
+  .details-header { display: flex; justify-content: space-between; align-items: center; padding: 0; }
+  .leave-link { background: none; border: none; color: #ef4444; font-size: 13px; font-weight: 500; padding: 0; cursor: pointer; }
+  .add-link { background: none; border: none; color: #2a7d9c; font-size: 13px; font-weight: 500; padding: 0; cursor: pointer; }
 
-  /* Admin Section */
-  .admin-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-  .admin-row:last-child { border-bottom: none; }
-  .admin-row .admin-avatar { width: 36px; height: 36px; border-radius: 50%; background: #7fb3c7; flex-shrink: 0; }
-  .admin-row .admin-info { flex: 1; }
-  .admin-row .admin-name { font-size: 13px; font-weight: 600; }
-  .admin-row .admin-role { font-size: 11px; color: #666; }
+  /* Players Section */
+  .player-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .player-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
+  .player-info { flex: 1; }
+  .player-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .player-joined { font-size: 11px; color: #666; margin-top: 2px; }
+  .role-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: #f0f0f0; color: #666; text-transform: capitalize; }
+  .role-badge.role-admin { background: #e8f4f8; color: #2a7d9c; }
 
-  /* Awards Section */
-  .award-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-  .award-row:last-child { border-bottom: none; }
-  .award-icon { font-size: 24px; flex-shrink: 0; }
-  .award-info { flex: 1; }
-  .award-title { font-size: 13px; font-weight: 600; }
-  .award-desc { font-size: 11px; color: #666; margin-top: 2px; }
-  .award-winner { font-size: 12px; color: #2a7d9c; font-weight: 600; }
+  /* Seasons Section */
+  .season-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+  .season-info { flex: 1; }
+  .season-name { font-size: 14px; font-weight: 600; }
+  .season-dates { font-size: 12px; color: #666; margin-top: 2px; }
+  .season-scoring { font-size: 11px; color: #666; margin-top: 2px; }
+  .season-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; flex-shrink: 0; }
+  .season-badge.season-active { background: #dcfce7; color: #15803d; }
+  .season-badge.season-past { background: #f0f0f0; color: #666; }
 
-  /* Action Buttons */
-  .action-row { display: flex; gap: 10px; margin-top: 16px; }
-  .btn-primary { flex: 1; padding: 12px; border-radius: 10px; border: none; background: #1a3a4a; color: #fff; font-size: 14px; font-weight: 600; text-align: center; }
-  .btn-outline { flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid #ef4444; background: transparent; color: #ef4444; font-size: 14px; font-weight: 600; text-align: center; }
+  /* Court Pills */
+  .court-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .court-pill { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; background: #f0f0f0; color: #555; display: flex; align-items: center; gap: 4px; }
+  .court-pill.court-pill-primary { background: #e8f4f8; color: #2a7d9c; }
+  .court-pill .pill-star { color: #d4a843; font-size: 11px; }
+  .court-pill .pill-remove { color: #999; font-size: 13px; font-weight: 700; cursor: pointer; margin-left: 2px; }
+  .court-pill .pill-remove:hover { color: #ef4444; }
+  .court-add-btn { font-size: 12px; color: #2a7d9c; background: none; border: 1.5px dashed #2a7d9c; border-radius: 6px; padding: 3px 10px; cursor: pointer; min-width: 44px; min-height: 44px; }
 
-  /* Tab Bar */
-  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
-  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
+  /* State Switcher (outside phone frame) */
+  body { width: 390px; }
+  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; width: 100%; }
+  .status-bar, .top-nav, .league-header, .segment-control, .content, .tab-bar { width: 390px; }
+
+  /* Admin-only elements */
+  .admin-only { display: none; }
+  body.admin-view .admin-only { display: flex; }
+  body.admin-view .member-only { display: none; }
+
+  /* Visitor states */
+  .visitor-only { display: none; }
+  .visitor-open-only { display: none; }
+  .visitor-invite-only { display: none; }
+  body.visitor-open .visitor-only { display: block; }
+  body.visitor-open .visitor-open-only { display: block; }
+  body.visitor-open .member-view-only { display: none !important; }
+  body.visitor-open .admin-only { display: none !important; }
+  body.visitor-invite .visitor-only { display: block; }
+  body.visitor-invite .visitor-invite-only { display: block; }
+  body.visitor-invite .member-view-only { display: none !important; }
+  body.visitor-invite .admin-only { display: none !important; }
+
+  /* Visitor action hero */
+  .visitor-action { background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px; text-align: center; }
+  .visitor-action .btn-request-join { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 48px; }
+  .visitor-action .btn-invite-only { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: #f9fafb; color: #999; font-size: 15px; font-weight: 600; min-height: 48px; }
+  .visitor-action .action-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+
+  /* Visitor access badge in header */
+  .header-access-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .header-access-badge.open { background: #dcfce7; color: #15803d; }
+  .header-access-badge.invite { background: #f3f4f6; color: #6b7280; }
+
+  /* Join Requests (admin only) */
+  .request-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .request-row:last-child { border-bottom: none; }
+  .request-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
+  .request-info { flex: 1; }
+  .request-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .request-meta { font-size: 11px; color: #666; margin-top: 2px; }
+  .request-level { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+  .request-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn-approve { width: 36px; height: 36px; border-radius: 50%; border: none; background: #dcfce7; color: #15803d; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; min-width: 44px; min-height: 44px; }
+  .btn-deny { width: 36px; height: 36px; border-radius: 50%; border: none; background: #fee2e2; color: #dc2626; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; min-width: 44px; min-height: 44px; }
+  .request-count { font-size: 12px; font-weight: 700; color: #fff; background: #ef4444; border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
+
+  /* Edit icon */
+  .edit-icon { background: none; border: none; color: #999; font-size: 14px; cursor: pointer; padding: 2px; min-width: 44px; min-height: 44px; }
+
+  /* Player remove button */
+  .player-remove { background: none; border: none; color: #ccc; font-size: 16px; cursor: pointer; padding: 4px; flex-shrink: 0; min-width: 44px; min-height: 44px; }
+
+  /* Role select dropdown (admin) */
+  .role-select { font-size: 11px; font-weight: 600; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #2a7d9c; appearance: auto; cursor: pointer; }
+
+  /* Info select dropdown (admin) */
+  .info-select { font-size: 13px; font-weight: 600; padding: 2px 6px; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #1a1a1a; text-align: right; appearance: auto; cursor: pointer; }
+
+  /* Season edit button */
+  .season-edit { background: none; border: none; color: #999; font-size: 13px; cursor: pointer; padding: 2px 4px; margin-left: 4px; min-width: 44px; min-height: 44px; }
+
+
 </style>
 </head>
 <body>
+
+<!-- State Switcher (outside phone frame) -->
+<div class="state-switcher">
+  <div class="sw-label">View Mode</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setView('member', this)">Member</button>
+    <button class="sw-pill" onclick="setView('admin', this)">Admin</button>
+    <button class="sw-pill" onclick="setView('visitor-open', this)">Visitor (Open)</button>
+    <button class="sw-pill" onclick="setView('visitor-invite', this)">Visitor (Invite)</button>
+  </div>
+</div>
 
 <div class="status-bar">
   <span>9:41</span>
@@ -96,7 +158,8 @@
 <div class="top-nav">
   <a href="leagues-tab.html" class="back">&larr; Leagues</a>
   <div class="title">League</div>
-  <a href="pending-invites.html" class="action">Invites</a>
+  <a href="score-league.html" class="action member-view-only" style="text-decoration:none; color:#fff; font-size: 12px; font-weight: 700; background: #d4a843; padding: 8px 14px; border-radius: 8px;">+ Add Game</a>
+  <div class="action visitor-only" style="width:44px;"></div>
 </div>
 
 <div class="league-header">
@@ -108,142 +171,270 @@
   <div class="league-badges">
     <span class="badge active">Season Active</span>
     <span class="badge rank">#1 Ranked</span>
+    <span class="header-access-badge open visitor-open-only">Open</span>
+    <span class="header-access-badge invite visitor-invite-only">&#128274; Invite Only</span>
   </div>
 </div>
 
-<div class="segment-control">
-  <a href="league-dashboard.html" class="segment" style="text-decoration:none; color:#888;">Standings</a>
-  <a href="league-matches.html" class="segment" style="text-decoration:none; color:#888;">Matches</a>
-  <a href="league-chat.html" class="segment" style="text-decoration:none; color:#888;">Chat</a>
-  <a href="league-signups.html" class="segment" style="text-decoration:none; color:#888;">Sign Ups</a>
+<div class="segment-control member-view-only">
+  <a href="league-matches.html" class="segment" style="text-decoration:none; color:#666;">Games</a>
+  <a href="league-dashboard.html" class="segment" style="text-decoration:none; color:#666;">Standings</a>
+  <a href="league-chat.html" class="segment" style="text-decoration:none; color:#666;">Chat</a>
+  <a href="league-signups.html" class="segment" style="text-decoration:none; color:#666;">Sign Ups</a>
   <div class="segment active">Info</div>
 </div>
 
 <div class="content">
 
-  <div class="section-title">Details</div>
-  <div class="info-card">
-    <div class="info-row">
-      <span class="info-label">Format</span>
-      <span class="info-value">2v2 Beach Volleyball</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Gender</span>
-      <span class="info-value">Men's Open</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Level</span>
-      <span class="info-value">Open / Advanced</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Court</span>
-      <span class="info-value"><a href="court-detail.html">QBK Sports, Queens</a></span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Schedule</span>
-      <span class="info-value">Sat & Sun, 8-11 AM</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Season</span>
-      <span class="info-value">Spring 2026</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Started</span>
-      <span class="info-value">Jan 15, 2026</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Total Games</span>
-      <span class="info-value">187</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Sessions</span>
-      <span class="info-value">12 completed</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Rating System</span>
-      <span class="info-value">ELO (K=32)</span>
-    </div>
+  <!-- Visitor: Request to Join action (open leagues) -->
+  <div class="visitor-action visitor-open-only" style="margin-top: 12px;">
+    <button class="btn-request-join">Request to Join</button>
+    <div class="action-hint">The league admin will review your request.</div>
   </div>
 
-  <div class="section-title">Description</div>
-  <div class="info-card">
+  <!-- Visitor: Invite Only messaging -->
+  <div class="visitor-action visitor-invite-only" style="margin-top: 12px;">
+    <div class="btn-invite-only">&#128274; Invite Only</div>
+    <div class="action-hint">This league is invite only. Ask a member or admin for an invite.</div>
+  </div>
+
+  <!-- Section Header -->
+  <div class="section-title" style="margin-top: 12px;">League Details</div>
+
+  <!-- Description: matches web DescriptionSection -->
+  <div class="info-card" style="position: relative;">
     <div class="description">
       Competitive morning league at QBK Sports in Queens. Open level players welcome. Games to 21, win by 2, cap at 25. Random partner pairings each session. Rating-based seeding for balanced matchups.
     </div>
+    <button class="edit-icon admin-only" style="position: absolute; top: 12px; right: 12px;" title="Edit description">&#9998;</button>
   </div>
 
-  <div class="section-title">Rules</div>
+  <!-- Join Requests: admin only -->
+  <div class="details-header admin-only" style="margin-top: 16px;">
+    <div class="section-title" style="margin-top: 0;">Join Requests <span class="request-count">3</span></div>
+  </div>
+  <div class="info-card admin-only" style="flex-direction: column;">
+    <div class="request-row">
+      <div class="request-avatar" style="background: #e8d5b7;">T</div>
+      <div class="request-info">
+        <div class="request-name">Tyler Brooks <span class="request-level" style="background: #ede9fe; color: #5b21b6;">Intermediate</span></div>
+        <div class="request-meta">Requested 2 hours ago</div>
+      </div>
+      <div class="request-actions">
+        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-deny" title="Deny">&times;</button>
+      </div>
+    </div>
+    <div class="request-row">
+      <div class="request-avatar" style="background: #a5d6a7;">R</div>
+      <div class="request-info">
+        <div class="request-name">Ryan Ortiz <span class="request-level" style="background: #d1fae5; color: #065f46;">Beginner</span></div>
+        <div class="request-meta">Requested 1 day ago</div>
+      </div>
+      <div class="request-actions">
+        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-deny" title="Deny">&times;</button>
+      </div>
+    </div>
+    <div class="request-row">
+      <div class="request-avatar" style="background: #ef9a9a;">N</div>
+      <div class="request-info">
+        <div class="request-name">Nora Chen <span class="request-level" style="background: #ffedd5; color: #9a3412;">Advanced</span></div>
+        <div class="request-meta">Requested 3 days ago</div>
+      </div>
+      <div class="request-actions">
+        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-deny" title="Deny">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Players: matches web PlayersSection -->
+  <div class="details-header" style="margin-top: 16px;">
+    <div class="section-title" style="margin-top: 0;">Players</div>
+    <a href="league-invite.html" class="add-link admin-only" style="text-decoration:none;">+ Add Players</a>
+  </div>
   <div class="info-card">
-    <ul class="rules-list">
-      <li>Games to 21, rally scoring, win by 2</li>
-      <li>Cap at 25 points</li>
-      <li>Switch sides every 7 points</li>
-      <li>Random partner assignments each session</li>
-      <li>Must play minimum 3 games per session</li>
-      <li>No-show penalty: -10 rating points</li>
-    </ul>
+    <!-- Current user (you) - no edit controls even in admin view -->
+    <div class="player-row">
+      <div class="player-avatar" style="background: #7fb3c7;">P</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">Patrick Schwagler (You) <span class="role-badge role-admin">admin</span></div>
+        <div class="player-joined">Joined 3 months ago</div>
+      </div>
+    </div>
+    <!-- Other admin - editable role + removable in admin view -->
+    <div class="player-row">
+      <div class="player-avatar" style="background: #c8e6c9;">C</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">
+          Colan Gulla
+          <span class="role-badge role-admin member-only">admin</span>
+          <select class="role-select admin-only"><option selected>admin</option><option>member</option></select>
+        </div>
+        <div class="player-joined">Joined 3 months ago</div>
+      </div>
+      <button class="player-remove admin-only" title="Remove player" onclick="document.getElementById('remove-player-modal').style.display='flex'">&times;</button>
+    </div>
+    <div class="player-row">
+      <div class="player-avatar" style="background: #ffe0b2;">M</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">
+          Mike Rivera
+          <span class="role-badge member-only">member</span>
+          <select class="role-select admin-only"><option>admin</option><option selected>member</option></select>
+        </div>
+        <div class="player-joined">Joined 2 months ago</div>
+      </div>
+      <button class="player-remove admin-only" title="Remove player" onclick="document.getElementById('remove-player-modal').style.display='flex'">&times;</button>
+    </div>
+    <div class="player-row">
+      <div class="player-avatar" style="background: #bbdefb;">J</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">
+          James Chen
+          <span class="role-badge member-only">member</span>
+          <select class="role-select admin-only"><option>admin</option><option selected>member</option></select>
+        </div>
+        <div class="player-joined">Joined 6 weeks ago</div>
+      </div>
+      <button class="player-remove admin-only" title="Remove player" onclick="document.getElementById('remove-player-modal').style.display='flex'">&times;</button>
+    </div>
+    <div class="player-row">
+      <div class="player-avatar" style="background: #d1c4e9;">A</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">
+          Alex Torres
+          <span class="role-badge member-only">member</span>
+          <select class="role-select admin-only"><option>admin</option><option selected>member</option></select>
+        </div>
+        <div class="player-joined">Joined 4 weeks ago</div>
+      </div>
+      <button class="player-remove admin-only" title="Remove player" onclick="document.getElementById('remove-player-modal').style.display='flex'">&times;</button>
+    </div>
+    <div class="player-row" style="border-bottom: none;">
+      <div class="player-avatar" style="background: #f8bbd0;">D</div>
+      <div class="player-info" style="flex: 1;">
+        <div class="player-name">
+          David Kim
+          <span class="role-badge member-only">member</span>
+          <select class="role-select admin-only"><option>admin</option><option selected>member</option></select>
+        </div>
+        <div class="player-joined">Joined 2 weeks ago</div>
+      </div>
+      <button class="player-remove admin-only" title="Remove player" onclick="document.getElementById('remove-player-modal').style.display='flex'">&times;</button>
+    </div>
   </div>
 
-  <div class="section-title">Season Awards</div>
+  <!-- Seasons: matches web SeasonsSection -->
+  <div class="details-header" style="margin-top: 16px;">
+    <div class="section-title" style="margin-top: 0;">Seasons</div>
+    <button class="add-link admin-only">+ New Season</button>
+  </div>
   <div class="info-card">
-    <div class="award-row">
-      <div class="award-icon">&#127942;</div>
-      <div class="award-info">
-        <div class="award-title">1st Place</div>
-        <div class="award-desc">Highest rating at season end</div>
+    <div class="season-row">
+      <div class="season-info">
+        <div class="season-name">Spring 2026 <button class="season-edit admin-only" title="Edit season">&#9998;</button></div>
+        <div class="season-dates">Jan 15, 2026 - Jun 30, 2026</div>
+        <div class="season-scoring">Season Rating</div>
       </div>
-      <div class="award-winner">--</div>
+      <span class="season-badge season-active">Active</span>
     </div>
-    <div class="award-row">
-      <div class="award-icon">&#129352;</div>
-      <div class="award-info">
-        <div class="award-title">2nd Place</div>
-        <div class="award-desc">Second highest rating</div>
+    <div class="season-row" style="border-bottom: none;">
+      <div class="season-info">
+        <div class="season-name">Fall 2025 <button class="season-edit admin-only" title="Edit season">&#9998;</button></div>
+        <div class="season-dates">Sep 1, 2025 - Dec 31, 2025</div>
+        <div class="season-scoring">Points System (3/1)</div>
       </div>
-      <div class="award-winner">--</div>
-    </div>
-    <div class="award-row">
-      <div class="award-icon">&#129353;</div>
-      <div class="award-info">
-        <div class="award-title">3rd Place</div>
-        <div class="award-desc">Third highest rating</div>
-      </div>
-      <div class="award-winner">--</div>
-    </div>
-    <div class="award-row">
-      <div class="award-icon">&#11088;</div>
-      <div class="award-info">
-        <div class="award-title">Best Partnership</div>
-        <div class="award-desc">Highest win rate as a pair</div>
-      </div>
-      <div class="award-winner">--</div>
+      <span class="season-badge season-past">Past</span>
     </div>
   </div>
 
-  <div class="section-title">Admins</div>
+  <!-- League Information: matches web LeagueInfoSection -->
+  <div class="section-title">League Information</div>
   <div class="info-card">
-    <div class="admin-row">
-      <div class="admin-avatar" style="background: #7fb3c7;"></div>
-      <div class="admin-info">
-        <div class="admin-name">Patrick Schwagler</div>
-        <div class="admin-role">Owner</div>
-      </div>
+    <div class="info-row">
+      <span class="info-label">Access</span>
+      <!-- Member view: static text -->
+      <span class="info-value member-only">Open</span>
+      <!-- Admin view: dropdown -->
+      <select class="info-select admin-only"><option selected>Open</option><option>Invite Only</option></select>
     </div>
-    <div class="admin-row">
-      <div class="admin-avatar" style="background: #c8e6c9;"></div>
-      <div class="admin-info">
-        <div class="admin-name">Colan Gulla</div>
-        <div class="admin-role">Admin</div>
+    <div class="info-row">
+      <span class="info-label">Skill Level</span>
+      <span class="info-value member-only">Open / Advanced</span>
+      <select class="info-select admin-only"><option>None</option><option>Beginner</option><option>Intermediate</option><option selected>Open / Advanced</option><option>Pro</option></select>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Location</span>
+      <span class="info-value member-only">SoCal - San Diego</span>
+      <select class="info-select admin-only"><option>None</option><option selected>SoCal - San Diego</option><option>SoCal - LA</option><option>NorCal - SF</option><option>NYC</option></select>
+    </div>
+    <div class="info-row" style="border-bottom: none;">
+      <span class="info-label">Home Courts</span>
+      <div class="info-value">
+        <!-- Member view: plain pills -->
+        <div class="court-pills member-only">
+          <span class="court-pill court-pill-primary"><span class="pill-star">&#9733;</span> QBK Sports</span>
+          <span class="court-pill">Prospect Park</span>
+        </div>
+        <!-- Admin view: pills with remove + add button -->
+        <div class="court-pills admin-only" style="flex-wrap: wrap;">
+          <span class="court-pill court-pill-primary"><span class="pill-star">&#9733;</span> QBK Sports <span class="pill-remove">&times;</span></span>
+          <span class="court-pill">Prospect Park <span class="pill-remove">&times;</span></span>
+          <button class="court-add-btn">+ Add Court</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="action-row">
-    <button class="btn-primary">Invite Players</button>
-    <button class="btn-outline">Leave League</button>
+  <!-- Leave League: at the bottom (members only) -->
+  <div class="member-view-only" style="text-align: center; margin: 20px 0 8px;">
+    <button class="leave-link" style="font-size: 14px;" onclick="document.getElementById('leave-modal').style.display='flex'">Leave League</button>
   </div>
 
 </div>
+
+<!-- Leave League Modal -->
+<div class="modal-overlay" id="leave-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">&#128682;</div>
+    <div class="modal-title">Leave League?</div>
+    <div class="modal-desc">You will be removed from this league and lose access to its games and standings.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="window.location.href='leagues-tab.html'">Leave League</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('leave-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Player Modal -->
+<div class="modal-overlay" id="remove-player-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">&#128465;</div>
+    <div class="modal-title">Remove Player?</div>
+    <div class="modal-desc">This player will be removed from the league and lose access to its games and standings.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="document.getElementById('remove-player-modal').style.display='none'">Remove Player</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('remove-player-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function setView(view, el) {
+  document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.body.classList.remove('admin-view', 'visitor-open', 'visitor-invite');
+  if (view === 'admin') {
+    document.body.classList.add('admin-view');
+  } else if (view === 'visitor-open') {
+    document.body.classList.add('visitor-open');
+  } else if (view === 'visitor-invite') {
+    document.body.classList.add('visitor-invite');
+  }
+}
+</script>
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">

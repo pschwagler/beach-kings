@@ -105,6 +105,9 @@ async def _patch_missing_columns(conn):
         ("sessions", "location_id", "VARCHAR REFERENCES locations(id)"),
         ("sessions", "latitude", "FLOAT"),
         ("sessions", "longitude", "FLOAT"),
+        # Player name split columns
+        ("players", "first_name", "VARCHAR NOT NULL DEFAULT ''"),
+        ("players", "last_name", "VARCHAR NOT NULL DEFAULT ''"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
     nullable_patches = [

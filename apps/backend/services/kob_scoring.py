@@ -80,7 +80,7 @@ def _apply_bo3_score(
     else:
         # Append new game
         if match.winner is not None:
-            raise ValueError("Match already decided")
+            raise ValueError("Game already decided")
         if len(scores) >= 3:
             raise ValueError("All 3 games already scored")
         scores.append(game_entry)

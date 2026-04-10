@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>League Player Stats - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .state-other { display: block; }
+  .state-self { display: none; }
+  body.self .state-other { display: none !important; }
+  body.self .state-self { display: block !important; }
+
+  /* Tab view states: Stats (default) vs Match History */
+  .tab-breakdown { display: block; }
+  .tab-matches { display: none; }
+  body.matches .tab-breakdown { display: none !important; }
+  body.matches .tab-matches { display: block !important; }
+
+
+  /* Navigation bar — back button returns to league standings */
+  .top-nav .action { width: 44px; }
+
+  /* Player Hero Header */
+  .player-hero { background: #fff; padding: 20px 16px; text-align: center; }
+  .player-hero .avatar { width: 72px; height: 72px; border-radius: 50%; background: #ddd; margin: 0 auto 10px; border: 3px solid #e8f4f8; }
+  .player-hero .avatar.highlighted { background: #7fb3c7; }
+  .player-hero .name { font-size: 20px; font-weight: 700; }
+  .player-hero .meta { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; color: #666; }
+  .player-hero .level-badge { background: #e8f4f8; color: #2a7d9c; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+
+  /* Action buttons */
+  .action-row { display: flex; justify-content: center; gap: 10px; padding: 0 16px 16px; background: #fff; }
+  .btn-primary { background: #1a3a4a; color: #fff; border: none; padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center; gap: 6px; }
+  .btn-outline { background: transparent; color: #1a3a4a; border: 1.5px solid #1a3a4a; padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center; gap: 6px; }
+  .btn-icon { font-size: 14px; }
+
+  /* Self state: "View Full Stats" CTA instead of friend/message buttons */
+  .self-cta { display: flex; justify-content: center; padding: 0 16px 16px; background: #fff; }
+  .btn-self { background: #e8f4f8; color: #2a7d9c; border: none; padding: 10px 24px; border-radius: 10px; font-size: 13px; font-weight: 600; min-height: 44px; }
+
+  /* League Context Banner */
+  .league-context { display: flex; align-items: center; gap: 10px; background: #fdf8ed; border: 1px solid #f0e6cc; margin: 0; padding: 10px 16px; }
+  .league-context .context-icon { font-size: 16px; }
+  .league-context .context-text { font-size: 12px; color: #8b7332; font-weight: 500; }
+  .league-context .context-league { font-weight: 700; color: #6b5a2a; }
+  .league-context .season-select { font-size: 11px; color: #8b7332; margin-left: auto; display: flex; align-items: center; gap: 3px; font-weight: 600; }
+  .league-context .season-select .caret { font-size: 9px; }
+
+  /* Overview Stat Tiles — 3 across */
+  .overview-tiles { display: flex; background: #fff; border-bottom: 1px solid #eee; }
+  .overview-tile { flex: 1; text-align: center; padding: 16px 8px; }
+  .overview-tile + .overview-tile { border-left: 1px solid #f0f0f0; }
+  .overview-tile .tile-value { font-size: 22px; font-weight: 700; color: #1a3a4a; }
+  .overview-tile .tile-label { font-size: 10px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .overview-tile .tile-label .tile-icon { font-size: 12px; }
+  .overview-tile .tile-rank { color: #d4a843; }
+  .overview-tile .tile-delta { font-size: 10px; font-weight: 600; margin-top: 2px; }
+  .overview-tile .tile-delta.up { color: #15803d; }
+
+  /* Inner Segment Control — Matches | Stats */
+  .inner-segment { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 8px; padding: 2px; }
+  .inner-segment .seg { flex: 1; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; border-radius: 6px; color: #666; }
+  .inner-segment .seg.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+
+  .section-title { font-size: 14px; font-weight: 700; margin: 14px 0 8px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Match History Cards */
+  .match-card { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .match-card:last-child { border-bottom: none; }
+  .match-date { width: 46px; flex-shrink: 0; }
+  .match-date .day { font-size: 11px; font-weight: 700; color: #1a3a4a; }
+  .match-date .month { font-size: 10px; color: #999; }
+  .match-info { flex: 1; }
+  .match-info .teams { font-size: 12px; line-height: 1.4; }
+  .match-info .teams .player-name { font-weight: 600; }
+  .match-info .teams .player-name.highlight { color: #d4a843; }
+  .match-info .teams .vs { font-size: 10px; color: #bbb; }
+  .match-score { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; margin-left: 8px; }
+  .match-score .score-w { font-size: 13px; font-weight: 700; color: #1a3a4a; }
+  .match-score .score-l { font-size: 13px; color: #bbb; }
+  .match-result { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin-left: 8px; flex-shrink: 0; min-width: 28px; text-align: center; }
+  .match-result.win { background: #dcfce7; color: #15803d; }
+  .match-result.loss { background: #fee2e2; color: #b91c1c; }
+
+  .show-more { text-align: center; padding: 12px; font-size: 13px; color: #2a7d9c; font-weight: 600; min-height: 44px; display: flex; align-items: center; justify-content: center; width: 100%; background: none; border: none; cursor: pointer; }
+
+  /* Stats Stats Table */
+  .breakdown-section { margin-bottom: 16px; }
+  .breakdown-header { font-size: 12px; font-weight: 700; color: #1a3a4a; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; background: #f8f9fa; border-radius: 12px 12px 0 0; border-bottom: 1px solid #eee; }
+  .breakdown-table { background: #fff; border-radius: 0 0 12px 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .breakdown-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .row-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .breakdown-row .row-name.bold { font-weight: 700; }
+  .breakdown-row .row-stat { width: 44px; text-align: center; font-size: 12px; color: #555; }
+  .breakdown-row .row-stat.positive { color: #15803d; font-weight: 600; }
+  .breakdown-row .row-stat.negative { color: #b91c1c; font-weight: 600; }
+  .breakdown-col-headers { display: flex; padding: 6px 14px; font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.3px; }
+  .breakdown-col-headers .col-name { flex: 1; }
+  .breakdown-col-headers .col { width: 44px; text-align: center; }
+
+  /* View Full Profile link */
+  .profile-link { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px; margin-top: 8px; background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); font-size: 14px; font-weight: 600; color: #2a7d9c; text-decoration: none; }
+  .profile-link .link-arrow { font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">Player Context</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('other')">Viewing Other Player</button>
+    <button class="sw-pill" onclick="setState('self')">Viewing Yourself</button>
+  </div>
+  <div class="sw-label" style="margin-top: 8px;">Tab View</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setTab('breakdown')">Stats</button>
+    <button class="sw-pill" onclick="setTab('matches')">Game History</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<!-- Back navigates to league standings -->
+<div class="top-nav">
+  <a href="league-dashboard.html" class="back">&larr; Standings</a>
+  <div class="title">Player Stats</div>
+  <div class="action"></div>
+</div>
+
+<!-- Player hero header -->
+<div class="player-hero">
+  <div class="state-other">
+    <div class="avatar"></div>
+    <div class="name">Ken Fawwar</div>
+    <div class="meta">
+      <span>Queens, NY</span>
+      <span class="level-badge">Open</span>
+    </div>
+  </div>
+  <div class="state-self">
+    <div class="avatar highlighted"></div>
+    <div class="name">Patrick Schwagler</div>
+    <div class="meta">
+      <span>New York, NY</span>
+      <span class="level-badge">Open</span>
+    </div>
+  </div>
+</div>
+
+<!-- Action row: Add Friend / Message for other players -->
+<div class="state-other">
+  <div class="action-row">
+    <button class="btn-primary"><span class="btn-icon">+</span> Add Friend</button>
+    <button class="btn-outline"><span class="btn-icon">&#9993;</span> Message</button>
+  </div>
+</div>
+
+<!-- Self state: link to full personal stats -->
+<div class="state-self">
+  <div class="self-cta">
+    <button class="btn-self">View My Full Stats &rarr;</button>
+  </div>
+</div>
+
+<!-- League context banner — anchors this view to a specific league -->
+<div class="league-context">
+  <span class="context-icon">&#127942;</span>
+  <div>
+    <div class="context-text"><span class="context-league">QBK Open Men - Mornings</span></div>
+  </div>
+  <div class="season-select">Spring 2026 <span class="caret">&#9660;</span></div>
+</div>
+
+<!-- Overview tiles — 3 key stats at a glance -->
+<div class="state-other">
+  <div class="overview-tiles">
+    <div class="overview-tile">
+      <div class="tile-value tile-rank">#2</div>
+      <div class="tile-label"><span class="tile-icon">&#127942;</span> Ranking</div>
+    </div>
+    <div class="overview-tile">
+      <div class="tile-value">247</div>
+      <div class="tile-label"><span class="tile-icon">&#9733;</span> Points</div>
+    </div>
+    <div class="overview-tile">
+      <div class="tile-value">1405</div>
+      <div class="tile-label"><span class="tile-icon">&#9650;</span> Rating</div>
+      <div class="tile-delta up">+18 this season</div>
+    </div>
+  </div>
+</div>
+
+<div class="state-self">
+  <div class="overview-tiles">
+    <div class="overview-tile">
+      <div class="tile-value tile-rank">#1</div>
+      <div class="tile-label"><span class="tile-icon">&#127942;</span> Ranking</div>
+    </div>
+    <div class="overview-tile">
+      <div class="tile-value">312</div>
+      <div class="tile-label"><span class="tile-icon">&#9733;</span> Points</div>
+    </div>
+    <div class="overview-tile">
+      <div class="tile-value">1438</div>
+      <div class="tile-label"><span class="tile-icon">&#9650;</span> Rating</div>
+      <div class="tile-delta up">+52 this season</div>
+    </div>
+  </div>
+</div>
+
+<!-- Inner segment: Match History vs Stats Stats -->
+<div class="inner-segment">
+  <div class="seg active" id="seg-breakdown" onclick="setTab('breakdown')">Stats</div>
+  <div class="seg" id="seg-matches" onclick="setTab('matches')">Game History</div>
+</div>
+
+<div class="content">
+
+  <!-- ═══ Match History View ═══ -->
+  <div class="tab-matches">
+  <div class="state-other">
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 19</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">K. Fawwar</span> / P. Schwagler<br>
+          <span class="vs">vs</span> A. Marthey / J. Zwyczca
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-w">21</span>
+        <span class="score-l">18</span>
+      </div>
+      <div class="match-result win">W</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 19</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">K. Fawwar</span> / S. Jindash<br>
+          <span class="vs">vs</span> J. Drabos / M. Salizar
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-l">17</span>
+        <span class="score-w">21</span>
+      </div>
+      <div class="match-result loss">L</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 17</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">K. Fawwar</span> / A. Marthey<br>
+          <span class="vs">vs</span> P. Schwagler / C. Gulla
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-l">19</span>
+        <span class="score-w">21</span>
+      </div>
+      <div class="match-result loss">L</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 17</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">K. Fawwar</span> / J. Drabos<br>
+          <span class="vs">vs</span> M. Salizar / R. Torres
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-w">21</span>
+        <span class="score-l">14</span>
+      </div>
+      <div class="match-result win">W</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 14</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">K. Fawwar</span> / S. Jindash<br>
+          <span class="vs">vs</span> P. Schwagler / A. Marthey
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-l">16</span>
+        <span class="score-w">21</span>
+      </div>
+      <div class="match-result loss">L</div>
+    </div>
+
+    <button class="show-more">Show all 47 games</button>
+  </div>
+
+  <!-- Self state match history -->
+  <div class="state-self">
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 19</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">You</span> / K. Fawwar<br>
+          <span class="vs">vs</span> A. Marthey / J. Zwyczca
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-w">21</span>
+        <span class="score-l">18</span>
+      </div>
+      <div class="match-result win">W</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 19</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">You</span> / S. Jindash<br>
+          <span class="vs">vs</span> J. Drabos / M. Salizar
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-l">17</span>
+        <span class="score-w">21</span>
+      </div>
+      <div class="match-result loss">L</div>
+    </div>
+
+    <div class="match-card">
+      <div class="match-date"><div class="day">Mar 17</div><div class="month">2026</div></div>
+      <div class="match-info">
+        <div class="teams">
+          <span class="player-name highlight">You</span> / C. Gulla<br>
+          <span class="vs">vs</span> K. Fawwar / A. Marthey
+        </div>
+      </div>
+      <div class="match-score">
+        <span class="score-w">21</span>
+        <span class="score-l">19</span>
+      </div>
+      <div class="match-result win">W</div>
+    </div>
+
+    <button class="show-more">Show all 34 games</button>
+  </div>
+  </div><!-- /tab-matches -->
+
+  <!-- ═══ Stats View ═══ -->
+  <div class="tab-breakdown">
+
+    <!-- Overall stats -->
+    <div class="breakdown-section">
+      <div class="breakdown-header">Overall</div>
+      <div class="breakdown-table">
+        <div class="breakdown-col-headers">
+          <div class="col-name"></div>
+          <div class="col">W</div>
+          <div class="col">L</div>
+          <div class="col">Win%</div>
+          <div class="col">GP</div>
+          <div class="col">+/-</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name bold">All Games</div>
+          <div class="row-stat">30</div>
+          <div class="row-stat">17</div>
+          <div class="row-stat">64%</div>
+          <div class="row-stat">47</div>
+          <div class="row-stat positive">+1.8</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- With Partners -->
+    <div class="breakdown-section">
+      <div class="breakdown-header">With Partners</div>
+      <div class="breakdown-table">
+        <div class="breakdown-col-headers">
+          <div class="col-name"></div>
+          <div class="col">W</div>
+          <div class="col">L</div>
+          <div class="col">Win%</div>
+          <div class="col">GP</div>
+          <div class="col">+/-</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">P. Schwagler</div>
+          <div class="row-stat">12</div>
+          <div class="row-stat">4</div>
+          <div class="row-stat">75%</div>
+          <div class="row-stat">16</div>
+          <div class="row-stat positive">+3.2</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">S. Jindash</div>
+          <div class="row-stat">8</div>
+          <div class="row-stat">6</div>
+          <div class="row-stat">57%</div>
+          <div class="row-stat">14</div>
+          <div class="row-stat positive">+0.8</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">A. Marthey</div>
+          <div class="row-stat">6</div>
+          <div class="row-stat">5</div>
+          <div class="row-stat">55%</div>
+          <div class="row-stat">11</div>
+          <div class="row-stat positive">+0.4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vs Opponents -->
+    <div class="breakdown-section">
+      <div class="breakdown-header">Vs Opponents</div>
+      <div class="breakdown-table">
+        <div class="breakdown-col-headers">
+          <div class="col-name"></div>
+          <div class="col">W</div>
+          <div class="col">L</div>
+          <div class="col">Win%</div>
+          <div class="col">GP</div>
+          <div class="col">+/-</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">P. Schwagler</div>
+          <div class="row-stat">5</div>
+          <div class="row-stat">9</div>
+          <div class="row-stat">36%</div>
+          <div class="row-stat">14</div>
+          <div class="row-stat negative">-2.1</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">C. Gulla</div>
+          <div class="row-stat">4</div>
+          <div class="row-stat">6</div>
+          <div class="row-stat">40%</div>
+          <div class="row-stat">10</div>
+          <div class="row-stat negative">-1.5</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="row-name">M. Salizar</div>
+          <div class="row-stat">7</div>
+          <div class="row-stat">2</div>
+          <div class="row-stat">78%</div>
+          <div class="row-stat">9</div>
+          <div class="row-stat positive">+4.1</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-breakdown -->
+
+  <!-- View full profile link — deep link to player-profile page -->
+  <a href="player-profile.html" class="profile-link">
+    View Full Profile <span class="link-arrow">&rarr;</span>
+  </a>
+
+</div>
+
+<script>
+function setState(state) {
+  if (state === 'self') {
+    document.body.classList.add('self');
+  } else {
+    document.body.classList.remove('self');
+  }
+  // Update only Player Context pills (first pill group)
+  var contextPills = document.querySelectorAll('.sw-pills')[0].querySelectorAll('.sw-pill');
+  contextPills.forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+
+function setTab(tab) {
+  if (tab === 'matches') {
+    document.body.classList.add('matches');
+  } else {
+    document.body.classList.remove('matches');
+  }
+  // Update Tab View pills (second pill group)
+  var tabPills = document.querySelectorAll('.sw-pills')[1].querySelectorAll('.sw-pill');
+  tabPills.forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  // Sync inner segment control
+  document.getElementById('seg-breakdown').classList.toggle('active', tab === 'breakdown');
+  document.getElementById('seg-matches').classList.toggle('active', tab === 'matches');
+}
+</script>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127942;</div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

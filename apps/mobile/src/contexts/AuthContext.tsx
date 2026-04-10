@@ -80,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Also fetch the current user's player profile
       try {
         const player = await api.getCurrentUserPlayer();
-        player.first_name = player.nickname ? player.nickname : player.full_name?.split(' ')[0];
         setCurrentUserPlayer(player);
       } catch (playerError: any) {
         // Player might not exist yet, that's okay

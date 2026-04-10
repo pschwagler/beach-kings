@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>League Chat - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; display: flex; flex-direction: column; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
-  .top-nav { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; flex-shrink: 0; display: flex; align-items: center; min-width: 44px; min-height: 44px; }
-  .top-nav .chat-icon { width: 32px; height: 32px; border-radius: 10px; background: #d4a843; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; }
-  .top-nav .chat-info { flex: 1; }
-  .top-nav .chat-name { color: #fff; font-size: 15px; font-weight: 700; }
-  .top-nav .chat-members { color: rgba(255,255,255,0.6); font-size: 11px; }
-  .top-nav .info-link { color: rgba(255,255,255,0.6); font-size: 18px; text-decoration: none; flex-shrink: 0; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  /* League Header */
+  .league-header { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
+  .league-header .league-name { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .league-header .league-meta { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #666; }
+  .league-header .league-badges { display: flex; gap: 8px; margin-top: 10px; }
+  .league-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .league-header .badge.active { background: #dcfce7; color: #15803d; }
+  .league-header .badge.rank { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 14px 4px; min-height: 44px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
   /* Messages Area */
   .messages { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-height: 520px; }
 
-  /* Pull-to-refresh hint — no WebSocket delivery; user must manually refresh to see new messages */
-  .pull-refresh-hint { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 10px; }
-  .pull-refresh-hint .pull-arrow { font-size: 14px; color: #999; line-height: 1; }
-  .pull-refresh-hint .pull-label { font-size: 11px; color: #999; letter-spacing: 0.2px; }
-
   .date-divider { text-align: center; font-size: 11px; color: #666; padding: 8px 0; }
 
   .msg-group { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
-  .msg-sender { font-size: 11px; font-weight: 600; color: #888; margin-bottom: 2px; margin-left: 38px; }
+  .msg-sender { font-size: 11px; font-weight: 600; color: #666; margin-bottom: 2px; margin-left: 38px; }
 
   .msg-row { display: flex; align-items: flex-end; gap: 8px; }
   .msg-row.sent { flex-direction: row-reverse; }
@@ -51,16 +51,6 @@
   .input-bar .msg-input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #f8f9fa; }
   .input-bar .send-btn { width: 44px; height: 44px; border-radius: 50%; background: #1a3a4a; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; flex-shrink: 0; border: none; cursor: pointer; }
 
-  /* Tab Bar */
-  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
-  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
 </style>
 </head>
 <body>
@@ -71,21 +61,32 @@
 </div>
 
 <div class="top-nav">
-  <a href="league-dashboard.html" class="back">&larr;</a>
-  <div class="chat-icon">&#127942;</div>
-  <div class="chat-info">
-    <div class="chat-name">QBK Open Men</div>
-    <div class="chat-members">27 members</div>
+  <a href="leagues-tab.html" class="back">&larr; Leagues</a>
+  <div class="title">League</div>
+  <a href="score-league.html" class="action" style="text-decoration:none; color:#fff; font-size: 12px; font-weight: 700; background: #d4a843; padding: 8px 14px; border-radius: 8px;">+ Add Game</a>
+</div>
+
+<div class="league-header">
+  <div class="league-name">QBK Open Men - Mornings <span style="font-size: 14px; color: #999; cursor: pointer;">&#9662;</span></div>
+  <div class="league-meta">
+    <span>Queens, NY</span>
+    <span>27 members</span>
   </div>
-  <a href="league-info.html" class="info-link">&#9432;</a>
+  <div class="league-badges">
+    <span class="badge active">Season Active</span>
+    <span class="badge rank">#1 Ranked</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <a href="league-matches.html" class="segment">Games</a>
+  <a href="league-dashboard.html" class="segment">Standings</a>
+  <div class="segment active">Chat</div>
+  <a href="league-signups.html" class="segment">Sign Ups</a>
+  <a href="league-info.html" class="segment">Info<span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ef4444; margin-left:3px; vertical-align:top; margin-top:1px;"></span></a>
 </div>
 
 <div class="messages">
-
-  <div class="pull-refresh-hint">
-    <div class="pull-arrow">&#8595;</div>
-    <div class="pull-label">Pull to refresh</div>
-  </div>
 
   <div class="date-divider">Today</div>
 

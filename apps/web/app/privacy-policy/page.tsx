@@ -160,7 +160,7 @@ export default function PrivacyPolicyPageRoute() {
             <li><strong>No Sale of Personal Information:</strong> We do not sell your personal information to third parties</li>
           </ul>
           
-          <p><strong>How to Exercise Your Rights:</strong> To exercise any of the above rights, please contact us at patrick@beachleague.com. We will verify your identity before processing your request and respond within 45 days. You may designate an authorized agent to make requests on your behalf, subject to verification requirements.</p>
+          <p><strong>How to Exercise Your Rights:</strong> To exercise any of the above rights, please contact us at patrick@beachleaguevb.com. We will verify your identity before processing your request and respond within 45 days. You may designate an authorized agent to make requests on your behalf, subject to verification requirements.</p>
 
           <h4>7.3 Data Portability Process</h4>
           <p>If you request a copy of your personal information, we will provide it to you via email in a commonly used format (such as CSV or JSON) within 45 days of verifying your identity. The data export will include your account information, profile data, game statistics, and other personal information we maintain about you.</p>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Invite Players - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .top-nav .action { color: #d4a843; font-size: 14px; font-weight: 600; text-decoration: none; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; }
+
+  /* Tournament info bar */
+  .tourney-bar { background: #fff; padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+  .tourney-bar .tourney-name { font-size: 14px; font-weight: 600; }
+  .tourney-bar .tourney-spots { font-size: 12px; color: #666; }
+
+  /* Search */
+  .search-bar { padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .search-input { width: 100%; padding: 12px 16px 12px 40px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #f5f5f5 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 14px center; }
+  .search-input::placeholder { color: #999; }
+
+  .content { padding: 0 0 160px; }
+
+  /* Section */
+  .section { padding: 0 16px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; padding: 14px 0 8px; }
+
+  /* Player row */
+  .player-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; min-height: 52px; }
+  .player-row:last-child { border-bottom: none; }
+
+  /* Checkbox */
+  .checkbox { width: 24px; height: 24px; border-radius: 6px; border: 2px solid #d0d0d0; background: #fff; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .checkbox.checked { background: #1a3a4a; border-color: #1a3a4a; color: #fff; font-size: 14px; }
+
+  /* Avatar */
+  .player-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .player-avatar.a { background: #7fb3c7; }
+  .player-avatar.b { background: #d4a843; }
+  .player-avatar.c { background: #e87461; }
+  .player-avatar.d { background: #7bc47f; }
+  .player-avatar.e { background: #b07fc7; }
+  .player-avatar.f { background: #c7997f; }
+
+  /* Player info */
+  .player-info { flex: 1; min-width: 0; }
+  .player-name { font-size: 14px; font-weight: 600; }
+  .player-meta { font-size: 12px; color: #666; margin-top: 1px; }
+
+  /* Player status badge */
+  .player-status { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 10px; flex-shrink: 0; }
+  .player-status.registered { background: #dcfce7; color: #15803d; }
+  .player-status.invited { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Bottom action bar */
+  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; background: #fff; border-top: 1px solid #eee; padding: 12px 16px 34px; display: flex; gap: 10px; }
+  .bottom-bar .btn { flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; text-align: center; min-height: 48px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+  .bottom-bar .btn.share { background: #f5f5f5; color: #1a3a4a; border: 1.5px solid #e0e0e0; }
+  .bottom-bar .btn.send { background: #1a3a4a; color: #fff; }
+  .bottom-bar .btn.send.disabled { background: #ccc; color: #999; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournament-detail.html" class="back">&larr; Back</a>
+  <div class="title">Invite Players</div>
+  <a href="tournament-detail.html" class="action">Done</a>
+</div>
+
+<div class="tourney-bar">
+  <div class="tourney-name">Sunday Showdown KoB</div>
+  <div class="tourney-spots">4 spots left</div>
+</div>
+
+<div class="search-bar">
+  <input class="search-input" type="text" placeholder="Search friends, league members..." />
+</div>
+
+<div class="content">
+
+  <!-- Friends -->
+  <div class="section">
+    <div class="section-title">Friends</div>
+
+    <div class="player-row">
+      <div class="checkbox checked">&#10003;</div>
+      <div class="player-avatar a">MS</div>
+      <div class="player-info">
+        <div class="player-name">Mike S.</div>
+        <div class="player-meta">AA &middot; 1850</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox checked">&#10003;</div>
+      <div class="player-avatar b">JR</div>
+      <div class="player-info">
+        <div class="player-name">Jake R.</div>
+        <div class="player-meta">A &middot; 1720</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox checked">&#10003;</div>
+      <div class="player-avatar c">DT</div>
+      <div class="player-info">
+        <div class="player-name">Danny T.</div>
+        <div class="player-meta">A &middot; 1680</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar d">KF</div>
+      <div class="player-info">
+        <div class="player-name">Kyle F.</div>
+        <div class="player-meta">Open &middot; 1940</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar e">RT</div>
+      <div class="player-info">
+        <div class="player-name">Ricky T.</div>
+        <div class="player-meta">AA &middot; 1800</div>
+      </div>
+      <span class="player-status registered">Registered</span>
+    </div>
+  </div>
+
+  <!-- League Members -->
+  <div class="section">
+    <div class="section-title">QBK Open Men - Mornings</div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar f">CP</div>
+      <div class="player-info">
+        <div class="player-name">Chris P.</div>
+        <div class="player-meta">Open &middot; 1920</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar a">SK</div>
+      <div class="player-info">
+        <div class="player-name">Sam K.</div>
+        <div class="player-meta">AA &middot; 1810</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar b">JD</div>
+      <div class="player-info">
+        <div class="player-name">Jim D.</div>
+        <div class="player-meta">AA &middot; 1770</div>
+      </div>
+      <span class="player-status invited">Invited</span>
+    </div>
+  </div>
+
+  <!-- Recent Opponents -->
+  <div class="section">
+    <div class="section-title">Recent Opponents</div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar c">AM</div>
+      <div class="player-info">
+        <div class="player-name">Alex M.</div>
+        <div class="player-meta">AA &middot; 1790</div>
+      </div>
+    </div>
+
+    <div class="player-row">
+      <div class="checkbox"></div>
+      <div class="player-avatar d">MS</div>
+      <div class="player-info">
+        <div class="player-name">Marcus S.</div>
+        <div class="player-meta">A &middot; 1700</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom action bar -->
+<div class="bottom-bar">
+  <button class="btn share">Share Link</button>
+  <button class="btn send">Send (3)</button>
+</div>
+
+</body>
+</html>

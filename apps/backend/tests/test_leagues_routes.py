@@ -866,3 +866,86 @@ class TestQueryLeagues:
         assert captured.get("level") == "intermediate"
         assert captured.get("page") == 2
         assert captured.get("page_size") == 10
+
+    def test_query_returns_friend_count_and_preview(self, monkeypatch):
+        """friend_count and friends_preview fields are passed through from the service."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_setting(session, key: str):
+            return None
+
+        monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
+
+        async def fake_query_leagues(session, **kwargs):
+            return {
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "Beach League",
+                        "is_open": True,
+                        "member_count": 8,
+                        "friend_count": 2,
+                        "friends_preview": [
+                            {"player_id": 10, "first_name": "Mike", "avatar": None},
+                            {"player_id": 11, "first_name": "Jordan", "avatar": "abc.jpg"},
+                        ],
+                    },
+                    {
+                        "id": 2,
+                        "name": "Invite League",
+                        "is_open": False,
+                        "member_count": 4,
+                        "friend_count": 0,
+                        "friends_preview": [],
+                    },
+                ],
+                "page": 1,
+                "page_size": 25,
+                "total_count": 2,
+            }
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post("/api/leagues/query", json={}, headers=headers)
+        assert response.status_code == 200
+        items = response.json()["items"]
+        assert len(items) == 2
+
+        # League with friends
+        assert items[0]["friend_count"] == 2
+        assert len(items[0]["friends_preview"]) == 2
+        assert items[0]["friends_preview"][0]["first_name"] == "Mike"
+        assert items[0]["friends_preview"][1]["avatar"] == "abc.jpg"
+
+        # League without friends
+        assert items[1]["friend_count"] == 0
+        assert items[1]["friends_preview"] == []
+
+    def test_query_no_auth_omits_friends(self, monkeypatch):
+        """Unauthenticated query still works; service returns 0 friend_count."""
+        client = TestClient(app)
+
+        async def fake_query_leagues(session, **kwargs):
+            # When user_id is None, service should return 0/empty for friends
+            assert kwargs.get("user_id") is None
+            return {
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "Open League",
+                        "is_open": True,
+                        "friend_count": 0,
+                        "friends_preview": [],
+                    }
+                ],
+                "page": 1,
+                "page_size": 25,
+                "total_count": 1,
+            }
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post("/api/leagues/query", json={})
+        assert response.status_code == 200
+        assert response.json()["items"][0]["friend_count"] == 0
+        assert response.json()["items"][0]["friends_preview"] == []
