@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>New Pickup Session - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Content */
+  .content { padding: 16px; padding-bottom: 100px; }
+
+  .section-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  /* New Session Form */
+  .form-card { background: #fff; border-radius: 14px; padding: 20px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .form-card .form-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .form-card .form-desc { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.4; }
+  .form-field { margin-bottom: 16px; }
+  .form-field:last-child { margin-bottom: 0; }
+  .form-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #f8f9fa; font-size: 14px; color: #1a1a1a; }
+  .form-input::placeholder { color: #bbb; }
+  .form-input:focus { border-color: #2a7d9c; outline: none; background: #fff; }
+
+  /* Optional label */
+  .optional { font-size: 10px; font-weight: 400; color: #999; text-transform: none; letter-spacing: 0; }
+
+  /* Invite Players */
+  .invite-section { margin-top: 4px; }
+  .invite-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .invite-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; background: #e8f4f8; font-size: 13px; font-weight: 500; color: #1a3a4a; }
+  .invite-chip .chip-avatar { width: 24px; height: 24px; border-radius: 50%; background: #7fb3c7; flex-shrink: 0; }
+  .invite-chip .remove { font-size: 14px; color: #999; margin-left: 2px; }
+  .add-player-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 20px; border: 1.5px dashed #ccc; background: transparent; font-size: 13px; color: #666; font-weight: 500; }
+
+  /* Create Button */
+  .create-btn { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 8px; }
+
+  /* Share hint */
+  .share-hint { text-align: center; font-size: 12px; color: #999; margin-top: 12px; line-height: 1.4; }
+
+
+  /* Placeholder Player Creation */
+  .invite-search { width: 100%; padding: 12px 14px; border: 1px solid #e0e0e0; border-radius: 10px; background: #f5f5f5; font-size: 15px; min-height: 44px; outline: none; }
+  .invite-search:focus { border-color: #2a7d9c; background: #fff; }
+  .search-results { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; margin-top: 6px; overflow: hidden; }
+  .search-result-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-height: 44px; cursor: pointer; }
+  .search-result-item + .search-result-item { border-top: 1px solid #f0f0f0; }
+  .search-result-item:active { background: #f5f5f5; }
+  .search-result-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .search-result-name { font-size: 14px; font-weight: 500; }
+  .search-result-meta { font-size: 11px; color: #999; }
+  .search-no-match { padding: 14px; }
+  .search-no-match-text { font-size: 13px; color: #666; margin-bottom: 10px; }
+  .add-new-player-btn { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1.5px dashed #f59e0b; border-radius: 10px; background: #fffbeb; cursor: pointer; min-height: 44px; width: 100%; }
+  .add-new-player-btn .add-icon { width: 28px; height: 28px; border-radius: 50%; background: #f59e0b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+  .add-new-player-btn .add-text { font-size: 14px; font-weight: 600; color: #92400e; }
+  .add-new-player-btn .add-hint { font-size: 11px; color: #b45309; }
+  .invite-chip.placeholder { border: 1.5px dashed #f59e0b; background: #fffbeb; color: #92400e; }
+  .invite-chip.placeholder .chip-close { color: #f59e0b; }
+  .chip-invite-icon { font-size: 10px; margin-left: 2px; color: #f59e0b; }
+  .copy-link-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #f9fafb; border: 1px solid #e0e0e0; border-radius: 10px; margin-top: 10px; }
+  .copy-link-text { flex: 1; font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .copy-link-btn { padding: 8px 14px; border-radius: 8px; background: #1a3a4a; color: #fff; font-size: 12px; font-weight: 600; border: none; cursor: pointer; min-height: 36px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&#8592; Add Games</a>
+  <div class="title">New Pickup Session</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <div class="form-card">
+    <div class="form-title">Start a Session</div>
+    <div class="form-desc">Create a pickup session to track games with friends. You can add more players later.</div>
+
+    <div class="form-field">
+      <div class="form-label">Session Name <span class="optional">(optional)</span></div>
+      <input class="form-input" type="text" placeholder="e.g. Sunday at Queen's" readonly />
+    </div>
+
+    <div class="form-field">
+      <div class="form-label">Location <span class="optional">(optional)</span></div>
+      <input class="form-input" type="text" placeholder="Search for a court..." readonly />
+    </div>
+
+    <div class="form-field invite-section">
+      <div class="form-label">Invite Players <span class="optional">(optional)</span></div>
+      <div class="invite-row" style="margin-bottom: 10px;">
+        <div class="invite-chip">
+          <div class="chip-avatar"></div>
+          K. Fawwar
+          <span class="remove">&#10005;</span>
+        </div>
+        <div class="invite-chip placeholder">
+          Dan P
+          <span class="chip-invite-icon">&#9993;</span>
+          <span class="chip-close">&times;</span>
+        </div>
+      </div>
+      <input class="invite-search" type="text" placeholder="Search players..." value="Dan P" readonly />
+      <div class="search-results">
+        <div class="search-no-match">
+          <div class="search-no-match-text">No results for "Dan P"</div>
+          <button class="add-new-player-btn">
+            <div class="add-icon">+</div>
+            <div>
+              <div class="add-text">Add "Dan P" as New Player</div>
+              <div class="add-hint">They'll get an invite to claim their profile</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="create-btn" onclick="window.location.href='session-active.html'">Create Session</button>
+
+  <div class="share-hint">Share the session link — new players can join and claim their games once they sign up.</div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

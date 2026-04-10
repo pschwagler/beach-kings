@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import KobLive from "../../../src/components/kob/KobLive";
+import PageSkeleton from "../../../src/components/ui/PageSkeleton";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   return {
-    title: `Tournament ${code} | Beach Kings`,
+    title: `Tournament ${code} | Beach League`,
     description: "Live King/Queen of the Beach tournament",
   };
 }
@@ -12,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
 export default async function KobLivePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   return (
-    <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>Loading tournament...</div>}>
+    <Suspense fallback={<PageSkeleton />}>
       <KobLive code={code} />
     </Suspense>
   );

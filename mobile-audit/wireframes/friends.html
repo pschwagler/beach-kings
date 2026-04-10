@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Friends - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* Social Sub-Nav */
+  .social-subnav { display: flex; background: #fff; border-bottom: 1px solid #eee; padding: 0 16px; }
+  .social-subnav a { flex: 1; text-align: center; padding: 12px 0; min-height: 44px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #666; text-decoration: none; border-bottom: 2px solid transparent; }
+  .social-subnav a.active { color: #1a3a4a; border-bottom-color: #1a3a4a; }
+
+  /* Search Bar */
+  .search-bar { padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .search-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #f8f9fa; color: #1a1a1a; }
+
+  /* Content */
+  .content { padding: 0 0 100px; }
+
+  .section-label { font-size: 15px; font-weight: 700; color: #1a1a1a; padding: 14px 16px 8px; }
+
+  /* Friend Request */
+  .request-card { display: flex; gap: 12px; padding: 14px 16px; background: #f0f7ff; border-bottom: 1px solid #e0ecf5; }
+  .request-card .req-avatar { width: 44px; height: 44px; border-radius: 50%; background: #7fb3c7; flex-shrink: 0; }
+  .request-card .req-body { flex: 1; }
+  .request-card .req-name { font-size: 14px; font-weight: 600; }
+  .request-card .req-meta { font-size: 12px; color: #666; margin-top: 2px; }
+  .request-card .req-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .request-card .btn-sm { padding: 10px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; min-height: 44px; }
+  .request-card .btn-sm.accept { background: #1a3a4a; color: #fff; }
+  .request-card .btn-sm.decline { background: #f0f0f0; color: #555; }
+
+  /* Friend Item */
+  .friend-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; text-decoration: none; color: inherit; }
+  .friend-item .friend-avatar { width: 44px; height: 44px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .friend-item .friend-info { flex: 1; }
+  .friend-item .friend-name { font-size: 14px; font-weight: 600; }
+  .friend-item .friend-meta { font-size: 12px; color: #666; margin-top: 2px; }
+  .friend-item .friend-rating { font-size: 13px; font-weight: 600; color: #1a3a4a; }
+  .friend-item .avatar-wrap { position: relative; flex-shrink: 0; }
+
+  /* Suggested */
+  .suggestion-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #f0f0f0; }
+  .suggestion-item .sug-avatar { width: 44px; height: 44px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .suggestion-item .sug-info { flex: 1; }
+  .suggestion-item .sug-name { font-size: 14px; font-weight: 600; }
+  .suggestion-item .sug-reason { font-size: 12px; color: #666; margin-top: 2px; }
+  .suggestion-item .btn-add { padding: 12px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; min-height: 44px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="title" style="flex: 1;">Social</div>
+  <div style="width: 60px;"></div>
+</div>
+
+<div class="social-subnav">
+  <a href="messages.html">Messages</a>
+  <a href="notifications.html">Notifications</a>
+  <a href="friends.html" class="active">Friends</a>
+  <a href="find-players.html">Find Players</a>
+</div>
+
+<div class="search-bar">
+  <input class="search-input" type="text" placeholder="Search friends..." />
+</div>
+
+<div class="content">
+
+  <div class="section-label">Pending Requests (2)</div>
+
+  <div class="request-card">
+    <div class="req-avatar" style="background: #7fb3c7;"></div>
+    <div class="req-body">
+      <div class="req-name">Ken Fawwar</div>
+      <div class="req-meta">QBK Open Men · 3 mutual friends</div>
+      <div class="req-actions">
+        <button class="btn-sm accept">Accept</button>
+        <button class="btn-sm decline">Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="request-card">
+    <div class="req-avatar" style="background: #c8e6c9;"></div>
+    <div class="req-body">
+      <div class="req-name">R. Torres</div>
+      <div class="req-meta">QBK Open Men · 1 mutual friend</div>
+      <div class="req-actions">
+        <button class="btn-sm accept">Accept</button>
+        <button class="btn-sm decline">Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">My Friends (8)</div>
+
+  <a href="player-profile.html" class="friend-item">
+    <div class="avatar-wrap">
+      <div class="friend-avatar" style="background: #e8d5b7;"></div>
+    </div>
+    <div class="friend-info">
+      <div class="friend-name">Sams Jindash</div>
+      <div class="friend-meta">QBK Open Men · Queens, NY</div>
+    </div>
+    <div class="friend-rating">1355</div>
+  </a>
+
+  <a href="player-profile.html" class="friend-item">
+    <div class="avatar-wrap">
+      <div class="friend-avatar" style="background: #a8d8ea;"></div>
+    </div>
+    <div class="friend-info">
+      <div class="friend-name">Jake Drabos</div>
+      <div class="friend-meta">QBK Open Men · Brooklyn, NY</div>
+    </div>
+    <div class="friend-rating">1320</div>
+  </a>
+
+  <a href="player-profile.html" class="friend-item">
+    <div class="avatar-wrap">
+      <div class="friend-avatar" style="background: #c8e6c9;"></div>
+    </div>
+    <div class="friend-info">
+      <div class="friend-name">Alex Marthey</div>
+      <div class="friend-meta">QBK Open Men · Manhattan, NY</div>
+    </div>
+    <div class="friend-rating">1380</div>
+  </a>
+
+  <a href="player-profile.html" class="friend-item">
+    <div class="avatar-wrap">
+      <div class="friend-avatar" style="background: #ddd;"></div>
+    </div>
+    <div class="friend-info">
+      <div class="friend-name">Marco Salizar</div>
+      <div class="friend-meta">QBK Open Men · Queens, NY</div>
+    </div>
+    <div class="friend-rating">1295</div>
+  </a>
+
+  <a href="player-profile.html" class="friend-item">
+    <div class="avatar-wrap">
+      <div class="friend-avatar" style="background: #e8d5b7;"></div>
+    </div>
+    <div class="friend-info">
+      <div class="friend-name">Tony Chen</div>
+      <div class="friend-meta">NYC Fun League · Manhattan, NY</div>
+    </div>
+    <div class="friend-rating">1280</div>
+  </a>
+
+  <div class="section-label">Suggested Friends</div>
+
+  <div class="suggestion-item">
+    <div class="sug-avatar" style="background: #7fb3c7;"></div>
+    <div class="sug-info">
+      <div class="sug-name">D. Williams</div>
+      <div class="sug-reason">Plays at QBK Sports · 4 mutual</div>
+    </div>
+    <button class="btn-add">Add</button>
+  </div>
+
+  <div class="suggestion-item">
+    <div class="sug-avatar" style="background: #c8e6c9;"></div>
+    <div class="sug-info">
+      <div class="sug-name">L. Park</div>
+      <div class="sug-reason">In NYC Fun League · 2 mutual</div>
+    </div>
+    <button class="btn-add">Add</button>
+  </div>
+
+  <div class="suggestion-item">
+    <div class="sug-avatar" style="background: #e8d5b7;"></div>
+    <div class="sug-info">
+      <div class="sug-name">C. Rodriguez</div>
+      <div class="sug-reason">Plays at Domino Park · 1 mutual</div>
+    </div>
+    <button class="btn-add">Add</button>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#128172;</div>
+    <div class="tab-label active">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

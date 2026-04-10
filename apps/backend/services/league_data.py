@@ -63,7 +63,7 @@ __all__ = [
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, and_
+from sqlalchemy import select, update, delete, func, and_, or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.sql import func as sql_func
 
@@ -82,6 +82,7 @@ from backend.database.models import (
     Setting,
     Region,
     ScoringSystem,
+    Friend,
 )
 
 logger = logging.getLogger(__name__)
@@ -376,6 +377,42 @@ async def query_leagues(
         )
         pending_league_ids = {row[0] for row in pending_result.all()}
 
+    # Fetch friends who are members of the leagues on this page.
+    # The friends table stores rows with player1_id < player2_id (DB constraint),
+    # so we must check both orderings to find friendships for the current user.
+    friends_by_league: Dict[int, list] = {}
+    if player_id is not None and rows:
+        page_league_ids = [league.id for league, *_ in rows]
+        friends_result = await session.execute(
+            select(
+                LeagueMember.league_id,
+                Player.id,
+                Player.first_name,
+                Player.avatar,
+            )
+            .distinct()
+            .join(Player, Player.id == LeagueMember.player_id)
+            .join(
+                Friend,
+                or_(
+                    and_(
+                        Friend.player1_id == player_id,
+                        Friend.player2_id == LeagueMember.player_id,
+                    ),
+                    and_(
+                        Friend.player2_id == player_id,
+                        Friend.player1_id == LeagueMember.player_id,
+                    ),
+                ),
+            )
+            .where(LeagueMember.league_id.in_(page_league_ids))
+            .order_by(Player.first_name.asc())
+        )
+        for league_id, pid, first_name, avatar in friends_result.all():
+            friends_by_league.setdefault(league_id, []).append(
+                {"player_id": pid, "first_name": first_name, "avatar": avatar}
+            )
+
     items = [
         {
             "id": league.id,
@@ -393,6 +430,8 @@ async def query_leagues(
             "created_at": league.created_at.isoformat() if league.created_at else None,
             "updated_at": league.updated_at.isoformat() if league.updated_at else None,
             "has_pending_request": league.id in pending_league_ids,
+            "friend_count": len(friends_by_league.get(league.id, [])),
+            "friends_preview": friends_by_league.get(league.id, [])[:3],
         }
         for league, member_count, location_name, league_region_id, league_region_name in rows
     ]

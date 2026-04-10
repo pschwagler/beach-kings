@@ -10,6 +10,7 @@ import pytz
 import json
 from sqlalchemy import select
 from backend.database.models import (
+    Friend,
     League,
     LeagueMember,
     LeagueRequest,
@@ -333,6 +334,130 @@ async def test_query_leagues_has_pending_request(db_session, test_player, test_u
     result_anon = await data_service.query_leagues(session=db_session)
     for item in result_anon["items"]:
         assert item["has_pending_request"] is False
+
+
+@pytest.mark.asyncio
+async def test_query_leagues_friends_in_league(db_session, test_player, test_user):
+    """Test that query_leagues returns friend_count and friends_preview for authenticated users."""
+    # Create a league
+    league = await data_service.create_league(
+        session=db_session,
+        name="Friends Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    # Create a second user + player who will be the "querying" user
+    pw2 = bcrypt.hashpw("pw2".encode(), bcrypt.gensalt()).decode()
+    user2_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15550002222",
+        password_hash=pw2,
+        email="user2@example.com",
+    )
+    player2 = Player(full_name="Querying User", first_name="Query", user_id=user2_id)
+    db_session.add(player2)
+    await db_session.commit()
+    await db_session.refresh(player2)
+
+    # Create friend players (no user_id needed — Player.user_id is nullable)
+    friend_player1 = Player(full_name="Alice Smith", first_name="Alice")
+    friend_player2 = Player(full_name="Bob Jones", first_name="Bob")
+    db_session.add_all([friend_player1, friend_player2])
+    await db_session.commit()
+    await db_session.refresh(friend_player1)
+    await db_session.refresh(friend_player2)
+
+    # Create friendships (player1_id < player2_id constraint)
+    ids_pair1 = sorted([player2.id, friend_player1.id])
+    ids_pair2 = sorted([player2.id, friend_player2.id])
+    db_session.add(Friend(player1_id=ids_pair1[0], player2_id=ids_pair1[1]))
+    db_session.add(Friend(player1_id=ids_pair2[0], player2_id=ids_pair2[1]))
+    await db_session.commit()
+
+    # Add friend players as league members
+    db_session.add(LeagueMember(league_id=league["id"], player_id=friend_player1.id, role="member"))
+    db_session.add(LeagueMember(league_id=league["id"], player_id=friend_player2.id, role="member"))
+    await db_session.commit()
+
+    # Query as player2 (authenticated) — should see 2 friends
+    result = await data_service.query_leagues(session=db_session, user_id=user2_id)
+    items_by_id = {item["id"]: item for item in result["items"]}
+    league_item = items_by_id[league["id"]]
+
+    assert league_item["friend_count"] == 2
+    assert len(league_item["friends_preview"]) == 2
+    preview_names = [f["first_name"] for f in league_item["friends_preview"]]
+    # Ordered alphabetically by first_name
+    assert preview_names == ["Alice", "Bob"]
+    # Each preview entry has the expected keys
+    for friend in league_item["friends_preview"]:
+        assert "player_id" in friend
+        assert "first_name" in friend
+        assert "avatar" in friend
+
+    # Query without user_id — friend_count should be 0
+    result_anon = await data_service.query_leagues(session=db_session)
+    anon_items_by_id = {item["id"]: item for item in result_anon["items"]}
+    assert anon_items_by_id[league["id"]]["friend_count"] == 0
+    assert anon_items_by_id[league["id"]]["friends_preview"] == []
+
+
+@pytest.mark.asyncio
+async def test_query_leagues_friends_preview_capped_at_three(db_session, test_player, test_user):
+    """Test that friends_preview returns at most 3 entries even if more friends exist."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Many Friends League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    # Create the querying user
+    pw = bcrypt.hashpw("pw".encode(), bcrypt.gensalt()).decode()
+    querier_user_id = await user_service.create_user(
+        session=db_session,
+        phone_number="+15550009999",
+        password_hash=pw,
+        email="querier@example.com",
+    )
+    querier = Player(full_name="Querier", first_name="Querier", user_id=querier_user_id)
+    db_session.add(querier)
+    await db_session.commit()
+    await db_session.refresh(querier)
+
+    # Create 4 friend players (no user_id needed — Player.user_id is nullable)
+    friend_players = []
+    for name in ["Amy", "Beth", "Cara", "Dana"]:
+        fp = Player(full_name=f"{name} Test", first_name=name)
+        db_session.add(fp)
+        friend_players.append(fp)
+    await db_session.commit()
+    for fp in friend_players:
+        await db_session.refresh(fp)
+
+    # Create friendships and league memberships
+    for fp in friend_players:
+        ids = sorted([querier.id, fp.id])
+        db_session.add(Friend(player1_id=ids[0], player2_id=ids[1]))
+        db_session.add(LeagueMember(league_id=league["id"], player_id=fp.id, role="member"))
+    await db_session.commit()
+
+    result = await data_service.query_leagues(session=db_session, user_id=querier_user_id)
+    items_by_id = {item["id"]: item for item in result["items"]}
+    league_item = items_by_id[league["id"]]
+
+    assert league_item["friend_count"] == 4
+    assert len(league_item["friends_preview"]) == 3
+    # Preview should be the first 3 alphabetically
+    preview_names = [f["first_name"] for f in league_item["friends_preview"]]
+    assert preview_names == ["Amy", "Beth", "Cara"]
 
 
 # ============================================================================

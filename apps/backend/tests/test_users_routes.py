@@ -322,8 +322,8 @@ class TestGetUserLeagues:
         client, headers = _make_authed_client(monkeypatch)
 
         fake_leagues = [
-            {"id": 10, "name": "Beach Kings LA", "role": "admin"},
-            {"id": 11, "name": "Beach Kings SD", "role": "member"},
+            {"id": 10, "name": "Beach League LA", "role": "admin"},
+            {"id": 11, "name": "Beach League SD", "role": "member"},
         ]
 
         async def fake_get_user_leagues(session, user_id):
@@ -336,7 +336,7 @@ class TestGetUserLeagues:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
-        assert data[0]["name"] == "Beach Kings LA"
+        assert data[0]["name"] == "Beach League LA"
 
     def test_returns_empty_list_when_no_leagues(self, monkeypatch):
         """Returns an empty list when the user is not in any league."""

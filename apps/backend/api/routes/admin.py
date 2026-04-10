@@ -147,6 +147,7 @@ async def submit_feedback(
         feedback = Feedback(
             user_id=current_user["id"] if current_user else None,
             feedback_text=payload.feedback_text,
+            category=payload.category,
             email=payload.email,
             is_resolved=False,
         )
@@ -176,6 +177,7 @@ async def submit_feedback(
                 user_phone=user_phone,
                 timestamp=feedback.created_at,
                 session=session,
+                category=payload.category,
             )
         except Exception as email_error:
             logger.error(f"Failed to send feedback email: {str(email_error)}")
@@ -184,6 +186,7 @@ async def submit_feedback(
             "id": feedback.id,
             "user_id": feedback.user_id,
             "feedback_text": feedback.feedback_text,
+            "category": feedback.category,
             "email": feedback.email,
             "is_resolved": feedback.is_resolved,
             "created_at": feedback.created_at.isoformat(),
@@ -223,6 +226,7 @@ async def get_all_feedback(
                 "id": fb.id,
                 "user_id": fb.user_id,
                 "feedback_text": fb.feedback_text,
+                "category": fb.category,
                 "email": fb.email,
                 "is_resolved": fb.is_resolved,
                 "created_at": fb.created_at.isoformat(),
@@ -273,6 +277,7 @@ async def update_feedback_resolution(
             "id": feedback.id,
             "user_id": feedback.user_id,
             "feedback_text": feedback.feedback_text,
+            "category": feedback.category,
             "email": feedback.email,
             "is_resolved": feedback.is_resolved,
             "created_at": feedback.created_at.isoformat(),
@@ -437,7 +442,7 @@ async def get_platform_stats(
             ("Users", "users", f"created_at >= {thirty_days_ago}"),
             ("Leagues", "leagues", f"created_at >= {thirty_days_ago}"),
             ("Seasons", "seasons", f"created_at >= {thirty_days_ago}"),
-            ("Matches", "matches", "date::date >= (NOW() - INTERVAL '30 days')::date"),
+            ("Games", "matches", "date::date >= (NOW() - INTERVAL '30 days')::date"),
             ("Sessions", "sessions", f"created_at >= {thirty_days_ago}"),
         ]
 

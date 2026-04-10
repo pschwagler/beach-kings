@@ -12,7 +12,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 - A user can create a match where 1-4 players are placeholders (not yet registered)
 - Placeholder players are real `players` table rows with `user_id=NULL`, distinguished by metadata
 - Season standings (points, wins, losses) are computed immediately for all players, including placeholders
-- Global ELO is deferred for placeholder players until they are claimed (matches with placeholders are marked `is_ranked=false` until all players are linked)
+- Global ELO is deferred for placeholder players until they are claimed. In ranked sessions (`ranked_intent=true`), matches with placeholders are marked `is_ranked=false` (pending) until all players are linked. In unranked sessions, `is_ranked` is always `false` regardless of player registration.
 - A unique, non-expiring invite link is generated per placeholder player
 - The invite link leads to a landing page showing match context, then routes to signup/login
 - After signup or login, the placeholder is automatically linked to the user's account
@@ -31,7 +31,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 - Claim flow via signup OR login → auto-link
 - Match merge when claiming user already has a player record
 - Immediate global + league ELO recalculation on claim
-- Re-marking affected matches as `is_ranked=true` after all players in a match are linked
+- Re-marking affected matches as `is_ranked=true` after all players in a match are linked (only for matches in ranked sessions where `ranked_intent=true`)
 - Subtle visual indicator for placeholder players in match/session/league UIs
 - Reusable placeholders across multiple matches (same dropdown, mixed in with real players)
 - Lightweight "Pending Invites" section in user profile (list, copy link, status)
@@ -58,7 +58,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 6. User can dismiss or enter a phone number and confirm
 7. The placeholder appears as the selected player in the dropdown, with a subtle "invite pending" indicator
 8. User completes the match form as normal and submits
-9. Match is created. If any player is a placeholder, the match is saved with `is_ranked=false`
+9. Match is created. If the session is ranked (`ranked_intent=true`) and any player is a placeholder, the match is saved with `is_ranked=false` (pending). In unranked sessions, `is_ranked` is always `false` regardless.
 10. After match creation, a toast/prompt offers to copy the invite link for any placeholder players in the match
 
 ### Reusing a Placeholder in Future Matches
@@ -95,7 +95,7 @@ Users frequently want to log matches immediately after playing, but their oppone
 4. All session_participants referencing player Y are updated to player X (skip if duplicate with existing participant)
 5. League memberships: for each league the placeholder belongs to, transfer membership to player X if they're not already a member; delete the placeholder's membership if they are
 6. Placeholder player record Y is deleted
-7. Any matches where all 4 players are now linked users (no `is_placeholder=true`) have `is_ranked` set to `true`
+7. Any matches in ranked sessions (`ranked_intent=true`) where all 4 players are now linked users (no `is_placeholder=true`) have `is_ranked` set to `true`
 8. Global + league stats recalculation is enqueued for each affected league
 9. Creator of the placeholder receives a notification: "[Name] has joined Beach League and claimed their matches!"
 
@@ -141,7 +141,7 @@ A single system-level player record with `full_name="Unknown Player"`, `is_place
 
 #### Modified: `matches` table
 
-No schema changes needed. The existing `is_ranked` boolean (default `true`) will be set to `false` for matches containing placeholder players, and flipped to `true` when all players in the match are linked.
+No schema changes needed. The existing `is_ranked` boolean is determined by two factors: (1) the session's `ranked_intent`, and (2) whether all players are registered. In ranked sessions, `is_ranked` is set to `false` when any player is a placeholder (the match is "pending"), and flipped to `true` when all players are linked. In unranked sessions, `is_ranked` stays `false` permanently regardless of player registration status. See `docs/features/pending-games.md` for the full ranked/pending lifecycle.
 
 #### League membership for placeholders
 
@@ -213,7 +213,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 2. Get the authenticated user's player ID
 3. **If user has no existing player record**: set `user_id` on the placeholder player, set `is_placeholder=false`
 4. **If user already has a player record**: run the merge flow (update all match FKs, session_participants, then delete placeholder)
-5. Update any matches where all 4 players are now linked → set `is_ranked=true`
+5. Update any matches in ranked sessions where all 4 players are now linked → set `is_ranked=true`
 6. Update invite status to `claimed`, set `claimed_by_user_id` and `claimed_at`
 7. Enqueue global + league stats recalculation jobs
 8. Create notification for the invite creator
@@ -235,7 +235,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 | Component | Changes |
 |---|---|
 | `PlayerDropdown` | Add "Add [name]" option when no match found. Show `PlaceholderBadge` next to placeholder players. |
-| `AddMatchModal` | After submit with placeholders, show toast with invite link copy option. Set `is_ranked=false` when placeholders present. |
+| `AddMatchModal` | After submit with placeholders, show toast with invite link copy option. In ranked sessions, set `is_ranked=false` (pending) when placeholders present. |
 | `AuthPage` (signup/login) | Accept invite token from URL params. After auth, trigger claim API call. |
 | `ProfilePage` | Add `PendingInvitesSection` |
 | `MatchCard` / match display components | Show `PlaceholderBadge` next to placeholder player names |
@@ -323,7 +323,7 @@ When a placeholder is used in a league match, a `LeagueMember` row is created fo
 - [x] **2.2** `GET /api/players/placeholder` — list current user's created placeholders with invite status, match count, phone
 - [x] **2.3** `DELETE /api/players/placeholder/{player_id}` — creator-only. Replace placeholder with Unknown Player in all matches (update all 4 player FK columns where they match). Invalidate invite. Delete placeholder's `LeagueMember` rows. Recalculate affected session/league stats. Return count of affected matches.
 - [x] **2.4** Modify player search/list endpoints — include placeholders scoped by context (league_id, session_id, or created_by). Add `is_placeholder` flag to player response DTOs.
-- [x] **2.5** Modify `POST /api/matches` — when any of the 4 player IDs is a placeholder (`is_placeholder=true`), force `is_ranked=false` on the created match regardless of the request payload
+- [x] **2.5** Modify `POST /api/matches` — in ranked sessions (`ranked_intent=true`), when any of the 4 player IDs is a placeholder (`is_placeholder=true`), force `is_ranked=false` on the created match (pending state). In unranked sessions, `is_ranked` is already `false`.
 - [x] **2.6** Unit tests for all CRUD operations, scoping logic, is_ranked enforcement (27 tests in `test_placeholder_crud.py`)
 
 **Implementation notes:**

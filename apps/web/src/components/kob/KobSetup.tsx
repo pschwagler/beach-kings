@@ -178,7 +178,7 @@ export default function KobSetup({ tournamentId: tournamentIdProp }: KobSetupPro
   };
 
   const handleStart = async () => {
-    if (!confirm("Start tournament? Roster will be locked and matches generated.")) return;
+    if (!confirm("Start tournament? Roster will be locked and games generated.")) return;
     setStarting(true);
     try {
       const updated = await startKobTournament(tournamentId);

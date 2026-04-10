@@ -31,6 +31,12 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
   const [website, setWebsite] = useState(court.website || '');
   const [costInfo, setCostInfo] = useState(court.cost_info || '');
   const [parkingInfo, setParkingInfo] = useState(court.parking_info || '');
+  const [description, setDescription] = useState(court.description || '');
+  const [isFree, setIsFree] = useState(court.is_free ?? false);
+  const [hasLights, setHasLights] = useState(court.has_lights ?? false);
+  const [hasRestrooms, setHasRestrooms] = useState(court.has_restrooms ?? false);
+  const [hasParking, setHasParking] = useState(court.has_parking ?? false);
+  const [netsProvided, setNetsProvided] = useState(court.nets_provided ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -38,7 +44,7 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
     e.preventDefault();
 
     // Build changes object — only include fields that differ from current
-    const changes: Record<string, string | number | null> = {};
+    const changes: Record<string, string | number | boolean | null> = {};
     if (name !== (court.name || '')) changes.name = name;
     if (address !== (court.address || '')) changes.address = address;
     if (String(courtCount) !== String(court.court_count || '')) {
@@ -50,6 +56,12 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
     if (website !== (court.website || '')) changes.website = website || null;
     if (costInfo !== (court.cost_info || '')) changes.cost_info = costInfo || null;
     if (parkingInfo !== (court.parking_info || '')) changes.parking_info = parkingInfo || null;
+    if (description !== (court.description || '')) changes.description = description || null;
+    if (isFree !== (court.is_free ?? false)) changes.is_free = isFree;
+    if (hasLights !== (court.has_lights ?? false)) changes.has_lights = hasLights;
+    if (hasRestrooms !== (court.has_restrooms ?? false)) changes.has_restrooms = hasRestrooms;
+    if (hasParking !== (court.has_parking ?? false)) changes.has_parking = hasParking;
+    if (netsProvided !== (court.nets_provided ?? false)) changes.nets_provided = netsProvided;
 
     if (Object.keys(changes).length === 0) {
       setError('No changes detected.');
@@ -184,6 +196,40 @@ export default function SuggestEditForm({ court, onClose, onSuccess }: SuggestEd
           placeholder="e.g. Street parking available"
           style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--gray-300)', borderRadius: '6px', fontSize: '14px' }}
         />
+      </div>
+
+      <div className="court-review-form__field">
+        <label htmlFor="suggest-description">Description</label>
+        <textarea
+          id="suggest-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe the courts..."
+          rows={3}
+          style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--gray-300)', borderRadius: '6px', fontSize: '14px', resize: 'vertical' }}
+        />
+      </div>
+
+      <div className="court-review-form__field">
+        <label>Amenities</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
+          {([
+            ['isFree', 'Free to play', isFree, setIsFree],
+            ['hasLights', 'Lights', hasLights, setHasLights],
+            ['hasRestrooms', 'Restrooms', hasRestrooms, setHasRestrooms],
+            ['hasParking', 'Parking', hasParking, setHasParking],
+            ['netsProvided', 'Nets provided', netsProvided, setNetsProvided],
+          ] as const).map(([key, label, value, setter]) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={value as boolean}
+                onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="court-review-form__actions">

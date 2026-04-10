@@ -249,7 +249,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('wins')}>
+            <th className="mobile-hide-col" onClick={() => handleSort('wins')}>
               <Tooltip text="Total number of wins">
                 <span className="th-content">
                   <span className="desktop-label">Wins</span>
@@ -258,7 +258,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('losses')}>
+            <th className="mobile-hide-col" onClick={() => handleSort('losses')}>
               <Tooltip text="Total number of losses">
                 <span className="th-content">
                   <span className="desktop-label">Losses</span>
@@ -274,7 +274,7 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 </span>
               </Tooltip>
             </th>
-            <th onClick={() => handleSort('avg_pt_diff')}>
+            <th className="mobile-hide-col" onClick={() => handleSort('avg_pt_diff')}>
               <Tooltip text="Average point differential per game">
                 <span className="th-content">
                   Avg +/-{getSortArrow('avg_pt_diff')}
@@ -323,10 +323,10 @@ export default function RankingsTable({ rankings, onPlayerClick, loading, isAllS
                 </td>
                 <td className="rankings-stat-cell">{isAllSeasons ? '-' : formatPoints(player.points)}</td>
                 <td className="rankings-stat-cell">{player.games}</td>
-                <td className="rankings-stat-cell">{player.wins}</td>
-                <td className="rankings-stat-cell">{player.losses}</td>
+                <td className="rankings-stat-cell mobile-hide-col">{player.wins}</td>
+                <td className="rankings-stat-cell mobile-hide-col">{player.losses}</td>
                 <td className="rankings-stat-cell">{((player.win_rate ?? 0) * 100).toFixed(1)}%</td>
-                <td className="rankings-stat-cell">{formatPtDiff(player.avg_pt_diff ?? 0)}</td>
+                <td className="rankings-stat-cell mobile-hide-col">{formatPtDiff(player.avg_pt_diff ?? 0)}</td>
                 <td className="rankings-stat-cell">{Math.round(player.elo ?? 0)}</td>
               </tr>
             );

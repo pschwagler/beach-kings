@@ -20,7 +20,7 @@ export default function DirectorControls({ tournament, onAdvance, onDropPlayer, 
 
   const handleDrop = async () => {
     if (!selectedDropPlayer) return;
-    if (!confirm(`Drop ${activePlayers.find((p: any) => p.player_id === selectedDropPlayer)?.player_name}? Their future matches will become forfeits.`)) return;
+    if (!confirm(`Drop ${activePlayers.find((p: any) => p.player_id === selectedDropPlayer)?.player_name}? Their future games will become forfeits.`)) return;
     await onDropPlayer(selectedDropPlayer);
     setSelectedDropPlayer(null);
   };

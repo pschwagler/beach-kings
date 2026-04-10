@@ -26,7 +26,7 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }: Matc
 
   return (
     <>
-      <h3><History size={22} />Match History</h3>
+      <h3><History size={22} />Game History</h3>
 
       {/* Desktop: standard table */}
       <div className="match-history-desktop">

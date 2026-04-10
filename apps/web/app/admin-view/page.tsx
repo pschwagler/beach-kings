@@ -2,10 +2,11 @@
 
 import { Suspense } from 'react';
 import AdminView from '../../src/components/admin/AdminView';
+import PageSkeleton from '../../src/components/ui/PageSkeleton';
 
 export default function AdminViewPage() {
   return (
-    <Suspense fallback={<div className="container"><p>Loading...</p></div>}>
+    <Suspense fallback={<PageSkeleton />}>
       <AdminView />
     </Suspense>
   );

@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { BarChart3, Settings, MapPin, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthModal } from '../../contexts/AuthModalContext';
-import { getUserLeagues } from '../../services/api';
+import { useApp } from '../../contexts/AppContext';
 import NavBar from '../layout/NavBar';
 import AdminDashboardTab from './AdminDashboardTab';
 import AdminSettingsTab from './AdminSettingsTab';
 import AdminCourtsTab from './AdminCourtsTab';
 import AdminFeedbackTab from './AdminFeedbackTab';
-import { League } from '../../types';
 import './AdminView.css';
 
 const TABS = [
@@ -29,7 +27,7 @@ export default function AdminView() {
   const searchParams = useSearchParams();
   const { user, currentUserPlayer, isAuthenticated, logout } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
+  const { userLeagues } = useApp();
 
   const activeTab = searchParams.get('tab') || 'dashboard';
 
@@ -38,14 +36,6 @@ export default function AdminView() {
     params.set('tab', key);
     router.replace(`?${params.toString()}`, { scroll: false });
   };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      getUserLeagues()
-        .then(setUserLeagues)
-        .catch(() => setUserLeagues([]));
-    }
-  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     try { await logout(); } catch { /* noop */ }

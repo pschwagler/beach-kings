@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Home - Beach League Mobile</title>
+<style>
+  /* ── State Switcher visibility overrides ── */
+
+  /* State visibility */
+  .state-tournament-live,
+  .state-session-active { display: block; }
+  body.no-tournament .state-tournament-live { display: none !important; }
+  body.no-session .state-session-active { display: none !important; }
+  .state-profile-incomplete { display: none; }
+  body.profile-incomplete .state-profile-incomplete { display: block !important; }
+
+  /* Tournaments always-visible section: upcoming vs empty */
+  .state-has-upcoming { display: block; }
+  .state-no-upcoming { display: none; }
+  body.no-upcoming .state-has-upcoming { display: none !important; }
+  body.no-upcoming .state-no-upcoming { display: block !important; }
+
+  /* Profile Completion Banner */
+  .profile-banner { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 3px solid #d4a843; display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; position: relative; }
+  .profile-banner .banner-ring { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+  .profile-banner .banner-ring svg { transform: rotate(-90deg); }
+  .profile-banner .banner-ring .ring-bg { fill: none; stroke: #f0f0f0; stroke-width: 4; }
+  .profile-banner .banner-ring .ring-fill { fill: none; stroke: #d4a843; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 22 88; }
+  .profile-banner .banner-ring .ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #1a3a4a; }
+  .profile-banner .banner-body { flex: 1; min-width: 0; }
+  .profile-banner .banner-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .profile-banner .banner-subtitle { font-size: 12px; color: #666; line-height: 1.3; }
+  .profile-banner .banner-arrow { color: #ccc; font-size: 18px; flex-shrink: 0; font-weight: 300; }
+  .profile-banner .banner-dismiss { position: absolute; top: 8px; right: 10px; width: 22px; height: 22px; border-radius: 50%; background: #f0f0f0; border: none; font-size: 11px; color: #999; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+
+  /* Top Nav — home-specific brand extensions */
+  .top-nav .brand { display: flex; align-items: center; gap: 8px; }
+  .top-nav .brand .crown { font-size: 22px; }
+  .top-nav .brand span { color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+  .top-nav .nav-actions { display: flex; gap: 14px; align-items: center; }
+  .top-nav .nav-actions .icon-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; position: relative; text-decoration: none; }
+  .top-nav .nav-actions .icon-btn .badge { position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #1a3a4a; }
+  .top-nav .avatar { width: 32px; height: 32px; border-radius: 50%; background: #7fb3c7; border: 2px solid rgba(255,255,255,0.4); }
+
+  /* Quick Stats Pill */
+  .quick-stats { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .quick-stats .greeting { font-size: 14px; font-weight: 600; flex: 1; }
+  .quick-stats .stat-pill { font-size: 12px; font-weight: 600; color: #1a3a4a; background: #e8f4f8; padding: 4px 10px; border-radius: 12px; }
+  .quick-stats .stat-pill .val { font-weight: 700; }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  /* Section */
+  .section { margin-bottom: 16px; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .section-header h3 { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+  .section-header .link { font-size: 13px; color: #2a7d9c; font-weight: 500; text-decoration: none; }
+
+  /* League Cards (horizontal scroll) */
+  .league-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .league-scroll::-webkit-scrollbar { display: none; }
+  .league-card { min-width: 150px; background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-decoration: none; color: inherit; }
+  .league-card .league-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .league-card .league-meta { font-size: 11px; color: #666; margin-top: 6px; }
+  .league-card .league-rank { display: inline-block; margin-top: 8px; background: #e8f4f8; color: #2a7d9c; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
+
+  /* Session Card */
+  .session-card { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; text-decoration: none; color: inherit; display: block; }
+  .session-card .session-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .session-card .session-name { font-size: 14px; font-weight: 600; }
+  .session-card .session-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .session-card .session-badge.active { background: #dcfce7; color: #15803d; }
+  .session-card .session-badge.league { background: #e8f4f8; color: #2a7d9c; }
+  .session-card .session-meta { font-size: 12px; color: #666; margin-bottom: 6px; }
+  .session-card .session-stats { display: flex; gap: 16px; font-size: 12px; color: #555; }
+  .session-card .session-stats span { display: flex; align-items: center; gap: 4px; }
+
+  /* Game Cards (horizontal scroll) */
+  .game-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .game-scroll::-webkit-scrollbar { display: none; }
+  .game-card { min-width: 200px; background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .game-card .game-result { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; display: inline-block; margin-bottom: 8px; }
+  .game-card .game-result.win { background: #dcfce7; color: #15803d; }
+  .game-card .game-result.loss { background: #fee2e2; color: #b91c1c; }
+  .game-card .game-score { font-size: 20px; font-weight: 700; color: #1a3a4a; margin-bottom: 4px; }
+  .game-card .game-teams { font-size: 12px; line-height: 1.4; color: #555; }
+  .game-card .game-teams .you { font-weight: 600; color: #1a1a1a; }
+  .game-card .game-meta { font-size: 11px; color: #666; margin-top: 8px; }
+
+  /* Court Card */
+  .court-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); min-width: 200px; text-decoration: none; color: inherit; }
+  .court-card .court-img { height: 100px; background: linear-gradient(135deg, #a8d8ea, #c8e6c9); }
+  .court-card .court-info { padding: 10px 12px; }
+  .court-card .court-name { font-size: 13px; font-weight: 600; }
+  .court-card .court-meta { font-size: 11px; color: #666; margin-top: 3px; }
+  .court-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .court-scroll::-webkit-scrollbar { display: none; }
+
+  /* Scroll fade affordance */
+  .league-scroll, .game-scroll, .court-scroll {
+    mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+  }
+
+  /* Tab bar / tab-dot rules live in shared.css */
+
+  /* Pending Invites Nudge — slim dismissable banner */
+  .pending-invites-banner { display: flex; align-items: center; gap: 10px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+  .pending-invites-banner .banner-icon { font-size: 16px; flex-shrink: 0; }
+  .pending-invites-banner .banner-text { flex: 1; font-size: 13px; color: #92400e; font-weight: 500; }
+  .pending-invites-banner .banner-text strong { font-weight: 700; }
+  .pending-invites-banner .banner-cta { flex-shrink: 0; padding: 6px 14px; border-radius: 8px; background: #f59e0b; color: #fff; font-size: 12px; font-weight: 700; border: none; cursor: pointer; min-height: 32px; }
+  .pending-invites-banner .banner-dismiss { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: #b45309; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  /* Tournament upcoming cards (always-visible section) */
+  .tourney-upcoming-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .tourney-upcoming-scroll::-webkit-scrollbar { display: none; }
+  .tourney-upcoming-scroll { mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); }
+  .tourney-upcoming-card { min-width: 200px; background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-decoration: none; color: inherit; }
+  .tourney-upcoming-card .tourney-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .tourney-upcoming-card .tourney-meta { font-size: 11px; color: #666; margin-top: 4px; }
+  .tourney-upcoming-card .tourney-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .tourney-upcoming-card .tourney-spots { font-size: 11px; color: #555; }
+  .tourney-upcoming-card .tourney-type { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .tourney-upcoming-card .tourney-type.open { background: #dcfce7; color: #15803d; }
+  .tourney-upcoming-card .tourney-type.invite { background: #e8f4f8; color: #2a7d9c; }
+  .tourney-upcoming-card .tourney-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; }
+  .tourney-upcoming-card .tourney-badge.soon { background: #fef3c7; color: #92400e; }
+  .tourney-upcoming-card .tourney-badge.director { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Tournament empty CTA */
+  .tourney-empty-cta { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1.5px dashed #ccc; }
+  .tourney-empty-cta .cta-title { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .tourney-empty-cta .cta-desc { font-size: 12px; color: #666; margin-bottom: 12px; }
+  .tourney-empty-cta .cta-btns { display: flex; gap: 8px; justify-content: center; }
+  .tourney-empty-cta .cta-btn { padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; text-decoration: none; min-height: 44px; display: flex; align-items: center; }
+  .tourney-empty-cta .cta-btn.primary { background: #1a3a4a; color: #fff; }
+  .tourney-empty-cta .cta-btn.secondary { background: #f5f5f5; color: #1a3a4a; border: 1px solid #e0e0e0; }
+
+  /* Pending game badge */
+  .game-pending-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: #fef3c7; color: #b45309; border: 1px solid #f59e0b; margin-left: 6px; vertical-align: middle; }
+  .game-teams .placeholder-name { color: #b45309; font-style: italic; }
+  body.profile-incomplete .pending-invites-banner { display: none !important; }
+</style>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">View State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('all')">All Active</button>
+    <button class="sw-pill" onclick="setState('session-only')">Session Only</button>
+    <button class="sw-pill" onclick="setState('tournament-only')">Tournament Only</button>
+    <button class="sw-pill" onclick="setState('empty')">Nothing Active</button>
+    <button class="sw-pill" onclick="setState('no-upcoming')">No Upcoming Tournaments</button>
+    <button class="sw-pill" onclick="setState('profile-incomplete')">Profile Incomplete</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="brand">
+    <span class="crown" style="color: #d4a843;">&#128081;</span>
+    <span>BEACH LEAGUE</span>
+  </div>
+  <div class="nav-actions">
+    <a href="messages.html" class="icon-btn">&#128172;<span class="badge">1</span></a>
+    <a href="notifications.html" class="icon-btn">&#128276;<span class="badge">3</span></a>
+    <div class="avatar"></div>
+  </div>
+</div>
+
+<div class="quick-stats">
+  <div class="greeting">Hey Patrick</div>
+  <span class="stat-pill"><span class="val">1438</span> Rating</span>
+  <span class="stat-pill"><span class="val">66</span>-28</span>
+</div>
+
+<div class="content">
+
+  <!-- Profile Completion Banner -->
+  <div class="section state-profile-incomplete">
+    <a href="profile.html" class="profile-banner">
+      <div class="banner-ring">
+        <svg width="44" height="44" viewBox="0 0 44 44">
+          <circle class="ring-bg" cx="22" cy="22" r="14" />
+          <circle class="ring-fill" cx="22" cy="22" r="14" />
+        </svg>
+        <div class="ring-text">25%</div>
+      </div>
+      <div class="banner-body">
+        <div class="banner-title">Finish setting up your profile</div>
+        <div class="banner-subtitle">Add your level and location to get matched with players</div>
+      </div>
+      <div class="banner-arrow">&#8250;</div>
+      <button class="banner-dismiss" onclick="event.preventDefault(); this.closest('.section').style.display='none';">&#10005;</button>
+    </a>
+  </div>
+
+  <!-- Tournament (live) -->
+  <div class="section state-tournament-live">
+    <div class="section-header">
+      <h3>Tournaments</h3>
+      <a href="tournaments.html" class="link">See All</a>
+    </div>
+    <a href="kob-live.html" class="session-card" style="border-left: 3px solid #15803d;">
+      <div class="session-top">
+        <div class="session-name">Saturday Morning KoB</div>
+        <span class="session-badge active">Live</span>
+      </div>
+      <div class="session-meta">Round 3 of 7 &middot; QBK Sports</div>
+      <div class="session-stats">
+        <span>8 players</span>
+        <span>You: #1 (4-0)</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- Pending Invites Nudge — slim dismissable banner -->
+  <div class="pending-invites-banner">
+    <div class="banner-icon">&#9993;</div>
+    <div class="banner-text"><strong>3 players waiting</strong> &middot; 4 games pending</div>
+    <button class="banner-cta" onclick="window.location.href='pending-invites.html'">Send Invites</button>
+    <button class="banner-dismiss" onclick="this.closest('.pending-invites-banner').style.display='none'">&#10005;</button>
+  </div>
+
+  <!-- Active Session -->
+  <div class="section state-session-active">
+    <div class="section-header">
+      <h3>Active Sessions</h3>
+      <a href="league-matches.html" class="link">See All</a>
+    </div>
+    <a href="session-active.html" class="session-card">
+      <div class="session-top">
+        <div class="session-name">3/19/2026 Session #3</div>
+        <span class="session-badge active">Active</span>
+      </div>
+      <div class="session-meta">QBK Open Men - Mornings</div>
+      <div class="session-stats">
+        <span>7 games</span>
+        <span>5 players</span>
+        <span>2h ago</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- Recent Games (always visible) -->
+  <div class="section">
+    <div class="section-header">
+      <h3>Recent Games</h3>
+      <a href="my-games.html" class="link">All Games</a>
+    </div>
+    <div class="game-scroll">
+      <div class="game-card">
+        <span class="game-result win">WIN</span><span class="game-pending-badge">Pending</span>
+        <div class="game-score">21-18</div>
+        <div class="game-teams"><span class="you">You</span> / K. Fawwar</div>
+        <div class="game-teams">vs A. Marthey / <span class="placeholder-name">J. Zwyczca</span></div>
+        <div class="game-meta">Mar 19 &middot; QBK Open Men</div>
+      </div>
+      <div class="game-card">
+        <span class="game-result loss">LOSS</span><span class="game-pending-badge">Pending</span>
+        <div class="game-score">17-21</div>
+        <div class="game-teams"><span class="you">You</span> / <span class="placeholder-name">S. Jindash</span></div>
+        <div class="game-teams">vs J. Drabos / M. Salizar</div>
+        <div class="game-meta">Mar 19 &middot; QBK Open Men</div>
+      </div>
+      <div class="game-card">
+        <span class="game-result win">WIN</span><span class="game-pending-badge">Pending</span>
+        <div class="game-score">21-15</div>
+        <div class="game-teams"><span class="you">You</span> / K. Fawwar</div>
+        <div class="game-teams">vs <span class="placeholder-name">S. Jindash</span> / R. Torres</div>
+        <div class="game-meta">Mar 19 &middot; QBK Open Men</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Leagues (always visible) -->
+  <div class="section">
+    <div class="section-header">
+      <h3>My Leagues</h3>
+      <a href="find-leagues.html" class="link">Find Leagues</a>
+    </div>
+    <div class="league-scroll">
+      <a href="league-dashboard.html" class="league-card">
+        <div class="league-name">QBK Open Men - Mornings</div>
+        <div class="league-meta">25 players</div>
+        <div class="league-rank">#1 Ranked</div>
+      </a>
+      <a href="league-dashboard.html" class="league-card">
+        <div class="league-name">NYC Fun League</div>
+        <div class="league-meta">18 players</div>
+        <div class="league-rank">#3 Ranked</div>
+      </a>
+      <a href="find-leagues.html" class="league-card" style="opacity: 0.7; border: 1.5px dashed #ccc; box-shadow: none;">
+        <div class="league-name" style="color: #2a7d9c;">+ Join a League</div>
+        <div class="league-meta">Browse open leagues near you</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Tournaments (always visible) -->
+  <div class="section">
+    <div class="section-header">
+      <h3>Tournaments</h3>
+      <a href="tournaments.html" class="link">See All</a>
+    </div>
+
+    <!-- State: has upcoming tournaments — user's own first, then discovery -->
+    <div class="state-has-upcoming">
+      <div class="tourney-upcoming-scroll">
+        <a href="tournament-detail.html" class="tourney-upcoming-card">
+          <div class="tourney-name">Sunday Showdown KoB</div>
+          <div class="tourney-meta">QBK Sports &middot; Apr 13 &middot; 9 AM</div>
+          <div class="tourney-bottom">
+            <span class="tourney-badge soon">In 3 days</span>
+            <span class="tourney-badge">Registered</span>
+          </div>
+        </a>
+        <a href="tournament-detail.html" class="tourney-upcoming-card">
+          <div class="tourney-name">Williamsburg Weekly KoB</div>
+          <div class="tourney-meta">McCarren Park &middot; Apr 26 &middot; 10 AM</div>
+          <div class="tourney-bottom">
+            <span class="tourney-badge director">Director</span>
+            <span class="tourney-spots">8/12 players</span>
+          </div>
+        </a>
+        <a href="tournament-detail.html" class="tourney-upcoming-card" style="opacity: 0.6;">
+          <div class="tourney-name">Domino Park Spring KoB</div>
+          <div class="tourney-meta">Domino Park &middot; Apr 20 &middot; 10 AM</div>
+          <div class="tourney-bottom">
+            <span class="tourney-spots">4/16 players</span>
+            <span class="tourney-type open">Open</span>
+          </div>
+        </a>
+        <a href="tournaments.html" class="tourney-upcoming-card" style="opacity: 0.7; border: 1.5px dashed #ccc; box-shadow: none;">
+          <div class="tourney-name" style="color: #2a7d9c;">+ Find More</div>
+          <div class="tourney-meta">Browse tournaments near you</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- State: no upcoming tournaments -->
+    <div class="state-no-upcoming">
+      <div class="tourney-empty-cta">
+        <div class="cta-title">Browse Tournaments Near You</div>
+        <div class="cta-desc">Find and join KoB events at courts in your area</div>
+        <div class="cta-btns">
+          <a href="tournaments.html" class="cta-btn primary">Browse Nearby</a>
+          <a href="kob-create.html" class="cta-btn secondary">+ Create</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Courts Near You (always visible) -->
+  <div class="section">
+    <div class="section-header">
+      <h3>Courts Near You</h3>
+      <a href="courts.html" class="link">See All</a>
+    </div>
+    <div class="court-scroll">
+      <a href="court-detail.html" class="court-card">
+        <div class="court-img"></div>
+        <div class="court-info">
+          <div class="court-name">Domino Park</div>
+          <div class="court-meta">Brooklyn &middot; 0.3 mi</div>
+        </div>
+      </a>
+      <a href="court-detail.html" class="court-card">
+        <div class="court-img" style="background: linear-gradient(135deg, #c8e6c9, #e8d5b7);"></div>
+        <div class="court-info">
+          <div class="court-name">Hunter's Point South</div>
+          <div class="court-meta">Long Island City &middot; 1.2 mi</div>
+        </div>
+      </a>
+      <a href="court-detail.html" class="court-card">
+        <div class="court-img" style="background: linear-gradient(135deg, #e8d5b7, #a8d8ea);"></div>
+        <div class="court-info">
+          <div class="court-name">QBK Sports</div>
+          <div class="court-meta">Queens &middot; 2.1 mi</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-dot profile-dot"></div>
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  document.body.classList.remove('no-tournament', 'no-session', 'no-upcoming', 'profile-incomplete');
+  if (state === 'session-only') document.body.classList.add('no-tournament');
+  if (state === 'tournament-only') document.body.classList.add('no-session');
+  if (state === 'empty') { document.body.classList.add('no-tournament', 'no-session'); }
+  if (state === 'no-upcoming') { document.body.classList.add('no-upcoming'); }
+  if (state === 'profile-incomplete') { document.body.classList.add('profile-incomplete'); }
+  /* Re-show the banner in case it was dismissed */
+  var banner = document.querySelector('.state-profile-incomplete');
+  if (banner) banner.style.display = '';
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

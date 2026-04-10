@@ -59,6 +59,7 @@ from backend.api.routes.signups import router as signups_router
 from backend.api.routes.admin import router as admin_router
 from backend.api.routes.calc import router as calc_router
 from backend.api.routes.kob import router as kob_router
+from backend.api.routes.push_tokens import router as push_tokens_router
 
 router = APIRouter()
 router.include_router(leagues_router)
@@ -73,6 +74,7 @@ router.include_router(users_router)
 router.include_router(friends_router)
 router.include_router(messages_router)
 router.include_router(notifications_router)
+router.include_router(push_tokens_router)
 router.include_router(signups_router)
 router.include_router(admin_router)
 router.include_router(calc_router)

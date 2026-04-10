@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>AI Score Capture - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .state { display: none; }
+  .state.active { display: block; }
+
+
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; background: none; border: none; cursor: pointer; }
+  .top-nav .spacer { min-width: 44px; }
+
+  /* ── Context Bar (league or pickup) ── */
+  .context-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #eef6fa; border-bottom: 1px solid #d0e8f2; }
+  .context-icon { width: 28px; height: 28px; border-radius: 6px; background: #1a3a4a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .context-info { flex: 1; min-width: 0; }
+  .context-name { font-size: 13px; font-weight: 700; color: #1a3a4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .context-meta { font-size: 11px; color: #5a8a9a; }
+  .context-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #1a3a4a; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+  .context-badge.pickup { background: #d97706; }
+
+  /* ── Capture State ── */
+  .capture-area { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px 100px; min-height: 500px; gap: 24px; }
+  .viewfinder { width: 160px; height: 120px; position: relative; display: flex; align-items: center; justify-content: center; }
+  .viewfinder-corner { position: absolute; width: 28px; height: 28px; border-color: #1a3a4a; border-style: solid; }
+  .viewfinder-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .viewfinder-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .viewfinder-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .viewfinder-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .viewfinder-icon { font-size: 36px; color: #1a3a4a; }
+  .capture-title { font-size: 20px; font-weight: 700; text-align: center; }
+  .capture-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.5; max-width: 300px; }
+  .capture-buttons { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px; margin-top: 8px; }
+  .btn-camera { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; min-height: 52px; cursor: pointer; }
+  .btn-gallery { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 14px; font-weight: 600; min-height: 48px; cursor: pointer; }
+
+  /* ── Analyzing State ── */
+  .cancel-btn { position: absolute; top: 10px; right: 10px; z-index: 10; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; border: none; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .photo-preview { margin: 16px; border-radius: 12px; overflow: hidden; background: #e0e0e0; height: 200px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .photo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #999; }
+  .photo-placeholder .ph-icon { font-size: 48px; }
+  .photo-placeholder .ph-text { font-size: 13px; font-weight: 500; }
+  .analyzing-overlay { position: absolute; inset: 0; background: rgba(26,58,74,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #fff; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #d4a843; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .analyzing-text { font-size: 15px; font-weight: 600; }
+  .analyzing-sub { font-size: 12px; opacity: 0.7; }
+
+  /* Streaming results during analysis */
+  .stream-section { padding: 0 16px 16px; }
+  .stream-label { font-size: 12px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .stream-card { background: #fff; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); animation: slideIn 0.3s ease-out; }
+  .stream-card.pending { animation: none; }
+  .stream-card.pending { opacity: 0.4; background: #f0f0f0; }
+  .stream-teams-row { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .stream-team { flex: 1; font-weight: 500; }
+  .stream-team.right { text-align: right; }
+  .stream-score-mini { font-size: 15px; font-weight: 800; color: #1a3a4a; text-align: center; min-width: 50px; }
+  .stream-skeleton { height: 12px; border-radius: 4px; background: #e0e0e0; }
+  .stream-skeleton.w60 { width: 60%; }
+  .stream-skeleton.w40 { width: 40%; margin-left: auto; }
+  .stream-skeleton.w30 { width: 30px; margin: 0 auto; }
+
+  /* ── Results State ── */
+  .results-header { padding: 14px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .results-title { font-size: 15px; font-weight: 700; }
+  .results-sub { font-size: 12px; color: #666; margin-top: 2px; }
+
+  /* Unrecognized Players Warning */
+  .unrecognized-section { margin: 12px 16px; padding: 12px 14px; background: #fef3c7; border: 1.5px solid #f59e0b; border-radius: 10px; }
+  .unrecognized-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .unrecognized-icon { font-size: 16px; }
+  .unrecognized-title { font-size: 13px; font-weight: 700; color: #92400e; }
+  .unrecognized-hint { font-size: 11px; color: #a16207; margin-bottom: 10px; line-height: 1.4; }
+  .unrecognized-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .player-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 1.5px solid #f59e0b; border-radius: 20px; font-size: 13px; font-weight: 600; color: #92400e; cursor: pointer; min-height: 40px; }
+  .player-chip .chip-icon { font-size: 14px; }
+  .player-chip.resolved { border-color: #22c55e; color: #166534; background: #f0fdf4; }
+  .player-chip.resolved .chip-icon { color: #22c55e; }
+
+  .result-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .result-card.has-unmatched { border-left: 3px solid #f59e0b; }
+  .result-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .result-match-label { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-teams { display: flex; align-items: center; gap: 8px; }
+  .result-team { flex: 1; }
+  .result-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .result-team.right { text-align: right; }
+  .player-name-unmatched { color: #92400e; font-weight: 700; cursor: pointer; }
+  .result-score { text-align: center; min-width: 56px; flex-shrink: 0; }
+  .result-score .score { font-size: 20px; font-weight: 800; color: #1a3a4a; letter-spacing: -0.5px; }
+  .result-score .sep { color: #ccc; margin: 0 2px; }
+  .result-edit-btn { font-size: 12px; color: #2a7d9c; font-weight: 600; background: none; border: none; min-height: 32px; padding: 0 4px; cursor: pointer; }
+
+  /* Condensed Confirm Options */
+  .confirm-options { background: #fff; margin: 12px 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+  .options-summary { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer; }
+  .options-summary-text { font-size: 13px; font-weight: 600; color: #1a3a4a; }
+  .options-summary-chevron { font-size: 10px; color: #999; transition: transform 0.2s; }
+  .options-detail { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .options-detail.open { max-height: 200px; }
+  .option-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+  .option-row + .option-row { border-top: 1px solid #f0f0f0; }
+  .option-label { font-size: 13px; font-weight: 600; color: #555; }
+  .option-value { font-size: 13px; font-weight: 600; color: #1a3a4a; display: flex; align-items: center; gap: 4px; }
+  .option-value .chevron { font-size: 10px; color: #999; }
+  .ranked-status { font-size: 13px; font-weight: 600; color: #666; display: flex; align-items: center; gap: 6px; }
+  .ranked-info-icon { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #ccc; font-size: 11px; font-weight: 700; color: #999; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .ranked-info-tooltip { font-size: 11px; color: #666; font-weight: 500; margin-top: 4px; line-height: 1.3; display: none; }
+  .ranked-info-tooltip.visible { display: block; }
+
+  /* Edit or Clarify input (matches PhotoMatchConversation.tsx) */
+  .edit-clarify-section { padding: 12px 16px; }
+  .edit-clarify-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .edit-clarify-input-row { display: flex; align-items: flex-start; gap: 10px; }
+  .edit-clarify-textarea { flex: 1; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #fff; resize: none; font-family: inherit; line-height: 1.4; min-height: 52px; }
+  .edit-clarify-send { width: 44px; height: 44px; border-radius: 10px; background: none; border: 1.5px solid #e0e0e0; display: flex; align-items: center; justify-content: center; color: #1a3a4a; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+  .edit-clarify-send:hover { border-color: #1a3a4a; }
+
+  /* Conversation history (user/AI back-and-forth) */
+  .conversation-section { padding: 0 16px 8px; }
+  .conversation-section h4 { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .conversation-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
+  .conversation-msg.user { background: #eef6fa; color: #1a3a4a; margin-left: 32px; }
+  .conversation-msg.assistant { background: #fff; color: #1a1a1a; margin-right: 32px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .conversation-msg .msg-role { font-size: 10px; font-weight: 700; color: #666; display: block; margin-bottom: 2px; }
+
+  /* Sticky confirm bar (#7) */
+  .sticky-confirm-bar { position: fixed; bottom: 82px; left: 0; width: 390px; background: #fff; border-top: 1px solid #eee; padding: 12px 16px; z-index: 200; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); }
+  .sticky-spacer { height: 180px; }
+
+  /* Bottom actions (non-sticky fallback) */
+  .bottom-actions { padding: 12px 16px 20px; background: #f5f5f5; }
+  .btn-confirm { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-confirm.disabled { background: #ccc; color: #666; cursor: not-allowed; }
+  .confirm-gate-msg { text-align: center; font-size: 12px; color: #dc2626; font-weight: 600; margin-bottom: 8px; }
+  .btn-retake { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
+
+  /* ── Bottom Sheet (player resolution, create placeholder) ── */
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 900; }
+  .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; max-height: 85vh; background: #fff; border-radius: 16px 16px 0 0; z-index: 901; display: flex; flex-direction: column; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); }
+  .sheet-handle { width: 36px; height: 4px; background: #ddd; border-radius: 2px; margin: 10px auto 0; }
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid #eee; }
+  .sheet-title { font-size: 17px; font-weight: 700; }
+  .sheet-close { font-size: 20px; color: #999; background: none; border: none; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .sheet-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+  /* Player search within sheet */
+  .search-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search-input { flex: 1; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #f9f9f9; }
+  .search-scope-pill { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #eef6fa; color: #1a3a4a; white-space: nowrap; }
+
+  .search-result-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+  .search-result-item:active { background: #f5f5f5; }
+  .search-avatar { width: 40px; height: 40px; border-radius: 50%; background: #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #666; flex-shrink: 0; }
+  .search-result-info { flex: 1; min-width: 0; }
+  .search-result-name { font-size: 14px; font-weight: 600; }
+  .search-result-meta { font-size: 12px; color: #666; margin-top: 2px; }
+  .search-result-radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .search-result-item:active .search-result-radio { border-color: #2a7d9c; background: #2a7d9c; }
+  .search-result-item:active .search-result-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+
+  .search-empty { text-align: center; padding: 24px 0; color: #666; font-size: 14px; line-height: 1.5; }
+  .not-match-link { display: block; text-align: center; font-size: 13px; color: #666; font-weight: 500; padding: 12px 0 4px; cursor: pointer; }
+  .search-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+  .search-divider-line { flex: 1; height: 1px; background: #e0e0e0; }
+  .search-divider-text { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; }
+
+  .btn-create-player { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 10px; border: 1.5px dashed #d4a843; background: #fffbeb; color: #92400e; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 48px; }
+
+  /* Create Placeholder Sheet */
+  .create-field-row { display: flex; gap: 12px; }
+  .create-field-row > .create-field { flex: 1; }
+  .create-field { margin-bottom: 16px; }
+  .create-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .create-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #f9f9f9; }
+  .create-select { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #f9f9f9; color: #1a1a1a; -webkit-appearance: none; appearance: none; }
+  .create-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+  .btn-create-confirm { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 8px; }
+
+  /* Invite share (post-create) */
+  .invite-created { text-align: center; padding: 16px 0; }
+  .invite-check { width: 56px; height: 56px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 12px; }
+  .invite-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .invite-desc { font-size: 13px; color: #666; line-height: 1.4; margin-bottom: 16px; }
+  .invite-link-box { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px; }
+  .invite-link-url { flex: 1; font-size: 12px; color: #555; font-family: monospace; white-space: nowrap; }
+  .invite-link-copy { font-size: 12px; font-weight: 700; color: #1a3a4a; background: none; border: none; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .btn-share-invite { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #2a7d9c; background: transparent; color: #2a7d9c; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-skip-invite { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 14px; font-weight: 700; text-align: center; cursor: pointer; margin-bottom: 8px; }
+
+  /* ── Confirmed State ── */
+  .success-area { display: flex; flex-direction: column; align-items: center; padding: 40px 24px 20px; gap: 16px; }
+  .success-icon { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+  .success-title { font-size: 20px; font-weight: 700; text-align: center; }
+  .success-desc { font-size: 14px; color: #666; text-align: center; line-height: 1.5; }
+  .success-summary { background: #fff; border-radius: 12px; padding: 16px; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .summary-label { font-size: 13px; color: #666; }
+  .summary-value { font-size: 13px; font-weight: 700; }
+
+  /* Pending invites section in confirmed state */
+  .pending-invites { background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 12px; padding: 14px; width: 100%; margin-top: 4px; }
+  .pending-invites-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+  .pending-invites-desc { font-size: 12px; color: #a16207; margin-bottom: 12px; line-height: 1.4; }
+  .pending-invite-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .pending-invite-row + .pending-invite-row { border-top: 1px solid rgba(245,158,11,0.2); }
+  .pending-invite-avatar { width: 32px; height: 32px; border-radius: 50%; background: #fde68a; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #92400e; flex-shrink: 0; }
+  .pending-invite-name { flex: 1; font-size: 13px; font-weight: 600; color: #92400e; }
+  .pending-invite-share { font-size: 12px; font-weight: 700; color: #1a3a4a; background: #fff; border: 1px solid #1a3a4a; border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 36px; display: flex; align-items: center; gap: 4px; }
+  .home-tab-note { font-size: 13px; color: #666; font-weight: 400; margin-top: 8px; text-align: center; line-height: 1.4; background: #f0f4f8; padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px; justify-content: center; }
+
+  .btn-back-session { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 12px; }
+
+  /* Placeholder badge on ranked toggle */
+  .ranked-note { font-size: 11px; color: #dc2626; font-weight: 500; margin-top: 4px; }
+
+  /* ── Edit Match Bottom Sheet (#1) ── */
+  .edit-players-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .edit-player-slot { padding: 12px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #f9f9f9; font-size: 13px; font-weight: 600; text-align: center; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+  .edit-player-slot.unresolved { cursor: pointer; }
+  .edit-player-slot.team1 { border-color: #1a3a4a; background: #eef6fa; color: #1a3a4a; }
+  .edit-player-slot.team2 { border-color: #5a8a9a; background: #f0f8fc; color: #5a8a9a; }
+  .edit-player-slot.unresolved { border-color: #f59e0b; background: #fef3c7; color: #92400e; border-style: dashed; }
+  .edit-score-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px; }
+  .score-big-input { width: 80px; padding: 12px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 32px; font-weight: 800; text-align: center; background: #f9f9f9; color: #1a3a4a; }
+  .score-vs { font-size: 18px; font-weight: 700; color: #999; }
+  .btn-delete-match { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #dc2626; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 12px; }
+  .btn-delete-match:hover { background: #fef2f2; }
+  .edit-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .edit-actions .btn-cancel { flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: transparent; color: #666; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .edit-actions .btn-save { flex: 1; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+  /* ── Error States (#2) ── */
+  .error-section { margin: 16px; padding: 20px 16px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 12px; text-align: center; }
+  .error-icon { font-size: 40px; margin-bottom: 12px; }
+  .error-title { font-size: 17px; font-weight: 700; color: #991b1b; margin-bottom: 8px; }
+  .error-desc { font-size: 13px; color: #b91c1c; line-height: 1.5; margin-bottom: 16px; }
+  .btn-retake-primary { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #dc2626; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+  .btn-choose-different { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #dc2626; background: transparent; color: #dc2626; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 48px; }
+
+  /* Network error banner (#2) */
+  .net-error-banner { margin: 12px 16px; padding: 12px 14px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; }
+  .net-error-row { display: flex; align-items: center; gap: 10px; }
+  .net-error-text { flex: 1; font-size: 13px; color: #991b1b; font-weight: 600; line-height: 1.3; }
+  .btn-retry { padding: 8px 16px; border-radius: 8px; border: 1.5px solid #dc2626; background: #fff; color: #dc2626; font-size: 13px; font-weight: 700; cursor: pointer; min-height: 40px; flex-shrink: 0; }
+  .btn-continue-partial { display: block; width: 100%; margin-top: 10px; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 600; text-align: center; cursor: pointer; min-height: 40px; }
+
+  /* ── Photo Thumbnail (#3) ── */
+  .photo-thumb-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #eee; cursor: pointer; }
+  .photo-thumb-img { width: 48px; height: 36px; border-radius: 6px; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #999; flex-shrink: 0; overflow: hidden; }
+  .photo-thumb-label { flex: 1; font-size: 13px; font-weight: 600; color: #555; }
+  .photo-thumb-chevron { font-size: 12px; color: #999; transition: transform 0.2s; flex-shrink: 0; }
+  .photo-thumb-expanded { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: #fff; }
+  .photo-thumb-expanded.open { max-height: 300px; }
+  .photo-thumb-expanded .photo-preview-inline { margin: 0 16px 12px; border-radius: 10px; background: #e0e0e0; height: 200px; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #999; }
+
+  /* ── Progress Indicator ── */
+  .progress-dots { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px 6px; background: #f5f5f5; }
+  .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #ddd; transition: background 0.2s; }
+  .progress-dot.active { background: #1a3a4a; }
+  .progress-dot.done { background: #22c55e; }
+  .progress-label { font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
+
+  /* ── Score Validation Hint ── */
+  .score-hint { font-size: 12px; color: #f59e0b; font-weight: 600; text-align: center; margin-top: -8px; margin-bottom: 12px; }
+
+  /* ── Scan Another Button ── */
+  .btn-scan-another { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #d4a843; background: transparent; color: #92400e; font-size: 15px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
+
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; z-index: 100; }
+
+  .spacer-bottom { height: 100px; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (12 pills, 4 rows) ── -->
+<div class="state-switcher">
+  <div class="sw-label">AI Score Capture Flow</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('capture')">1. Capture</button>
+    <button class="sw-pill" onclick="setState('analyzing')">2. Streaming</button>
+    <button class="sw-pill" onclick="setState('err-net')">2b. Net Error</button>
+    <button class="sw-pill" onclick="setState('results')">3. Review</button>
+    <button class="sw-pill" onclick="setState('results-pickup')">3b. Pickup</button>
+    <button class="sw-pill" onclick="setState('results-partial')">3c. Partial</button>
+    <button class="sw-pill" onclick="setState('resolve')">4. Resolve Player</button>
+    <button class="sw-pill" onclick="setState('create')">5. Create Player</button>
+    <button class="sw-pill" onclick="setState('invite')">6. Share Invite</button>
+    <button class="sw-pill" onclick="setState('confirmed')">7. Confirmed</button>
+    <button class="sw-pill" onclick="setState('err-unreadable')">ERR: Unreadable</button>
+    <button class="sw-pill" onclick="setState('err-no-matches')">ERR: No Games</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <button class="back" onclick="window.location.href='session-active.html'">&larr;</button>
+  <div class="title">Score from Photo</div>
+  <div class="spacer"></div>
+</div>
+
+<!-- Step progress indicator -->
+<div class="progress-dots" id="progress-dots">
+  <div class="progress-dot active" data-step="capture"></div>
+  <div class="progress-dot" data-step="analyzing"></div>
+  <div class="progress-dot" data-step="review"></div>
+  <div class="progress-dot" data-step="confirmed"></div>
+  <div class="progress-label" id="progress-label">Capture</div>
+</div>
+
+<!-- Context bar: league mode shown here. For pickup, shows session name instead -->
+<div class="context-bar" id="context-bar-league">
+  <div class="context-icon">L</div>
+  <div class="context-info">
+    <div class="context-name">SD Beach League</div>
+    <div class="context-meta">Spring 2026 Season</div>
+  </div>
+  <div class="context-badge">League</div>
+</div>
+
+
+<!-- ══ STATE 1: Capture ══ -->
+<div class="state active" id="state-capture">
+  <div class="capture-area">
+    <div class="viewfinder">
+      <span class="viewfinder-corner tl"></span>
+      <span class="viewfinder-corner tr"></span>
+      <span class="viewfinder-corner bl"></span>
+      <span class="viewfinder-corner br"></span>
+      <span class="viewfinder-icon">&#128247;</span>
+    </div>
+    <div class="capture-title">Scan Scores</div>
+    <div class="capture-desc">Take a photo of a scoresheet, clipboard, or whiteboard — or upload from your gallery. AI will extract game scores and identify players.</div>
+    <div class="capture-buttons">
+      <button class="btn-camera" onclick="setState('analyzing')">&#128247; Take Photo</button>
+      <button class="btn-gallery">&#128193; Choose from Gallery</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 2: Analyzing (with streaming results) ══ -->
+<div class="state" id="state-analyzing">
+  <div class="photo-preview">
+    <button class="cancel-btn" onclick="setState('capture')" title="Cancel">&times;</button>
+    <div class="photo-placeholder">
+      <div class="ph-icon">&#128248;</div>
+      <div class="ph-text">Scoresheet photo</div>
+    </div>
+    <div class="analyzing-overlay">
+      <div class="spinner"></div>
+      <div class="analyzing-text">Analyzing scores...</div>
+      <div class="analyzing-sub">2 games found so far...</div>
+    </div>
+  </div>
+
+  <!-- Games stream in one-by-one as AI extracts them -->
+  <div class="stream-section">
+    <div class="stream-label">Extracting games...</div>
+
+    <!-- Game 1: fully extracted -->
+    <div class="stream-card">
+      <div class="stream-teams-row">
+        <div class="stream-team">Pat S / Karim F</div>
+        <div class="stream-score-mini">21-18</div>
+        <div class="stream-team right">Mike B / Jake R</div>
+      </div>
+    </div>
+
+    <!-- Game 2: fully extracted -->
+    <div class="stream-card">
+      <div class="stream-teams-row">
+        <div class="stream-team">Pat S / Mike B</div>
+        <div class="stream-score-mini">21-15</div>
+        <div class="stream-team right">Karim F / Alex T</div>
+      </div>
+    </div>
+
+    <!-- Game 3: still loading (skeleton) -->
+    <div class="stream-card pending">
+      <div class="stream-teams-row">
+        <div class="stream-team"><div class="stream-skeleton w60"></div></div>
+        <div style="min-width:50px;text-align:center;"><div class="stream-skeleton w30"></div></div>
+        <div class="stream-team right"><div class="stream-skeleton w40"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 0 16px; text-align: center;">
+    <div style="font-size: 13px; color: #666; line-height: 1.5;">Extracting games... usually takes a few seconds</div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 2b: Network Error During Streaming ══ -->
+<div class="state" id="state-err-net">
+  <div class="photo-preview">
+    <div class="photo-placeholder">
+      <div class="ph-icon">&#128248;</div>
+      <div class="ph-text">Scoresheet photo</div>
+    </div>
+  </div>
+
+  <div class="net-error-banner">
+    <div class="net-error-text">Connection interrupted</div>
+    <button class="btn-retry" onclick="setState('analyzing')">Retry</button>
+  </div>
+
+  <div class="stream-section">
+    <div class="stream-label">Games received</div>
+
+    <div class="stream-card">
+      <div class="stream-teams-row">
+        <div class="stream-team">Pat S / Karim F</div>
+        <div class="stream-score-mini">21-18</div>
+        <div class="stream-team right">Mike B / Jake R</div>
+      </div>
+    </div>
+
+    <div class="stream-card">
+      <div class="stream-teams-row">
+        <div class="stream-team">Pat S / Mike B</div>
+        <div class="stream-score-mini">21-15</div>
+        <div class="stream-team right">Karim F / Alex T</div>
+      </div>
+    </div>
+
+    <!-- Skeleton for failed game -->
+    <div class="stream-card pending">
+      <div class="stream-teams-row">
+        <div class="stream-team"><div class="stream-skeleton w60"></div></div>
+        <div style="min-width:50px;text-align:center;"><div class="stream-skeleton w30"></div></div>
+        <div class="stream-team right"><div class="stream-skeleton w40"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="net-error-row" style="padding: 8px 16px; text-align: center;">
+    <button class="btn-continue-partial" onclick="setState('results')">Continue with 2 games</button>
+    <div style="font-size: 13px; color: #666; line-height: 1.5;">Or tap Retry to resume extracting games.</div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 3: Results Review ══ -->
+<div class="state" id="state-results">
+  <div class="results-header">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+
+  <!-- Photo thumbnail (#3) -->
+  <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
+    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-label">Original photo</div>
+    <div class="photo-thumb-chevron">&#9660;</div>
+  </div>
+  <div class="photo-thumb-expanded">
+    <div class="photo-preview-inline">&#128248;</div>
+  </div>
+
+  <!-- Unrecognized players warning -- blocks confirm -->
+  <div class="unrecognized-section">
+    <div class="unrecognized-header">
+      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-title">2 Unrecognized Players</div>
+    </div>
+    <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
+    <div class="unrecognized-chips">
+      <div class="player-chip" onclick="setState('resolve')">
+        <span class="chip-icon">&#128269;</span>
+        Alex T
+      </div>
+      <div class="player-chip" onclick="setState('resolve')">
+        <span class="chip-icon">&#128269;</span>
+        Dan P
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 1: all players recognized -->
+  <div class="result-card">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 1</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Karim F</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>18</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Mike B<br/>Jake R</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 2: "Alex T" unrecognized -->
+  <div class="result-card has-unmatched">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 2</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Mike B</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>15</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Karim F<br/><span class="player-name-unmatched" onclick="setState('resolve')">Alex T</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 3: "Dan P" unrecognized, score unclear -->
+  <div class="result-card has-unmatched">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 3</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Devon M<br/>Jake R</div>
+      </div>
+      <div class="result-score">
+        <span class="score">18<span class="sep">-</span>21</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Chris L<br/><span class="player-name-unmatched" onclick="setState('resolve')">Dan P</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Condensed confirm options -->
+  <div class="confirm-options">
+    <div class="options-summary" onclick="toggleOptions(this)">
+      <span class="options-summary-text">Apr 9, 2026 -- Spring 2026 -- Ranked (locked)</span>
+      <span class="options-summary-chevron">&#9662;</span>
+    </div>
+    <div class="options-detail">
+      <div class="option-row">
+        <span class="option-label">Date</span>
+        <span class="option-value">Apr 9, 2026 <span class="chevron">&#9662;</span></span>
+      </div>
+      <div class="option-row">
+        <span class="option-label">Season</span>
+        <span class="option-value">Spring 2026 <span class="chevron">&#9662;</span></span>
+      </div>
+      <div class="option-row">
+        <span class="option-label">Ranked</span>
+        <div>
+          <span class="ranked-status">Locked <span class="ranked-info-icon" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('visible')">i</span></span>
+          <div class="ranked-info-tooltip">Games become ranked when all players claim their profiles.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit or Clarify input (matches PhotoMatchConversation.tsx) -->
+  <div class="edit-clarify-section">
+    <div class="edit-clarify-label">Edit or Clarify</div>
+    <div class="edit-clarify-input-row">
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
+      <button class="edit-clarify-send">&#9654;</button>
+    </div>
+  </div>
+
+  <!-- Sticky confirm bar (#7) -->
+  <div class="sticky-confirm-bar">
+    <div class="confirm-gate-msg">Resolve 2 unrecognized players to continue.</div>
+    <button class="btn-confirm disabled">Confirm &amp; Save All</button>
+  </div>
+  <div class="sticky-spacer"></div>
+</div>
+
+
+<!-- ══ STATE 3b: Results Review -- Pickup Variant ══ -->
+<div class="state" id="state-results-pickup">
+  <div class="results-header">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+
+  <!-- Pickup context bar (replaces league context) -->
+  <div class="context-bar" style="margin: 0;">
+    <div class="context-icon">S</div>
+    <div class="context-info">
+      <div class="context-name">Sunday Morning Pickup</div>
+      <div class="context-meta">Apr 9, 2026</div>
+    </div>
+    <div class="context-badge pickup">Pickup</div>
+  </div>
+
+  <!-- Photo thumbnail -->
+  <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
+    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-label">Original photo</div>
+    <div class="photo-thumb-chevron">&#9660;</div>
+  </div>
+  <div class="photo-thumb-expanded">
+    <div class="photo-preview-inline">&#128248;</div>
+  </div>
+
+  <!-- Unrecognized players -->
+  <div class="unrecognized-section">
+    <div class="unrecognized-header">
+      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-title">2 Unrecognized Players</div>
+    </div>
+    <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
+    <div class="unrecognized-chips">
+      <div class="player-chip" onclick="setState('resolve-pickup')">
+        <span class="chip-icon">&#128269;</span>
+        Alex T
+      </div>
+      <div class="player-chip" onclick="setState('resolve-pickup')">
+        <span class="chip-icon">&#128269;</span>
+        Dan P
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 1 -->
+  <div class="result-card">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 1</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Karim F</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>18</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Mike B<br/>Jake R</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 2: "Alex T" unrecognized -->
+  <div class="result-card has-unmatched">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 2</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Mike B</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>15</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Karim F<br/><span class="player-name-unmatched" onclick="setState('resolve-pickup')">Alex T</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 3 -->
+  <div class="result-card has-unmatched">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 3</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Devon M<br/>Jake R</div>
+      </div>
+      <div class="result-score">
+        <span class="score">18<span class="sep">-</span>21</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Chris L<br/><span class="player-name-unmatched" onclick="setState('resolve-pickup')">Dan P</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No options for pickup — date, ranked, and season are session-level settings -->
+  <!-- Pending status note (informational — ranked is inherited from session) -->
+  <div class="ranked-lock-note" style="margin: 12px 16px 8px; font-size: 11px; color: #666; font-style: italic;">2 games will be pending until all players claim their profiles.</div>
+
+  <!-- Edit or Clarify input -->
+  <div class="edit-clarify-section">
+    <div class="edit-clarify-label">Edit or Clarify</div>
+    <div class="edit-clarify-input-row">
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
+      <button class="edit-clarify-send">&#9654;</button>
+    </div>
+  </div>
+
+  <div class="sticky-confirm-bar">
+    <div class="confirm-gate-msg">Resolve 2 unrecognized players to continue</div>
+    <button class="btn-confirm disabled">Confirm &amp; Save All</button>
+  </div>
+  <div class="sticky-spacer"></div>
+</div>
+
+
+<!-- ══ STATE 3c: Results Review -- Partially Resolved ══ -->
+<div class="state" id="state-results-partial">
+  <div class="results-header">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+
+  <!-- Photo thumbnail -->
+  <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
+    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-label">Original photo</div>
+    <div class="photo-thumb-chevron">&#9660;</div>
+  </div>
+  <div class="photo-thumb-expanded">
+    <div class="photo-preview-inline">&#128248;</div>
+  </div>
+
+  <!-- 1 resolved, 1 remaining -->
+  <div class="unrecognized-section">
+    <div class="unrecognized-header">
+      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-title">1 Unrecognized Player</div>
+    </div>
+    <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
+    <div class="unrecognized-chips">
+      <div class="player-chip resolved">
+        <span class="chip-icon">&#10003;</span>
+        Alex T
+      </div>
+      <div class="player-chip" onclick="setState('resolve')">
+        <span class="chip-icon">&#128269;</span>
+        Dan P
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 1: all resolved -->
+  <div class="result-card">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 1</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Karim F</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>18</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Mike B<br/>Jake R</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 2: Alex T resolved to "Alex Thompson" -->
+  <div class="result-card">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 2</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Pat S<br/>Mike B</div>
+      </div>
+      <div class="result-score">
+        <span class="score">21<span class="sep">-</span>15</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Karim F<br/>Alex Thompson</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game 3: Dan P still unrecognized -->
+  <div class="result-card has-unmatched">
+    <div class="result-card-header">
+      <div class="result-match-label">Game 3</div>
+      <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
+    </div>
+    <div class="result-teams">
+      <div class="result-team">
+        <div class="result-team-names">Devon M<br/>Jake R</div>
+      </div>
+      <div class="result-score">
+        <span class="score">18<span class="sep">-</span>21</span>
+      </div>
+      <div class="result-team right">
+        <div class="result-team-names">Chris L<br/><span class="player-name-unmatched" onclick="setState('resolve')">Dan P</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Condensed confirm options (partial — season only, date/ranked are session-level) -->
+  <div class="confirm-options">
+    <div class="options-summary" onclick="toggleOptions(this)">
+      <span class="options-summary-text">Spring 2026</span>
+      <span class="options-summary-chevron">&#9662;</span>
+    </div>
+    <div class="options-detail">
+      <div class="option-row">
+        <span class="option-label">Season</span>
+        <span class="option-value">Spring 2026 <span class="chevron">&#9662;</span></span>
+      </div>
+    </div>
+  </div>
+  <!-- Pending status note (informational — ranked is inherited from session) -->
+  <div class="ranked-lock-note" style="margin: 0 16px 8px; font-size: 11px; color: #666; font-style: italic;">1 game will be pending until Dan P claims their profile.</div>
+
+  <!-- Conversation history showing prior exchange -->
+  <div class="conversation-section">
+    <h4>&#128172; Conversation</h4>
+    <div class="conversation-msg user">
+      <span class="msg-role">You:</span>
+      AT is Alex Thompson
+    </div>
+    <div class="conversation-msg assistant">
+      <span class="msg-role">AI:</span>
+      Got it -- matched Alex T to Alex Thompson in Match 2.
+    </div>
+  </div>
+
+  <div class="edit-clarify-section">
+    <div class="edit-clarify-label">Edit or Clarify</div>
+    <div class="edit-clarify-input-row">
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'DP is Dan Peterson'"></textarea>
+      <button class="edit-clarify-send">&#9654;</button>
+    </div>
+  </div>
+
+  <div class="sticky-confirm-bar">
+    <div class="confirm-gate-msg">Resolve 1 unrecognized player to continue</div>
+    <button class="btn-confirm disabled">Confirm &amp; Save All</button>
+  </div>
+  <div class="sticky-spacer"></div>
+</div>
+
+
+<!-- ══ STATE 4: Resolve Player (bottom sheet) ══ -->
+<div class="state" id="state-resolve">
+  <!-- Results page visible behind -->
+  <div class="results-header" style="opacity: 0.3;">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+  <div class="unrecognized-section" style="opacity: 0.3;">
+    <div class="unrecognized-header">
+      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-title">2 Unrecognized Players</div>
+    </div>
+  </div>
+
+  <!-- Bottom sheet overlay -->
+  <div class="sheet-overlay"></div>
+  <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Find "Alex T"</div>
+      <button class="sheet-close" onclick="setState('results')">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="search-input-row">
+        <input class="search-input" type="text" value="Alex T" />
+        <div class="search-scope-pill">SD Beach League</div>
+      </div>
+
+      <!-- Search results: possible matches -->
+      <div class="search-result-item">
+        <div class="search-avatar">AT</div>
+        <div class="search-result-info">
+          <div class="search-result-name">Alex Thompson</div>
+          <div class="search-result-meta">San Diego  --  M  --  BB  --  Played Apr 7</div>
+        </div>
+        <div class="search-result-radio"></div>
+      </div>
+
+      <div class="search-result-item">
+        <div class="search-avatar">AT</div>
+        <div class="search-result-info">
+          <div class="search-result-name">Alex Torres</div>
+          <div class="search-result-meta">La Jolla  --  M  --  A  --  Played Mar 30</div>
+        </div>
+        <div class="search-result-radio"></div>
+      </div>
+
+      <div class="search-result-item">
+        <div class="search-avatar">AT</div>
+        <div class="search-result-info">
+          <div class="search-result-name">Alexandra Tran</div>
+          <div class="search-result-meta">Encinitas  --  F  --  BB  --  Played Apr 2</div>
+        </div>
+        <div class="search-result-radio"></div>
+      </div>
+
+      <div class="not-match-link">Not who I'm looking for?</div>
+
+      <div class="search-divider">
+        <div class="search-divider-line"></div>
+        <div class="search-divider-text">or</div>
+        <div class="search-divider-line"></div>
+      </div>
+
+      <button class="btn-create-player" onclick="setState('create')">+ Add "Alex T" as New Player</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 4b: Resolve Player -- Pickup variant (hidden, no pill) ══ -->
+<div class="state" id="state-resolve-pickup">
+  <div class="results-header" style="opacity: 0.3;">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+  <div class="unrecognized-section" style="opacity: 0.3;">
+    <div class="unrecognized-header">
+      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-title">2 Unrecognized Players</div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay"></div>
+  <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Find "Alex T"</div>
+      <button class="sheet-close" onclick="setState('results-pickup')">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="search-input-row">
+        <input class="search-input" type="text" value="Alex T" />
+        <div class="search-scope-pill">Session Players</div>
+      </div>
+
+      <div class="search-result-item">
+        <div class="search-avatar">AT</div>
+        <div class="search-result-info">
+          <div class="search-result-name">Alex Thompson</div>
+          <div class="search-result-meta">San Diego  --  M  --  BB  --  Played Apr 7</div>
+        </div>
+        <div class="search-result-radio"></div>
+      </div>
+
+      <div class="search-result-item">
+        <div class="search-avatar">AT</div>
+        <div class="search-result-info">
+          <div class="search-result-name">Alex Torres</div>
+          <div class="search-result-meta">La Jolla  --  M  --  A  --  Played Mar 30</div>
+        </div>
+        <div class="search-result-radio"></div>
+      </div>
+
+      <div class="not-match-link">Not who I'm looking for?</div>
+
+      <div class="search-divider">
+        <div class="search-divider-line"></div>
+        <div class="search-divider-text">or</div>
+        <div class="search-divider-line"></div>
+      </div>
+
+      <button class="btn-create-player" onclick="setState('create')">+ Add "Alex T" as New Player</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 5: Create Placeholder Player (bottom sheet) ══ -->
+<div class="state" id="state-create">
+  <div class="results-header" style="opacity: 0.3;">
+    <div class="results-title">3 Games Found</div>
+  </div>
+
+  <div class="sheet-overlay"></div>
+  <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Add New Player</div>
+      <button class="sheet-close" onclick="setState('resolve')">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="create-field-row">
+        <div class="create-field">
+          <div class="create-label">First Name</div>
+          <input class="create-input" type="text" placeholder="First" value="Alex" />
+        </div>
+        <div class="create-field">
+          <div class="create-label">Last Name</div>
+          <input class="create-input" type="text" placeholder="Last" value="T" />
+        </div>
+      </div>
+
+      <div class="create-field">
+        <div class="create-label">Gender (optional)</div>
+        <select class="create-select">
+          <option value="" selected>Select...</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+      </div>
+
+      <div class="create-field">
+        <div class="create-label">Skill Level (optional)</div>
+        <select class="create-select">
+          <option value="" selected>Select...</option>
+          <option value="BB">BB</option>
+          <option value="A">A</option>
+          <option value="AA">AA</option>
+          <option value="Open">Open</option>
+        </select>
+      </div>
+
+      <div class="create-hint">An invite link will be generated so Alex T can claim their profile and games.</div>
+
+      <button class="btn-create-confirm" onclick="setState('invite')">Create Player</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 6: Share Invite Link (bottom sheet, post-creation) ══ -->
+<div class="state" id="state-invite">
+  <div class="results-header" style="opacity: 0.3;">
+    <div class="results-title">3 Games Found</div>
+  </div>
+
+  <div class="sheet-overlay"></div>
+  <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Player Created</div>
+      <button class="sheet-close" onclick="setState('results')">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="invite-created">
+        <div class="invite-check">&#10003;</div>
+        <div class="invite-name">Alex T added</div>
+        <div class="invite-desc">Share this link so Alex T can claim their profile and have their games count toward rankings.</div>
+        <div class="invite-link-box">
+          <div class="invite-link-url">beachleaguevb.com/invite/a8f3k2m9</div>
+          <button class="invite-link-copy">Copy</button>
+        </div>
+        <!-- Primary action: resolve next -->
+        <button class="btn-skip-invite" onclick="setState('results')">Done -- Resolve Next (1 remaining)</button>
+        <button class="btn-share-invite">&#9993; Share Invite Link</button>
+        <!-- When no more unresolved: <button class="btn-skip-invite" onclick="setState('results')">Done -- Back to Review</button> -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ STATE 7: Confirmed (with pending invite sharing) ══ -->
+<div class="state" id="state-confirmed">
+  <div class="success-area">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-title">Games Saved!</div>
+    <div class="success-desc">3 games added to your session.</div>
+
+    <div class="success-summary">
+      <div class="summary-row">
+        <span class="summary-label">Games added</span>
+        <span class="summary-value">3</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Ranked games</span>
+        <span class="summary-value">1 of 3</span>
+      </div>
+      <div style="font-size: 12px; color: #666; padding: 0 4px 4px; line-height: 1.4;">2 games include unregistered players -- they'll count once claimed</div>
+      <div class="summary-row">
+        <span class="summary-label">Session total</span>
+        <span class="summary-value">6 games</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Your record</span>
+        <span class="summary-value" style="color: #15803d;">4W - 2L</span>
+      </div>
+    </div>
+
+    <!-- Pending invites: placeholder players that need to claim profiles -->
+    <div class="pending-invites">
+      <div class="pending-invites-title">2 Players Need to Claim Profiles</div>
+      <div class="pending-invites-desc">These games will become ranked once they sign up. Share their invite links:</div>
+      <div class="pending-invite-row">
+        <div class="pending-invite-avatar">AT</div>
+        <div class="pending-invite-name">Alex T</div>
+        <button class="pending-invite-share">&#9993; Share</button>
+      </div>
+      <div class="pending-invite-row">
+        <div class="pending-invite-avatar">DP</div>
+        <div class="pending-invite-name">Dan P</div>
+        <button class="pending-invite-share">&#9993; Share</button>
+      </div>
+      <div class="home-tab-note">
+        <span style="font-size: 14px;">&#9432;</span> You can also share invite links later from your Home tab.
+      </div>
+    </div>
+
+    <button class="btn-scan-another" onclick="setState('capture')" style="display: block; width: calc(100% - 32px); margin: 12px 16px 0; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 600; cursor: pointer;">Scan Another</button>
+    <button class="btn-back-session" onclick="window.location.href='session-active.html'">Back to Session</button>
+  </div>
+  <div class="spacer-bottom"></div>
+</div>
+
+
+<!-- ══ ERR: Photo Unreadable ══ -->
+<div class="state" id="state-err-unreadable">
+  <div class="photo-preview">
+    <div class="photo-placeholder">
+      <div class="ph-icon">&#128248;</div>
+      <div class="ph-text">Scoresheet photo</div>
+    </div>
+  </div>
+
+  <div class="error-section">
+    <div class="error-icon">&#128566;</div>
+    <div class="error-title">Couldn't Read Scores</div>
+    <div class="error-desc">The photo may be too blurry, dark, or cropped. Try retaking with better lighting and make sure the full scoresheet is visible.</div>
+    <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
+    <button class="btn-choose-different">Choose Different Photo</button>
+  </div>
+
+  <!-- Edit or Clarify -- user can describe what they see -->
+  <div class="edit-clarify-section">
+    <div class="edit-clarify-label">Edit or Clarify</div>
+    <div class="edit-clarify-input-row">
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="Describe what you see, e.g. Pat/Karim beat Mike/Jake 21-18"></textarea>
+      <button class="edit-clarify-send">&#9654;</button>
+    </div>
+  </div>
+
+  <div class="spacer-bottom"></div>
+</div>
+
+
+<!-- ══ ERR: No Games Found ══ -->
+<div class="state" id="state-err-no-matches">
+  <div class="photo-preview">
+    <div class="photo-placeholder">
+      <div class="ph-icon">&#128248;</div>
+      <div class="ph-text">Scoresheet photo</div>
+    </div>
+  </div>
+
+  <div class="error-section">
+    <div class="error-icon">&#128270;</div>
+    <div class="error-title">No Games Found</div>
+    <div class="error-desc">Couldn't find any game scores in this photo. Try a clearer shot of the scoresheet, clipboard, or whiteboard.</div>
+    <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
+    <button class="btn-choose-different">Choose Different Photo</button>
+  </div>
+
+  <!-- Edit or Clarify -- user can type what they see -->
+  <div class="edit-clarify-section">
+    <div class="edit-clarify-label">Edit or Clarify</div>
+    <div class="edit-clarify-input-row">
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="Describe what you see, e.g. Pat/Karim beat Mike/Jake 21-18"></textarea>
+      <button class="edit-clarify-send">&#9654;</button>
+    </div>
+  </div>
+
+  <div class="spacer-bottom"></div>
+</div>
+
+
+<!-- ══ HIDDEN: Edit Game Bottom Sheet ══ -->
+<div class="state" id="state-edit-match">
+  <!-- Dimmed results behind -->
+  <div class="results-header" style="opacity: 0.3;">
+    <div class="results-title">3 Games Found</div>
+    <div class="results-sub">Review and correct before saving</div>
+  </div>
+  <div style="opacity: 0.3; padding: 0 16px;">
+    <div class="result-card" style="margin: 8px 0;">
+      <div class="result-match-label">Game 1</div>
+      <div style="height: 20px; background: #f0f0f0; border-radius: 4px;"></div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay"></div>
+  <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">Edit Game 2</div>
+      <button class="sheet-close" onclick="setState('results')">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <!-- Player grid: 2x2 -->
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 1</div>
+      <div class="edit-players-grid">
+        <div class="edit-player-slot team1" style="cursor: default;">Pat S</div>
+        <div class="edit-player-slot team1" style="cursor: default;">Mike B</div>
+      </div>
+
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 2</div>
+      <div class="edit-players-grid">
+        <div class="edit-player-slot team2" style="cursor: default;">Karim F</div>
+        <div class="edit-player-slot unresolved" onclick="setState('resolve')">Alex T &#9888;</div>
+      </div>
+
+      <!-- Score inputs -->
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; margin-top: 8px;">Score</div>
+      <div class="edit-score-row">
+        <input class="score-big-input" inputmode="numeric" pattern="[0-9]*" value="21" />
+        <div class="score-vs">&ndash;</div>
+        <input class="score-big-input" inputmode="numeric" pattern="[0-9]*" value="15" />
+      </div>
+      <div class="score-hint" style="font-size: 12px; color: #b45309; text-align: center; padding: 4px 0; display: none;">Unusual score -- double check?</div>
+
+      <div class="edit-actions">
+        <button class="btn-cancel" onclick="setState('results')">Cancel</button>
+        <button class="btn-save" onclick="setState('results')">Save Changes</button>
+      </div>
+
+      <button class="btn-delete-match">Remove This Game</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+var progressSteps = {
+  'capture': { step: 0, label: 'Capture' },
+  'analyzing': { step: 1, label: 'Analyzing' },
+  'err-net': { step: 1, label: 'Analyzing' },
+  'results': { step: 2, label: 'Review' },
+  'results-pickup': { step: 2, label: 'Review' },
+  'results-partial': { step: 2, label: 'Review' },
+  'resolve': { step: 2, label: 'Review' },
+  'resolve-pickup': { step: 2, label: 'Review' },
+  'create': { step: 2, label: 'Review' },
+  'invite': { step: 2, label: 'Review' },
+  'edit-match': { step: 2, label: 'Review' },
+  'confirmed': { step: 3, label: 'Confirmed' },
+  'err-unreadable': { step: 0, label: 'Capture' },
+  'err-no-matches': { step: 0, label: 'Capture' }
+};
+
+function setState(state) {
+  document.querySelectorAll('.state').forEach(function(s) { s.classList.remove('active'); });
+  var el = document.getElementById('state-' + state);
+  if (el) el.classList.add('active');
+
+  var pillMap = {
+    'capture': 0, 'analyzing': 1, 'err-net': 2,
+    'results': 3, 'results-pickup': 4, 'results-partial': 5,
+    'resolve': 6, 'resolve-pickup': 6, 'create': 7,
+    'invite': 8, 'confirmed': 9,
+    'err-unreadable': 10, 'err-no-matches': 11,
+    'edit-match': null
+  };
+  var pills = document.querySelectorAll('.sw-pill');
+  pills.forEach(function(p) { p.classList.remove('active'); });
+  var idx = pillMap[state];
+  if (idx != null && pills[idx]) pills[idx].classList.add('active');
+
+  // Toggle context bar for pickup states
+  var ctxBar = document.getElementById('context-bar-league');
+  if (ctxBar) {
+    ctxBar.style.display = (state === 'results-pickup' || state === 'resolve-pickup') ? 'none' : '';
+  }
+
+  // Update progress indicator
+  var info = progressSteps[state];
+  if (info) {
+    var dots = document.querySelectorAll('.progress-dot');
+    dots.forEach(function(d, i) {
+      d.classList.remove('active', 'done');
+      if (i < info.step) d.classList.add('done');
+      if (i === info.step) d.classList.add('active');
+    });
+    var label = document.getElementById('progress-label');
+    if (label) label.textContent = info.label;
+  }
+}
+
+function togglePhotoThumb(row) {
+  var expanded = row.parentElement.querySelector('.photo-thumb-expanded');
+  if (!expanded) return;
+  expanded.classList.toggle('open');
+  var chevron = row.querySelector('.photo-thumb-chevron');
+  if (chevron) {
+    chevron.style.transform = expanded.classList.contains('open') ? 'rotate(180deg)' : '';
+  }
+}
+
+function toggleOptions(summary) {
+  var detail = summary.parentElement.querySelector('.options-detail');
+  if (!detail) return;
+  detail.classList.toggle('open');
+  var chevron = summary.querySelector('.options-summary-chevron');
+  if (chevron) chevron.style.transform = detail.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+</script>
+
+</body>
+</html>

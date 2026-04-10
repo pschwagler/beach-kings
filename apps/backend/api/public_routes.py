@@ -15,8 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.models.schemas import (
+    CourtCheckInCountResponse,
     CourtDetailResponse,
     CourtLeaderboardEntry,
+    CourtLeagueItem,
     CourtNearbyItem,
     CourtTagResponse,
     PaginatedCourtsResponse,
@@ -289,6 +291,32 @@ async def get_court_leaderboard(
     if not court_row:
         raise HTTPException(status_code=404, detail="Court not found")
     return await court_service.get_court_leaderboard(session, court_row)
+
+
+@public_router.get(
+    "/courts/{slug}/check-ins", response_model=CourtCheckInCountResponse
+)
+@limiter.limit("60/minute")
+async def get_court_check_ins(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """Get active check-ins at a court (count + player list)."""
+    court_id = await court_service.get_court_id_by_slug(session, slug)
+    if not court_id:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_active_check_ins(session, court_id)
+
+
+@public_router.get("/courts/{slug}/leagues", response_model=List[CourtLeagueItem])
+@limiter.limit("60/minute")
+async def get_court_leagues(
+    request: Request, slug: str, session: AsyncSession = Depends(get_db_session)
+):
+    """Get public leagues that play at this court."""
+    court_id = await court_service.get_court_id_by_slug(session, slug)
+    if not court_id:
+        raise HTTPException(status_code=404, detail="Court not found")
+    return await court_service.get_leagues_at_court(session, court_id)
 
 
 @public_router.get("/courts/{slug}", response_model=CourtDetailResponse)

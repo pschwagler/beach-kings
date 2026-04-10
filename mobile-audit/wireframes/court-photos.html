@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Court Photos - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+
+  /* Court Info */
+  .court-info { background: #fff; padding: 14px 16px; border-bottom: 1px solid #eee; }
+  .court-info .court-name { font-size: 17px; font-weight: 700; }
+  .court-info .court-address { font-size: 13px; color: #666; margin-top: 3px; }
+
+  .guidance { padding: 12px 16px; font-size: 12px; color: #666; line-height: 1.4; background: #fff; border-bottom: 1px solid #eee; }
+
+  /* Photo Count */
+  .photo-count-bar { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #555; }
+
+  /* Photo Grid */
+  .photo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 0 2px; }
+  .photo-grid .photo { aspect-ratio: 1; border-radius: 2px; }
+  .photo-grid .photo:nth-child(3n+1) { background: linear-gradient(135deg, #a8d8ea, #c8e6c9); }
+  .photo-grid .photo:nth-child(3n+2) { background: linear-gradient(135deg, #c8e6c9, #e8d5b7); }
+  .photo-grid .photo:nth-child(3n+0) { background: linear-gradient(135deg, #e8d5b7, #a8d8ea); }
+
+  /* Upload Preview */
+  .upload-preview { background: #fff; margin: 12px 16px; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .upload-preview .preview-img { width: 100%; height: 200px; border-radius: 10px; background: linear-gradient(135deg, #d4e8d0, #a8d8ea); position: relative; }
+  .upload-preview .remove-btn { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; border: none; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .upload-preview .upload-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .upload-preview .btn-upload { flex: 1; padding: 12px; border-radius: 10px; border: none; background: #1a3a4a; color: #fff; font-size: 14px; font-weight: 600; text-align: center; }
+  .upload-preview .btn-cancel { flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fff; color: #555; font-size: 14px; font-weight: 600; text-align: center; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="court-detail.html" class="back">&larr; Court</a>
+  <div class="title">Photos</div>
+  <a href="#" class="action">+ Add</a>
+</div>
+
+<div class="court-info">
+  <div class="court-name">QBK Sports</div>
+  <div class="court-address">123 Beach Blvd, Queens, NY 11101</div>
+</div>
+
+<div class="guidance">Add photos that help other players get an idea of the courts. Avoid adding photos of people.</div>
+
+<div class="photo-count-bar">7 photos</div>
+
+<div class="photo-grid">
+  <div class="photo"></div>
+  <div class="photo"></div>
+  <div class="photo"></div>
+  <div class="photo"></div>
+  <div class="photo"></div>
+  <div class="photo"></div>
+  <div class="photo"></div>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

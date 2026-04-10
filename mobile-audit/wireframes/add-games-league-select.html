@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Select League - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Content */
+  .content { padding: 16px; padding-bottom: 100px; }
+
+  .section-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .section-desc { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.4; }
+
+  /* League Card */
+  .league-card { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; text-decoration: none; color: inherit; border: 1.5px solid transparent; }
+  .league-card:active { border-color: #2a7d9c; background: #f8fcfd; }
+  .league-icon { width: 44px; height: 44px; border-radius: 10px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .league-info { flex: 1; }
+  .league-name { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+  .league-location { font-size: 12px; color: #666; }
+  .league-season { font-size: 11px; color: #2a7d9c; font-weight: 600; margin-top: 3px; }
+  .league-chevron { color: #ccc; font-size: 18px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&#8592; Back</a>
+  <div class="title">Select League</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <div class="section-desc">Choose a league to record a game in.</div>
+
+  <div class="section-label">Your Leagues</div>
+
+  <a href="score-league.html" class="league-card">
+    <div class="league-icon">&#127942;</div>
+    <div class="league-info">
+      <div class="league-name">QBK Open Men - Mornings</div>
+      <div class="league-location">Queen's Beach, Waikiki</div>
+      <div class="league-season">Season 4 - Active</div>
+    </div>
+    <span class="league-chevron">&#8250;</span>
+  </a>
+
+  <a href="score-league.html" class="league-card">
+    <div class="league-icon">&#127942;</div>
+    <div class="league-info">
+      <div class="league-name">South Bay Doubles</div>
+      <div class="league-location">Manhattan Beach</div>
+      <div class="league-season">Season 2 - Active</div>
+    </div>
+    <span class="league-chevron">&#8250;</span>
+  </a>
+
+  <a href="score-league.html" class="league-card">
+    <div class="league-icon">&#127942;</div>
+    <div class="league-info">
+      <div class="league-name">OB Sunset League</div>
+      <div class="league-location">Ocean Beach, San Diego</div>
+      <div class="league-season">Season 1 - Active</div>
+    </div>
+    <span class="league-chevron">&#8250;</span>
+  </a>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

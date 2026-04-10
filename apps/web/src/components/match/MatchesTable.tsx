@@ -474,7 +474,7 @@ export default function MatchesTable({
         <div className="league-error">
           <div className="league-message error">
             <h2>Access Denied</h2>
-            <p>You don&apos;t have access to view matches for this league. Please contact a league administrator to be added as a member.</p>
+            <p>You don&apos;t have access to view games for this league. Please contact a league administrator to be added as a member.</p>
           </div>
         </div>
       </div>
@@ -600,7 +600,7 @@ export default function MatchesTable({
 
       {shouldShowEmptyState && (
         <div className="add-matches-empty-state">
-          <p>No matches yet. Click Add Games above to create a session and add your first match!</p>
+          <p>No games yet. Click Add Games above to create a session and add your first game!</p>
         </div>
       )}
 

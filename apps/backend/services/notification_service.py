@@ -111,6 +111,16 @@ async def create_notification(
         # Log error but don't fail notification creation
         logger.warning(f"Failed to broadcast notification via WebSocket for user {user_id}: {e}")
 
+    # Send push notification (best-effort, non-blocking)
+    try:
+        from backend.services import push_service
+
+        await push_service.send_push_to_user(
+            session, user_id, title, message, data=data
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send push notification to user {user_id}: {e}")
+
     return notification_dict
 
 
@@ -211,6 +221,27 @@ async def create_notifications_bulk(
                     )
     except Exception as e:
         logger.warning(f"Failed to broadcast bulk notifications via WebSocket: {e}")
+
+    # Send push notifications (best-effort, non-blocking)
+    try:
+        from backend.services import push_service
+
+        for push_user_id, user_notifications in notifications_by_user.items():
+            for notif_dict in user_notifications:
+                try:
+                    await push_service.send_push_to_user(
+                        session,
+                        push_user_id,
+                        notif_dict["title"],
+                        notif_dict["message"],
+                        data=notif_dict.get("data"),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to send push notification {notif_dict['id']} to user {push_user_id}: {e}"
+                    )
+    except Exception as e:
+        logger.warning(f"Failed to send bulk push notifications: {e}")
 
     return notification_dicts
 

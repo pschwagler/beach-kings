@@ -5,6 +5,8 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { api } from '../services/api';
 
 interface User {
@@ -78,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Also fetch the current user's player profile
       try {
         const player = await api.getCurrentUserPlayer();
-        player.first_name = player.nickname ? player.nickname : player.full_name?.split(' ')[0];
         setCurrentUserPlayer(player);
       } catch (playerError: any) {
         // Player might not exist yet, that's okay
@@ -217,6 +218,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [handleAuthSuccess]);
 
   const logout = useCallback(async () => {
+    // Unregister push token before clearing auth
+    try {
+      const pushToken = await SecureStore.getItemAsync('beach_push_token');
+      if (pushToken) {
+        const axiosInstance = (api as any).axios;
+        if (axiosInstance) {
+          await axiosInstance.delete('/api/push-tokens', {
+            data: { token: pushToken, platform: Platform.OS },
+          });
+        }
+        await SecureStore.deleteItemAsync('beach_push_token');
+      }
+    } catch (error) {
+      // Best-effort — don't block logout on push token cleanup
+      console.error('Error unregistering push token:', error);
+    }
+
     try {
       // Try to call the backend logout endpoint to invalidate refresh tokens
       await api.logout();

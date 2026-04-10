@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import FindPlayersPage from '../../src/components/player/FindPlayersPage';
+import PageSkeleton from '../../src/components/ui/PageSkeleton';
 
 /**
  * SEO metadata for the Find Players page.
@@ -21,7 +22,7 @@ export const metadata = {
  */
 export default function FindPlayersPageRoute() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageSkeleton />}>
       <FindPlayersPage />
     </Suspense>
   );

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Edit Tournament - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .content { padding: 20px 16px 40px; }
+
+  .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; margin-top: 24px; }
+  .section-title:first-child { margin-top: 0; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .form-hint { font-size: 11px; color: #888; margin-top: 4px; line-height: 1.3; }
+  .text-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #ddd; font-size: 14px; background: #fff; color: #1a1a1a; }
+
+  /* Stepper */
+  .stepper-row { display: flex; align-items: center; gap: 16px; }
+  .stepper-btn { width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid #ddd; background: #fff; font-size: 18px; font-weight: 700; color: #1a3a4a; display: flex; align-items: center; justify-content: center; min-height: 40px; }
+  .stepper-value { font-size: 20px; font-weight: 700; color: #1a1a1a; min-width: 40px; text-align: center; }
+
+  /* Toggle */
+  .toggle-row { display: flex; border-radius: 10px; overflow: hidden; border: 1.5px solid #ddd; }
+  .toggle-btn { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; color: #555; background: #fff; border: none; min-height: 40px; cursor: pointer; }
+  .toggle-btn.active { background: #1a3a4a; color: #fff; }
+
+  /* Lock toggle */
+  .lock-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
+  .lock-left { }
+  .lock-label { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .lock-hint { font-size: 11px; color: #666; margin-top: 1px; }
+  .lock-toggle { width: 44px; height: 26px; border-radius: 13px; background: #e0e0e0; position: relative; cursor: pointer; flex-shrink: 0; }
+  .lock-toggle .knob { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: left 0.15s; }
+  .lock-toggle.on { background: #dc2626; }
+  .lock-toggle.on .knob { left: 20px; }
+
+  /* Gender pills */
+  .pill-row { display: flex; gap: 8px; }
+  .pill { padding: 8px 18px; border-radius: 20px; border: 1.5px solid #ddd; font-size: 13px; font-weight: 600; color: #555; background: #fff; min-height: 36px; }
+  .pill.active { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; }
+
+  /* Buttons */
+  .btn-save { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 28px; cursor: pointer; }
+  .btn-cancel { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: #f5f5f5; color: #555; font-size: 15px; font-weight: 600; text-align: center; text-decoration: none; margin-top: 10px; min-height: 48px; }
+
+  /* Danger zone */
+  .danger-section { margin-top: 32px; padding-top: 20px; border-top: 1px solid #eee; }
+  .btn-danger { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #fca5a5; background: #fff; color: #dc2626; font-size: 15px; font-weight: 600; text-align: center; cursor: pointer; min-height: 48px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournament-detail.html" class="back">&larr; Back</a>
+  <div class="title">Edit Tournament</div>
+  <div style="width:44px;"></div>
+</div>
+
+<div class="content">
+
+  <div class="section-title">Tournament Setup</div>
+
+  <div class="form-group">
+    <div class="form-label">Tournament Name</div>
+    <input class="text-input" type="text" value="Sunday Showdown KoB">
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Max Players</div>
+    <div class="stepper-row">
+      <div class="stepper-btn">&minus;</div>
+      <div class="stepper-value">16</div>
+      <div class="stepper-btn">+</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Courts</div>
+    <div class="stepper-row">
+      <div class="stepper-btn">&minus;</div>
+      <div class="stepper-value">4</div>
+      <div class="stepper-btn">+</div>
+    </div>
+  </div>
+
+  <div class="section-title">Registration</div>
+
+  <div class="form-group">
+    <div class="form-label">Registration Type</div>
+    <div class="toggle-row">
+      <div class="toggle-btn active">Open</div>
+      <div class="toggle-btn">Invite Only</div>
+    </div>
+    <div class="form-hint">Open: players request to join, you approve. Invite Only: only players you invite can join.</div>
+  </div>
+
+  <div class="form-group">
+    <div class="lock-row">
+      <div class="lock-left">
+        <div class="lock-label">Lock Registration</div>
+        <div class="lock-hint">No new players can join or request</div>
+      </div>
+      <div class="lock-toggle" onclick="this.classList.toggle('on')">
+        <div class="knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Game Settings</div>
+
+  <div class="form-group">
+    <div class="form-label">Game To</div>
+    <div class="stepper-row">
+      <div class="stepper-btn">&minus;</div>
+      <div class="stepper-value">21</div>
+      <div class="stepper-btn">+</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Score Cap</div>
+    <div class="stepper-row">
+      <div class="stepper-btn">&minus;</div>
+      <div class="stepper-value">28</div>
+      <div class="stepper-btn">+</div>
+    </div>
+  </div>
+
+  <div class="section-title">Additional</div>
+
+  <div class="form-group">
+    <div class="form-label">Gender</div>
+    <div class="pill-row">
+      <div class="pill active">Coed</div>
+      <div class="pill">Men's</div>
+      <div class="pill">Women's</div>
+    </div>
+  </div>
+
+  <button class="btn-save" onclick="window.location.href='tournament-detail.html'">Save Changes</button>
+  <a href="tournament-detail.html" class="btn-cancel">Cancel</a>
+
+  <div class="danger-section">
+    <button class="btn-danger">Cancel Tournament</button>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

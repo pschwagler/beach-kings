@@ -380,6 +380,12 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
+    // Player discovery
+    async discoverPlayers(params: Record<string, any> = {}) {
+      const response = await api.get('/api/friends/discover', { params });
+      return response.data;
+    },
+
     // Health check
     async healthCheck() {
       const response = await api.get('/api/health');

@@ -1,5 +1,5 @@
 /**
- * Lightweight domain interfaces for Beach Kings.
+ * Lightweight domain interfaces for Beach League.
  * These define the minimal known shape of each domain object.
  * Do not add index signatures — consumers that need extra fields should use
  * type assertions or extend the interface.
@@ -91,6 +91,7 @@ export interface Player {
   /** Canonical DB column. Matches `name` in player search responses. */
   full_name?: string | null;
   first_name?: string | null;
+  last_name?: string | null;
   nickname?: string | null;
   gender?: PlayerGender | null;
   level?: SkillLevel | null;
@@ -198,6 +199,13 @@ export interface FriendListResponse {
   total_count: number;
 }
 
+/** Minimal friend info returned inline with league query results. */
+export interface FriendInLeague {
+  player_id: number;
+  first_name: string;
+  avatar: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Court
 // ---------------------------------------------------------------------------
@@ -231,7 +239,6 @@ export interface ReviewActionResponse {
 export interface Court {
   id: number | string;
   name: string;
-  surface?: string | null;
   surface_type?: string | null;
   city?: string | null;
   state?: string | null;

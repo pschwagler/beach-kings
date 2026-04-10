@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>KoB Live - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* Tournament Header */
+  .tourney-header { background: #fff; padding: 16px; border-bottom: 1px solid #eee; }
+  .tourney-header .tourney-name { font-size: 18px; font-weight: 700; }
+  .tourney-header .tourney-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .tourney-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .tourney-header .badge.active { background: #dcfce7; color: #15803d; }
+  .tourney-header .badge.round { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-label { font-size: 15px; font-weight: 700; color: #1a1a1a; margin: 14px 0 8px; }
+
+  /* Score Entry Card */
+  .score-card { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; }
+  .score-card .court-label { font-size: 11px; font-weight: 600; color: #2a7d9c; margin-bottom: 8px; }
+  .score-card .matchup { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .score-card .team { flex: 1; }
+  .score-card .team-names { font-size: 13px; font-weight: 600; line-height: 1.4; }
+  .score-card .vs { font-size: 11px; color: #666; font-weight: 600; flex-shrink: 0; }
+  .score-card .score-inputs { display: flex; align-items: center; gap: 8px; }
+  .score-card .score-input { width: 56px; height: 44px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 18px; font-weight: 700; text-align: center; color: #1a3a4a; background: #fff; }
+  .score-card .score-dash { font-size: 16px; color: #ccc; font-weight: 600; }
+  .score-card .btn-submit { display: block; width: 100%; padding: 10px; border-radius: 10px; border: none; background: #d4a843; color: #fff; font-size: 13px; font-weight: 700; text-align: center; margin-top: 10px; min-height: 44px; }
+
+  /* Scored Card */
+  .score-card.scored { opacity: 0.85; }
+  .score-card.scored .final-score { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .score-card.scored .score-big { font-size: 24px; font-weight: 800; color: #1a3a4a; }
+  .score-card.scored .score-big.winner { color: #15803d; }
+  .score-card.scored .score-sep { font-size: 18px; color: #ccc; }
+
+  /* Standings Table */
+  .standings-table { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+  .standings-table table { width: 100%; border-collapse: collapse; }
+  .standings-table th { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; padding: 10px 8px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .standings-table th:nth-child(2) { text-align: left; }
+  .standings-table td { font-size: 13px; padding: 10px 8px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .standings-table td:nth-child(2) { text-align: left; font-weight: 600; }
+  .standings-table tr:last-child td { border-bottom: none; }
+  .standings-table tr.top { background: #f8fdf8; }
+  .standings-table .rank-1 { color: #d4a843; font-weight: 700; }
+  .standings-table .rank-2 { color: #666; font-weight: 600; }
+  .standings-table .rank-3 { color: #b87333; font-weight: 600; }
+
+  /* Schedule Round */
+  .round-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; overflow: hidden; }
+  .round-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .round-header .round-name { font-size: 14px; font-weight: 600; }
+  .round-header .round-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px; }
+  .round-header .round-status.complete { background: #dcfce7; color: #15803d; }
+  .round-header .round-status.in-progress { background: #fdf8ed; color: #b8860b; }
+  .round-header .round-status.upcoming { background: #f0f0f0; color: #666; }
+  .round-header .chevron { font-size: 16px; color: #ccc; }
+  .round-matches { border-top: 1px solid #f0f0f0; }
+  .round-match { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  .round-match:last-child { border-bottom: none; }
+  .round-match .match-court { width: 50px; font-weight: 600; color: #2a7d9c; flex-shrink: 0; }
+  .round-match .match-teams { flex: 1; color: #555; }
+  .round-match .match-teams .winner { font-weight: 700; color: #1a1a1a; }
+  .round-match .match-score { font-weight: 700; color: #1a3a4a; min-width: 46px; text-align: right; }
+
+  /* Director Controls */
+  .director-panel { position: fixed; bottom: 82px; left: 0; right: 0; width: 390px; background: #1a3a4a; border-radius: 16px 16px 0 0; padding: 16px; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); border-top: 1px solid #e0e0e0; }
+  .director-label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .director-actions { display: flex; gap: 10px; }
+  .btn-advance { flex: 1; padding: 12px; border-radius: 10px; border: none; background: #d4a843; color: #fff; font-size: 13px; font-weight: 700; text-align: center; min-height: 44px; }
+  .btn-end { flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid #ef4444; background: transparent; color: #ef4444; font-size: 13px; font-weight: 600; text-align: center; min-height: 44px; }
+
+
+  /* Confirmation Modal */
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournaments.html" class="back">&larr; Tournaments</a>
+  <div class="title">Tournament</div>
+  <a href="#" class="action">Share</a>
+</div>
+
+<div class="tourney-header">
+  <div class="tourney-name">Saturday Morning KoB</div>
+  <div class="tourney-meta">
+    <span class="badge active">Active</span>
+    <span class="badge round">Round 3 of 7</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <a href="#" class="segment active" style="text-decoration:none;">Now Playing</a>
+  <a href="kob-standings.html" class="segment" style="text-decoration:none; color:#666;">Standings</a>
+  <a href="kob-schedule.html" class="segment" style="text-decoration:none; color:#666;">Schedule</a>
+</div>
+
+<div class="content">
+
+  <div class="section-label">In Progress</div>
+
+  <div class="score-card">
+    <div class="court-label">Court 1</div>
+    <div class="matchup">
+      <div class="team">
+        <div class="team-names">Patrick & Ken</div>
+      </div>
+      <div class="vs">vs</div>
+      <div class="team" style="text-align: right;">
+        <div class="team-names">Colan & Alex</div>
+      </div>
+    </div>
+    <div class="score-inputs" style="justify-content: center;">
+      <input class="score-input" type="number" value="" placeholder="0" />
+      <span class="score-dash">-</span>
+      <input class="score-input" type="number" value="" placeholder="0" />
+    </div>
+    <button class="btn-submit">Submit Score</button>
+  </div>
+
+  <div class="score-card">
+    <div class="court-label">Court 2</div>
+    <div class="matchup">
+      <div class="team">
+        <div class="team-names">Jake & Marco</div>
+      </div>
+      <div class="vs">vs</div>
+      <div class="team" style="text-align: right;">
+        <div class="team-names">Sam & Rafael</div>
+      </div>
+    </div>
+    <div class="score-inputs" style="justify-content: center;">
+      <input class="score-input" type="number" value="" placeholder="0" />
+      <span class="score-dash">-</span>
+      <input class="score-input" type="number" value="" placeholder="0" />
+    </div>
+    <button class="btn-submit">Submit Score</button>
+  </div>
+
+  <div class="section-label">Completed This Round</div>
+
+  <div class="score-card scored">
+    <div class="court-label">Court 1 · Earlier</div>
+    <div class="matchup">
+      <div class="team">
+        <div class="team-names">Dan & Mike</div>
+      </div>
+      <div class="vs">vs</div>
+      <div class="team" style="text-align: right;">
+        <div class="team-names">Rob & Joey</div>
+      </div>
+    </div>
+    <div class="final-score">
+      <span class="score-big winner">21</span>
+      <span class="score-sep">-</span>
+      <span class="score-big">17</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Director floating panel -->
+<div class="director-panel">
+  <div class="director-label">Director Controls</div>
+  <div class="director-actions">
+    <button class="btn-advance">Advance Round</button>
+    <button class="btn-end" onclick="document.getElementById('end-modal').style.display='flex'">End Tournament</button>
+  </div>
+</div>
+
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<!-- End Tournament Modal -->
+<div class="modal-overlay" id="end-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">&#9888;</div>
+    <div class="modal-title">End Tournament?</div>
+    <div class="modal-desc">This will finalize all scores and end the current tournament. This action cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="window.location.href='kob-standings.html'">End Tournament</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('end-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

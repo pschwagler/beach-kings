@@ -182,3 +182,27 @@ export const getCourtLeaderboard = async (slug: string) => {
   const response = await api.get(`/api/public/courts/${slug}/leaderboard`);
   return response.data;
 };
+
+/** Get active check-ins at a court. */
+export const getCourtCheckIns = async (slug: string) => {
+  const response = await api.get(`/api/public/courts/${slug}/check-ins`);
+  return response.data;
+};
+
+/** Check in to a court (authenticated). */
+export const checkInToCourt = async (courtId: number) => {
+  const response = await api.post(`/api/courts/${courtId}/check-in`);
+  return response.data;
+};
+
+/** Check out of a court (authenticated). */
+export const checkOutOfCourt = async (courtId: number) => {
+  const response = await api.delete(`/api/courts/${courtId}/check-in`);
+  return response.data;
+};
+
+/** Get public leagues that play at this court. */
+export const getCourtLeagues = async (slug: string) => {
+  const response = await api.get(`/api/public/courts/${slug}/leagues`);
+  return response.data;
+};

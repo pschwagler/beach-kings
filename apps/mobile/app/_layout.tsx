@@ -28,6 +28,7 @@ export default function RootLayout() {
                     <Stack.Screen name="signup" />
                     <Stack.Screen name="reset-password" />
                     <Stack.Screen name="league/[id]" />
+                    <Stack.Screen name="find-players" />
                     <Stack.Screen name="admin-view" />
                   </Stack>
                 </DrawerProvider>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>League Games - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* League Header */
+  .league-header { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
+  .league-header .league-name { font-size: 20px; font-weight: 700; }
+  .league-header .league-meta { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #666; }
+  .league-header .league-badges { display: flex; gap: 8px; margin-top: 10px; }
+  .league-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .league-header .badge.active { background: #dcfce7; color: #15803d; }
+  .league-header .badge.rank { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 14px 4px; min-height: 44px; font-size: 12px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  /* Session Card */
+  .session-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 12px; overflow: hidden; }
+  .session-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f8f9fa; border-bottom: 1px solid #f0f0f0; }
+  .session-date { font-size: 14px; font-weight: 700; }
+  .session-meta { font-size: 11px; color: #666; }
+  .session-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .session-badge.active { background: #dcfce7; color: #15803d; }
+  .session-badge.completed { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Editable meta tags */
+  .session-meta .editable { cursor: pointer; position: relative; padding-right: 16px; }
+  .session-meta .editable::after { content: '\270E'; font-size: 10px; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+
+  /* Game Row */
+  .game-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+  .game-row:last-child { border-bottom: none; }
+  .game-number { width: 24px; font-size: 11px; font-weight: 600; color: #666; flex-shrink: 0; }
+  .game-teams { flex: 1; font-size: 12px; line-height: 1.4; }
+  .game-teams .team { display: flex; align-items: center; gap: 4px; }
+  .game-teams .team.winner { font-weight: 600; color: #1a1a1a; }
+  .game-teams .team.loser { color: #666; }
+  .game-teams .you { color: #d4a843; font-weight: 700; }
+  .game-teams .vs { font-size: 10px; color: #bbb; padding: 1px 0; }
+  .game-score { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; margin-left: 10px; }
+  .game-score .score-line { font-size: 13px; font-weight: 700; color: #1a3a4a; }
+  .game-score .score-line.loser { color: #bbb; font-weight: 500; }
+  .game-result-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin-left: 8px; flex-shrink: 0; }
+  .game-result-badge.win { background: #dcfce7; color: #15803d; }
+  .game-result-badge.loss { background: #fee2e2; color: #b91c1c; }
+
+  /* Session Stats Footer */
+  .session-footer { display: flex; justify-content: space-around; padding: 10px 14px; background: #f8f9fa; font-size: 11px; color: #666; }
+  .session-footer .foot-stat { text-align: center; }
+  .session-footer .foot-val { font-size: 14px; font-weight: 700; color: #1a3a4a; }
+
+
+  /* Placeholder / Pending States */
+  .pending-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-right: 4px; vertical-align: middle; }
+  .session-pending-note { font-size: 10px; color: #92400e; background: #fef3c7; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 3px; }
+  .placeholder-name { color: #92400e; font-style: italic; }
+  .pending-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: #fef3c7; color: #92400e; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="leagues-tab.html" class="back">&larr; Leagues</a>
+  <div class="title">League</div>
+  <a href="score-league.html" class="action" style="text-decoration:none; color:#fff; font-size: 12px; font-weight: 700; background: #d4a843; padding: 8px 14px; border-radius: 8px;">+ Add Game</a>
+</div>
+
+<div class="league-header">
+  <div class="league-name">QBK Open Men - Mornings</div>
+  <div class="league-meta">
+    <span>Queens, NY</span>
+    <span>27 members</span>
+  </div>
+  <div class="league-badges">
+    <span class="badge active">Season Active</span>
+    <span class="badge rank">#1 Ranked</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <div class="segment active">Games</div>
+  <a href="league-dashboard.html" class="segment" style="text-decoration:none; color:#666;">Standings</a>
+  <a href="league-chat.html" class="segment" style="text-decoration:none; color:#666;">Chat</a>
+  <a href="league-signups.html" class="segment" style="text-decoration:none; color:#666;">Sign Ups</a>
+  <a href="league-info.html" class="segment" style="text-decoration:none; color:#666;">Info<span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ef4444; margin-left:3px; vertical-align:top; margin-top:1px;"></span></a>
+</div>
+
+<div class="content">
+
+  <!-- Active Session -->
+  <a href="session-active.html" class="session-card" style="text-decoration:none; color:inherit; display:block;">
+    <div class="session-header">
+      <div>
+        <div class="session-date">3/19/2026 · Session #3</div>
+        <div class="session-meta"><span class="editable">3/19/2026</span> · <span class="editable">QBK Sports</span> · 5 players · 7 games</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+        <span class="session-badge active">Active</span>
+        <span class="session-pending-note"><span class="pending-dot"></span>2 pending</span>
+      </div>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#7</div>
+      <div class="game-teams">
+        <div class="team winner"><span class="you">You</span> / K. Fawwar</div>
+        <div class="vs">vs</div>
+        <div class="team loser">A. Marthey / <span class="placeholder-name">J. Zwyczca</span></div>
+      </div>
+      <div class="game-score">
+        <span class="score-line">21</span>
+        <span class="score-line loser">18</span>
+      </div>
+      <span class="pending-badge">Pending</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#6</div>
+      <div class="game-teams">
+        <div class="team loser"><span class="you">You</span> / <span class="placeholder-name">S. Jindash</span></div>
+        <div class="vs">vs</div>
+        <div class="team winner">J. Drabos / M. Salizar</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line loser">17</span>
+        <span class="score-line">21</span>
+      </div>
+      <span class="pending-badge">Pending</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#5</div>
+      <div class="game-teams">
+        <div class="team winner"><span class="you">You</span> / K. Fawwar</div>
+        <div class="vs">vs</div>
+        <div class="team loser"><span class="placeholder-name">S. Jindash</span> / R. Torres</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line">21</span>
+        <span class="score-line loser">15</span>
+      </div>
+      <span class="pending-badge">Pending</span>
+    </div>
+
+    <div class="session-footer">
+      <div class="foot-stat"><div class="foot-val">7</div>Games</div>
+      <div class="foot-stat"><div class="foot-val">5-2</div>Your W-L</div>
+      <div class="foot-stat"><div class="foot-val">+12.3</div>Rating</div>
+    </div>
+  </a>
+
+  <!-- Completed Session -->
+  <div class="session-card">
+    <div class="session-header">
+      <div>
+        <div class="session-date">3/17/2026 · Session #2</div>
+        <div class="session-meta">3/17/2026 · QBK Sports · 6 players · 9 games</div>
+      </div>
+      <span class="session-badge completed">Completed</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#9</div>
+      <div class="game-teams">
+        <div class="team winner"><span class="you">You</span> / C. Gulla</div>
+        <div class="vs">vs</div>
+        <div class="team loser">D. Miniucali / M. Geda</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line">21</span>
+        <span class="score-line loser">12</span>
+      </div>
+      <span class="game-result-badge win">W</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#8</div>
+      <div class="game-teams">
+        <div class="team winner"><span class="you">You</span> / C. Gulla</div>
+        <div class="vs">vs</div>
+        <div class="team loser">K. Fawwar / A. Marthey</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line">21</span>
+        <span class="score-line loser">19</span>
+      </div>
+      <span class="game-result-badge win">W</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#7</div>
+      <div class="game-teams">
+        <div class="team loser"><span class="you">You</span> / R. Ballakian</div>
+        <div class="vs">vs</div>
+        <div class="team winner">C. Gulla / J. Drabos</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line loser">18</span>
+        <span class="score-line">21</span>
+      </div>
+      <span class="game-result-badge loss">L</span>
+    </div>
+
+    <div class="session-footer">
+      <div class="foot-stat"><div class="foot-val">9</div>Games</div>
+      <div class="foot-stat"><div class="foot-val">6-3</div>Your W-L</div>
+      <div class="foot-stat"><div class="foot-val">+18.7</div>Rating</div>
+    </div>
+  </div>
+
+  <!-- Older Session -->
+  <div class="session-card">
+    <div class="session-header">
+      <div>
+        <div class="session-date">3/14/2026 · Session #1</div>
+        <div class="session-meta">3/14/2026 · QBK Sports · 5 players · 8 games</div>
+      </div>
+      <span class="session-badge completed">Completed</span>
+    </div>
+
+    <div class="game-row">
+      <div class="game-number">#8</div>
+      <div class="game-teams">
+        <div class="team winner"><span class="you">You</span> / A. Marthey</div>
+        <div class="vs">vs</div>
+        <div class="team loser">K. Fawwar / S. Jindash</div>
+      </div>
+      <div class="game-score">
+        <span class="score-line">21</span>
+        <span class="score-line loser">16</span>
+      </div>
+      <span class="game-result-badge win">W</span>
+    </div>
+
+    <div class="session-footer">
+      <div class="foot-stat"><div class="foot-val">8</div>Games</div>
+      <div class="foot-stat"><div class="foot-val">5-3</div>Your W-L</div>
+      <div class="foot-stat"><div class="foot-val">+9.1</div>Rating</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127942;</div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

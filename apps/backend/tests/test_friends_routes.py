@@ -472,3 +472,162 @@ class TestGetMutualFriends:
 
         response = client.get("/api/friends/mutual/20", headers=headers)
         assert response.status_code == 200
+
+
+# ============================================================================
+# GET /api/friends/discover
+# ============================================================================
+
+
+class TestDiscoverPlayers:
+    """Tests for player discovery endpoint."""
+
+    _FAKE_ITEMS = [
+        {
+            "id": 20,
+            "full_name": "Player One",
+            "avatar": None,
+            "gender": "male",
+            "level": "intermediate",
+            "location_name": "Test Beach",
+            "total_games": 30,
+            "current_rating": 1350.0,
+            "is_placeholder": False,
+            "mutual_friend_count": 3,
+            "friend_status": "none",
+        },
+        {
+            "id": 30,
+            "full_name": "Player Two",
+            "avatar": None,
+            "gender": "female",
+            "level": "advanced",
+            "location_name": None,
+            "total_games": 15,
+            "current_rating": 1200.0,
+            "is_placeholder": False,
+            "mutual_friend_count": 1,
+            "friend_status": "friend",
+        },
+    ]
+
+    def _fake_discover(self, items=None, total_count=None):
+        """Build a fake discover_players coroutine."""
+        use_items = items if items is not None else self._FAKE_ITEMS
+        use_total = total_count if total_count is not None else len(use_items)
+
+        async def _inner(session, caller_player_id, **kwargs):
+            return {
+                "items": use_items,
+                "total_count": use_total,
+                "page": kwargs.get("page", 1),
+                "page_size": kwargs.get("page_size", 25),
+            }
+
+        return _inner
+
+    def test_discover_success(self, client, headers, monkeypatch):
+        """Happy path: returns paginated discover results."""
+        monkeypatch.setattr(
+            friend_service, "discover_players",
+            self._fake_discover(), raising=True,
+        )
+
+        response = client.get("/api/friends/discover", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_count"] == 2
+        assert len(data["items"]) == 2
+        assert data["items"][0]["mutual_friend_count"] == 3
+        assert data["items"][1]["friend_status"] == "friend"
+
+    def test_discover_response_shape(self, client, headers, monkeypatch):
+        """Response matches PaginatedDiscoverPlayersResponse schema."""
+        monkeypatch.setattr(
+            friend_service, "discover_players",
+            self._fake_discover(), raising=True,
+        )
+
+        response = client.get("/api/friends/discover", headers=headers)
+        data = response.json()
+        assert "items" in data
+        assert "total_count" in data
+        assert "page" in data
+        assert "page_size" in data
+
+        item = data["items"][0]
+        assert "id" in item
+        assert "full_name" in item
+        assert "mutual_friend_count" in item
+        assert "friend_status" in item
+        assert "total_games" in item
+        assert "current_rating" in item
+
+    def test_discover_passes_query_params(self, client, headers, monkeypatch):
+        """Query params are forwarded to the service function."""
+        captured = {}
+
+        async def _capture(session, caller_player_id, **kwargs):
+            captured.update(kwargs)
+            return {"items": [], "total_count": 0, "page": 1, "page_size": 25}
+
+        monkeypatch.setattr(
+            friend_service, "discover_players", _capture, raising=True,
+        )
+
+        response = client.get(
+            "/api/friends/discover?search=Bob&gender=male&level=advanced"
+            "&sort_by=games&sort_dir=asc&min_games=5&page=2&page_size=10",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert captured["search"] == "Bob"
+        assert captured["gender"] == "male"
+        assert captured["level"] == "advanced"
+        assert captured["sort_by"] == "games"
+        assert captured["sort_dir"] == "asc"
+        assert captured["min_games"] == 5
+        assert captured["page"] == 2
+        assert captured["page_size"] == 10
+
+    def test_discover_no_auth(self):
+        """No auth returns 401/403."""
+        app.dependency_overrides.pop(require_verified_player, None)
+        unauthenticated = TestClient(app)
+        response = unauthenticated.get("/api/friends/discover")
+        assert response.status_code in (401, 403)
+
+        # Restore override
+        async def _fake():
+            return FAKE_USER
+
+        app.dependency_overrides[require_verified_player] = _fake
+
+    def test_discover_empty_results(self, client, headers, monkeypatch):
+        """Empty results return valid structure."""
+        monkeypatch.setattr(
+            friend_service, "discover_players",
+            self._fake_discover(items=[], total_count=0), raising=True,
+        )
+
+        response = client.get("/api/friends/discover", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total_count"] == 0
+
+    def test_discover_uses_caller_player_id(self, client, headers, monkeypatch):
+        """Endpoint passes the authenticated user's player_id to the service."""
+        captured = {}
+
+        async def _capture(session, caller_player_id, **kwargs):
+            captured["caller_player_id"] = caller_player_id
+            return {"items": [], "total_count": 0, "page": 1, "page_size": 25}
+
+        monkeypatch.setattr(
+            friend_service, "discover_players", _capture, raising=True,
+        )
+
+        response = client.get("/api/friends/discover", headers=headers)
+        assert response.status_code == 200
+        assert captured["caller_player_id"] == FAKE_USER["player_id"]

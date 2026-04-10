@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Tournament Detail - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* State visibility */
+  [data-role] { display: none; }
+  body.role-visitor [data-role="visitor"],
+  body.role-visitor [data-role="open-badge"] { display: block; }
+  body.role-invite-visitor [data-role="invite-visitor"],
+  body.role-invite-visitor [data-role="invite-badge"] { display: block; }
+  body.role-requested [data-role="requested"],
+  body.role-requested [data-role="open-badge"] { display: block; }
+  body.role-registered [data-role="registered"],
+  body.role-registered [data-role="open-badge"] { display: block; }
+  body.role-waitlist [data-role="waitlist"],
+  body.role-waitlist [data-role="open-badge"] { display: block; }
+  body.role-creator [data-role="creator"],
+  body.role-creator [data-role="open-badge"] { display: block; }
+
+
+  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; text-decoration: none; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; }
+  .nav-right { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+  .share-btn { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; padding: 0; }
+  .share-btn svg { width: 18px; height: 18px; }
+
+  .content { padding: 0 0 100px; }
+
+  /* Hero */
+  .hero { background: #fff; padding: 20px 16px; border-bottom: 1px solid #eee; }
+  .hero .tourney-name { font-size: 20px; font-weight: 800; color: #1a1a1a; margin-bottom: 6px; }
+  .hero .tourney-location { font-size: 14px; color: #555; margin-bottom: 4px; }
+  .hero .tourney-datetime { font-size: 14px; color: #555; margin-bottom: 6px; }
+  .hero .tourney-organizer { font-size: 13px; color: #888; margin-bottom: 10px; }
+  .hero .tourney-organizer strong { color: #2a7d9c; font-weight: 600; }
+  .hero .tourney-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .hero .tourney-badges [data-role] { display: none; }
+  .hero .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; }
+  .hero .badge.format { background: #e8f4f8; color: #2a7d9c; }
+  .hero .badge.spots { background: #f0f0f0; color: #666; }
+  .hero .badge.open { background: #dcfce7; color: #15803d; }
+  .hero .badge.invite-only { background: #fef3c7; color: #92400e; }
+  .hero .badge.locked { background: #fee2e2; color: #991b1b; }
+
+  /* Action Bar */
+  .action-bar { background: #fff; padding: 12px 16px; border-bottom: 1px solid #eee; }
+  .action-bar .btn { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; text-align: center; text-decoration: none; min-height: 48px; cursor: pointer; }
+  .action-bar .btn.primary { background: #1a3a4a; color: #fff; }
+  .action-bar .btn.secondary { background: #f5f5f5; color: #1a3a4a; border: 1.5px solid #e0e0e0; }
+  .action-bar .btn.gold { background: #d4a843; color: #fff; }
+  .action-bar .btn.success { background: #dcfce7; color: #15803d; }
+  .action-bar .btn.pending { background: #fef3c7; color: #92400e; }
+  .action-bar .btn.muted { background: #f5f5f5; color: #999; }
+  .action-bar .btn-row { display: flex; gap: 10px; }
+  .action-bar .btn-row .btn { flex: 1; }
+  .action-bar .waitlist-note { font-size: 11px; color: #666; text-align: center; margin-top: 6px; }
+  .action-bar .btn + .btn { margin-top: 8px; }
+  .action-bar .btn-row + .btn { margin-top: 8px; }
+
+  /* Sections */
+  .detail-section { background: #fff; margin-top: 8px; padding: 16px; }
+  .detail-section .section-title { font-size: 13px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .detail-section .section-title .count-badge { background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; }
+
+  /* Players */
+  .players-row { display: flex; gap: -4px; margin-bottom: 10px; }
+  .player-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; margin-left: -6px; }
+  .player-avatar:first-child { margin-left: 0; }
+  .player-avatar.a { background: #7fb3c7; }
+  .player-avatar.b { background: #d4a843; }
+  .player-avatar.c { background: #e87461; }
+  .player-avatar.d { background: #7bc47f; }
+  .player-avatar.e { background: #b07fc7; }
+  .player-avatar.f { background: #c7997f; }
+  .player-avatar.more { background: #e0e0e0; color: #666; font-size: 11px; }
+  .players-link { font-size: 13px; color: #2a7d9c; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-height: 44px; }
+
+  /* Join Request Rows */
+  .request-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .request-row:last-child { border-bottom: none; }
+  .request-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .request-info { flex: 1; min-width: 0; }
+  .request-name { font-size: 14px; font-weight: 600; }
+  .request-detail { font-size: 11px; color: #666; margin-top: 1px; }
+  .request-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .request-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; border: none; min-height: 32px; cursor: pointer; }
+  .request-btn.approve { background: #1a3a4a; color: #fff; }
+  .request-btn.deny { background: #f5f5f5; color: #666; }
+
+  /* Lock toggle */
+  .lock-row { display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 12px 16px; border-bottom: 1px solid #eee; }
+  .lock-left { }
+  .lock-label { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .lock-hint { font-size: 11px; color: #666; margin-top: 1px; }
+  .lock-toggle { width: 44px; height: 26px; border-radius: 13px; background: #e0e0e0; position: relative; cursor: pointer; flex-shrink: 0; }
+  .lock-toggle .knob { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: left 0.15s; }
+  .lock-toggle.on { background: #dc2626; }
+  .lock-toggle.on .knob { left: 20px; }
+
+  /* Details grid */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .detail-item .detail-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .detail-item .detail-value { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+
+  /* Location card */
+  .location-card { background: #f5f5f5; border-radius: 12px; overflow: hidden; }
+  .location-map { height: 120px; background: linear-gradient(135deg, #a8d8ea, #c8e6c9); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; }
+  .location-info { padding: 12px 14px; }
+  .location-name { font-size: 14px; font-weight: 600; }
+  .location-address { font-size: 12px; color: #666; margin-top: 2px; }
+  .location-distance { font-size: 12px; font-weight: 600; color: #2a7d9c; margin-top: 4px; }
+
+</style>
+</head>
+<body class="role-visitor">
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">View as</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setRole('visitor')">Visitor (Open)</button>
+    <button class="sw-pill" onclick="setRole('invite-visitor')">Visitor (Invite Only)</button>
+    <button class="sw-pill" onclick="setRole('requested')">Request Pending</button>
+    <button class="sw-pill" onclick="setRole('registered')">Registered</button>
+    <button class="sw-pill" onclick="setRole('waitlist')">Waitlisted</button>
+    <button class="sw-pill" onclick="setRole('creator')">Creator / Director</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournaments.html" class="back">&larr; Back</a>
+  <div class="title">Tournament</div>
+  <div data-role="creator" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+    <a href="tournament-edit.html" class="action">Edit</a>
+  </div>
+  <div data-role="visitor" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+  </div>
+  <div data-role="invite-visitor" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+  </div>
+  <div data-role="requested" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+  </div>
+  <div data-role="registered" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+  </div>
+  <div data-role="waitlist" class="nav-right">
+    <button class="share-btn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="tourney-name">Sunday Showdown KoB</div>
+    <div class="tourney-location">QBK Sports</div>
+    <div class="tourney-datetime">Sunday, Apr 13 &middot; 9:00 AM</div>
+    <div class="tourney-organizer">Organized by <strong>Mike Sullivan</strong></div>
+    <div class="tourney-badges">
+      <span class="badge format">King of the Beach</span>
+      <span class="badge spots">12/16 players</span>
+      <span data-role="open-badge" class="badge open">Open</span>
+      <span data-role="invite-badge" class="badge invite-only">Invite Only</span>
+    </div>
+  </div>
+
+  <!-- Action Bar: varies by role -->
+
+  <!-- Visitor (Open): Request to Join -->
+  <div data-role="visitor">
+    <div class="action-bar">
+      <button class="btn primary">Request to Join</button>
+    </div>
+  </div>
+
+  <!-- Visitor (Invite Only): no action, info only -->
+  <div data-role="invite-visitor">
+    <div class="action-bar">
+      <div class="btn muted">Invite Only</div>
+      <div class="waitlist-note">Only invited players can join this tournament</div>
+    </div>
+  </div>
+
+  <!-- Request Pending: waiting for creator approval -->
+  <div data-role="requested">
+    <div class="action-bar">
+      <div class="btn pending">Request Pending</div>
+      <div class="waitlist-note">The creator will review your request</div>
+    </div>
+  </div>
+
+  <!-- Registered: confirmed + invite friends -->
+  <div data-role="registered">
+    <div class="action-bar">
+      <div class="btn success">Registered</div>
+      <a href="tournament-invite.html" class="btn secondary">Invite Friends</a>
+    </div>
+  </div>
+
+  <!-- Waitlisted -->
+  <div data-role="waitlist">
+    <div class="action-bar">
+      <div class="btn secondary">On Waitlist (#3)</div>
+      <div class="waitlist-note">You'll be notified if a spot opens up</div>
+    </div>
+  </div>
+
+  <!-- Creator: manage actions -->
+  <div data-role="creator">
+    <div class="action-bar">
+      <div class="btn-row">
+        <a href="tournament-invite.html" class="btn primary">Invite Players</a>
+        <a href="kob-live.html" class="btn gold">Start</a>
+      </div>
+      <a href="tournament-edit.html" class="btn secondary">Edit Settings</a>
+    </div>
+
+    <!-- Lock Registration toggle -->
+    <div class="lock-row">
+      <div class="lock-left">
+        <div class="lock-label">Lock Registration</div>
+        <div class="lock-hint">Prevent new players from joining</div>
+      </div>
+      <div class="lock-toggle" onclick="this.classList.toggle('on')">
+        <div class="knob"></div>
+      </div>
+    </div>
+
+    <!-- Join Requests -->
+    <div class="detail-section" style="margin-top: 0;">
+      <div class="section-title">Join Requests <span class="count-badge">3</span></div>
+
+      <div class="request-row">
+        <div class="request-avatar" style="background: #e87461;">KP</div>
+        <div class="request-info">
+          <div class="request-name">Kyle Patterson</div>
+          <div class="request-detail">B-level &middot; 4.2 rating</div>
+        </div>
+        <div class="request-actions">
+          <button class="request-btn approve">Approve</button>
+          <button class="request-btn deny">Deny</button>
+        </div>
+      </div>
+
+      <div class="request-row">
+        <div class="request-avatar" style="background: #7bc47f;">RL</div>
+        <div class="request-info">
+          <div class="request-name">Rachel Liu</div>
+          <div class="request-detail">A-level &middot; 4.8 rating</div>
+        </div>
+        <div class="request-actions">
+          <button class="request-btn approve">Approve</button>
+          <button class="request-btn deny">Deny</button>
+        </div>
+      </div>
+
+      <div class="request-row">
+        <div class="request-avatar" style="background: #d4a843;">TN</div>
+        <div class="request-info">
+          <div class="request-name">Tyler Nguyen</div>
+          <div class="request-detail">BB-level &middot; 3.9 rating</div>
+        </div>
+        <div class="request-actions">
+          <button class="request-btn approve">Approve</button>
+          <button class="request-btn deny">Deny</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Players -->
+  <div class="detail-section">
+    <div class="section-title">Players (12/16)</div>
+    <div class="players-row">
+      <div class="player-avatar a">MS</div>
+      <div class="player-avatar b">JR</div>
+      <div class="player-avatar c">DT</div>
+      <div class="player-avatar d">CP</div>
+      <div class="player-avatar e">SK</div>
+      <div class="player-avatar f">AM</div>
+      <div class="player-avatar a">KF</div>
+      <div class="player-avatar more">+5</div>
+    </div>
+    <a href="#" class="players-link">See All Players &rsaquo;</a>
+  </div>
+
+  <!-- Details -->
+  <div class="detail-section">
+    <div class="section-title">Details</div>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-label">Format</div>
+        <div class="detail-value">King of the Beach</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Level</div>
+        <div class="detail-value">Open</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Courts</div>
+        <div class="detail-value">4</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Game To</div>
+        <div class="detail-value">21</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Registration</div>
+        <div class="detail-value">Open</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Cost</div>
+        <div class="detail-value">Free</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Est. Duration</div>
+        <div class="detail-value">~2 hours</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Games/Player</div>
+        <div class="detail-value">7</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location -->
+  <div class="detail-section">
+    <div class="section-title">Location</div>
+    <div class="location-card">
+      <div class="location-map">&#128205;</div>
+      <div class="location-info">
+        <div class="location-name">QBK Sports</div>
+        <div class="location-address">61-15 Queens Blvd, Queens, NY</div>
+        <div class="location-distance">1.2 miles away</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+function setRole(role) {
+  document.body.className = 'role-' + role;
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

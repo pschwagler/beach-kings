@@ -9,16 +9,17 @@ import CreateLeagueModal from "../src/components/league/CreateLeagueModal";
 import PlayerProfileModal from "../src/components/player/PlayerProfileModal";
 import { useAuth } from "../src/contexts/AuthContext";
 import { useAuthModal } from "../src/contexts/AuthModalContext";
-import { createLeague, getUserLeagues } from "../src/services/api";
+import { createLeague } from "../src/services/api";
+import { useApp } from "../src/contexts/AppContext";
 import { isProfileIncomplete } from "../src/utils/playerUtils";
 
 export default function Page() {
   const router = useRouter();
   const { isAuthenticated, user, logout, currentUserPlayer, fetchCurrentUser } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const { userLeagues, refreshLeagues } = useApp();
   const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
   const [isPlayerProfileModalOpen, setIsPlayerProfileModalOpen] = useState(false);
-  const [userLeagues, setUserLeagues] = useState([]);
   const [pendingAction, setPendingAction] = useState<{ type: string; leagueId?: number } | null>(null);
   const [justSignedUp, setJustSignedUp] = useState(false);
 
@@ -80,25 +81,6 @@ export default function Page() {
     }
   }, [isAuthenticated, pendingAction, navigateToLeague]);
 
-  // Load leagues when user authenticates
-  useEffect(() => {
-    const loadUserLeagues = async () => {
-      try {
-        const leagues = await getUserLeagues();
-        setUserLeagues(leagues);
-      } catch (error) {
-        console.error("Error loading user leagues:", error);
-        setUserLeagues([]);
-      }
-    };
-
-    if (isAuthenticated) {
-      loadUserLeagues();
-    } else {
-      setUserLeagues([]);
-    }
-  }, [isAuthenticated]);
-
   // Listen for 403 forbidden errors to show login modal
   useEffect(() => {
     const handleShowLoginModal = () => {
@@ -141,8 +123,7 @@ export default function Page() {
 
   const handleCreateLeague = async (leagueData: Record<string, unknown>) => {
     const newLeague = await createLeague(leagueData);
-    const leagues = await getUserLeagues();
-    setUserLeagues(leagues);
+    await refreshLeagues();
     router.push(`/league/${newLeague.id}?tab=details`);
     return newLeague;
   };

@@ -5,11 +5,11 @@ import {
   getSessionByCode,
   getSessionMatches,
   getSessionParticipants,
-  getUserLeagues,
 } from '../services/api';
 import { sessionMatchToDisplayFormat, buildPlaceholderIdSet, type RawMatch } from '../components/league/utils/matchUtils';
 import { useAuth } from '../contexts/AuthContext';
-import type { Session, Match, League } from '../types';
+import { useApp } from '../contexts/AppContext';
+import type { Session, Match } from '../types';
 
 /**
  * Loads and exposes session-by-code data for the session page.
@@ -20,14 +20,14 @@ import type { Session, Match, League } from '../types';
  *   isCreator, hasLessThanFourPlayers, membersForModal, transformedMatches
  */
 export function usePickupSession(code: string | undefined) {
-  const { currentUserPlayer, isAuthenticated } = useAuth();
+  const { currentUserPlayer } = useAuth();
+  const { userLeagues } = useApp();
   const [session, setSession] = useState<Session | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
 
   const load = useCallback(async () => {
     if (!code) {
@@ -70,13 +70,6 @@ export function usePickupSession(code: string | undefined) {
   const refresh = useCallback(() => {
     setRefreshTrigger((t) => t + 1);
   }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    getUserLeagues()
-      .then((data) => setUserLeagues(Array.isArray(data) ? data : []))
-      .catch(() => setUserLeagues([]));
-  }, [isAuthenticated]);
 
   const isCreator = useMemo(
     () => session?.created_by != null && currentUserPlayer?.id === session.created_by,

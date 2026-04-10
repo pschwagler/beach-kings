@@ -48,7 +48,7 @@ def test_get_league_returns_200(mock_get, client):
     """Returns 200 with league detail for a found league."""
     mock_get.return_value = {
         "id": 1,
-        "name": "Sunset Beach Kings",
+        "name": "Sunset Beach League",
         "is_public": True,
         "gender": "mixed",
         "level": "intermediate",
@@ -67,7 +67,7 @@ def test_get_league_returns_200(mock_get, client):
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == 1
-    assert data["name"] == "Sunset Beach Kings"
+    assert data["name"] == "Sunset Beach League"
     assert data["is_public"] is True
 
 
@@ -121,7 +121,7 @@ def test_get_player_returns_200(mock_get, client):
             "total_wins": 18,
             "win_rate": 0.72,
         },
-        "league_memberships": [{"league_id": 1, "league_name": "Sunset Beach Kings"}],
+        "league_memberships": [{"league_id": 1, "league_name": "Sunset Beach League"}],
         "created_at": None,
         "updated_at": None,
     }

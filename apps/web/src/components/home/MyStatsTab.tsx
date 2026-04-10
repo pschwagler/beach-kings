@@ -773,7 +773,7 @@ export default function MyStatsTab({ currentUserPlayer }: MyStatsTabProps) {
         {activeData.length === 0 ? (
           <p className="my-stats-tab__table-empty">
             {filtered.length === 0
-              ? 'No matches for current filters'
+              ? 'No games for current filters'
               : `Play more games to see ${tableView === 'partners' ? 'partnership' : 'opponent'} stats`}
           </p>
         ) : (

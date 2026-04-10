@@ -450,6 +450,52 @@ async def upload_court_photo(
 # --- Edit suggestions ---
 
 
+# --- Check-ins ---
+
+
+@router.post("/api/courts/{court_id}/check-in", response_model=dict)
+@limiter.limit("30/minute")
+async def check_in_to_court(
+    request: Request,
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Check in to a court (verified player). Auto-expires after 4 hours."""
+    try:
+        court = await session.get(Court, court_id)
+        if not court:
+            raise HTTPException(status_code=404, detail="Court not found")
+        return await court_service.check_in(session, court_id, user["player_id"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error checking in: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error checking in")
+
+
+@router.delete("/api/courts/{court_id}/check-in", response_model=dict)
+async def check_out_of_court(
+    court_id: int,
+    user: dict = Depends(require_verified_player),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Check out of a court (verified player)."""
+    try:
+        removed = await court_service.check_out(session, court_id, user["player_id"])
+        if not removed:
+            raise HTTPException(status_code=404, detail="No active check-in found")
+        return {"court_id": court_id, "checked_out": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error checking out: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error checking out")
+
+
+# --- Edit suggestions ---
+
+
 @router.post("/api/courts/{court_id}/suggest-edit", response_model=dict)
 @limiter.limit("10/minute")
 async def suggest_court_edit(

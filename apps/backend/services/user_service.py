@@ -870,6 +870,8 @@ async def _delete_court_contributions(session: AsyncSession, player_id: int) -> 
 def _anonymize_player(player: Player) -> None:
     """Replace player PII with anonymized values. Keeps the row for match FK integrity."""
     player.full_name = "Deleted Player"
+    player.first_name = "Deleted"
+    player.last_name = "Player"
     player.nickname = None
     player.gender = None
     player.level = None

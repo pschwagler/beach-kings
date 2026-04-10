@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Create Tournament - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  .content { padding: 20px 16px 40px; }
+
+  .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; margin-top: 24px; }
+  .section-title:first-child { margin-top: 0; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; }
+  .form-input::placeholder { color: #bbb; }
+  .form-select { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; appearance: none; }
+  .form-hint { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* Stepper */
+  .stepper { display: flex; align-items: center; gap: 0; background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; overflow: hidden; width: fit-content; }
+  .stepper .step-btn { width: 44px; height: 44px; border: none; background: #f5f5f5; font-size: 20px; font-weight: 600; color: #555; display: flex; align-items: center; justify-content: center; }
+  .stepper .step-value { width: 56px; text-align: center; font-size: 18px; font-weight: 700; color: #1a3a4a; }
+
+  /* Toggle Buttons */
+  .toggle-row { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1.5px solid #e0e0e0; background: #fff; }
+  .toggle-btn { flex: 1; padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 600; color: #666; border: none; background: #fff; border-right: 1px solid #e0e0e0; min-height: 44px; }
+  .toggle-btn:last-child { border-right: none; }
+  .toggle-btn.active { background: #1a3a4a; color: #fff; }
+
+  /* Pill Buttons */
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { padding: 10px 16px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 13px; font-weight: 600; color: #555; min-height: 44px; }
+  .pill.active { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; }
+
+  /* Format Cards */
+  .format-cards { display: flex; flex-direction: column; gap: 8px; }
+  .format-card { background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .format-card.active { border-color: #2a7d9c; background: #e8f4f8; }
+  .format-card.recommended { border-color: #d4a843; }
+  .format-card .format-info { flex: 1; }
+  .format-card .format-name { font-size: 14px; font-weight: 600; }
+  .format-card .format-desc { font-size: 11px; color: #666; margin-top: 2px; }
+  .format-card .format-meta { text-align: right; }
+  .format-card .format-time { font-size: 12px; font-weight: 600; color: #1a3a4a; }
+  .format-card .format-games { font-size: 11px; color: #666; }
+  .format-card .badge-rec { font-size: 11px; font-weight: 600; color: #d4a843; background: #fdf8ed; padding: 2px 8px; border-radius: 8px; margin-top: 4px; display: inline-block; }
+
+  /* Preview Card */
+  .preview-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 16px; }
+  .preview-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .preview-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .preview-stat { flex: 1; min-width: 70px; }
+  .preview-stat .stat-label { font-size: 11px; color: #666; }
+  .preview-stat .stat-value { font-size: 14px; font-weight: 700; color: #1a3a4a; margin-top: 2px; }
+
+  /* Checkbox */
+  .checkbox-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+  .checkbox { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #e0e0e0; background: #fff; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .checkbox.checked { background: #2a7d9c; border-color: #2a7d9c; color: #fff; font-size: 14px; }
+  .checkbox-label { font-size: 14px; font-weight: 500; color: #555; }
+
+  /* Submit */
+  .btn-create { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 28px; cursor: pointer; }
+
+  /* Post-creation overlay */
+  .post-create-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 390px; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+  body.post-create .post-create-overlay { display: flex; }
+  .post-create-content { background: #fff; border-radius: 16px; margin: 24px; padding: 32px 24px; text-align: center; }
+  .post-create-icon { width: 56px; height: 56px; border-radius: 50%; background: #dcfce7; color: #15803d; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .post-create-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+  .post-create-subtitle { font-size: 14px; color: #666; line-height: 1.4; margin-bottom: 24px; }
+  .post-create-btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 700; text-align: center; text-decoration: none; margin-bottom: 10px; min-height: 48px; }
+  .post-create-btn:last-child { margin-bottom: 0; }
+  .post-create-btn.primary { background: #1a3a4a; color: #fff; }
+  .post-create-btn.secondary { background: #f5f5f5; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="tournaments.html" class="back">&larr; Cancel</a>
+  <div class="title">King of the Beach</div>
+  <div class="action" style="color: rgba(212,168,67,0.4); font-size: 15px; font-weight: 600;">Create</div>
+</div>
+
+<div class="content">
+
+  <div class="section-title">Tournament Setup</div>
+
+  <div class="form-group">
+    <div class="form-label">Tournament Name</div>
+    <input class="form-input" type="text" placeholder="Saturday Morning KoB" />
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Players</div>
+    <div class="stepper">
+      <button class="step-btn">-</button>
+      <div class="step-value">8</div>
+      <button class="step-btn">+</button>
+    </div>
+    <div class="form-hint">4 - 36 players</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Courts</div>
+    <div class="stepper">
+      <button class="step-btn">-</button>
+      <div class="step-value">2</div>
+      <button class="step-btn">+</button>
+    </div>
+    <div class="form-hint">1 - 6 courts</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Duration</div>
+    <select class="form-select">
+      <option>No limit</option>
+      <option>1:30</option>
+      <option selected>2:00</option>
+      <option>2:30</option>
+      <option>3:00</option>
+      <option>4:00</option>
+    </select>
+  </div>
+
+  <div class="section-title">Format</div>
+
+  <div class="form-group">
+    <div class="format-cards">
+      <div class="format-card recommended active">
+        <div class="format-info">
+          <div class="format-name">Round Robin</div>
+          <div class="format-desc">Everyone plays everyone</div>
+        </div>
+        <div class="format-meta">
+          <div class="format-time">~1h 45m</div>
+          <div class="format-games">7 games/player</div>
+          <span class="badge-rec">Recommended</span>
+        </div>
+      </div>
+      <div class="format-card">
+        <div class="format-info">
+          <div class="format-name">Partial Round Robin</div>
+          <div class="format-desc">Fixed number of rounds</div>
+        </div>
+        <div class="format-meta">
+          <div class="format-time">~1h 15m</div>
+          <div class="format-games">5 games/player</div>
+        </div>
+      </div>
+      <div class="format-card">
+        <div class="format-info">
+          <div class="format-name">Pools</div>
+          <div class="format-desc">Groups with playoffs</div>
+        </div>
+        <div class="format-meta">
+          <div class="format-time">~2h</div>
+          <div class="format-games">5-7 games/player</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Game Settings</div>
+
+  <div class="form-group">
+    <div class="form-label">Game To</div>
+    <div class="toggle-row">
+      <div class="toggle-btn">28</div>
+      <div class="toggle-btn active">21</div>
+      <div class="toggle-btn">15</div>
+      <div class="toggle-btn">11</div>
+      <div class="toggle-btn">7</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="checkbox-row">
+      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox-label">Score cap (win by 2, max 25)</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Playoffs</div>
+    <div class="toggle-row">
+      <div class="toggle-btn">Off</div>
+      <div class="toggle-btn active">Top 4</div>
+      <div class="toggle-btn">Top 6</div>
+    </div>
+  </div>
+
+  <div class="section-title">Additional</div>
+
+  <div class="form-group">
+    <div class="form-label">Registration</div>
+    <div class="toggle-row">
+      <div class="toggle-btn active">Open</div>
+      <div class="toggle-btn">Invite Only</div>
+    </div>
+    <div class="form-hint">Open: players request to join, you approve. Invite Only: only players you invite can join (auto-accepted).</div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Gender</div>
+    <div class="pill-row">
+      <div class="pill active">Coed</div>
+      <div class="pill">Men's</div>
+      <div class="pill">Women's</div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="checkbox-row">
+      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox-label">Auto-advance rounds when all scores entered</div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview-card">
+    <div class="preview-title">Tournament Preview</div>
+    <div class="preview-stats">
+      <div class="preview-stat">
+        <div class="stat-label">Est. Time</div>
+        <div class="stat-value">1h 45m</div>
+      </div>
+      <div class="preview-stat">
+        <div class="stat-label">Games/Player</div>
+        <div class="stat-value">7</div>
+      </div>
+      <div class="preview-stat">
+        <div class="stat-label">Total Games</div>
+        <div class="stat-value">28</div>
+      </div>
+      <div class="preview-stat">
+        <div class="stat-label">Rounds</div>
+        <div class="stat-value">7 + PO</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-create" onclick="document.body.classList.add('post-create')">Create Tournament</button>
+
+</div>
+
+<!-- Post-creation overlay -->
+<div class="post-create-overlay">
+  <div class="post-create-content">
+    <div class="post-create-icon">&#10003;</div>
+    <div class="post-create-title">Tournament Created!</div>
+    <div class="post-create-subtitle">Sunday Showdown KoB is ready. Invite players to fill your bracket.</div>
+    <a href="tournament-invite.html" class="post-create-btn primary">Invite Players</a>
+    <a href="kob-live.html" class="post-create-btn secondary">Skip for Now</a>
+  </div>
+</div>
+
+</body>
+</html>

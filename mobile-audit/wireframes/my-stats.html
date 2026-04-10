@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>My Stats v2 - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .state-default { display: block; }
+  .state-filtered { display: none; }
+  body.filtered .state-default { display: none !important; }
+  body.filtered .state-filtered { display: block !important; }
+
+
+  /* Profile Header — compact for stats context */
+  .profile-header { background: #fff; padding: 16px 16px 12px; display: flex; align-items: center; gap: 14px; }
+  .profile-header .avatar { width: 56px; height: 56px; border-radius: 50%; background: #7fb3c7; border: 2.5px solid #e8f4f8; flex-shrink: 0; }
+  .profile-header .info { flex: 1; }
+  .profile-header .name { font-size: 18px; font-weight: 700; }
+  .profile-header .meta { font-size: 12px; color: #666; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  .profile-header .level-badge { background: #e8f4f8; color: #2a7d9c; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+
+  /* Stats Bar — hero numbers, always visible */
+  .stats-bar { display: flex; background: #fff; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #eee; }
+  .stats-bar .stat { flex: 1; text-align: center; padding: 10px 4px; }
+  .stats-bar .stat .val { font-size: 18px; font-weight: 700; color: #1a3a4a; }
+  .stats-bar .stat .label { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stats-bar .stat + .stat { border-left: 1px solid #f0f0f0; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 10px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; display: flex; align-items: center; justify-content: space-between; }
+
+  /* Trophies — horizontal scroll at top for delight */
+  .trophy-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); }
+  .trophy-row::-webkit-scrollbar { display: none; }
+  .trophy-card { min-width: 100px; background: #fdf8ed; border-radius: 10px; padding: 10px; text-align: center; border: 1px solid #f0e6cc; }
+  .trophy-card .trophy-icon { font-size: 22px; margin-bottom: 3px; }
+  .trophy-card .trophy-place { font-size: 10px; font-weight: 700; color: #b8860b; }
+  .trophy-card .trophy-league { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.2; }
+
+  /* Time Chips — always visible for quick toggle */
+  .time-chips { display: flex; gap: 6px; margin-bottom: 10px; }
+  .time-chip { padding: 6px 14px; border-radius: 16px; font-size: 12px; font-weight: 600; border: 1.5px solid #e0e0e0; background: #fff; color: #666; min-height: 44px; cursor: pointer; }
+  .time-chip.active { background: #1a3a4a; color: #fff; border-color: #1a3a4a; }
+
+  /* Filter Chip — collapsed filter trigger */
+  .filter-chip-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; border: 1.5px solid #e0e0e0; background: #fff; color: #666; min-height: 44px; cursor: pointer; }
+  .filter-chip .filter-icon { font-size: 11px; }
+  .filter-chip.has-filter { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; font-weight: 600; }
+  .filter-chip .filter-x { font-size: 10px; margin-left: 2px; }
+
+  /* Stats Grid — 2x3, contextual data */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .stat-card .stat-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; gap: 4px; }
+  .stat-card .stat-label .icon { font-size: 12px; }
+  .stat-card .stat-value { font-size: 22px; font-weight: 700; color: #1a3a4a; margin-top: 4px; }
+  .stat-card .stat-trend { font-size: 11px; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 3px; }
+  .stat-card .stat-trend.up { color: #15803d; }
+  .stat-card .stat-trend.down { color: #b91c1c; }
+  .stat-card .stat-trend .arrow { font-size: 9px; }
+
+  /* Rating Chart */
+  .chart-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .chart-card .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .chart-card .chart-title { font-size: 13px; font-weight: 700; }
+  .chart-card .chart-hint { font-size: 10px; color: #999; }
+  .chart-area { width: 100%; height: 120px; position: relative; }
+  .chart-line-bg { position: absolute; bottom: 20px; left: 0; right: 0; height: 70px; background: linear-gradient(180deg, rgba(42,125,156,0.08) 0%, transparent 100%); border-top: 2px solid #2a7d9c; border-radius: 0 0 8px 8px; }
+  /* Touch indicator dot */
+  .chart-dot { position: absolute; top: 18px; left: 65%; width: 10px; height: 10px; border-radius: 50%; background: #2a7d9c; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .chart-tooltip { position: absolute; top: 2px; left: 55%; background: #1a3a4a; color: #fff; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+  .chart-tooltip::after { content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #1a3a4a; }
+  .chart-label { position: absolute; bottom: 0; font-size: 10px; color: #999; }
+
+  /* Partners/Opponents Toggle */
+  .table-toggle { display: flex; background: #f0f0f0; border-radius: 8px; padding: 2px; margin-bottom: 10px; }
+  .table-toggle .toggle-btn { flex: 1; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; border-radius: 6px; color: #666; }
+  .table-toggle .toggle-btn.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+  /* Partner/Opponent Table */
+  .data-table { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .data-table .table-header { display: flex; padding: 10px 14px; background: #f8f9fa; font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.3px; }
+  .data-table .table-header .col-name { flex: 1; }
+  .data-table .table-header .col { width: 44px; text-align: center; }
+  .data-table .table-header .col-wide { width: 48px; text-align: center; }
+  .data-table .table-row { display: flex; align-items: center; padding: 11px 14px; border-bottom: 1px solid #f0f0f0; }
+  .data-table .table-row:last-child { border-bottom: none; }
+  .data-table .table-row .col-name { flex: 1; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .data-table .table-row .col-name .avatar-xxs { width: 24px; height: 24px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+  .data-table .table-row .col { width: 44px; text-align: center; font-size: 12px; color: #555; }
+  .data-table .table-row .col-wide { width: 48px; text-align: center; font-size: 12px; }
+  .data-table .table-row .col.positive { color: #15803d; font-weight: 600; }
+  .data-table .table-row .col.negative { color: #b91c1c; font-weight: 600; }
+
+  .show-all { text-align: center; padding: 12px; font-size: 13px; color: #2a7d9c; font-weight: 600; border-top: 1px solid #f0f0f0; min-height: 44px; display: flex; align-items: center; justify-content: center; width: 100%; background: none; border: none; border-top: 1px solid #f0f0f0; cursor: pointer; }
+
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">View State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('default')">All Time (Default)</button>
+    <button class="sw-pill" onclick="setState('filtered')">Filtered by League</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="spacer"></div>
+  <div class="title">Profile</div>
+  <a href="settings.html" class="action">Settings</a>
+</div>
+
+<!-- Compact profile header — horizontal layout saves vertical space -->
+<div class="profile-header">
+  <div class="avatar"></div>
+  <div class="info">
+    <div class="name">Patrick Schwagler</div>
+    <div class="meta">
+      <span>New York, NY</span>
+      <span class="level-badge">Open</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats bar — the glanceable "scorecard" -->
+<div class="stats-bar">
+  <div class="stat"><div class="val">94</div><div class="label">Games</div></div>
+  <div class="stat"><div class="val">1438</div><div class="label">Rating</div></div>
+  <div class="stat"><div class="val">66-28</div><div class="label">W-L</div></div>
+  <div class="stat"><div class="val">70%</div><div class="label">Win Rate</div></div>
+</div>
+
+<!-- Segment control: Profile | Stats -->
+<div class="segment-control">
+  <a href="profile.html" class="segment" style="text-decoration:none; color:#666;">Profile</a>
+  <div class="segment active">Stats</div>
+</div>
+
+<div class="content">
+
+  <!-- Trophies at top — instant delight, earned achievements -->
+  <div class="trophy-row">
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men</div>
+    </div>
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men</div>
+    </div>
+    <div class="trophy-card" style="opacity: 0.4; border-style: dashed;">
+      <div class="trophy-icon" style="font-size: 18px; color: #ccc;">&#127942;</div>
+      <div class="trophy-place" style="color: #ccc;">Next trophy?</div>
+      <div class="trophy-league" style="color: #bbb;">Keep playing!</div>
+    </div>
+  </div>
+
+  <!-- Time range chips — always visible, most common filter -->
+  <div class="section-title">Overview</div>
+
+  <div class="time-chips">
+    <button class="time-chip">30d</button>
+    <button class="time-chip">90d</button>
+    <button class="time-chip">1y</button>
+    <button class="time-chip active">All Time</button>
+  </div>
+
+  <!-- DEFAULT STATE: No filters active -->
+  <div class="state-default">
+    <!-- Collapsed filter chips — tap to open bottom sheet -->
+    <div class="filter-chip-row">
+      <button class="filter-chip"><span class="filter-icon">&#9660;</span> All Ranked</button>
+      <button class="filter-chip"><span class="filter-icon">&#9660;</span> All Leagues</button>
+      <button class="filter-chip"><span class="filter-icon">&#9660;</span> All Partners</button>
+    </div>
+  </div>
+
+  <!-- FILTERED STATE: League filter active -->
+  <div class="state-filtered">
+    <div class="filter-chip-row">
+      <button class="filter-chip"><span class="filter-icon">&#9660;</span> All Ranked</button>
+      <button class="filter-chip has-filter">QBK Open Men <span class="filter-x">&#10005;</span></button>
+      <button class="filter-chip"><span class="filter-icon">&#9660;</span> All Partners</button>
+    </div>
+  </div>
+
+  <!-- Stats grid — 2x3 cards with trends -->
+  <div class="state-default">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#9878;</span> Record</div>
+        <div class="stat-value">66-28</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#9650;</span> Rating</div>
+        <div class="stat-value">1438</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +38 all time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#9733;</span> Peak Rating</div>
+        <div class="stat-value">1462</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#37;</span> Win Rate</div>
+        <div class="stat-value">70.2%</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +2.1pp</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#177;</span> Avg +/-</div>
+        <div class="stat-value">+2.7</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +0.4</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#128293;</span> Streak</div>
+        <div class="stat-value" style="color: #15803d;">W9</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERED STATE: Stats grid scoped to league -->
+  <div class="state-filtered">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#9878;</span> Record</div>
+        <div class="stat-value">34-13</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#9650;</span> Rating</div>
+        <div class="stat-value">1438</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +52 this league</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#127942;</span> Ranking</div>
+        <div class="stat-value">#1</div>
+        <div class="stat-trend" style="color: #d4a843; font-weight: 600;">of 27 players</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#37;</span> Win Rate</div>
+        <div class="stat-value">72.3%</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +3.1pp</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#177;</span> Avg +/-</div>
+        <div class="stat-value">+3.8</div>
+        <div class="stat-trend up"><span class="arrow">&#9650;</span> +0.6</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="icon">&#128293;</span> Streak</div>
+        <div class="stat-value" style="color: #15803d;">W5</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rating History Chart — interactive -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">Rating History</span>
+      <span class="chart-hint">Tap to see values</span>
+    </div>
+    <div class="chart-area">
+      <div class="chart-line-bg"></div>
+      <div class="chart-tooltip">1438 on Mar 19</div>
+      <div class="chart-dot"></div>
+      <span class="chart-label" style="left: 2%;">Jan</span>
+      <span class="chart-label" style="left: 25%;">Feb</span>
+      <span class="chart-label" style="left: 50%;">Mar</span>
+      <span class="chart-label" style="left: 75%;">Apr</span>
+    </div>
+  </div>
+
+  <!-- Partners / Opponents toggle + table -->
+  <div class="section-title">Breakdown</div>
+
+  <div class="table-toggle">
+    <div class="toggle-btn active">Partners</div>
+    <div class="toggle-btn">Opponents</div>
+  </div>
+
+  <div class="data-table">
+    <div class="table-header">
+      <div class="col-name">Name</div>
+      <div class="col">GP</div>
+      <div class="col-wide">W-L</div>
+      <div class="col">Win%</div>
+      <div class="col">+/-</div>
+    </div>
+    <div class="table-row">
+      <div class="col-name"><div class="avatar-xxs" style="background: #7fb3c7;"></div> C. Gulla</div>
+      <div class="col">34</div>
+      <div class="col-wide">28-6</div>
+      <div class="col">82%</div>
+      <div class="col positive">+17</div>
+    </div>
+    <div class="table-row">
+      <div class="col-name"><div class="avatar-xxs"></div> K. Fawwar</div>
+      <div class="col">14</div>
+      <div class="col-wide">8-6</div>
+      <div class="col">57%</div>
+      <div class="col positive">+12</div>
+    </div>
+    <div class="table-row">
+      <div class="col-name"><div class="avatar-xxs"></div> A. Marthey</div>
+      <div class="col">9</div>
+      <div class="col-wide">6-3</div>
+      <div class="col">67%</div>
+      <div class="col positive">+10</div>
+    </div>
+    <div class="table-row">
+      <div class="col-name"><div class="avatar-xxs"></div> S. Jindash</div>
+      <div class="col">8</div>
+      <div class="col-wide">5-3</div>
+      <div class="col">63%</div>
+      <div class="col positive">+8</div>
+    </div>
+    <div class="table-row">
+      <div class="col-name"><div class="avatar-xxs"></div> R. Ballakian</div>
+      <div class="col">4</div>
+      <div class="col-wide">4-0</div>
+      <div class="col">100%</div>
+      <div class="col positive">+5</div>
+    </div>
+    <button class="show-all">Show all 18 partners</button>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon active">&#128100;</div>
+    <div class="tab-label active">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  if (state === 'filtered') {
+    document.body.classList.add('filtered');
+  } else {
+    document.body.classList.remove('filtered');
+  }
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

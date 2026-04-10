@@ -200,6 +200,8 @@ class Player(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     full_name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False, server_default="")
+    last_name = Column(String, nullable=False, server_default="")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     nickname = Column(String, nullable=True)
     gender = Column(String, nullable=True)
@@ -261,6 +263,7 @@ class Player(Base):
         Index("idx_players_avp_id", "avp_playerProfileId"),
         Index("idx_players_created_by", "created_by_player_id"),
     )
+
 
 
 class PlayerInvite(Base):
@@ -1355,6 +1358,7 @@ class Feedback(Base):
         Integer, ForeignKey("users.id"), nullable=True
     )  # Nullable for anonymous feedback
     feedback_text = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False, server_default="feedback")  # "feedback" or "support"
     email = Column(String, nullable=True)  # Optional contact email
     is_resolved = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -1781,6 +1785,27 @@ class LeagueHomeCourt(Base):
     )
 
 
+class DeviceToken(Base):
+    """Push notification device tokens (Expo push tokens)."""
+
+    __tablename__ = "device_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(255), nullable=False)
+    platform = Column(String(10), nullable=False)  # "ios", "android"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="device_tokens")
+
+    __table_args__ = (
+        UniqueConstraint("token", name="uq_device_tokens_token"),
+        Index("idx_device_tokens_user", "user_id"),
+    )
+
+
 class PlayerHomeCourt(Base):
     """Courts designated as home courts for a player."""
 
@@ -1799,4 +1824,26 @@ class PlayerHomeCourt(Base):
     __table_args__ = (
         UniqueConstraint("player_id", "court_id", name="uq_player_home_courts_player_court"),
         Index("idx_player_home_courts_player", "player_id"),
+    )
+
+
+class CourtCheckIn(Base):
+    """Active check-ins at a court (auto-expire after 4 hours)."""
+
+    __tablename__ = "court_check_ins"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    court_id = Column(Integer, ForeignKey("courts.id", ondelete="CASCADE"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    checked_in_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    # Relationships
+    court = relationship("Court", backref="check_ins")
+    player = relationship("Player", backref="court_check_ins")
+
+    __table_args__ = (
+        UniqueConstraint("court_id", "player_id", name="uq_court_check_ins_court_player"),
+        Index("idx_court_check_ins_court", "court_id"),
+        Index("idx_court_check_ins_expires", "expires_at"),
     )

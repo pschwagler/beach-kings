@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Session Menu (Action Sheet) - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  .top-nav .action { color: #fff; font-size: 20px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; text-decoration: none; }
+
+  /* Dimmed background content */
+  .session-info { background: #fff; padding: 14px 16px; border-bottom: 1px solid #eee; opacity: 0.4; }
+  .session-name-row { display: flex; align-items: center; justify-content: space-between; }
+  .session-name { font-size: 18px; font-weight: 700; }
+  .session-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .meta-tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; }
+  .meta-tag.pickup { background: #fef3cd; color: #92400e; }
+  .meta-tag.date { background: #f0f0f0; color: #555; }
+  .meta-tag.court { background: #e8f4f8; color: #2a7d9c; }
+  .meta-tag.players { background: #f0f0f0; color: #555; }
+
+  .roster-strip { display: flex; gap: 14px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; overflow-x: auto; opacity: 0.4; }
+  .roster-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .roster-player { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; }
+  .roster-name { font-size: 10px; color: #666; }
+
+  .content-dimmed { padding: 16px; opacity: 0.4; }
+  .section-title { font-size: 15px; font-weight: 700; }
+  .match-card { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .match-teams { display: flex; align-items: center; gap: 8px; }
+  .match-team { flex: 1; }
+  .match-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .match-score { text-align: center; min-width: 56px; }
+  .match-score .score { font-size: 20px; font-weight: 800; color: #1a3a4a; }
+  .match-score .sep { color: #ccc; margin: 0 2px; }
+
+  /* Action Sheet Overlay */
+  .action-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    width: 390px;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  /* Action Sheet */
+  .action-sheet {
+    width: 100%;
+    padding: 0 8px 34px;
+    animation: slideUp 0.25s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .action-sheet-group {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .action-sheet-header {
+    padding: 14px 16px 10px;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .action-sheet-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  .action-sheet-subtitle {
+    font-size: 11px;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  .action-sheet-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px;
+    min-height: 56px;
+    font-size: 17px;
+    font-weight: 400;
+    color: #007AFF;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .action-sheet-item:last-child { border-bottom: none; }
+  .action-sheet-item .item-icon { font-size: 18px; }
+  .action-sheet-item.destructive { color: #ef4444; font-weight: 600; }
+
+  .action-sheet-cancel {
+    background: #fff;
+    border-radius: 14px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 600;
+    color: #007AFF;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="add-games.html" class="back">&larr; Add Games</a>
+  <div class="title">Session</div>
+  <a href="#" class="action">&#8943;</a>
+</div>
+
+<!-- Dimmed background content to show context -->
+<div class="session-info">
+  <div class="session-name-row">
+    <div class="session-name">Sunday at QBK</div>
+  </div>
+  <div class="session-meta">
+    <span class="meta-tag pickup">Pickup</span>
+    <span class="meta-tag date">Apr 8</span>
+    <span class="meta-tag court">QBK Sports</span>
+    <span class="meta-tag players">8 players</span>
+  </div>
+</div>
+
+<div class="roster-strip">
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #1a3a4a;">PS</div>
+    <div class="roster-name">You</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #2a7d9c;">KF</div>
+    <div class="roster-name">Karim</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #15803d;">MB</div>
+    <div class="roster-name">Mike</div>
+  </div>
+  <div class="roster-player">
+    <div class="roster-avatar" style="background: #b91c1c;">JR</div>
+    <div class="roster-name">Jake</div>
+  </div>
+</div>
+
+<div class="content-dimmed">
+  <div class="section-title" style="margin-bottom: 10px;">Games</div>
+  <div class="match-card">
+    <div class="match-teams">
+      <div class="match-team"><div class="match-team-names">Pat S &amp; Devon M</div></div>
+      <div class="match-score"><span class="score">21<span class="sep">-</span>16</span></div>
+      <div class="match-team" style="text-align:right;"><div class="match-team-names">Chris L &amp; Dan P</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Action Sheet -->
+<div class="action-sheet-overlay">
+  <div class="action-sheet">
+
+    <div class="action-sheet-group">
+      <div class="action-sheet-header">
+        <div class="action-sheet-title">Sunday at QBK</div>
+        <div class="action-sheet-subtitle">Active &middot; 4 games &middot; 8 players</div>
+      </div>
+
+      <a href="#" class="action-sheet-item">
+        <span class="item-icon">&#128279;</span>
+        Share Session
+      </a>
+      <a href="#" class="action-sheet-item">
+        <span class="item-icon">&#128203;</span>
+        Copy Results
+      </a>
+      <a href="#" class="action-sheet-item">
+        <span class="item-icon">&#128260;</span>
+        Duplicate as New Session
+      </a>
+      <a href="#" class="action-sheet-item destructive">
+        <span class="item-icon">&#128465;</span>
+        Delete Session
+      </a>
+    </div>
+
+    <div class="action-sheet-cancel" onclick="window.location.href='session-active.html'">
+      Cancel
+    </div>
+
+  </div>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-label active">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

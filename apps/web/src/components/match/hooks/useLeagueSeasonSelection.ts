@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUserLeagues, getLeagueSeasons } from '../../../services/api';
+import { getLeagueSeasons } from '../../../services/api';
+import { useApp } from '../../../contexts/AppContext';
 
 /** Minimal league shape for selection. */
 interface LeagueOption {
@@ -37,6 +38,7 @@ export function useLeagueSeasonSelection({
   defaultSeasonId,
   matchType: initialMatchType
 }: UseLeagueSeasonSelectionParams) {
+  const { userLeagues: contextLeagues, leaguesLoading } = useApp();
   const [matchType, setMatchType] = useState(leagueMatchOnly ? 'league' : 'non-league');
   const [selectedLeagueId, setSelectedLeagueId] = useState(defaultLeagueId);
   const [availableLeagues, setAvailableLeagues] = useState<LeagueOption[]>([]);
@@ -44,7 +46,7 @@ export function useLeagueSeasonSelection({
   const [allSeasons, setAllSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [isSeasonDisabled, setIsSeasonDisabled] = useState(false);
-  const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const loadingLeagues = leaguesLoading;
   const [loadingSeason, setLoadingSeason] = useState(false);
 
   // Helper to check if season is active based on dates
@@ -77,29 +79,18 @@ export function useLeagueSeasonSelection({
     )[0] ?? null;
   }, [isSeasonActive]);
 
-  // Load user leagues when modal opens and match type is league
+  // Populate available leagues from context (no fetch needed — AppContext keeps them fresh)
   useEffect(() => {
     if (isOpen && matchType === 'league' && !leagueMatchOnly) {
-      const loadLeagues = async () => {
-        setLoadingLeagues(true);
-        try {
-          const leagues: LeagueOption[] = await getUserLeagues();
-          setAvailableLeagues(leagues || []);
-          // If defaultLeagueId is provided, select it
-          if (defaultLeagueId && leagues) {
-            const defaultLeague = leagues.find((l) => l.id === defaultLeagueId);
-            if (defaultLeague) {
-              setSelectedLeagueId(defaultLeagueId);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading leagues:', error);
-          setAvailableLeagues([]);
-        } finally {
-          setLoadingLeagues(false);
+      const leagues = contextLeagues as LeagueOption[];
+      setAvailableLeagues(leagues || []);
+      // If defaultLeagueId is provided, select it
+      if (defaultLeagueId && leagues) {
+        const defaultLeague = leagues.find((l) => l.id === defaultLeagueId);
+        if (defaultLeague) {
+          setSelectedLeagueId(defaultLeagueId);
         }
-      };
-      loadLeagues();
+      }
     } else if (leagueMatchOnly && defaultLeagueId) {
       // If leagueMatchOnly, use league from context if available, or create a placeholder
       setSelectedLeagueId(defaultLeagueId);
@@ -115,7 +106,7 @@ export function useLeagueSeasonSelection({
   // Depend on league primitives — not the object reference — to avoid
   // infinite re-render loops when the caller creates a new object each render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league?.id, league?.name]);
+  }, [isOpen, matchType, leagueMatchOnly, defaultLeagueId, league?.id, league?.name, contextLeagues]);
 
   // Load seasons when league is selected
   useEffect(() => {

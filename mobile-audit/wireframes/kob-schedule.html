@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>KoB Schedule - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Tournament Header */
+  .tourney-header { background: #fff; padding: 16px; border-bottom: 1px solid #eee; }
+  .tourney-header .tourney-name { font-size: 18px; font-weight: 700; }
+  .tourney-header .tourney-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .tourney-header .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+  .tourney-header .badge.active { background: #dcfce7; color: #15803d; }
+  .tourney-header .badge.round { background: #e8f4f8; color: #2a7d9c; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; text-decoration: none; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  /* Round Cards */
+  .round-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; overflow: hidden; }
+  .round-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .round-header .round-name { font-size: 14px; font-weight: 600; }
+  .round-header .round-badges { display: flex; align-items: center; gap: 6px; }
+  .round-header .round-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px; }
+  .round-header .round-status.complete { background: #dcfce7; color: #15803d; }
+  .round-header .round-status.in-progress { background: #fdf8ed; color: #b8860b; }
+  .round-header .round-status.upcoming { background: #f0f0f0; color: #666; }
+  .round-header .chevron { font-size: 16px; color: #ccc; }
+  .pairings-tbd { color: #999; font-size: 12px; font-style: italic; }
+
+  .round-matches { border-top: 1px solid #f0f0f0; }
+  .round-match { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  .round-match:last-child { border-bottom: none; }
+  .round-match .match-court { width: 50px; font-weight: 600; color: #2a7d9c; flex-shrink: 0; }
+  .round-match .match-teams { flex: 1; color: #555; }
+  .round-match .match-teams .winner { font-weight: 700; color: #1a1a1a; }
+  .round-match .match-score { font-weight: 700; color: #1a3a4a; min-width: 46px; text-align: right; }
+  .round-match .match-score.pending { color: #ccc; font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="kob-live.html" class="back">&larr; Tournament</a>
+  <div class="title">Tournament</div>
+  <a href="#" class="action">Share</a>
+</div>
+
+<div class="tourney-header">
+  <div class="tourney-name">Saturday Morning KoB</div>
+  <div class="tourney-meta">
+    <span class="badge active">Active</span>
+    <span class="badge round">Round 3 of 7</span>
+  </div>
+</div>
+
+<div class="segment-control">
+  <a href="kob-live.html" class="segment" style="text-decoration:none; color:#666;">Now Playing</a>
+  <a href="kob-standings.html" class="segment" style="text-decoration:none; color:#666;">Standings</a>
+  <div class="segment active">Schedule</div>
+</div>
+
+<div class="content">
+
+  <!-- Round 1: Complete -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 1</div>
+      <div class="round-badges">
+        <span class="round-status complete">Complete</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+    <div class="round-matches">
+      <div class="round-match">
+        <div class="match-court">Ct 1</div>
+        <div class="match-teams"><span class="winner">Patrick & Colan</span> vs Sam & Rafael</div>
+        <div class="match-score">21-14</div>
+      </div>
+      <div class="round-match">
+        <div class="match-court">Ct 2</div>
+        <div class="match-teams"><span class="winner">Ken & Alex</span> vs Jake & Marco</div>
+        <div class="match-score">21-18</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round 2: Complete -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 2</div>
+      <div class="round-badges">
+        <span class="round-status complete">Complete</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+    <div class="round-matches">
+      <div class="round-match">
+        <div class="match-court">Ct 1</div>
+        <div class="match-teams"><span class="winner">Patrick & Ken</span> vs Marco & Sam</div>
+        <div class="match-score">21-12</div>
+      </div>
+      <div class="round-match">
+        <div class="match-court">Ct 2</div>
+        <div class="match-teams">Dan & Mike vs <span class="winner">Colan & Jake</span></div>
+        <div class="match-score">17-21</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round 3: In Progress -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 3</div>
+      <div class="round-badges">
+        <span class="round-status in-progress">In Progress</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+    <div class="round-matches">
+      <div class="round-match">
+        <div class="match-court">Ct 1</div>
+        <div class="match-teams">Patrick & Ken vs Colan & Alex</div>
+        <div class="match-score pending">vs</div>
+      </div>
+      <div class="round-match">
+        <div class="match-court">Ct 2</div>
+        <div class="match-teams">Jake & Marco vs Sam & Rafael</div>
+        <div class="match-score pending">vs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round 4: Upcoming -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 4</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round 5: Upcoming -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 5</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rounds 6-7: Upcoming -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 6</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Round 7</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playoff -->
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Playoff - Semifinal</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-card">
+    <div class="round-header">
+      <div class="round-name">Playoff - Final</div>
+      <div class="round-badges">
+        <span class="round-status upcoming">Upcoming</span>
+        <span class="pairings-tbd">Pairings TBD</span>
+        <span class="chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

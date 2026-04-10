@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Trophy, Users, ArrowLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getUserLeagues, createSession, getOpenSessions } from '../../services/api';
+import { createSession, getOpenSessions } from '../../services/api';
+import { useApp } from '../../contexts/AppContext';
 import './CreateGameModal.css';
-import type { League } from '../../types';
 
 /**
  * CreateGameModal — unified entry point for creating a game.
@@ -31,42 +31,21 @@ interface CreateGameModalProps {
 
 export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProps) {
   const router = useRouter();
+  const { userLeagues: leagues, leaguesLoading } = useApp();
   const [step, setStep] = useState(1);
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [loadingLeagues, setLoadingLeagues] = useState(true);
-  const [leagueLoadError, setLeagueLoadError] = useState(false);
   const [creatingPickup, setCreatingPickup] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // When non-null, step 1 shows the "continue or new?" dialog instead of the main options.
   const [existingSession, setExistingSession] = useState<ActiveSessionInfo | null>(null);
 
-  // Fetch user leagues on modal open
+  // Reset modal state on open
   useEffect(() => {
     if (!isOpen) return;
     setStep(1);
     setError(null);
-    setLeagueLoadError(false);
     setCreatingPickup(false);
     setExistingSession(null);
-    let cancelled = false;
-
-    const fetchLeagues = async () => {
-      setLoadingLeagues(true);
-      try {
-        const data = await getUserLeagues();
-        if (!cancelled) setLeagues(data || []);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setLeagues([]);
-          setLeagueLoadError(true);
-        }
-      } finally {
-        if (!cancelled) setLoadingLeagues(false);
-      }
-    };
-    fetchLeagues();
-    return () => { cancelled = true; };
   }, [isOpen]);
 
   /** Close modal on Escape key. */
@@ -243,7 +222,7 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
             <button
               className={`create-game-modal__option ${!hasLeagues ? 'create-game-modal__option--disabled' : ''}`}
               onClick={handleLeagueGame}
-              disabled={loadingLeagues || !hasLeagues}
+              disabled={leaguesLoading || !hasLeagues}
             >
               <div className="create-game-modal__option-icon create-game-modal__option-icon--league">
                 <Trophy size={28} />
@@ -251,11 +230,11 @@ export default function CreateGameModal({ isOpen, onClose }: CreateGameModalProp
               <div className="create-game-modal__option-text">
                 <span className="create-game-modal__option-label">League Game</span>
                 <span className="create-game-modal__option-desc">
-                  {loadingLeagues
+                  {leaguesLoading
                     ? 'Loading leagues...'
                     : hasLeagues
                       ? 'Log a game in one of your leagues'
-                      : leagueLoadError
+                      : false
                         ? 'Could not load leagues'
                         : 'Join a league to unlock'}
                 </span>

@@ -9,13 +9,14 @@ from typing import List, Dict, Set, Optional
 
 from backend.utils.slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func, and_, or_, case
+from sqlalchemy import select, delete, func, and_, or_, case, literal
 from sqlalchemy.orm import aliased
 from backend.database.models import (
     Friend,
     FriendRequest,
     FriendRequestStatus,
     Player,
+    PlayerGlobalStats,
     Location,
     LeagueMember,
     NotificationType,
@@ -639,6 +640,174 @@ async def batch_friend_status(
             mutual_counts[str(row.target_id)] = row.cnt
 
     return {"statuses": statuses, "mutual_counts": mutual_counts}
+
+
+async def discover_players(
+    session: AsyncSession,
+    caller_player_id: int,
+    search: Optional[str] = None,
+    location_id: Optional[str] = None,
+    gender: Optional[str] = None,
+    level: Optional[str] = None,
+    sort_by: Optional[str] = "mutuals",
+    sort_dir: Optional[str] = "desc",
+    min_games: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> Dict:
+    """
+    Discover players with mutual friend counts and friend status.
+
+    Returns paginated results sorted by mutual friend count (default),
+    games, name, or rating. Each item includes mutual_friend_count and
+    friend_status for the caller.
+
+    Args:
+        session: Database session
+        caller_player_id: Authenticated player's ID (excluded from results)
+        search: Optional name search filter
+        location_id: Optional location filter
+        gender: Optional gender filter
+        level: Optional level filter
+        sort_by: Sort column — mutuals, games, name, rating
+        sort_dir: Sort direction — asc or desc
+        min_games: Minimum total_games threshold
+        page: Page number (1-indexed)
+        page_size: Results per page
+
+    Returns:
+        Dict with items, total_count, page, page_size
+    """
+    my_friends = await get_friend_ids(session, caller_player_id)
+
+    # Build mutual friend count subquery
+    if my_friends:
+        # Correlated scalar subquery: count friends of each candidate that
+        # are also in the caller's friend set.
+        FriendAlias = aliased(Friend)
+        friend_of_candidate = case(
+            (FriendAlias.player1_id == Player.id, FriendAlias.player2_id),
+            else_=FriendAlias.player1_id,
+        )
+        mutual_subq = (
+            select(func.count())
+            .select_from(FriendAlias)
+            .where(
+                and_(
+                    or_(
+                        FriendAlias.player1_id == Player.id,
+                        FriendAlias.player2_id == Player.id,
+                    ),
+                    friend_of_candidate.in_(list(my_friends)),
+                )
+            )
+            .correlate(Player)
+            .scalar_subquery()
+            .label("mutual_friend_count")
+        )
+    else:
+        mutual_subq = literal(0).label("mutual_friend_count")
+
+    # Base query: Player + stats + location
+    base_query = (
+        select(
+            Player.id,
+            Player.full_name,
+            Player.avatar,
+            Player.gender,
+            Player.level,
+            Player.is_placeholder,
+            Location.name.label("location_name"),
+            PlayerGlobalStats.total_games,
+            PlayerGlobalStats.current_rating,
+            mutual_subq,
+        )
+        .join(PlayerGlobalStats, PlayerGlobalStats.player_id == Player.id)
+        .outerjoin(Location, Player.location_id == Location.id)
+        .where(
+            and_(
+                Player.id != caller_player_id,
+                Player.is_placeholder == False,  # noqa: E712
+                PlayerGlobalStats.total_games >= 1,
+            )
+        )
+    )
+
+    # Apply filters
+    if search:
+        base_query = base_query.where(Player.full_name.ilike(f"%{search}%"))
+    if location_id:
+        base_query = base_query.where(Player.location_id == location_id)
+    if gender:
+        base_query = base_query.where(Player.gender == gender)
+    if level:
+        base_query = base_query.where(Player.level == level)
+    if min_games:
+        base_query = base_query.where(PlayerGlobalStats.total_games >= min_games)
+
+    # Total count
+    count_query = select(func.count()).select_from(base_query.subquery())
+    count_result = await session.execute(count_query)
+    total_count = count_result.scalar_one() or 0
+
+    # Sort
+    descending = sort_dir != "asc"
+    sort_columns = {
+        "mutuals": mutual_subq,
+        "games": PlayerGlobalStats.total_games,
+        "name": Player.full_name,
+        "rating": PlayerGlobalStats.current_rating,
+    }
+    primary_col = sort_columns.get(sort_by or "mutuals", mutual_subq)
+
+    if descending:
+        base_query = base_query.order_by(primary_col.desc(), Player.full_name.asc())
+    else:
+        base_query = base_query.order_by(primary_col.asc(), Player.full_name.asc())
+
+    # Paginate
+    offset = (page - 1) * page_size
+    base_query = base_query.offset(offset).limit(page_size)
+
+    result = await session.execute(base_query)
+    rows = result.all()
+
+    if not rows:
+        return {
+            "items": [],
+            "total_count": total_count,
+            "page": page,
+            "page_size": page_size,
+        }
+
+    # Post-fetch: annotate with friend_status
+    result_ids = [row.id for row in rows]
+    batch_status = await batch_friend_status(session, caller_player_id, result_ids)
+    statuses = batch_status["statuses"]
+
+    items = [
+        {
+            "id": row.id,
+            "full_name": row.full_name,
+            "avatar": row.avatar,
+            "gender": row.gender,
+            "level": row.level,
+            "location_name": row.location_name,
+            "total_games": row.total_games,
+            "current_rating": row.current_rating,
+            "is_placeholder": row.is_placeholder,
+            "mutual_friend_count": row.mutual_friend_count,
+            "friend_status": statuses.get(str(row.id), "none"),
+        }
+        for row in rows
+    ]
+
+    return {
+        "items": items,
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 async def get_friend_suggestions(

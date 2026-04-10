@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Profile - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* State visibility */
+  .state-complete { display: block; }
+  .state-incomplete { display: none; }
+  body.incomplete .state-complete { display: none !important; }
+  body.incomplete .state-incomplete { display: block !important; }
+
+
+  /* Profile Header */
+  .profile-header { background: #fff; padding: 24px 16px 20px; text-align: center; }
+  .profile-header .avatar-area { position: relative; width: 88px; height: 88px; margin: 0 auto 12px; }
+  .profile-header .avatar { width: 88px; height: 88px; border-radius: 50%; background: #7fb3c7; border: 3px solid #e8f4f8; }
+  .profile-header .avatar.empty { background: #d0d0d0; display: flex; align-items: center; justify-content: center; font-size: 32px; color: #fff; }
+  .profile-header .edit-avatar { position: absolute; bottom: -8px; right: -12px; width: 44px; height: 44px; border-radius: 50%; background: #1a3a4a; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+  .profile-header .name { font-size: 22px; font-weight: 700; }
+  .profile-header .meta { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: #666; }
+  .profile-header .meta-placeholder { color: #bbb; font-style: italic; }
+  .profile-header .level-badge { background: #e8f4f8; color: #2a7d9c; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+
+  /* Stats Bar */
+  .stats-bar { display: flex; background: #fff; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #eee; }
+  .stats-bar .stat { flex: 1; text-align: center; padding: 12px 4px; }
+  .stats-bar .stat .val { font-size: 18px; font-weight: 700; color: #1a3a4a; }
+  .stats-bar .stat .val.muted { color: #ccc; }
+  .stats-bar .stat .label { font-size: 10px; color: #666; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stats-bar .stat + .stat { border-left: 1px solid #f0f0f0; }
+
+  /* Segment Control */
+  .segment-control { display: flex; margin: 12px 16px; background: #f0f0f0; border-radius: 10px; padding: 3px; }
+  .segment-control .segment { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; border-radius: 8px; color: #666; }
+  .segment-control .segment.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* ── Completion Card ── */
+  .completion-card { margin: 0 16px 12px; background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1.5px solid #e8f4f8; }
+  .completion-top { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .progress-ring { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+  .progress-ring svg { transform: rotate(-90deg); }
+  .progress-ring .ring-bg { fill: none; stroke: #f0f0f0; stroke-width: 5; }
+  .progress-ring .ring-fill { fill: none; stroke: #d4a843; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 31.4 125.66; transition: stroke-dasharray 0.4s ease; }
+  .progress-ring .ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #1a3a4a; }
+  .completion-info h3 { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 3px; }
+  .completion-info p { font-size: 12px; color: #666; line-height: 1.4; }
+
+  .completion-checklist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .checklist-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .checklist-item .check-circle { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #d0d0d0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; flex-shrink: 0; }
+  .checklist-item .check-circle.done { background: #15803d; border-color: #15803d; color: #fff; }
+  .checklist-item .check-label { color: #555; }
+  .checklist-item .check-label.done { color: #aaa; text-decoration: line-through; }
+  .checklist-item .required-tag { font-size: 9px; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  .completion-cta { display: block; width: 100%; padding: 12px; border-radius: 10px; border: none; background: #d4a843; color: #fff; font-size: 14px; font-weight: 700; text-align: center; cursor: pointer; }
+
+  /* Content */
+  .content { padding: 0 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Form Fields */
+  .form-row { display: flex; gap: 12px; }
+  .form-row > .form-group { flex: 1; }
+  .form-group { margin-bottom: 14px; }
+  .form-group .form-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .form-group .form-value { background: #f8f9fa; padding: 12px 14px; border-radius: 10px; font-size: 14px; border: 1.5px solid #e8e8e8; }
+  .form-group .form-value.editable { border-color: #ccc; }
+  .form-group .form-value.empty { color: #bbb; font-style: italic; border-color: #e8e8e8; background: #fafafa; }
+  .form-group .form-value.required-empty { color: #bbb; font-style: italic; border-color: #f0c4c4; background: #fef8f8; }
+  .form-group .required-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+
+  /* Home Courts Tags */
+  .court-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .court-tag { background: #e8f4f8; color: #2a7d9c; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; }
+
+  /* Trophies */
+  .trophy-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); }
+  .trophy-row::-webkit-scrollbar { display: none; }
+  .trophy-card { min-width: 110px; background: #fdf8ed; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #f0e6cc; }
+  .trophy-card .trophy-icon { font-size: 24px; margin-bottom: 4px; }
+  .trophy-card .trophy-place { font-size: 11px; font-weight: 700; color: #b8860b; }
+  .trophy-card .trophy-league { font-size: 11px; color: #666; margin-top: 3px; line-height: 1.3; }
+
+  /* Empty state placeholder */
+  .empty-section { text-align: center; padding: 20px 16px; color: #bbb; font-size: 13px; }
+
+  /* Save Button */
+  .save-btn { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; margin-top: 20px; text-align: center; }
+
+  body.incomplete .tab-dot.profile-dot { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ── State Switcher (design tool) ── -->
+<div class="state-switcher">
+  <div class="sw-label">Profile State</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('complete')">Complete Profile</button>
+    <button class="sw-pill" onclick="setState('incomplete')">New User (Incomplete)</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="spacer"></div>
+  <div class="title">Profile</div>
+  <a href="settings.html" class="action" style="text-decoration:none; color:#d4a843;">Settings</a>
+</div>
+
+<!-- ═══ COMPLETE STATE: Profile Header ═══ -->
+<div class="state-complete">
+  <div class="profile-header">
+    <div class="avatar-area">
+      <div class="avatar"></div>
+      <div class="edit-avatar">&#9998;</div>
+    </div>
+    <div class="name">Patrick Schwagler</div>
+    <div class="meta">
+      <span>New York, NY</span>
+      <span> · </span>
+      <span class="level-badge">Open</span>
+      <span> · </span>
+      <a href="friends.html" style="text-decoration:none; color:#2a7d9c; font-weight:600;">12 Friends</a>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="val">94</div><div class="label">Games</div></div>
+    <div class="stat"><div class="val">1438</div><div class="label">Rating</div></div>
+    <div class="stat"><div class="val">66-28</div><div class="label">W-L</div></div>
+    <div class="stat"><div class="val">70%</div><div class="label">Win Rate</div></div>
+  </div>
+</div>
+
+<!-- ═══ INCOMPLETE STATE: Profile Header ═══ -->
+<div class="state-incomplete">
+  <div class="profile-header">
+    <div class="avatar-area">
+      <div class="avatar empty">&#128100;</div>
+      <div class="edit-avatar">&#9998;</div>
+    </div>
+    <div class="name">Patrick Schwagler</div>
+    <div class="meta">
+      <span class="meta-placeholder">Add your details below</span>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="val muted">0</div><div class="label">Games</div></div>
+    <div class="stat"><div class="val muted">--</div><div class="label">Rating</div></div>
+    <div class="stat"><div class="val muted">0-0</div><div class="label">W-L</div></div>
+    <div class="stat"><div class="val muted">--</div><div class="label">Win Rate</div></div>
+  </div>
+</div>
+
+<div class="segment-control">
+  <div class="segment active">Profile</div>
+  <a href="my-stats.html" class="segment" style="text-decoration:none; color:#666;">Stats</a>
+</div>
+
+<!-- ═══ INCOMPLETE STATE: Completion Card ═══ -->
+<div class="state-incomplete">
+  <div class="completion-card">
+    <div class="completion-top">
+      <div class="progress-ring">
+        <svg width="56" height="56" viewBox="0 0 56 56">
+          <circle class="ring-bg" cx="28" cy="28" r="20" />
+          <circle class="ring-fill" cx="28" cy="28" r="20" />
+        </svg>
+        <div class="ring-text">2/8</div>
+      </div>
+      <div class="completion-info">
+        <h3>Complete Your Profile</h3>
+        <p>Players with full profiles get 3x more game invites</p>
+      </div>
+    </div>
+
+    <div class="completion-checklist">
+      <div class="checklist-item">
+        <div class="check-circle done">&#10003;</div>
+        <span class="check-label done">Full Name</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle done">&#10003;</div>
+        <span class="check-label done">Date of Birth</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Gender</span>
+        <span class="required-tag">Required</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Level</span>
+        <span class="required-tag">Required</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Location</span>
+        <span class="required-tag">Required</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Nickname</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Height</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check-circle"></div>
+        <span class="check-label">Preferred Side</span>
+      </div>
+    </div>
+
+    <button class="completion-cta">Complete Now</button>
+  </div>
+</div>
+
+<!-- ═══ COMPLETE STATE: Content ═══ -->
+<div class="state-complete">
+  <div class="content">
+    <div class="section-title">Player Profile</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">First Name</div>
+        <div class="form-value">Patrick</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Last Name</div>
+        <div class="form-value">Schwagler</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Nickname</div>
+      <div class="form-value editable">Schwags</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Gender</div>
+      <div class="form-value">Male</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Date of Birth</div>
+      <div class="form-value">Mar 15, 1992</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Height</div>
+      <div class="form-value">6'1"</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Level</div>
+      <div class="form-value">Open</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Location</div>
+      <div class="form-value">NY - New York City Metro</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Preferred Side</div>
+      <div class="form-value editable">Left</div>
+    </div>
+
+    <div class="section-title">Trophies</div>
+    <div class="trophy-row">
+      <div class="trophy-card">
+        <div class="trophy-icon">&#127942;</div>
+        <div class="trophy-place">2nd Place</div>
+        <div class="trophy-league">QBK Open Men - Mornings</div>
+      </div>
+      <div class="trophy-card">
+        <div class="trophy-icon">&#127942;</div>
+        <div class="trophy-place">2nd Place</div>
+        <div class="trophy-league">QBK Open Men - Mornings</div>
+      </div>
+    </div>
+
+    <div class="section-title">Home Courts</div>
+    <div class="court-tags">
+      <span class="court-tag">QBK Sports</span>
+      <span class="court-tag">Central Park Volleyball Courts</span>
+      <span class="court-tag">Hunter's Point South Park</span>
+      <span class="court-tag">Pier 6 Brooklyn Bridge Park</span>
+    </div>
+
+    <button class="save-btn">Save Changes</button>
+  </div>
+</div>
+
+<!-- ═══ INCOMPLETE STATE: Content ═══ -->
+<div class="state-incomplete">
+  <div class="content">
+    <div class="section-title">Player Profile</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">First Name</div>
+        <div class="form-value">Patrick</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Last Name</div>
+        <div class="form-value">Schwagler</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Nickname</div>
+      <div class="form-value empty">Add a nickname</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label"><span class="required-dot"></span> Gender</div>
+      <div class="form-value required-empty">Select gender</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Date of Birth</div>
+      <div class="form-value">Mar 15, 1992</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Height</div>
+      <div class="form-value empty">Add height</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label"><span class="required-dot"></span> Level</div>
+      <div class="form-value required-empty">Select your level</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label"><span class="required-dot"></span> Location</div>
+      <div class="form-value required-empty">Select your region</div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Preferred Side</div>
+      <div class="form-value empty">Left or right?</div>
+    </div>
+
+    <div class="section-title">Trophies</div>
+    <div class="empty-section">Play in a league to earn trophies</div>
+
+    <div class="section-title">Home Courts</div>
+    <div class="empty-section">No home courts yet
+      <button style="margin-top:8px; padding:8px 16px; background:#1e90ff; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; min-height:44px; width:100%;">+ Add Court</button>
+    </div>
+
+    <button class="save-btn">Save Changes</button>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-dot profile-dot"></div>
+    <div class="tab-icon active">&#128100;</div>
+    <div class="tab-label active">Profile</div>
+  </a>
+</div>
+
+<script>
+function setState(state) {
+  if (state === 'incomplete') {
+    document.body.classList.add('incomplete');
+  } else {
+    document.body.classList.remove('incomplete');
+  }
+  document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

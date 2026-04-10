@@ -53,7 +53,7 @@ export default function HomeScreen() {
     if (tab === 'profile') {
       router.push('/(tabs)/profile');
     } else if (tab === 'friends') {
-      // TODO: Navigate to friends tab when implemented
+      router.push('/find-players');
     }
   };
 

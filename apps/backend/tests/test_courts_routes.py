@@ -7,11 +7,13 @@ Mocked services: data_service, court_service, court_photo_service, s3_service, g
 """
 
 import io
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.auth_dependencies import require_verified_player
+from backend.database.db import get_db_session
 from backend.services import (
     auth_service,
     data_service,
@@ -1101,3 +1103,224 @@ class TestListAllCourtsAdmin:
         monkeypatch.setattr(data_service, "get_setting", fake_get_setting, raising=True)
         response = client.get("/api/admin-view/courts", headers=headers)
         assert response.status_code == 403
+
+
+# ============================================================================
+# POST /api/courts/{court_id}/check-in
+# ============================================================================
+
+
+def _mock_db_session_with_court():
+    """Override get_db_session to return a mock session with a Court object."""
+    mock_session = AsyncMock()
+    mock_court = MagicMock(id=1)
+    mock_session.get = AsyncMock(return_value=mock_court)
+
+    async def _fake_session():
+        yield mock_session
+
+    app.dependency_overrides[get_db_session] = _fake_session
+
+
+def _restore_db_session():
+    """Remove the get_db_session override."""
+    app.dependency_overrides.pop(get_db_session, None)
+
+
+class TestCheckInRoute:
+    """Tests for POST /api/courts/{court_id}/check-in."""
+
+    def test_check_in_authenticated(self, monkeypatch):
+        """Authenticated user can check in."""
+
+        async def fake_check_in(session, court_id, player_id):
+            return {
+                "id": 1,
+                "court_id": court_id,
+                "checked_in_at": "2026-04-09T12:00:00+00:00",
+                "expires_at": "2026-04-09T16:00:00+00:00",
+            }
+
+        monkeypatch.setattr(court_service, "check_in", fake_check_in, raising=True)
+        _mock_db_session_with_court()
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.post("/api/courts/1/check-in", headers=headers)
+            assert response.status_code == 200
+            assert response.json()["court_id"] == 1
+        finally:
+            _restore_verified_player()
+            _restore_db_session()
+
+    def test_check_in_unauthenticated(self):
+        """Unauthenticated user gets 401/403."""
+        client = TestClient(app)
+        response = client.post("/api/courts/1/check-in")
+        assert response.status_code in (401, 403)
+
+
+# ============================================================================
+# DELETE /api/courts/{court_id}/check-in
+# ============================================================================
+
+
+class TestCheckOutRoute:
+    """Tests for DELETE /api/courts/{court_id}/check-in."""
+
+    def test_check_out_authenticated(self, monkeypatch):
+        """Authenticated user can check out."""
+
+        async def fake_check_out(session, court_id, player_id):
+            return True
+
+        monkeypatch.setattr(court_service, "check_out", fake_check_out, raising=True)
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.delete("/api/courts/1/check-in", headers=headers)
+            assert response.status_code == 200
+        finally:
+            _restore_verified_player()
+
+    def test_check_out_not_checked_in(self, monkeypatch):
+        """Returns 404 if not checked in."""
+
+        async def fake_check_out(session, court_id, player_id):
+            return False
+
+        monkeypatch.setattr(court_service, "check_out", fake_check_out, raising=True)
+
+        client, headers = _make_verified_player_client(monkeypatch)
+        try:
+            response = client.delete("/api/courts/1/check-in", headers=headers)
+            assert response.status_code == 404
+        finally:
+            _restore_verified_player()
+
+
+# ============================================================================
+# GET /api/public/courts/{slug}/check-ins
+# ============================================================================
+
+
+class TestPublicCheckIns:
+    """Tests for GET /api/public/courts/{slug}/check-ins."""
+
+    def test_get_check_ins(self, monkeypatch):
+        """Returns check-in count and player list."""
+
+        async def fake_get_court_id(session, slug):
+            return 1
+
+        async def fake_get_check_ins(session, court_id):
+            return {
+                "count": 2,
+                "checked_in_players": [
+                    {
+                        "id": 1,
+                        "player_id": 10,
+                        "player_name": "Alice",
+                        "avatar": None,
+                        "checked_in_at": "2026-04-09T12:00:00+00:00",
+                        "expires_at": "2026-04-09T16:00:00+00:00",
+                    },
+                    {
+                        "id": 2,
+                        "player_id": 11,
+                        "player_name": "Bob",
+                        "avatar": None,
+                        "checked_in_at": "2026-04-09T12:30:00+00:00",
+                        "expires_at": "2026-04-09T16:30:00+00:00",
+                    },
+                ],
+            }
+
+        monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
+        monkeypatch.setattr(court_service, "get_active_check_ins", fake_get_check_ins, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/public/courts/test-court/check-ins")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 2
+        assert len(data["checked_in_players"]) == 2
+
+    def test_get_check_ins_court_not_found(self, monkeypatch):
+        """Returns 404 for unknown court."""
+
+        async def fake_get_court_id(session, slug):
+            return None
+
+        monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/public/courts/nonexistent/check-ins")
+        assert response.status_code == 404
+
+
+# ============================================================================
+# GET /api/public/courts/{slug}/leagues
+# ============================================================================
+
+
+class TestPublicCourtLeagues:
+    """Tests for GET /api/public/courts/{slug}/leagues."""
+
+    def test_get_court_leagues(self, monkeypatch):
+        """Returns leagues linked to the court."""
+
+        async def fake_get_court_id(session, slug):
+            return 1
+
+        async def fake_get_leagues(session, court_id):
+            return [
+                {
+                    "id": 1,
+                    "name": "Beach League",
+                    "slug": None,
+                    "gender": "mixed",
+                    "level": "intermediate",
+                    "member_count": 12,
+                },
+            ]
+
+        monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
+        monkeypatch.setattr(court_service, "get_leagues_at_court", fake_get_leagues, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/public/courts/test-court/leagues")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["name"] == "Beach League"
+        assert data[0]["member_count"] == 12
+
+    def test_get_court_leagues_empty(self, monkeypatch):
+        """Returns empty list when no leagues."""
+
+        async def fake_get_court_id(session, slug):
+            return 1
+
+        async def fake_get_leagues(session, court_id):
+            return []
+
+        monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
+        monkeypatch.setattr(court_service, "get_leagues_at_court", fake_get_leagues, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/public/courts/test-court/leagues")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_get_court_leagues_not_found(self, monkeypatch):
+        """Returns 404 for unknown court."""
+
+        async def fake_get_court_id(session, slug):
+            return None
+
+        monkeypatch.setattr(court_service, "get_court_id_by_slug", fake_get_court_id, raising=True)
+
+        client = TestClient(app)
+        response = client.get("/api/public/courts/nonexistent/leagues")
+        assert response.status_code == 404

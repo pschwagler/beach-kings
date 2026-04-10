@@ -94,6 +94,8 @@ async def update_current_user_player(
             session=session,
             user_id=current_user["id"],
             full_name=payload.full_name,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
             nickname=payload.nickname,
             gender=payload.gender,
             level=payload.level,
@@ -111,13 +113,15 @@ async def update_current_user_player(
         if not player:
             raise HTTPException(
                 status_code=400,
-                detail="Failed to create/update player profile. full_name is required.",
+                detail="Failed to create/update player profile. A name is required.",
             )
 
         player_name = player.get("full_name") or player.get("name") or ""
         return {
             "id": player["id"],
             "full_name": player_name,
+            "first_name": player.get("first_name"),
+            "last_name": player.get("last_name"),
             "gender": player.get("gender"),
             "level": player.get("level"),
             "nickname": player.get("nickname"),

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>My Games - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Filter */
+  .filter-bar { display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .filter-select { padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e0e0e0; font-size: 12px; background: #fff; color: #555; font-weight: 500; min-height: 44px; }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  /* Game List Item */
+  .game-item { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; cursor: pointer; }
+  .game-item .game-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .game-item .game-result { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .game-item .game-result.win { background: #dcfce7; color: #15803d; }
+  .game-item .game-result.loss { background: #fee2e2; color: #b91c1c; }
+  .game-item .game-date { font-size: 11px; color: #666; }
+  .game-item .game-score { font-size: 20px; font-weight: 700; color: #1a3a4a; margin-bottom: 4px; }
+  .game-item .game-teams { font-size: 12px; line-height: 1.5; color: #555; }
+  .game-item .game-teams .you { font-weight: 600; color: #1a1a1a; }
+  .game-item .game-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+  .game-item .game-league { font-size: 11px; color: #2a7d9c; font-weight: 600; }
+  .game-item .game-rating { font-size: 11px; color: #666; }
+  .game-item .rating-change { font-weight: 600; }
+  .game-item .rating-change.up { color: #15803d; }
+  .game-item .rating-change.down { color: #b91c1c; }
+
+  /* Date Group */
+  .date-group { font-size: 15px; font-weight: 700; color: #1a1a1a; margin: 14px 0 8px; }
+  .date-group:first-child { margin-top: 0; }
+
+
+  /* Placeholder / Pending States */
+  .pending-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+  .placeholder-name { color: #92400e; font-style: italic; }
+  .game-item .pending-note { font-size: 11px; color: #92400e; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="home.html" class="back">&larr; Home</a>
+  <div class="title">My Games</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="filter-bar">
+  <select class="filter-select"><option>All Leagues</option></select>
+  <select class="filter-select"><option>All Results</option></select>
+  <select class="filter-select"><option>All Partners</option></select>
+</div>
+
+<div class="content">
+
+  <div class="date-group">March 19, 2026</div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result win">WIN</span>
+      <span class="game-date">3:45 PM</span>
+    </div>
+    <div class="game-score">21-18</div>
+    <div class="game-teams"><span class="you">You</span> / K. Fawwar vs A. Marthey / J. Zwyczca</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="rating-change up">+4.2</span></span>
+    </div>
+  </div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result loss">LOSS</span>
+      <span class="game-date">3:10 PM</span>
+    </div>
+    <div class="game-score">17-21</div>
+    <div class="game-teams"><span class="you">You</span> / S. Jindash vs J. Drabos / M. Salizar</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="rating-change down">-3.1</span></span>
+    </div>
+  </div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result win">WIN</span>
+      <span class="game-date">2:30 PM</span>
+    </div>
+    <div class="game-score">21-15</div>
+    <div class="game-teams"><span class="you">You</span> / K. Fawwar vs S. Jindash / <span class="placeholder-name">R. Torres</span></div>
+    <div class="pending-note">Awaiting 1 player to join</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="pending-badge">Pending</span></span>
+    </div>
+  </div>
+
+  <div class="date-group">March 17, 2026</div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result win">WIN</span>
+      <span class="game-date">11:20 AM</span>
+    </div>
+    <div class="game-score">21-12</div>
+    <div class="game-teams"><span class="you">You</span> / C. Gulla vs D. Miniucali / M. Geda</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="rating-change up">+5.1</span></span>
+    </div>
+  </div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result win">WIN</span>
+      <span class="game-date">10:40 AM</span>
+    </div>
+    <div class="game-score">21-19</div>
+    <div class="game-teams"><span class="you">You</span> / C. Gulla vs K. Fawwar / A. Marthey</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="rating-change up">+6.3</span></span>
+    </div>
+  </div>
+
+  <div class="game-item">
+    <div class="game-top">
+      <span class="game-result loss">LOSS</span>
+      <span class="game-date">10:00 AM</span>
+    </div>
+    <div class="game-score">18-21</div>
+    <div class="game-teams"><span class="you">You</span> / <span class="placeholder-name">R. Ballakian</span> vs C. Gulla / J. Drabos</div>
+    <div class="pending-note">Awaiting 1 player to join</div>
+    <div class="game-meta">
+      <span class="game-league">QBK Open Men</span>
+      <span class="game-rating">Rating: <span class="pending-badge">Pending</span></span>
+    </div>
+  </div>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

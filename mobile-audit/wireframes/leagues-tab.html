@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>My Leagues - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+
+
+  /* Action Bar */
+  .action-bar { display: flex; gap: 10px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #eee; }
+  .action-bar .action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; min-height: 44px; }
+  .action-bar .action-btn.find { background: #e8f4f8; color: #2a7d9c; }
+  .action-bar .action-btn.create { background: #1a3a4a; color: #fff; }
+
+  /* Content */
+  .content { padding: 12px 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+
+  /* League Card */
+  .league-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 12px; }
+  .league-card .league-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .league-card .league-icon { width: 44px; height: 44px; border-radius: 12px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .league-card .league-info { flex: 1; margin-left: 12px; }
+  .league-card .league-name { font-size: 15px; font-weight: 700; }
+  .league-card .league-location { font-size: 12px; color: #666; margin-top: 2px; }
+  .league-card .league-stats { display: flex; gap: 16px; margin-top: 10px; }
+  .league-card .league-stat { text-align: center; }
+  .league-card .league-stat .val { font-size: 16px; font-weight: 700; color: #1a3a4a; }
+  .league-card .league-stat .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .league-card .league-rank-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+  .league-card .rank-badge { background: #e8f4f8; color: #2a7d9c; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 10px; }
+  .league-card .members { font-size: 12px; color: #666; }
+  .league-card .chevron { color: #ccc; font-size: 18px; }
+
+  /* Season Badge */
+  .season-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; }
+
+  /* Empty State */
+  .empty-cta { background: #fff; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 8px; border: 1.5px dashed #ccc; }
+  .empty-cta .empty-icon { font-size: 32px; margin-bottom: 8px; }
+  .empty-cta .empty-title { font-size: 14px; font-weight: 600; color: #2a7d9c; }
+  .empty-cta .empty-desc { font-size: 12px; color: #666; margin-top: 4px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <div class="spacer"></div>
+  <div class="title">Leagues</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="action-bar">
+  <a href="find-leagues.html" class="action-btn find" style="text-decoration:none;">&#x1F50D; Find Leagues</a>
+  <a href="create-league.html" class="action-btn create" style="text-decoration:none;">+ Create League</a>
+</div>
+
+<div class="content">
+
+  <div class="section-title">My Leagues</div>
+
+  <a href="league-dashboard.html" class="league-card" style="text-decoration:none; color:inherit; display:block;">
+    <div class="league-top">
+      <div class="league-icon">👑</div>
+      <div class="league-info">
+        <div class="league-name">QBK Open Men - Mornings</div>
+        <div class="league-location">Queens, NY</div>
+      </div>
+      <span class="season-badge">Active</span>
+    </div>
+    <div class="league-stats">
+      <div class="league-stat">
+        <div class="val">47</div>
+        <div class="label">Games</div>
+      </div>
+      <div class="league-stat">
+        <div class="val">34-13</div>
+        <div class="label">W-L</div>
+      </div>
+      <div class="league-stat">
+        <div class="val">72%</div>
+        <div class="label">Win Rate</div>
+      </div>
+    </div>
+    <div class="league-rank-bar">
+      <span class="rank-badge">#1 Ranked</span>
+      <span class="members">27 members</span>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+  </a>
+
+  <a href="league-dashboard.html" class="league-card" style="text-decoration:none; color:inherit; display:block;">
+    <div class="league-top">
+      <div class="league-icon">👑</div>
+      <div class="league-info">
+        <div class="league-name">NYC Fun League</div>
+        <div class="league-location">New York City Metro</div>
+      </div>
+      <span class="season-badge">Active</span>
+    </div>
+    <div class="league-stats">
+      <div class="league-stat">
+        <div class="val">12</div>
+        <div class="label">Games</div>
+      </div>
+      <div class="league-stat">
+        <div class="val">8-4</div>
+        <div class="label">W-L</div>
+      </div>
+      <div class="league-stat">
+        <div class="val">67%</div>
+        <div class="label">Win Rate</div>
+      </div>
+    </div>
+    <div class="league-rank-bar">
+      <span class="rank-badge">#3 Ranked</span>
+      <span class="members">2 members</span>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+  </a>
+
+  <a href="find-leagues.html" class="empty-cta" style="text-decoration:none; color:inherit; display:block;">
+    <div class="empty-icon">&#127942;</div>
+    <div class="empty-title">Join Another League</div>
+    <div class="empty-desc">Browse open leagues near you</div>
+  </a>
+
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#127942;</div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

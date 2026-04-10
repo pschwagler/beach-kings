@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Player Profile - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; }
+
+  /* Profile Header */
+  .profile-header { background: #fff; padding: 24px 16px 20px; text-align: center; border-bottom: 1px solid #eee; }
+  .profile-header .avatar { width: 88px; height: 88px; border-radius: 50%; background: #7fb3c7; margin: 0 auto 12px; border: 3px solid #e8f4f8; }
+  .profile-header .name { font-size: 22px; font-weight: 700; }
+  .profile-header .meta { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: #666; }
+  .profile-header .level-badge { background: #e8f4f8; color: #2a7d9c; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+  .profile-header .actions { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+  .btn-primary { background: #1a3a4a; color: #fff; border: none; padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; min-height: 44px; }
+  .btn-outline { background: transparent; color: #1a3a4a; border: 1.5px solid #1a3a4a; padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; min-height: 44px; }
+
+  /* Mutual Friends */
+  .mutual-friends { background: #fff; padding: 16px; border-bottom: 1px solid #eee; }
+  .mutual-friends .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 12px; }
+  .mutual-friends .friends-row { display: flex; gap: 16px; }
+  .mutual-friends .friend { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mutual-friends .friend .avatar-sm { width: 44px; height: 44px; border-radius: 50%; background: #ddd; }
+  .mutual-friends .friend .friend-name { font-size: 11px; color: #555; }
+
+  /* Trophies */
+  .trophies { background: #fff; padding: 16px; margin-top: 8px; }
+  .trophies .section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .trophy-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%); }
+  .trophy-row::-webkit-scrollbar { display: none; }
+  .trophy-card { min-width: 120px; background: #fdf8ed; border-radius: 10px; padding: 12px; text-align: center; border: 1px solid #f0e6cc; }
+  .trophy-card .trophy-icon { font-size: 28px; margin-bottom: 6px; }
+  .trophy-card .trophy-place { font-size: 12px; font-weight: 700; color: #b8860b; }
+  .trophy-card .trophy-league { font-size: 11px; color: #666; margin-top: 3px; line-height: 1.3; }
+
+  /* Home Courts */
+  .home-courts { background: #fff; padding: 16px; margin-top: 8px; }
+  .home-courts .section-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .court-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .court-tag { background: #f0f0f0; padding: 6px 12px; border-radius: 16px; font-size: 12px; color: #555; }
+
+  /* Stats Grid */
+  .stats-grid { background: #fff; padding: 16px; margin-top: 8px; }
+  .stats-grid .section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .stats-grid .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { background: #f8f9fa; border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-card .stat-val { font-size: 22px; font-weight: 700; color: #1a3a4a; }
+  .stat-card .stat-label { font-size: 11px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Leagues */
+  .leagues-section { background: #fff; padding: 16px; margin-top: 8px; margin-bottom: 90px; }
+  .leagues-section .section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .league-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .league-row:last-child { border-bottom: none; }
+  .league-row .league-icon { width: 40px; height: 40px; border-radius: 10px; background: #e8f4f8; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .league-row .league-info { flex: 1; }
+  .league-row .league-name { font-size: 14px; font-weight: 600; }
+  .league-row .league-detail { font-size: 12px; color: #666; margin-top: 2px; }
+  .league-row .chevron { color: #ccc; font-size: 18px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="javascript:history.back()" class="back" style="text-decoration:none; color:#fff;">&larr; Back</a>
+  <div class="title">Player</div>
+  <button style="background:none; border:none; color:#fff; font-size:20px; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">•••</button>
+</div>
+
+<div class="profile-header">
+  <div class="avatar"></div>
+  <div class="name">Patrick Schwagler</div>
+  <div class="meta">
+    <span>New York, NY</span>
+    <span>--</span>
+    <span class="level-badge">Open</span>
+  </div>
+  <div class="actions">
+    <button class="btn-primary">Add Friend</button>
+    <button class="btn-outline" onclick="window.location.href='message-thread.html'">Message</button>
+  </div>
+</div>
+
+<div class="mutual-friends">
+  <div class="section-title">2 Mutual Friends</div>
+  <div class="friends-row">
+    <div class="friend">
+      <div class="avatar-sm"></div>
+      <div class="friend-name">Ken Fawwar</div>
+    </div>
+    <div class="friend">
+      <div class="avatar-sm"></div>
+      <div class="friend-name">Sams Jindash</div>
+    </div>
+  </div>
+</div>
+
+<div class="trophies">
+  <div class="section-title">Trophies</div>
+  <div class="trophy-row">
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men - Mornings</div>
+    </div>
+    <div class="trophy-card">
+      <div class="trophy-icon">&#127942;</div>
+      <div class="trophy-place">2nd Place</div>
+      <div class="trophy-league">QBK Open Men - Mornings</div>
+    </div>
+  </div>
+</div>
+
+<div class="home-courts">
+  <div class="section-title">Home Courts</div>
+  <div class="court-tags">
+    <span class="court-tag">QBK Sports</span>
+    <span class="court-tag">Central Park Volleyball Courts</span>
+    <span class="court-tag">Hunter's Point South Park</span>
+    <span class="court-tag">Pier 6 Brooklyn Bridge Park</span>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="section-title">Stats</div>
+  <div class="grid">
+    <div class="stat-card">
+      <div class="stat-val">1438</div>
+      <div class="stat-label">Rating</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">94</div>
+      <div class="stat-label">Games</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">66-28</div>
+      <div class="stat-label">W-L Record</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">70%</div>
+      <div class="stat-label">Win Rate</div>
+    </div>
+  </div>
+</div>
+
+<div class="leagues-section">
+  <div class="section-title">Leagues</div>
+  <div class="league-row">
+    <div class="league-icon">👑</div>
+    <div class="league-info">
+      <div class="league-name">NYC Fun League</div>
+      <div class="league-detail">Ranked #3 · 12 games</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+  <div class="league-row">
+    <div class="league-icon">👑</div>
+    <div class="league-info">
+      <div class="league-name">QBK Open Men - Mornings</div>
+      <div class="league-detail">Ranked #1 · 47 games</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label active">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128100;</div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

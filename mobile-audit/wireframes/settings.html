@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Settings - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+
+  /* Content */
+  .content { padding: 0 0 100px; }
+
+  .section-label { font-size: 15px; font-weight: 700; color: #1a1a1a; padding: 20px 16px 8px; }
+
+  /* Settings Row */
+  .settings-group { background: #fff; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row .setting-left { display: flex; align-items: center; gap: 12px; }
+  .setting-row .setting-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .setting-row .setting-icon.blue { background: #e8f4f8; color: #2a7d9c; }
+  .setting-row .setting-icon.gold { background: #fdf8ed; color: #b8860b; }
+  .setting-row .setting-icon.green { background: #dcfce7; color: #15803d; }
+  .setting-row .setting-icon.red { background: #fee2e2; color: #b91c1c; }
+  .setting-row .setting-icon.gray { background: #f0f0f0; color: #555; }
+  .setting-row .setting-label { font-size: 15px; }
+  .setting-row .setting-value { font-size: 13px; color: #666; }
+  .setting-row .chevron { color: #ccc; font-size: 18px; }
+
+  /* Toggle */
+  .toggle { width: 44px; height: 26px; border-radius: 13px; background: #e0e0e0; position: relative; flex-shrink: 0; }
+  .toggle.on { background: #34a853; }
+  .toggle .toggle-knob { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle.on .toggle-knob { left: 20px; }
+
+  /* Logout Button */
+  .logout-btn { display: block; width: calc(100% - 32px); margin: 20px 16px; padding: 14px; border-radius: 12px; border: 1.5px solid #ef4444; background: transparent; color: #ef4444; font-size: 15px; font-weight: 600; text-align: center; }
+
+  /* Version */
+  .version-text { text-align: center; font-size: 12px; color: #bbb; padding: 16px; }
+
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="profile.html" class="back">&larr; Profile</a>
+  <div class="title">Settings</div>
+  <div class="spacer"></div>
+</div>
+
+<div class="content">
+
+  <div class="section-label">Account</div>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon blue">&#9993;</div>
+        <span class="setting-label">Email</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="setting-value">p***@gmail.com</span>
+        <span class="chevron">&rsaquo;</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon blue">&#128274;</div>
+        <span class="setting-label">Password</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="setting-value">Change</span>
+        <span class="chevron">&rsaquo;</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon green">&#128241;</div>
+        <span class="setting-label">Phone Number</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="setting-value">Not set</span>
+        <span class="chevron">&rsaquo;</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Notifications</div>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gold">&#128276;</div>
+        <span class="setting-label">Push Notifications</span>
+      </div>
+      <div class="toggle on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gold">&#9993;</div>
+        <span class="setting-label">Email Notifications</span>
+      </div>
+      <div class="toggle on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gold">&#128172;</div>
+        <span class="setting-label">Game Results</span>
+      </div>
+      <div class="toggle on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gold">&#127942;</div>
+        <span class="setting-label">Ranking Changes</span>
+      </div>
+      <div class="toggle"><div class="toggle-knob"></div></div>
+    </div>
+  </div>
+
+  <div class="section-label">Support</div>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gray">&#128172;</div>
+        <span class="setting-label">Leave Feedback</span>
+      </div>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gray">&#9993;</div>
+        <span class="setting-label">Contact Support</span>
+      </div>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+    <div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-icon gray">&#9734;</div>
+        <span class="setting-label">Rate Beach League</span>
+      </div>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+  </div>
+
+  <div class="section-label">Danger Zone</div>
+  <div class="settings-group">
+    <div class="setting-row" onclick="document.getElementById('delete-modal').style.display='flex'" style="cursor:pointer;">
+      <div class="setting-left">
+        <div class="setting-icon red">&#128465;</div>
+        <span class="setting-label" style="color: #ef4444;">Delete Account</span>
+      </div>
+      <span class="chevron">&rsaquo;</span>
+    </div>
+  </div>
+
+  <button class="logout-btn" onclick="document.getElementById('logout-modal').style.display='flex'">Log Out</button>
+
+  <div class="version-text">Beach League v1.0.0 (Build 42)</div>
+
+</div>
+
+<!-- Delete Account Modal -->
+<div class="modal-overlay" id="delete-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">&#128465;</div>
+    <div class="modal-title">Delete Account?</div>
+    <div class="modal-desc">This will permanently delete your account, stats, and game history. This action cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="alert('Account deleted')">Delete My Account</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('delete-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Out Modal -->
+<div class="modal-overlay" id="logout-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">&#128682;</div>
+    <div class="modal-title">Log Out?</div>
+    <div class="modal-desc">Are you sure you want to log out of Beach League?</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="window.location.href='welcome.html'">Log Out</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('logout-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127968;</div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#127942;</div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon">&#10133;</div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon">&#128172;</div>
+    <div class="tab-badge">2</div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active">&#128100;</div>
+    <div class="tab-label active">Profile</div>
+  </a>
+</div>
+
+</body>
+</html>

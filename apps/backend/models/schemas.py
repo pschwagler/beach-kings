@@ -253,12 +253,39 @@ class RankingsQueryRequest(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    """Request to sign up a new user."""
+    """Request to sign up a new user.
+
+    Accepts ``first_name`` + ``last_name`` (preferred) **or** ``full_name``.
+    When first/last are provided they take precedence and ``full_name`` is
+    computed.  When only ``full_name`` is provided it is split on the first
+    space.
+    """
 
     phone_number: str
     password: str
-    full_name: str  # Required - used to create player profile
+    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[str] = None
+
+    @model_validator(mode="after")
+    def resolve_names(self) -> "SignupRequest":
+        """Ensure all three name fields are populated."""
+        from backend.services.player_data import resolve_name_fields
+
+        result = resolve_name_fields(
+            first_name=self.first_name,
+            last_name=self.last_name,
+            full_name=self.full_name,
+        )
+        if result is None:
+            raise ValueError(
+                "A name is required: provide first_name + last_name, or full_name"
+            )
+        self.first_name = result["first_name"]
+        self.last_name = result["last_name"]
+        self.full_name = result["full_name"]
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -584,6 +611,8 @@ class PlayerBase(BaseModel):
     """Base player model."""
 
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     nickname: Optional[str] = None
     gender: Optional[str] = None
     level: Optional[str] = None  # 'juniors', 'beginner', 'intermediate', 'advanced', 'AA', 'Open'
@@ -605,18 +634,9 @@ class PlayerUpdate(BaseModel):
     """Request to update a player profile."""
 
     full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     nickname: Optional[str] = None
-
-    @field_validator("full_name", mode="before")
-    @classmethod
-    def full_name_not_empty(cls, v: str | None) -> str | None:
-        """Reject empty or whitespace-only full_name values."""
-        if v is None:
-            return v
-        stripped = v.strip()
-        if not stripped:
-            raise ValueError("full_name must not be empty or whitespace-only")
-        return stripped
     gender: Optional[str] = None
     level: Optional[str] = None
     date_of_birth: Optional[str] = None  # ISO date string (YYYY-MM-DD)
@@ -630,6 +650,33 @@ class PlayerUpdate(BaseModel):
         None  # Optional: manually override auto-matched location (location_id string, e.g., "socal_la")
     )
     distance_to_location: Optional[float] = None  # Optional: pre-calculated distance from frontend
+
+    @model_validator(mode="after")
+    def resolve_names(self) -> "PlayerUpdate":
+        """Recompute name fields when any name input is provided.
+
+        Rejects explicitly-provided-but-empty name fields (e.g. full_name="").
+        """
+        from backend.services.player_data import resolve_name_fields
+
+        # Reject empty/whitespace-only name fields that were explicitly set
+        any_name_provided = (
+            self.full_name is not None
+            or self.first_name is not None
+            or self.last_name is not None
+        )
+        result = resolve_name_fields(
+            first_name=self.first_name,
+            last_name=self.last_name,
+            full_name=self.full_name,
+        )
+        if any_name_provided and result is None:
+            raise ValueError("full_name must not be empty")
+        if result is not None:
+            self.first_name = result["first_name"]
+            self.last_name = result["last_name"]
+            self.full_name = result["full_name"]
+        return self
 
 
 class PlayerResponse(PlayerBase):
@@ -1211,6 +1258,7 @@ class FeedbackCreate(BaseModel):
     """Request to create feedback."""
 
     feedback_text: str
+    category: str = "feedback"  # "feedback" or "support"
     email: Optional[str] = None
 
 
@@ -1221,6 +1269,7 @@ class FeedbackResponse(BaseModel):
     id: int
     user_id: Optional[int] = None
     feedback_text: str
+    category: str = "feedback"
     email: Optional[str] = None
     is_resolved: bool
     created_at: str
@@ -1256,6 +1305,53 @@ class MarkAsReadRequest(BaseModel):
     """Request to mark notification as read. Note: notification_id is in URL path."""
 
     pass
+
+
+class UnreadCountResponse(BaseModel):
+    """Unread notification count response."""
+
+    count: int
+
+
+# ---------------------------------------------------------------------------
+# Push token schemas
+# ---------------------------------------------------------------------------
+
+
+class RegisterPushTokenRequest(BaseModel):
+    """Request to register a device push token."""
+
+    token: str
+    platform: str  # "ios" or "android"
+
+    @field_validator("platform")
+    @classmethod
+    def validate_platform(cls, v: str) -> str:
+        """Validate platform is ios or android."""
+        if v not in ("ios", "android"):
+            raise ValueError("platform must be 'ios' or 'android'")
+        return v
+
+    @field_validator("token")
+    @classmethod
+    def validate_token(cls, v: str) -> str:
+        """Validate token is not empty and looks like an Expo push token."""
+        v = v.strip()
+        if not v:
+            raise ValueError("token must not be empty")
+        if not v.startswith("ExponentPushToken["):
+            raise ValueError("token must be a valid Expo push token")
+        return v
+
+
+class PushTokenResponse(BaseModel):
+    """Response after registering a push token."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    token: str
+    platform: str
+    created_at: str
 
 
 # ---------------------------------------------------------------------------
@@ -1744,6 +1840,22 @@ class PaginatedPublicPlayersResponse(BaseModel):
     page_size: int = 25
 
 
+class DiscoverPlayerItem(PublicPlayerListItem):
+    """Player item with mutual friend count and friend status for discovery."""
+
+    mutual_friend_count: int = 0
+    friend_status: str = "none"
+
+
+class PaginatedDiscoverPlayersResponse(BaseModel):
+    """Response for GET /api/friends/discover."""
+
+    items: List[DiscoverPlayerItem] = []
+    total_count: int = 0
+    page: int = 1
+    page_size: int = 25
+
+
 # ============================================================================
 # Court Discovery & Reviews schemas
 # ============================================================================
@@ -1898,6 +2010,35 @@ class CourtNearbyItem(BaseModel):
     distance_miles: float
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
+
+class CourtCheckInResponse(BaseModel):
+    """A single check-in record."""
+
+    id: int
+    player_id: int
+    player_name: str
+    avatar: Optional[str] = None
+    checked_in_at: str
+    expires_at: str
+
+
+class CourtCheckInCountResponse(BaseModel):
+    """Active check-in count with player list."""
+
+    count: int
+    checked_in_players: List[CourtCheckInResponse] = []
+
+
+class CourtLeagueItem(BaseModel):
+    """A league that plays at a court."""
+
+    id: int
+    name: str
+    slug: Optional[str] = None
+    gender: Optional[str] = None
+    level: Optional[str] = None
+    member_count: int = 0
 
 
 class CreateCourtRequest(BaseModel):

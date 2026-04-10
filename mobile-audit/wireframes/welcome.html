@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Welcome - Beach League</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #1a3a4a; width: 390px; min-height: 844px; overflow-x: hidden; color: #fff; display: flex; flex-direction: column; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; color: #fff; font-size: 13px; font-weight: 600; }
+
+  .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 32px; text-align: center; }
+
+  .crown { font-size: 64px; color: #d4a843; margin-bottom: 16px; }
+  .brand-name { font-size: 32px; font-weight: 800; letter-spacing: 2px; margin-bottom: 4px; }
+  .tagline { font-size: 15px; color: rgba(255,255,255,0.7); font-weight: 400; margin-bottom: 48px; line-height: 1.5; }
+
+  .features { display: flex; flex-direction: column; gap: 16px; width: 100%; margin-bottom: 48px; }
+  .feature { display: flex; align-items: center; gap: 14px; text-align: left; }
+  .feature-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .feature-text { flex: 1; }
+  .feature-title { font-size: 14px; font-weight: 600; }
+  .feature-desc { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+
+  .bottom-actions { padding: 0 24px 48px; width: 100%; }
+  .btn-signup { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; text-decoration: none; margin-bottom: 12px; }
+  .btn-login { display: block; width: 100%; padding: 16px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font-size: 16px; font-weight: 600; text-align: center; text-decoration: none; }
+
+  .legal { text-align: center; font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 16px; line-height: 1.5; }
+  .legal a { color: rgba(255,255,255,0.6); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="hero">
+  <div class="crown">👑</div>
+  <div class="brand-name">BEACH LEAGUE</div>
+  <div class="tagline">Track your games. Climb the ranks.<br/>Rule the sand.</div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">&#127942;</div>
+      <div class="feature-text">
+        <div class="feature-title">Join Leagues</div>
+        <div class="feature-desc">Compete in local beach volleyball leagues</div>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#128200;</div>
+      <div class="feature-text">
+        <div class="feature-title">Track Your Rating</div>
+        <div class="feature-desc">ELO-based ratings across all your matches</div>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#128101;</div>
+      <div class="feature-text">
+        <div class="feature-title">Find Players</div>
+        <div class="feature-desc">Connect with players at your level near you</div>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#127965;</div>
+      <div class="feature-text">
+        <div class="feature-title">Discover Courts</div>
+        <div class="feature-desc">Find and review beach volleyball courts</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-actions">
+  <a href="signup.html" class="btn-signup">Get Started</a>
+  <a href="login.html" class="btn-login">I Already Have an Account</a>
+  <div class="legal">By continuing, you agree to our<br/><a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></div>
+</div>
+
+</body>
+</html>

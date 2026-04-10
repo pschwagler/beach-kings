@@ -322,6 +322,8 @@ def verify_google_id_token(token: str) -> dict:
             "email": id_info["email"],
             "sub": id_info["sub"],
             "name": id_info.get("name"),
+            "given_name": id_info.get("given_name"),
+            "family_name": id_info.get("family_name"),
             "picture": id_info.get("picture"),
             "email_verified": id_info.get("email_verified", False),
         }

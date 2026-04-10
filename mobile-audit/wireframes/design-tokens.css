@@ -1,0 +1,109 @@
+/*
+ * Beach League Mobile — Design Token Reference
+ * =============================================
+ * This file is NOT imported by the wireframes. It documents the canonical
+ * values that every wireframe should use so that, when the real mobile app
+ * is built, the design language is consistent.
+ *
+ * Sections: Color, Typography, Spacing, Touch Targets, Layout, Shadows
+ */
+
+:root {
+  /* ── Color: Brand ─────────────────────────────────────────── */
+  --color-primary:        #1a3a4a;   /* Dark teal – nav bars, headers      */
+  --color-primary-light:  #2a5a6a;   /* Lighter teal – hover/pressed       */
+  --color-accent:         #d4a843;   /* Gold – crown, highlights, badges   */
+  --color-accent-light:   #e8c96a;   /* Light gold – secondary highlights  */
+
+  /* ── Color: Semantic ──────────────────────────────────────── */
+  --color-success:        #34a853;   /* Green – wins, positive actions     */
+  --color-danger:         #dc3545;   /* Red – losses, destructive actions  */
+  --color-warning:        #f0ad4e;   /* Amber – pending, caution           */
+  --color-info:           #3b82f6;   /* Blue – links, informational        */
+
+  /* ── Color: Neutrals ──────────────────────────────────────── */
+  --color-text-primary:   #1a1a1a;   /* Body text                          */
+  --color-text-secondary: #666666;   /* Secondary text (WCAG AA on white)  */
+  --color-text-tertiary:  #999999;   /* Placeholders only (not body text)  */
+  --color-text-inverse:   #ffffff;   /* Text on dark backgrounds           */
+  --color-border:         #e0e0e0;   /* Dividers, card borders             */
+  --color-bg-primary:     #f5f5f5;   /* Page background                    */
+  --color-bg-surface:     #ffffff;   /* Cards, modals                      */
+  --color-bg-nav:         #1a3a4a;   /* Status bar + nav bar               */
+
+  /* ── Typography: Scale (iOS HIG) ──────────────────────────── */
+  --font-family:          -apple-system, 'SF Pro Text', sans-serif;
+  --font-size-caption:    12px;      /* Timestamps, badges                 */
+  --font-size-footnote:   13px;      /* Filter chips, metadata             */
+  --font-size-subhead:    14px;      /* Card secondary text                */
+  --font-size-body:       15px;      /* Default body / section titles      */
+  --font-size-callout:    16px;      /* Emphasized body text               */
+  --font-size-headline:   17px;      /* Nav title (iOS standard)           */
+  --font-size-title3:     20px;      /* Card primary titles                */
+  --font-size-title2:     22px;      /* Section headings                   */
+  --font-size-title1:     28px;      /* Page titles (large title mode)     */
+  --font-size-large-title:34px;      /* Hero / splash                      */
+
+  /* ── Typography: Weights ──────────────────────────────────── */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* ── Spacing Scale (4px base) ─────────────────────────────── */
+  --space-xxs:            2px;
+  --space-xs:             4px;
+  --space-sm:             8px;
+  --space-md:             12px;
+  --space-lg:             16px;
+  --space-xl:             20px;
+  --space-xxl:            24px;
+  --space-xxxl:           32px;
+
+  /* ── Touch Targets (Apple HIG: 44pt minimum) ──────────────── */
+  --touch-target-min:     44px;      /* Minimum tappable area              */
+  --icon-btn-size:        44px;      /* Icon-only buttons                  */
+  --icon-visual-size:     24px;      /* Visual icon size inside 44px btn   */
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  --screen-width:         390px;     /* iPhone 14 logical width            */
+  --screen-height:        844px;     /* iPhone 14 logical height           */
+  --status-bar-height:    54px;      /* iOS status bar (safe area)         */
+  --nav-bar-height:       44px;      /* Navigation bar                     */
+  --tab-bar-height:       82px;      /* Bottom tab bar (incl. safe area)   */
+  --content-inset:        16px;      /* Horizontal page padding            */
+  --card-radius:          12px;      /* Card / sheet corner radius         */
+  --card-padding:         16px;      /* Inner card padding                 */
+
+  /* ── Shadows ──────────────────────────────────────────────── */
+  --shadow-card:          0 1px 3px rgba(0,0,0,0.08);
+  --shadow-elevated:      0 4px 12px rgba(0,0,0,0.12);
+  --shadow-nav:           0 1px 0 rgba(0,0,0,0.1);
+
+  /* ── Separator ────────────────────────────────────────────── */
+  --separator-char:       " \00B7 "; /* Middle dot (U+00B7) – use for inline metadata */
+}
+
+/*
+ * USAGE NOTES
+ * -----------
+ * 1. Secondary text: use --color-text-secondary (#666) not #888.
+ *    #888 on white = 3.54:1 contrast (fails WCAG AA).
+ *    #666 on white = 5.74:1 contrast (passes WCAG AA).
+ *
+ * 2. Nav bar title: always 17px (--font-size-headline).
+ *    Several wireframes used 16px — standardized to 17px per iOS HIG.
+ *
+ * 3. Touch targets: icon buttons must be 44x44px minimum.
+ *    The visual icon can be smaller (20-24px) centered in the 44px hit area.
+ *
+ * 4. Section titles: use one pattern consistently:
+ *    - font-size: 15px; font-weight: 700; color: #1a1a1a;
+ *    The uppercase-gray variant (12-13px, #888, uppercase) is only for
+ *    form field labels or metadata categories, not section headers.
+ *
+ * 5. Inline metadata separators: use middle dot ( · ) not double dash ( -- ).
+ *    Example: "Mar 19 · QBK Open Men" not "Mar 19 -- QBK Open Men"
+ *
+ * 6. Crown/King icon: use 👑 (U+1F451) not ♛ (U+265B chess queen).
+ */
