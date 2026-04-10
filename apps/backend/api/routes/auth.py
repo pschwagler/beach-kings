@@ -110,8 +110,8 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             raise HTTPException(
                 status_code=400, detail="Password must include at least one number"
             )
-        if not request.full_name or not request.full_name.strip():
-            raise HTTPException(status_code=400, detail="Full name is required")
+        # Name validation is handled by SignupRequest's model_validator
+        # which ensures first_name + last_name (or full_name) are resolved.
 
         email = None
         if request.email:
@@ -125,7 +125,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
             phone_number=phone_number,
             code=code,
             password_hash=password_hash,
-            name=request.full_name.strip(),
+            name=request.full_name,
             email=email,
         )
         if not success:
@@ -220,6 +220,8 @@ async def google_auth(
         google_id = google_info["sub"]
         email = google_info["email"].strip().lower()
         name = google_info.get("name")
+        given_name = google_info.get("given_name")
+        family_name = google_info.get("family_name")
         picture_url = google_info.get("picture")
 
         # 1. Check by google_id first
@@ -244,7 +246,11 @@ async def google_auth(
 
             # Always create player profile for new users
             player = await data_service.upsert_user_player(
-                session=session, user_id=user_id, full_name=display_name
+                session=session,
+                user_id=user_id,
+                full_name=display_name,
+                first_name=given_name,
+                last_name=family_name,
             )
             if not player:
                 logger.error(f"Failed to create player profile for Google user {user_id}")

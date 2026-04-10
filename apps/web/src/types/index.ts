@@ -91,6 +91,7 @@ export interface Player {
   /** Canonical DB column. Matches `name` in player search responses. */
   full_name?: string | null;
   first_name?: string | null;
+  last_name?: string | null;
   nickname?: string | null;
   gender?: PlayerGender | null;
   level?: SkillLevel | null;
@@ -196,6 +197,13 @@ export interface Friend {
 export interface FriendListResponse {
   items: Friend[];
   total_count: number;
+}
+
+/** Minimal friend info returned inline with league query results. */
+export interface FriendInLeague {
+  player_id: number;
+  first_name: string;
+  avatar: string | null;
 }
 
 // ---------------------------------------------------------------------------

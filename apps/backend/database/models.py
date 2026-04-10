@@ -200,6 +200,8 @@ class Player(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     full_name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False, server_default="")
+    last_name = Column(String, nullable=False, server_default="")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     nickname = Column(String, nullable=True)
     gender = Column(String, nullable=True)
@@ -261,6 +263,7 @@ class Player(Base):
         Index("idx_players_avp_id", "avp_playerProfileId"),
         Index("idx_players_created_by", "created_by_player_id"),
     )
+
 
 
 class PlayerInvite(Base):
@@ -1355,6 +1358,7 @@ class Feedback(Base):
         Integer, ForeignKey("users.id"), nullable=True
     )  # Nullable for anonymous feedback
     feedback_text = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False, server_default="feedback")  # "feedback" or "support"
     email = Column(String, nullable=True)  # Optional contact email
     is_resolved = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -24,10 +24,11 @@ import './LeagueDashboard.css';
 
 interface LeagueDashboardContentProps {
   leagueId: number;
+  initialTab?: string;
   publicLeagueData?: PublicLeagueData | null;
 }
 
-function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardContentProps) {
+function LeagueDashboardContent({ leagueId, initialTab, publicLeagueData }: LeagueDashboardContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, user, currentUserPlayer, logout } = useAuth();
@@ -36,6 +37,14 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
   const { league, members, loading, error, updateLeague: updateLeagueInContext, refreshLeague, setActiveLeagueTab, activeLeagueTab, isLeagueAdmin, isLeagueMember } = useLeague();
   const { showToast } = useToast();
   const { userLeagues, refreshLeagues } = useApp();
+
+  // Sync initialTab to context post-mount (deferred to avoid side-effects during render)
+  useEffect(() => {
+    if (initialTab) {
+      setActiveLeagueTab(initialTab);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // League name editing
   const [isEditingName, setIsEditingName] = useState(false);
@@ -396,12 +405,13 @@ function LeagueDashboardContent({ leagueId, publicLeagueData }: LeagueDashboardC
 
 interface LeagueDashboardProps {
   leagueId: number;
+  initialTab?: string;
   publicLeagueData?: PublicLeagueData | null;
 }
 
-export default function LeagueDashboard({ leagueId, publicLeagueData }: LeagueDashboardProps) {
+export default function LeagueDashboard({ leagueId, initialTab, publicLeagueData }: LeagueDashboardProps) {
   // leagueId is passed from the Next.js page component
   return (
-    <LeagueDashboardContent leagueId={leagueId} publicLeagueData={publicLeagueData} />
+    <LeagueDashboardContent leagueId={leagueId} initialTab={initialTab} publicLeagueData={publicLeagueData} />
   );
 }

@@ -3,19 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>Profile - Beach League Mobile</title>
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  /* ── State Switcher (design tool, not part of UI) ── */
-  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
-  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
-  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
-  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
 
   /* State visibility */
   .state-complete { display: block; }
@@ -23,12 +15,6 @@
   body.incomplete .state-complete { display: none !important; }
   body.incomplete .state-incomplete { display: block !important; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
-
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
-  .top-nav .action { color: #d4a843; font-size: 13px; font-weight: 600; }
-  .top-nav .spacer { width: 60px; }
 
   /* Profile Header */
   .profile-header { background: #fff; padding: 24px 16px 20px; text-align: center; }
@@ -63,7 +49,7 @@
   .progress-ring .ring-fill { fill: none; stroke: #d4a843; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 31.4 125.66; transition: stroke-dasharray 0.4s ease; }
   .progress-ring .ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #1a3a4a; }
   .completion-info h3 { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 3px; }
-  .completion-info p { font-size: 12px; color: #888; line-height: 1.4; }
+  .completion-info p { font-size: 12px; color: #666; line-height: 1.4; }
 
   .completion-checklist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
   .checklist-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
@@ -81,6 +67,8 @@
   .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
 
   /* Form Fields */
+  .form-row { display: flex; gap: 12px; }
+  .form-row > .form-group { flex: 1; }
   .form-group { margin-bottom: 14px; }
   .form-group .form-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
   .form-group .form-value { background: #f8f9fa; padding: 12px 14px; border-radius: 10px; font-size: 14px; border: 1.5px solid #e8e8e8; }
@@ -107,17 +95,6 @@
   /* Save Button */
   .save-btn { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; margin-top: 20px; text-align: center; }
 
-  /* Tab Bar */
-  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
-  .tab-badge { position: absolute; top: 2px; right: 50%; transform: translateX(18px); background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #fff; }
-  .tab-dot { position: absolute; top: 4px; right: 50%; transform: translateX(16px); width: 8px; height: 8px; border-radius: 50%; background: #ef4444; border: 1.5px solid #fff; display: none; }
   body.incomplete .tab-dot.profile-dot { display: block; }
 </style>
 </head>
@@ -153,9 +130,9 @@
     <div class="name">Patrick Schwagler</div>
     <div class="meta">
       <span>New York, NY</span>
-      <span>--</span>
+      <span> · </span>
       <span class="level-badge">Open</span>
-      <span>--</span>
+      <span> · </span>
       <a href="friends.html" style="text-decoration:none; color:#2a7d9c; font-weight:600;">12 Friends</a>
     </div>
   </div>
@@ -191,7 +168,7 @@
 
 <div class="segment-control">
   <div class="segment active">Profile</div>
-  <a href="my-stats.html" class="segment" style="text-decoration:none; color:#888;">Stats</a>
+  <a href="my-stats.html" class="segment" style="text-decoration:none; color:#666;">Stats</a>
 </div>
 
 <!-- ═══ INCOMPLETE STATE: Completion Card ═══ -->
@@ -258,9 +235,15 @@
   <div class="content">
     <div class="section-title">Player Profile</div>
 
-    <div class="form-group">
-      <div class="form-label">Full Name</div>
-      <div class="form-value">Patrick Schwagler</div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">First Name</div>
+        <div class="form-value">Patrick</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Last Name</div>
+        <div class="form-value">Schwagler</div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -329,9 +312,15 @@
   <div class="content">
     <div class="section-title">Player Profile</div>
 
-    <div class="form-group">
-      <div class="form-label">Full Name</div>
-      <div class="form-value">Patrick Schwagler</div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">First Name</div>
+        <div class="form-value">Patrick</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Last Name</div>
+        <div class="form-value">Schwagler</div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -373,7 +362,9 @@
     <div class="empty-section">Play in a league to earn trophies</div>
 
     <div class="section-title">Home Courts</div>
-    <div class="empty-section">No home courts yet</div>
+    <div class="empty-section">No home courts yet
+      <button style="margin-top:8px; padding:8px 16px; background:#1e90ff; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; min-height:44px; width:100%;">+ Add Court</button>
+    </div>
 
     <button class="save-btn">Save Changes</button>
   </div>

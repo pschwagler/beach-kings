@@ -22,7 +22,8 @@ const MODE_TITLES: Record<AuthMode, string> = {
 const defaultFormState = {
   phoneNumber: '',
   password: '',
-  fullName: '',
+  firstName: '',
+  lastName: '',
   email: '',
   code: '',
 };
@@ -175,8 +176,12 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
     // Validate password strength and full name for sign-up
     if (activeMode === 'sign-up') {
-      if (!formData.fullName || !formData.fullName.trim()) {
-        setErrorMessage('Full name is required');
+      if (!formData.firstName || !formData.firstName.trim()) {
+        setErrorMessage('First name is required');
+        return;
+      }
+      if (!formData.lastName || !formData.lastName.trim()) {
+        setErrorMessage('Last name is required');
         return;
       }
       const passwordValid = validatePassword(formData.password);
@@ -199,7 +204,8 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
         const result = await signup({
           phoneNumber: formData.phoneNumber,
           password: formData.password,
-          fullName: formData.fullName.trim(),
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
           email: formData.email,
         });
         setStatusMessage('Account created! Enter the verification code we just sent you.');
@@ -359,17 +365,30 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose, onVerifyS
 
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           {activeMode === 'sign-up' && (
-            <label className="auth-modal__label">
-              <span>Full Name <span className="required-asterisk">*</span></span>
-              <input
-                type="text"
-                name="fullName"
-                className="auth-modal__input"
-                placeholder="John Doe"
-                value={formData.fullName}
-                onChange={handleInputChange}
-              />
-            </label>
+            <div className="auth-modal__name-row">
+              <label className="auth-modal__label">
+                <span>First Name <span className="required-asterisk">*</span></span>
+                <input
+                  type="text"
+                  name="firstName"
+                  className="auth-modal__input"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                />
+              </label>
+              <label className="auth-modal__label">
+                <span>Last Name <span className="required-asterisk">*</span></span>
+                <input
+                  type="text"
+                  name="lastName"
+                  className="auth-modal__input"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                />
+              </label>
+            </div>
           )}
 
           {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (

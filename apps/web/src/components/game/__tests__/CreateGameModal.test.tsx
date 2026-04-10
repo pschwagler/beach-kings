@@ -41,7 +41,6 @@ const renderModal = (isOpen = true) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetUserLeagues.mockResolvedValue([]);
   mockGetOpenSessions.mockResolvedValue([]);
 });
 

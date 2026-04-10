@@ -3662,6 +3662,42 @@ body:hover ::-webkit-scrollbar-thumb {
   color: var(--gray-500);
 }
 
+.find-league-card__friends {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.find-league-card__friends-avatars {
+  display: flex;
+}
+
+.find-league-card__friends-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-light, #7fb3c7);
+  border: 2px solid #fff;
+  margin-left: -6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.find-league-card__friends-avatar:first-child {
+  margin-left: 0;
+}
+
+.find-league-card__friends-text {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  overflow-wrap: anywhere;
+}
+
 .find-league-card__action {
   padding-top: 6px;
   border-top: 1px solid var(--gray-100);
@@ -6997,6 +7033,15 @@ button.match-config-toggle.inline svg {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.auth-modal__name-row {
+  display: flex;
+  gap: 12px;
+}
+
+.auth-modal__name-row > .auth-modal__label {
+  flex: 1;
 }
 
 .auth-modal__label {

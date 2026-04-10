@@ -89,6 +89,10 @@ vi.mock('../../ui/LevelBadge', () => ({
   default: () => <span />,
 }));
 
+vi.mock('../../../contexts/AppContext', () => ({
+  useApp: vi.fn(() => ({ userLeagues: [], leaguesLoading: false, refreshLeagues: vi.fn() })),
+}));
+
 // ---------------------------------------------------------------------------
 // Import component after mocks are in place
 // ---------------------------------------------------------------------------

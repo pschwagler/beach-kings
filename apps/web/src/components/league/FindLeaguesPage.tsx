@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { Location, LeagueGender, SkillLevel } from "../../types";
+import type { Location, LeagueGender, SkillLevel, FriendInLeague } from "../../types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Users, MapPin, LogIn, UserRoundPlus, Plus, X } from "lucide-react";
 import FilterableTable from "../ui/FilterableTable";
@@ -42,6 +42,9 @@ interface FindLeague {
   gender?: LeagueGender;
   location_name?: string;
   region_name?: string;
+  has_pending_request?: boolean;
+  friend_count?: number;
+  friends_preview?: FriendInLeague[];
 }
 
 export default function FindLeaguesPage() {
@@ -256,6 +259,8 @@ export default function FindLeaguesPage() {
     router.push(`/league/${league.id}`);
   };
 
+  const showFriendsColumn = isAuthenticated;
+
   const renderRow = (league: FindLeague, idx: number) => {
     const locationText = league.location_name || "N/A";
     const regionText = league.region_name || "N/A";
@@ -295,6 +300,13 @@ export default function FindLeaguesPage() {
             <span>{league.member_count || 0}</span>
           </div>
         </td>
+        {showFriendsColumn && (
+          <td className="leagues-table-cell">
+            {(league.friend_count ?? 0) > 0 && league.friends_preview && league.friends_preview.length > 0
+              ? `${league.friend_count} friend${league.friend_count === 1 ? "" : "s"}`
+              : ""}
+          </td>
+        )}
         <td className="leagues-table-cell">
           <LevelBadge level={league.level} />
         </td>
@@ -384,6 +396,28 @@ export default function FindLeaguesPage() {
             {league.is_open ? "Public" : "Invite Only"}
           </span>
         </div>
+        {(league.friend_count ?? 0) > 0 && league.friends_preview && league.friends_preview.length > 0 && (
+          <div className="find-league-card__friends">
+            <div className="find-league-card__friends-avatars">
+              {league.friends_preview.map((friend) => (
+                <div
+                  key={friend.player_id}
+                  className="find-league-card__friends-avatar"
+                  aria-label={`${friend.first_name}, friend in this league`}
+                >
+                  {(friend.first_name || "?").charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+            <span className="find-league-card__friends-text">
+              {league.friend_count === 1
+                ? `${league.friends_preview[0].first_name} is in this league`
+                : (league.friend_count ?? 0) === league.friends_preview.length
+                  ? `${league.friends_preview.slice(0, -1).map((f) => f.first_name).join(", ")}${league.friends_preview.length > 2 ? "," : ""} & ${league.friends_preview[league.friends_preview.length - 1].first_name} are in this league`
+                  : `${league.friends_preview.map((f) => f.first_name).join(", ")} + ${(league.friend_count ?? 0) - league.friends_preview.length} more in this league`}
+            </span>
+          </div>
+        )}
         <div className="find-league-card__action">
           {isMember ? (
             <span className="leagues-table-member-indicator">
@@ -431,6 +465,7 @@ export default function FindLeaguesPage() {
     { label: "Location" },
     { label: "Region" },
     { label: "Members" },
+    ...(showFriendsColumn ? [{ label: "Friends" }] : []),
     { label: "Skill Level" },
     { label: "Access" },
     { label: "Action" },

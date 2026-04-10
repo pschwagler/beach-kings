@@ -46,7 +46,8 @@ interface ProfileTabProps {
 
 interface ProfileFormData {
   email: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   nickname: string;
   gender: string;
   level: string;
@@ -63,7 +64,8 @@ interface ProfileFormData {
 
 const DEFAULT_FORM_DATA: ProfileFormData = {
   email: '',
-  full_name: '',
+  first_name: '',
+  last_name: '',
   nickname: '',
   gender: 'male',
   level: 'beginner',
@@ -138,7 +140,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         : '';
       
       const newFormData = {
-        full_name: currentUserPlayer.full_name || '',
+        first_name: currentUserPlayer.first_name || (currentUserPlayer.full_name?.split(' ')[0] ?? ''),
+        last_name: currentUserPlayer.last_name || (currentUserPlayer.full_name?.split(' ').slice(1).join(' ') ?? ''),
         nickname: currentUserPlayer.nickname || '',
         gender: currentUserPlayer.gender || 'male',
         level: currentUserPlayer.level || 'beginner',
@@ -194,7 +197,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
   const checkHasChanges = (formDataToCheck: typeof formData, initialFormDataToCheck: typeof formData) => {
     return (
       formDataToCheck.email !== initialFormDataToCheck.email ||
-      formDataToCheck.full_name !== initialFormDataToCheck.full_name ||
+      formDataToCheck.first_name !== initialFormDataToCheck.first_name ||
+      formDataToCheck.last_name !== initialFormDataToCheck.last_name ||
       formDataToCheck.nickname !== initialFormDataToCheck.nickname ||
       formDataToCheck.gender !== initialFormDataToCheck.gender ||
       formDataToCheck.level !== initialFormDataToCheck.level ||
@@ -242,9 +246,13 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
     event.preventDefault();
     setErrorMessage('');
 
-    // Validate full_name
-    if (!formData.full_name || !formData.full_name.trim()) {
-      setErrorMessage('Full name is required');
+    // Validate names
+    if (!formData.first_name || !formData.first_name.trim()) {
+      setErrorMessage('First name is required');
+      return;
+    }
+    if (!formData.last_name || !formData.last_name.trim()) {
+      setErrorMessage('Last name is required');
       return;
     }
 
@@ -258,7 +266,8 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
 
       // 2. Update Player Profile
       const playerPayload: Record<string, unknown> = {
-        full_name: formData.full_name.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
         gender: formData.gender,
         level: formData.level,
       };
@@ -431,18 +440,32 @@ export default function ProfileTab({ user, currentUserPlayer, fetchCurrentUser }
         {/* Player Info */}
         <h3 className="profile-page__section-title section-title-spaced">Player Profile</h3>
 
-        <label className="auth-modal__label">
-          <span>Full Name <span className="required-asterisk">*</span></span>
-          <input
-            type="text"
-            name="full_name"
-            className="auth-modal__input"
-            placeholder="Enter your full name"
-            value={formData.full_name}
-            onChange={handleInputChange}
-            required
-          />
-        </label>
+        <div className="auth-modal__name-row">
+          <label className="auth-modal__label">
+            <span>First Name <span className="required-asterisk">*</span></span>
+            <input
+              type="text"
+              name="first_name"
+              className="auth-modal__input"
+              placeholder="First name"
+              value={formData.first_name}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label className="auth-modal__label">
+            <span>Last Name <span className="required-asterisk">*</span></span>
+            <input
+              type="text"
+              name="last_name"
+              className="auth-modal__input"
+              placeholder="Last name"
+              value={formData.last_name}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+        </div>
 
         <PlayerProfileFields
           formData={formData}

@@ -11,6 +11,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import date
 
 __all__ = [
+    "resolve_name_fields",
     "generate_player_initials",
     "list_players_search",
     "get_all_player_names",
@@ -37,6 +38,52 @@ from backend.database.models import (
     PlayerGlobalStats,
     Court,
 )
+
+
+# ---------------------------------------------------------------------------
+# Name resolution helper
+# ---------------------------------------------------------------------------
+
+
+def resolve_name_fields(
+    *,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    full_name: Optional[str] = None,
+) -> Optional[Dict[str, str]]:
+    """
+    Resolve first_name, last_name, and full_name from whichever subset is provided.
+
+    Accepts first+last (preferred), full_name only (legacy), or a mix.
+    When first+last are provided they take precedence over full_name.
+
+    Returns:
+        Dict with keys ``first_name``, ``last_name``, ``full_name``,
+        or ``None`` if no name information was provided at all.
+    """
+    has_first = first_name is not None and first_name.strip() != ""
+    has_last = last_name is not None and last_name.strip() != ""
+
+    if has_first or has_last:
+        fn = (first_name or "").strip()
+        ln = (last_name or "").strip()
+        computed_full = f"{fn} {ln}".strip()
+        return {
+            "first_name": fn,
+            "last_name": ln,
+            "full_name": computed_full,
+        }
+
+    if full_name is not None and full_name.strip() != "":
+        stripped = " ".join(full_name.split())
+        parts = stripped.split(" ", 1)
+        return {
+            "first_name": parts[0],
+            "last_name": parts[1] if len(parts) > 1 else "",
+            "full_name": stripped,
+        }
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +363,8 @@ async def get_player_by_user_id_with_stats(session: AsyncSession, user_id: int) 
     return {
         "id": player.id,
         "full_name": player.full_name,
+        "first_name": player.first_name,
+        "last_name": player.last_name,
         "gender": player.gender,
         "level": player.level,
         "nickname": player.nickname,
@@ -343,6 +392,8 @@ async def upsert_user_player(
     session: AsyncSession,
     user_id: int,
     full_name: Optional[str] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
     nickname: Optional[str] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
@@ -363,10 +414,15 @@ async def upsert_user_player(
     updates the existing row otherwise.  Only non-None keyword arguments
     are applied during an update.
 
+    Name resolution: if ``first_name``/``last_name`` are provided they
+    take precedence; otherwise ``full_name`` is split on the first space.
+
     Args:
         session: Async database session.
         user_id: User ID to associate the player with.
-        full_name: Full name — required for initial creation.
+        full_name: Full display name (legacy — prefer first/last).
+        first_name: First (given) name.
+        last_name: Last (family) name.
         nickname: Optional short display name.
         gender: Gender string (optional).
         level: Skill level string (optional).
@@ -381,8 +437,13 @@ async def upsert_user_player(
         distance_to_location: Distance to default location in miles (optional).
 
     Returns:
-        Player dict, or None if creation was attempted without a ``full_name``.
+        Player dict, or None if creation was attempted without a name.
     """
+    # Resolve first/last/full name fields
+    name_fields = resolve_name_fields(
+        first_name=first_name, last_name=last_name, full_name=full_name
+    )
+
     # Parse date_of_birth if provided
     date_of_birth_obj = None
     if date_of_birth:
@@ -395,11 +456,13 @@ async def upsert_user_player(
     player = result.scalar_one_or_none()
 
     if not player:
-        if full_name is None:
+        if name_fields is None:
             return None
         player = Player(
             user_id=user_id,
-            full_name=full_name,
+            full_name=name_fields["full_name"],
+            first_name=name_fields["first_name"],
+            last_name=name_fields["last_name"],
             nickname=nickname,
             gender=gender,
             level=level,
@@ -420,7 +483,6 @@ async def upsert_user_player(
         update_values = {
             k: v
             for k, v in {
-                "full_name": full_name,
                 "nickname": nickname,
                 "gender": gender,
                 "level": level,
@@ -436,6 +498,11 @@ async def upsert_user_player(
             }.items()
             if v is not None
         }
+        # Name fields are set as a group when any name input is provided
+        if name_fields is not None:
+            update_values["full_name"] = name_fields["full_name"]
+            update_values["first_name"] = name_fields["first_name"]
+            update_values["last_name"] = name_fields["last_name"]
 
         if update_values:
             await session.execute(
@@ -447,6 +514,8 @@ async def upsert_user_player(
     return {
         "id": player.id,
         "full_name": player.full_name,
+        "first_name": player.first_name,
+        "last_name": player.last_name,
         "user_id": player.user_id,
         "nickname": player.nickname,
         "gender": player.gender,
@@ -487,7 +556,12 @@ async def get_or_create_player(session: AsyncSession, name: str) -> int:
     if player_id:
         return player_id
 
-    player = Player(full_name=name)
+    name_fields = resolve_name_fields(full_name=name)
+    player = Player(
+        full_name=name_fields["full_name"] if name_fields else name,
+        first_name=name_fields["first_name"] if name_fields else "",
+        last_name=name_fields["last_name"] if name_fields else "",
+    )
     session.add(player)
     await session.commit()
     await session.refresh(player)
@@ -513,6 +587,8 @@ async def get_player_by_id(session: AsyncSession, player_id: int) -> Optional[Di
     return {
         "id": player.id,
         "full_name": player.full_name,
+        "first_name": player.first_name,
+        "last_name": player.last_name,
         "nickname": player.nickname,
         "is_placeholder": player.is_placeholder,
         "created_by_player_id": player.created_by_player_id,

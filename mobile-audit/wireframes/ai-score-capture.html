@@ -3,27 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
 <title>AI Score Capture - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif; background: #f5f5f5; width: 390px; min-height: 844px; overflow-x: hidden; color: #1a1a1a; }
 
-  /* ── State Switcher ── */
-  .state-switcher { position: sticky; top: 0; z-index: 999; background: #2d2d3a; padding: 10px 12px 8px; border-bottom: 2px solid #d4a843; }
-  .state-switcher .sw-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .state-switcher .sw-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-  .state-switcher .sw-pill { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
-  .state-switcher .sw-pill:hover { border-color: #888; color: #ccc; }
-  .state-switcher .sw-pill.active { background: #d4a843; border-color: #d4a843; color: #1a1a1a; }
 
   .state { display: none; }
   .state.active { display: block; }
 
-  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 6px; background: #1a3a4a; color: #fff; font-size: 13px; font-weight: 600; }
 
-  .top-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
   .top-nav .back { color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; background: none; border: none; cursor: pointer; }
-  .top-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
   .top-nav .spacer { min-width: 44px; }
 
   /* ── Context Bar (league or pickup) ── */
@@ -65,7 +55,7 @@
 
   /* Streaming results during analysis */
   .stream-section { padding: 0 16px 16px; }
-  .stream-label { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .stream-label { font-size: 12px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .stream-card { background: #fff; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); animation: slideIn 0.3s ease-out; }
   .stream-card.pending { animation: none; }
   .stream-card.pending { opacity: 0.4; background: #f0f0f0; }
@@ -121,14 +111,14 @@
   .option-label { font-size: 13px; font-weight: 600; color: #555; }
   .option-value { font-size: 13px; font-weight: 600; color: #1a3a4a; display: flex; align-items: center; gap: 4px; }
   .option-value .chevron { font-size: 10px; color: #999; }
-  .ranked-status { font-size: 13px; font-weight: 600; color: #888; display: flex; align-items: center; gap: 6px; }
+  .ranked-status { font-size: 13px; font-weight: 600; color: #666; display: flex; align-items: center; gap: 6px; }
   .ranked-info-icon { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #ccc; font-size: 11px; font-weight: 700; color: #999; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-  .ranked-info-tooltip { font-size: 11px; color: #888; font-weight: 500; margin-top: 4px; line-height: 1.3; display: none; }
+  .ranked-info-tooltip { font-size: 11px; color: #666; font-weight: 500; margin-top: 4px; line-height: 1.3; display: none; }
   .ranked-info-tooltip.visible { display: block; }
 
   /* Edit or Clarify input (matches PhotoMatchConversation.tsx) */
   .edit-clarify-section { padding: 12px 16px; }
-  .edit-clarify-label { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .edit-clarify-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .edit-clarify-input-row { display: flex; align-items: flex-start; gap: 10px; }
   .edit-clarify-textarea { flex: 1; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #fff; resize: none; font-family: inherit; line-height: 1.4; min-height: 52px; }
   .edit-clarify-send { width: 44px; height: 44px; border-radius: 10px; background: none; border: 1.5px solid #e0e0e0; display: flex; align-items: center; justify-content: center; color: #1a3a4a; font-size: 16px; cursor: pointer; flex-shrink: 0; }
@@ -136,11 +126,11 @@
 
   /* Conversation history (user/AI back-and-forth) */
   .conversation-section { padding: 0 16px 8px; }
-  .conversation-section h4 { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .conversation-section h4 { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
   .conversation-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
   .conversation-msg.user { background: #eef6fa; color: #1a3a4a; margin-left: 32px; }
   .conversation-msg.assistant { background: #fff; color: #1a1a1a; margin-right: 32px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-  .conversation-msg .msg-role { font-size: 10px; font-weight: 700; color: #888; display: block; margin-bottom: 2px; }
+  .conversation-msg .msg-role { font-size: 10px; font-weight: 700; color: #666; display: block; margin-bottom: 2px; }
 
   /* Sticky confirm bar (#7) */
   .sticky-confirm-bar { position: fixed; bottom: 82px; left: 0; width: 390px; background: #fff; border-top: 1px solid #eee; padding: 12px 16px; z-index: 200; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); }
@@ -149,7 +139,7 @@
   /* Bottom actions (non-sticky fallback) */
   .bottom-actions { padding: 12px 16px 20px; background: #f5f5f5; }
   .btn-confirm { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; }
-  .btn-confirm.disabled { background: #ccc; color: #888; cursor: not-allowed; }
+  .btn-confirm.disabled { background: #ccc; color: #666; cursor: not-allowed; }
   .confirm-gate-msg { text-align: center; font-size: 12px; color: #dc2626; font-weight: 600; margin-bottom: 8px; }
   .btn-retake { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: transparent; color: #666; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
 
@@ -169,31 +159,30 @@
 
   .search-result-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
   .search-result-item:active { background: #f5f5f5; }
-  .search-avatar { width: 40px; height: 40px; border-radius: 50%; background: #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #888; flex-shrink: 0; }
+  .search-avatar { width: 40px; height: 40px; border-radius: 50%; background: #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #666; flex-shrink: 0; }
   .search-result-info { flex: 1; min-width: 0; }
   .search-result-name { font-size: 14px; font-weight: 600; }
-  .search-result-meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .search-result-meta { font-size: 12px; color: #666; margin-top: 2px; }
   .search-result-radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .search-result-item:active .search-result-radio { border-color: #2a7d9c; background: #2a7d9c; }
   .search-result-item:active .search-result-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
 
-  .search-empty { text-align: center; padding: 24px 0; color: #888; font-size: 14px; line-height: 1.5; }
-  .not-match-link { display: block; text-align: center; font-size: 13px; color: #888; font-weight: 500; padding: 12px 0 4px; cursor: pointer; }
+  .search-empty { text-align: center; padding: 24px 0; color: #666; font-size: 14px; line-height: 1.5; }
+  .not-match-link { display: block; text-align: center; font-size: 13px; color: #666; font-weight: 500; padding: 12px 0 4px; cursor: pointer; }
   .search-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
   .search-divider-line { flex: 1; height: 1px; background: #e0e0e0; }
-  .search-divider-text { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; }
+  .search-divider-text { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; }
 
   .btn-create-player { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 10px; border: 1.5px dashed #d4a843; background: #fffbeb; color: #92400e; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 48px; }
 
-  /* Session auto-add note (#10) */
-  .session-add-note { font-size: 12px; color: #666; font-style: italic; padding: 8px 0; }
-
   /* Create Placeholder Sheet */
+  .create-field-row { display: flex; gap: 12px; }
+  .create-field-row > .create-field { flex: 1; }
   .create-field { margin-bottom: 16px; }
   .create-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .create-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #f9f9f9; }
   .create-select { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #f9f9f9; color: #1a1a1a; -webkit-appearance: none; appearance: none; }
-  .create-hint { font-size: 12px; color: #888; margin-top: 8px; line-height: 1.4; }
+  .create-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
   .btn-create-confirm { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 8px; }
 
   /* Invite share (post-create) */
@@ -202,10 +191,10 @@
   .invite-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
   .invite-desc { font-size: 13px; color: #666; line-height: 1.4; margin-bottom: 16px; }
   .invite-link-box { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #f5f5f5; border-radius: 8px; margin-bottom: 16px; }
-  .invite-link-url { flex: 1; font-size: 12px; color: #555; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .invite-link-url { flex: 1; font-size: 12px; color: #555; font-family: monospace; white-space: nowrap; }
   .invite-link-copy { font-size: 12px; font-weight: 700; color: #1a3a4a; background: none; border: none; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
-  .btn-share-invite { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
-  .btn-skip-invite { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; }
+  .btn-share-invite { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #2a7d9c; background: transparent; color: #2a7d9c; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-skip-invite { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 14px; font-weight: 700; text-align: center; cursor: pointer; margin-bottom: 8px; }
 
   /* ── Confirmed State ── */
   .success-area { display: flex; flex-direction: column; align-items: center; padding: 40px 24px 20px; gap: 16px; }
@@ -226,7 +215,7 @@
   .pending-invite-avatar { width: 32px; height: 32px; border-radius: 50%; background: #fde68a; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #92400e; flex-shrink: 0; }
   .pending-invite-name { flex: 1; font-size: 13px; font-weight: 600; color: #92400e; }
   .pending-invite-share { font-size: 12px; font-weight: 700; color: #1a3a4a; background: #fff; border: 1px solid #1a3a4a; border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 36px; display: flex; align-items: center; gap: 4px; }
-  .home-tab-note { font-size: 12px; color: #888; font-style: italic; margin-top: 8px; text-align: center; line-height: 1.4; }
+  .home-tab-note { font-size: 13px; color: #666; font-weight: 400; margin-top: 8px; text-align: center; line-height: 1.4; background: #f0f4f8; padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px; justify-content: center; }
 
   .btn-back-session { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 12px; }
 
@@ -262,7 +251,7 @@
   .net-error-row { display: flex; align-items: center; gap: 10px; }
   .net-error-text { flex: 1; font-size: 13px; color: #991b1b; font-weight: 600; line-height: 1.3; }
   .btn-retry { padding: 8px 16px; border-radius: 8px; border: 1.5px solid #dc2626; background: #fff; color: #dc2626; font-size: 13px; font-weight: 700; cursor: pointer; min-height: 40px; flex-shrink: 0; }
-  .btn-continue-partial { display: block; width: 100%; margin-top: 10px; padding: 10px; border-radius: 8px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 13px; font-weight: 600; text-align: center; cursor: pointer; min-height: 40px; }
+  .btn-continue-partial { display: block; width: 100%; margin-top: 10px; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 600; text-align: center; cursor: pointer; min-height: 40px; }
 
   /* ── Photo Thumbnail (#3) ── */
   .photo-thumb-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #eee; cursor: pointer; }
@@ -278,7 +267,7 @@
   .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #ddd; transition: background 0.2s; }
   .progress-dot.active { background: #1a3a4a; }
   .progress-dot.done { background: #22c55e; }
-  .progress-label { font-size: 10px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
+  .progress-label { font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
 
   /* ── Score Validation Hint ── */
   .score-hint { font-size: 12px; color: #f59e0b; font-weight: 600; text-align: center; margin-top: -8px; margin-bottom: 12px; }
@@ -286,15 +275,7 @@
   /* ── Scan Another Button ── */
   .btn-scan-another { display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #d4a843; background: transparent; color: #92400e; font-size: 15px; font-weight: 600; text-align: center; cursor: pointer; margin-top: 8px; }
 
-  /* Tab Bar */
   .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 390px; height: 82px; background: #fff; display: flex; align-items: flex-start; justify-content: space-around; padding: 8px 4px 28px; border-top: 1px solid #eee; z-index: 100; }
-  .tab-bar .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; position: relative; text-decoration: none; }
-  .tab-bar .tab .tab-icon { width: 24px; height: 24px; font-size: 20px; line-height: 24px; text-align: center; color: #999; }
-  .tab-bar .tab .tab-icon.active { color: #1a3a4a; }
-  .tab-bar .tab .tab-label { font-size: 10px; color: #666; }
-  .tab-bar .tab .tab-label.active { color: #1a3a4a; font-weight: 600; }
-  .tab-bar .tab.add-games .tab-icon { width: 44px; height: 44px; border-radius: 22px; background: #d4a843; margin-top: -14px; font-size: 22px; line-height: 44px; color: #fff; }
-  .tab-bar .tab.add-games .tab-label { color: #d4a843; font-weight: 600; }
 
   .spacer-bottom { height: 100px; }
 </style>
@@ -316,7 +297,7 @@
     <button class="sw-pill" onclick="setState('invite')">6. Share Invite</button>
     <button class="sw-pill" onclick="setState('confirmed')">7. Confirmed</button>
     <button class="sw-pill" onclick="setState('err-unreadable')">ERR: Unreadable</button>
-    <button class="sw-pill" onclick="setState('err-no-matches')">ERR: No Matches</button>
+    <button class="sw-pill" onclick="setState('err-no-matches')">ERR: No Games</button>
   </div>
 </div>
 
@@ -362,7 +343,7 @@
       <span class="viewfinder-icon">&#128247;</span>
     </div>
     <div class="capture-title">Scan a Scoreboard</div>
-    <div class="capture-desc">Take a photo of the scoreboard or upload from your gallery. AI will extract match scores and identify players.</div>
+    <div class="capture-desc">Take a photo of the scoreboard or upload from your gallery. AI will extract game scores and identify players.</div>
     <div class="capture-buttons">
       <button class="btn-camera" onclick="setState('analyzing')">&#128247; Take Photo</button>
       <button class="btn-gallery">&#128193; Choose from Gallery</button>
@@ -382,15 +363,15 @@
     <div class="analyzing-overlay">
       <div class="spinner"></div>
       <div class="analyzing-text">Analyzing scoreboard...</div>
-      <div class="analyzing-sub">2 of ~3 matches found</div>
+      <div class="analyzing-sub">2 of ~3 games found</div>
     </div>
   </div>
 
-  <!-- Matches stream in one-by-one as AI extracts them -->
+  <!-- Games stream in one-by-one as AI extracts them -->
   <div class="stream-section">
-    <div class="stream-label">Extracting matches...</div>
+    <div class="stream-label">Extracting games...</div>
 
-    <!-- Match 1: fully extracted -->
+    <!-- Game 1: fully extracted -->
     <div class="stream-card">
       <div class="stream-teams-row">
         <div class="stream-team">Pat S / Karim F</div>
@@ -399,7 +380,7 @@
       </div>
     </div>
 
-    <!-- Match 2: fully extracted -->
+    <!-- Game 2: fully extracted -->
     <div class="stream-card">
       <div class="stream-teams-row">
         <div class="stream-team">Pat S / Mike B</div>
@@ -408,7 +389,7 @@
       </div>
     </div>
 
-    <!-- Match 3: still loading (skeleton) -->
+    <!-- Game 3: still loading (skeleton) -->
     <div class="stream-card pending">
       <div class="stream-teams-row">
         <div class="stream-team"><div class="stream-skeleton w60"></div></div>
@@ -419,7 +400,7 @@
   </div>
 
   <div style="padding: 0 16px; text-align: center;">
-    <div style="font-size: 13px; color: #888; line-height: 1.5;">Extracting matches... usually takes a few seconds</div>
+    <div style="font-size: 13px; color: #666; line-height: 1.5;">Extracting games... usually takes a few seconds</div>
   </div>
 </div>
 
@@ -434,12 +415,12 @@
   </div>
 
   <div class="net-error-banner">
-    <div class="net-error-text">Connection interrupted -- 2 of 3 matches received</div>
+    <div class="net-error-text">Connection interrupted -- 2 of 3 games received</div>
     <button class="btn-retry" onclick="setState('analyzing')">Retry</button>
   </div>
 
   <div class="stream-section">
-    <div class="stream-label">Matches received</div>
+    <div class="stream-label">Games received</div>
 
     <div class="stream-card">
       <div class="stream-teams-row">
@@ -457,7 +438,7 @@
       </div>
     </div>
 
-    <!-- Skeleton for failed match -->
+    <!-- Skeleton for failed game -->
     <div class="stream-card pending">
       <div class="stream-teams-row">
         <div class="stream-team"><div class="stream-skeleton w60"></div></div>
@@ -468,8 +449,8 @@
   </div>
 
   <div class="net-error-row" style="padding: 8px 16px; text-align: center;">
-    <button class="btn-continue-partial" onclick="setState('results')" style="display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 8px;">Continue with 2 matches</button>
-    <div style="font-size: 13px; color: #888; line-height: 1.5;">Or tap Retry to resume extracting matches.</div>
+    <button class="btn-continue-partial" onclick="setState('results')">Continue with 2 games</button>
+    <div style="font-size: 13px; color: #666; line-height: 1.5;">Or tap Retry to resume extracting games.</div>
   </div>
 </div>
 
@@ -477,7 +458,7 @@
 <!-- ══ STATE 3: Results Review ══ -->
 <div class="state" id="state-results">
   <div class="results-header">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
 
@@ -510,10 +491,10 @@
     </div>
   </div>
 
-  <!-- Match 1: all players recognized -->
+  <!-- Game 1: all players recognized -->
   <div class="result-card">
     <div class="result-card-header">
-      <div class="result-match-label">Match 1</div>
+      <div class="result-match-label">Game 1</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -529,10 +510,10 @@
     </div>
   </div>
 
-  <!-- Match 2: "Alex T" unrecognized -->
+  <!-- Game 2: "Alex T" unrecognized -->
   <div class="result-card has-unmatched">
     <div class="result-card-header">
-      <div class="result-match-label">Match 2</div>
+      <div class="result-match-label">Game 2</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -548,10 +529,10 @@
     </div>
   </div>
 
-  <!-- Match 3: "Dan P" unrecognized, score unclear -->
+  <!-- Game 3: "Dan P" unrecognized, score unclear -->
   <div class="result-card has-unmatched">
     <div class="result-card-header">
-      <div class="result-match-label">Match 3</div>
+      <div class="result-match-label">Game 3</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -586,7 +567,7 @@
         <span class="option-label">Ranked</span>
         <div>
           <span class="ranked-status">Locked <span class="ranked-info-icon" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('visible')">i</span></span>
-          <div class="ranked-info-tooltip">Matches become ranked when all players claim their profiles.</div>
+          <div class="ranked-info-tooltip">Games become ranked when all players claim their profiles.</div>
         </div>
       </div>
     </div>
@@ -596,7 +577,7 @@
   <div class="edit-clarify-section">
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
-      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Match 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
       <button class="edit-clarify-send">&#9654;</button>
     </div>
   </div>
@@ -613,7 +594,7 @@
 <!-- ══ STATE 3b: Results Review -- Pickup Variant ══ -->
 <div class="state" id="state-results-pickup">
   <div class="results-header">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
 
@@ -656,10 +637,10 @@
     </div>
   </div>
 
-  <!-- Match 1 -->
+  <!-- Game 1 -->
   <div class="result-card">
     <div class="result-card-header">
-      <div class="result-match-label">Match 1</div>
+      <div class="result-match-label">Game 1</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -675,10 +656,10 @@
     </div>
   </div>
 
-  <!-- Match 2: "Alex T" unrecognized -->
+  <!-- Game 2: "Alex T" unrecognized -->
   <div class="result-card has-unmatched">
     <div class="result-card-header">
-      <div class="result-match-label">Match 2</div>
+      <div class="result-match-label">Game 2</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -694,10 +675,10 @@
     </div>
   </div>
 
-  <!-- Match 3 -->
+  <!-- Game 3 -->
   <div class="result-card has-unmatched">
     <div class="result-card-header">
-      <div class="result-match-label">Match 3</div>
+      <div class="result-match-label">Game 3</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -715,13 +696,13 @@
 
   <!-- No options for pickup — date, ranked, and season are session-level settings -->
   <!-- Pending status note (informational — ranked is inherited from session) -->
-  <div class="ranked-lock-note" style="margin: 12px 16px 8px; font-size: 11px; color: #888; font-style: italic;">2 matches will be pending until all players claim their profiles.</div>
+  <div class="ranked-lock-note" style="margin: 12px 16px 8px; font-size: 11px; color: #666; font-style: italic;">2 games will be pending until all players claim their profiles.</div>
 
   <!-- Edit or Clarify input -->
   <div class="edit-clarify-section">
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
-      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Match 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
       <button class="edit-clarify-send">&#9654;</button>
     </div>
   </div>
@@ -737,7 +718,7 @@
 <!-- ══ STATE 3c: Results Review -- Partially Resolved ══ -->
 <div class="state" id="state-results-partial">
   <div class="results-header">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
 
@@ -770,10 +751,10 @@
     </div>
   </div>
 
-  <!-- Match 1: all resolved -->
+  <!-- Game 1: all resolved -->
   <div class="result-card">
     <div class="result-card-header">
-      <div class="result-match-label">Match 1</div>
+      <div class="result-match-label">Game 1</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -789,10 +770,10 @@
     </div>
   </div>
 
-  <!-- Match 2: Alex T resolved to "Alex Thompson" -->
+  <!-- Game 2: Alex T resolved to "Alex Thompson" -->
   <div class="result-card">
     <div class="result-card-header">
-      <div class="result-match-label">Match 2</div>
+      <div class="result-match-label">Game 2</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -808,10 +789,10 @@
     </div>
   </div>
 
-  <!-- Match 3: Dan P still unrecognized -->
+  <!-- Game 3: Dan P still unrecognized -->
   <div class="result-card has-unmatched">
     <div class="result-card-header">
-      <div class="result-match-label">Match 3</div>
+      <div class="result-match-label">Game 3</div>
       <button class="result-edit-btn" onclick="setState('edit-match')">Edit</button>
     </div>
     <div class="result-teams">
@@ -841,7 +822,7 @@
     </div>
   </div>
   <!-- Pending status note (informational — ranked is inherited from session) -->
-  <div class="ranked-lock-note" style="margin: 0 16px 8px; font-size: 11px; color: #888; font-style: italic;">1 match will be pending until Dan P claims their profile.</div>
+  <div class="ranked-lock-note" style="margin: 0 16px 8px; font-size: 11px; color: #666; font-style: italic;">1 game will be pending until Dan P claims their profile.</div>
 
   <!-- Conversation history showing prior exchange -->
   <div class="conversation-section">
@@ -859,7 +840,7 @@
   <div class="edit-clarify-section">
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
-      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Match 3 was 19-21' or 'DP is Dan Peterson'"></textarea>
+      <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'DP is Dan Peterson'"></textarea>
       <button class="edit-clarify-send">&#9654;</button>
     </div>
   </div>
@@ -876,7 +857,7 @@
 <div class="state" id="state-resolve">
   <!-- Results page visible behind -->
   <div class="results-header" style="opacity: 0.3;">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
   <div class="unrecognized-section" style="opacity: 0.3;">
@@ -945,7 +926,7 @@
 <!-- ══ STATE 4b: Resolve Player -- Pickup variant (hidden, no pill) ══ -->
 <div class="state" id="state-resolve-pickup">
   <div class="results-header" style="opacity: 0.3;">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
   <div class="unrecognized-section" style="opacity: 0.3;">
@@ -1003,7 +984,7 @@
 <!-- ══ STATE 5: Create Placeholder Player (bottom sheet) ══ -->
 <div class="state" id="state-create">
   <div class="results-header" style="opacity: 0.3;">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
   </div>
 
   <div class="sheet-overlay"></div>
@@ -1014,9 +995,15 @@
       <button class="sheet-close" onclick="setState('resolve')">&times;</button>
     </div>
     <div class="sheet-body">
-      <div class="create-field">
-        <div class="create-label">Name</div>
-        <input class="create-input" type="text" placeholder="First and last name" value="Alex T" />
+      <div class="create-field-row">
+        <div class="create-field">
+          <div class="create-label">First Name</div>
+          <input class="create-input" type="text" placeholder="First" value="Alex" />
+        </div>
+        <div class="create-field">
+          <div class="create-label">Last Name</div>
+          <input class="create-input" type="text" placeholder="Last" value="T" />
+        </div>
       </div>
 
       <div class="create-field">
@@ -1039,7 +1026,7 @@
         </select>
       </div>
 
-      <div class="create-hint">An invite link will be generated so Alex T can claim their profile and matches.</div>
+      <div class="create-hint">An invite link will be generated so Alex T can claim their profile and games.</div>
 
       <button class="btn-create-confirm" onclick="setState('invite')">Create Player</button>
     </div>
@@ -1050,7 +1037,7 @@
 <!-- ══ STATE 6: Share Invite Link (bottom sheet, post-creation) ══ -->
 <div class="state" id="state-invite">
   <div class="results-header" style="opacity: 0.3;">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
   </div>
 
   <div class="sheet-overlay"></div>
@@ -1064,14 +1051,14 @@
       <div class="invite-created">
         <div class="invite-check">&#10003;</div>
         <div class="invite-name">Alex T added</div>
-        <div class="invite-desc">Share this link so Alex T can claim their profile and have their matches count toward rankings.</div>
+        <div class="invite-desc">Share this link so Alex T can claim their profile and have their games count toward rankings.</div>
         <div class="invite-link-box">
-          <div class="invite-link-url" style="text-overflow: clip; overflow: visible;">beachleague.com/invite/a8f3k2m9</div>
+          <div class="invite-link-url">beachleague.com/invite/a8f3k2m9</div>
           <button class="invite-link-copy">Copy</button>
         </div>
         <!-- Primary action: resolve next -->
-        <button class="btn-skip-invite" onclick="setState('results')" style="background: #d4a843; color: #fff; border: none; font-weight: 700;">Done -- Resolve Next (1 remaining)</button>
-        <button class="btn-share-invite" style="background: transparent; color: #2a7d9c; border: 1.5px solid #2a7d9c;">&#9993; Share Invite Link</button>
+        <button class="btn-skip-invite" onclick="setState('results')">Done -- Resolve Next (1 remaining)</button>
+        <button class="btn-share-invite">&#9993; Share Invite Link</button>
         <!-- When no more unresolved: <button class="btn-skip-invite" onclick="setState('results')">Done -- Back to Review</button> -->
       </div>
     </div>
@@ -1083,22 +1070,22 @@
 <div class="state" id="state-confirmed">
   <div class="success-area">
     <div class="success-icon">&#10003;</div>
-    <div class="success-title">Matches Saved!</div>
-    <div class="success-desc">3 matches added to your session.</div>
+    <div class="success-title">Games Saved!</div>
+    <div class="success-desc">3 games added to your session.</div>
 
     <div class="success-summary">
       <div class="summary-row">
-        <span class="summary-label">Matches added</span>
+        <span class="summary-label">Games added</span>
         <span class="summary-value">3</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Ranked matches</span>
+        <span class="summary-label">Ranked games</span>
         <span class="summary-value">1 of 3</span>
       </div>
-      <div style="font-size: 12px; color: #888; padding: 0 4px 4px; line-height: 1.4;">2 matches include unregistered players -- they'll count once claimed</div>
+      <div style="font-size: 12px; color: #666; padding: 0 4px 4px; line-height: 1.4;">2 games include unregistered players -- they'll count once claimed</div>
       <div class="summary-row">
         <span class="summary-label">Session total</span>
-        <span class="summary-value">6 matches</span>
+        <span class="summary-value">6 games</span>
       </div>
       <div class="summary-row">
         <span class="summary-label">Your record</span>
@@ -1109,7 +1096,7 @@
     <!-- Pending invites: placeholder players that need to claim profiles -->
     <div class="pending-invites">
       <div class="pending-invites-title">2 Players Need to Claim Profiles</div>
-      <div class="pending-invites-desc">These matches will become ranked once they sign up. Share their invite links:</div>
+      <div class="pending-invites-desc">These games will become ranked once they sign up. Share their invite links:</div>
       <div class="pending-invite-row">
         <div class="pending-invite-avatar">AT</div>
         <div class="pending-invite-name">Alex T</div>
@@ -1120,7 +1107,7 @@
         <div class="pending-invite-name">Dan P</div>
         <button class="pending-invite-share">&#9993; Share</button>
       </div>
-      <div class="home-tab-note" style="font-style: normal; font-size: 13px; font-weight: 400; background: #f0f4f8; padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+      <div class="home-tab-note">
         <span style="font-size: 14px;">&#9432;</span> You can also share invite links later from your Home tab.
       </div>
     </div>
@@ -1146,7 +1133,7 @@
     <div class="error-title">Couldn't Read This Scoreboard</div>
     <div class="error-desc">The photo may be too blurry, dark, or cropped. Try retaking with better lighting and make sure the full scoreboard is visible.</div>
     <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
-    <button class="btn-choose-different" style="display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #dc2626; background: transparent; color: #dc2626; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; min-height: 48px; box-sizing: border-box;">Choose Different Photo</button>
+    <button class="btn-choose-different">Choose Different Photo</button>
   </div>
 
   <!-- Edit or Clarify -- user can describe what they see -->
@@ -1162,7 +1149,7 @@
 </div>
 
 
-<!-- ══ ERR: No Matches Found ══ -->
+<!-- ══ ERR: No Games Found ══ -->
 <div class="state" id="state-err-no-matches">
   <div class="photo-preview">
     <div class="photo-placeholder">
@@ -1173,10 +1160,10 @@
 
   <div class="error-section">
     <div class="error-icon">&#128270;</div>
-    <div class="error-title">No Matches Found</div>
-    <div class="error-desc">I couldn't find any match scores in this photo. This can happen with non-standard scoreboards or partial views.</div>
+    <div class="error-title">No Games Found</div>
+    <div class="error-desc">I couldn't find any game scores in this photo. This can happen with non-standard scoreboards or partial views.</div>
     <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
-    <button class="btn-choose-different" style="display: block; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #dc2626; background: transparent; color: #dc2626; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; min-height: 48px; box-sizing: border-box;">Choose Different Photo</button>
+    <button class="btn-choose-different">Choose Different Photo</button>
   </div>
 
   <!-- Edit or Clarify -- user can type what they see -->
@@ -1192,16 +1179,16 @@
 </div>
 
 
-<!-- ══ HIDDEN: Edit Match Bottom Sheet ══ -->
+<!-- ══ HIDDEN: Edit Game Bottom Sheet ══ -->
 <div class="state" id="state-edit-match">
   <!-- Dimmed results behind -->
   <div class="results-header" style="opacity: 0.3;">
-    <div class="results-title">3 Matches Found</div>
+    <div class="results-title">3 Games Found</div>
     <div class="results-sub">Review and correct before saving</div>
   </div>
   <div style="opacity: 0.3; padding: 0 16px;">
     <div class="result-card" style="margin: 8px 0;">
-      <div class="result-match-label">Match 1</div>
+      <div class="result-match-label">Game 1</div>
       <div style="height: 20px; background: #f0f0f0; border-radius: 4px;"></div>
     </div>
   </div>
@@ -1210,25 +1197,25 @@
   <div class="bottom-sheet" style="position: relative; margin-top: 20px;">
     <div class="sheet-handle"></div>
     <div class="sheet-header">
-      <div class="sheet-title">Edit Match 2</div>
+      <div class="sheet-title">Edit Game 2</div>
       <button class="sheet-close" onclick="setState('results')">&times;</button>
     </div>
     <div class="sheet-body">
       <!-- Player grid: 2x2 -->
-      <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 1</div>
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 1</div>
       <div class="edit-players-grid">
         <div class="edit-player-slot team1" style="cursor: default;">Pat S</div>
         <div class="edit-player-slot team1" style="cursor: default;">Mike B</div>
       </div>
 
-      <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 2</div>
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 2</div>
       <div class="edit-players-grid">
         <div class="edit-player-slot team2" style="cursor: default;">Karim F</div>
         <div class="edit-player-slot unresolved" onclick="setState('resolve')">Alex T &#9888;</div>
       </div>
 
       <!-- Score inputs -->
-      <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; margin-top: 8px;">Score</div>
+      <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; margin-top: 8px;">Score</div>
       <div class="edit-score-row">
         <input class="score-big-input" inputmode="numeric" pattern="[0-9]*" value="21" />
         <div class="score-vs">&ndash;</div>
@@ -1241,7 +1228,7 @@
         <button class="btn-save" onclick="setState('results')">Save Changes</button>
       </div>
 
-      <button class="btn-delete-match">Remove This Match</button>
+      <button class="btn-delete-match">Remove This Game</button>
     </div>
   </div>
 </div>
