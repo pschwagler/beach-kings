@@ -68,7 +68,7 @@
   .court-pill { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; background: #f0f0f0; color: #555; display: flex; align-items: center; gap: 4px; }
   .court-pill.court-pill-primary { background: #e8f4f8; color: #2a7d9c; }
   .court-pill .pill-star { color: #d4a843; font-size: 11px; }
-  .court-pill .pill-remove { color: #999; font-size: 13px; font-weight: 700; cursor: pointer; margin-left: 2px; }
+  .court-pill .pill-remove { color: #999; font-size: 13px; font-weight: 700; cursor: pointer; margin-left: 2px; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .court-pill .pill-remove:hover { color: #ef4444; }
   .court-add-btn { font-size: 12px; color: #2a7d9c; background: none; border: 1.5px dashed #2a7d9c; border-radius: 6px; padding: 3px 10px; cursor: pointer; min-width: 44px; min-height: 44px; }
 
@@ -172,7 +172,7 @@
     <span class="badge active">Season Active</span>
     <span class="badge rank">#1 Ranked</span>
     <span class="header-access-badge open visitor-open-only">Open</span>
-    <span class="header-access-badge invite visitor-invite-only">&#128274; Invite Only</span>
+    <span class="header-access-badge invite visitor-invite-only"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Invite Only</span>
   </div>
 </div>
 
@@ -194,7 +194,7 @@
 
   <!-- Visitor: Invite Only messaging -->
   <div class="visitor-action visitor-invite-only" style="margin-top: 12px;">
-    <div class="btn-invite-only">&#128274; Invite Only</div>
+    <div class="btn-invite-only"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Invite Only</div>
     <div class="action-hint">This league is invite only. Ask a member or admin for an invite.</div>
   </div>
 
@@ -206,7 +206,7 @@
     <div class="description">
       Competitive morning league at QBK Sports in Queens. Open level players welcome. Games to 21, win by 2, cap at 25. Random partner pairings each session. Rating-based seeding for balanced matchups.
     </div>
-    <button class="edit-icon admin-only" style="position: absolute; top: 12px; right: 12px;" title="Edit description">&#9998;</button>
+    <button class="edit-icon admin-only" style="position: absolute; top: 12px; right: 12px;" title="Edit description"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
   </div>
 
   <!-- Join Requests: admin only -->
@@ -221,7 +221,7 @@
         <div class="request-meta">Requested 2 hours ago</div>
       </div>
       <div class="request-actions">
-        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-approve" title="Approve"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button>
         <button class="btn-deny" title="Deny">&times;</button>
       </div>
     </div>
@@ -232,7 +232,7 @@
         <div class="request-meta">Requested 1 day ago</div>
       </div>
       <div class="request-actions">
-        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-approve" title="Approve"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button>
         <button class="btn-deny" title="Deny">&times;</button>
       </div>
     </div>
@@ -243,7 +243,7 @@
         <div class="request-meta">Requested 3 days ago</div>
       </div>
       <div class="request-actions">
-        <button class="btn-approve" title="Approve">&#10003;</button>
+        <button class="btn-approve" title="Approve"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button>
         <button class="btn-deny" title="Deny">&times;</button>
       </div>
     </div>
@@ -329,12 +329,12 @@
   <!-- Seasons: matches web SeasonsSection -->
   <div class="details-header" style="margin-top: 16px;">
     <div class="section-title" style="margin-top: 0;">Seasons</div>
-    <button class="add-link admin-only">+ New Season</button>
+    <button class="add-link admin-only" onclick="alert('Create season flow')">+ New Season</button>
   </div>
   <div class="info-card">
     <div class="season-row">
       <div class="season-info">
-        <div class="season-name">Spring 2026 <button class="season-edit admin-only" title="Edit season">&#9998;</button></div>
+        <div class="season-name">Spring 2026 <button class="season-edit admin-only" title="Edit season"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div>
         <div class="season-dates">Jan 15, 2026 - Jun 30, 2026</div>
         <div class="season-scoring">Season Rating</div>
       </div>
@@ -342,7 +342,7 @@
     </div>
     <div class="season-row" style="border-bottom: none;">
       <div class="season-info">
-        <div class="season-name">Fall 2025 <button class="season-edit admin-only" title="Edit season">&#9998;</button></div>
+        <div class="season-name">Fall 2025 <button class="season-edit admin-only" title="Edit season"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div>
         <div class="season-dates">Sep 1, 2025 - Dec 31, 2025</div>
         <div class="season-scoring">Points System (3/1)</div>
       </div>
@@ -375,12 +375,12 @@
       <div class="info-value">
         <!-- Member view: plain pills -->
         <div class="court-pills member-only">
-          <span class="court-pill court-pill-primary"><span class="pill-star">&#9733;</span> QBK Sports</span>
+          <span class="court-pill court-pill-primary"><span class="pill-star"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span> QBK Sports</span>
           <span class="court-pill">Prospect Park</span>
         </div>
         <!-- Admin view: pills with remove + add button -->
         <div class="court-pills admin-only" style="flex-wrap: wrap;">
-          <span class="court-pill court-pill-primary"><span class="pill-star">&#9733;</span> QBK Sports <span class="pill-remove">&times;</span></span>
+          <span class="court-pill court-pill-primary"><span class="pill-star"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span> QBK Sports <span class="pill-remove">&times;</span></span>
           <span class="court-pill">Prospect Park <span class="pill-remove">&times;</span></span>
           <button class="court-add-btn">+ Add Court</button>
         </div>
@@ -398,7 +398,7 @@
 <!-- Leave League Modal -->
 <div class="modal-overlay" id="leave-modal" style="display:none;">
   <div class="modal-box">
-    <div class="modal-icon">&#128682;</div>
+    <div class="modal-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
     <div class="modal-title">Leave League?</div>
     <div class="modal-desc">You will be removed from this league and lose access to its games and standings.</div>
     <div class="modal-actions">
@@ -411,7 +411,7 @@
 <!-- Remove Player Modal -->
 <div class="modal-overlay" id="remove-player-modal" style="display:none;">
   <div class="modal-box">
-    <div class="modal-icon">&#128465;</div>
+    <div class="modal-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div>
     <div class="modal-title">Remove Player?</div>
     <div class="modal-desc">This player will be removed from the league and lose access to its games and standings.</div>
     <div class="modal-actions">
@@ -438,27 +438,28 @@ function setView(view, el) {
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127968;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
     <div class="tab-label">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon active">&#127942;</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label active">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">&#10133;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

@@ -1,42 +1,75 @@
-import { Stack } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider } from 'tamagui';
-import config from '../tamagui.config';
-import { AuthProvider } from '../src/contexts/AuthContext';
-import { AppProvider } from '../src/contexts/AppContext';
-import { ModalProvider } from '../src/contexts/ModalContext';
-import { DrawerProvider } from '../src/contexts/DrawerContext';
-import { AuthModalProvider } from '../src/contexts/AuthModalContext';
+import '../global.css';
 
-export default function RootLayout() {
+import React, { useEffect, useState, useCallback } from 'react';
+import { Slot, SplashScreen } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import * as Font from 'expo-font';
+import AuthProvider from '@/contexts/AuthContext';
+import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
+import NotificationProvider from '@/contexts/NotificationContext';
+import ToastProvider from '@/contexts/ToastContext';
+import ErrorBoundary from '@/lib/ErrorBoundary';
+
+// Prevent splash screen from auto-hiding until fonts + auth are ready
+SplashScreen.preventAutoHideAsync();
+
+/**
+ * Inner layout that consumes ThemeContext for dynamic StatusBar.
+ * Must be a child of ThemeProvider to call useTheme().
+ */
+function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.ReactNode {
+  const { isDark } = useTheme();
+
+  useEffect(() => {
+    onReady();
+  }, [onReady]);
+
   return (
-    <TamaguiProvider config={config} defaultTheme="light">
-      <SafeAreaProvider>
-        <AuthProvider>
-          <AppProvider>
-            <AuthModalProvider>
-              <ModalProvider>
-                <DrawerProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                    }}
-                  >
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="login" />
-                    <Stack.Screen name="signup" />
-                    <Stack.Screen name="reset-password" />
-                    <Stack.Screen name="league/[id]" />
-                    <Stack.Screen name="find-players" />
-                    <Stack.Screen name="admin-view" />
-                  </Stack>
-                </DrawerProvider>
-              </ModalProvider>
-            </AuthModalProvider>
-          </AppProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </TamaguiProvider>
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Slot />
+    </>
+  );
+}
+
+export default function RootLayout(): React.ReactNode {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadFonts() {
+      try {
+        // Load custom fonts here when added to assets/fonts/
+        await Font.loadAsync({});
+      } catch {
+        // Font loading failed — continue with system fonts
+      } finally {
+        setFontsLoaded(true);
+      }
+    }
+    loadFonts();
+  }, []);
+
+  const handleReady = useCallback(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              <RootLayoutInner onReady={handleReady} />
+            </ErrorBoundary>
+          </ToastProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

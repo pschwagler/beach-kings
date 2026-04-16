@@ -41,7 +41,7 @@
   .inherit-callout-body { display: flex; align-items: center; gap: 12px; }
   .inherit-rating-badge { background: #d4a843; border-radius: 10px; padding: 10px 16px; text-align: center; flex-shrink: 0; }
   .inherit-rating-value { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; }
-  .inherit-rating-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .inherit-rating-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
   .inherit-details { flex: 1; }
   .inherit-headline { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; margin-bottom: 4px; }
   .inherit-sub { font-size: 12px; color: #7fb3c8; line-height: 1.4; }
@@ -146,11 +146,11 @@
   </div>
 
   <div class="welcome-header">
-    <div class="welcome-icon">&#127952;</div>
+    <div class="welcome-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg></div>
     <div class="welcome-title">Welcome to Beach League!</div>
     <div class="welcome-sub">Someone recorded games with you. Claim them to start tracking your stats.</div>
     <div class="welcome-league">
-      <span class="league-icon">&#127942;</span>
+      <span class="league-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></span>
       <span class="league-name">QBK Open Men - Mornings</span>
     </div>
   </div>
@@ -165,7 +165,7 @@
     <!-- Inherited stats preview callout -->
     <div class="inherit-callout">
       <div class="inherit-callout-header">
-        <span class="inherit-callout-icon">&#127942;</span>
+        <span class="inherit-callout-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></span>
         <span class="inherit-callout-label">What you'll inherit</span>
       </div>
       <div class="inherit-callout-body">
@@ -238,7 +238,7 @@
 
     <div class="claim-actions">
       <button class="btn-primary" onclick="setState('processing', null); setTimeout(function(){ setState('success', null); }, 1800)">Claim My Games</button>
-      <button class="btn-secondary">Not me, skip</button>
+      <button class="btn-secondary" onclick="window.location.href='welcome.html'">Not me, skip</button>
     </div>
 
   </div>
@@ -265,11 +265,11 @@
 
     <div class="processing-steps">
       <div class="processing-step">
-        <div class="step-dot done">&#10003;</div>
+        <div class="step-dot done"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
         <span class="step-label">Token verified</span>
       </div>
       <div class="processing-step">
-        <div class="step-dot done">&#10003;</div>
+        <div class="step-dot done"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
         <span class="step-label">Placeholder profile found</span>
       </div>
       <div class="processing-step">
@@ -303,7 +303,7 @@
 
   <div class="success-area">
 
-    <div class="success-icon-wrap">&#10003;</div>
+    <div class="success-icon-wrap"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
 
     <div class="success-badge">
       <div class="success-badge-dot"></div>
@@ -343,7 +343,7 @@
     </div>
 
     <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go to Dashboard</button>
-    <button class="btn-outline" style="width: 100%;">View My Stats</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='my-stats.html'">View My Stats</button>
 
   </div>
 
@@ -377,7 +377,7 @@
     </div>
 
     <button class="btn-dark" style="width: 100%;" onclick="window.location.href='home.html'">Go Home</button>
-    <button class="btn-outline" style="width: 100%;">Contact League Admin</button>
+    <button class="btn-outline" style="width: 100%;" onclick="window.location.href='message-thread.html'">Contact League Admin</button>
 
     <p class="error-tip">Joined the league through a different link? Log in to your existing account to see your games.</p>
 
@@ -398,5 +398,6 @@ function setState(state, pill) {
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

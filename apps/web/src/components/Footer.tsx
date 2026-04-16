@@ -23,7 +23,7 @@ export default function Footer() {
             <Link 
               href="/terms-of-service" 
               className="footer-link"
-              onClick={(e) => handleNavigation(e, '/terms-of-service')}
+              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, '/terms-of-service')}
             >
               Terms of Service
             </Link>
@@ -31,7 +31,7 @@ export default function Footer() {
             <Link 
               href="/privacy-policy" 
               className="footer-link"
-              onClick={(e) => handleNavigation(e, '/privacy-policy')}
+              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, '/privacy-policy')}
             >
               Privacy Policy
             </Link>
@@ -39,7 +39,7 @@ export default function Footer() {
             <Link 
               href="/contribute" 
               className="footer-link"
-              onClick={(e) => handleNavigation(e, '/contribute')}
+              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, '/contribute')}
             >
               Contribute
             </Link>

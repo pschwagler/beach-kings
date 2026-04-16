@@ -10,7 +10,7 @@
 }
 
 .placeholder-create-modal {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   max-width: 340px;
   width: 90%;
@@ -48,7 +48,7 @@
 .placeholder-create-modal__name {
   width: 100%;
   padding: 8px 12px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   font-size: 15px;
@@ -77,7 +77,7 @@
   border-radius: 8px;
   font-size: 14px;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   outline: none;
   cursor: pointer;
 }
@@ -133,7 +133,7 @@
   padding: 8px 16px;
   border: 1px solid var(--gray-300);
   border-radius: 8px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
   font-size: 14px;
   font-weight: 500;

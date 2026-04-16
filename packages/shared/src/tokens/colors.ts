@@ -1,107 +1,98 @@
 /**
  * Unified Color Tokens
- * Extracted from web App.css :root variables
- * Serves as single source of truth for colors across mobile and web
+ * Source of truth: mobile-audit/wireframes/design-tokens.css
+ * Both light and dark palettes defined here.
  */
 
 export const colors = {
-  // Primary palette
-  primary: '#2c7a8f',
-  primaryLight: '#5faec0',
-  primaryLighter: '#bfe1e7',
-  primaryDark: '#205e6f',
-  primaryDarker: '#183f4a',
+  // Brand
+  primary: '#1a3a4a',
+  primaryLight: '#2a5a6a',
+  accent: '#d4a843',
+  accentLight: '#e8c96a',
 
-  // Sunset/Coral palette
-  mutedRed: '#ff7849',
-  sunsetDark: '#e76a41',
-  sunsetLight: '#ff9673',
-  coral: '#ff9a76',
-  coralLight: '#ffc7b3',
-  coralDark: '#e08361',
-  
-  // Sand/Warm palette
-  sand: '#f4e4c1',
-  sandLight: '#faf0d8',
-  sandDark: '#d6c19c',
-  warmBrown: '#8b6f47',
-  warmBrownLight: '#b89a6d',
-  warmBrownDark: '#6b5334',
+  // Semantic
+  success: '#34a853',
+  danger: '#dc3545',
+  warning: '#f0ad4e',
+  info: '#3b82f6',
 
-  // Ocean/Seafoam palette
-  deepOcean: '#2c7a8f',
-  seafoam: '#8ed4c6',
-  seafoamLight: '#c9eee6',
-  seafoamDark: '#5fa79b',
-  oceanGray: '#9aa7a9',
-  oceanGrayLight: '#c4cfd1',
-  oceanGrayDark: '#6f7b7d',
-  oceanGrayDarker: '#3d4445',
+  // Semantic tinted backgrounds (light mode chips, badges, highlight rows)
+  tealTint: '#e8f4f8',
+  goldTint: '#fdf8ed',
+  successTint: '#dcfce7',
+  dangerTint: '#fee2e2',
+  warningTint: '#fef3c7',
+  infoTint: '#dbeafe',
 
-  // Gold palette
-  sunGold: '#ffd78a',
-  sunGoldLight: '#ffebc2',
-  sunGoldDark: '#e7b662',
-  goldText: '#ecd36f',
-  goldDark: '#b68b34',
-  goldGradient: 'linear-gradient(90deg, #c9a652 0%, #ecd36f 50%, #b68b34 100%)',
+  // Neutrals
+  textPrimary: '#1a1a1a',
+  textSecondary: '#666666',
+  textTertiary: '#999999',
+  textInverse: '#ffffff',
 
-  // Dusk/Purple palette
-  duskPurple: '#4c3a4d',
-  duskPurpleLight: '#7a6780',
-  duskPurpleDark: '#342735',
+  // Disabled state
+  disabledBg: '#e8e8e8',
+  disabledText: '#aaaaaa',
 
-  // Navy
-  navyLogoBg: '#0f172a',
+  // Backgrounds
+  bgPrimary: '#f5f5f5',
+  bgSurface: '#ffffff',
+  bgNav: '#1a3a4a',
 
-  // Gray scale
+  // Borders
+  border: '#e0e0e0',
+
+  // Gray scale (full)
   gray50: '#fafafa',
   gray100: '#f5f5f5',
   gray200: '#eeeeee',
   gray300: '#e0e0e0',
+  gray400: '#bdbdbd',
+  gray500: '#9e9e9e',
   gray600: '#757575',
   gray700: '#616161',
+  gray800: '#424242',
   gray900: '#212121',
 
-  // Functional colors
-  success: '#10b981',
-  successDark: '#059669',
-  successLight: '#e8fbf0',
-  danger: '#ef4444',
-  dangerLight: '#ffeceb',
+  // Pure
+  white: '#ffffff',
+  black: '#000000',
+  transparent: 'transparent',
+} as const;
 
-  // Legacy mobile app color mappings (for backward compatibility)
-  // These map to the above unified tokens
-  sunsetOrange: '#ff6b35', // Maps to sunsetDark but keeping original for now
-  oceanBlue: '#4a90a4',
-  deepBlue: '#2c5f7a',
-  lightBlue: '#7fb3c3',
-  cream: '#faf8f3',
-  darkSand: '#e8d4a8',
+export const darkColors = {
+  // Backgrounds (three-tier surface hierarchy)
+  bgBase: '#0d1117',
+  bgSurface: '#161b22',
+  bgElevated: '#1c2128',
+  bgInset: '#0d1117',
+  bgNav: '#010409',
+  bgTabbar: '#0d1117',
 
-  // Text colors
-  textPrimary: '#333333',
-  textSecondary: '#757575',
-  textLight: '#e0e0e0',
-  textWhite: '#ffffff',
+  // Text
+  textPrimary: '#e6edf3',
+  textSecondary: '#8b949e',
+  textTertiary: '#656d76',
 
-  // Status colors (legacy)
-  error: '#f44336',
-  warning: '#ff9800',
-  info: '#2196f3',
+  // Brand (adjusted for dark backgrounds)
+  brandTeal: '#4daacc',
+  brandGold: '#e0b44c',
 
-  // Background colors
-  background: '#ffffff',
-  backgroundLight: '#fdfdfd',
-  backgroundDark: '#fafafa',
+  // Borders
+  border: '#30363d',
+  borderSubtle: '#21262d',
 
-  // Border colors
-  border: '#eeeeee',
-  borderLight: '#f5f5f5',
-
-  // Shadow
-  shadow: 'rgba(0, 0, 0, 0.1)',
+  // Semantic (background + text pairs)
+  successBg: '#0d2818',
+  successText: '#3fb950',
+  dangerBg: '#2a1215',
+  dangerText: '#f85149',
+  warningBg: '#2a1f05',
+  warningText: '#d29922',
+  infoBg: '#0d1d35',
+  infoText: '#58a6ff',
 } as const;
 
 export type ColorName = keyof typeof colors;
-
+export type DarkColorName = keyof typeof darkColors;

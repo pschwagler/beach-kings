@@ -85,6 +85,42 @@
 }
 
 /*
+ * ── Dark Theme Palette ─────────────────────────────────────────
+ *
+ * Applied via body.dark-theme class. Full implementation in dark-theme.css.
+ * These values document the canonical dark palette for the real mobile app.
+ *
+ * Design: true dark with subtle blue undertone (not pure black).
+ * Three-tier surface hierarchy creates depth through luminance.
+ * Gold accent becomes the hero; teal lightens for readability.
+ *
+ *   --dark-bg-base:        #0d1117   Page background
+ *   --dark-bg-surface:     #161b22   Cards, panels
+ *   --dark-bg-elevated:    #1c2128   Modals, sheets
+ *   --dark-bg-inset:       #0d1117   Input fields (matches base)
+ *   --dark-bg-nav:         #010409   Status bar, top nav (deepest)
+ *   --dark-bg-tabbar:      #0d1117   Bottom tab bar
+ *
+ *   --dark-text-primary:   #e6edf3   Body text (~87% white)
+ *   --dark-text-secondary: #8b949e   Meta, subtitles (AA: 4.8:1)
+ *   --dark-text-tertiary:  #656d76   Placeholders only
+ *
+ *   --dark-brand-teal:     #4daacc   Links, active icons
+ *   --dark-brand-gold:     #e0b44c   Accent, CTAs, crown
+ *
+ *   --dark-border:         #30363d   Standard borders
+ *   --dark-border-subtle:  #21262d   Dividers
+ *
+ *   --dark-success-bg:     #0d2818   --dark-success-text: #3fb950
+ *   --dark-danger-bg:      #2a1215   --dark-danger-text:  #f85149
+ *   --dark-warning-bg:     #2a1f05   --dark-warning-text: #d29922
+ *   --dark-info-bg:        #0d1d35   --dark-info-text:    #58a6ff
+ *
+ *   --dark-shadow-card:    0 1px 3px rgba(0,0,0,0.3)
+ *   --dark-shadow-elevated:0 8px 24px rgba(0,0,0,0.5)
+ */
+
+/*
  * USAGE NOTES
  * -----------
  * 1. Secondary text: use --color-text-secondary (#666) not #888.
@@ -105,5 +141,5 @@
  * 5. Inline metadata separators: use middle dot ( · ) not double dash ( -- ).
  *    Example: "Mar 19 · QBK Open Men" not "Mar 19 -- QBK Open Men"
  *
- * 6. Crown/King icon: use 👑 (U+1F451) not ♛ (U+265B chess queen).
+ * 6. Crown/King icon: use inline SVG crown, not emoji or Unicode chess queen.
  */

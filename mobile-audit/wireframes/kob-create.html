@@ -8,21 +8,20 @@
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 <style>
 
-
-
-
-  .content { padding: 20px 16px 40px; }
+  .content { padding: 20px 16px 120px; }
 
   .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; margin-top: 24px; }
   .section-title:first-child { margin-top: 0; }
+  .section-subtitle { font-size: 12px; color: #666; font-weight: 400; margin-left: 4px; }
 
   /* Form */
   .form-group { margin-bottom: 16px; }
-  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .form-label-hint { font-size: 11px; color: #999; font-weight: 400; }
   .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; }
   .form-input::placeholder { color: #bbb; }
   .form-select { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; appearance: none; }
-  .form-hint { font-size: 11px; color: #666; margin-top: 4px; }
+  .form-hint { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.4; }
 
   /* Stepper */
   .stepper { display: flex; align-items: center; gap: 0; background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; overflow: hidden; width: fit-content; }
@@ -40,32 +39,82 @@
   .pill { padding: 10px 16px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 13px; font-weight: 600; color: #555; min-height: 44px; }
   .pill.active { border-color: #2a7d9c; background: #e8f4f8; color: #2a7d9c; }
 
-  /* Format Cards */
+  /* ── Format Pill Cards (backend-suggested, dynamic) ── */
+  .format-pills { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 2px 0 4px; }
+  .format-pills::-webkit-scrollbar { display: none; }
+  .format-pill { min-width: 140px; max-width: 160px; flex-shrink: 0; scroll-snap-align: start; background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; padding: 12px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; position: relative; }
+  .format-pill.active { border-color: #2a7d9c; background: #e8f4f8; }
+  .format-pill .pill-badge { position: absolute; top: -8px; left: 12px; font-size: 10px; font-weight: 700; color: #d4a843; background: #fdf8ed; padding: 2px 8px; border-radius: 8px; border: 1px solid #f0e4c4; }
+  .format-pill .pill-label { font-size: 13px; font-weight: 700; color: #1a3a4a; margin-top: 4px; }
+  .format-pill .pill-time { font-size: 12px; font-weight: 600; color: #555; }
+  .format-pill .pill-games { font-size: 11px; color: #999; }
+
+  /* ── Format Selector (detailed cards, replaces old static cards) ── */
   .format-cards { display: flex; flex-direction: column; gap: 8px; }
-  .format-card { background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .format-card { background: #fff; border-radius: 12px; border: 1.5px solid #e0e0e0; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
   .format-card.active { border-color: #2a7d9c; background: #e8f4f8; }
-  .format-card.recommended { border-color: #d4a843; }
+  .format-card.disabled { opacity: 0.4; pointer-events: none; }
   .format-card .format-info { flex: 1; }
   .format-card .format-name { font-size: 14px; font-weight: 600; }
   .format-card .format-desc { font-size: 11px; color: #666; margin-top: 2px; }
-  .format-card .format-meta { text-align: right; }
-  .format-card .format-time { font-size: 12px; font-weight: 600; color: #1a3a4a; }
-  .format-card .format-games { font-size: 11px; color: #666; }
-  .format-card .badge-rec { font-size: 11px; font-weight: 600; color: #d4a843; background: #fdf8ed; padding: 2px 8px; border-radius: 8px; margin-top: 4px; display: inline-block; }
+  .format-card .format-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ccc; flex-shrink: 0; margin-left: 12px; display: flex; align-items: center; justify-content: center; }
+  .format-card.active .format-radio { border-color: #2a7d9c; }
+  .format-card.active .format-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #2a7d9c; }
+  .format-disabled-hint { font-size: 11px; color: #999; margin-top: 4px; }
+
+  /* ── Conditional Config (pools count, rounds) ── */
+  .conditional-config { background: #f8f9fa; border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
+  .conditional-config .form-label { margin-bottom: 8px; }
+
+  /* Reset Link */
+  .reset-link { font-size: 12px; color: #2a7d9c; font-weight: 600; text-decoration: none; cursor: pointer; background: none; border: none; padding: 0; }
+
+  /* Section header row */
+  .section-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; margin-top: 24px; }
+  .section-header-row .section-title { margin: 0; }
 
   /* Preview Card */
   .preview-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 16px; }
   .preview-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
-  .preview-stats { display: flex; gap: 12px; flex-wrap: wrap; }
-  .preview-stat { flex: 1; min-width: 70px; }
+  .preview-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .preview-stat { }
   .preview-stat .stat-label { font-size: 11px; color: #666; }
   .preview-stat .stat-value { font-size: 14px; font-weight: 700; color: #1a3a4a; margin-top: 2px; }
+  .preview-warning { display: flex; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 8px 10px; background: #fff7ed; border-radius: 8px; border: 1px solid #fed7aa; }
+  .preview-warning .warning-icon { color: #f59e0b; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .preview-warning .warning-text { font-size: 11px; color: #92400e; line-height: 1.4; }
+
+  /* Schedule mini-preview */
+  .schedule-preview { margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+  .schedule-preview-title { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 8px; }
+  .schedule-round { display: flex; gap: 6px; margin-bottom: 6px; align-items: flex-start; }
+  .schedule-round-label { font-size: 11px; font-weight: 700; color: #1a3a4a; min-width: 32px; flex-shrink: 0; padding-top: 2px; }
+  .schedule-matches { display: flex; flex-wrap: wrap; gap: 4px; }
+  .schedule-match { font-size: 10px; color: #555; background: #f0f0f0; border-radius: 4px; padding: 3px 6px; white-space: nowrap; }
+  .schedule-match.playoff { background: #fdf8ed; color: #b8860b; }
+  .schedule-more { font-size: 11px; color: #999; margin-top: 4px; text-align: center; }
 
   /* Checkbox */
   .checkbox-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
   .checkbox { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #e0e0e0; background: #fff; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .checkbox.checked { background: #2a7d9c; border-color: #2a7d9c; color: #fff; font-size: 14px; }
   .checkbox-label { font-size: 14px; font-weight: 500; color: #555; }
+
+  /* Score cap row */
+  .cap-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .cap-input { width: 56px; padding: 8px; border-radius: 8px; border: 1.5px solid #e0e0e0; font-size: 15px; font-weight: 600; text-align: center; color: #1a3a4a; }
+
+  /* Playoff description */
+  .playoff-desc { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.4; }
+
+  /* Tiebreaker info */
+  .tiebreaker-info { background: #f8f9fa; border-radius: 10px; padding: 10px 14px; margin-top: 12px; }
+  .tiebreaker-title { font-size: 12px; font-weight: 700; color: #1a3a4a; display: block; margin-bottom: 2px; }
+  .tiebreaker-rules { font-size: 11px; color: #555; display: block; }
+  .tiebreaker-note { font-size: 10px; color: #999; display: block; margin-top: 2px; }
+
+  /* Divider */
+  .divider { height: 1px; background: #eee; margin: 20px 0; }
 
   /* Submit */
   .btn-create { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 28px; cursor: pointer; }
@@ -93,7 +142,7 @@
 <div class="top-nav">
   <a href="tournaments.html" class="back">&larr; Cancel</a>
   <div class="title">King of the Beach</div>
-  <div class="action" style="color: rgba(212,168,67,0.4); font-size: 15px; font-weight: 600;">Create</div>
+  <button class="action" disabled style="color: rgba(212,168,67,0.4); pointer-events:none; background:none; border:none; cursor:default;">Create</button>
 </div>
 
 <div class="content">
@@ -130,50 +179,115 @@
     <select class="form-select">
       <option>No limit</option>
       <option>1:30</option>
-      <option selected>2:00</option>
+      <option>2:00</option>
       <option>2:30</option>
-      <option>3:00</option>
+      <option selected>3:00</option>
+      <option>3:30</option>
       <option>4:00</option>
+      <option>5:00</option>
+      <option>6:00</option>
+      <option>7:00</option>
+      <option>8:00</option>
     </select>
   </div>
 
-  <div class="section-title">Format</div>
+  <!-- ═══════════════════════════════════════════════════════
+       FORMAT PILLS — Backend-suggested format presets.
+       Fetched from GET /api/kob/recommend/pills based on
+       numPlayers, numCourts, durationMinutes.
+       Auto-selects the one marked is_recommended.
+       Horizontally scrollable on mobile.
+       ═══════════════════════════════════════════════════════ -->
+  <div class="section-header-row">
+    <div class="section-title">Suggested Formats</div>
+    <!-- Reset link: shown when user has manually overridden format -->
+    <!-- <button class="reset-link">Reset to suggested</button> -->
+  </div>
+
+  <div class="format-pills">
+    <div class="format-pill active">
+      <span class="pill-badge">Recommended</span>
+      <span class="pill-label">Full RR + Top 4</span>
+      <span class="pill-time">~2h 50m</span>
+      <span class="pill-games">7 games/player</span>
+    </div>
+    <div class="format-pill">
+      <span class="pill-label">Partial RR (5 rds)</span>
+      <span class="pill-time">~1h 45m</span>
+      <span class="pill-games">5 games/player</span>
+    </div>
+    <div class="format-pill">
+      <span class="pill-label">Pools + Playoff</span>
+      <span class="pill-time">~2h 15m</span>
+      <span class="pill-games">5-7 games/player</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       FORMAT — Manual override (selecting a pill auto-fills
+       this; changing this manually deselects the active pill
+       and shows the "Reset to suggested" link above).
+       ═══════════════════════════════════════════════════════ -->
+  <div class="section-header-row">
+    <div class="section-title">Format</div>
+    <button class="reset-link" style="display:none;">Reset to suggested for 3:00</button>
+  </div>
 
   <div class="form-group">
     <div class="format-cards">
-      <div class="format-card recommended active">
+      <div class="format-card active">
         <div class="format-info">
           <div class="format-name">Round Robin</div>
           <div class="format-desc">Everyone plays everyone</div>
         </div>
-        <div class="format-meta">
-          <div class="format-time">~1h 45m</div>
-          <div class="format-games">7 games/player</div>
-          <span class="badge-rec">Recommended</span>
-        </div>
+        <div class="format-radio"></div>
       </div>
       <div class="format-card">
         <div class="format-info">
           <div class="format-name">Partial Round Robin</div>
           <div class="format-desc">Fixed number of rounds</div>
         </div>
-        <div class="format-meta">
-          <div class="format-time">~1h 15m</div>
-          <div class="format-games">5 games/player</div>
-        </div>
+        <div class="format-radio"></div>
       </div>
       <div class="format-card">
         <div class="format-info">
           <div class="format-name">Pools</div>
           <div class="format-desc">Groups with playoffs</div>
         </div>
-        <div class="format-meta">
-          <div class="format-time">~2h</div>
-          <div class="format-games">5-7 games/player</div>
-        </div>
+        <div class="format-radio"></div>
       </div>
     </div>
+    <div class="format-disabled-hint" style="display:none;">Pools available with 8+ players</div>
   </div>
+
+  <!-- Conditional: Partial RR — Rounds stepper (shown when Partial RR selected) -->
+  <!--
+  <div class="conditional-config">
+    <div class="form-label">Rounds</div>
+    <div class="stepper">
+      <button class="step-btn">-</button>
+      <div class="step-value">5</div>
+      <button class="step-btn">+</button>
+    </div>
+    <div class="form-hint">3 - 20 rounds</div>
+  </div>
+  -->
+
+  <!-- Conditional: Pools — Pool count stepper (shown when Pools selected) -->
+  <!--
+  <div class="conditional-config">
+    <div class="form-label">Pools <span class="form-label-hint">(~4/pool)</span></div>
+    <div class="stepper">
+      <button class="step-btn">-</button>
+      <div class="step-value">2</div>
+      <button class="step-btn">+</button>
+    </div>
+  </div>
+  -->
+
+  <div class="divider"></div>
 
   <div class="section-title">Game Settings</div>
 
@@ -188,15 +302,33 @@
     </div>
   </div>
 
+  <!-- Score cap: checkbox + numeric value (matches web) -->
   <div class="form-group">
-    <div class="checkbox-row">
-      <div class="checkbox checked">&#10003;</div>
-      <div class="checkbox-label">Score cap (win by 2, max 25)</div>
+    <div class="cap-row">
+      <div class="checkbox checked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="checkbox-label">Score cap (win by 2, max)</div>
+      <input class="cap-input" type="text" value="25" />
     </div>
   </div>
 
+  <!-- Games/match toggle — shown when <= 12 players (matches web) -->
   <div class="form-group">
-    <div class="form-label">Playoffs</div>
+    <div class="form-label">Games/Match <span class="form-label-hint">(play each pair 1x or 2x)</span></div>
+    <div class="toggle-row" style="max-width: 140px;">
+      <div class="toggle-btn active">1</div>
+      <div class="toggle-btn">2</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       PLAYOFFS — Full playoff configuration (matches web).
+       Pools always force Top 4 minimum.
+       ═══════════════════════════════════════════════════════ -->
+  <div class="section-title">Playoffs</div>
+
+  <div class="form-group">
     <div class="toggle-row">
       <div class="toggle-btn">Off</div>
       <div class="toggle-btn active">Top 4</div>
@@ -204,7 +336,55 @@
     </div>
   </div>
 
+  <!-- Playoff format: Round Robin vs Team Playoff (matches web) -->
+  <div class="form-group">
+    <div class="form-label">Playoff Format</div>
+    <div class="toggle-row" style="max-width: 280px;">
+      <div class="toggle-btn active">Round Robin</div>
+      <div class="toggle-btn">Team Playoff</div>
+    </div>
+    <div class="playoff-desc">Top players play everyone in playoffs -- single champion decided by record</div>
+  </div>
+
+  <!-- Custom playoff settings (expandable, matches web) -->
+  <div class="form-group">
+    <div class="checkbox-row">
+      <div class="checkbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="checkbox-label">Custom playoff game settings</div>
+    </div>
+    <!-- Expanded state (shown when checked):
+    <div class="conditional-config">
+      <div class="form-label">Playoff Game To</div>
+      <div class="toggle-row">
+        <div class="toggle-btn">28</div>
+        <div class="toggle-btn active">21</div>
+        <div class="toggle-btn">15</div>
+        <div class="toggle-btn">11</div>
+        <div class="toggle-btn">7</div>
+      </div>
+      <div class="form-label" style="margin-top:10px;">Games/Match</div>
+      <div class="toggle-row" style="max-width: 180px;">
+        <div class="toggle-btn active">1</div>
+        <div class="toggle-btn">Best of 3</div>
+      </div>
+      <div class="cap-row" style="margin-top:8px;">
+        <div class="checkbox"></div>
+        <div class="checkbox-label">Score cap</div>
+        <input class="cap-input" type="text" value="25" />
+      </div>
+    </div>
+    -->
+  </div>
+
+  <div class="divider"></div>
+
   <div class="section-title">Additional</div>
+
+  <!-- Date (matches web) -->
+  <div class="form-group">
+    <div class="form-label">Date (optional)</div>
+    <input class="form-input" type="date" />
+  </div>
 
   <div class="form-group">
     <div class="form-label">Registration</div>
@@ -222,46 +402,123 @@
       <div class="pill">Men's</div>
       <div class="pill">Women's</div>
     </div>
+    <div class="form-hint" style="margin-top: 6px;">Matchups are randomly assigned regardless of gender.</div>
   </div>
 
-  <div class="form-group">
+  <!-- Tiebreaker info (matches web) -->
+  <div class="tiebreaker-info">
+    <span class="tiebreaker-title">Tiebreakers</span>
+    <span class="tiebreaker-rules">1. Wins &nbsp; 2. Point Differential</span>
+    <span class="tiebreaker-note">Ties broken by coin flip</span>
+  </div>
+
+  <div class="form-group" style="margin-top: 12px;">
     <div class="checkbox-row">
-      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox checked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
       <div class="checkbox-label">Auto-advance rounds when all scores entered</div>
     </div>
   </div>
 
-  <!-- Preview -->
+  <!-- ═══════════════════════════════════════════════════════
+       TOURNAMENT PREVIEW — Live summary + mini schedule.
+       Driven by GET /api/kob/recommend (same as web's
+       KobPreview but mobile-condensed).
+       Updates on every config change (300ms debounce).
+       ═══════════════════════════════════════════════════════ -->
   <div class="preview-card">
     <div class="preview-title">Tournament Preview</div>
     <div class="preview-stats">
       <div class="preview-stat">
         <div class="stat-label">Est. Time</div>
-        <div class="stat-value">1h 45m</div>
+        <div class="stat-value">2h 50m</div>
       </div>
       <div class="preview-stat">
         <div class="stat-label">Games/Player</div>
-        <div class="stat-value">7</div>
+        <div class="stat-value">7 + PO</div>
       </div>
       <div class="preview-stat">
         <div class="stat-label">Total Games</div>
-        <div class="stat-value">28</div>
+        <div class="stat-value">32</div>
       </div>
       <div class="preview-stat">
         <div class="stat-label">Rounds</div>
-        <div class="stat-value">7 + PO</div>
+        <div class="stat-value">7 + Playoff</div>
       </div>
     </div>
+
+    <!-- Mini schedule preview (condensed from web's full grid) -->
+    <div class="schedule-preview">
+      <div class="schedule-preview-title">Schedule Preview</div>
+      <div class="schedule-round">
+        <span class="schedule-round-label">R1</span>
+        <div class="schedule-matches">
+          <span class="schedule-match">1v8 (Ct 1)</span>
+          <span class="schedule-match">2v7 (Ct 2)</span>
+        </div>
+      </div>
+      <div class="schedule-round">
+        <span class="schedule-round-label">R2</span>
+        <div class="schedule-matches">
+          <span class="schedule-match">1v7 (Ct 1)</span>
+          <span class="schedule-match">3v6 (Ct 2)</span>
+        </div>
+      </div>
+      <div class="schedule-round">
+        <span class="schedule-round-label">R3</span>
+        <div class="schedule-matches">
+          <span class="schedule-match">1v6 (Ct 1)</span>
+          <span class="schedule-match">4v5 (Ct 2)</span>
+        </div>
+      </div>
+      <div class="schedule-more">... 4 more rounds + Playoff</div>
+      <div class="schedule-round" style="margin-top: 6px;">
+        <span class="schedule-round-label">PO</span>
+        <div class="schedule-matches">
+          <span class="schedule-match playoff">Top 4 Round Robin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warning (shown when backend returns a suggestion/warning) -->
+    <!--
+    <div class="preview-warning">
+      <span class="warning-icon">&#9888;</span>
+      <span class="warning-text">8 players need 7 rounds for a full RR. Consider Partial RR (5 rounds) to fit your 2:00 time limit.</span>
+    </div>
+    -->
   </div>
 
   <button class="btn-create" onclick="document.body.classList.add('post-create')">Create Tournament</button>
 
 </div>
 
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label active">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
 <!-- Post-creation overlay -->
 <div class="post-create-overlay">
   <div class="post-create-content">
-    <div class="post-create-icon">&#10003;</div>
+    <div class="post-create-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
     <div class="post-create-title">Tournament Created!</div>
     <div class="post-create-subtitle">Sunday Showdown KoB is ready. Invite players to fill your bracket.</div>
     <a href="tournament-invite.html" class="post-create-btn primary">Invite Players</a>
@@ -269,5 +526,6 @@
   </div>
 </div>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

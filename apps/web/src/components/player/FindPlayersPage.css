@@ -30,7 +30,7 @@
   border-radius: 8px;
   font-size: 14px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .find-players__search-input:focus {
@@ -107,7 +107,7 @@
   padding: 6px 12px;
   border: 1px solid var(--gray-300);
   border-radius: 8px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
   font-size: 13px;
   font-weight: 500;
@@ -143,7 +143,7 @@
 }
 
 .find-players__filter-btn--active .find-players__filter-badge {
-  background: white;
+  background: var(--bg-surface);
   color: var(--primary);
 }
 
@@ -155,7 +155,7 @@
   z-index: 20;
   min-width: 280px;
   padding: 16px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
@@ -192,7 +192,7 @@
   border-radius: 8px;
   font-size: 13px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
 }
 
@@ -213,7 +213,7 @@
   border-radius: 8px;
   font-size: 13px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .find-players__filter-input:focus {
@@ -314,7 +314,7 @@
   height: 32px;
   border: 1px solid var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-600);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -350,7 +350,7 @@
   padding: 12px 16px;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
-  background: white;
+  background: var(--bg-surface);
   text-decoration: none;
   color: inherit;
   transition: background 0.15s, border-color 0.15s;

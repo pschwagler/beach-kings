@@ -15,15 +15,14 @@
   .session-info { background: #fff; padding: 14px 16px; border-bottom: 1px solid #eee; }
   .session-name-row { display: flex; align-items: center; justify-content: space-between; }
   .session-name { font-size: 18px; font-weight: 700; }
-  .session-edit { font-size: 14px; color: #999; }
+  /* .session-edit removed — rename lives in kebab menu now */
   .session-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
   .meta-tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; }
   .meta-tag.pickup { background: #fef3cd; color: #92400e; }
   .meta-tag.date { background: #f0f0f0; color: #555; }
   .meta-tag.court { background: #e8f4f8; color: #2a7d9c; }
   .meta-tag.players { background: #f0f0f0; color: #555; }
-  .meta-tag.editable { cursor: pointer; border: 1px dashed transparent; position: relative; padding-right: 18px; }
-  .meta-tag.editable::after { content: '\270E'; font-size: 10px; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+  /* editable meta tags removed — session editing consolidated into kebab menu */
   .session-status { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
   .status-text { font-size: 11px; font-weight: 600; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -55,7 +54,7 @@
   .match-score .sep { color: #ccc; margin: 0 2px; }
   .match-team.winner .match-team-names { font-weight: 700; }
   .match-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f5f5f5; }
-  .match-num { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .match-num { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
   .match-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
   .match-badge.win { background: #dcfce7; color: #15803d; }
   .match-badge.loss { background: #fee2e2; color: #b91c1c; }
@@ -81,8 +80,12 @@
   .action-row { display: flex; gap: 10px; }
   .btn-add-match { flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 700; text-align: center; cursor: pointer; }
   .btn-camera { padding: 10px 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; white-space: nowrap; }
-  .btn-submit { display: block; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; }
+  .btn-submit { display: block; width: 100%; padding: 12px 14px 10px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 15px; font-weight: 700; text-align: center; cursor: pointer; }
+  .btn-submit-hint { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.7); margin-top: 1px; }
 
+
+  /* Disable submit button in empty/fresh session state */
+  body.empty .btn-submit { opacity: 0.4; pointer-events: none; }
 
   /* Placeholder / Unregistered Players */
   /* Focus-flash: gold pulse on newly saved game */
@@ -94,11 +97,14 @@
     animation: focus-flash 0.6s ease-out forwards;
   }
 
-  /* State visibility for just-saved demo */
+  /* State visibility for demo switcher */
   .state-default { display: block; }
   .state-just-saved { display: none; }
+  .state-empty { display: none; }
   body.just-saved .state-default { display: none !important; }
   body.just-saved .state-just-saved { display: block !important; }
+  body.empty .state-default { display: none !important; }
+  body.empty .state-empty { display: block !important; }
 
   /* Placeholder / Unregistered Players */
   .roster-player.placeholder .roster-avatar { border: 2px dashed #f59e0b; background: #fef3c7; color: #92400e; }
@@ -106,12 +112,48 @@
   .invite-badge { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; }
   .roster-player { position: relative; }
   .pending-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
-  .invite-nudge { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 12px; padding: 14px 16px; margin: 12px 16px 0; display: flex; align-items: center; gap: 12px; }
-  .invite-nudge-icon { width: 36px; height: 36px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+
+  /* Roster remove moved to Manage Players screen (kebab menu) */
+
+  /* Roster avatar links */
+  .roster-player a { text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .roster-player a:active { opacity: 0.6; }
+
+  /* Sticky invite nudge — pinned below roster strip */
+  .invite-nudge {
+    background: #fffbeb;
+    border-bottom: 1px solid #f59e0b;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .invite-nudge-icon { font-size: 16px; flex-shrink: 0; }
   .invite-nudge-text { flex: 1; }
-  .invite-nudge-title { font-size: 13px; font-weight: 700; color: #92400e; }
-  .invite-nudge-desc { font-size: 11px; color: #b45309; margin-top: 2px; }
-  .invite-nudge-btn { padding: 8px 14px; border-radius: 8px; background: #f59e0b; color: #fff; font-size: 12px; font-weight: 700; border: none; cursor: pointer; min-height: 44px; white-space: nowrap; }
+  .invite-nudge-title { font-size: 12px; font-weight: 700; color: #92400e; }
+  .invite-nudge-btn { padding: 6px 12px; border-radius: 8px; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; min-height: 36px; white-space: nowrap; }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state-title { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .empty-state-desc { font-size: 13px; color: #999; line-height: 1.4; }
+
+  /* Friend icons removed from roster — friending lives on player profile page */
+
+  /* Games not involving current user — subtle dimming */
+  .match-card.spectated { opacity: 0.55; }
+  .match-card.spectated .match-score .score { color: #888; }
 </style>
 </head>
 <body>
@@ -120,6 +162,7 @@
 <div class="state-switcher">
   <div class="sw-label">Active Session</div>
   <div class="sw-pills">
+    <button class="sw-pill" onclick="setSessionState('empty')">Fresh Session</button>
     <button class="sw-pill active" onclick="setSessionState('default')">Default</button>
     <button class="sw-pill" onclick="setSessionState('just-saved')">Just Saved Game</button>
   </div>
@@ -131,6 +174,7 @@
 </div>
 
 <div class="top-nav">
+  <!-- Back navigates to add-games.html. Session auto-persists — shows as "Active Session" card there. -->
   <a href="add-games.html" class="back">&larr; Add Games</a>
   <div class="title">Session</div>
   <a href="session-menu.html" class="action">&#8943;</a>
@@ -139,12 +183,11 @@
 <div class="session-info">
   <div class="session-name-row">
     <div class="session-name">Sunday at QBK</div>
-    <span class="session-edit">&#9998;</span>
   </div>
   <div class="session-meta">
     <span class="meta-tag pickup">Pickup</span>
-    <span class="meta-tag date editable">Apr 8</span>
-    <span class="meta-tag court editable">QBK Sports</span>
+    <span class="meta-tag date">Apr 8</span>
+    <span class="meta-tag court">QBK Sports</span>
     <span class="meta-tag players">8 players</span>
   </div>
   <div class="session-status">
@@ -155,50 +198,65 @@
 
 <div class="roster-strip">
   <div class="roster-player you">
-    <div class="roster-avatar" style="background: #1a3a4a;">PS</div>
-    <div class="roster-name">You</div>
+    <a href="profile.html">
+      <div class="roster-avatar" style="background: #1a3a4a;">PS</div>
+      <div class="roster-name">You</div>
+    </a>
   </div>
   <div class="roster-player">
-    <div class="roster-avatar" style="background: #2a7d9c;">KF</div>
-    <div class="roster-name">Karim</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar" style="background: #2a7d9c;">KF</div>
+      <div class="roster-name">Karim</div>
+    </a>
   </div>
   <div class="roster-player">
-    <div class="roster-avatar" style="background: #15803d;">MB</div>
-    <div class="roster-name">Mike</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar" style="background: #15803d;">MB</div>
+      <div class="roster-name">Mike</div>
+    </a>
   </div>
   <div class="roster-player">
-    <div class="roster-avatar" style="background: #b91c1c;">JR</div>
-    <div class="roster-name">Jake</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar" style="background: #b91c1c;">JR</div>
+      <div class="roster-name">Jake</div>
+    </a>
   </div>
   <div class="roster-player">
-    <div class="roster-avatar" style="background: #7c3aed;">AT</div>
-    <div class="roster-name">Alex</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar" style="background: #7c3aed;">AT</div>
+      <div class="roster-name">Alex</div>
+    </a>
   </div>
   <div class="roster-player placeholder">
-    <div class="roster-avatar">DM</div>
-    <div class="invite-badge"></div>
-    <div class="roster-name">Devon M</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar">DM</div>
+      <div class="invite-badge"></div>
+      <div class="roster-name">Devon M</div>
+    </a>
   </div>
   <div class="roster-player">
-    <div class="roster-avatar" style="background: #db2777;">CL</div>
-    <div class="roster-name">Chris</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar" style="background: #db2777;">CL</div>
+      <div class="roster-name">Chris</div>
+    </a>
   </div>
   <div class="roster-player placeholder">
-    <div class="roster-avatar">DP</div>
-    <div class="invite-badge"></div>
-    <div class="roster-name">Dan P</div>
+    <a href="player-profile.html">
+      <div class="roster-avatar">DP</div>
+      <div class="invite-badge"></div>
+      <div class="roster-name">Dan P</div>
+    </a>
   </div>
   <div class="roster-player">
-    <button class="roster-add">+</button>
+    <button class="roster-add" onclick="alert('Add player to roster')">+</button>
     <div class="roster-name" style="color: #ccc;">Add</div>
   </div>
 </div>
 
 <div class="invite-nudge">
-  <div class="invite-nudge-icon">&#9993;</div>
+  <div class="invite-nudge-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
   <div class="invite-nudge-text">
-    <div class="invite-nudge-title">2 players haven't joined yet</div>
-    <div class="invite-nudge-desc">Send invites so their games count toward rankings</div>
+    <div class="invite-nudge-title">2 players haven't joined &mdash; their games won't count</div>
   </div>
   <button class="invite-nudge-btn" onclick="window.location.href='pending-invites.html'">Invite</button>
 </div>
@@ -227,7 +285,7 @@
       <div class="match-footer">
         <span class="match-num">Game 4</span>
         <span class="pending-badge">Pending</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
@@ -246,30 +304,30 @@
       <div class="match-footer">
         <span class="match-num">Game 3</span>
         <span class="match-badge win">WIN</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
     <div class="match-card">
       <div class="match-teams">
-        <div class="match-team winner">
+        <div class="match-team">
           <div class="match-team-names"><span class="you">Pat S</span><br/>Mike B</div>
         </div>
         <div class="match-score">
-          <span class="score">21<span class="sep">-</span>15</span>
+          <span class="score">18<span class="sep">-</span>21</span>
         </div>
-        <div class="match-team right">
+        <div class="match-team right winner">
           <div class="match-team-names">Karim F<br/>Alex T</div>
         </div>
       </div>
       <div class="match-footer">
         <span class="match-num">Game 2</span>
-        <span class="match-badge win">WIN</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <span class="match-badge loss">LOSS</span>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
-    <div class="match-card">
+    <div class="match-card spectated">
       <div class="match-teams">
         <div class="match-team">
           <div class="match-team-names"><span style="color: #92400e; font-style: italic;">Devon M</span><br/>Jake R</div>
@@ -284,7 +342,7 @@
       <div class="match-footer">
         <span class="match-num">Game 1</span>
         <span class="pending-badge">Pending</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
   </div>
@@ -312,7 +370,7 @@
       <div class="match-footer">
         <span class="match-num">Game 5</span>
         <span class="match-badge win">WIN</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
@@ -331,7 +389,7 @@
       <div class="match-footer">
         <span class="match-num">Game 4</span>
         <span class="pending-badge">Pending</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
@@ -350,30 +408,30 @@
       <div class="match-footer">
         <span class="match-num">Game 3</span>
         <span class="match-badge win">WIN</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
     <div class="match-card">
       <div class="match-teams">
-        <div class="match-team winner">
+        <div class="match-team">
           <div class="match-team-names"><span class="you">Pat S</span><br/>Mike B</div>
         </div>
         <div class="match-score">
-          <span class="score">21<span class="sep">-</span>15</span>
+          <span class="score">18<span class="sep">-</span>21</span>
         </div>
-        <div class="match-team right">
+        <div class="match-team right winner">
           <div class="match-team-names">Karim F<br/>Alex T</div>
         </div>
       </div>
       <div class="match-footer">
         <span class="match-num">Game 2</span>
-        <span class="match-badge win">WIN</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <span class="match-badge loss">LOSS</span>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
 
-    <div class="match-card">
+    <div class="match-card spectated">
       <div class="match-teams">
         <div class="match-team">
           <div class="match-team-names"><span style="color: #92400e; font-style: italic;">Devon M</span><br/>Jake R</div>
@@ -388,49 +446,73 @@
       <div class="match-footer">
         <span class="match-num">Game 1</span>
         <span class="pending-badge">Pending</span>
-        <a href="score-scoreboard.html" class="match-edit" title="Edit game">&#9998;</a>
+        <a href="score-scoreboard.html" class="match-edit" title="Edit game"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>
       </div>
     </div>
   </div>
 
+  <!-- ── Empty state: no games yet ── -->
+  <div class="state-empty">
+    <div class="empty-state">
+      <div class="empty-state-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="9" r="1.5" fill="currentColor"/><circle cx="15" cy="8" r="1.5" fill="currentColor"/><circle cx="16.5" cy="13" r="1.5" fill="currentColor"/><circle cx="7" cy="13.5" r="1.5" fill="currentColor"/></svg></div>
+      <div class="empty-state-title">No games yet</div>
+      <div class="empty-state-desc">Tap + Add Game below to record<br/>your first match of the session.</div>
+    </div>
+  </div>
 
 </div>
 
 <div class="sticky-actions">
   <div class="action-row">
     <button class="btn-add-match" onclick="window.location.href='score-scoreboard.html'">+ Add Game</button>
-    <button class="btn-camera" onclick="window.location.href='ai-score-capture.html'" title="Score from photo">&#128247; Scan Scores</button>
+    <button class="btn-camera" onclick="window.location.href='ai-score-capture.html'" title="Score from photo"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Scan Scores</button>
   </div>
-  <button class="btn-submit" onclick="window.location.href='session-detail.html'">Submit Session</button>
+  <button class="btn-submit" onclick="document.getElementById('submit-modal').style.display='flex'">
+    Submit Session
+    <div class="btn-submit-hint">Locks scores &amp; updates rankings</div>
+  </button>
+</div>
+
+<!-- Submit Session Confirmation Modal -->
+<div class="modal-overlay" id="submit-modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+    <div class="modal-title">Submit Session?</div>
+    <div class="modal-desc">This will lock in scores and update rankings for all 4 games. You can still edit individual games afterward.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" style="background: #d4a843;" onclick="window.location.href='session-detail.html'">Submit Session</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('submit-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div class="tab-bar">
   <a href="home.html" class="tab">
-    <div class="tab-icon">&#127968;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
     <div class="tab-label">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games">
-    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label active">Add Games</div>
   </a>
   <a href="messages.html" class="tab">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
 
 <script>
 function setSessionState(state) {
-  document.body.classList.remove('just-saved');
+  document.body.classList.remove('just-saved', 'empty');
   if (state === 'just-saved') {
     document.body.classList.add('just-saved');
     // Re-trigger animation by cloning
@@ -440,11 +522,14 @@ function setSessionState(state) {
       card.offsetHeight; // force reflow
       card.style.animation = '';
     }
+  } else if (state === 'empty') {
+    document.body.classList.add('empty');
   }
   document.querySelectorAll('.sw-pill').forEach(function(p) { p.classList.remove('active'); });
   event.target.classList.add('active');
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

@@ -1,280 +1,138 @@
 /**
- * Authentication context for mobile app
- * Adapted from web version for React Native
- * Matches web AuthContext API for component compatibility
+ * Authentication context for the mobile app.
+ * Wraps the shared API client and exposes auth state + actions.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { api } from '../services/api';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useRouter, useSegments } from 'expo-router';
+import { api } from '@/lib/api';
 
 interface User {
-  id: number;
-  email?: string;
-  phone?: string;
-  name?: string;
-  player_id?: number;
+  readonly id: number;
+  readonly email: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly player_id: number | null;
 }
 
-interface Player {
-  id: number;
-  name?: string;
-  full_name?: string;
-  nickname?: string;
-  [key: string]: any;
+interface AuthState {
+  readonly user: User | null;
+  readonly isLoading: boolean;
+  readonly isAuthenticated: boolean;
 }
 
-interface AuthContextType {
-  user: User | null;
-  currentUserPlayer: Player | null;
-  isAuthenticated: boolean;
-  isInitializing: boolean;
-  fetchCurrentUser: () => Promise<void>;
-  loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
-  loginWithSms: (phoneNumber: string, code: string) => Promise<void>;
-  signup: (data: { phoneNumber: string; password: string; fullName: string; email?: string }) => Promise<any>;
-  sendVerificationCode: (phoneNumber: string) => Promise<void>;
-  verifyPhone: (phoneNumber: string, code: string) => Promise<{ profile_complete: boolean }>;
-  resetPassword: (phoneNumber: string) => Promise<any>;
-  verifyPasswordReset: (phoneNumber: string, code: string) => Promise<any>;
-  confirmPasswordReset: (resetToken: string, newPassword: string) => Promise<any>;
-  logout: () => Promise<void>;
+interface AuthContextValue extends AuthState {
+  readonly login: (email: string, password: string) => Promise<void>;
+  readonly signup: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  readonly logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-const normalizePhone = (phone: string | undefined) => phone?.trim();
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [currentUserPlayer, setCurrentUserPlayer] = useState<Player | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      // Verify tokens before making request
-      const storedTokens = await api.getStoredTokens();
-
-      if (!storedTokens.accessToken) {
-        console.error('[AuthContext] fetchCurrentUser: No access token available!');
-        throw new Error('No access token available');
-      }
-      
-      // Get current user from /api/auth/me
-      let userData = null;
-      if ((api as any).getCurrentUser) {
-        userData = await (api as any).getCurrentUser();
-      } else {
-        // Use the custom axios that reads from storage
-        const axiosInstance = (api as any).axios;
-        if (!axiosInstance) {
-          throw new Error('Axios instance not available');
-        }
-        const response = await axiosInstance.get('/api/auth/me');
-        userData = response.data;
-      }
-      
-      setUser(userData);
-
-      // Also fetch the current user's player profile
-      try {
-        const player = await api.getCurrentUserPlayer();
-        setCurrentUserPlayer(player);
-      } catch (playerError: any) {
-        // Player might not exist yet, that's okay
-        if (playerError.response?.status !== 404) {
-          console.error('[AuthContext] Error fetching current user player:', playerError);
-          console.error('[AuthContext] Player error details:', playerError.response?.data || playerError.message);
-        }
-        setCurrentUserPlayer(null);
-      }
-    } catch (error: any) {
-      console.error('[AuthContext] Error in fetchCurrentUser:', error);
-      console.error('[AuthContext] Error response:', error.response?.data || error.message);
-      console.error('[AuthContext] Error status:', error.response?.status);
-      
-      // Only clear tokens on 401 (unauthorized) - don't clear on network errors, 500s, etc.
-      const isUnauthorized = error.response?.status === 401;
-      if (isUnauthorized) {
-        await api.clearAuthTokens();
-        setUser(null);
-        setCurrentUserPlayer(null);
-      } else {
-        // For other errors (network, 500, etc.), keep user logged in but log the error
-        console.error('[AuthContext] Non-401 error - keeping tokens but user not set');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const tokens = await api.getStoredTokens();
-      if (tokens.accessToken && tokens.refreshToken) {
-        await api.setAuthTokens(tokens.accessToken, tokens.refreshToken);
-        await fetchCurrentUser();
-      } else {
-        await api.clearAuthTokens();
-      }
-      setIsInitializing(false);
-    };
-    initializeAuth();
-  }, [fetchCurrentUser]);
-
-  const handleAuthSuccess = useCallback(
-    async (authResponse: any) => {
-      await api.setAuthTokens(authResponse.access_token, authResponse.refresh_token);
-
-      // Small delay to ensure axios interceptor has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      await fetchCurrentUser();
-      // Return profile_complete flag for use in components
-      return authResponse.profile_complete !== false;
-    },
-    [fetchCurrentUser]
-  );
-
-  const loginWithPassword = useCallback(
-    async (phoneNumber: string, password: string) => {
-      const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-      const response = await axiosInstance.post('/api/auth/login', {
-        phone_number: normalizePhone(phoneNumber),
-        password,
-      });
-      await handleAuthSuccess(response.data);
-    },
-    [handleAuthSuccess]
-  );
-
-  const loginWithSms = useCallback(
-    async (phoneNumber: string, code: string) => {
-      const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-      const response = await axiosInstance.post('/api/auth/sms-login', {
-        phone_number: normalizePhone(phoneNumber),
-        code,
-      });
-      await handleAuthSuccess(response.data);
-    },
-    [handleAuthSuccess]
-  );
-
-  const signup = useCallback(async ({ phoneNumber, password, fullName, email }: { phoneNumber: string; password: string; fullName: string; email?: string }) => {
-    const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-    const response = await axiosInstance.post('/api/auth/signup', {
-      phone_number: normalizePhone(phoneNumber),
-      password: password.trim(),
-      full_name: fullName.trim(),
-      email: email?.trim() || undefined,
-    });
-    return response.data;
-  }, []);
-
-  const sendVerificationCode = useCallback(async (phoneNumber: string) => {
-    const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-    await axiosInstance.post('/api/auth/send-verification', {
-      phone_number: normalizePhone(phoneNumber),
-    });
-  }, []);
-
-  const verifyPhone = useCallback(
-    async (phoneNumber: string, code: string) => {
-      const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-      const response = await axiosInstance.post('/api/auth/verify-phone', {
-        phone_number: normalizePhone(phoneNumber),
-        code,
-      });
-      const profileComplete = await handleAuthSuccess(response.data);
-      return { profile_complete: profileComplete };
-    },
-    [handleAuthSuccess]
-  );
-
-  const resetPassword = useCallback(async (phoneNumber: string) => {
-    const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-    const response = await axiosInstance.post('/api/auth/reset-password', {
-      phone_number: normalizePhone(phoneNumber),
-    });
-    return response.data;
-  }, []);
-
-  const verifyPasswordReset = useCallback(async (phoneNumber: string, code: string) => {
-    const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-    const response = await axiosInstance.post('/api/auth/reset-password-verify', {
-      phone_number: normalizePhone(phoneNumber),
-      code,
-    });
-    return response.data;
-  }, []);
-
-  const confirmPasswordReset = useCallback(async (resetToken: string, newPassword: string) => {
-    const axiosInstance = (api as any).axios || (api as any).client?.axiosInstance || (api as any).api || api;
-    const response = await axiosInstance.post('/api/auth/reset-password-confirm', {
-      reset_token: resetToken,
-      new_password: newPassword.trim(),
-    });
-    await handleAuthSuccess(response.data);
-    return response.data;
-  }, [handleAuthSuccess]);
-
-  const logout = useCallback(async () => {
-    // Unregister push token before clearing auth
-    try {
-      const pushToken = await SecureStore.getItemAsync('beach_push_token');
-      if (pushToken) {
-        const axiosInstance = (api as any).axios;
-        if (axiosInstance) {
-          await axiosInstance.delete('/api/push-tokens', {
-            data: { token: pushToken, platform: Platform.OS },
-          });
-        }
-        await SecureStore.deleteItemAsync('beach_push_token');
-      }
-    } catch (error) {
-      // Best-effort — don't block logout on push token cleanup
-      console.error('Error unregistering push token:', error);
-    }
-
-    try {
-      // Try to call the backend logout endpoint to invalidate refresh tokens
-      await api.logout();
-    } catch (error) {
-      // Even if the backend call fails, we still want to clear local tokens
-      // The user is already logged out from the client side
-      console.error('Error calling logout endpoint:', error);
-    } finally {
-      // Always clear local tokens and user state
-      await api.clearAuthTokens();
-      setUser(null);
-      setCurrentUserPlayer(null);
-    }
-  }, []);
-
-  const value = {
-    user,
-    currentUserPlayer,
-    isAuthenticated: Boolean(user),
-    isInitializing,
-    fetchCurrentUser,
-    loginWithPassword,
-    loginWithSms,
-    signup,
-    sendVerificationCode,
-    verifyPhone,
-    resetPassword,
-    verifyPasswordReset,
-    confirmPasswordReset,
-    logout,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
+/**
+ * Hook to access auth state and actions.
+ * Must be used within AuthProvider.
+ */
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
 
+interface AuthProviderProps {
+  readonly children: React.ReactNode;
+}
+
+export default function AuthProvider({ children }: AuthProviderProps): React.ReactNode {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isLoading: true,
+    isAuthenticated: false,
+  });
+
+  const router = useRouter();
+  const segments = useSegments();
+
+  // Check stored tokens on mount
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const { accessToken } = await api.getStoredTokens();
+        if (accessToken) {
+          const response = await api.client.axiosInstance.get('/api/users/me');
+          setState({
+            user: response.data,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+        } else {
+          setState({ user: null, isLoading: false, isAuthenticated: false });
+        }
+      } catch {
+        await api.clearAuthTokens();
+        setState({ user: null, isLoading: false, isAuthenticated: false });
+      }
+    }
+    loadSession();
+  }, []);
+
+  // Route guard: redirect based on auth state
+  useEffect(() => {
+    if (state.isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!state.isAuthenticated && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (state.isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)/home');
+    }
+  }, [state.isAuthenticated, state.isLoading, segments]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const response = await api.client.axiosInstance.post('/api/auth/login', {
+      email,
+      password,
+    });
+    const { access_token, refresh_token, user } = response.data;
+    await api.setAuthTokens(access_token, refresh_token);
+    setState({ user, isLoading: false, isAuthenticated: true });
+  }, []);
+
+  const signup = useCallback(async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+  ) => {
+    const response = await api.client.axiosInstance.post('/api/auth/signup', {
+      email,
+      password,
+      first_name: firstName,
+      last_name: lastName,
+    });
+    const { access_token, refresh_token, user } = response.data;
+    await api.setAuthTokens(access_token, refresh_token);
+    setState({ user, isLoading: false, isAuthenticated: true });
+  }, []);
+
+  const logout = useCallback(async () => {
+    await api.clearAuthTokens();
+    setState({ user: null, isLoading: false, isAuthenticated: false });
+  }, []);
+
+  const value: AuthContextValue = {
+    ...state,
+    login,
+    signup,
+    logout,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}

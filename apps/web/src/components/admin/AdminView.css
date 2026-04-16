@@ -4,7 +4,7 @@
   max-width: 960px;
   margin: 2rem auto;
   padding: 2rem;
-  background-color: white;
+  background-color: var(--bg-surface);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
 }
@@ -196,8 +196,8 @@
 }
 
 .admin-player-badge--placeholder {
-  background: #fff8e1;
-  color: #b8860b;
+  background: var(--warning-light);
+  color: var(--warning-text);
   margin-left: 8px;
 }
 
@@ -276,7 +276,7 @@
   padding: 0.5rem 1rem;
   border-radius: 6px;
   border: 1px solid var(--gray-300);
-  background-color: white;
+  background-color: var(--bg-surface);
   font-family: 'Courier New', monospace;
   font-size: 0.9rem;
   font-weight: 600;
@@ -342,7 +342,7 @@
   overflow-x: auto;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
-  background-color: white;
+  background-color: var(--bg-surface);
 }
 
 .admin-feedback-table {
@@ -417,7 +417,7 @@
   height: 32px;
   border: 1px solid var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -441,7 +441,7 @@
 }
 
 .admin-court-action-btn--reject:hover:not(:disabled) {
-  background: #fef2f2;
+  background: var(--danger-lighter);
   border-color: var(--danger);
 }
 
@@ -525,7 +525,7 @@
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 /* ── Courts: pagination ── */
@@ -576,12 +576,12 @@
 }
 
 .admin-court-status-badge--pending {
-  background: #fff8e1;
-  color: #b8860b;
+  background: var(--warning-light);
+  color: var(--warning-text);
 }
 
 .admin-court-status-badge--rejected {
-  background: #fef2f2;
+  background: var(--danger-lighter);
   color: var(--danger);
 }
 
@@ -658,7 +658,7 @@
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .admin-court-edit-field textarea {
@@ -721,7 +721,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   cursor: pointer;
@@ -806,7 +806,7 @@
   align-items: center;
   padding: 6px 8px;
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
 }
 
@@ -852,7 +852,7 @@
   border: 1px solid var(--gray-300);
   border-radius: 4px;
   font-size: 13px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .suggestion-diff__input:focus,
@@ -907,7 +907,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   cursor: pointer;
@@ -951,7 +951,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--primary);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--primary);
   border-radius: 6px;
   cursor: pointer;
@@ -970,7 +970,7 @@
 .admin-court-photos__upload-preview {
   margin-bottom: 12px;
   padding: 12px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
 }
@@ -1018,7 +1018,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   cursor: pointer;
@@ -1158,7 +1158,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 6px;
 }
@@ -1201,7 +1201,7 @@
   height: 28px;
   border-radius: 4px;
   border: 1px solid var(--gray-300);
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-600);
   cursor: pointer;
   flex-shrink: 0;

@@ -67,7 +67,7 @@
   font-size: 16px; /* Prevents zoom on iOS */
   font-weight: 500;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--bg-surface);
   font-family: inherit;
   -webkit-appearance: none;
   appearance: none;
@@ -178,7 +178,7 @@ select.form-select {
   flex-direction: row;
   align-items: center;
   padding: 12px 14px;
-  background: white;
+  background: var(--bg-surface);
   border: 1.5px solid var(--gray-300);
   border-radius: 12px;
   cursor: pointer;
@@ -283,14 +283,14 @@ select.form-select {
   border: 2px solid var(--gray-300);
   border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .toggle-option {
   flex: 1;
   padding: 12px 20px;
   border: none;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
   font-size: 1em;
   font-weight: 600;

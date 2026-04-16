@@ -21,6 +21,13 @@
  */
 
 :root {
+  /* Surface backgrounds — semantic tokens for light/dark theming */
+  --bg-page: #f7f8f9;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #fafafa;
+  --bg-surface-raised: #ffffff;
+  --bg-input: #ffffff;
+
   /* Brand — teal ocean */
   --primary: #2c7a8f;
   --primary-light: #5faec0;
@@ -127,4 +134,77 @@
   --sidebar-width-home: 220px;
   --sidebar-width-league: 240px;
   --sidebar-width-collapsed: 72px;
+}
+
+/* ==========================================================================
+   Dark Mode — automatic via system preference
+   Overrides tokens so every component using var() gets dark colors for free.
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    /* Surface backgrounds */
+    --bg-page: #111318;
+    --bg-surface: #1a1d24;
+    --bg-surface-hover: #1f2328;
+    --bg-surface-raised: #22262c;
+    --bg-input: #1a1e24;
+
+    /* Gray scale — semantic inversion (50 = subtlest bg, 900 = strongest text) */
+    --gray-50: #1a1e24;
+    --gray-100: #1f2328;
+    --gray-200: #2d3340;
+    --gray-300: #3d4554;
+    --gray-400: #6b7585;
+    --gray-600: #8b95a5;
+    --gray-700: #a8b0bc;
+    --gray-900: #e2e5ea;
+
+    /* Brand teal — slightly brighter for dark-bg contrast */
+    --primary: #3b9db5;
+    --primary-light: #65bdd2;
+    --primary-lighter: #162a32;
+    --primary-dark: #2c8a9e;
+    --primary-darker: #1e6878;
+    --primary-rgb: 59, 157, 181;
+    --primary-darker-rgb: 30, 104, 120;
+
+    /* Warm accents — darker tints for backgrounds */
+    --cream: #1a1d24;
+    --sand: #2a2520;
+    --sand-rgb: 42, 37, 32;
+    --sand-light: #1f1e1a;
+    --sand-dark: #8b7a5a;
+    --coral-light: #3a2520;
+    --warm-brown-lighter: #2a2218;
+
+    /* Cool accents */
+    --seafoam-light: #142a26;
+    --sun-gold-light: #2a2618;
+
+    /* Neutral cool grays */
+    --ocean-gray: #6b7580;
+    --ocean-gray-light: #2d3340;
+    --ocean-gray-dark: #9ca3af;
+    --ocean-gray-darker: #c0c7d0;
+
+    /* Functional status — dark tints for backgrounds */
+    --success-light: #0d2a1a;
+    --success-lighter: #0a1f14;
+    --danger-light: #2d1618;
+    --danger-lighter: #241012;
+    --danger-bg: #2d1618;
+    --danger-bg-hover: #3d2025;
+    --warning-light: #2a2010;
+    --warning-bg: #221a08;
+    --warning-border: #3d3015;
+    --warning-text: #f0b429;
+
+    /* Shadows — darker, more subtle */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+  }
 }

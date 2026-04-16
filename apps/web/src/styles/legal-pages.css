@@ -9,7 +9,7 @@
   max-width: 900px;
   margin: 0 auto;
   padding: 84px 48px;
-  background-color: white;
+  background-color: var(--bg-surface);
   min-height: calc(100vh - var(--navbar-height));
   box-shadow: var(--shadow-sm);
 }

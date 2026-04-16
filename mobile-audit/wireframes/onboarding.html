@@ -78,7 +78,7 @@
 <div class="modal-overlay" id="form-state">
   <div class="modal-sheet">
 
-    <div class="modal-logo"><span class="crown">&#128081;</span></div>
+    <div class="modal-logo"><span class="crown"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg></span></div>
     <div class="modal-title">Complete Your Profile</div>
     <div class="modal-desc">Tell us about yourself so we can match you with the right leagues and players.</div>
 
@@ -99,16 +99,20 @@
       </div>
 
       <div class="form-group">
+        <div class="form-label"><span class="req">*</span> City</div>
+        <input class="form-input" type="text" placeholder="Start typing your city..." />
+        <div class="helper-text">We'll find your nearest region automatically</div>
+      </div>
+
+      <div class="form-group">
         <div class="form-label"><span class="req">*</span> Location</div>
-        <select class="form-select placeholder">
-          <option value="" disabled selected>Select location</option>
-          <option>NYC - Queens</option>
-          <option>NYC - Brooklyn</option>
-          <option>NYC - Manhattan</option>
-          <option>SoCal - San Diego</option>
-          <option>SoCal - Los Angeles</option>
+        <select class="form-select">
+          <option value="" disabled>Select location</option>
+          <option selected>SoCal - San Diego (12 mi)</option>
+          <option>SoCal - Los Angeles (95 mi)</option>
+          <option>SoCal - Orange County (63 mi)</option>
         </select>
-        <div class="helper-text">Your region for league matching</div>
+        <div class="helper-text">Auto-selected from city — change if needed</div>
       </div>
 
       <div class="form-group">
@@ -143,7 +147,7 @@
 
     <!-- Success State -->
     <div class="success-content">
-      <div class="check-circle">&#10003;</div>
+      <div class="check-circle"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
       <div class="success-title">Profile Complete!</div>
       <div class="success-desc">You're all set. Now find leagues near you, connect with players, and start tracking your games.</div>
       <button class="btn-start" onclick="window.location.href='home.html'">Get Started</button>
@@ -152,5 +156,6 @@
   </div>
 </div>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

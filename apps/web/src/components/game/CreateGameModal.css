@@ -66,7 +66,7 @@
   padding: 16px;
   border: 1px solid var(--gray-200);
   border-radius: 12px;
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s, background 0.15s;
@@ -85,7 +85,7 @@
 
 .create-game-modal__option--disabled:hover {
   border-color: var(--gray-200);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .create-game-modal__option-icon {

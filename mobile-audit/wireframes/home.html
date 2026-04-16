@@ -105,6 +105,23 @@
     -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
   }
 
+  /* New User empty state */
+  body.new-user .quick-stats,
+  body.new-user .section,
+  body.new-user .profile-completion,
+  body.new-user .live-tournament,
+  body.new-user .pending-invites { display: none !important; }
+  .new-user-welcome { display: none; }
+  body.new-user .new-user-welcome { display: block !important; }
+
+  /* Empty state */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; text-align: center; }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state-title { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .empty-state-desc { font-size: 13px; color: #999; line-height: 1.4; }
+  .empty-state-cta { display: flex; align-items: center; justify-content: center; margin-top: 16px; padding: 12px 24px; border-radius: 12px; background: #1a3a4a; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; min-height: 44px; }
+  .empty-state-cta.gold { background: #d4a843; }
+
   /* Tab bar / tab-dot rules live in shared.css */
 
   /* Pending Invites Nudge — slim dismissable banner */
@@ -153,6 +170,7 @@
 <div class="state-switcher">
   <div class="sw-label">View State</div>
   <div class="sw-pills">
+    <button class="sw-pill" onclick="setState('new-user')">New User</button>
     <button class="sw-pill active" onclick="setState('all')">All Active</button>
     <button class="sw-pill" onclick="setState('session-only')">Session Only</button>
     <button class="sw-pill" onclick="setState('tournament-only')">Tournament Only</button>
@@ -169,12 +187,12 @@
 
 <div class="top-nav">
   <div class="brand">
-    <span class="crown" style="color: #d4a843;">&#128081;</span>
+    <span class="crown" style="color: #d4a843;"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg></span>
     <span>BEACH LEAGUE</span>
   </div>
   <div class="nav-actions">
-    <a href="messages.html" class="icon-btn">&#128172;<span class="badge">1</span></a>
-    <a href="notifications.html" class="icon-btn">&#128276;<span class="badge">3</span></a>
+    <a href="messages.html" class="icon-btn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg><span class="badge">1</span></a>
+    <a href="notifications.html" class="icon-btn"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="badge">3</span></a>
     <div class="avatar"></div>
   </div>
 </div>
@@ -186,6 +204,20 @@
 </div>
 
 <div class="content">
+
+  <!-- New User Welcome -->
+  <div class="new-user-welcome">
+    <div class="empty-state" style="padding-top: 80px;">
+      <div class="empty-state-icon" style="font-size: 48px; opacity: 1;"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg></div>
+      <div class="empty-state-title" style="font-size: 20px; margin-bottom: 8px;">Welcome to Beach League</div>
+      <div class="empty-state-desc" style="margin-bottom: 24px;">Track your games, find leagues near you, and connect with players.</div>
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+        <a href="find-leagues.html" class="empty-state-cta">Find a League</a>
+        <a href="add-games.html" class="empty-state-cta gold">Add Your First Game</a>
+        <a href="courts.html" class="empty-state-cta" style="background: transparent; border: 1.5px solid #1a3a4a; color: #1a3a4a;">Find Courts</a>
+      </div>
+    </div>
+  </div>
 
   <!-- Profile Completion Banner -->
   <div class="section state-profile-incomplete">
@@ -227,7 +259,7 @@
 
   <!-- Pending Invites Nudge — slim dismissable banner -->
   <div class="pending-invites-banner">
-    <div class="banner-icon">&#9993;</div>
+    <div class="banner-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
     <div class="banner-text"><strong>3 players waiting</strong> &middot; 4 games pending</div>
     <button class="banner-cta" onclick="window.location.href='pending-invites.html'">Send Invites</button>
     <button class="banner-dismiss" onclick="this.closest('.pending-invites-banner').style.display='none'">&#10005;</button>
@@ -397,32 +429,33 @@
 
 <div class="tab-bar">
   <a href="home.html" class="tab">
-    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
     <div class="tab-label active">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games">
-    <div class="tab-icon">&#10133;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab">
     <div class="tab-dot profile-dot"></div>
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
 
 <script>
 function setState(state) {
-  document.body.classList.remove('no-tournament', 'no-session', 'no-upcoming', 'profile-incomplete');
+  document.body.classList.remove('no-tournament', 'no-session', 'no-upcoming', 'profile-incomplete', 'new-user');
+  if (state === 'new-user') document.body.classList.add('new-user');
   if (state === 'session-only') document.body.classList.add('no-tournament');
   if (state === 'tournament-only') document.body.classList.add('no-session');
   if (state === 'empty') { document.body.classList.add('no-tournament', 'no-session'); }
@@ -436,5 +469,6 @@ function setState(state) {
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

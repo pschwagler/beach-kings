@@ -164,8 +164,8 @@ export default function CourtMap({ courts, userLocation, locationFilter }: Court
             latitude={court.latitude}
             longitude={court.longitude}
             anchor="bottom"
-            onClick={(e) => {
-              e.originalEvent.stopPropagation();
+            onClick={(e: { originalEvent?: MouseEvent }) => {
+              e.originalEvent?.stopPropagation();
               handleMarkerClick(court);
             }}
           >

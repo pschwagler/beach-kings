@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Manage Players - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  /* Modal Nav */
+  .modal-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #1a3a4a; }
+  .modal-nav .close { color: #fff; font-size: 22px; min-width: 44px; min-height: 44px; display: flex; align-items: center; background: none; border: none; cursor: pointer; }
+  .modal-nav .title { color: #fff; font-size: 17px; font-weight: 700; }
+  .modal-nav .spacer { min-width: 44px; }
+
+  .session-bar { background: #f5f5f5; padding: 8px 16px; font-size: 12px; color: #666; text-align: center; }
+
+  /* Player List */
+  .player-list { padding: 0 16px; }
+  .player-list-header { font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; padding: 16px 0 8px; }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 56px;
+  }
+  .player-row:last-child { border-bottom: none; }
+
+  .player-row-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .player-row-info { flex: 1; min-width: 0; }
+  .player-row-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .player-row-detail { font-size: 12px; color: #999; margin-top: 1px; }
+
+  .player-row-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: #f0f0f0;
+    color: #666;
+    white-space: nowrap;
+  }
+
+  .player-row-remove {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #ef4444;
+    background: transparent;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 36px;
+    min-width: 44px;
+    white-space: nowrap;
+  }
+  .player-row-remove:active { background: #fef2f2; }
+
+  /* Placeholder player styling */
+  .player-row.placeholder .player-row-avatar { border: 2px dashed #f59e0b; background: #fef3c7; color: #92400e; }
+  .player-row.placeholder .player-row-name { color: #92400e; }
+  .player-row.placeholder .player-row-detail { color: #f59e0b; font-style: italic; }
+
+  /* You badge */
+  .you-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #fef3c7; color: #d4a843; margin-left: 6px; }
+
+  /* Bottom action */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 390px;
+    background: #fff;
+    border-top: 1px solid #eee;
+    padding: 12px 16px 36px;
+  }
+  .btn-add-player {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1.5px dashed #d4a843;
+    background: transparent;
+    color: #d4a843;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+  }
+  .btn-add-player:active { background: #fffbeb; }
+
+  .content { padding-bottom: 100px; }
+
+  /* Confirmation modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; width: 390px; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+  .modal-box { background: #fff; border-radius: 16px; margin: 0 24px; padding: 24px; width: 100%; max-width: 342px; text-align: center; }
+  .modal-icon { font-size: 32px; margin-bottom: 12px; }
+  .modal-title { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+  .modal-desc { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 20px; }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+  .modal-btn-danger { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #ef4444; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .modal-btn-cancel { width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: #fff; color: #555; font-size: 15px; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="modal-nav">
+  <button class="close" onclick="window.location.href='session-active.html'">&times;</button>
+  <div class="title">Manage Players</div>
+  <div class="spacer"></div>
+</div>
+<div class="session-bar">Sunday at QBK &middot; 8 players</div>
+
+<div class="content">
+  <div class="player-list">
+
+    <div class="player-list-header">In Games (cannot remove)</div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #1a3a4a;">PS</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Pat S<span class="you-badge">YOU</span></div>
+        <div class="player-row-detail">4 games</div>
+      </div>
+      <div class="player-row-badge">4 games</div>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #2a7d9c;">KF</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Karim F</div>
+        <div class="player-row-detail">2 games</div>
+      </div>
+      <div class="player-row-badge">2 games</div>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #15803d;">MB</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Mike B</div>
+        <div class="player-row-detail">2 games</div>
+      </div>
+      <div class="player-row-badge">2 games</div>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #b91c1c;">JR</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Jake R</div>
+        <div class="player-row-detail">1 game</div>
+      </div>
+      <div class="player-row-badge">1 game</div>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #7c3aed;">AT</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Alex T</div>
+        <div class="player-row-detail">1 game</div>
+      </div>
+      <div class="player-row-badge">1 game</div>
+    </div>
+
+    <div class="player-row placeholder">
+      <div class="player-row-avatar">DM</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Devon M</div>
+        <div class="player-row-detail">Unregistered &middot; 2 games</div>
+      </div>
+      <div class="player-row-badge">2 games</div>
+    </div>
+
+    <div class="player-row placeholder">
+      <div class="player-row-avatar">DP</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Dan P</div>
+        <div class="player-row-detail">Unregistered &middot; 2 games</div>
+      </div>
+      <div class="player-row-badge">2 games</div>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #db2777;">CL</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Chris L</div>
+        <div class="player-row-detail">2 games</div>
+      </div>
+      <div class="player-row-badge">2 games</div>
+    </div>
+
+    <div class="player-list-header">No Games Yet</div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #0891b2;">TW</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Tyler W</div>
+        <div class="player-row-detail">Added 10 min ago</div>
+      </div>
+      <button class="player-row-remove" onclick="document.getElementById('remove-modal').style.display='flex'">Remove</button>
+    </div>
+
+    <div class="player-row">
+      <div class="player-row-avatar" style="background: #65a30d;">RH</div>
+      <div class="player-row-info">
+        <div class="player-row-name">Ryan H</div>
+        <div class="player-row-detail">Added 5 min ago</div>
+      </div>
+      <button class="player-row-remove" onclick="document.getElementById('remove-modal').style.display='flex'">Remove</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-add-player" onclick="alert('Add player to session')">+ Add Player</button>
+</div>
+
+<!-- Remove Confirmation Modal -->
+<div class="modal-overlay" id="remove-modal">
+  <div class="modal-box">
+    <div class="modal-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="modal-title">Remove Player?</div>
+    <div class="modal-desc">Remove Tyler W from this session? They haven't been in any games yet.</div>
+    <div class="modal-actions">
+      <button class="modal-btn-danger" onclick="document.getElementById('remove-modal').style.display='none'">Remove Player</button>
+      <button class="modal-btn-cancel" onclick="document.getElementById('remove-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

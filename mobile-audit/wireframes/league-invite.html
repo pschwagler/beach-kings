@@ -54,9 +54,29 @@
   .bottom-bar .btn { flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; text-align: center; min-height: 48px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
   .bottom-bar .btn.share { background: #f5f5f5; color: #1a3a4a; border: 1.5px solid #e0e0e0; }
   .bottom-bar .btn.send { background: #1a3a4a; color: #fff; }
+
+  /* Dark mode */
+  body.dark-theme .league-bar { background: #161b22; border-bottom-color: #21262d; }
+  body.dark-theme .league-bar .league-name { color: #e6edf3; }
+  body.dark-theme .league-bar .league-access { color: #8b949e; }
+  body.dark-theme .section-title { color: #8b949e; }
+  body.dark-theme .player-row { border-bottom-color: #21262d; }
+  body.dark-theme .player-status.member { background: #0d2818; color: #3fb950; }
+  body.dark-theme .player-status.invited { background: #0d1d35; color: #58a6ff; }
+  body.dark-theme .player-status.requested { background: #2a1f05; color: #d29922; }
+  body.dark-theme .checkbox.checked { background: #4daacc; border-color: #4daacc; }
+  body.dark-theme .bottom-bar .btn.share { background: #161b22; border-color: #30363d; color: #e6edf3; }
+  body.dark-theme .bottom-bar .btn.send { background: #e0b44c; color: #0d1117; }
 </style>
 </head>
 <body>
+
+<div class="state-switcher">
+  <div class="sw-label">States</div>
+  <div class="sw-pills">
+    <button class="sw-pill active">Default</button>
+  </div>
+</div>
 
 <div class="status-bar">
   <span>9:41</span>
@@ -85,7 +105,7 @@
     <div class="section-title">Friends</div>
 
     <div class="player-row">
-      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox checked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
       <div class="player-avatar" style="background: #7fb3c7;">MS</div>
       <div class="player-info">
         <div class="player-name">Mike S.</div>
@@ -94,7 +114,7 @@
     </div>
 
     <div class="player-row">
-      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox checked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
       <div class="player-avatar" style="background: #d4a843;">JR</div>
       <div class="player-info">
         <div class="player-name">Jake R.</div>
@@ -137,7 +157,7 @@
     <div class="section-title">Recent Opponents</div>
 
     <div class="player-row">
-      <div class="checkbox checked">&#10003;</div>
+      <div class="checkbox checked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
       <div class="player-avatar" style="background: #c7997f;">AM</div>
       <div class="player-info">
         <div class="player-name">Alex M.</div>
@@ -192,9 +212,44 @@
 
 <!-- Bottom action bar -->
 <div class="bottom-bar">
-  <button class="btn share">Share Link</button>
-  <button class="btn send">Send (3)</button>
+  <button class="btn share" onclick="alert('Share link copied')">Share Link</button>
+  <button class="btn send" onclick="alert('Invites sent');window.location.href='league-dashboard.html'">Send (3)</button>
 </div>
 
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab active">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+var checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+document.querySelectorAll('.checkbox').forEach(function(cb) {
+  cb.addEventListener('click', function() {
+    this.classList.toggle('checked');
+    this.innerHTML = this.classList.contains('checked') ? checkSvg : '';
+    var count = document.querySelectorAll('.checkbox.checked').length;
+    document.querySelector('.btn.send').textContent = 'Send (' + count + ')';
+  });
+});
+</script>
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

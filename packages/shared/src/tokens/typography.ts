@@ -1,78 +1,111 @@
 /**
  * Unified Typography Tokens
- * Font families, sizes, weights, and line heights
+ * iOS HIG scale from design-tokens.css
  */
 
 export const fontFamily = {
-  default: '"Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-  system: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+  /** iOS: SF Pro. Android: Roboto. Fallback chain for both platforms. */
+  sans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", "Helvetica Neue", sans-serif',
+  /** Monospace for code/stats */
+  mono: '"SF Mono", "Roboto Mono", "Courier New", monospace',
 } as const;
 
 export const fontSizes = {
-  xs: 12,
-  sm: 14,
-  base: 16,
-  lg: 18,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 28,
-  '4xl': 32,
-  '5xl': 40,
+  caption: 12,
+  footnote: 13,
+  subhead: 14,
+  body: 15,
+  callout: 16,
+  headline: 17,
+  title3: 20,
+  title2: 22,
+  title1: 28,
+  largeTitle: 34,
+} as const;
+
+/** Line heights paired 1:1 with fontSizes. */
+export const lineHeights = {
+  caption: 16,
+  footnote: 18,
+  subhead: 20,
+  body: 22,
+  callout: 22,
+  headline: 22,
+  title3: 26,
+  title2: 28,
+  title1: 34,
+  largeTitle: 41,
 } as const;
 
 export const fontWeights = {
-  normal: '400',
+  regular: '400',
   medium: '500',
   semibold: '600',
   bold: '700',
 } as const;
 
-export const lineHeights = {
-  tight: 16,
-  normal: 20,
-  relaxed: 24,
-  loose: 28,
-  extraLoose: 32,
-  superLoose: 40,
+/**
+ * Letter spacing (tracking) per iOS HIG.
+ * Values in px — Tailwind converts to em in the config.
+ */
+export const letterSpacing = {
+  tight: -0.4,
+  normal: 0,
+  wide: 0.5,
+  wider: 1,
 } as const;
 
 export const typography = {
-  h1: {
-    fontSize: fontSizes['4xl'],
+  largeTitle: {
+    fontSize: fontSizes.largeTitle,
+    lineHeight: lineHeights.largeTitle,
     fontWeight: fontWeights.bold,
-    lineHeight: lineHeights.superLoose,
   },
-  h2: {
-    fontSize: fontSizes['2xl'],
+  title1: {
+    fontSize: fontSizes.title1,
+    lineHeight: lineHeights.title1,
     fontWeight: fontWeights.bold,
-    lineHeight: lineHeights.extraLoose,
   },
-  h3: {
-    fontSize: fontSizes.xl,
+  title2: {
+    fontSize: fontSizes.title2,
+    lineHeight: lineHeights.title2,
+    fontWeight: fontWeights.bold,
+  },
+  title3: {
+    fontSize: fontSizes.title3,
+    lineHeight: lineHeights.title3,
     fontWeight: fontWeights.semibold,
-    lineHeight: lineHeights.loose,
+  },
+  headline: {
+    fontSize: fontSizes.headline,
+    lineHeight: lineHeights.headline,
+    fontWeight: fontWeights.semibold,
   },
   body: {
-    fontSize: fontSizes.base,
-    fontWeight: fontWeights.normal,
-    lineHeight: lineHeights.relaxed,
+    fontSize: fontSizes.body,
+    lineHeight: lineHeights.body,
+    fontWeight: fontWeights.regular,
   },
-  bodySmall: {
-    fontSize: fontSizes.sm,
-    fontWeight: fontWeights.normal,
-    lineHeight: lineHeights.normal,
+  callout: {
+    fontSize: fontSizes.callout,
+    lineHeight: lineHeights.callout,
+    fontWeight: fontWeights.regular,
+  },
+  subhead: {
+    fontSize: fontSizes.subhead,
+    lineHeight: lineHeights.subhead,
+    fontWeight: fontWeights.regular,
+  },
+  footnote: {
+    fontSize: fontSizes.footnote,
+    lineHeight: lineHeights.footnote,
+    fontWeight: fontWeights.regular,
   },
   caption: {
-    fontSize: fontSizes.xs,
-    fontWeight: fontWeights.normal,
-    lineHeight: lineHeights.tight,
-  },
-  label: {
-    fontSize: fontSizes.sm,
-    fontWeight: fontWeights.semibold,
-    lineHeight: lineHeights.normal,
+    fontSize: fontSizes.caption,
+    lineHeight: lineHeights.caption,
+    fontWeight: fontWeights.regular,
   },
 } as const;
 
 export type TypographyVariant = keyof typeof typography;
-

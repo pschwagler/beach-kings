@@ -1,42 +1,36 @@
 /**
- * Share utility functions
+ * Native Share sheet helper.
+ *
+ * Wraps React Native's `Share` API so call sites don't need to handle the
+ * dismissed/unavailable cases themselves.
  */
+import { Share } from 'react-native';
 
-import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
-
-export async function shareText(text: string, url?: string) {
+/**
+ * Opens the platform native share sheet for a URL.
+ *
+ * Silently resolves if the user dismisses the share sheet or if sharing
+ * is unavailable on the current platform.
+ *
+ * @param url - The URL to share.
+ * @param title - Optional sheet / message title (shown on Android and some iOS contexts).
+ */
+export async function shareLink(url: string, title?: string): Promise<void> {
   try {
-    const shareContent = url ? `${text}\n${url}` : text;
-    
-    if (Platform.OS === 'web') {
-      // Web fallback - copy to clipboard
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareContent);
-        alert('Copied to clipboard!');
-      }
-      return;
-    }
-
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (isAvailable) {
-      await Sharing.shareAsync(shareContent);
-    } else {
-      alert('Sharing is not available on this device');
-    }
-  } catch (error) {
-    console.error('Error sharing:', error);
-    alert('Error sharing content');
+    await Share.share(
+      {
+        url,
+        message: url,
+        title,
+      },
+      {
+        dialogTitle: title,
+      },
+    );
+  } catch (err) {
+    // Re-throw unexpected errors; ignore user-dismissed cases.
+    if (err instanceof Error && err.message === 'Share was cancelled') return;
+    if (err instanceof Error && err.message.includes('dismissed')) return;
+    throw err;
   }
 }
-
-export async function shareLeague(leagueId: number, leagueName: string) {
-  const url = `beachleague://league/${leagueId}`;
-  await shareText(`Check out ${leagueName} on Beach League!`, url);
-}
-
-export async function shareMatch(matchId: number) {
-  const url = `beachleague://match/${matchId}`;
-  await shareText('Check out this match on Beach League!', url);
-}
-

@@ -2,13 +2,16 @@
 Unit tests for friend service.
 
 Tests friend request lifecycle, duplicate prevention, mutual friends,
-batch status, and league-based suggestions.
+batch status, and multi-signal suggestions (mutuals, sessions, leagues).
 """
 
 import pytest
 import pytest_asyncio
 from backend.services import friend_service
-from backend.database.models import User, Player, LeagueMember, League, PlayerGlobalStats, Location
+from backend.database.models import (
+    User, Player, LeagueMember, League, PlayerGlobalStats, Location,
+    Session, SessionParticipant, SessionStatus,
+)
 
 
 async def _create_user_and_player(db_session, phone, name):
@@ -381,10 +384,135 @@ async def test_friend_suggestions_excludes_friends(db_session, players):
 
 
 @pytest.mark.asyncio
-async def test_friend_suggestions_no_leagues(db_session, players):
-    """Test that suggestions return empty when player has no leagues."""
+async def test_friend_suggestions_no_leagues_no_signals(db_session, players):
+    """Suggestions empty when player has no leagues, no mutuals, no sessions."""
     suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
     assert suggestions == []
+
+
+async def _create_session_with_participants(db_session, player_ids):
+    """Helper: create a session and add participants, return session_id."""
+    session_obj = Session(
+        name="Test Session",
+        date="2026-01-15",
+        status=SessionStatus.ACTIVE,
+    )
+    db_session.add(session_obj)
+    await db_session.flush()
+    for pid in player_ids:
+        db_session.add(SessionParticipant(session_id=session_obj.id, player_id=pid))
+    await db_session.flush()
+    return session_obj.id
+
+
+@pytest.mark.asyncio
+async def test_suggestions_includes_mutual_friends(db_session, players):
+    """Mutual friends signal: A-B friends, B-C friends => C suggested to A."""
+    # Alice friends Bob
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
+    # Bob friends Carol
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    suggestion_map = {s["player_id"]: s for s in suggestions}
+
+    assert players["carol"] in suggestion_map
+    assert suggestion_map[players["carol"]]["mutual_friend_count"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_suggestions_includes_shared_sessions(db_session, players):
+    """Shared session signal: A and D in same session => D suggested to A."""
+    await _create_session_with_participants(
+        db_session, [players["alice"], players["dave"]]
+    )
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    suggestion_map = {s["player_id"]: s for s in suggestions}
+
+    assert players["dave"] in suggestion_map
+    assert suggestion_map[players["dave"]]["shared_session_count"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_suggestions_no_leagues_returns_results_via_mutuals(db_session, players):
+    """Player with no leagues but mutual friends still gets suggestions."""
+    # Alice friends Bob, Bob friends Carol
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    # Alice has no leagues — should still get Carol via mutual (Bob)
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    assert len(suggestions) > 0
+    suggestion_ids = {s["player_id"] for s in suggestions}
+    assert players["carol"] in suggestion_ids
+
+
+@pytest.mark.asyncio
+async def test_suggestions_composite_score_ordering(db_session, players):
+    """Mutuals weighted higher than leagues: 1 mutual (5) > 2 leagues (2)."""
+    # Carol: give her 1 mutual with Alice (via Bob)
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    # Dave: put in 2 shared leagues with Alice (no mutuals)
+    league1 = await _create_league(db_session, "League One")
+    league2 = await _create_league(db_session, "League Two")
+    await _add_league_member(db_session, league1, players["alice"])
+    await _add_league_member(db_session, league1, players["dave"])
+    await _add_league_member(db_session, league2, players["alice"])
+    await _add_league_member(db_session, league2, players["dave"])
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    suggestion_ids = [s["player_id"] for s in suggestions]
+
+    # Carol (1 mutual = 5 pts) should rank above Dave (2 leagues = 2 pts)
+    carol_idx = suggestion_ids.index(players["carol"])
+    dave_idx = suggestion_ids.index(players["dave"])
+    assert carol_idx < dave_idx
+
+
+@pytest.mark.asyncio
+async def test_suggestions_reason_mutual(db_session, players):
+    """Reason string for mutual-based suggestion."""
+    req1 = await friend_service.send_friend_request(db_session, players["alice"], players["bob"])
+    await friend_service.accept_friend_request(db_session, req1["id"], players["bob"])
+    req2 = await friend_service.send_friend_request(db_session, players["bob"], players["carol"])
+    await friend_service.accept_friend_request(db_session, req2["id"], players["carol"])
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    carol_suggestion = next(s for s in suggestions if s["player_id"] == players["carol"])
+    assert "mutual friend" in carol_suggestion["reason"].lower()
+
+
+@pytest.mark.asyncio
+async def test_suggestions_reason_session(db_session, players):
+    """Reason string for session-based suggestion (no mutuals or leagues)."""
+    await _create_session_with_participants(
+        db_session, [players["alice"], players["dave"]]
+    )
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    dave_suggestion = next(s for s in suggestions if s["player_id"] == players["dave"])
+    assert "played together" in dave_suggestion["reason"].lower()
+
+
+@pytest.mark.asyncio
+async def test_suggestions_reason_league(db_session, players):
+    """Reason string for league-only suggestion includes league name."""
+    league_id = await _create_league(db_session, "QBK Open")
+    await _add_league_member(db_session, league_id, players["alice"])
+    await _add_league_member(db_session, league_id, players["bob"])
+
+    suggestions = await friend_service.get_friend_suggestions(db_session, players["alice"])
+    bob_suggestion = next(s for s in suggestions if s["player_id"] == players["bob"])
+    assert "QBK Open" in bob_suggestion["reason"]
 
 
 # ──────────────────────────────────────────────────────────────

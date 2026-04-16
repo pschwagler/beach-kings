@@ -1,0 +1,1253 @@
+/*
+ * Beach League Mobile — Dark Theme
+ * =================================
+ * Applied via `body.dark-theme` class. Loaded by shared.css.
+ *
+ * Design principles:
+ *   1. True dark (#0d1117), not pure black — subtle blue undertone
+ *      matches the teal brand and reduces OLED halation
+ *   2. Three-tier surface hierarchy (base → card → elevated)
+ *      creates depth through luminance, not shadows
+ *   3. Gold accent (#e0b44c) becomes the hero on dark backgrounds —
+ *      premium, warm, instantly recognizable
+ *   4. Teal lightens (#4daacc) for links and active states
+ *   5. All text passes WCAG AA (4.5:1 min for body, 3:1 for large)
+ *   6. Semantic colors (win/loss/pending) stay recognizable but shift
+ *      to darker bgs with brighter foreground
+ *
+ * Palette reference:
+ *   Surface base:     #0d1117    (page bg)
+ *   Surface card:     #161b22    (cards, panels)
+ *   Surface elevated: #1c2128    (modals, sheets, popovers)
+ *   Surface inset:    #0d1117    (input fields, search bars)
+ *   Nav chrome:       #010409    (status bar, top nav)
+ *   Tab bar:          #0d1117    (bottom nav)
+ *   Border:           #30363d    (standard)
+ *   Border subtle:    #21262d    (dividers)
+ *   Text primary:     #e6edf3    (body text, ~87% white)
+ *   Text secondary:   #8b949e    (meta, subtitles)
+ *   Text tertiary:    #656d76    (placeholders only)
+ *   Brand teal:       #4daacc    (links, active icons)
+ *   Brand gold:       #e0b44c    (accent, CTAs, crown)
+ *   Success:          bg #0d2818  text #3fb950
+ *   Danger:           bg #2a1215  text #f85149
+ *   Warning:          bg #2a1f05  text #d29922
+ *   Info:             bg #0d1d35  text #58a6ff
+ */
+
+
+/* ── 1. Transitions ──────────────────────────────────────────── */
+
+body,
+.status-bar,
+.top-nav,
+.modal-nav,
+.tab-bar,
+.quick-stats,
+.modal-overlay,
+.modal-box {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+
+/* ── 2. Base ─────────────────────────────────────────────────── */
+
+body.dark-theme {
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+
+/* ── 3. Navigation Chrome ────────────────────────────────────── */
+
+body.dark-theme .status-bar {
+  background: #010409;
+}
+
+body.dark-theme .top-nav {
+  background: #010409;
+}
+body.dark-theme .top-nav .action {
+  color: #e0b44c;
+}
+
+body.dark-theme .modal-nav {
+  background: #010409;
+}
+body.dark-theme .modal-nav .match-num {
+  color: #656d76;
+}
+
+
+/* ── 4. Tab Bar ──────────────────────────────────────────────── */
+
+body.dark-theme .tab-bar {
+  background: #0d1117;
+  border-top: 1px solid #21262d;
+}
+body.dark-theme .tab-bar .tab .tab-icon {
+  color: #656d76;
+}
+body.dark-theme .tab-bar .tab .tab-icon.active {
+  color: #4daacc;
+}
+body.dark-theme .tab-bar .tab .tab-label {
+  color: #656d76;
+}
+body.dark-theme .tab-bar .tab .tab-label.active {
+  color: #4daacc;
+}
+body.dark-theme .tab-bar .tab.add-games .tab-icon {
+  background: #e0b44c;
+  color: #0d1117;
+}
+body.dark-theme .tab-bar .tab.add-games .tab-label {
+  color: #e0b44c;
+}
+body.dark-theme .tab-badge {
+  border-color: #0d1117;
+}
+body.dark-theme .tab-dot {
+  border-color: #0d1117;
+}
+
+
+/* ── 5. Quick Stats Bar ──────────────────────────────────────── */
+
+body.dark-theme .quick-stats {
+  background: #161b22;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .quick-stats .stat-pill {
+  background: #1a3a4a;
+  color: #4daacc;
+}
+
+
+/* ── 6. Content Area ─────────────────────────────────────────── */
+
+body.dark-theme .content {
+  background: #0d1117;
+}
+
+
+/* ── 7. Section Headers & Links ──────────────────────────────── */
+
+body.dark-theme .section-header h3 {
+  color: #e6edf3;
+}
+body.dark-theme .section-header .link {
+  color: #4daacc;
+}
+
+
+/* ── 8. Cards — Generic Surface ──────────────────────────────── */
+/* Covers: league-card, session-card, game-card, court-card,
+   tourney-upcoming-card, tournament-card, friend-card, etc. */
+
+body.dark-theme .league-card,
+body.dark-theme .session-card,
+body.dark-theme .game-card,
+body.dark-theme .court-card,
+body.dark-theme .tourney-upcoming-card,
+body.dark-theme .tournament-card,
+body.dark-theme .stat-card,
+body.dark-theme .match-card,
+body.dark-theme .notification-item,
+body.dark-theme .message-item,
+body.dark-theme .settings-card,
+body.dark-theme .info-card,
+body.dark-theme .player-card,
+body.dark-theme .court-row,
+body.dark-theme .league-row,
+body.dark-theme .check-in-card {
+  background: #161b22;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+body.dark-theme .court-card .court-info {
+  background: #161b22;
+}
+
+
+/* ── 9. Card Text Overrides ──────────────────────────────────── */
+
+/* Primary card text (names, titles) */
+body.dark-theme .league-name,
+body.dark-theme .session-name,
+body.dark-theme .game-score,
+body.dark-theme .court-name,
+body.dark-theme .tourney-name,
+body.dark-theme .notification-title,
+body.dark-theme .message-name,
+body.dark-theme .player-name,
+body.dark-theme .stat-value,
+body.dark-theme .stat-label-main,
+body.dark-theme .check-in-name,
+body.dark-theme .friend-name {
+  color: #e6edf3;
+}
+
+/* Secondary card text (meta, descriptions) */
+body.dark-theme .league-meta,
+body.dark-theme .session-meta,
+body.dark-theme .game-meta,
+body.dark-theme .court-meta,
+body.dark-theme .tourney-meta,
+body.dark-theme .notification-meta,
+body.dark-theme .notification-time,
+body.dark-theme .message-preview,
+body.dark-theme .message-time,
+body.dark-theme .player-meta,
+body.dark-theme .stat-label,
+body.dark-theme .check-in-meta,
+body.dark-theme .friend-meta,
+body.dark-theme .session-stats,
+body.dark-theme .session-stats span,
+body.dark-theme .game-teams,
+body.dark-theme .tourney-spots {
+  color: #8b949e;
+}
+
+body.dark-theme .game-teams .you {
+  color: #e6edf3;
+}
+
+
+/* ── 10. Badges & Pills ─────────────────────────────────────── */
+
+/* Win / Success */
+body.dark-theme .game-result.win,
+body.dark-theme .session-badge.active,
+body.dark-theme .tourney-badge,
+body.dark-theme .tourney-type.open,
+body.dark-theme .badge-win,
+body.dark-theme .badge-success {
+  background: #0d2818;
+  color: #3fb950;
+}
+
+/* Loss / Danger */
+body.dark-theme .game-result.loss,
+body.dark-theme .badge-loss,
+body.dark-theme .badge-danger {
+  background: #2a1215;
+  color: #f85149;
+}
+
+/* Warning / Pending */
+body.dark-theme .game-pending-badge {
+  background: #2a1f05;
+  color: #d29922;
+  border-color: #9e6a03;
+}
+body.dark-theme .tourney-badge.soon {
+  background: #2a1f05;
+  color: #d29922;
+}
+
+/* Info / League / Rank */
+body.dark-theme .session-badge.league,
+body.dark-theme .league-rank,
+body.dark-theme .tourney-badge.director,
+body.dark-theme .court-tag,
+body.dark-theme .badge-info {
+  background: #0d1d35;
+  color: #58a6ff;
+}
+
+/* Stat pills (teal tint) */
+body.dark-theme .stat-pill-teal {
+  background: #0d2a35;
+  color: #4daacc;
+}
+
+
+/* ── 11. Buttons ─────────────────────────────────────────────── */
+
+/* Primary CTA (teal on light → gold on dark for contrast) */
+body.dark-theme .btn-primary,
+body.dark-theme .empty-state-cta,
+body.dark-theme .cta-btn.primary {
+  background: #e0b44c;
+  color: #0d1117;
+}
+body.dark-theme .empty-state-cta.gold {
+  background: #e0b44c;
+  color: #0d1117;
+}
+
+/* Secondary / Outlined */
+body.dark-theme .btn-secondary,
+body.dark-theme .cta-btn.secondary {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+/* Outlined teal → outlined with light border */
+body.dark-theme .btn-outline,
+body.dark-theme a.empty-state-cta[style*="transparent"] {
+  border-color: #30363d !important;
+  color: #8b949e !important;
+  background: transparent !important;
+}
+
+/* Danger buttons stay red */
+body.dark-theme .btn-danger,
+body.dark-theme .modal-btn-danger {
+  background: #da3633;
+}
+
+/* Cancel / dismiss */
+body.dark-theme .modal-btn-cancel {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+body.dark-theme .btn-discard {
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+
+/* ── 12. Form Fields ─────────────────────────────────────────── */
+
+body.dark-theme .form-field,
+body.dark-theme .field-value,
+body.dark-theme .input-field,
+body.dark-theme input[type="text"],
+body.dark-theme input[type="email"],
+body.dark-theme input[type="password"],
+body.dark-theme input[type="search"],
+body.dark-theme input[type="number"],
+body.dark-theme textarea,
+body.dark-theme select {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+body.dark-theme .form-field:focus,
+body.dark-theme input:focus,
+body.dark-theme textarea:focus,
+body.dark-theme select:focus {
+  border-color: #e0b44c;
+}
+
+body.dark-theme .field-label,
+body.dark-theme .form-label {
+  color: #8b949e;
+}
+
+body.dark-theme .field-value[style*="italic"],
+body.dark-theme .placeholder-text {
+  color: #656d76 !important;
+}
+
+/* Required-empty state */
+body.dark-theme .field-required-empty {
+  border-color: #da3633;
+  background: #2a1215;
+}
+
+
+/* ── 13. Search Inputs ───────────────────────────────────────── */
+
+body.dark-theme .search-bar,
+body.dark-theme .search-input,
+body.dark-theme .search-wrap input,
+body.dark-theme [class*="search"] input {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+body.dark-theme .search-bar::placeholder,
+body.dark-theme .search-input::placeholder,
+body.dark-theme input::placeholder {
+  color: #656d76;
+}
+
+
+/* ── 14. Filters & Segment Controls ──────────────────────────── */
+
+body.dark-theme .filter-chip,
+body.dark-theme .chip {
+  background: #161b22;
+  border-color: #30363d;
+  color: #8b949e;
+}
+body.dark-theme .filter-chip.active,
+body.dark-theme .chip.active {
+  background: #4daacc;
+  border-color: #4daacc;
+  color: #0d1117;
+}
+
+body.dark-theme .segment-control,
+body.dark-theme .segment-wrap {
+  background: #21262d;
+}
+body.dark-theme .segment-btn {
+  color: #8b949e;
+}
+body.dark-theme .segment-btn.active {
+  background: #161b22;
+  color: #e6edf3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+
+/* ── 15. Social Sub-Nav ──────────────────────────────────────── */
+
+body.dark-theme .social-nav,
+body.dark-theme .sub-nav {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .social-nav a,
+body.dark-theme .sub-nav a,
+body.dark-theme .social-nav button,
+body.dark-theme .sub-nav button {
+  color: #8b949e;
+}
+body.dark-theme .social-nav a.active,
+body.dark-theme .sub-nav a.active,
+body.dark-theme .social-nav button.active,
+body.dark-theme .sub-nav button.active {
+  color: #e6edf3;
+  border-bottom-color: #e6edf3;
+}
+
+
+/* ── 16. Banners & Alerts ────────────────────────────────────── */
+
+/* Profile completion banner */
+body.dark-theme .profile-banner {
+  background: #161b22;
+  border-left-color: #e0b44c;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+body.dark-theme .profile-banner .banner-title {
+  color: #e6edf3;
+}
+body.dark-theme .profile-banner .banner-subtitle {
+  color: #8b949e;
+}
+body.dark-theme .profile-banner .banner-arrow {
+  color: #656d76;
+}
+body.dark-theme .profile-banner .banner-dismiss {
+  background: #21262d;
+  color: #656d76;
+}
+body.dark-theme .profile-banner .banner-ring .ring-bg {
+  stroke: #21262d;
+}
+body.dark-theme .profile-banner .banner-ring .ring-text {
+  color: #4daacc;
+}
+
+/* Pending invites banner */
+body.dark-theme .pending-invites-banner {
+  background: #2a1f05;
+  border-color: #9e6a03;
+}
+body.dark-theme .pending-invites-banner .banner-text {
+  color: #d29922;
+}
+body.dark-theme .pending-invites-banner .banner-cta {
+  background: #e0b44c;
+  color: #0d1117;
+}
+body.dark-theme .pending-invites-banner .banner-dismiss {
+  color: #d29922;
+}
+
+/* Friend request card / suggestion card */
+body.dark-theme .request-card,
+body.dark-theme [class*="request-card"],
+body.dark-theme [class*="suggestion-card"] {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+
+/* ── 17. Empty States ────────────────────────────────────────── */
+
+body.dark-theme .empty-state-title {
+  color: #e6edf3;
+}
+body.dark-theme .empty-state-desc {
+  color: #8b949e;
+}
+body.dark-theme .empty-state-icon {
+  opacity: 0.3;
+}
+
+
+/* ── 18. Tournament Empty CTA ────────────────────────────────── */
+
+body.dark-theme .tourney-empty-cta {
+  background: #161b22;
+  border-color: #30363d;
+  box-shadow: none;
+}
+body.dark-theme .tourney-empty-cta .cta-title {
+  color: #e6edf3;
+}
+body.dark-theme .tourney-empty-cta .cta-desc {
+  color: #8b949e;
+}
+
+
+/* ── 19. Lists & Dividers ────────────────────────────────────── */
+
+body.dark-theme .list-item,
+body.dark-theme .row,
+body.dark-theme [class*="-row"],
+body.dark-theme [class*="-item"] {
+  border-bottom-color: #21262d;
+}
+
+body.dark-theme .chevron,
+body.dark-theme [class*="chevron"] {
+  color: #656d76;
+}
+
+body.dark-theme .divider,
+body.dark-theme hr {
+  border-color: #21262d;
+  background: #21262d;
+}
+
+
+/* ── 20. Modals ──────────────────────────────────────────────── */
+
+body.dark-theme .modal-overlay {
+  background: rgba(0,0,0,0.7);
+}
+body.dark-theme .modal-box {
+  background: #1c2128;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+body.dark-theme .modal-title {
+  color: #e6edf3;
+}
+body.dark-theme .modal-desc {
+  color: #8b949e;
+}
+
+
+/* ── 21. Avatars & Images ────────────────────────────────────── */
+
+body.dark-theme .avatar,
+body.dark-theme [class*="avatar"] {
+  border-color: rgba(255,255,255,0.15);
+}
+
+/* Court image placeholders — darker, moodier gradients */
+body.dark-theme .court-img {
+  background: linear-gradient(135deg, #1a3a4a, #2a4a3a) !important;
+  opacity: 0.8;
+}
+
+
+/* ── 22. Scroll Fade Affordance ──────────────────────────────── */
+/* No change needed — mask-image works on any background */
+
+
+/* ── 23. Dashed-Border "Add" Cards ───────────────────────────── */
+
+body.dark-theme .league-card[style*="dashed"],
+body.dark-theme .tourney-upcoming-card[style*="dashed"],
+body.dark-theme [style*="dashed"] {
+  border-color: #30363d !important;
+  background: transparent !important;
+  opacity: 0.7 !important;
+}
+
+
+/* ── 24. Settings & Profile ──────────────────────────────────── */
+
+body.dark-theme .settings-section,
+body.dark-theme .settings-group,
+body.dark-theme .profile-section {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+body.dark-theme .settings-row,
+body.dark-theme .profile-row {
+  border-bottom-color: #21262d;
+}
+
+body.dark-theme .settings-label,
+body.dark-theme .profile-label {
+  color: #8b949e;
+}
+
+body.dark-theme .settings-value,
+body.dark-theme .profile-value {
+  color: #e6edf3;
+}
+
+/* Toggle switches */
+body.dark-theme .toggle-btn {
+  background: #30363d;
+}
+body.dark-theme .toggle-btn.on {
+  background: #4daacc;
+}
+
+
+/* ── 25. Messages / Chat ─────────────────────────────────────── */
+
+body.dark-theme .message-bubble {
+  background: #161b22;
+  color: #e6edf3;
+}
+body.dark-theme .message-bubble.mine {
+  background: #1a3a4a;
+  color: #e6edf3;
+}
+body.dark-theme .message-input-bar {
+  background: #0d1117;
+  border-top-color: #21262d;
+}
+body.dark-theme .message-input {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+
+/* ── 26. League Dashboard ────────────────────────────────────── */
+
+body.dark-theme .league-header {
+  background: #010409;
+}
+
+body.dark-theme .standings-row {
+  background: #161b22;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .standings-row:nth-child(even) {
+  background: #1c2128;
+}
+body.dark-theme .standings-rank {
+  color: #e6edf3;
+}
+
+
+/* ── 27. Score Entry (shared patterns) ───────────────────────── */
+/* Note: score-scoreboard.html and score-league.html have their
+   own dark theme overrides that take precedence over these. */
+
+body.dark-theme .roster-picker {
+  background: #0d1117;
+}
+body.dark-theme .roster-chip {
+  background: #161b22;
+  border-color: #30363d;
+}
+body.dark-theme .roster-chip .chip-name {
+  color: #8b949e;
+}
+body.dark-theme .bottom-bar {
+  background: #0d1117;
+  border-top-color: #21262d;
+}
+
+
+/* ── 28. KoB / Tournaments ───────────────────────────────────── */
+
+body.dark-theme .bracket-line {
+  border-color: #30363d;
+}
+body.dark-theme .bracket-match {
+  background: #161b22;
+  border-color: #30363d;
+}
+body.dark-theme .round-label {
+  color: #8b949e;
+}
+
+
+/* ── 29. Notifications ───────────────────────────────────────── */
+
+body.dark-theme .notification-item {
+  border-bottom-color: #21262d;
+}
+body.dark-theme .notification-item.unread {
+  background: #0d1d35;
+}
+body.dark-theme .notification-dot {
+  background: #58a6ff;
+}
+
+
+/* ── 30. Onboarding / Auth Screens ───────────────────────────── */
+
+body.dark-theme .auth-card,
+body.dark-theme .onboarding-card {
+  background: #161b22;
+}
+body.dark-theme .auth-title,
+body.dark-theme .onboarding-title {
+  color: #e6edf3;
+}
+body.dark-theme .auth-subtitle,
+body.dark-theme .onboarding-desc {
+  color: #8b949e;
+}
+body.dark-theme .auth-link,
+body.dark-theme .link-text {
+  color: #4daacc;
+}
+
+body.dark-theme .welcome-bg,
+body.dark-theme .hero-section {
+  background: linear-gradient(180deg, #010409 0%, #0d2a35 50%, #0d1117 100%);
+}
+
+
+/* ── 31. Error States ────────────────────────────────────────── */
+
+body.dark-theme .error-title {
+  color: #e6edf3;
+}
+body.dark-theme .error-desc {
+  color: #8b949e;
+}
+body.dark-theme .error-icon-wrap {
+  background: rgba(218,54,51,0.15);
+}
+
+
+/* ── 32. Session / Match Detail Bar ──────────────────────────── */
+
+body.dark-theme .session-bar,
+body.dark-theme .detail-bar {
+  background: #161b22;
+  color: #8b949e;
+}
+
+
+/* ── 33. State Switcher (already dark, minor tweaks) ─────────── */
+
+body.dark-theme .state-switcher {
+  background: #010409;
+  border-bottom-color: #e0b44c;
+}
+
+
+/* ── 34. Inline Style Overrides ──────────────────────────────── */
+/* A handful of wireframes use inline style="" with light colors.
+   These require !important to override. */
+
+body.dark-theme .game-teams .placeholder-name {
+  color: #d29922 !important;
+}
+
+/* Greeting text */
+body.dark-theme .greeting {
+  color: #e6edf3;
+}
+
+/* Friend-related surfaces */
+body.dark-theme .friends-tab__request-card,
+body.dark-theme .friends-tab__friend-card,
+body.dark-theme .friends-tab__suggestion-card {
+  background: #161b22;
+  border-color: #30363d;
+}
+body.dark-theme .friends-tab__request-name,
+body.dark-theme .friends-tab__friend-name,
+body.dark-theme .friends-tab__suggestion-name {
+  color: #e6edf3;
+}
+body.dark-theme .friends-tab__section-title {
+  color: #e6edf3;
+}
+body.dark-theme .friends-tab__dropdown-item--danger {
+  color: #f85149;
+}
+
+/* Public player page */
+body.dark-theme .public-player__name {
+  color: #e6edf3;
+}
+body.dark-theme .public-player__section-title {
+  color: #e6edf3;
+}
+body.dark-theme .public-player__mutual-friends {
+  color: #8b949e;
+}
+
+
+/* ── 35. Profile Page ────────────────────────────────────────── */
+
+body.dark-theme .profile-header {
+  background: #161b22;
+}
+body.dark-theme .profile-header .name {
+  color: #e6edf3;
+}
+body.dark-theme .profile-header .meta {
+  color: #8b949e;
+}
+body.dark-theme .profile-header .meta-placeholder {
+  color: #656d76;
+}
+body.dark-theme .profile-header .level-badge {
+  background: #0d1d35;
+  color: #58a6ff;
+}
+body.dark-theme .profile-header .edit-avatar {
+  background: #e0b44c;
+  border-color: #161b22;
+  color: #0d1117;
+}
+
+body.dark-theme .stats-bar {
+  background: #161b22;
+  border-top-color: #21262d;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .stats-bar .stat .val {
+  color: #4daacc;
+}
+body.dark-theme .stats-bar .stat .val.muted {
+  color: #656d76;
+}
+body.dark-theme .stats-bar .stat .label {
+  color: #8b949e;
+}
+body.dark-theme .stats-bar .stat + .stat {
+  border-left-color: #21262d;
+}
+
+body.dark-theme .segment-control .segment {
+  color: #8b949e;
+}
+body.dark-theme .segment-control .segment.active {
+  background: #161b22;
+  color: #e6edf3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+body.dark-theme .completion-card {
+  background: #161b22;
+  border-color: #30363d;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+body.dark-theme .completion-info h3 {
+  color: #e6edf3;
+}
+body.dark-theme .completion-info p {
+  color: #8b949e;
+}
+body.dark-theme .progress-ring .ring-bg {
+  stroke: #21262d;
+}
+body.dark-theme .progress-ring .ring-text {
+  color: #4daacc;
+}
+body.dark-theme .checklist-item .check-circle {
+  border-color: #30363d;
+}
+body.dark-theme .checklist-item .check-label {
+  color: #8b949e;
+}
+body.dark-theme .checklist-item .check-label.done {
+  color: #656d76;
+}
+body.dark-theme .checklist-item .required-tag {
+  background: #2a1215;
+  color: #f85149;
+}
+
+body.dark-theme .form-group .form-label {
+  color: #8b949e;
+}
+body.dark-theme .form-group .form-value {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+body.dark-theme .form-group .form-value.empty {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #656d76;
+}
+body.dark-theme .form-group .form-value.required-empty {
+  background: #2a1215;
+  border-color: #da3633;
+  color: #656d76;
+}
+body.dark-theme .form-group .form-value.editable {
+  border-color: #30363d;
+}
+
+body.dark-theme .trophy-card {
+  background: #1c1a10;
+  border-color: #3d3520;
+}
+body.dark-theme .trophy-card .trophy-place {
+  color: #e0b44c;
+}
+body.dark-theme .trophy-card .trophy-league {
+  color: #8b949e;
+}
+
+body.dark-theme .court-tag {
+  background: #0d2a35;
+  color: #4daacc;
+}
+
+body.dark-theme .section-title {
+  color: #e6edf3;
+}
+
+body.dark-theme .empty-section {
+  color: #656d76;
+}
+
+
+/* ── 36. Courts Page ─────────────────────────────────────────── */
+
+body.dark-theme .search-bar {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .search-input {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+body.dark-theme .search-input::placeholder {
+  color: #656d76;
+}
+
+body.dark-theme .filter-bar {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+
+body.dark-theme .court-item {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .court-item .court-name,
+body.dark-theme .court-item .name {
+  color: #e6edf3;
+}
+body.dark-theme .court-item .court-meta,
+body.dark-theme .court-item .meta {
+  color: #8b949e;
+}
+
+body.dark-theme .court-thumb {
+  background: linear-gradient(135deg, #1a3a4a, #2a4a3a) !important;
+}
+
+body.dark-theme .map-placeholder {
+  background: linear-gradient(135deg, #1a3a4a 0%, #0d2a35 50%, #1a2a1a 100%) !important;
+}
+
+
+/* ── 37. Comprehensive Surface Overrides ─────────────────────── */
+/* Covers all remaining white-background components found across
+   all 50 wireframes. Grouped by surface type. */
+
+/* White surface cards / containers */
+body.dark-theme .action-bar,
+body.dark-theme .active-session-card,
+body.dark-theme .bottom-sheet,
+body.dark-theme .chart-card,
+body.dark-theme .claim-card,
+body.dark-theme .confirm-options,
+body.dark-theme .court-header,
+body.dark-theme .court-selector,
+body.dark-theme .create-cta,
+body.dark-theme .data-table,
+body.dark-theme .detail-section,
+body.dark-theme .empty-cta,
+body.dark-theme .empty-state-card,
+body.dark-theme .error-detail-card,
+body.dark-theme .event-card,
+body.dark-theme .form-card,
+body.dark-theme .format-card,
+body.dark-theme .game-type-card,
+body.dark-theme .guidance,
+body.dark-theme .hero,
+body.dark-theme .home-courts,
+body.dark-theme .info-card,
+body.dark-theme .invite-banner,
+body.dark-theme .league-bar,
+body.dark-theme .league-result,
+body.dark-theme .leagues-section,
+body.dark-theme .match-card,
+body.dark-theme .modal-sheet,
+body.dark-theme .overview-tiles,
+body.dark-theme .pending-invites,
+body.dark-theme .pending-invite-share,
+body.dark-theme .player-hero,
+body.dark-theme .players-section,
+body.dark-theme .post-create-content,
+body.dark-theme .preview-card,
+body.dark-theme .profile-link,
+body.dark-theme .rating-bar,
+body.dark-theme .result-card,
+body.dark-theme .results-header,
+body.dark-theme .round-card,
+body.dark-theme .schedule-card,
+body.dark-theme .score-card,
+body.dark-theme .search-players,
+body.dark-theme .search-results,
+body.dark-theme .season-info,
+body.dark-theme .self-cta,
+body.dark-theme .session-header,
+body.dark-theme .session-info,
+body.dark-theme .standings,
+body.dark-theme .standings-table,
+body.dark-theme .stat-card,
+body.dark-theme .stream-card,
+body.dark-theme .success-card,
+body.dark-theme .success-summary,
+body.dark-theme .trophies,
+body.dark-theme .tourney-bar,
+body.dark-theme .tourney-card,
+body.dark-theme .tourney-card-past,
+body.dark-theme .tourney-card-upcoming,
+body.dark-theme .tourney-header,
+body.dark-theme .tourney-nearby-card,
+body.dark-theme .visitor-action,
+body.dark-theme .welcome-header {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+/* List rows and items */
+body.dark-theme .action-row,
+body.dark-theme .convo-item,
+body.dark-theme .friend-item,
+body.dark-theme .game-item,
+body.dark-theme .invite-item,
+body.dark-theme .lock-row,
+body.dark-theme .notif-item,
+body.dark-theme .player-item,
+body.dark-theme .settings-row,
+body.dark-theme .suggestion-item,
+body.dark-theme .toggle-row {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+
+/* Form inputs */
+body.dark-theme .form-input,
+body.dark-theme .form-select,
+body.dark-theme .form-textarea,
+body.dark-theme .text-input,
+body.dark-theme .info-select,
+body.dark-theme .filter-select,
+body.dark-theme .role-select,
+body.dark-theme .edit-clarify-textarea,
+body.dark-theme .otp-cell,
+body.dark-theme .score-input {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+/* Interactive chips and pills */
+body.dark-theme .pill,
+body.dark-theme .player-chip,
+body.dark-theme .time-chip,
+body.dark-theme .roster-strip {
+  background: #161b22;
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+/* Buttons */
+body.dark-theme .btn-cancel,
+body.dark-theme .btn-social,
+body.dark-theme .share-btn,
+body.dark-theme .add-new-player-btn,
+body.dark-theme .btn-create-player {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+/* Toggle components */
+body.dark-theme .toggle-card,
+body.dark-theme .toggle-btn {
+  background: #161b22;
+  border-color: #30363d;
+}
+body.dark-theme .knob,
+body.dark-theme .toggle-knob {
+  background: #8b949e;
+}
+
+/* Tables */
+body.dark-theme .breakdown-table,
+body.dark-theme .data-table,
+body.dark-theme .standings-table {
+  background: #161b22;
+}
+body.dark-theme .breakdown-table td,
+body.dark-theme .data-table td,
+body.dark-theme .standings-table td {
+  border-color: #21262d;
+  color: #e6edf3;
+}
+body.dark-theme .breakdown-table th,
+body.dark-theme .data-table th,
+body.dark-theme .standings-table th {
+  border-color: #21262d;
+  color: #8b949e;
+}
+
+/* Social sub-nav (concrete class from wireframes) */
+body.dark-theme .social-subnav {
+  background: #0d1117;
+  border-bottom-color: #21262d;
+}
+body.dark-theme .social-subnav a {
+  color: #8b949e;
+}
+body.dark-theme .social-subnav a.active {
+  color: #e6edf3;
+  border-bottom-color: #e6edf3;
+}
+
+/* Photo areas */
+body.dark-theme .photo-thumb-row,
+body.dark-theme .photo-thumb-expanded,
+body.dark-theme .upload-preview {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+/* Processing steps (AI score capture) */
+body.dark-theme .processing-step {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+/* Chat / messages */
+body.dark-theme .received {
+  background: #161b22;
+}
+body.dark-theme .assistant {
+  background: #0d1d35;
+  color: #e6edf3;
+}
+body.dark-theme .input-bar {
+  background: #0d1117;
+  border-top-color: #21262d;
+}
+body.dark-theme .typing {
+  color: #656d76;
+}
+
+/* Mutual friends */
+body.dark-theme .mutual-friends {
+  background: #161b22;
+  color: #8b949e;
+}
+
+/* Stat grid on my-stats */
+body.dark-theme .stats-grid {
+  background: #161b22;
+}
+
+/* Stepper buttons (score entry) */
+body.dark-theme .stepper,
+body.dark-theme .stepper-btn {
+  background: #161b22;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+/* Sticky confirm bar */
+body.dark-theme .sticky-confirm-bar {
+  background: #0d1117;
+  border-top-color: #21262d;
+}
+
+/* Checkbox */
+body.dark-theme .checkbox {
+  border-color: #30363d;
+  background: #0d1117;
+}
+
+/* Add new player */
+body.dark-theme .add-new-player {
+  background: rgba(224,180,76,0.08);
+  color: #e0b44c;
+}
+
+/* Placeholder / pulse animation */
+body.dark-theme .placeholder {
+  background: #21262d;
+}
+body.dark-theme .pulse {
+  background: #21262d;
+}
+
+
+/* ── 38. Semantic Tint Overrides ──────────────────────────────── */
+/* Light theme uses tinted backgrounds for info/success/warning/danger.
+   Dark theme uses the same hues but much darker. */
+
+/* Teal-tinted surfaces → deep teal */
+body.dark-theme [style*="background: #e8f4f8"],
+body.dark-theme [style*="background:#e8f4f8"] {
+  background: #0d2a35 !important;
+  color: #4daacc !important;
+}
+
+/* Gold-tinted surfaces → deep gold */
+body.dark-theme [style*="background: #fdf8ed"],
+body.dark-theme [style*="background:#fdf8ed"],
+body.dark-theme [style*="background: #fdf3d8"],
+body.dark-theme [style*="background:#fdf3d8"] {
+  background: #1c1a10 !important;
+}
+
+/* Success-tinted surfaces → deep green */
+body.dark-theme [style*="background: #dcfce7"],
+body.dark-theme [style*="background:#dcfce7"] {
+  background: #0d2818 !important;
+  color: #3fb950 !important;
+}
+
+/* Danger-tinted surfaces → deep red */
+body.dark-theme [style*="background: #fee2e2"],
+body.dark-theme [style*="background:#fee2e2"] {
+  background: #2a1215 !important;
+  color: #f85149 !important;
+}
+
+
+/* ── 39. Generic Catch-All ───────────────────────────────────── */
+/* For wireframe elements that use common patterns but may not
+   have class names covered above. */
+
+/* Any white-background surface inside content */
+body.dark-theme .content > div[style*="background: #fff"],
+body.dark-theme .content > div[style*="background:#fff"],
+body.dark-theme .content > a[style*="background: #fff"],
+body.dark-theme .content > a[style*="background:#fff"] {
+  background: #161b22 !important;
+}
+
+/* Section borders that use #eee or #f0f0f0 */
+body.dark-theme [style*="border"][style*="#eee"],
+body.dark-theme [style*="border"][style*="#f0f0f0"] {
+  border-color: #21262d !important;
+}

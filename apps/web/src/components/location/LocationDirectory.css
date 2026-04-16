@@ -76,7 +76,7 @@
   border-radius: 8px;
   font-size: 14px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   outline: none;
   transition: border-color 0.15s;
   box-sizing: border-box;

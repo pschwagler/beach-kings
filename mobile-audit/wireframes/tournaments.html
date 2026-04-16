@@ -48,7 +48,7 @@
   .tourney-card .tourney-stats { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
   .tourney-card .tourney-stat { text-align: center; flex: 1; }
   .tourney-card .tourney-stat .val { font-size: 16px; font-weight: 700; color: #1a3a4a; }
-  .tourney-card .tourney-stat .label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .tourney-card .tourney-stat .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
   .tourney-card .tourney-rank { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
   .tourney-card .rank-badge { background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 10px; }
   .tourney-card .chevron { color: #ccc; font-size: 18px; }
@@ -62,7 +62,7 @@
   .tourney-nearby-card .nearby-bottom { display: flex; justify-content: space-between; align-items: center; }
   .tourney-nearby-card .nearby-info { display: flex; gap: 8px; align-items: center; }
   .tourney-nearby-card .nearby-spots { font-size: 12px; color: #555; }
-  .tourney-nearby-card .nearby-type { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .tourney-nearby-card .nearby-type { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
   .tourney-nearby-card .nearby-type.open { background: #dcfce7; color: #15803d; }
   .tourney-nearby-card .nearby-type.invite { background: #fef3c7; color: #92400e; }
   .tourney-nearby-card .nearby-action { padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; border: none; min-height: 36px; }
@@ -77,7 +77,7 @@
   .tourney-card-upcoming .tourney-name { font-size: 14px; font-weight: 600; }
   .tourney-card-upcoming .tourney-detail { font-size: 12px; color: #666; margin-top: 3px; }
   .tourney-card-upcoming .tourney-date { font-size: 12px; font-weight: 600; color: #2a7d9c; }
-  .tourney-card-upcoming .tourney-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; flex-shrink: 0; }
+  .tourney-card-upcoming .tourney-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; flex-shrink: 0; }
   .tourney-card-upcoming .tourney-badge.director { background: #e8f4f8; color: #2a7d9c; }
   .tourney-card-upcoming .tourney-badge.soon { background: #fef3c7; color: #92400e; }
   .tourney-card-upcoming .chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
@@ -90,6 +90,9 @@
   .tourney-card-past .tourney-detail { font-size: 12px; color: #666; margin-top: 3px; }
   .tourney-card-past .tourney-result { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; background: #dcfce7; color: #15803d; flex-shrink: 0; }
   .tourney-card-past .chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
+
+  /* Empty State Card */
+  .empty-state-card { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); color: #999; font-size: 13px; }
 
   /* Create CTA */
   .create-cta { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-top: 8px; border: 1.5px dashed #ccc; display: block; text-decoration: none; color: inherit; }
@@ -167,7 +170,7 @@
   <div class="section-label">My Upcoming</div>
 
   <a href="tournament-detail.html" class="tourney-card-upcoming">
-    <div class="tourney-icon">&#9978;</div>
+    <div class="tourney-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
     <div class="tourney-info">
       <div class="tourney-name">Sunday Showdown KoB</div>
       <div class="tourney-detail">QBK Sports &middot; 12 players registered</div>
@@ -178,7 +181,7 @@
   </a>
 
   <a href="tournament-detail.html" class="tourney-card-upcoming">
-    <div class="tourney-icon">&#9978;</div>
+    <div class="tourney-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
     <div class="tourney-info">
       <div class="tourney-name">Domino Park Spring Classic</div>
       <div class="tourney-detail">Domino Park &middot; 16 player cap</div>
@@ -189,7 +192,7 @@
   </a>
 
   <a href="tournament-detail.html" class="tourney-card-upcoming">
-    <div class="tourney-icon">&#9978;</div>
+    <div class="tourney-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
     <div class="tourney-info">
       <div class="tourney-name">Williamsburg Weekly KoB</div>
       <div class="tourney-detail">McCarren Park &middot; 8 players registered</div>
@@ -203,7 +206,7 @@
   <!-- No upcoming state -->
   <div class="state-no-upcoming">
   <div class="section-label">My Upcoming</div>
-  <div style="background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); color: #999; font-size: 13px;">
+  <div class="empty-state-card">
     No upcoming tournaments. Browse nearby events below or create your own.
   </div>
   </div>
@@ -212,12 +215,12 @@
   <div class="section-label">Nearby</div>
 
   <div class="filter-row">
-    <div class="filter-chip active">All</div>
-    <div class="filter-chip">KoB</div>
-    <div class="filter-chip">Bracket</div>
-    <div class="filter-chip">This Week</div>
-    <div class="filter-chip">This Month</div>
-    <div class="filter-chip">Open Spots</div>
+    <div class="filter-chip active" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">All</div>
+    <div class="filter-chip" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">KoB</div>
+    <div class="filter-chip" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">Bracket</div>
+    <div class="filter-chip" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">This Week</div>
+    <div class="filter-chip" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">This Month</div>
+    <div class="filter-chip" onclick="this.parentNode.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">Open Spots</div>
   </div>
 
   <a href="tournament-detail.html" class="tourney-nearby-card">
@@ -231,7 +234,7 @@
         <span class="nearby-spots">12/16 players</span>
         <span class="nearby-type open">Open</span>
       </div>
-      <button class="nearby-action register">Request to Join</button>
+      <button class="nearby-action register" onclick="event.preventDefault();event.stopPropagation();this.textContent='Request Pending';this.disabled=true;this.className='btn-join btn-pending'">Request to Join</button>
     </div>
   </a>
 
@@ -246,7 +249,7 @@
         <span class="nearby-spots">16/16 players</span>
         <span class="nearby-type open">Open</span>
       </div>
-      <button class="nearby-action waitlist">Join Waitlist</button>
+      <button class="nearby-action waitlist" onclick="event.preventDefault();event.stopPropagation();this.textContent='Request Pending';this.disabled=true;this.className='btn-join btn-pending'">Join Waitlist</button>
     </div>
   </a>
 
@@ -269,7 +272,7 @@
   <div class="section-label">Past Tournaments</div>
 
   <a href="kob-standings.html" class="tourney-card-past">
-    <div class="tourney-icon">&#127942;</div>
+    <div class="tourney-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tourney-info">
       <div class="tourney-name">March Madness KoB</div>
       <div class="tourney-detail">Mar 29 &middot; QBK Sports &middot; 10 players</div>
@@ -278,8 +281,8 @@
     <span class="chevron">&rsaquo;</span>
   </a>
 
-  <a href="#" class="tourney-card-past">
-    <div class="tourney-icon">&#127942;</div>
+  <a href="kob-standings.html" class="tourney-card-past">
+    <div class="tourney-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tourney-info">
       <div class="tourney-name">St. Patrick's Day KoB</div>
       <div class="tourney-detail">Mar 15 &middot; Domino Park &middot; 8 players</div>
@@ -289,7 +292,7 @@
   </a>
 
   <a href="kob-create.html" class="create-cta">
-    <div class="cta-icon">&#127942;</div>
+    <div class="cta-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="cta-title">Create a Tournament</div>
     <div class="cta-desc">Run a King of the Beach or custom bracket</div>
   </a>
@@ -298,24 +301,24 @@
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127968;</div>
-    <div class="tab-label">Home</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label active">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">&#10133;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
@@ -330,5 +333,6 @@ function setState(state) {
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

@@ -1,62 +1,67 @@
-import React, { ReactNode } from 'react';
-import { Sheet, YStack, XStack, Text, Button as TamaguiButton } from 'tamagui';
-import { X } from 'lucide-react-native';
+/**
+ * Modal component — full-screen modal with slide-up animation.
+ * Handle bar at top, optional title row, X close button.
+ */
+
+import React from 'react';
+import {
+  Modal as RNModal,
+  View,
+  Text,
+  Pressable,
+  SafeAreaView,
+} from 'react-native';
 
 interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  children: ReactNode;
-  snapPoints?: number[];
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly title?: string;
+  readonly children: React.ReactNode;
+  readonly className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, snapPoints = [85] }: ModalProps) {
+export default function Modal({
+  visible,
+  onClose,
+  title,
+  children,
+  className = '',
+}: ModalProps): React.ReactNode {
   return (
-    <Sheet
-      modal
-      open={isOpen}
-      onOpenChange={(open) => !open && onClose()}
-      snapPoints={snapPoints}
-      dismissOnSnapToBottom
-      zIndex={100_000}
-      animation="medium"
+    <RNModal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
     >
-      <Sheet.Overlay
-        animation="lazy"
-        enterStyle={{ opacity: 0 }}
-        exitStyle={{ opacity: 0 }}
-      />
-      <Sheet.Handle />
-      <Sheet.Frame
-        padding="$4"
-        backgroundColor="$background"
-        borderTopLeftRadius="$6"
-        borderTopRightRadius="$6"
-      >
-        {title && (
-          <XStack
-            alignItems="center"
-            justifyContent="space-between"
-            marginBottom="$4"
+      <SafeAreaView className={`flex-1 bg-white dark:bg-dark-bg ${className}`}>
+        {/* Handle bar */}
+        <View className="items-center pt-sm pb-xs">
+          <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+        </View>
+
+        {/* Title row — always rendered so the X close button is always accessible */}
+        <View className="flex-row items-center justify-between px-lg py-md border-b border-gray-100 dark:border-gray-800">
+          <Text className="text-lg font-bold text-text-default dark:text-content-primary flex-1">
+            {title ?? ''}
+          </Text>
+          <Pressable
+            onPress={onClose}
+            className="min-h-touch min-w-touch items-center justify-center"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
           >
-            <Text fontSize="$7" fontWeight="700" color="$textPrimary">
-              {title}
+            <Text className="text-2xl text-text-muted dark:text-text-tertiary leading-none">
+              x
             </Text>
-            <TamaguiButton
-              size="$3"
-              circular
-              icon={X}
-              onPress={onClose}
-              backgroundColor="transparent"
-              color="$textSecondary"
-            />
-          </XStack>
-        )}
-        <YStack flex={1}>
+          </Pressable>
+        </View>
+
+        {/* Content */}
+        <View className="flex-1">
           {children}
-        </YStack>
-      </Sheet.Frame>
-    </Sheet>
+        </View>
+      </SafeAreaView>
+    </RNModal>
   );
 }
-

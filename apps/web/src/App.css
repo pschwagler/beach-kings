@@ -15,6 +15,7 @@ html {
   overscroll-behavior-y: auto;
   /* Don't set overflow-y on html - let it default to allow proper mobile scrolling */
   -webkit-overflow-scrolling: touch;
+  color-scheme: light dark;
   font-family: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
     "Helvetica Neue", sans-serif;
@@ -26,7 +27,8 @@ body {
     "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #f7f8f9, #fafbfc, #f7f8f9);
+  background: var(--bg-page);
+  color: var(--gray-900);
   min-height: 100dvh;
   padding: 0;
   margin: 0;
@@ -87,7 +89,7 @@ table:not([class]) {
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--bg-surface);
 }
 
 table:not([class]) th,
@@ -267,7 +269,7 @@ table:not([class]) tr:last-child td {
 
 /* League Cards */
 .league-card {
-  background: white;
+  background: var(--bg-surface);
   padding: 20px;
   border-radius: 16px;
   margin-bottom: 16px;
@@ -514,7 +516,7 @@ h1 {
   text-align: center;
   max-width: 600px;
   padding: 48px 32px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px;
   box-shadow: var(--shadow-lg);
   border: 2px solid var(--primary);
@@ -610,7 +612,7 @@ h1 {
 }
 
 .dashboard-widget {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--gray-200);
@@ -789,7 +791,7 @@ h1 {
   padding: 16px;
   border: 1px solid var(--gray-200);
   border-radius: 12px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .dashboard-match-item-clickable {
@@ -798,7 +800,7 @@ h1 {
 }
 
 .dashboard-match-item-clickable:hover {
-  background: white;
+  background: var(--bg-surface);
   border-color: var(--primary);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
@@ -925,7 +927,7 @@ h1 {
 
 /* Modern Rankings Table Styling */
 .rankings-table-wrapper {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   border: 1px solid var(--gray-300);
   box-shadow: 0 1px 3px var(--gray-300);
@@ -946,7 +948,7 @@ h1 {
   border-spacing: 0;
   border: none;
   margin: 0;
-  background: white;
+  background: var(--bg-surface);
   box-shadow: none;
   table-layout: auto; /* Auto layout allows natural column sizing while respecting min-widths */
   border-radius: 0 !important; /* Override general table border-radius: 12px rule */
@@ -1074,7 +1076,7 @@ h1 {
 }
 
 .rankings-table-modern tbody .sticky-col {
-  background: white;
+  background: var(--bg-surface);
   box-shadow: 2px 0 2px rgba(0, 0, 0, 0.03);
   position: sticky;
   left: 35px; /* Position after the rank number column which is 35px wide */
@@ -1090,7 +1092,7 @@ h1 {
 }
 
 .rankings-table-modern tbody tr:hover .sticky-col {
-  background: #f7f7f7; /* Solid color to match hover background */
+  background: var(--gray-50);
 }
 
 .rankings-row {
@@ -1141,7 +1143,7 @@ h1 {
   position: sticky;
   left: 0;
   z-index: 10;
-  background: white;
+  background: var(--bg-surface);
   vertical-align: middle;
 }
 
@@ -1290,17 +1292,17 @@ h1 {
   align-items: center;
   justify-content: center;
   background-color: transparent;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gray-300);
   border-radius: 6px;
-  color: #374151;
+  color: var(--gray-700);
   cursor: pointer;
   transition: all 0.2s;
   font-family: "Urbanist", sans-serif;
 }
 
 .edit-session-button:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
+  background-color: var(--gray-100);
+  border-color: var(--gray-400);
 }
 
 .edit-session-button:active {
@@ -1322,7 +1324,7 @@ h1 {
 }
 
 .match-card {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   overflow: hidden;
@@ -1332,7 +1334,7 @@ h1 {
 }
 
 .match-card .match-team {
-  background: white;
+  background: var(--bg-surface);
 }
 
 .match-card .match-team.winner {
@@ -1417,7 +1419,7 @@ h1 {
 }
 
 .match-team.loser {
-  background: white;
+  background: var(--bg-surface);
   opacity: 0.8;
   border-left: 4px solid transparent;
 }
@@ -1454,7 +1456,7 @@ h1 {
   bottom: 0;
   max-width: 100%;
   padding: 24px;
-  background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+  background: var(--bg-surface-raised);
   border-left: 1px solid var(--gray-200);
   box-shadow: -4px 0px 20px rgba(0, 0, 0, 0.08);
   overflow-y: auto;
@@ -1516,7 +1518,7 @@ h1 {
   margin-top: 0;
   border: 1px solid var(--gray-200);
   border-radius: 12px;
-  background: white;
+  background: var(--bg-surface);
   box-shadow: var(--shadow-sm);
   /* Use auto layout to allow natural column sizing, but ensure colspan works */
   table-layout: auto;
@@ -1801,7 +1803,7 @@ body.drawer-open {
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
@@ -1819,7 +1821,7 @@ body.drawer-open {
   border-bottom: 1px solid var(--gray-200);
   font-size: 0.95em;
   font-family: inherit;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-900);
   transition: all 0.2s ease;
 }
@@ -1905,7 +1907,7 @@ body.drawer-open {
   height: 44px;
   border-radius: 50%;
   border: 1.5px solid var(--gray-300);
-  background: #fff;
+  background: var(--bg-surface);
   color: var(--gray-600);
   display: inline-flex;
   align-items: center;
@@ -2009,7 +2011,7 @@ body.drawer-open {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   border: 1px solid var(--gray-200);
   transition: all 0.2s ease;
@@ -2353,11 +2355,11 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* Additional utility classes for inline style removal */
 .winner-row {
-  background: white;
+  background: var(--bg-surface);
 }
 
 .loser-row {
-  background: white;
+  background: var(--bg-surface);
 }
 
 /* Match history result colors */
@@ -2515,7 +2517,7 @@ body:hover ::-webkit-scrollbar-thumb {
 .match-type-toggle.compact {
   display: flex;
   gap: 0;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 6px;
   padding: 2px;
   border: 1px solid var(--gray-300);
@@ -2566,7 +2568,7 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   cursor: pointer;
@@ -2620,7 +2622,7 @@ body:hover ::-webkit-scrollbar-thumb {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
@@ -2658,7 +2660,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .active-season-card.compact {
   padding: 5px 10px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 6px;
   font-size: 0.75rem;
@@ -2707,7 +2709,7 @@ body:hover ::-webkit-scrollbar-thumb {
 .ranked-toggle-switch.compact {
   display: flex;
   gap: 0;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 6px;
   padding: 2px;
   border: 1px solid var(--gray-300);
@@ -2796,7 +2798,7 @@ body:hover ::-webkit-scrollbar-thumb {
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   border: 1px solid var(--gray-200);
   overflow: visible;
@@ -2858,7 +2860,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-size: 1em;
   font-weight: 600;
   transition: all 0.2s;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .player-input:focus {
@@ -2876,7 +2878,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-weight: 800;
   font-family: "Urbanist", sans-serif;
   transition: all 0.2s;
-  background: white;
+  background: var(--bg-surface);
   text-align: center;
   flex-shrink: 0;
   display: flex;
@@ -3068,7 +3070,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-family: inherit;
   font-weight: 500;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   transition: all 0.2s;
   box-sizing: border-box;
 }
@@ -3108,7 +3110,7 @@ body:hover ::-webkit-scrollbar-thumb {
   left: 8px;
   top: -0.3em;
   padding: 0 6px;
-  background: white;
+  background: var(--bg-surface);
   font-size: 0.6em;
   font-weight: 500;
   color: var(--gray-600);
@@ -3127,7 +3129,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-family: inherit;
   font-weight: 500;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3210,7 +3212,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-family: inherit;
   font-weight: 500;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   transition: all 0.2s;
   box-sizing: border-box;
 }
@@ -3258,7 +3260,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid var(--gray-300);
-  background: white;
+  background: var(--bg-surface);
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
@@ -3307,7 +3309,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 0;
   border: 1px solid var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-700);
   cursor: pointer;
   transition: all 0.2s;
@@ -3347,7 +3349,7 @@ body:hover ::-webkit-scrollbar-thumb {
   left: 0;
   min-width: 250px;
   padding: 16px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -3381,7 +3383,7 @@ body:hover ::-webkit-scrollbar-thumb {
   font-size: 0.9em;
   font-family: inherit;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3471,7 +3473,7 @@ body:hover ::-webkit-scrollbar-thumb {
 .filterable-table-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -3612,7 +3614,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .find-league-card {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 16px;
@@ -3678,7 +3680,7 @@ body:hover ::-webkit-scrollbar-thumb {
   height: 22px;
   border-radius: 50%;
   background: var(--primary-light, #7fb3c7);
-  border: 2px solid #fff;
+  border: 2px solid var(--bg-surface);
   margin-left: -6px;
   font-size: 9px;
   font-weight: 700;
@@ -4112,7 +4114,7 @@ body:hover ::-webkit-scrollbar-thumb {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 10px;
   border: 2px solid var(--gray-200);
   transition: all 0.2s ease;
@@ -4145,7 +4147,7 @@ body:hover ::-webkit-scrollbar-thumb {
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: #e5e7eb;
+  background-color: var(--gray-200);
   color: var(--gray-900);
   text-transform: none;
   letter-spacing: 0;
@@ -4172,7 +4174,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* Description Section */
 .league-description-section {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 20px 24px;
@@ -4300,7 +4302,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* Players Table */
 .league-players-section {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 20px 24px;
@@ -4404,7 +4406,7 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -4520,7 +4522,7 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: white;
+  background: var(--bg-surface);
   border-bottom: 1px solid var(--gray-100);
   cursor: pointer;
   transition: all 0.15s;
@@ -4647,7 +4649,7 @@ body:hover ::-webkit-scrollbar-thumb {
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--bg-surface);
   border-left: 1px solid var(--gray-200);
   box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
   z-index: 2002;
@@ -4698,7 +4700,7 @@ body:hover ::-webkit-scrollbar-thumb {
   border-radius: 8px;
   font-size: 14px;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   outline: none;
   transition: border-color 0.15s;
 }
@@ -4759,7 +4761,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .session-players-view-tab.active {
   color: var(--primary);
-  background: white;
+  background: var(--bg-surface);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
@@ -4801,7 +4803,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 8px 12px;
   min-height: 40px;
   border-bottom: 1px solid var(--gray-100);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .session-players-list-item:last-child {
@@ -4874,6 +4876,54 @@ body:hover ::-webkit-scrollbar-thumb {
 .session-players-remove:hover:not(:disabled) {
   background: var(--danger-light);
   color: var(--danger);
+}
+
+.session-players-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.session-players-add-friend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: transparent;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.session-players-add-friend:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+}
+
+.session-players-add-friend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-players-friend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--success, #16a34a);
+  white-space: nowrap;
+}
+
+.session-players-friend-badge.pending {
+  color: var(--gray-500);
 }
 
 .session-players-add .session-players-column-scroll {
@@ -4949,7 +4999,7 @@ body:hover ::-webkit-scrollbar-thumb {
   min-width: 320px;
   max-width: 90vw;
   padding: 12px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--gray-200);
@@ -5067,7 +5117,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 3px 6px;
   border: 1px solid var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   cursor: text;
   transition: border-color 0.15s;
 }
@@ -5156,7 +5206,7 @@ body:hover ::-webkit-scrollbar-thumb {
   margin-top: 4px;
   max-height: 200px;
   overflow-y: auto;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 6px;
   box-shadow: var(--shadow-md);
@@ -5264,7 +5314,7 @@ body:hover ::-webkit-scrollbar-thumb {
   padding: 8px 12px;
   min-height: 40px;
   border-bottom: 1px solid var(--gray-100);
-  background: white;
+  background: var(--bg-surface);
   transition: background 0.15s;
 }
 
@@ -5401,7 +5451,7 @@ body:hover ::-webkit-scrollbar-thumb {
   border-radius: 6px;
   font-size: 0.9em;
   font-family: "Urbanist", sans-serif;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-900);
   cursor: pointer;
   transition: all 0.2s;
@@ -5434,7 +5484,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* Seasons Grid */
 .league-seasons-section {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 20px 24px;
@@ -5484,7 +5534,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* League Info */
 .league-info-section {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 20px 24px;
@@ -5644,7 +5694,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 .add-matches-card {
   margin-top: 12px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 28px 32px;
   max-width: 250px;
@@ -5912,7 +5962,7 @@ body:hover ::-webkit-scrollbar-thumb {
   top: calc(100% + 8px);
   left: 0;
   min-width: 160px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
@@ -5926,7 +5976,7 @@ body:hover ::-webkit-scrollbar-thumb {
   gap: 10px;
   width: 100%;
   padding: 10px 14px;
-  background: white;
+  background: var(--bg-surface);
   border: none;
   font-size: 0.9rem;
   color: var(--gray-900);
@@ -5982,7 +6032,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .session-page-matches {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--shadow-sm);
@@ -6058,7 +6108,7 @@ body:hover ::-webkit-scrollbar-thumb {
 }
 
 .session-page-btn.secondary {
-  background: white;
+  background: var(--bg-surface);
   color: var(--primary);
   border-color: var(--primary);
   text-decoration: none;
@@ -6105,7 +6155,7 @@ body:hover ::-webkit-scrollbar-thumb {
   align-items: center;
   width: 100%;
   padding: 16px 20px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   cursor: pointer;
@@ -6221,7 +6271,7 @@ body:hover ::-webkit-scrollbar-thumb {
 
 /* My Leagues Bar — full-width horizontal scroll */
 .home-leagues-bar {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--gray-200);
@@ -6320,7 +6370,7 @@ body:hover ::-webkit-scrollbar-thumb {
 .home-leagues-bar__card:hover {
   border-color: var(--primary);
   box-shadow: var(--shadow-sm);
-  background: white;
+  background: var(--bg-surface);
 }
 
 .home-leagues-bar__card-name {
@@ -6447,7 +6497,7 @@ body:hover ::-webkit-scrollbar-thumb {
 /* Add Match Card */
 /* Add Match Card */
 .add-match-card {
-  background: white;
+  background: var(--bg-surface);
   border: 2px dashed var(--gray-300);
   border-radius: 12px;
   padding: 32px 20px;
@@ -6596,7 +6646,7 @@ button.match-config-toggle.inline svg {
   font-family: "Urbanist", sans-serif;
   font-weight: 500;
   color: var(--gray-800);
-  background: white;
+  background: var(--bg-surface);
   min-height: 36px;
   cursor: pointer;
   transition: border-color 0.15s;
@@ -6637,7 +6687,7 @@ button.match-config-toggle.inline svg {
   min-height: 36px;
   padding: 7px 10px;
   font-size: 0.8125rem;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .match-config-content {
@@ -6699,7 +6749,7 @@ button.match-config-toggle.inline svg {
   font-family: inherit;
   font-weight: 600;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   transition: all 0.2s;
 }
 
@@ -6727,7 +6777,7 @@ button.match-config-toggle.inline svg {
   margin: 0;
   padding: 0;
   list-style: none;
-  background: white;
+  background: var(--bg-surface);
   border: 2px solid var(--primary);
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
@@ -6741,7 +6791,7 @@ button.match-config-toggle.inline svg {
   padding: 12px 16px;
   border: 2px solid var(--gray-300);
   border-radius: 8px;
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -6779,7 +6829,7 @@ button.match-config-toggle.inline svg {
   position: fixed;
   top: 0;
   left: 0;
-  background: white;
+  background: var(--bg-surface);
   border: 2px solid var(--primary);
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
@@ -6816,7 +6866,7 @@ button.match-config-toggle.inline svg {
 
 .player-dropdown-search:focus {
   outline: none;
-  background: white;
+  background: var(--bg-surface);
   border-bottom-color: var(--primary);
 }
 
@@ -6913,7 +6963,7 @@ button.match-config-toggle.inline svg {
 
 .auth-modal {
   width: min(420px, 100%);
-  background: white;
+  background: var(--bg-surface);
   border-radius: 20px;
   padding: 28px;
   box-shadow: 0 25px 45px rgba(15, 23, 42, 0.25);
@@ -7135,7 +7185,7 @@ button.match-config-toggle.inline svg {
   border: 1px solid rgba(59, 130, 200, 0.25);
   overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .phone-input__wrapper:focus-within {
@@ -7380,7 +7430,7 @@ button.match-config-toggle.inline svg {
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 28px;
-  background: white;
+  background: var(--bg-surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 12px;
   overflow: hidden;
@@ -7622,7 +7672,7 @@ button.session-stats-clickable:focus-visible {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--gray-200);
   gap: 1rem;
   margin-bottom: 16px;
 }
@@ -7682,7 +7732,7 @@ button.session-stats-clickable:focus-visible {
 
 .session-season-selector {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--gray-200);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -7692,7 +7742,7 @@ button.session-stats-clickable:focus-visible {
 .session-season-label {
   font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--gray-600);
 }
 
 .season-dropdown-wrapper {
@@ -7712,7 +7762,7 @@ button.session-stats-clickable:focus-visible {
 .season-filter-dropdown {
   padding: 0.5rem 2rem 0.5rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--gray-300);
   font-size: 14px;
   cursor: pointer;
   appearance: none;
@@ -7731,7 +7781,7 @@ button.session-stats-clickable:focus-visible {
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  color: #666;
+  color: var(--gray-600);
 }
 
 .season-dropdown-trigger {
@@ -7741,7 +7791,7 @@ button.session-stats-clickable:focus-visible {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   cursor: pointer;
-  background-color: #f3f4f6;
+  background-color: var(--gray-100);
   font-size: 14px;
   border: 1px solid transparent;
 }
@@ -7755,8 +7805,8 @@ button.session-stats-clickable:focus-visible {
   top: 100%;
   left: 0;
   margin-top: 0.25rem;
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background-color: var(--bg-surface-raised);
+  border: 1px solid var(--gray-200);
   border-radius: 6px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   z-index: 3001; /* Above modals (2001) - high enough to appear above modal content */
@@ -7775,11 +7825,11 @@ button.session-stats-clickable:focus-visible {
 }
 
 .season-dropdown-option.selected {
-  background-color: #f3f4f6;
+  background-color: var(--gray-100);
 }
 
 .season-dropdown-option:not(.selected):hover {
-  background-color: #f9fafb;
+  background-color: var(--gray-50);
 }
 
 .season-name {
@@ -7792,12 +7842,12 @@ button.session-stats-clickable:focus-visible {
 
 .season-dates {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--gray-600);
 }
 
 .season-id-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--gray-600);
 }
 
 .session-matches-section {
@@ -7854,7 +7904,7 @@ button.session-stats-clickable:focus-visible {
   display: flex;
   flex-direction: column;
   padding: 12px 16px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -8327,7 +8377,7 @@ button.session-stats-clickable:focus-visible {
 }
 
 .profile-page__section {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 20px;
   margin-bottom: 24px;
   box-shadow: var(--shadow-md);
@@ -8492,7 +8542,7 @@ button.session-stats-clickable:focus-visible {
   padding: 14px 16px;
   border: 1px solid var(--gray-200);
   border-radius: 12px;
-  background: white;
+  background: var(--bg-surface);
   transition: background 0.15s;
 }
 
@@ -8628,7 +8678,7 @@ button.session-stats-clickable:focus-visible {
 
 /* Footer */
 .site-footer {
-  background: white;
+  background: var(--bg-surface);
   border-top: 1px solid var(--gray-200);
   padding: 32px 24px;
   margin-top: auto;
@@ -8790,7 +8840,7 @@ button.session-stats-clickable:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 20px 8px;
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--gray-200);
@@ -9167,7 +9217,7 @@ button.session-stats-clickable:focus-visible {
 
   /* --- Match History: mobile card layout --- */
   .mh-card {
-    background: white;
+    background: var(--bg-surface);
     border: 1px solid var(--gray-200);
     border-radius: 12px;
     overflow: hidden;
@@ -9247,7 +9297,7 @@ button.session-stats-clickable:focus-visible {
     border-collapse: collapse;
     border: 1px solid var(--gray-200);
     border-radius: 12px;
-    background: white;
+    background: var(--bg-surface);
     box-shadow: var(--shadow-sm);
     table-layout: fixed;
   }
@@ -9815,7 +9865,7 @@ button.session-stats-clickable:focus-visible {
   }
 
   .drawer-modal {
-    background: white;
+    background: var(--bg-surface);
     border-radius: 16px;
     max-width: 650px;
     max-height: 90vh;
@@ -9860,7 +9910,7 @@ button.session-stats-clickable:focus-visible {
   .modal-actions {
     padding: 10px 12px;
     justify-content: flex-end;
-    background: white;
+    background: var(--bg-surface);
     flex-shrink: 0;
     border-top: 1px solid var(--gray-100);
     border-radius: 10px;
@@ -9885,7 +9935,7 @@ button.session-stats-clickable:focus-visible {
     animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-    background: white;
+    background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -10160,7 +10210,7 @@ button.session-stats-clickable:focus-visible {
   left: 2px;
   width: 22px;
   height: 22px;
-  background-color: white;
+  background-color: var(--bg-surface);
   border-radius: 50%;
   transition: left 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -10245,7 +10295,7 @@ button.session-stats-clickable:focus-visible {
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
-  background-color: white;
+  background-color: var(--bg-surface);
   top: 0.125rem;
   left: 0.125rem;
   transition: transform 0.2s;
@@ -10265,13 +10315,13 @@ button.session-stats-clickable:focus-visible {
 }
 
 .feedback-status.pending {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--warning-light);
+  color: var(--warning-dark);
 }
 
 .feedback-status.resolved {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--success-light);
+  color: var(--success-dark);
 }
 
 .feedback-text-cell {
@@ -10378,7 +10428,7 @@ button.session-stats-clickable:focus-visible {
     gap: 8px;
     flex-shrink: 0;
     border-top: 1px solid var(--gray-100);
-    background: white;
+    background: var(--bg-surface);
     border-radius: 10px;
   }
 
@@ -11044,7 +11094,7 @@ button.session-stats-clickable:focus-visible {
 }
 
 .view-toggle-button.active {
-  background: white;
+  background: var(--bg-surface);
   color: var(--primary);
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
@@ -11132,7 +11182,7 @@ button.session-stats-clickable:focus-visible {
   bottom: 0;
   border-top: 1px solid var(--gray-200);
   border-bottom: none;
-  background: white;
+  background: var(--bg-surface);
   z-index: 1;
 }
 
@@ -11357,7 +11407,7 @@ button.session-stats-clickable:focus-visible {
 .invite-page__card {
   width: 100%;
   max-width: 480px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 16px;
   padding: 32px 24px;
@@ -11625,14 +11675,14 @@ button.session-stats-clickable:focus-visible {
 }
 
 .my-stats-tab__time-btn--active {
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-900);
   box-shadow: var(--shadow-sm);
 }
 
 /* Section Cards */
 .my-stats-tab__section {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--gray-200);
@@ -11733,7 +11783,7 @@ button.session-stats-clickable:focus-visible {
 }
 
 .my-stats-tab__chart-tooltip {
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 8px 12px;
@@ -11895,7 +11945,7 @@ button.session-stats-clickable:focus-visible {
 }
 
 .my-stats-tab__filter-toggle-btn--active {
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-900);
   box-shadow: var(--shadow-sm);
 }
@@ -11907,7 +11957,7 @@ button.session-stats-clickable:focus-visible {
   font-size: 13px;
   font-weight: 500;
   color: var(--gray-900);
-  background: white;
+  background: var(--bg-surface);
   cursor: pointer;
   min-width: 0;
   max-width: 180px;
@@ -11966,7 +12016,7 @@ button.session-stats-clickable:focus-visible {
 }
 
 .my-stats-tab__table-toggle-btn--active {
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-900);
   box-shadow: var(--shadow-sm);
 }

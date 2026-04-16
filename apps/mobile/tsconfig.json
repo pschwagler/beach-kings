@@ -1,26 +1,16 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": false,
-    "allowJs": true,
-    "skipLibCheck": true,
+    "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@beach-kings/api-client": [
-        "../../packages/api-client/src/index.js"
-      ],
-      "@beach-kings/shared": [
-        "../../packages/shared/src/index.js"
-      ],
-      "@beach-kings/ui": [
-        "../../packages/ui/src/index.js"
-      ]
+      "@/*": ["./src/*"]
     }
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
   ]
 }

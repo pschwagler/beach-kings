@@ -1,77 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { api } from '../../src/services/api';
-import { HomeTab } from '../../src/components/home/HomeTab';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { Text, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TopNav from '@/components/ui/TopNav';
 
-export default function HomeScreen() {
-  const { isAuthenticated, currentUserPlayer, fetchCurrentUser, isInitializing } = useAuth();
-  const router = useRouter();
-  const [userLeagues, setUserLeagues] = useState<any[]>([]);
-
-  // Redirect to login if not authenticated (after initialization)
-  useEffect(() => {
-    if (!isInitializing && !isAuthenticated) {
-      router.replace('/');
-    }
-  }, [isAuthenticated, isInitializing, router]);
-
-  // Refetch user data if not available
-  useEffect(() => {
-    if (isAuthenticated && !currentUserPlayer) {
-      fetchCurrentUser();
-    }
-  }, [isAuthenticated, currentUserPlayer, fetchCurrentUser]);
-
-  // Load user leagues
-  useEffect(() => {
-    const loadUserLeagues = async () => {
-      if (isAuthenticated) {
-        try {
-          const leagues = await api.getUserLeagues();
-          setUserLeagues(leagues || []);
-        } catch (err: any) {
-          console.error('[HomeScreen] Error loading user leagues:', err);
-          console.error('[HomeScreen] Error details:', err.response?.data || err.message);
-        }
-      }
-    };
-    loadUserLeagues();
-  }, [isAuthenticated]);
-
-  // Show loading state while initializing
-  if (isInitializing) {
-    return null; // Or return a loading spinner component
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleTabChange = (tab: string) => {
-    if (tab === 'profile') {
-      router.push('/(tabs)/profile');
-    } else if (tab === 'friends') {
-      router.push('/find-players');
-    }
-  };
-
-  const handleLeaguesUpdate = async () => {
-    try {
-      const leagues = await api.getUserLeagues();
-      setUserLeagues(leagues);
-    } catch (err) {
-      console.error('Error updating leagues:', err);
-    }
-  };
-
+export default function HomeScreen(): React.ReactNode {
   return (
-    <HomeTab
-      currentUserPlayer={currentUserPlayer}
-      userLeagues={userLeagues}
-      onTabChange={handleTabChange}
-      onLeaguesUpdate={handleLeaguesUpdate}
-    />
+    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+      <TopNav title="Beach League" />
+      <ScrollView className="flex-1 px-lg">
+        <Text className="text-headline font-semibold text-text-default dark:text-content-primary mt-lg">
+          Home
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

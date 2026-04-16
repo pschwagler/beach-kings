@@ -80,7 +80,7 @@
   .unrecognized-title { font-size: 13px; font-weight: 700; color: #92400e; }
   .unrecognized-hint { font-size: 11px; color: #a16207; margin-bottom: 10px; line-height: 1.4; }
   .unrecognized-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .player-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 1.5px solid #f59e0b; border-radius: 20px; font-size: 13px; font-weight: 600; color: #92400e; cursor: pointer; min-height: 40px; }
+  .player-chip { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 1.5px solid #f59e0b; border-radius: 20px; font-size: 13px; font-weight: 600; color: #92400e; cursor: pointer; min-height: 44px; }
   .player-chip .chip-icon { font-size: 14px; }
   .player-chip.resolved { border-color: #22c55e; color: #166534; background: #f0fdf4; }
   .player-chip.resolved .chip-icon { color: #22c55e; }
@@ -88,7 +88,7 @@
   .result-card { background: #fff; margin: 8px 16px; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .result-card.has-unmatched { border-left: 3px solid #f59e0b; }
   .result-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .result-match-label { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-match-label { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
   .result-teams { display: flex; align-items: center; gap: 8px; }
   .result-team { flex: 1; }
   .result-team-names { font-size: 13px; font-weight: 500; line-height: 1.4; }
@@ -214,7 +214,7 @@
   .pending-invite-row + .pending-invite-row { border-top: 1px solid rgba(245,158,11,0.2); }
   .pending-invite-avatar { width: 32px; height: 32px; border-radius: 50%; background: #fde68a; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #92400e; flex-shrink: 0; }
   .pending-invite-name { flex: 1; font-size: 13px; font-weight: 600; color: #92400e; }
-  .pending-invite-share { font-size: 12px; font-weight: 700; color: #1a3a4a; background: #fff; border: 1px solid #1a3a4a; border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 36px; display: flex; align-items: center; gap: 4px; }
+  .pending-invite-share { font-size: 12px; font-weight: 700; color: #1a3a4a; background: #fff; border: 1px solid #1a3a4a; border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 4px; }
   .home-tab-note { font-size: 13px; color: #666; font-weight: 400; margin-top: 8px; text-align: center; line-height: 1.4; background: #f0f4f8; padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px; justify-content: center; }
 
   .btn-back-session { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #1a3a4a; color: #fff; font-size: 16px; font-weight: 700; text-align: center; cursor: pointer; margin-top: 12px; }
@@ -267,7 +267,7 @@
   .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #ddd; transition: background 0.2s; }
   .progress-dot.active { background: #1a3a4a; }
   .progress-dot.done { background: #22c55e; }
-  .progress-label { font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
+  .progress-label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
 
   /* ── Score Validation Hint ── */
   .score-hint { font-size: 12px; color: #f59e0b; font-weight: 600; text-align: center; margin-top: -8px; margin-bottom: 12px; }
@@ -340,13 +340,13 @@
       <span class="viewfinder-corner tr"></span>
       <span class="viewfinder-corner bl"></span>
       <span class="viewfinder-corner br"></span>
-      <span class="viewfinder-icon">&#128247;</span>
+      <span class="viewfinder-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
     </div>
     <div class="capture-title">Scan Scores</div>
     <div class="capture-desc">Take a photo of a scoresheet, clipboard, or whiteboard — or upload from your gallery. AI will extract game scores and identify players.</div>
     <div class="capture-buttons">
-      <button class="btn-camera" onclick="setState('analyzing')">&#128247; Take Photo</button>
-      <button class="btn-gallery">&#128193; Choose from Gallery</button>
+      <button class="btn-camera" onclick="setState('analyzing')"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Take Photo</button>
+      <button class="btn-gallery"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Choose from Gallery</button>
     </div>
   </div>
 </div>
@@ -357,7 +357,7 @@
   <div class="photo-preview">
     <button class="cancel-btn" onclick="setState('capture')" title="Cancel">&times;</button>
     <div class="photo-placeholder">
-      <div class="ph-icon">&#128248;</div>
+      <div class="ph-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-text">Scoresheet photo</div>
     </div>
     <div class="analyzing-overlay">
@@ -409,7 +409,7 @@
 <div class="state" id="state-err-net">
   <div class="photo-preview">
     <div class="photo-placeholder">
-      <div class="ph-icon">&#128248;</div>
+      <div class="ph-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-text">Scoresheet photo</div>
     </div>
   </div>
@@ -464,28 +464,28 @@
 
   <!-- Photo thumbnail (#3) -->
   <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
-    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-img"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <div class="photo-thumb-label">Original photo</div>
     <div class="photo-thumb-chevron">&#9660;</div>
   </div>
   <div class="photo-thumb-expanded">
-    <div class="photo-preview-inline">&#128248;</div>
+    <div class="photo-preview-inline"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
   </div>
 
   <!-- Unrecognized players warning -- blocks confirm -->
   <div class="unrecognized-section">
     <div class="unrecognized-header">
-      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="unrecognized-title">2 Unrecognized Players</div>
     </div>
     <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
     <div class="unrecognized-chips">
       <div class="player-chip" onclick="setState('resolve')">
-        <span class="chip-icon">&#128269;</span>
+        <span class="chip-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         Alex T
       </div>
       <div class="player-chip" onclick="setState('resolve')">
-        <span class="chip-icon">&#128269;</span>
+        <span class="chip-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         Dan P
       </div>
     </div>
@@ -578,7 +578,7 @@
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
       <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
-      <button class="edit-clarify-send">&#9654;</button>
+      <button class="edit-clarify-send"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
     </div>
   </div>
 
@@ -610,28 +610,28 @@
 
   <!-- Photo thumbnail -->
   <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
-    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-img"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <div class="photo-thumb-label">Original photo</div>
     <div class="photo-thumb-chevron">&#9660;</div>
   </div>
   <div class="photo-thumb-expanded">
-    <div class="photo-preview-inline">&#128248;</div>
+    <div class="photo-preview-inline"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
   </div>
 
   <!-- Unrecognized players -->
   <div class="unrecognized-section">
     <div class="unrecognized-header">
-      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="unrecognized-title">2 Unrecognized Players</div>
     </div>
     <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
     <div class="unrecognized-chips">
       <div class="player-chip" onclick="setState('resolve-pickup')">
-        <span class="chip-icon">&#128269;</span>
+        <span class="chip-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         Alex T
       </div>
       <div class="player-chip" onclick="setState('resolve-pickup')">
-        <span class="chip-icon">&#128269;</span>
+        <span class="chip-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         Dan P
       </div>
     </div>
@@ -703,7 +703,7 @@
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
       <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'AT is Alex Thompson'"></textarea>
-      <button class="edit-clarify-send">&#9654;</button>
+      <button class="edit-clarify-send"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
     </div>
   </div>
 
@@ -724,28 +724,28 @@
 
   <!-- Photo thumbnail -->
   <div class="photo-thumb-row" onclick="togglePhotoThumb(this)">
-    <div class="photo-thumb-img">&#128248;</div>
+    <div class="photo-thumb-img"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <div class="photo-thumb-label">Original photo</div>
     <div class="photo-thumb-chevron">&#9660;</div>
   </div>
   <div class="photo-thumb-expanded">
-    <div class="photo-preview-inline">&#128248;</div>
+    <div class="photo-preview-inline"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
   </div>
 
   <!-- 1 resolved, 1 remaining -->
   <div class="unrecognized-section">
     <div class="unrecognized-header">
-      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="unrecognized-title">1 Unrecognized Player</div>
     </div>
     <div class="unrecognized-hint">Tap a name to find the player or add them as unregistered.</div>
     <div class="unrecognized-chips">
       <div class="player-chip resolved">
-        <span class="chip-icon">&#10003;</span>
+        <span class="chip-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
         Alex T
       </div>
       <div class="player-chip" onclick="setState('resolve')">
-        <span class="chip-icon">&#128269;</span>
+        <span class="chip-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         Dan P
       </div>
     </div>
@@ -826,7 +826,7 @@
 
   <!-- Conversation history showing prior exchange -->
   <div class="conversation-section">
-    <h4>&#128172; Conversation</h4>
+    <h4><svg style="display:inline-block;vertical-align:middle;margin-right:4px" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> Conversation</h4>
     <div class="conversation-msg user">
       <span class="msg-role">You:</span>
       AT is Alex Thompson
@@ -841,7 +841,7 @@
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
       <textarea class="edit-clarify-textarea" rows="2" placeholder="E.g., 'Game 3 was 19-21' or 'DP is Dan Peterson'"></textarea>
-      <button class="edit-clarify-send">&#9654;</button>
+      <button class="edit-clarify-send"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
     </div>
   </div>
 
@@ -862,7 +862,7 @@
   </div>
   <div class="unrecognized-section" style="opacity: 0.3;">
     <div class="unrecognized-header">
-      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="unrecognized-title">2 Unrecognized Players</div>
     </div>
   </div>
@@ -931,7 +931,7 @@
   </div>
   <div class="unrecognized-section" style="opacity: 0.3;">
     <div class="unrecognized-header">
-      <div class="unrecognized-icon">&#9888;</div>
+      <div class="unrecognized-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="unrecognized-title">2 Unrecognized Players</div>
     </div>
   </div>
@@ -1049,7 +1049,7 @@
     </div>
     <div class="sheet-body">
       <div class="invite-created">
-        <div class="invite-check">&#10003;</div>
+        <div class="invite-check"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
         <div class="invite-name">Alex T added</div>
         <div class="invite-desc">Share this link so Alex T can claim their profile and have their games count toward rankings.</div>
         <div class="invite-link-box">
@@ -1058,7 +1058,7 @@
         </div>
         <!-- Primary action: resolve next -->
         <button class="btn-skip-invite" onclick="setState('results')">Done -- Resolve Next (1 remaining)</button>
-        <button class="btn-share-invite">&#9993; Share Invite Link</button>
+        <button class="btn-share-invite"><svg style="display:inline-block;vertical-align:middle;margin-right:2px" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Share Invite Link</button>
         <!-- When no more unresolved: <button class="btn-skip-invite" onclick="setState('results')">Done -- Back to Review</button> -->
       </div>
     </div>
@@ -1069,7 +1069,7 @@
 <!-- ══ STATE 7: Confirmed (with pending invite sharing) ══ -->
 <div class="state" id="state-confirmed">
   <div class="success-area">
-    <div class="success-icon">&#10003;</div>
+    <div class="success-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
     <div class="success-title">Games Saved!</div>
     <div class="success-desc">3 games added to your session.</div>
 
@@ -1100,19 +1100,19 @@
       <div class="pending-invite-row">
         <div class="pending-invite-avatar">AT</div>
         <div class="pending-invite-name">Alex T</div>
-        <button class="pending-invite-share">&#9993; Share</button>
+        <button class="pending-invite-share"><svg style="display:inline-block;vertical-align:middle;margin-right:2px" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Share</button>
       </div>
       <div class="pending-invite-row">
         <div class="pending-invite-avatar">DP</div>
         <div class="pending-invite-name">Dan P</div>
-        <button class="pending-invite-share">&#9993; Share</button>
+        <button class="pending-invite-share"><svg style="display:inline-block;vertical-align:middle;margin-right:2px" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Share</button>
       </div>
       <div class="home-tab-note">
-        <span style="font-size: 14px;">&#9432;</span> You can also share invite links later from your Home tab.
+        <span style="font-size: 14px;"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span> You can also share invite links later from your Home tab.
       </div>
     </div>
 
-    <button class="btn-scan-another" onclick="setState('capture')" style="display: block; width: calc(100% - 32px); margin: 12px 16px 0; padding: 14px; border-radius: 12px; border: 1.5px solid #1a3a4a; background: transparent; color: #1a3a4a; font-size: 15px; font-weight: 600; cursor: pointer;">Scan Another</button>
+    <button class="btn-scan-another" onclick="setState('capture')">Scan Another</button>
     <button class="btn-back-session" onclick="window.location.href='session-active.html'">Back to Session</button>
   </div>
   <div class="spacer-bottom"></div>
@@ -1123,13 +1123,13 @@
 <div class="state" id="state-err-unreadable">
   <div class="photo-preview">
     <div class="photo-placeholder">
-      <div class="ph-icon">&#128248;</div>
+      <div class="ph-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-text">Scoresheet photo</div>
     </div>
   </div>
 
   <div class="error-section">
-    <div class="error-icon">&#128566;</div>
+    <div class="error-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></div>
     <div class="error-title">Couldn't Read Scores</div>
     <div class="error-desc">The photo may be too blurry, dark, or cropped. Try retaking with better lighting and make sure the full scoresheet is visible.</div>
     <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
@@ -1141,7 +1141,7 @@
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
       <textarea class="edit-clarify-textarea" rows="2" placeholder="Describe what you see, e.g. Pat/Karim beat Mike/Jake 21-18"></textarea>
-      <button class="edit-clarify-send">&#9654;</button>
+      <button class="edit-clarify-send"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
     </div>
   </div>
 
@@ -1153,13 +1153,13 @@
 <div class="state" id="state-err-no-matches">
   <div class="photo-preview">
     <div class="photo-placeholder">
-      <div class="ph-icon">&#128248;</div>
+      <div class="ph-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       <div class="ph-text">Scoresheet photo</div>
     </div>
   </div>
 
   <div class="error-section">
-    <div class="error-icon">&#128270;</div>
+    <div class="error-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
     <div class="error-title">No Games Found</div>
     <div class="error-desc">Couldn't find any game scores in this photo. Try a clearer shot of the scoresheet, clipboard, or whiteboard.</div>
     <button class="btn-retake-primary" onclick="setState('capture')">Retake Photo</button>
@@ -1171,7 +1171,7 @@
     <div class="edit-clarify-label">Edit or Clarify</div>
     <div class="edit-clarify-input-row">
       <textarea class="edit-clarify-textarea" rows="2" placeholder="Describe what you see, e.g. Pat/Karim beat Mike/Jake 21-18"></textarea>
-      <button class="edit-clarify-send">&#9654;</button>
+      <button class="edit-clarify-send"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
     </div>
   </div>
 
@@ -1211,7 +1211,7 @@
       <div style="font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Team 2</div>
       <div class="edit-players-grid">
         <div class="edit-player-slot team2" style="cursor: default;">Karim F</div>
-        <div class="edit-player-slot unresolved" onclick="setState('resolve')">Alex T &#9888;</div>
+        <div class="edit-player-slot unresolved" onclick="setState('resolve')">Alex T <svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       </div>
 
       <!-- Score inputs -->
@@ -1236,23 +1236,23 @@
 
 <div class="tab-bar">
   <a href="home.html" class="tab">
-    <div class="tab-icon">&#127968;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
     <div class="tab-label">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games">
-    <div class="tab-icon active">&#10133;</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label active">Add Games</div>
   </a>
   <a href="messages.html" class="tab">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
@@ -1332,5 +1332,6 @@ function toggleOptions(summary) {
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

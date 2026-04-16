@@ -12,7 +12,7 @@
 }
 
 .share-fallback {
-  background: #fff;
+  background: var(--bg-surface);
   border-radius: 12px;
   width: 100%;
   max-width: 320px;

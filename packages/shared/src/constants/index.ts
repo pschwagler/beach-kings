@@ -6,15 +6,13 @@ export const GENDER_OPTIONS = [
 ] as const;
 
 export const SKILL_LEVEL_OPTIONS = [
+  { value: 'juniors', label: 'Juniors' },
   { value: 'beginner', label: 'Beginner' },
   { value: 'intermediate', label: 'Intermediate' },
   { value: 'advanced', label: 'Advanced' },
   { value: 'AA', label: 'AA' },
   { value: 'Open', label: 'Open' },
 ] as const;
-
-export type Gender = typeof GENDER_OPTIONS[number]['value'];
-export type SkillLevel = typeof SKILL_LEVEL_OPTIONS[number]['value'];
 
 // API endpoints
 export const API_ENDPOINTS = {

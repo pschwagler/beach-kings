@@ -22,7 +22,7 @@
 
   /* Stepper */
   .stepper-row { display: flex; align-items: center; gap: 16px; }
-  .stepper-btn { width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid #ddd; background: #fff; font-size: 18px; font-weight: 700; color: #1a3a4a; display: flex; align-items: center; justify-content: center; min-height: 40px; }
+  .stepper-btn { width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid #ddd; background: #fff; font-size: 18px; font-weight: 700; color: #1a3a4a; display: flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; cursor: pointer; }
   .stepper-value { font-size: 20px; font-weight: 700; color: #1a1a1a; min-width: 40px; text-align: center; }
 
   /* Toggle */
@@ -65,7 +65,7 @@
 <div class="top-nav">
   <a href="tournament-detail.html" class="back">&larr; Back</a>
   <div class="title">Edit Tournament</div>
-  <div style="width:44px;"></div>
+  <div class="spacer"></div>
 </div>
 
 <div class="content">
@@ -80,18 +80,18 @@
   <div class="form-group">
     <div class="form-label">Max Players</div>
     <div class="stepper-row">
-      <div class="stepper-btn">&minus;</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=Math.max(1,n-1)">&minus;</button>
       <div class="stepper-value">16</div>
-      <div class="stepper-btn">+</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=n+1">+</button>
     </div>
   </div>
 
   <div class="form-group">
     <div class="form-label">Courts</div>
     <div class="stepper-row">
-      <div class="stepper-btn">&minus;</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=Math.max(1,n-1)">&minus;</button>
       <div class="stepper-value">4</div>
-      <div class="stepper-btn">+</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=n+1">+</button>
     </div>
   </div>
 
@@ -100,8 +100,8 @@
   <div class="form-group">
     <div class="form-label">Registration Type</div>
     <div class="toggle-row">
-      <div class="toggle-btn active">Open</div>
-      <div class="toggle-btn">Invite Only</div>
+      <div class="toggle-btn active" onclick="this.parentNode.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active')">Open</div>
+      <div class="toggle-btn" onclick="this.parentNode.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active')">Invite Only</div>
     </div>
     <div class="form-hint">Open: players request to join, you approve. Invite Only: only players you invite can join.</div>
   </div>
@@ -123,18 +123,18 @@
   <div class="form-group">
     <div class="form-label">Game To</div>
     <div class="stepper-row">
-      <div class="stepper-btn">&minus;</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=Math.max(1,n-1)">&minus;</button>
       <div class="stepper-value">21</div>
-      <div class="stepper-btn">+</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=n+1">+</button>
     </div>
   </div>
 
   <div class="form-group">
     <div class="form-label">Score Cap</div>
     <div class="stepper-row">
-      <div class="stepper-btn">&minus;</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=Math.max(1,n-1)">&minus;</button>
       <div class="stepper-value">28</div>
-      <div class="stepper-btn">+</div>
+      <button class="stepper-btn" onclick="var v=this.parentNode.querySelector('.stepper-value');var n=parseInt(v.textContent)||0;v.textContent=n+1">+</button>
     </div>
   </div>
 
@@ -143,9 +143,9 @@
   <div class="form-group">
     <div class="form-label">Gender</div>
     <div class="pill-row">
-      <div class="pill active">Coed</div>
-      <div class="pill">Men's</div>
-      <div class="pill">Women's</div>
+      <div class="pill active" onclick="this.parentNode.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Coed</div>
+      <div class="pill" onclick="this.parentNode.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Men's</div>
+      <div class="pill" onclick="this.parentNode.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));this.classList.add('active')">Women's</div>
     </div>
   </div>
 
@@ -153,34 +153,35 @@
   <a href="tournament-detail.html" class="btn-cancel">Cancel</a>
 
   <div class="danger-section">
-    <button class="btn-danger">Cancel Tournament</button>
+    <button class="btn-danger" onclick="if(confirm('Cancel this tournament?'))window.location.href='tournaments.html'">Cancel Tournament</button>
   </div>
 
 </div>
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon active">&#127968;</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
     <div class="tab-label active">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">&#10133;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

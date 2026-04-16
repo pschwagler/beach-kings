@@ -54,7 +54,7 @@
   right: 0;
   width: min(360px, calc(100vw - 32px));
   max-height: 500px;
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
@@ -342,7 +342,7 @@
   cursor: pointer;
   transition: background-color 0.2s;
   gap: 8px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .notifications-tab-item:hover {

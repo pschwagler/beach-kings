@@ -109,7 +109,7 @@
   height: 36px;
   border: 1px solid var(--gray-300);
   border-radius: 50%;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-600);
   cursor: pointer;
 }
@@ -368,7 +368,7 @@
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   padding: 16px;
-  background: white;
+  background: var(--bg-surface);
 }
 
 .court-review-card__header {
@@ -565,7 +565,7 @@
 .court-review-form__tag-chip {
   font-size: 12px;
   color: var(--gray-700);
-  background: white;
+  background: var(--bg-surface);
   border: 1px solid var(--gray-300);
   padding: 4px 10px;
   border-radius: 12px;
@@ -640,7 +640,7 @@
   gap: 4px;
   border: 2px dashed var(--gray-300);
   border-radius: 6px;
-  background: white;
+  background: var(--bg-surface);
   color: var(--gray-500);
   cursor: pointer;
   font-size: 11px;
@@ -743,7 +743,7 @@
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
-  background: white;
+  background: var(--bg-surface);
   transition: box-shadow 0.15s ease;
 }
 
@@ -795,7 +795,7 @@
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
-  background: white;
+  background: var(--bg-surface);
   transition: box-shadow 0.15s ease;
 }
 

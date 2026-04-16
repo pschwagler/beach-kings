@@ -1,7 +1,7 @@
 /**
  * Unified Design Tokens
  * Single source of truth for design system values
- * Extracted from web App.css root variables and mobile theme
+ * Source: mobile-audit/wireframes/design-tokens.css
  */
 
 export * from './colors';
@@ -9,21 +9,32 @@ export * from './spacing';
 export * from './typography';
 export * from './shadows';
 export * from './layout';
+export * from './opacity';
+export * from './animation';
+export * from './zIndex';
 
-import { colors } from './colors';
+import { colors, darkColors } from './colors';
 import { spacing } from './spacing';
-import { typography, fontFamily, fontSizes, fontWeights } from './typography';
-import { shadows } from './shadows';
+import { typography, fontFamily, fontSizes, fontWeights, lineHeights, letterSpacing } from './typography';
+import { shadows, darkShadows, rnShadows } from './shadows';
 import { layout } from './layout';
+import { opacity } from './opacity';
+import { duration, easing } from './animation';
+import { zIndex } from './zIndex';
 
-// Explicitly re-export typography tokens for easier access
-export { fontFamily, fontSizes, fontWeights };
+export { fontFamily, fontSizes, fontWeights, lineHeights, letterSpacing };
 
 export const tokens = {
   colors,
+  darkColors,
   spacing,
   typography,
   shadows,
+  darkShadows,
+  rnShadows,
   layout,
+  opacity,
+  duration,
+  easing,
+  zIndex,
 } as const;
-

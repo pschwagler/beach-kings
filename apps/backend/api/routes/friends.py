@@ -189,7 +189,7 @@ async def get_friend_suggestions(
     user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get friend suggestions based on shared leagues."""
+    """Get friend suggestions based on mutual friends, shared sessions, and shared leagues."""
     try:
         suggestions = await friend_service.get_friend_suggestions(
             session, user["player_id"], limit=limit

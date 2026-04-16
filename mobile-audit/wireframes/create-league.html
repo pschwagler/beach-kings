@@ -11,7 +11,7 @@
 
 
 
-  .content { padding: 20px 16px 40px; }
+  .content { padding: 20px 16px 110px; }
 
   .section-title { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; margin-top: 20px; }
   .section-title:first-child { margin-top: 0; }
@@ -58,7 +58,7 @@
 <div class="top-nav">
   <a href="leagues-tab.html" class="back">&larr; Cancel</a>
   <div class="title">Create League</div>
-  <div class="action" style="color: rgba(212,168,67,0.4); font-size: 15px; font-weight: 600;">Create</div>
+  <button class="action" style="color: rgba(212,168,67,0.4); font-size: 15px; font-weight: 600; background: none; border: none; cursor: default;" disabled>Create</button>
 </div>
 
 <div class="content">
@@ -78,11 +78,11 @@
   <div class="form-group">
     <div class="form-label">Access</div>
     <div class="toggle-row">
-      <div class="toggle-card active">
+      <div class="toggle-card active" onclick="document.querySelectorAll('.toggle-row .toggle-card').forEach(function(c){c.classList.remove('active')});this.classList.add('active')">
         <div class="toggle-title">Open League</div>
         <div class="toggle-desc">Players request to join, you approve</div>
       </div>
-      <div class="toggle-card">
+      <div class="toggle-card" onclick="document.querySelectorAll('.toggle-row .toggle-card').forEach(function(c){c.classList.remove('active')});this.classList.add('active')">
         <div class="toggle-title">Invite Only</div>
         <div class="toggle-desc">Only players you invite can join</div>
       </div>
@@ -94,9 +94,9 @@
   <div class="form-group">
     <div class="form-label">Gender</div>
     <div class="pill-row">
-      <div class="pill active">Men's</div>
-      <div class="pill">Women's</div>
-      <div class="pill">Coed</div>
+      <div class="pill active" onclick="document.querySelectorAll('.pill-row .pill').forEach(function(p){p.classList.remove('active')});this.classList.add('active')">Men's</div>
+      <div class="pill" onclick="document.querySelectorAll('.pill-row .pill').forEach(function(p){p.classList.remove('active')});this.classList.add('active')">Women's</div>
+      <div class="pill" onclick="document.querySelectorAll('.pill-row .pill').forEach(function(p){p.classList.remove('active')});this.classList.add('active')">Coed</div>
     </div>
   </div>
 
@@ -124,7 +124,7 @@
 
   <div class="form-group">
     <div class="form-label">Home Court</div>
-    <div class="court-selector">
+    <div class="court-selector" onclick="alert('Court picker')" style="cursor: pointer;">
       <div>
         <div class="court-name">QBK Sports</div>
         <div class="court-loc">Queens, NY</div>
@@ -138,5 +138,29 @@
 
 </div>
 
+<div class="tab-bar">
+  <a href="home.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab active">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

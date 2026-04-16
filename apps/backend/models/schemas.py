@@ -941,7 +941,10 @@ class FriendSuggestionItem(BaseModel):
     avatar: Optional[str] = None
     level: Optional[str] = None
     location_name: Optional[str] = None
-    shared_league_count: int
+    shared_league_count: int = 0
+    mutual_friend_count: int = 0
+    shared_session_count: int = 0
+    reason: str = ""
 
 
 class MutualFriendItem(BaseModel):

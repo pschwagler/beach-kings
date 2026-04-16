@@ -1,49 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { api } from '../../src/services/api';
-import { LeaguesTab } from '../../src/components/home/LeaguesTab';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { Text, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TopNav from '@/components/ui/TopNav';
 
-export default function LeaguesScreen() {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
-  const [userLeagues, setUserLeagues] = useState<any[]>([]);
-
-  // Load user leagues
-  useEffect(() => {
-    const loadUserLeagues = async () => {
-      if (isAuthenticated) {
-        try {
-          const leagues = await api.getUserLeagues();
-          setUserLeagues(leagues);
-        } catch (err) {
-          console.error('Error loading user leagues:', err);
-        }
-      }
-    };
-    loadUserLeagues();
-  }, [isAuthenticated]);
-
-  const handleLeagueClick = (action: string, leagueId?: number) => {
-    if (action === 'view-league' && leagueId) {
-      router.push(`/league/${leagueId}`);
-    }
-  };
-
-  const handleLeaguesUpdate = async () => {
-    try {
-      const leagues = await api.getUserLeagues();
-      setUserLeagues(leagues);
-    } catch (err) {
-      console.error('Error updating leagues:', err);
-    }
-  };
-
+export default function LeaguesScreen(): React.ReactNode {
   return (
-    <LeaguesTab
-      userLeagues={userLeagues}
-      onLeagueClick={handleLeagueClick}
-      onLeaguesUpdate={handleLeaguesUpdate}
-    />
+    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+      <TopNav title="Leagues" />
+      <ScrollView className="flex-1 px-lg">
+        <Text className="text-headline font-semibold text-text-default dark:text-content-primary mt-lg">
+          Leagues
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

@@ -4,7 +4,7 @@
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--bg-surface);
   text-decoration: none;
   color: inherit;
   transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;

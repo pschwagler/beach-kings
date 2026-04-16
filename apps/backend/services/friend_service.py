@@ -2,7 +2,7 @@
 Friend service for managing friend requests and friendships.
 
 Handles sending/accepting/declining requests, listing friends,
-mutual friend calculations, and league-based suggestions.
+mutual friend calculations, and multi-signal suggestions.
 """
 
 from typing import List, Dict, Set, Optional
@@ -18,7 +18,9 @@ from backend.database.models import (
     Player,
     PlayerGlobalStats,
     Location,
+    League,
     LeagueMember,
+    SessionParticipant,
     NotificationType,
 )
 from backend.services import notification_service
@@ -810,14 +812,18 @@ async def discover_players(
     }
 
 
+_WEIGHT_MUTUAL = 5
+_WEIGHT_SESSION = 2
+_WEIGHT_LEAGUE = 1
+
+
 async def get_friend_suggestions(
     session: AsyncSession, player_id: int, limit: int = 10
 ) -> List[Dict]:
-    """
-    Get friend suggestions based on shared league memberships.
+    """Get friend suggestions based on mutual friends, shared sessions, and shared leagues.
 
-    Returns league members who aren't friends with the player, ordered by
-    number of shared leagues (descending).
+    Computes a composite score per candidate:
+        score = mutual_friend_count * 5 + shared_session_count * 2 + shared_league_count * 1
 
     Args:
         session: Database session
@@ -825,13 +831,12 @@ async def get_friend_suggestions(
         limit: Max suggestions to return
 
     Returns:
-        List of suggestion dicts with player info and shared_league_count
+        List of suggestion dicts with player info, signal counts, and reason string
     """
-    # Get current friends to exclude
-    friend_ids = await get_friend_ids(session, player_id)
-    exclude_ids = friend_ids | {player_id}
+    # --- 1. Build exclusion set ---
+    my_friends = await get_friend_ids(session, player_id)
+    exclude_ids = my_friends | {player_id}
 
-    # Get pending request IDs to exclude
     pending_result = await session.execute(
         select(FriendRequest.sender_player_id, FriendRequest.receiver_player_id).where(
             and_(
@@ -847,43 +852,107 @@ async def get_friend_suggestions(
         exclude_ids.add(row.sender_player_id)
         exclude_ids.add(row.receiver_player_id)
 
-    # Get leagues the current player belongs to
+    exclude_list = list(exclude_ids)
+
+    # --- 2. Signal A: shared leagues ---
     my_leagues_result = await session.execute(
         select(LeagueMember.league_id).where(LeagueMember.player_id == player_id)
     )
     my_league_ids = [row[0] for row in my_leagues_result.all()]
 
-    if not my_league_ids:
-        return []
-
-    # Find other players in those leagues, count shared leagues
-    OtherMember = aliased(LeagueMember)
-    query = (
-        select(
-            OtherMember.player_id,
-            func.count(OtherMember.league_id).label("shared_league_count"),
+    league_counts: Dict[int, int] = {}
+    if my_league_ids:
+        OtherMember = aliased(LeagueMember)
+        league_result = await session.execute(
+            select(
+                OtherMember.player_id,
+                func.count(OtherMember.league_id).label("cnt"),
+            )
+            .where(
+                and_(
+                    OtherMember.league_id.in_(my_league_ids),
+                    ~OtherMember.player_id.in_(exclude_list),
+                )
+            )
+            .group_by(OtherMember.player_id)
         )
+        league_counts = {row.player_id: row.cnt for row in league_result.all()}
+
+    # --- 3. Signal B: shared sessions ---
+    SP1 = aliased(SessionParticipant)
+    SP2 = aliased(SessionParticipant)
+    session_result = await session.execute(
+        select(
+            SP2.player_id,
+            func.count(func.distinct(SP1.session_id)).label("cnt"),
+        )
+        .join(SP2, and_(SP1.session_id == SP2.session_id, SP2.player_id != player_id))
         .where(
             and_(
-                OtherMember.league_id.in_(my_league_ids),
-                ~OtherMember.player_id.in_(list(exclude_ids)),
+                SP1.player_id == player_id,
+                ~SP2.player_id.in_(exclude_list),
             )
         )
-        .group_by(OtherMember.player_id)
-        .order_by(func.count(OtherMember.league_id).desc())
-        .limit(limit)
+        .group_by(SP2.player_id)
     )
+    session_counts: Dict[int, int] = {
+        row.player_id: row.cnt for row in session_result.all()
+    }
 
-    result = await session.execute(query)
-    suggestion_rows = result.all()
-
-    if not suggestion_rows:
+    # --- 4. Union candidate IDs from league + session signals ---
+    candidate_ids = (set(league_counts.keys()) | set(session_counts.keys())) - exclude_ids
+    if not candidate_ids and not my_friends:
         return []
 
-    # Get player details
-    suggestion_ids = [row.player_id for row in suggestion_rows]
-    shared_counts = {row.player_id: row.shared_league_count for row in suggestion_rows}
+    # --- 5. Signal C: mutual friends (batch, reusing batch_friend_status pattern) ---
+    mutual_counts: Dict[int, int] = {}
+    # Also check friends-of-friends who might not be in league/session signals
+    if my_friends:
+        # Find all players who are friends with any of my_friends (potential candidates)
+        friend_of_friend_col = case(
+            (Friend.player1_id.in_(list(my_friends)), Friend.player2_id),
+            else_=Friend.player1_id,
+        )
+        fof_result = await session.execute(
+            select(
+                friend_of_friend_col.label("candidate_id"),
+                func.count().label("cnt"),
+            )
+            .where(
+                and_(
+                    or_(
+                        Friend.player1_id.in_(list(my_friends)),
+                        Friend.player2_id.in_(list(my_friends)),
+                    ),
+                    ~friend_of_friend_col.in_(exclude_list),
+                )
+            )
+            .group_by(friend_of_friend_col)
+        )
+        mutual_counts = {row.candidate_id: row.cnt for row in fof_result.all()}
 
+    # Expand candidate set with mutual-friend-based candidates
+    candidate_ids = candidate_ids | set(mutual_counts.keys())
+    if not candidate_ids:
+        return []
+
+    # --- 6. Score and rank ---
+    scored = []
+    for cid in candidate_ids:
+        m = mutual_counts.get(cid, 0)
+        s = session_counts.get(cid, 0)
+        lg = league_counts.get(cid, 0)
+        score = m * _WEIGHT_MUTUAL + s * _WEIGHT_SESSION + lg * _WEIGHT_LEAGUE
+        scored.append((cid, score, m, s, lg))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    top = scored[:limit]
+
+    if not top:
+        return []
+
+    # --- 7. Hydrate player details ---
+    top_ids = [t[0] for t in top]
     player_result = await session.execute(
         select(
             Player.id,
@@ -894,15 +963,22 @@ async def get_friend_suggestions(
             Location.name.label("location_name"),
         )
         .outerjoin(Location, Player.location_id == Location.id)
-        .where(and_(Player.id.in_(suggestion_ids), Player.user_id.isnot(None)))
+        .where(and_(Player.id.in_(top_ids), Player.user_id.isnot(None)))
     )
     player_map = {row.id: row for row in player_result.all()}
 
+    # --- 8. Build reason strings ---
+    # For league-only reasons, fetch league names for candidates with league_cnt == 1
+    league_name_map = await _resolve_shared_league_names(
+        session, player_id, my_league_ids, top, player_map
+    )
+
     suggestions = []
-    for pid in suggestion_ids:
-        p = player_map.get(pid)
+    for cid, _score, m, s, lg in top:
+        p = player_map.get(cid)
         if not p:
             continue
+        reason = _build_reason(cid, m, s, lg, league_name_map)
         suggestions.append(
             {
                 "player_id": p.id,
@@ -910,11 +986,75 @@ async def get_friend_suggestions(
                 "avatar": p.avatar,
                 "level": p.level,
                 "location_name": p.location_name,
-                "shared_league_count": shared_counts.get(pid, 0),
+                "shared_league_count": lg,
+                "mutual_friend_count": m,
+                "shared_session_count": s,
+                "reason": reason,
             }
         )
 
     return suggestions
+
+
+async def _resolve_shared_league_names(
+    session: AsyncSession,
+    player_id: int,
+    my_league_ids: List[int],
+    top: List[tuple],
+    player_map: Dict,
+) -> Dict[int, str]:
+    """For candidates whose primary reason is leagues, fetch the shared league name.
+
+    Only fetches names for candidates where mutual_cnt == 0, session_cnt == 0,
+    and league_cnt == 1 (single shared league — we show its name).
+
+    Returns:
+        Dict mapping candidate_id -> league name.
+    """
+    single_league_cids = [
+        cid for cid, _, m, s, lg in top
+        if m == 0 and s == 0 and lg == 1 and cid in player_map
+    ]
+    if not single_league_cids or not my_league_ids:
+        return {}
+
+    OtherMember = aliased(LeagueMember)
+    rows = await session.execute(
+        select(OtherMember.player_id, League.name)
+        .join(League, OtherMember.league_id == League.id)
+        .where(
+            and_(
+                OtherMember.player_id.in_(single_league_cids),
+                OtherMember.league_id.in_(my_league_ids),
+            )
+        )
+    )
+    return {row.player_id: row.name for row in rows.all()}
+
+
+def _build_reason(
+    candidate_id: int, mutual_cnt: int, session_cnt: int, league_cnt: int,
+    league_name_map: Dict[int, str],
+) -> str:
+    """Build a human-readable reason string for a suggestion.
+
+    Priority: mutuals > sessions > leagues.
+    """
+    if mutual_cnt >= 1:
+        noun = "mutual friend" if mutual_cnt == 1 else "mutual friends"
+        return f"{mutual_cnt} {noun}"
+    if session_cnt >= 1:
+        if session_cnt == 1:
+            return "Played together once"
+        return f"Played together {session_cnt} times"
+    if league_cnt == 1:
+        name = league_name_map.get(candidate_id)
+        if name:
+            return f"In {name}"
+        return "1 shared league"
+    if league_cnt > 1:
+        return f"{league_cnt} shared leagues"
+    return ""
 
 
 async def _format_friend_requests_batch(

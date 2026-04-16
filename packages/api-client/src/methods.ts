@@ -1,15 +1,31 @@
 /**
- * API methods for Beach Volleyball ELO backend
+ * API methods for Beach League backend.
  */
 
 import type { ApiClient } from './client';
-import type { Player, Match, League, Season, Session, Location, Court } from '@beach-kings/shared';
+import type {
+  Player,
+  Match,
+  League,
+  Season,
+  Session,
+  Location,
+  Court,
+  Friend,
+  FriendListResponse,
+  FriendRequest,
+  FriendInLeague,
+  Notification,
+} from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
   const api = client.axiosInstance;
 
   return {
-    // Auth methods
+    // -----------------------------------------------------------------------
+    // Auth
+    // -----------------------------------------------------------------------
+
     async login(credentials: { phone?: string; email?: string; password?: string }) {
       const response = await api.post('/api/auth/login', credentials);
       return response.data;
@@ -35,7 +51,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Player methods
+    // -----------------------------------------------------------------------
+    // Player
+    // -----------------------------------------------------------------------
+
     async getPlayers() {
       const response = await api.get<Player[]>('/api/players');
       return response.data;
@@ -66,13 +85,16 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Match methods
+    // -----------------------------------------------------------------------
+    // Match
+    // -----------------------------------------------------------------------
+
     async getMatches() {
       const response = await api.get<Match[]>('/api/matches');
       return response.data;
     },
 
-    async queryMatches(queryParams: any) {
+    async queryMatches(queryParams: Record<string, unknown>) {
       const response = await api.post<Match[]>('/api/matches/search', queryParams);
       return response.data;
     },
@@ -92,23 +114,30 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
+    /**
+     * Export matches to CSV. Web-only — uses DOM APIs for file download.
+     * Throws on non-browser environments (React Native).
+     */
     async exportMatchesToCSV() {
-      if (typeof window === 'undefined') {
-        throw new Error('exportMatchesToCSV can only be called in the browser');
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        throw new Error('exportMatchesToCSV is only available in web browsers');
       }
       const response = await api.get('/api/matches/export', { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = (window as Window).URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'matches_export.csv');
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      (window as Window).URL.revokeObjectURL(url);
     },
 
-    // Ranking methods
-    async getRankings(queryParams: any = {}) {
+    // -----------------------------------------------------------------------
+    // Rankings
+    // -----------------------------------------------------------------------
+
+    async getRankings(queryParams: Record<string, unknown> = {}) {
       const response = await api.post('/api/rankings', queryParams);
       return response.data;
     },
@@ -118,7 +147,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // League methods
+    // -----------------------------------------------------------------------
+    // League
+    // -----------------------------------------------------------------------
+
     async listLeagues() {
       const response = await api.get<League[]>('/api/leagues');
       return response.data;
@@ -194,7 +226,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Season methods
+    // -----------------------------------------------------------------------
+    // Season
+    // -----------------------------------------------------------------------
+
     async getSeasonMatches(seasonId: number) {
       const response = await api.get<Match[]>(`/api/seasons/${seasonId}/matches`);
       return response.data;
@@ -210,14 +245,17 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Session methods
+    // -----------------------------------------------------------------------
+    // Session
+    // -----------------------------------------------------------------------
+
     async getSessions() {
       const response = await api.get<Session[]>('/api/sessions');
       return response.data;
     },
 
     async getActiveSession() {
-      const response = await api.get<Session>('/api/sessions?active=true');
+      const response = await api.get<Session>('/api/sessions/open');
       return response.data;
     },
 
@@ -241,7 +279,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // User methods
+    // -----------------------------------------------------------------------
+    // User
+    // -----------------------------------------------------------------------
+
     async getCurrentUserPlayer() {
       const response = await api.get<Player>('/api/users/me/player');
       return response.data;
@@ -257,7 +298,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Location methods
+    // -----------------------------------------------------------------------
+    // Location
+    // -----------------------------------------------------------------------
+
     async getLocations() {
       const response = await api.get<Location[]>('/api/locations');
       return response.data;
@@ -273,15 +317,20 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Court methods
-    async getCourts(locationId?: number | null) {
-      const params = locationId ? { location_id: locationId } : {};
-      const response = await api.get<Court[]>('/api/courts', { params });
+    // -----------------------------------------------------------------------
+    // Court
+    // -----------------------------------------------------------------------
+
+    async getCourts(params?: { location_id?: string | null; lat?: number; lon?: number; radius?: number }) {
+      const response = await api.get<Court[]>('/api/public/courts', { params: params ?? {} });
       return response.data;
     },
 
-    // Weekly Schedule methods
-    async createWeeklySchedule(seasonId: number, scheduleData: any) {
+    // -----------------------------------------------------------------------
+    // Weekly Schedule
+    // -----------------------------------------------------------------------
+
+    async createWeeklySchedule(seasonId: number, scheduleData: Record<string, unknown>) {
       const response = await api.post(`/api/seasons/${seasonId}/weekly-schedules`, scheduleData);
       return response.data;
     },
@@ -291,7 +340,7 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async updateWeeklySchedule(scheduleId: number, scheduleData: any) {
+    async updateWeeklySchedule(scheduleId: number, scheduleData: Record<string, unknown>) {
       const response = await api.put(`/api/weekly-schedules/${scheduleId}`, scheduleData);
       return response.data;
     },
@@ -301,8 +350,11 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Signup methods
-    async createSignup(seasonId: number, signupData: any) {
+    // -----------------------------------------------------------------------
+    // Signup
+    // -----------------------------------------------------------------------
+
+    async createSignup(seasonId: number, signupData: Record<string, unknown>) {
       const response = await api.post(`/api/seasons/${seasonId}/signups`, signupData);
       return response.data;
     },
@@ -323,7 +375,7 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async updateSignup(signupId: number, signupData: any) {
+    async updateSignup(signupId: number, signupData: Record<string, unknown>) {
       const response = await api.put(`/api/signups/${signupId}`, signupData);
       return response.data;
     },
@@ -353,19 +405,109 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Feedback methods
+    // -----------------------------------------------------------------------
+    // Friends
+    // -----------------------------------------------------------------------
+
+    async getFriends(params?: { search?: string; limit?: number; offset?: number }) {
+      const response = await api.get<FriendListResponse>('/api/friends', { params: params ?? {} });
+      return response.data;
+    },
+
+    async getFriendRequests(direction?: 'received' | 'sent') {
+      const params = direction ? { direction } : {};
+      const response = await api.get<FriendRequest[]>('/api/friends/requests', { params });
+      return response.data;
+    },
+
+    async sendFriendRequest(receiverPlayerId: number) {
+      const response = await api.post('/api/friends/request', { receiver_player_id: receiverPlayerId });
+      return response.data;
+    },
+
+    async acceptFriendRequest(requestId: number) {
+      const response = await api.post(`/api/friends/requests/${requestId}/accept`);
+      return response.data;
+    },
+
+    async declineFriendRequest(requestId: number) {
+      const response = await api.post(`/api/friends/requests/${requestId}/decline`);
+      return response.data;
+    },
+
+    async cancelFriendRequest(requestId: number) {
+      const response = await api.delete(`/api/friends/requests/${requestId}`);
+      return response.data;
+    },
+
+    async removeFriend(playerIdToRemove: number) {
+      const response = await api.delete(`/api/friends/${playerIdToRemove}`);
+      return response.data;
+    },
+
+    async getFriendSuggestions() {
+      const response = await api.get<Friend[]>('/api/friends/suggestions');
+      return response.data;
+    },
+
+    async batchFriendStatus(playerIds: number[]) {
+      const response = await api.post<Record<string, string>>('/api/friends/batch-status', { player_ids: playerIds });
+      return response.data;
+    },
+
+    async getMutualFriends(otherPlayerId: number) {
+      const response = await api.get<FriendInLeague[]>(`/api/friends/mutual/${otherPlayerId}`);
+      return response.data;
+    },
+
+    async discoverPlayers(params: Record<string, unknown> = {}) {
+      const response = await api.get('/api/friends/discover', { params });
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Notifications
+    // -----------------------------------------------------------------------
+
+    async getNotifications(params?: { limit?: number; offset?: number }) {
+      const response = await api.get<Notification[]>('/api/notifications', { params: params ?? {} });
+      return response.data;
+    },
+
+    async getUnreadNotificationCount() {
+      const response = await api.get<{ count: number }>('/api/notifications/unread-count');
+      return response.data;
+    },
+
+    async markNotificationRead(notificationId: number) {
+      const response = await api.put(`/api/notifications/${notificationId}/read`);
+      return response.data;
+    },
+
+    async markAllNotificationsRead() {
+      const response = await api.put('/api/notifications/mark-all-read');
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Feedback
+    // -----------------------------------------------------------------------
+
     async submitFeedback(feedback: string, email?: string) {
       const response = await api.post('/api/feedback', { feedback_text: feedback, email: email || undefined });
       return response.data;
     },
 
-    // Admin methods
+    // -----------------------------------------------------------------------
+    // Admin
+    // -----------------------------------------------------------------------
+
     async getAdminConfig() {
       const response = await api.get('/api/admin-view/config');
       return response.data;
     },
 
-    async updateAdminConfig(config: any) {
+    async updateAdminConfig(config: Record<string, unknown>) {
       const response = await api.put('/api/admin-view/config', config);
       return response.data;
     },
@@ -380,13 +522,10 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    // Player discovery
-    async discoverPlayers(params: Record<string, any> = {}) {
-      const response = await api.get('/api/friends/discover', { params });
-      return response.data;
-    },
+    // -----------------------------------------------------------------------
+    // Health
+    // -----------------------------------------------------------------------
 
-    // Health check
     async healthCheck() {
       const response = await api.get('/api/health');
       return response.data;
@@ -395,4 +534,3 @@ export function createApiMethods(client: ApiClient) {
 }
 
 export type ApiMethods = ReturnType<typeof createApiMethods>;
-

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<link rel="stylesheet" href="shared.css">
+<title>Start Session - Beach League Mobile</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<style>
+
+  .content { padding: 16px 16px 100px; }
+
+  .section-title { font-size: 15px; font-weight: 700; margin: 16px 0 10px; }
+
+  /* Form sections */
+  .form-section { background: #fff; border-radius: 12px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .form-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #f0f0f0; min-height: 48px; }
+  .form-row:last-child { border-bottom: none; }
+  .form-label { font-size: 14px; color: #555; }
+  .form-value { font-size: 14px; font-weight: 600; color: #1a1a1a; display: flex; align-items: center; gap: 6px; }
+  .form-value .chevron { color: #ccc; font-size: 16px; }
+
+  /* Court card */
+  .court-card { display: flex; align-items: center; gap: 10px; padding: 14px 16px; min-height: 48px; }
+  .court-icon { font-size: 22px; }
+  .court-info { flex: 1; }
+  .court-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .court-avail { font-size: 12px; color: #555; margin-top: 2px; }
+  .court-card .chevron { color: #ccc; font-size: 16px; }
+
+  /* Session type pills */
+  .type-pills { display: flex; gap: 8px; padding: 0 16px 16px; }
+  .type-pill { flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid #e0e0e0; text-align: center; font-size: 13px; font-weight: 600; color: #666; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; gap: 3px; }
+  .type-pill.active { border-color: #1a3a4a; background: #e8f4f8; color: #1a3a4a; }
+  .type-pill-sub { font-size: 11px; font-weight: 400; color: #999; }
+  .type-pill.active .type-pill-sub { color: #2a7d9c; }
+
+  /* Toggle row */
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; min-height: 48px; border-bottom: 1px solid #f0f0f0; }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 14px; color: #555; }
+  .toggle { width: 44px; height: 26px; border-radius: 13px; background: #34a853; position: relative; cursor: pointer; flex-shrink: 0; }
+  .toggle .knob { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; right: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: right 0.15s; }
+  .toggle.off { background: #e0e0e0; }
+  .toggle.off .knob { right: auto; left: 2px; }
+
+  /* Stepper */
+  .stepper-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; min-height: 48px; border-bottom: 1px solid #f0f0f0; }
+  .stepper-row:last-child { border-bottom: none; }
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper-btn { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #e0e0e0; background: #fff; font-size: 18px; color: #555; display: flex; align-items: center; justify-content: center; cursor: pointer; min-width: 44px; min-height: 44px; }
+  .stepper-val { font-size: 16px; font-weight: 700; min-width: 30px; text-align: center; }
+
+  /* Deadline row */
+  .deadline-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; min-height: 48px; }
+  .deadline-value { font-size: 14px; font-weight: 600; color: #1a1a1a; display: flex; align-items: center; gap: 6px; }
+
+  /* Notes textarea */
+  .notes-area { width: 100%; box-sizing: border-box; border: none; outline: none; resize: none; font-size: 14px; color: #1a1a1a; padding: 14px 16px; min-height: 72px; font-family: inherit; background: transparent; }
+  .notes-area::placeholder { color: #bbb; }
+
+  /* Bottom bar */
+  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #f0f0f0; padding: 12px 16px 28px; z-index: 100; }
+  .start-btn { background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; border-radius: 12px; padding: 16px; width: 100%; border: none; cursor: pointer; min-height: 52px; }
+
+  /* Section label above a card */
+  .section-label { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 8px; }
+
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41</span>
+  <span style="font-size: 11px; font-weight: 400;">* * *</span>
+</div>
+
+<div class="top-nav">
+  <a href="league-dashboard.html" class="back">&larr; League</a>
+  <div class="title">Start Session</div>
+  <div class="action"></div>
+</div>
+
+<div class="content">
+
+  <!-- Date & Time -->
+  <div class="section-title">Date &amp; Time</div>
+  <div class="form-section">
+    <div class="form-row">
+      <span class="form-label">Date</span>
+      <span class="form-value">Today, Apr 10, 2026 <span class="chevron">&rsaquo;</span></span>
+    </div>
+    <div class="form-row">
+      <span class="form-label">Start Time</span>
+      <span class="form-value">8:00 AM <span class="chevron">&rsaquo;</span></span>
+    </div>
+  </div>
+
+  <!-- Location -->
+  <div class="section-title">Location</div>
+  <div class="form-section">
+    <a href="#" class="court-card" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="court-icon"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><line x1="12" y1="6" x2="12" y2="20"/><line x1="2" y1="13" x2="22" y2="13"/></svg></div>
+      <div class="court-info">
+        <div class="court-name">Queens Beach Kings Park</div>
+        <div class="court-avail">Court 1–4 Available</div>
+      </div>
+      <div class="chevron">&rsaquo;</div>
+    </a>
+  </div>
+
+  <!-- Session Type -->
+  <div class="section-title">Session Type</div>
+  <div class="form-section" style="padding-top: 14px;">
+    <div class="type-pills">
+      <div class="type-pill" id="pill-open" onclick="selectType('open')">
+        Open Pickup
+        <span class="type-pill-sub">Anyone can join</span>
+      </div>
+      <div class="type-pill active" id="pill-league" onclick="selectType('league')">
+        League Only
+        <span class="type-pill-sub">Members only</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player Signups -->
+  <div class="section-title">Player Signups</div>
+  <div class="form-section">
+    <div class="toggle-row">
+      <span class="toggle-label">Enable signup sheet</span>
+      <div class="toggle" id="signup-toggle" onclick="toggleSwitch('signup-toggle')">
+        <div class="knob"></div>
+      </div>
+    </div>
+    <div class="stepper-row">
+      <span class="form-label">Max Players</span>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="stepValue('player-count', -2, 2, 64)">&#8722;</button>
+        <div class="stepper-val" id="player-count">16</div>
+        <button class="stepper-btn" onclick="stepValue('player-count', 2, 2, 64)">&#43;</button>
+      </div>
+    </div>
+    <div class="deadline-row">
+      <span class="form-label">Signup Deadline</span>
+      <span class="deadline-value">1 hour before start <span class="chevron">&rsaquo;</span></span>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="section-title">Notes</div>
+  <div class="form-section">
+    <textarea class="notes-area" placeholder="Add session notes (optional)..."></textarea>
+  </div>
+
+</div>
+
+<!-- Bottom bar sits above the tab bar -->
+<div class="bottom-bar">
+  <button class="start-btn">Start Session</button>
+</div>
+
+<div class="tab-bar">
+  <a href="home.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label">Home</div>
+  </a>
+  <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
+    <div class="tab-label active">Leagues</div>
+  </a>
+  <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
+    <div class="tab-label">Add Games</div>
+  </a>
+  <a href="messages.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
+    <div class="tab-label">Social</div>
+  </a>
+  <a href="profile.html" class="tab" style="text-decoration:none;">
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
+    <div class="tab-label">Profile</div>
+  </a>
+</div>
+
+<script>
+  function selectType(type) {
+    document.getElementById('pill-open').classList.toggle('active', type === 'open');
+    document.getElementById('pill-league').classList.toggle('active', type === 'league');
+  }
+
+  function toggleSwitch(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('off');
+  }
+
+  function stepValue(id, delta, min, max) {
+    const el = document.getElementById(id);
+    const current = parseInt(el.textContent, 10);
+    const next = Math.min(max, Math.max(min, current + delta));
+    el.textContent = next;
+  }
+</script>
+<script src="dark-theme-toggle.js"></script>
+</body>
+</html>

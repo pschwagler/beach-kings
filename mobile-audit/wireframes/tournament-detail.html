@@ -142,33 +142,33 @@
   <a href="tournaments.html" class="back">&larr; Back</a>
   <div class="title">Tournament</div>
   <div data-role="creator" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
     <a href="tournament-edit.html" class="action">Edit</a>
   </div>
   <div data-role="visitor" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
   </div>
   <div data-role="invite-visitor" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
   </div>
   <div data-role="requested" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
   </div>
   <div data-role="registered" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
   </div>
   <div data-role="waitlist" class="nav-right">
-    <button class="share-btn" aria-label="Share">
+    <button class="share-btn" aria-label="Share" onclick="alert('Share sheet')">
       <svg viewBox="0 0 24 24" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     </button>
   </div>
@@ -195,7 +195,7 @@
   <!-- Visitor (Open): Request to Join -->
   <div data-role="visitor">
     <div class="action-bar">
-      <button class="btn primary">Request to Join</button>
+      <button class="btn primary" onclick="this.textContent='Request Pending';this.disabled=true;this.style.opacity='0.6'">Request to Join</button>
     </div>
   </div>
 
@@ -263,8 +263,8 @@
           <div class="request-detail">B-level &middot; 4.2 rating</div>
         </div>
         <div class="request-actions">
-          <button class="request-btn approve">Approve</button>
-          <button class="request-btn deny">Deny</button>
+          <button class="request-btn approve" onclick="this.parentNode.innerHTML='<span style=\"color:#15803d;font-size:13px;font-weight:600\">Approved</span>'">Approve</button>
+          <button class="request-btn deny" onclick="this.parentNode.innerHTML='<span style=\"color:#999;font-size:13px\">Denied</span>'">Deny</button>
         </div>
       </div>
 
@@ -275,8 +275,8 @@
           <div class="request-detail">A-level &middot; 4.8 rating</div>
         </div>
         <div class="request-actions">
-          <button class="request-btn approve">Approve</button>
-          <button class="request-btn deny">Deny</button>
+          <button class="request-btn approve" onclick="this.parentNode.innerHTML='<span style=\"color:#15803d;font-size:13px;font-weight:600\">Approved</span>'">Approve</button>
+          <button class="request-btn deny" onclick="this.parentNode.innerHTML='<span style=\"color:#999;font-size:13px\">Denied</span>'">Deny</button>
         </div>
       </div>
 
@@ -287,8 +287,8 @@
           <div class="request-detail">BB-level &middot; 3.9 rating</div>
         </div>
         <div class="request-actions">
-          <button class="request-btn approve">Approve</button>
-          <button class="request-btn deny">Deny</button>
+          <button class="request-btn approve" onclick="this.parentNode.innerHTML='<span style=\"color:#15803d;font-size:13px;font-weight:600\">Approved</span>'">Approve</button>
+          <button class="request-btn deny" onclick="this.parentNode.innerHTML='<span style=\"color:#999;font-size:13px\">Denied</span>'">Deny</button>
         </div>
       </div>
     </div>
@@ -307,7 +307,7 @@
       <div class="player-avatar a">KF</div>
       <div class="player-avatar more">+5</div>
     </div>
-    <a href="#" class="players-link">See All Players &rsaquo;</a>
+    <a href="javascript:void(0)" class="players-link">See All Players &rsaquo;</a>
   </div>
 
   <!-- Details -->
@@ -353,7 +353,7 @@
   <div class="detail-section">
     <div class="section-title">Location</div>
     <div class="location-card">
-      <div class="location-map">&#128205;</div>
+      <div class="location-map"><svg style="display:inline-block;vertical-align:middle" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
       <div class="location-info">
         <div class="location-name">QBK Sports</div>
         <div class="location-address">61-15 Queens Blvd, Queens, NY</div>
@@ -366,24 +366,24 @@
 
 <div class="tab-bar">
   <a href="home.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127968;</div>
-    <div class="tab-label">Home</div>
+    <div class="tab-icon active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1m-2 0h2"/></svg></div>
+    <div class="tab-label active">Home</div>
   </a>
   <a href="leagues-tab.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#127942;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg></div>
     <div class="tab-label">Leagues</div>
   </a>
   <a href="add-games.html" class="tab add-games" style="text-decoration:none;">
-    <div class="tab-icon">&#10133;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg></div>
     <div class="tab-label">Add Games</div>
   </a>
   <a href="messages.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128172;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
     <div class="tab-badge">2</div>
     <div class="tab-label">Social</div>
   </a>
   <a href="profile.html" class="tab" style="text-decoration:none;">
-    <div class="tab-icon">&#128100;</div>
+    <div class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>
     <div class="tab-label">Profile</div>
   </a>
 </div>
@@ -396,5 +396,6 @@ function setRole(role) {
 }
 </script>
 
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

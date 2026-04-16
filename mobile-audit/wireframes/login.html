@@ -24,6 +24,7 @@
   .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e0e0e0; font-size: 15px; background: #fff; color: #1a1a1a; }
   .form-input:focus { outline: none; border-color: #2a7d9c; }
   .form-input::placeholder { color: #bbb; }
+  .form-input.error { border-color: #ef4444; }
 
   .btn-login { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; background: #d4a843; color: #fff; font-size: 16px; font-weight: 700; text-align: center; margin-top: 24px; }
 
@@ -44,9 +45,25 @@
   /* Footer */
   .signup-prompt { text-align: center; margin-top: 28px; font-size: 14px; color: #666; }
   .signup-prompt a { color: #2a7d9c; font-weight: 600; text-decoration: none; }
+
+  /* Error Banner */
+  .error-banner { display: none; padding: 12px 16px; background: #fee2e2; border-radius: 10px; margin-bottom: 20px; font-size: 14px; color: #b91c1c; font-weight: 600; text-align: center; }
+
+  /* Error state */
+  body.login-error .error-banner { display: block; }
+  body.login-error .form-input { border-color: #ef4444; }
 </style>
 </head>
 <body>
+
+<!-- State Switcher -->
+<div class="state-switcher">
+  <div class="sw-label">Log In</div>
+  <div class="sw-pills">
+    <button class="sw-pill active" onclick="setState('default')">Default</button>
+    <button class="sw-pill" onclick="setState('error')">Invalid Credentials</button>
+  </div>
+</div>
 
 <div class="status-bar">
   <span>9:41</span>
@@ -62,9 +79,11 @@
 <div class="content">
 
   <div class="logo-area">
-    <div class="logo-crown">👑</div>
+    <div class="logo-crown"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg></div>
     <div class="logo-text">BEACH LEAGUE</div>
   </div>
+
+  <div class="error-banner">Invalid email or password. Please try again.</div>
 
   <div class="form-group">
     <div class="form-label">Email</div>
@@ -103,5 +122,19 @@
 
 </div>
 
+<script>
+  function setState(state) {
+    document.body.classList.remove('login-error');
+    document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('active'));
+    if (state === 'error') {
+      document.body.classList.add('login-error');
+      document.querySelectorAll('.sw-pill')[1].classList.add('active');
+    } else {
+      document.querySelectorAll('.sw-pill')[0].classList.add('active');
+    }
+  }
+</script>
+
+<script src="dark-theme-toggle.js"></script>
 </body>
 </html>

@@ -5,74 +5,31 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "scheme": "beach-league",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "scheme": "beachleague",
-    "deepLinking": {
-      "enabled": true
-    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4a90a4"
+      "backgroundColor": "#1a3a4a"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.beachleague.app",
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to find nearby courts and leagues.",
-        "NSCameraUsageDescription": "This app uses your camera to upload profile pictures.",
-        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to upload profile pictures."
-      }
+      "bundleIdentifier": "com.beachleague.app"
     },
     "android": {
-      "package": "com.beachleague.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4a90a4"
+        "backgroundColor": "#1a3a4a"
       },
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ],
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "package": "com.beachleague.app"
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#4a90a4"
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow Beach League to use your location to find nearby courts."
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Beach League to access your camera to upload profile pictures."
-        }
-      ]
-    ],
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": ""
-      }
-    }
+      "expo-secure-store",
+      "expo-font",
+      "expo-web-browser",
+      "expo-notifications"
+    ]
   }
 }
