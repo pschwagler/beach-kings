@@ -26,12 +26,30 @@ export function createApiMethods(client: ApiClient) {
     // Auth
     // -----------------------------------------------------------------------
 
-    async login(credentials: { phone?: string; email?: string; password?: string }) {
+    /**
+     * Password login — accepts phone_number OR email (not both).
+     */
+    async login(credentials: {
+      phone_number?: string;
+      email?: string;
+      password: string;
+    }) {
       const response = await api.post('/api/auth/login', credentials);
       return response.data;
     },
 
-    async signup(data: { phone: string; name?: string; email?: string }) {
+    /**
+     * Register a new user. phone_number and password are required.
+     * first_name + last_name preferred; falls back to full_name splitting.
+     */
+    async signup(data: {
+      phone_number: string;
+      password: string;
+      first_name?: string;
+      last_name?: string;
+      full_name?: string;
+      email?: string;
+    }) {
       const response = await api.post('/api/auth/signup', data);
       return response.data;
     },
@@ -41,13 +59,111 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async sendVerification(phone: string) {
-      const response = await api.post('/api/auth/send-verification', { phone });
+    /**
+     * Exchange a Google ID token for Beach League auth tokens.
+     */
+    async googleAuth(idToken: string) {
+      const response = await api.post('/api/auth/google', { id_token: idToken });
       return response.data;
     },
 
-    async verifyPhone(phone: string, code: string) {
-      const response = await api.post('/api/auth/verify-phone', { phone, code });
+    /**
+     * Exchange an Apple ID token for Beach League auth tokens.
+     */
+    async appleAuth(idToken: string) {
+      const response = await api.post('/api/auth/apple', { id_token: idToken });
+      return response.data;
+    },
+
+    /**
+     * Send SMS verification code to the given phone number.
+     */
+    async sendVerification(phoneNumber: string) {
+      const response = await api.post('/api/auth/send-verification', {
+        phone_number: phoneNumber,
+      });
+      return response.data;
+    },
+
+    /**
+     * Verify phone number with the 6-digit OTP code.
+     */
+    async verifyPhone(phoneNumber: string, code: string) {
+      const response = await api.post('/api/auth/verify-phone', {
+        phone_number: phoneNumber,
+        code,
+      });
+      return response.data;
+    },
+
+    /**
+     * Passwordless SMS login — send code first via sendVerification().
+     */
+    async smsLogin(phoneNumber: string, code: string) {
+      const response = await api.post('/api/auth/sms-login', {
+        phone_number: phoneNumber,
+        code,
+      });
+      return response.data;
+    },
+
+    /**
+     * Check whether a phone number is already registered.
+     */
+    async checkPhone(phoneNumber: string) {
+      const response = await api.get('/api/auth/check-phone', {
+        params: { phone_number: phoneNumber },
+      });
+      return response.data;
+    },
+
+    /**
+     * Step 1/3: Request a password-reset OTP via SMS.
+     */
+    async resetPassword(phoneNumber: string) {
+      const response = await api.post('/api/auth/reset-password', {
+        phone_number: phoneNumber,
+      });
+      return response.data;
+    },
+
+    /**
+     * Step 2/3: Verify the reset OTP. Returns a reset_token.
+     */
+    async resetPasswordVerify(phoneNumber: string, code: string) {
+      const response = await api.post('/api/auth/reset-password-verify', {
+        phone_number: phoneNumber,
+        code,
+      });
+      return response.data;
+    },
+
+    /**
+     * Step 3/3: Confirm new password using the reset_token from step 2.
+     */
+    async resetPasswordConfirm(resetToken: string, newPassword: string) {
+      const response = await api.post('/api/auth/reset-password-confirm', {
+        reset_token: resetToken,
+        new_password: newPassword,
+      });
+      return response.data;
+    },
+
+    /**
+     * Refresh an expired access token.
+     */
+    async refreshToken(refreshToken: string) {
+      const response = await api.post('/api/auth/refresh', {
+        refresh_token: refreshToken,
+      });
+      return response.data;
+    },
+
+    /**
+     * Get the authenticated user's info.
+     */
+    async getMe() {
+      const response = await api.get('/api/auth/me');
       return response.data;
     },
 
@@ -528,6 +644,30 @@ export function createApiMethods(client: ApiClient) {
 
     async healthCheck() {
       const response = await api.get('/api/health');
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Invites
+    // -----------------------------------------------------------------------
+
+    /**
+     * Get public-facing details for an invite token (no auth required).
+     */
+    async getInviteDetails(token: string) {
+      const response = await api.get(
+        `/api/invites/${encodeURIComponent(token)}`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Claim an invite — merge placeholder data into the authenticated user.
+     */
+    async claimInvite(token: string) {
+      const response = await api.post(
+        `/api/invites/${encodeURIComponent(token)}/claim`,
+      );
       return response.data;
     },
   };

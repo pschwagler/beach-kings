@@ -331,6 +331,12 @@ class GoogleAuthRequest(BaseModel):
     id_token: str
 
 
+class AppleAuthRequest(BaseModel):
+    """Request to authenticate with Apple ID token."""
+
+    id_token: str
+
+
 class AuthResponse(BaseModel):
     """Authentication response with JWT token."""
 

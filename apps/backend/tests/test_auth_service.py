@@ -1,9 +1,11 @@
 """
 Unit tests for authentication service.
-Tests password hashing, JWT tokens, phone validation, and email validation.
+Tests password hashing, JWT tokens, phone validation, email validation,
+and Apple ID token verification.
 """
 
 import pytest
+from unittest.mock import patch, MagicMock
 from datetime import timedelta
 from backend.services import auth_service
 
@@ -241,3 +243,111 @@ class TestVerificationCode:
             code = auth_service.generate_verification_code()
             code_int = int(code)
             assert 100000 <= code_int <= 999999
+
+
+class TestAppleIdTokenVerification:
+    """Tests for Apple ID token verification."""
+
+    def test_missing_client_id_raises(self, monkeypatch):
+        """Test that missing APPLE_CLIENT_ID raises ValueError."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", None)
+        with pytest.raises(ValueError, match="APPLE_CLIENT_ID"):
+            auth_service.verify_apple_id_token("some_token")
+
+    def test_invalid_token_header_raises(self, monkeypatch):
+        """Test that a token without kid in header raises ValueError."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+
+        from jose import jwt as jose_jwt
+
+        # Create a token without kid in header
+        with patch.object(jose_jwt, "get_unverified_header", return_value={}):
+            with pytest.raises(ValueError, match="kid"):
+                auth_service.verify_apple_id_token("token_without_kid")
+
+    def test_no_matching_key_raises(self, monkeypatch):
+        """Test that no matching Apple public key raises ValueError."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+        # Clear cache
+        monkeypatch.setattr(auth_service, "_apple_jwks_cache", None)
+
+        from jose import jwt as jose_jwt
+
+        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "unknown_kid"}):
+            with patch.object(
+                auth_service,
+                "_fetch_apple_public_keys",
+                return_value={"keys": [{"kid": "different_kid"}]},
+            ):
+                with pytest.raises(ValueError, match="No matching Apple public key"):
+                    auth_service.verify_apple_id_token("some_token")
+
+    def test_successful_verification(self, monkeypatch):
+        """Test successful Apple token verification returns user info."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+
+        from jose import jwt as jose_jwt
+
+        matching_key = {"kid": "test_kid", "kty": "RSA", "n": "abc", "e": "AQAB"}
+
+        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+            with patch.object(
+                auth_service,
+                "_fetch_apple_public_keys",
+                return_value={"keys": [matching_key]},
+            ):
+                with patch.object(
+                    jose_jwt,
+                    "decode",
+                    return_value={
+                        "sub": "apple.user.123",
+                        "email": "test@example.com",
+                        "email_verified": True,
+                    },
+                ):
+                    result = auth_service.verify_apple_id_token("valid_token")
+
+        assert result["sub"] == "apple.user.123"
+        assert result["email"] == "test@example.com"
+        assert result["email_verified"] is True
+
+    def test_missing_email_raises(self, monkeypatch):
+        """Test that a token missing the email claim raises ValueError."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+
+        from jose import jwt as jose_jwt
+
+        matching_key = {"kid": "test_kid", "kty": "RSA"}
+
+        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+            with patch.object(
+                auth_service,
+                "_fetch_apple_public_keys",
+                return_value={"keys": [matching_key]},
+            ):
+                with patch.object(
+                    jose_jwt,
+                    "decode",
+                    return_value={"sub": "apple.user.123", "email_verified": True},
+                ):
+                    with pytest.raises(ValueError, match="missing email"):
+                        auth_service.verify_apple_id_token("valid_token")
+
+    def test_jwt_error_raises_valueerror(self, monkeypatch):
+        """Test that JWTError from jose is wrapped as ValueError."""
+        monkeypatch.setattr(auth_service, "APPLE_CLIENT_ID", "com.test.app")
+
+        from jose import jwt as jose_jwt
+        from jose import JWTError
+
+        matching_key = {"kid": "test_kid", "kty": "RSA"}
+
+        with patch.object(jose_jwt, "get_unverified_header", return_value={"kid": "test_kid"}):
+            with patch.object(
+                auth_service,
+                "_fetch_apple_public_keys",
+                return_value={"keys": [matching_key]},
+            ):
+                with patch.object(jose_jwt, "decode", side_effect=JWTError("expired")):
+                    with pytest.raises(ValueError, match="Invalid Apple ID token"):
+                        auth_service.verify_apple_id_token("expired_token")

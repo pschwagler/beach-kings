@@ -1,6 +1,7 @@
 /**
  * Tests for AuthContext provider and useAuth hook.
- * Covers login, signup, logout, session restore, and route guard logic.
+ * Covers login (email/phone), signup, OAuth, logout, session restore,
+ * profileComplete, and route guard logic.
  */
 
 import React from 'react';
@@ -20,8 +21,6 @@ jest.mock('expo-router', () => ({
   useSegments: () => mockSegments,
 }));
 
-// The api module is mocked with inline jest.fn() so the factory has no
-// dependency on hoisted variable declarations.
 jest.mock('@/lib/api', () => ({
   api: {
     getStoredTokens: jest.fn(),
@@ -37,7 +36,7 @@ jest.mock('@/lib/api', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Subject under test (imported after mocks are in place)
+// Subject under test (imported after mocks)
 // ---------------------------------------------------------------------------
 
 import AuthProvider, { useAuth } from '@/contexts/AuthContext';
@@ -47,49 +46,106 @@ import { api } from '@/lib/api';
 // Typed mock helpers
 // ---------------------------------------------------------------------------
 
-const mockGetStoredTokens = api.getStoredTokens as jest.MockedFunction<typeof api.getStoredTokens>;
-const mockSetAuthTokens = api.setAuthTokens as jest.MockedFunction<typeof api.setAuthTokens>;
-const mockClearAuthTokens = api.clearAuthTokens as jest.MockedFunction<typeof api.clearAuthTokens>;
+const mockGetStoredTokens = api.getStoredTokens as jest.MockedFunction<
+  typeof api.getStoredTokens
+>;
+const mockSetAuthTokens = api.setAuthTokens as jest.MockedFunction<
+  typeof api.setAuthTokens
+>;
+const mockClearAuthTokens = api.clearAuthTokens as jest.MockedFunction<
+  typeof api.clearAuthTokens
+>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockGet = (api.client.axiosInstance.get as jest.MockedFunction<any>);
+const mockGet = api.client.axiosInstance.get as jest.MockedFunction<any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockPost = (api.client.axiosInstance.post as jest.MockedFunction<any>);
+const mockPost = api.client.axiosInstance.post as jest.MockedFunction<any>;
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+/** Matches the UserResponse from /api/auth/me */
+const mockMeResponse = {
+  id: 1,
+  phone_number: '+12125551234',
+  email: 'test@example.com',
+  is_verified: true,
+  auth_provider: 'phone',
+  created_at: '2025-01-01T00:00:00Z',
+};
+
+/** Matches a Player with complete profile (gender + level set) */
+const mockPlayerComplete = {
+  id: 42,
+  gender: 'male',
+  level: 'intermediate',
+  city: 'San Diego',
+};
+
+/** Matches a Player with incomplete profile */
+const mockPlayerIncomplete = {
+  id: 42,
+  gender: null,
+  level: null,
+};
+
+/** Matches the AuthResponse from login/signup/OAuth endpoints */
+const mockAuthResponse = {
+  access_token: 'acc',
+  refresh_token: 'ref',
+  token_type: 'bearer',
+  user_id: 1,
+  phone_number: '+12125551234',
+  is_verified: true,
+  auth_provider: 'phone',
+  profile_complete: true,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const mockUser = {
-  id: 1,
-  email: 'test@example.com',
-  first_name: 'Test',
-  last_name: 'User',
-  player_id: 42,
-};
-
 function TestConsumer(): React.ReactElement {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated, profileComplete } = useAuth();
   return (
     <Text testID="output">
-      {JSON.stringify({ user, isLoading, isAuthenticated })}
+      {JSON.stringify({ user, isLoading, isAuthenticated, profileComplete })}
     </Text>
   );
 }
 
-function wrapper({ children }: { children: React.ReactNode }): React.ReactElement {
+function wrapper({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
   return <AuthProvider>{children}</AuthProvider>;
 }
 
+/** Set up mockGet to respond differently per URL path. */
+function mockGetResponses(responses: Record<string, unknown>) {
+  mockGet.mockImplementation((url: string) => {
+    for (const [path, data] of Object.entries(responses)) {
+      if (url.includes(path)) {
+        return Promise.resolve({ data });
+      }
+    }
+    return Promise.reject(new Error(`Unexpected GET ${url}`));
+  });
+}
+
 // ---------------------------------------------------------------------------
-// Global defaults — reset before every test
+// Global defaults
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
+  mockGetStoredTokens.mockResolvedValue({
+    accessToken: null,
+    refreshToken: null,
+  });
   mockSetAuthTokens.mockResolvedValue(undefined);
   mockClearAuthTokens.mockResolvedValue(undefined);
-  // Ensure segments is clean between tests
   mockSegments.splice(0, mockSegments.length);
 });
 
@@ -99,7 +155,9 @@ beforeEach(() => {
 
 describe('useAuth', () => {
   it('throws when used outside AuthProvider', () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow(
       'useAuth must be used within an AuthProvider',
     );
@@ -108,9 +166,7 @@ describe('useAuth', () => {
 });
 
 describe('AuthProvider — session restore', () => {
-  it('starts as loading, then transitions to unauthenticated when no token stored', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
-
+  it('transitions to unauthenticated when no token stored', async () => {
     const { getByTestId } = render(
       <AuthProvider>
         <TestConsumer />
@@ -125,11 +181,18 @@ describe('AuthProvider — session restore', () => {
     const parsed = JSON.parse(getByTestId('output').props.children);
     expect(parsed.isAuthenticated).toBe(false);
     expect(parsed.user).toBeNull();
+    expect(parsed.profileComplete).toBe(false);
   });
 
-  it('restores session when a valid access token exists', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid-token', refreshToken: 'refresh' });
-    mockGet.mockResolvedValue({ data: mockUser });
+  it('restores session with complete profile when valid token exists', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid-token',
+      refreshToken: 'refresh',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerComplete,
+    });
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -144,12 +207,69 @@ describe('AuthProvider — session restore', () => {
 
     const parsed = JSON.parse(getByTestId('output').props.children);
     expect(parsed.isAuthenticated).toBe(true);
-    expect(parsed.user).toEqual(mockUser);
-    expect(mockGet).toHaveBeenCalledWith('/api/users/me');
+    expect(parsed.profileComplete).toBe(true);
+    expect(parsed.user.id).toBe(1);
+    expect(parsed.user.phone_number).toBe('+12125551234');
   });
 
-  it('clears tokens and goes unauthenticated when /api/users/me throws', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: 'expired', refreshToken: null });
+  it('sets profileComplete false when player has no gender/level', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid-token',
+      refreshToken: 'refresh',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerIncomplete,
+    });
+
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      const parsed = JSON.parse(getByTestId('output').props.children);
+      expect(parsed.isLoading).toBe(false);
+    });
+
+    const parsed = JSON.parse(getByTestId('output').props.children);
+    expect(parsed.isAuthenticated).toBe(true);
+    expect(parsed.profileComplete).toBe(false);
+  });
+
+  it('sets profileComplete false when player endpoint throws', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid-token',
+      refreshToken: 'refresh',
+    });
+    mockGet.mockImplementation((url: string) => {
+      if (url.includes('/api/auth/me'))
+        return Promise.resolve({ data: mockMeResponse });
+      return Promise.reject(new Error('404'));
+    });
+
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      const parsed = JSON.parse(getByTestId('output').props.children);
+      expect(parsed.isLoading).toBe(false);
+    });
+
+    const parsed = JSON.parse(getByTestId('output').props.children);
+    expect(parsed.isAuthenticated).toBe(true);
+    expect(parsed.profileComplete).toBe(false);
+  });
+
+  it('clears tokens when /api/auth/me throws', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'expired',
+      refreshToken: null,
+    });
     mockGet.mockRejectedValue(new Error('401 Unauthorized'));
 
     const { getByTestId } = render(
@@ -170,17 +290,17 @@ describe('AuthProvider — session restore', () => {
 });
 
 describe('AuthProvider — login', () => {
-  it('sets authenticated state and stores tokens on successful login', async () => {
-    mockPost.mockResolvedValue({
-      data: { access_token: 'acc', refresh_token: 'ref', user: mockUser },
-    });
+  it('logs in with email and stores tokens', async () => {
+    mockPost.mockResolvedValue({ data: mockAuthResponse });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.login('test@example.com', 'password123');
+      await result.current.login({
+        email: 'test@example.com',
+        password: 'password123',
+      });
     });
 
     expect(mockPost).toHaveBeenCalledWith('/api/auth/login', {
@@ -189,11 +309,30 @@ describe('AuthProvider — login', () => {
     });
     expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
     expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.user).toEqual(mockUser);
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.profileComplete).toBe(true);
+    expect(result.current.user?.id).toBe(1);
   });
 
-  it('propagates error when login API call fails', async () => {
+  it('logs in with phone number', async () => {
+    mockPost.mockResolvedValue({ data: mockAuthResponse });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.login({
+        phoneNumber: '2125551234',
+        password: 'password123',
+      });
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/login', {
+      phone_number: '2125551234',
+      password: 'password123',
+    });
+  });
+
+  it('propagates error when login fails', async () => {
     mockPost.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -201,7 +340,10 @@ describe('AuthProvider — login', () => {
 
     await expect(
       act(async () => {
-        await result.current.login('test@example.com', 'wrong');
+        await result.current.login({
+          email: 'test@example.com',
+          password: 'wrong',
+        });
       }),
     ).rejects.toThrow('Network error');
 
@@ -210,47 +352,171 @@ describe('AuthProvider — login', () => {
 });
 
 describe('AuthProvider — signup', () => {
-  it('sets authenticated state and stores tokens on successful signup', async () => {
+  it('signs up with phone_number and stores tokens', async () => {
     mockPost.mockResolvedValue({
-      data: { access_token: 'acc2', refresh_token: 'ref2', user: mockUser },
+      data: { ...mockAuthResponse, profile_complete: false },
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.signup('new@example.com', 'pass', 'New', 'User');
+      await result.current.signup({
+        phoneNumber: '2125551234',
+        password: 'password123',
+        firstName: 'New',
+        lastName: 'User',
+      });
     });
 
     expect(mockPost).toHaveBeenCalledWith('/api/auth/signup', {
-      email: 'new@example.com',
-      password: 'pass',
+      phone_number: '2125551234',
+      password: 'password123',
       first_name: 'New',
       last_name: 'User',
+      email: undefined,
     });
-    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc2', 'ref2');
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
     expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.profileComplete).toBe(false);
   });
 
-  it('propagates error when signup API call fails', async () => {
-    mockPost.mockRejectedValue(new Error('Email taken'));
+  it('includes optional email in signup', async () => {
+    mockPost.mockResolvedValue({
+      data: { ...mockAuthResponse, profile_complete: false },
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.signup({
+        phoneNumber: '2125551234',
+        password: 'password123',
+        firstName: 'New',
+        lastName: 'User',
+        email: 'new@example.com',
+      });
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/signup', {
+      phone_number: '2125551234',
+      password: 'password123',
+      first_name: 'New',
+      last_name: 'User',
+      email: 'new@example.com',
+    });
+  });
+
+  it('propagates error when signup fails', async () => {
+    mockPost.mockRejectedValue(new Error('Phone taken'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await expect(
       act(async () => {
-        await result.current.signup('dup@example.com', 'pass', 'A', 'B');
+        await result.current.signup({
+          phoneNumber: '2125551234',
+          password: 'pass1234',
+          firstName: 'A',
+          lastName: 'B',
+        });
       }),
-    ).rejects.toThrow('Email taken');
+    ).rejects.toThrow('Phone taken');
+  });
+});
+
+describe('AuthProvider — OAuth', () => {
+  it('logs in with Google and stores tokens', async () => {
+    mockPost.mockResolvedValue({ data: mockAuthResponse });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithGoogle('google-id-token');
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/google', {
+      id_token: 'google-id-token',
+    });
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+
+  it('logs in with Apple and stores tokens', async () => {
+    mockPost.mockResolvedValue({ data: mockAuthResponse });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithApple('apple-id-token');
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/apple', {
+      id_token: 'apple-id-token',
+    });
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+});
+
+describe('AuthProvider — verifyPhone', () => {
+  it('verifies phone and updates auth state', async () => {
+    mockPost.mockResolvedValue({ data: mockAuthResponse });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.verifyPhone('+12125551234', '123456');
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/verify-phone', {
+      phone_number: '+12125551234',
+      code: '123456',
+    });
+    expect(result.current.isAuthenticated).toBe(true);
   });
 });
 
 describe('AuthProvider — logout', () => {
-  it('clears tokens and transitions to unauthenticated on logout', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
-    mockGet.mockResolvedValue({ data: mockUser });
+  it('clears tokens and transitions to unauthenticated', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerComplete,
+    });
+    mockPost.mockResolvedValue({ data: {} });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/logout');
+    expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+  });
+
+  it('still clears local state when logout API fails', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerComplete,
+    });
+    // First call to post (logout) rejects, any other resolves
+    mockPost.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
@@ -261,14 +527,26 @@ describe('AuthProvider — logout', () => {
 
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
-    expect(result.current.user).toBeNull();
-    expect(result.current.isLoading).toBe(false);
+  });
+});
+
+describe('AuthProvider — setProfileComplete', () => {
+  it('updates profileComplete flag', async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.profileComplete).toBe(false);
+
+    act(() => {
+      result.current.setProfileComplete(true);
+    });
+
+    expect(result.current.profileComplete).toBe(true);
   });
 });
 
 describe('AuthProvider — route guard', () => {
-  it('redirects to login when unauthenticated and not in auth group', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: null, refreshToken: null });
+  it('redirects to welcome when unauthenticated and not in auth group', async () => {
     mockSegments.push('(tabs)');
 
     render(
@@ -278,13 +556,41 @@ describe('AuthProvider — route guard', () => {
     );
 
     await waitFor(() => {
-      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/login');
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
     });
   });
 
-  it('redirects to home when authenticated and in auth group', async () => {
-    mockGetStoredTokens.mockResolvedValue({ accessToken: 'valid', refreshToken: 'ref' });
-    mockGet.mockResolvedValue({ data: mockUser });
+  it('redirects to onboarding when authenticated but profile incomplete', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerIncomplete,
+    });
+    mockSegments.push('(tabs)');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/onboarding');
+    });
+  });
+
+  it('redirects to home when authenticated with complete profile in auth group', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerComplete,
+    });
     mockSegments.push('(auth)');
 
     render(
@@ -299,7 +605,6 @@ describe('AuthProvider — route guard', () => {
   });
 
   it('does not redirect while still loading', async () => {
-    // Never resolve — keeps isLoading: true indefinitely
     mockGetStoredTokens.mockReturnValue(new Promise<never>(() => {}));
     mockSegments.push('(tabs)');
 
@@ -309,9 +614,37 @@ describe('AuthProvider — route guard', () => {
       </AuthProvider>,
     );
 
-    // Flush the microtask queue once
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(mockRouterReplace).not.toHaveBeenCalled();
+  });
+
+  it('stays on onboarding when authenticated with incomplete profile', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetResponses({
+      '/api/auth/me': mockMeResponse,
+      '/api/users/me/player': mockPlayerIncomplete,
+    });
+    mockSegments.push('(auth)', 'onboarding');
+
+    const { getByTestId } = render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      const parsed = JSON.parse(getByTestId('output').props.children);
+      expect(parsed.isLoading).toBe(false);
+    });
+
+    // Should NOT redirect away from onboarding
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/(auth)/welcome');
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/(tabs)/home');
   });
 });

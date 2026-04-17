@@ -254,6 +254,64 @@ async def create_google_user(
     return new_user.id
 
 
+async def get_user_by_apple_id(session: AsyncSession, apple_id: str) -> Optional[Dict]:
+    """
+    Get user by Apple ID (sub claim from Apple ID token).
+
+    Args:
+        session: Database session
+        apple_id: Apple's unique user identifier
+
+    Returns:
+        User dictionary or None if not found
+    """
+    result = await session.execute(select(User).where(User.apple_id == apple_id).limit(1))
+    user = result.scalar_one_or_none()
+    return _user_to_dict(user) if user else None
+
+
+async def create_apple_user(
+    session: AsyncSession, email: str, apple_id: str, full_name: str
+) -> int:
+    """
+    Create a new user account via Apple Sign In.
+
+    Uses the DB unique index on email/apple_id for race-safe uniqueness
+    enforcement instead of a SELECT-then-INSERT pattern.
+
+    Note: This function flushes but does NOT commit -- the caller is
+    responsible for committing after all related mutations (e.g., player
+    profile creation) succeed.
+
+    Args:
+        session: Database session
+        email: User email from Apple
+        apple_id: Apple's unique user identifier (sub claim)
+        full_name: User's name (may be empty on subsequent logins)
+
+    Returns:
+        User ID of the created user
+
+    Raises:
+        ValueError: If a user with this email or apple_id already exists
+    """
+    new_user = User(
+        phone_number=None,
+        password_hash=None,
+        email=email.strip().lower(),
+        auth_provider="apple",
+        apple_id=apple_id,
+        is_verified=True,
+    )
+    session.add(new_user)
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        raise ValueError(f"Email {email} is already registered")
+    return new_user.id
+
+
 async def link_google_id(session: AsyncSession, user_id: int, google_id: str) -> bool:
     """
     Link a Google ID to an existing user account.
@@ -295,6 +353,7 @@ def _user_to_dict(user: User) -> Dict:
         "email": user.email,
         "auth_provider": user.auth_provider or "phone",
         "google_id": user.google_id,
+        "apple_id": user.apple_id,
         "is_verified": user.is_verified,
         "failed_verification_attempts": user.failed_verification_attempts or 0,
         "locked_until": user.locked_until,

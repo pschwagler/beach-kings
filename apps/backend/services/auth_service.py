@@ -334,6 +334,119 @@ def verify_google_id_token(token: str) -> dict:
         raise ValueError(f"Invalid Google ID token: {e}")
 
 
+# Apple Sign In Configuration
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")  # e.g. "com.beachleague.mobile"
+APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+
+# Cache Apple's public keys to avoid fetching on every request
+_apple_jwks_cache: Optional[dict] = None
+
+
+def _fetch_apple_public_keys() -> dict:
+    """
+    Fetch Apple's public keys (JWKS) for verifying Sign in with Apple tokens.
+
+    Caches the result in module-level variable to avoid repeated HTTP requests.
+
+    Returns:
+        JWKS dictionary with Apple's public keys
+
+    Raises:
+        ValueError: If the keys cannot be fetched
+    """
+    global _apple_jwks_cache
+    if _apple_jwks_cache is not None:
+        return _apple_jwks_cache
+
+    import httpx
+
+    try:
+        response = httpx.get(APPLE_KEYS_URL, timeout=10)
+        response.raise_for_status()
+        _apple_jwks_cache = response.json()
+        return _apple_jwks_cache
+    except Exception as e:
+        logger.error(f"Failed to fetch Apple public keys: {e}")
+        raise ValueError(f"Could not fetch Apple public keys: {e}")
+
+
+def verify_apple_id_token(token: str) -> dict:
+    """
+    Verify an Apple ID token and extract user info.
+
+    Uses python-jose to decode the RS256 JWT against Apple's public JWKS,
+    validating issuer and audience claims.
+
+    Args:
+        token: The ID token string from the Sign in with Apple flow
+
+    Returns:
+        Dictionary with 'email', 'sub' (Apple user ID), 'email_verified'
+
+    Raises:
+        ValueError: If token is invalid, expired, or audience doesn't match
+    """
+    from jose import jwk
+    from jose.utils import base64url_decode
+
+    if not APPLE_CLIENT_ID:
+        raise ValueError("APPLE_CLIENT_ID environment variable is not set")
+
+    try:
+        # Get the key ID from the token header
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        if not kid:
+            raise ValueError("Token header missing 'kid'")
+
+        # Fetch Apple's public keys and find the matching key
+        jwks = _fetch_apple_public_keys()
+        matching_key = None
+        for key in jwks.get("keys", []):
+            if key["kid"] == kid:
+                matching_key = key
+                break
+
+        if matching_key is None:
+            # Invalidate cache and retry once — Apple may have rotated keys
+            global _apple_jwks_cache
+            _apple_jwks_cache = None
+            jwks = _fetch_apple_public_keys()
+            for key in jwks.get("keys", []):
+                if key["kid"] == kid:
+                    matching_key = key
+                    break
+
+        if matching_key is None:
+            raise ValueError("No matching Apple public key found for token")
+
+        # Verify and decode the token
+        payload = jwt.decode(
+            token,
+            matching_key,
+            algorithms=["RS256"],
+            audience=APPLE_CLIENT_ID,
+            issuer="https://appleid.apple.com",
+        )
+
+        email = payload.get("email")
+        if not email:
+            raise ValueError("Apple token missing email claim")
+
+        return {
+            "email": email,
+            "sub": payload["sub"],
+            "email_verified": payload.get("email_verified", False),
+        }
+    except JWTError as e:
+        raise ValueError(f"Invalid Apple ID token: {e}")
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Apple ID token verification failed: {e}")
+        raise ValueError(f"Invalid Apple ID token: {e}")
+
+
 async def send_sms_verification(session: AsyncSession, phone_number: str, code: str) -> bool:
     """
     Send SMS verification code via Twilio.

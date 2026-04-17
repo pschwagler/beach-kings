@@ -41,6 +41,7 @@ from backend.models.schemas import (
     ResetPasswordVerifyRequest,
     ResetPasswordConfirmRequest,
     GoogleAuthRequest,
+    AppleAuthRequest,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -291,6 +292,87 @@ async def google_auth(
         raise
     except Exception:
         logger.exception("Error during Google auth")
+        raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")
+
+
+@router.post("/api/auth/apple", response_model=AuthResponse)
+@limiter.limit("10/minute")
+async def apple_auth(
+    request: Request, payload: AppleAuthRequest, session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Authenticate with Apple ID token.
+
+    Verifies the Apple ID token, then:
+    1. If user exists by apple_id -> log in
+    2. If user exists by email -> return 409 (must link from account settings)
+    3. Otherwise -> create new user + player profile, log in
+
+    Note: Apple only sends the user's name on the FIRST authorization.
+    On subsequent logins, only email and sub are available.
+    """
+    try:
+        # Verify Apple token
+        apple_info = auth_service.verify_apple_id_token(payload.id_token)
+        apple_id = apple_info["sub"]
+        email = apple_info["email"].strip().lower()
+
+        # 1. Check by apple_id first
+        user = await user_service.get_user_by_apple_id(session, apple_id)
+
+        if not user:
+            # 2. Check if email already in use -- do NOT auto-link
+            existing = await user_service.get_user_by_email(session, email)
+            if existing:
+                raise HTTPException(
+                    status_code=409,
+                    detail="An account with this email already exists. "
+                    "Please sign in with your original method and link Apple from account settings.",
+                )
+
+        if not user:
+            # 3. Create new user + player profile in a single transaction
+            display_name = email.split("@")[0]
+            user_id = await user_service.create_apple_user(
+                session, email=email, apple_id=apple_id, full_name=display_name
+            )
+
+            # Always create player profile for new users
+            player = await data_service.upsert_user_player(
+                session=session,
+                user_id=user_id,
+                full_name=display_name,
+            )
+            if not player:
+                logger.error(f"Failed to create player profile for Apple user {user_id}")
+
+            # Commit user + player together atomically
+            await session.commit()
+
+            user = await user_service.get_user_by_id(session, user_id)
+
+        await _maybe_cancel_deletion(session, user)
+
+        # Issue tokens
+        access_token, refresh_token = await _issue_tokens(session, user)
+        profile_complete = await _check_profile_complete(session, user["id"])
+
+        return AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user.get("phone_number"),
+            is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "apple"),
+            profile_complete=profile_complete,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error during Apple auth")
         raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")
 
 

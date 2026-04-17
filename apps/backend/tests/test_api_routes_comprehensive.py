@@ -637,6 +637,180 @@ class TestGoogleAuthEndpoint:
         assert "Authentication failed" in response.json()["detail"]
 
 
+class TestAppleAuthEndpoint:
+    """Tests for POST /api/auth/apple endpoint."""
+
+    def _setup_apple_mocks(
+        self,
+        monkeypatch,
+        *,
+        apple_info,
+        user_by_apple_id=None,
+        user_by_email=None,
+        created_user_id=10,
+    ):
+        """Set up common mocks for Apple auth tests."""
+        client = TestClient(app)
+
+        monkeypatch.setattr(
+            auth_service,
+            "verify_apple_id_token",
+            lambda token: apple_info,
+            raising=True,
+        )
+        monkeypatch.setattr(
+            user_service,
+            "get_user_by_apple_id",
+            lambda session, aid: _async(user_by_apple_id),
+            raising=True,
+        )
+        monkeypatch.setattr(
+            user_service,
+            "get_user_by_email",
+            lambda session, email: _async(user_by_email),
+            raising=True,
+        )
+        monkeypatch.setattr(
+            user_service,
+            "create_apple_user",
+            lambda session, **kw: _async(created_user_id),
+            raising=True,
+        )
+        monkeypatch.setattr(
+            data_service,
+            "upsert_user_player",
+            lambda session, **kw: _async({"id": 100, "user_id": kw.get("user_id")}),
+            raising=True,
+        )
+
+        async def fake_get_user_by_id(session, uid):
+            return {
+                "id": uid,
+                "phone_number": None,
+                "email": apple_info["email"],
+                "is_verified": True,
+                "auth_provider": "apple",
+                "created_at": "2020-01-01T00:00:00Z",
+            }
+
+        monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user_by_id, raising=True)
+        monkeypatch.setattr(
+            user_service,
+            "create_refresh_token",
+            lambda session, uid, tok, exp: _async(True),
+            raising=True,
+        )
+        monkeypatch.setattr(
+            data_service,
+            "get_player_by_user_id",
+            lambda session, uid: _async({"id": 100, "gender": "male", "level": "AA"}),
+            raising=True,
+        )
+
+        return client
+
+    def test_apple_auth_new_user(self, monkeypatch):
+        """Test Apple auth creates new user + player when no existing account."""
+        apple_info = {
+            "sub": "a123.apple.user",
+            "email": "new@example.com",
+            "email_verified": True,
+        }
+        client = self._setup_apple_mocks(monkeypatch, apple_info=apple_info)
+
+        response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["auth_provider"] == "apple"
+        assert data["is_verified"] is True
+
+    def test_apple_auth_existing_apple_id(self, monkeypatch):
+        """Test Apple auth logs in existing user found by apple_id."""
+        existing_user = {
+            "id": 5,
+            "phone_number": None,
+            "email": "exists@example.com",
+            "is_verified": True,
+            "auth_provider": "apple",
+            "created_at": "2020-01-01T00:00:00Z",
+        }
+        apple_info = {
+            "sub": "a_existing.apple.user",
+            "email": "exists@example.com",
+            "email_verified": True,
+        }
+        client = self._setup_apple_mocks(
+            monkeypatch, apple_info=apple_info, user_by_apple_id=existing_user
+        )
+
+        # Override get_user_by_id to not be called for creation path
+        monkeypatch.setattr(
+            user_service,
+            "get_user_by_id",
+            lambda session, uid: _async(existing_user),
+            raising=True,
+        )
+
+        response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
+        assert response.status_code == 200
+        assert response.json()["user_id"] == 5
+
+    def test_apple_auth_email_conflict_409(self, monkeypatch):
+        """Test Apple auth returns 409 when email belongs to another account."""
+        existing_phone_user = {
+            "id": 3,
+            "phone_number": "+15551234567",
+            "email": "taken@example.com",
+            "is_verified": True,
+            "auth_provider": "phone",
+        }
+        apple_info = {
+            "sub": "a_new.apple.user",
+            "email": "taken@example.com",
+            "email_verified": True,
+        }
+        client = self._setup_apple_mocks(
+            monkeypatch, apple_info=apple_info, user_by_email=existing_phone_user
+        )
+
+        response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"]
+
+    def test_apple_auth_invalid_token_401(self, monkeypatch):
+        """Test Apple auth returns 401 for invalid/expired token."""
+        client = TestClient(app)
+
+        def fake_verify_raises(token):
+            raise ValueError("Invalid Apple ID token")
+
+        monkeypatch.setattr(
+            auth_service, "verify_apple_id_token", fake_verify_raises, raising=True
+        )
+
+        response = client.post("/api/auth/apple", json={"id_token": "bad_token"})
+        assert response.status_code == 401
+        assert "Invalid Apple ID token" in response.json()["detail"]
+
+    def test_apple_auth_unexpected_error_generic_500(self, monkeypatch):
+        """Test Apple auth returns generic 500 message (no internal details leaked)."""
+        client = TestClient(app)
+
+        def fake_verify_raises(token):
+            raise RuntimeError("SECRET_INTERNAL_ERROR_DETAIL")
+
+        monkeypatch.setattr(
+            auth_service, "verify_apple_id_token", fake_verify_raises, raising=True
+        )
+
+        response = client.post("/api/auth/apple", json={"id_token": "valid_token"})
+        assert response.status_code == 500
+        assert "SECRET_INTERNAL_ERROR_DETAIL" not in response.json()["detail"]
+        assert "Authentication failed" in response.json()["detail"]
+
+
 # ============================================================================
 # League Endpoints Tests
 # ============================================================================
