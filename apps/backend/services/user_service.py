@@ -56,34 +56,51 @@ LOCK_DURATION_MINUTES = 15
 
 
 async def create_user(
-    session: AsyncSession, phone_number: str, password_hash: str, email: Optional[str] = None
+    session: AsyncSession,
+    phone_number: Optional[str] = None,
+    password_hash: str = "",
+    email: Optional[str] = None,
 ) -> int:
     """
     Create a new user account.
 
-    Checks if a verified user with the phone number already exists.
-    Optionally cleans up old unverified accounts with the same phone.
+    At least one of ``phone_number`` or ``email`` must be provided. If a
+    verified user with the same phone number or email already exists, raises
+    ``ValueError``.
 
     Args:
         session: Database session
-        phone_number: Phone number in E.164 format
+        phone_number: Phone number in E.164 format (optional when email is used)
         password_hash: Required hashed password
-        email: Optional user email
+        email: Optional user email (normalized to lowercase)
 
     Returns:
         User ID of the created user
 
     Raises:
-        ValueError: If a verified user with this phone number already exists
+        ValueError: If neither identifier is provided, or if a user with the
+            given phone number or email already exists.
     """
-    # Check if user already exists
-    result = await session.execute(select(User.id).where(User.phone_number == phone_number))
-    if result.scalar_one_or_none():
-        raise ValueError(f"Phone number {phone_number} is already registered")
+    if not phone_number and not email:
+        raise ValueError("Either phone_number or email must be provided")
 
-    # Create new verified user
+    normalized_email = email.strip().lower() if email else None
+
+    if phone_number:
+        result = await session.execute(select(User.id).where(User.phone_number == phone_number))
+        if result.scalar_one_or_none():
+            raise ValueError(f"Phone number {phone_number} is already registered")
+
+    if normalized_email:
+        existing = await get_user_by_email(session, normalized_email)
+        if existing:
+            raise ValueError(f"Email {normalized_email} is already registered")
+
     new_user = User(
-        phone_number=phone_number, password_hash=password_hash, email=email, is_verified=True
+        phone_number=phone_number,
+        password_hash=password_hash,
+        email=normalized_email,
+        is_verified=True,
     )
     session.add(new_user)
     await session.flush()
@@ -138,6 +155,37 @@ async def update_user(session: AsyncSession, user_id: int, email: Optional[str] 
     result = await session.execute(update(User).where(User.id == user_id).values(**update_values))
     await session.commit()
     return result.rowcount > 0
+
+
+async def add_phone_number(session: AsyncSession, user_id: int, phone_number: str) -> bool:
+    """
+    Attach a phone number to a user that currently has none.
+
+    Uses a conditional UPDATE (``WHERE id = :id AND phone_number IS NULL``) so the
+    operation is safe against races: if the user already has a phone number, the
+    update affects zero rows and returns ``False``.
+
+    Args:
+        session: Database session
+        user_id: User ID
+        phone_number: Normalized E.164 phone number
+
+    Returns:
+        True if the phone was attached, False if the user already had a phone
+        or the user does not exist.
+    """
+    try:
+        result = await session.execute(
+            update(User)
+            .where(User.id == user_id, User.phone_number.is_(None))
+            .values(phone_number=phone_number, updated_at=func.now())
+        )
+        await session.commit()
+        return result.rowcount == 1
+    except IntegrityError:
+        # Another user already holds this phone number (unique constraint).
+        await session.rollback()
+        return False
 
 
 async def get_user_by_phone(session: AsyncSession, phone_number: str) -> Optional[Dict]:
@@ -380,10 +428,25 @@ async def check_phone_exists(session: AsyncSession, phone_number: str) -> bool:
     return user is not None
 
 
+async def check_email_exists(session: AsyncSession, email: str) -> bool:
+    """
+    Check if a normalized email address is already registered.
+
+    Args:
+        session: Database session
+        email: Email address (will be normalized to lowercase)
+
+    Returns:
+        True if email exists, False otherwise.
+    """
+    user = await get_user_by_email(session, email)
+    return user is not None
+
+
 async def create_verification_code(
     session: AsyncSession,
-    phone_number: str,
-    code: str,
+    phone_number: Optional[str] = None,
+    code: str = "",
     expires_in_minutes: int = VERIFICATION_CODE_EXPIRATION_MINUTES,
     password_hash: Optional[str] = None,
     name: Optional[str] = None,
@@ -392,32 +455,49 @@ async def create_verification_code(
     """
     Create a verification code record with optional signup data.
 
-    Ensures only one active code exists per phone number by deleting
-    any existing unused codes before creating a new one.
+    Exactly one of ``phone_number`` or ``email`` must be provided. Ensures
+    only one active code exists per identifier by deleting any existing
+    unused codes keyed on the same identifier before inserting.
 
     Args:
         session: Database session
-        phone_number: Phone number in E.164 format
+        phone_number: Phone number in E.164 format (mutually exclusive with email)
         code: Verification code
         expires_in_minutes: Expiration time in minutes (default 10)
         password_hash: Optional hashed password (for signup)
-        email: Optional user email (for signup)
+        name: Optional full name (for signup)
+        email: Email address (mutually exclusive with phone_number)
 
     Returns:
         True if successful, False otherwise
     """
+    if not phone_number and not email:
+        logger.error("create_verification_code requires phone_number or email")
+        return False
+
+    normalized_email = email.strip().lower() if email else None
+
     try:
         expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
         expires_at_str = expires_at.isoformat()
 
-        # Delete old unused codes
-        await session.execute(
-            delete(VerificationCode).where(
-                VerificationCode.phone_number == phone_number, VerificationCode.used.is_(False)
+        # Delete old unused codes keyed on the same identifier
+        if phone_number:
+            await session.execute(
+                delete(VerificationCode).where(
+                    VerificationCode.phone_number == phone_number,
+                    VerificationCode.used.is_(False),
+                )
             )
-        )
+        else:
+            await session.execute(
+                delete(VerificationCode).where(
+                    VerificationCode.email == normalized_email,
+                    VerificationCode.phone_number.is_(None),
+                    VerificationCode.used.is_(False),
+                )
+            )
 
-        # Create new code with signup data
         new_code = VerificationCode(
             phone_number=phone_number,
             code=code,
@@ -425,7 +505,7 @@ async def create_verification_code(
             used=False,
             password_hash=password_hash,
             name=name,
-            email=email,
+            email=normalized_email,
         )
         session.add(new_code)
         await session.commit()
@@ -440,21 +520,11 @@ async def verify_and_mark_code_used(
     session: AsyncSession, phone_number: str, code: str
 ) -> Optional[Dict]:
     """
-    Atomically verify a code and mark it as used, returning signup data if present.
+    Atomically verify a phone-based code and mark it as used.
 
-    This prevents race conditions where the same code could be verified twice.
-    Only marks as used if the code is valid and not expired.
-
-    Args:
-        session: Database session
-        phone_number: Phone number in E.164 format
-        code: Verification code
-
-    Returns:
-        Dictionary with signup data (password_hash, name, email) if code was valid and marked as used,
-        None otherwise
+    Returns signup data if present (password_hash, name, email) when the code
+    is valid, not expired, and has not been used; ``None`` otherwise.
     """
-    # Get the code and signup data before marking as used
     result = await session.execute(
         select(VerificationCode).where(
             VerificationCode.phone_number == phone_number,
@@ -467,14 +537,55 @@ async def verify_and_mark_code_used(
     if not verification_code:
         return None
 
-    # Extract signup data
     signup_data = {
         "password_hash": verification_code.password_hash,
         "name": verification_code.name,
         "email": verification_code.email,
     }
 
-    # Atomically mark as used
+    verification_code.used = True
+    await session.commit()
+
+    return signup_data
+
+
+async def verify_and_mark_email_code_used(
+    session: AsyncSession, email: str, code: str
+) -> Optional[Dict]:
+    """
+    Atomically verify an email-based code and mark it as used.
+
+    Args:
+        session: Database session
+        email: Email address (will be normalized to lowercase)
+        code: Verification code
+
+    Returns:
+        Dict with signup data (password_hash, name, email) when valid, else None.
+    """
+    normalized = email.strip().lower() if email else None
+    if not normalized:
+        return None
+
+    result = await session.execute(
+        select(VerificationCode).where(
+            VerificationCode.email == normalized,
+            VerificationCode.phone_number.is_(None),
+            VerificationCode.code == code,
+            VerificationCode.used.is_(False),
+            VerificationCode.expires_at > utcnow().isoformat(),
+        )
+    )
+    verification_code = result.scalar_one_or_none()
+    if not verification_code:
+        return None
+
+    signup_data = {
+        "password_hash": verification_code.password_hash,
+        "name": verification_code.name,
+        "email": verification_code.email,
+    }
+
     verification_code.used = True
     await session.commit()
 

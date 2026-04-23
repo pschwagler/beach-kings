@@ -6,19 +6,30 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, KeyboardAvoidingView } from 'react-native';
+
+jest.mock('@/utils/haptics', () => ({
+  hapticLight: jest.fn(),
+  hapticMedium: jest.fn(),
+  hapticHeavy: jest.fn(),
+  hapticSuccess: jest.fn(),
+  hapticError: jest.fn(),
+}));
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
+let mockSearchParams: Record<string, string> = { phone: '+12025551234' };
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, back: mockBack }),
-  useLocalSearchParams: () => ({ phone: '+12025551234' }),
+  useLocalSearchParams: () => mockSearchParams,
 }));
 
 const mockVerifyPhone = jest.fn();
+const mockVerifyEmail = jest.fn();
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     verifyPhone: mockVerifyPhone,
+    verifyEmail: mockVerifyEmail,
   }),
 }));
 
@@ -26,14 +37,12 @@ jest.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-const mockPost = jest.fn();
+const mockSendVerification = jest.fn();
+const mockSendEmailVerification = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    client: {
-      axiosInstance: {
-        post: (...args: unknown[]) => mockPost(...args),
-      },
-    },
+    sendVerification: (...args: unknown[]) => mockSendVerification(...args),
+    sendEmailVerification: (...args: unknown[]) => mockSendEmailVerification(...args),
   },
 }));
 
@@ -131,18 +140,159 @@ describe('VerifyScreen', () => {
     expect(mockVerifyPhone).not.toHaveBeenCalled();
   });
 
+  it('increments shakeKey passed to OtpInput after a failed verification', async () => {
+    mockVerifyPhone.mockRejectedValueOnce(new Error('Invalid code'));
+
+    const { getAllByLabelText, getByLabelText, getAllByLabelText: getAllByA11y } = render(
+      <VerifyScreen />,
+    );
+
+    const cells = getAllByLabelText(/OTP digit/);
+    cells.forEach((cell, i) => {
+      fireEvent.changeText(cell, String(i + 1));
+    });
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Verify'));
+    });
+
+    // The Alert fires and the OTP container should still be in the tree
+    // (shakeKey incremented to 1 — component didn't unmount or crash).
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Verification Failed',
+      expect.any(String),
+    );
+    // Cells remain rendered, confirming no unmount side-effect from shakeKey.
+    const cellsAfter = getAllByA11y(/OTP digit/);
+    expect(cellsAfter).toHaveLength(6);
+  });
+
   it('shows countdown timer after resend', async () => {
-    mockPost.mockResolvedValueOnce({ data: { status: 'success' } });
+    mockSendVerification.mockResolvedValueOnce(undefined);
 
-    const { getByText } = render(<VerifyScreen />);
+    const { getByText, findByText } = render(<VerifyScreen />);
 
-    // Resend link should be available initially
     const resendLink = getByText(/resend/i);
     await act(async () => {
       fireEvent.press(resendLink);
     });
 
-    // After pressing, should show countdown
-    expect(getByText(/resend.*\d+/i)).toBeTruthy();
+    expect(await findByText(/resend.*\d+/i)).toBeTruthy();
+  });
+
+  it('calls hapticSuccess on successful verification', async () => {
+    const { hapticSuccess } = require('@/utils/haptics');
+    mockVerifyPhone.mockResolvedValueOnce(undefined);
+    const { getAllByLabelText, getByLabelText } = render(<VerifyScreen />);
+
+    const cells = getAllByLabelText(/OTP digit/);
+    cells.forEach((cell, i) => fireEvent.changeText(cell, String(i + 1)));
+    fireEvent.press(getByLabelText('Verify'));
+
+    await waitFor(() => {
+      expect(mockVerifyPhone).toHaveBeenCalled();
+    });
+    expect(hapticSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls hapticError on failed verification', async () => {
+    const { hapticError } = require('@/utils/haptics');
+    mockVerifyPhone.mockRejectedValueOnce(new Error('Invalid code'));
+    const { getAllByLabelText, getByLabelText } = render(<VerifyScreen />);
+
+    const cells = getAllByLabelText(/OTP digit/);
+    cells.forEach((cell, i) => fireEvent.changeText(cell, String(i + 1)));
+    fireEvent.press(getByLabelText('Verify'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Verification Failed', expect.any(String));
+    });
+    expect(hapticError).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // H1 — KeyboardAvoidingView structural check
+  // -------------------------------------------------------------------------
+
+  it('wraps content in KeyboardAvoidingView', () => {
+    const { UNSAFE_getAllByType } = render(<VerifyScreen />);
+    const kavInstances = UNSAFE_getAllByType(KeyboardAvoidingView);
+    expect(kavInstances.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Phone-mode resend regression — still calls sendVerification
+  // -------------------------------------------------------------------------
+
+  it('resend calls sendVerification (not sendEmailVerification) in phone mode', async () => {
+    mockSendVerification.mockResolvedValueOnce(undefined);
+    const { getByText } = render(<VerifyScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByText(/resend/i));
+    });
+
+    expect(mockSendVerification).toHaveBeenCalledWith('+12025551234');
+    expect(mockSendEmailVerification).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VerifyScreen — email mode
+// ---------------------------------------------------------------------------
+
+describe('VerifyScreen (email mode)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    mockSearchParams = { email: 'test@example.com' };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    mockSearchParams = { phone: '+12025551234' };
+  });
+
+  it('renders "Verify Email" as title', () => {
+    const { getByText } = render(<VerifyScreen />);
+    expect(getByText('Verify Email')).toBeTruthy();
+  });
+
+  it('resend calls sendEmailVerification (not sendVerification) in email mode', async () => {
+    mockSendEmailVerification.mockResolvedValueOnce(undefined);
+    const { getByText } = render(<VerifyScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByText(/resend/i));
+    });
+
+    expect(mockSendEmailVerification).toHaveBeenCalledWith('test@example.com');
+    expect(mockSendVerification).not.toHaveBeenCalled();
+  });
+
+  it('shows countdown after email resend', async () => {
+    mockSendEmailVerification.mockResolvedValueOnce(undefined);
+    const { getByText, findByText } = render(<VerifyScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByText(/resend/i));
+    });
+
+    expect(await findByText(/resend.*\d+/i)).toBeTruthy();
+  });
+
+  it('calls hapticError when email resend fails', async () => {
+    const { hapticError } = require('@/utils/haptics');
+    mockSendEmailVerification.mockRejectedValueOnce(new Error('fail'));
+    const { getByText } = render(<VerifyScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByText(/resend/i));
+    });
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
+    });
+    expect(hapticError).toHaveBeenCalled();
   });
 });

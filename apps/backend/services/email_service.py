@@ -169,3 +169,109 @@ async def send_feedback_email(
         logger.error(f"Failed to send feedback email: {str(e)}")
         # Don't raise the exception - we don't want email failures to break feedback submission
         return False
+
+
+async def _send_code_email(
+    to_email: str,
+    subject: str,
+    body: str,
+    session: Optional[AsyncSession] = None,
+) -> bool:
+    """
+    Generic helper to send a plain-text email via SendGrid.
+
+    In dev or when email is disabled / SendGrid is unconfigured, the call is
+    logged and the function returns True so signup/reset flows succeed locally.
+    """
+    enable_email = await is_enabled(session)
+    if not enable_email:
+        logger.info(
+            "Email disabled; would have sent to %s with subject %r",
+            to_email,
+            subject,
+        )
+        return True
+
+    if not SENDGRID_API_KEY:
+        logger.warning(
+            "SENDGRID_API_KEY not configured; stubbed email to %s: %s",
+            to_email,
+            subject,
+        )
+        return True
+
+    try:
+        message = Mail(
+            from_email=Email(SENDGRID_FROM_EMAIL),
+            to_emails=To(to_email),
+            subject=subject,
+            plain_text_content=Content("text/plain", body),
+        )
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+
+        if 200 <= response.status_code < 300:
+            logger.info("Email sent to %s (subject=%r)", to_email, subject)
+            return True
+        logger.error(
+            "SendGrid returned status %s for %s: %s",
+            response.status_code,
+            to_email,
+            response.body,
+        )
+        return False
+    except Exception as e:
+        logger.error("Failed to send email to %s: %s", to_email, str(e))
+        return False
+
+
+async def send_verification_code_email(
+    email: str,
+    code: str,
+    session: Optional[AsyncSession] = None,
+) -> bool:
+    """
+    Send a signup verification code to the given email address.
+
+    Args:
+        email: Recipient email address (assumed normalized/lowercased)
+        code: 6-digit verification code
+        session: Optional database session for settings lookup
+
+    Returns:
+        True on success (or stubbed success in dev), False on send error.
+    """
+    subject = f"Your {APP_NAME} verification code"
+    body = (
+        f"Welcome to {APP_NAME}!\n\n"
+        f"Your verification code is: {code}\n\n"
+        "This code will expire in 10 minutes.\n"
+        "If you did not request this code, you can safely ignore this email.\n"
+    )
+    return await _send_code_email(email, subject, body, session=session)
+
+
+async def send_password_reset_code_email(
+    email: str,
+    code: str,
+    session: Optional[AsyncSession] = None,
+) -> bool:
+    """
+    Send a password reset verification code to the given email address.
+
+    Args:
+        email: Recipient email address (assumed normalized/lowercased)
+        code: 6-digit reset code
+        session: Optional database session for settings lookup
+
+    Returns:
+        True on success (or stubbed success in dev), False on send error.
+    """
+    subject = f"{APP_NAME} password reset code"
+    body = (
+        f"We received a request to reset your {APP_NAME} password.\n\n"
+        f"Your reset code is: {code}\n\n"
+        "This code will expire in 10 minutes.\n"
+        "If you did not request a password reset, you can safely ignore this email.\n"
+    )
+    return await _send_code_email(email, subject, body, session=session)

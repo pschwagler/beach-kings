@@ -15,14 +15,12 @@ export * from './zIndex';
 
 import { colors, darkColors } from './colors';
 import { spacing } from './spacing';
-import { typography, fontFamily, fontSizes, fontWeights, lineHeights, letterSpacing } from './typography';
+import { typography } from './typography';
 import { shadows, darkShadows, rnShadows } from './shadows';
 import { layout } from './layout';
 import { opacity } from './opacity';
 import { duration, easing } from './animation';
 import { zIndex } from './zIndex';
-
-export { fontFamily, fontSizes, fontWeights, lineHeights, letterSpacing };
 
 export const tokens = {
   colors,

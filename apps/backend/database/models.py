@@ -912,12 +912,16 @@ class Setting(Base):
 
 
 class VerificationCode(Base):
-    """SMS verification codes with signup data."""
+    """SMS or email verification codes with signup data.
+
+    Exactly one of ``phone_number`` or ``email`` must be set on a given row:
+    SMS-based flows key on phone_number; email-based flows key on email.
+    """
 
     __tablename__ = "verification_codes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    phone_number = Column(String, nullable=False)
+    phone_number = Column(String, nullable=True)
     code = Column(String, nullable=False)
     expires_at = Column(String, nullable=False)  # ISO timestamp
     used = Column(Boolean, default=False, nullable=False)
@@ -928,6 +932,7 @@ class VerificationCode(Base):
 
     __table_args__ = (
         Index("idx_verification_codes_phone", "phone_number"),
+        Index("idx_verification_codes_email", "email"),
         Index("idx_verification_codes_expires", "expires_at"),
     )
 

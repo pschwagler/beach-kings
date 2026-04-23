@@ -6,13 +6,20 @@ export const GENDER_OPTIONS = [
 ] as const;
 
 export const SKILL_LEVEL_OPTIONS = [
-  { value: 'juniors', label: 'Juniors' },
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'AA', label: 'AA' },
-  { value: 'Open', label: 'Open' },
+  { value: 'juniors', label: 'Juniors', description: 'under 18' },
+  { value: 'beginner', label: 'Beginner', description: 'just starting' },
+  { value: 'intermediate', label: 'Intermediate', description: 'recreational' },
+  { value: 'advanced', label: 'Advanced', description: 'competitive' },
+  { value: 'AA', label: 'AA', description: 'advanced' },
+  { value: 'Open', label: 'Open', description: 'elite' },
 ] as const;
+
+export const SKILL_LEVEL_DESCRIPTIONS: Record<
+  (typeof SKILL_LEVEL_OPTIONS)[number]['value'],
+  string
+> = Object.fromEntries(
+  SKILL_LEVEL_OPTIONS.map((opt) => [opt.value, opt.description]),
+) as Record<(typeof SKILL_LEVEL_OPTIONS)[number]['value'], string>;
 
 // API endpoints
 export const API_ENDPOINTS = {

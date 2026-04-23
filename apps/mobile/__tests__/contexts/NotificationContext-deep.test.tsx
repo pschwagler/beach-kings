@@ -61,7 +61,8 @@ const appStateListeners: Array<(state: string) => void> = [];
 const RN = require('react-native');
 
 jest.spyOn(RN.AppState, 'addEventListener').mockImplementation(
-  (_type: string, handler: (state: string) => void) => {
+  (...args: unknown[]) => {
+    const handler = args[1] as (state: string) => void;
     appStateListeners.push(handler);
     return { remove: () => { /* noop */ } };
   },
@@ -118,7 +119,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIsAuthenticated = false;
   appStateListeners.splice(0, appStateListeners.length);
-  (global.WebSocket as jest.Mock).mockClear();
+  (global.WebSocket as unknown as jest.Mock).mockClear();
   (Haptics.notificationAsync as jest.Mock).mockResolvedValue(undefined);
 });
 
@@ -137,7 +138,7 @@ describe('NotificationProvider — connection lifecycle', () => {
     renderHook(() => useNotifications(), { wrapper });
 
     expect(global.WebSocket).toHaveBeenCalledTimes(1);
-    expect((global.WebSocket as jest.Mock).mock.calls[0][0]).toContain(
+    expect((global.WebSocket as unknown as jest.Mock).mock.calls[0][0]).toContain(
       '/api/ws/notifications',
     );
   });
@@ -513,7 +514,7 @@ describe('NotificationProvider — AppState reconnect', () => {
       lastWs.onclose?.();
     });
 
-    const countAfterClose = (global.WebSocket as jest.Mock).mock.calls.length;
+    const countAfterClose = (global.WebSocket as unknown as jest.Mock).mock.calls.length;
 
     // Simulate app coming back to foreground
     act(() => {
@@ -526,7 +527,7 @@ describe('NotificationProvider — AppState reconnect', () => {
     // (advancing past the first backoff confirms at least one path works)
     act(() => { jest.advanceTimersByTime(3_001); });
 
-    expect((global.WebSocket as jest.Mock).mock.calls.length).toBeGreaterThan(countAfterClose);
+    expect((global.WebSocket as unknown as jest.Mock).mock.calls.length).toBeGreaterThan(countAfterClose);
   });
 
   it('does not reconnect on AppState active when unauthenticated', () => {
@@ -546,7 +547,7 @@ describe('NotificationProvider — AppState reconnect', () => {
     mockIsAuthenticated = true;
     renderHook(() => useNotifications(), { wrapper });
 
-    const countBefore = (global.WebSocket as jest.Mock).mock.calls.length;
+    const countBefore = (global.WebSocket as unknown as jest.Mock).mock.calls.length;
 
     act(() => {
       for (const listener of appStateListeners) {
@@ -554,7 +555,7 @@ describe('NotificationProvider — AppState reconnect', () => {
       }
     });
 
-    expect((global.WebSocket as jest.Mock).mock.calls.length).toBe(countBefore);
+    expect((global.WebSocket as unknown as jest.Mock).mock.calls.length).toBe(countBefore);
   });
 });
 

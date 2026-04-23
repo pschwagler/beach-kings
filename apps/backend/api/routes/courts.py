@@ -113,6 +113,37 @@ async def get_placeholder_court(
     return result
 
 
+@router.get("/api/courts/{id_or_slug}")
+async def get_court_detail(
+    id_or_slug: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Fetch full detail for a single court by numeric id or slug (public, no auth).
+
+    Returns all fields consumed by CourtDetailScreen including photo_count and
+    top_tags.  Returns 404 if the court is not found or is inactive.
+    """
+    try:
+        court = await court_service.get_court_by_slug(session, id_or_slug)
+        if court is None:
+            raise HTTPException(status_code=404, detail="Court not found")
+
+        tags_map = await court_service._batch_get_top_tags(
+            session, [court["id"]], limit=3
+        )
+        return {
+            **court,
+            "photo_count": len(court.get("all_photos", [])),
+            "top_tags": tags_map.get(court["id"], []),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching court detail: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching court detail")
+
+
 @router.put("/api/courts/{court_id}")
 async def update_court(
     court_id: int,

@@ -17,6 +17,17 @@ import SearchBar from './SearchBar';
 interface TopNavProps {
   readonly title: string;
   readonly showBack?: boolean;
+  /**
+   * Override the default `router.back()` call when the back button is pressed.
+   * Useful for inline state-based sub-views where router.back() would leave
+   * the screen entirely instead of returning to a previous view state.
+   */
+  readonly onBack?: () => void;
+  /**
+   * Custom element for the left slot. Overrides `showBack` when provided.
+   * Useful for modal screens that need a close button (✕) instead of a chevron.
+   */
+  readonly leftAction?: React.ReactNode;
   readonly rightAction?: React.ReactNode;
   /** Replace the title with an inline search input. */
   readonly searchMode?: boolean;
@@ -30,6 +41,8 @@ interface TopNavProps {
 export default function TopNav({
   title,
   showBack = false,
+  onBack,
+  leftAction,
   rightAction,
   searchMode = false,
   searchValue = '',
@@ -45,12 +58,12 @@ export default function TopNav({
 
   return (
     <View className={containerClass}>
-      {/* Left slot */}
-      <View className="w-11 items-start justify-center">
-        {showBack && (
+      {/* Left slot — custom leftAction overrides showBack */}
+      <View className="min-w-11 items-start justify-center">
+        {leftAction != null ? leftAction : showBack && (
           <Pressable
             className="min-w-touch min-h-touch items-center justify-center"
-            onPress={() => router.back()}
+            onPress={() => (onBack != null ? onBack() : router.back())}
             accessibilityLabel="Go back"
             accessibilityRole="button"
           >
@@ -75,7 +88,7 @@ export default function TopNav({
       </View>
 
       {/* Right slot */}
-      <View className="w-11 items-end justify-center">
+      <View className="min-w-11 items-end justify-center">
         {rightAction}
       </View>
     </View>

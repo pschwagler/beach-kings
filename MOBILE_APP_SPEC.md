@@ -33,6 +33,48 @@
 
 ---
 
+## Current Implementation Status (as of 2026-04-20)
+
+Derived from the Wave 5 visual audit resolution log (`docs/wave5/visual-audit.md`), recent git history, and the shipped route tree under `apps/mobile/app`.
+
+### Snapshot
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 0 — Foundation & Design System | ✅ Shipped | NativeWind tokens, api-client with `MobileStorageAdapter(SecureStore)`, providers, nav shell all in place. |
+| Phase 1 — Auth & Onboarding | ✅ Shipped | All 7 epics (welcome, login, signup, phone-verify, forgot-password, onboarding, invite/claim) + Apple Sign-In + invite deep links (`35f5c89`). |
+| Phase 2 — Home Tab | ✅ Shipped | Dashboard live. Populated-home skeleton loader (P-04) still pending visual re-verify. |
+| Phase 3 — Leagues Tab | ✅ Shipped | Leagues list, detail/dashboard, pending invites, create, find, invite screens all present with TopNav (Wave 5 B-06..B-10). |
+| Phase 4 — Add Games / Sessions / Score Entry | ✅ Shipped | Session create/roster/edit routes, score-game, my-games, my-stats. |
+| Phase 5 — Social Tab | ⚠️ Option A shipped | Messages / Notifications / Friends / Find Players reachable as stack screens with TopNav. **Option B** (4 sub-tab restructure to match wireframe IA) deferred — see Follow-ups. |
+| Phase 6 — Profile & Settings | ⚠️ Mostly shipped | Account, change-password, notifications settings all present. **Phone edit (P-08)** blocked: backend has signup/reset flows but no authenticated change-phone OTP endpoint. |
+| Phase 7 — Courts & Locations | ✅ Shipped | B-01 crash fixed (`/api/courts` now returns `CourtListItem[]` from `court_service`). Court detail + photos + filter chips functional. |
+| Phase 8 — KOB Tournaments | ❓ Routes present, unverified | `(stack)/kob/[code]`, `(stack)/tournament/[id]`, `(stack)/tournament/create` exist but were not covered in Wave 5 audit. |
+| Phase 9 — Real-Time & Push | 🟡 Push live, realtime TBC | Push notifications shipped (`0680dc7`). WebSocket/realtime messaging status not yet re-audited. |
+| Phase 10 — Polish, Perf, Launch | 🟡 Partial | Skeleton loaders in place; a few wireframe deltas intentionally deferred (see audit P-02/P-03/P-05/P-12). |
+| Phase 11 — CI/CD | ❓ TBC | Not re-validated this session. |
+
+### Wave 5 audit → completion rollup
+
+- **Blockers (10/10 resolved):** B-01 courts crash fixed; B-02..B-10 TopNav added to 9 stack screens (Notifications, Messages, Message Thread, Find Players, Pending Invites, League Detail, Create League, Find Leagues, League Invite).
+- **Polish (6/14 resolved, 5 intentional deferrals, 3 follow-ups):**
+  - ✅ P-07 Delete Account row, P-09 Mark-all-read in Notifications TopNav, P-10 ChatInputBar in league chat, P-11 avatar color palette, P-13 CourtsErrorState reachable, P-14 filter chips work.
+  - ⏸ P-01, P-02, P-03, P-05, P-12 are intentional wireframe deltas or tool-limitation verify-only — documented in audit.
+  - 🔄 P-04 populated-home skeleton — re-capture pending.
+  - 🔄 P-06 Social 4-sub-tab restructure — Option B follow-up.
+  - 🔄 P-08 authenticated phone edit — blocked on missing backend endpoint.
+
+### Follow-ups (what's left)
+
+1. **Backend: authenticated change-phone OTP flow** — `POST /api/auth/phone/request` + verify, then allow `PUT /api/users/me` to accept phone once OTP-verified. Unblocks P-08 in Account Settings.
+2. **Social tab Option B restructure** — collapse Messages / Notifications / Friends / Find Players into 4 sub-tabs under a shared Social header; keep stack routes only for deep links. Then remove now-redundant TopNavs from those screens.
+3. **P-04 populated-home re-verify** — capture screenshot of home with real dashboard data (sessions, leagues, friends populated) and compare to wireframe; close or file concrete deltas.
+4. **Phase 8 KOB** — exercise `/kob/[code]`, `/tournament/[id]`, `/tournament/create` end-to-end; audit against wireframes.
+5. **Phase 9 realtime** — verify WebSocket-driven updates (messages, notifications, live scores) behave correctly on reconnect + cold start.
+6. **Phase 11 CI/CD** — confirm mobile pipeline (EAS build + submit) is wired in.
+
+---
+
 ## 1. Architecture Overview
 
 ### Tech Stack
@@ -2933,6 +2975,60 @@ Every screen and component MUST support dark mode. Pattern:
 - Server errors (500): generic error screen with retry
 - Form validation: inline errors below fields
 - Toast for action confirmations (success/error)
+
+### Keyboard Chaining (Form UX)
+
+Every multi-field form MUST use keyboard chaining so users can advance through fields from the on-screen keyboard without tapping each input. Apply this pattern **wherever it improves UX** — auth screens, profile edits, score entry, filters, feedback forms, league/session create flows, etc.
+
+**Pattern:**
+- Non-terminal fields: `returnKeyType="next"`, `blurOnSubmit={false}`, `onSubmitEditing={() => nextFieldRef.current?.focus()}`
+- Terminal (submit) field: `returnKeyType="go"` (or `"done"` / `"send"` depending on action), `onSubmitEditing={handleSubmit(onSubmit)}`
+- Each non-terminal field holds a `useRef<TextInput>()`; the next field receives the ref via `ref={fieldRef}`
+- Set `textContentType` correctly (`emailAddress`, `password`, `newPassword`, `givenName`, `familyName`, `telephoneNumber`, `oneTimeCode`, etc.) so iOS AutoFill / password managers work
+- `Input.tsx` forwards `ref` to the underlying `TextInput` — callers can focus any `Input` directly
+
+**Example (signup):**
+```tsx
+const lastNameRef = useRef<TextInput>(null);
+const emailRef = useRef<TextInput>(null);
+const passwordRef = useRef<TextInput>(null);
+
+<Input
+  placeholder="First Name"
+  textContentType="givenName"
+  returnKeyType="next"
+  blurOnSubmit={false}
+  onSubmitEditing={() => lastNameRef.current?.focus()}
+  {...firstNameField}
+/>
+<Input
+  ref={lastNameRef}
+  placeholder="Last Name"
+  textContentType="familyName"
+  returnKeyType="next"
+  blurOnSubmit={false}
+  onSubmitEditing={() => emailRef.current?.focus()}
+  {...lastNameField}
+/>
+<Input
+  ref={emailRef}
+  placeholder="Email"
+  textContentType="emailAddress"
+  returnKeyType="next"
+  blurOnSubmit={false}
+  onSubmitEditing={() => passwordRef.current?.focus()}
+  {...emailField}
+/>
+<Input
+  ref={passwordRef}
+  placeholder="Password"
+  secureTextEntry
+  textContentType="newPassword"
+  returnKeyType="go"
+  onSubmitEditing={handleSubmit(onSubmit)}
+  {...passwordField}
+/>
+```
 
 ### Deep Linking
 

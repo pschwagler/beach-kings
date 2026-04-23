@@ -210,6 +210,8 @@ async def list_courts_public(
     courts_q = base.outerjoin(Location, Court.location_id == Location.id).add_columns(
         Location.name.label("location_name"),
         Location.slug.label("location_slug"),
+        Location.city.label("city"),
+        Location.state.label("state"),
     )
 
     if dist_col is not None:
@@ -239,6 +241,8 @@ async def list_courts_public(
         court = row[0]
         loc_name = row[1]
         loc_slug = row[2]
+        loc_city = row[3]
+        loc_state = row[4]
         item = {
             "id": court.id,
             "name": court.name,
@@ -247,6 +251,8 @@ async def list_courts_public(
             "location_id": court.location_id,
             "location_name": loc_name,
             "location_slug": loc_slug,
+            "city": loc_city,
+            "state": loc_state,
             "court_count": court.court_count,
             "surface_type": court.surface_type,
             "is_free": court.is_free,
@@ -260,7 +266,7 @@ async def list_courts_public(
             "photo_url": photos_map.get(court.id),
         }
         if dist_col is not None:
-            d = row[3]
+            d = row[5]
             item["distance_miles"] = round(d, 1) if d < 999999.0 else None
         items.append(item)
 

@@ -2,12 +2,14 @@
  * Button component with variant support.
  * All variants meet 44px minimum touch target.
  * Dark mode: brand colors adjusted for dark surfaces.
+ * Haptics: medium impact for primary/secondary/danger, light for outline/ghost.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, Text, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { colors, darkColors } from '@beach-kings/shared/tokens';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 
@@ -64,10 +66,20 @@ export default function Button({
     return colors.textInverse;
   })();
 
+  const handlePress = useCallback(() => {
+    if (disabled || loading) return;
+    if (variant === 'outline' || variant === 'ghost') {
+      void hapticLight();
+    } else {
+      void hapticMedium();
+    }
+    onPress();
+  }, [disabled, loading, variant, onPress]);
+
   return (
     <Pressable
       className={`min-h-touch rounded-lg items-center justify-center px-lg ${styles.container} ${disabled ? 'opacity-50' : ''} ${className}`}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       accessibilityLabel={title}
       accessibilityRole="button"

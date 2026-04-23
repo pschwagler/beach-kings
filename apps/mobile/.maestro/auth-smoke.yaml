@@ -1,0 +1,45 @@
+appId: com.beachleague.app
+name: auth-smoke
+tags:
+  - smoke
+  - auth
+---
+# Auth → Home smoke flow
+# Verifies the welcome → login → home happy path on a dev build.
+# Expects a seeded test user whose credentials are passed via env vars:
+#   E2E_TEST_EMAIL=smoke@beachleague.app
+#   E2E_TEST_PASSWORD=********
+#
+# Run:
+#   maestro test --env E2E_TEST_EMAIL=... --env E2E_TEST_PASSWORD=... \
+#     .maestro/auth-smoke.yaml
+- launchApp:
+    clearState: true
+    stopApp: true
+
+# -- Welcome screen --
+- assertVisible: "BEACH LEAGUE"
+- assertVisible: "Track your games. Climb the ranks."
+- tapOn: "I Already Have an Account"
+
+# -- Login screen --
+- assertVisible: "Sign In"
+- tapOn:
+    text: "Email"
+    index: 0
+- inputText: ${E2E_TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    text: "Password"
+- inputText: ${E2E_TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+
+# -- Home screen --
+# The HomeHeader wordmark is the stable landmark for a successful sign-in.
+- extendedWaitUntil:
+    visible: "BEACH LEAGUE"
+    timeout: 20000
+- assertVisible:
+    text: "Hey .*"
+    optional: false

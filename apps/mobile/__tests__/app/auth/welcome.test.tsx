@@ -62,6 +62,6 @@ describe('WelcomeScreen', () => {
 
   it('has proper accessibility on the sign in link', () => {
     const { getByLabelText } = render(<WelcomeScreen />);
-    expect(getByLabelText('Sign in to existing account')).toBeTruthy();
+    expect(getByLabelText('I already have an account')).toBeTruthy();
   });
 });

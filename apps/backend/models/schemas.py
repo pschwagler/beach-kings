@@ -255,18 +255,29 @@ class RankingsQueryRequest(BaseModel):
 class SignupRequest(BaseModel):
     """Request to sign up a new user.
 
+    Accepts either ``phone_number`` or ``email`` (or both). At least one is
+    required. The chosen channel determines whether signup is verified via
+    SMS OTP (phone) or email OTP (email).
+
     Accepts ``first_name`` + ``last_name`` (preferred) **or** ``full_name``.
     When first/last are provided they take precedence and ``full_name`` is
     computed.  When only ``full_name`` is provided it is split on the first
     space.
     """
 
-    phone_number: str
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
     password: str
     full_name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    email: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_phone_or_email(self) -> "SignupRequest":
+        """Ensure at least one of phone_number / email is provided."""
+        if not self.phone_number and not self.email:
+            raise ValueError("Either phone_number or email must be provided")
+        return self
 
     @model_validator(mode="after")
     def resolve_names(self) -> "SignupRequest":
@@ -319,10 +330,30 @@ class VerifyPhoneRequest(BaseModel):
     code: str
 
 
+class EmailVerifyRequest(BaseModel):
+    """Request to verify email address with code (signup flow)."""
+
+    email: str
+    code: str
+
+
 class CheckPhoneRequest(BaseModel):
     """Request to check if phone number exists."""
 
     phone_number: str
+
+
+class PhoneAddRequest(BaseModel):
+    """Request to start the one-time add-phone OTP flow for an authenticated user."""
+
+    phone_number: str
+
+
+class PhoneAddVerify(BaseModel):
+    """Verify the add-phone OTP and attach the number to the current user."""
+
+    phone_number: str
+    code: str
 
 
 class GoogleAuthRequest(BaseModel):
@@ -381,6 +412,19 @@ class ResetPasswordVerifyRequest(BaseModel):
     """Request to verify code and get reset token."""
 
     phone_number: str
+    code: str
+
+
+class ResetPasswordEmailRequest(BaseModel):
+    """Request to initiate password reset via email."""
+
+    email: str
+
+
+class ResetPasswordEmailVerifyRequest(BaseModel):
+    """Request to verify email reset code and get reset token."""
+
+    email: str
     code: str
 
 
@@ -1920,6 +1964,8 @@ class CourtListItem(BaseModel):
     location_id: str
     location_name: Optional[str] = None
     location_slug: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     court_count: Optional[int] = None
     surface_type: Optional[str] = None
     is_free: Optional[bool] = None
@@ -2145,6 +2191,67 @@ class SitemapCourtItem(BaseModel):
 
     slug: str
     updated_at: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# My Stats schemas (GET /api/users/me/stats)
+# ---------------------------------------------------------------------------
+
+
+class EloTimelinePoint(BaseModel):
+    """Single ELO rating data point for a player's rating history chart."""
+
+    date: str
+    rating: int
+
+
+class MyStatsOverall(BaseModel):
+    """Overall aggregate stats for the authenticated player."""
+
+    wins: int
+    losses: int
+    games_played: int
+    rating: int
+    peak_rating: int
+    win_rate: float
+    current_streak: int
+    avg_point_diff: float
+
+
+class MyStatsTrophy(BaseModel):
+    """A single season placement trophy (gold/silver/bronze only)."""
+
+    league_id: int
+    league_name: str
+    season_name: str
+    place: int
+
+
+class MyStatsRelationStat(BaseModel):
+    """Stats for a single partner or opponent relationship."""
+
+    player_id: int
+    display_name: str
+    initials: str
+    games_played: int
+    wins: int
+    losses: int
+    win_rate: float
+
+
+class MyStatsPayload(BaseModel):
+    """Full my-stats payload returned by GET /api/users/me/stats."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    player_name: str
+    player_city: Optional[str] = None
+    player_level: Optional[str] = None
+    overall: MyStatsOverall
+    trophies: List[MyStatsTrophy]
+    partners: List[MyStatsRelationStat]
+    opponents: List[MyStatsRelationStat]
+    elo_timeline: List[EloTimelinePoint]
 
 
 class SeasonAwardResponse(BaseModel):

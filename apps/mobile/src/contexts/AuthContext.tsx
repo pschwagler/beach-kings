@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { api } from '@/lib/api';
+import { routes } from '@/lib/navigation';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,11 +44,11 @@ interface LoginWithPhoneParams {
 }
 
 interface SignupParams {
-  readonly phoneNumber: string;
+  readonly email: string;
   readonly password: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly email?: string;
+  readonly phoneNumber?: string;
 }
 
 interface AuthContextValue extends AuthState {
@@ -61,8 +62,10 @@ interface AuthContextValue extends AuthState {
     phoneNumber: string,
     code: string,
   ) => Promise<void>;
+  readonly verifyEmail: (email: string, code: string) => Promise<void>;
   readonly logout: () => Promise<void>;
   readonly setProfileComplete: (complete: boolean) => void;
+  readonly refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,29 +90,54 @@ interface AuthProviderProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
+interface AuthResponse {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly user_id: number;
+  readonly phone_number?: string | null;
+  readonly email?: string | null;
+  readonly is_verified: boolean;
+  readonly auth_provider?: string;
+  readonly profile_complete?: boolean;
+}
+
 /** Store tokens from an AuthResponse and return profile_complete flag. */
-async function handleAuthResponse(response: Record<string, unknown>): Promise<{
+async function handleAuthResponse(response: AuthResponse): Promise<{
   readonly user: User;
   readonly profileComplete: boolean;
 }> {
-  const { access_token, refresh_token } = response as {
-    access_token: string;
-    refresh_token: string;
-  };
-  await api.setAuthTokens(access_token, refresh_token);
+  await api.setAuthTokens(response.access_token, response.refresh_token);
 
   const user: User = {
-    id: response.user_id as number,
-    phone_number: (response.phone_number as string) ?? null,
-    email: (response.email as string) ?? null,
-    is_verified: response.is_verified as boolean,
-    auth_provider: (response.auth_provider as string) ?? 'phone',
+    id: response.user_id,
+    phone_number: response.phone_number ?? null,
+    email: response.email ?? null,
+    is_verified: response.is_verified,
+    auth_provider: response.auth_provider ?? 'phone',
   };
 
   return {
     user,
-    profileComplete: (response.profile_complete as boolean) ?? false,
+    profileComplete: response.profile_complete ?? false,
   };
+}
+
+/** A profile is "complete" only when all required fields are present. */
+function isProfileComplete(player: {
+  readonly gender?: string | null;
+  readonly level?: string | number | null;
+  readonly city?: string | null;
+  readonly state?: string | null;
+  readonly location_id?: string | null;
+} | null | undefined): boolean {
+  if (!player) return false;
+  return Boolean(
+    player.gender &&
+      player.level &&
+      player.city &&
+      player.state &&
+      player.location_id,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +155,7 @@ export default function AuthProvider({
   });
 
   const router = useRouter();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
 
   // -----------------------------------------------------------------------
   // Session restore on mount
@@ -146,9 +174,7 @@ export default function AuthProvider({
           return;
         }
 
-        // Fetch user info
-        const meResponse = await api.client.axiosInstance.get('/api/auth/me');
-        const userData = meResponse.data;
+        const userData = await api.getMe();
         const user: User = {
           id: userData.id,
           phone_number: userData.phone_number ?? null,
@@ -157,14 +183,10 @@ export default function AuthProvider({
           auth_provider: userData.auth_provider ?? 'phone',
         };
 
-        // Derive profileComplete from player data
         let profileComplete = false;
         try {
-          const playerResponse = await api.client.axiosInstance.get(
-            '/api/users/me/player',
-          );
-          const player = playerResponse.data;
-          profileComplete = Boolean(player?.gender && player?.level);
+          const player = await api.getCurrentUserPlayer();
+          profileComplete = isProfileComplete(player);
         } catch {
           // No player yet — profile not complete
         }
@@ -199,14 +221,11 @@ export default function AuthProvider({
       inAuthGroup && segments[1] === 'onboarding';
 
     if (!state.isAuthenticated && !inAuthGroup) {
-      // Not logged in — go to welcome
-      router.replace('/(auth)/welcome');
+      router.replace(routes.welcome());
     } else if (state.isAuthenticated && !state.profileComplete && !inOnboarding) {
-      // Logged in but profile incomplete — go to onboarding
-      router.replace('/(auth)/onboarding');
+      router.replace(routes.onboarding());
     } else if (state.isAuthenticated && state.profileComplete && inAuthGroup) {
-      // Fully authenticated + complete profile — go home
-      router.replace('/(tabs)/home');
+      router.replace(routes.home());
     }
   }, [state.isAuthenticated, state.isLoading, state.profileComplete, segments]);
 
@@ -221,11 +240,8 @@ export default function AuthProvider({
           ? { email: params.email, password: params.password }
           : { phone_number: params.phoneNumber, password: params.password };
 
-      const response = await api.client.axiosInstance.post(
-        '/api/auth/login',
-        credentials,
-      );
-      const result = await handleAuthResponse(response.data);
+      const data = await api.login(credentials);
+      const result = await handleAuthResponse(data);
       setState({
         user: result.user,
         isLoading: false,
@@ -237,27 +253,21 @@ export default function AuthProvider({
   );
 
   const signup = useCallback(async (params: SignupParams) => {
-    const response = await api.client.axiosInstance.post('/api/auth/signup', {
-      phone_number: params.phoneNumber,
+    // The signup call now returns a pending-verification response for the
+    // email/phone-only branches; session state is not authenticated yet.
+    // The verifyEmail/verifyPhone call is what ultimately authenticates.
+    await api.signup({
+      email: params.email,
+      phone_number: params.phoneNumber || undefined,
       password: params.password,
       first_name: params.firstName,
       last_name: params.lastName,
-      email: params.email || undefined,
-    });
-    const result = await handleAuthResponse(response.data);
-    setState({
-      user: result.user,
-      isLoading: false,
-      isAuthenticated: true,
-      profileComplete: result.profileComplete,
     });
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string) => {
-    const response = await api.client.axiosInstance.post('/api/auth/google', {
-      id_token: idToken,
-    });
-    const result = await handleAuthResponse(response.data);
+    const data = await api.googleAuth(idToken);
+    const result = await handleAuthResponse(data);
     setState({
       user: result.user,
       isLoading: false,
@@ -267,10 +277,8 @@ export default function AuthProvider({
   }, []);
 
   const loginWithApple = useCallback(async (idToken: string) => {
-    const response = await api.client.axiosInstance.post('/api/auth/apple', {
-      id_token: idToken,
-    });
-    const result = await handleAuthResponse(response.data);
+    const data = await api.appleAuth(idToken);
+    const result = await handleAuthResponse(data);
     setState({
       user: result.user,
       isLoading: false,
@@ -281,11 +289,22 @@ export default function AuthProvider({
 
   const verifyPhone = useCallback(
     async (phoneNumber: string, code: string) => {
-      const response = await api.client.axiosInstance.post(
-        '/api/auth/verify-phone',
-        { phone_number: phoneNumber, code },
-      );
-      const result = await handleAuthResponse(response.data);
+      const data = await api.verifyPhone(phoneNumber, code);
+      const result = await handleAuthResponse(data);
+      setState({
+        user: result.user,
+        isLoading: false,
+        isAuthenticated: true,
+        profileComplete: result.profileComplete,
+      });
+    },
+    [],
+  );
+
+  const verifyEmail = useCallback(
+    async (email: string, code: string) => {
+      const data = await api.verifyEmail(email, code);
+      const result = await handleAuthResponse(data);
       setState({
         user: result.user,
         isLoading: false,
@@ -298,7 +317,7 @@ export default function AuthProvider({
 
   const logout = useCallback(async () => {
     try {
-      await api.client.axiosInstance.post('/api/auth/logout');
+      await api.logout();
     } catch {
       // Ignore logout API errors — clear local state regardless
     }
@@ -315,6 +334,18 @@ export default function AuthProvider({
     setState((prev) => ({ ...prev, profileComplete: complete }));
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const userData = await api.getMe();
+    const user: User = {
+      id: userData.id,
+      phone_number: userData.phone_number ?? null,
+      email: userData.email ?? null,
+      is_verified: userData.is_verified,
+      auth_provider: userData.auth_provider ?? 'phone',
+    };
+    setState((prev) => ({ ...prev, user }));
+  }, []);
+
   // -----------------------------------------------------------------------
   // Context value
   // -----------------------------------------------------------------------
@@ -326,8 +357,10 @@ export default function AuthProvider({
     loginWithGoogle,
     loginWithApple,
     verifyPhone,
+    verifyEmail,
     logout,
     setProfileComplete,
+    refreshUser,
   };
 
   return (

@@ -76,6 +76,8 @@ async def _patch_missing_columns(conn):
         # Migration 024 — Google SSO
         ("users", "auth_provider", "VARCHAR NOT NULL DEFAULT 'phone'"),
         ("users", "google_id", "VARCHAR"),
+        # Apple SSO
+        ("users", "apple_id", "VARCHAR"),
         # Migration 026 — Account deletion
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
         # Migration 020 — court discovery columns on the courts table
@@ -108,11 +110,15 @@ async def _patch_missing_columns(conn):
         # Player name split columns
         ("players", "first_name", "VARCHAR NOT NULL DEFAULT ''"),
         ("players", "last_name", "VARCHAR NOT NULL DEFAULT ''"),
+        # Feedback category column
+        ("feedback", "category", "VARCHAR(50) NOT NULL DEFAULT 'feedback'"),
     ]
     # Migration 024 — make phone_number and password_hash nullable for Google SSO
+    # Migration 045 — make verification_codes.phone_number nullable for email flows
     nullable_patches = [
         ("users", "phone_number"),
         ("users", "password_hash"),
+        ("verification_codes", "phone_number"),
     ]
     for table, column in nullable_patches:
         tbl_exists = await conn.execute(

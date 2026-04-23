@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
-from backend.services import data_service, user_service, avatar_service, s3_service
+from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service
 from backend.api.auth_dependencies import get_current_user
-from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse
+from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,6 +72,36 @@ async def get_current_user_player(
     except Exception as e:
         logger.error(f"Error getting user player: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting user player: {str(e)}")
+
+
+@router.get("/api/users/me/stats", response_model=MyStatsPayload)
+async def get_my_stats(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get the authenticated player's full stats payload for the My Stats screen.
+
+    Returns overall stats, trophies, partner/opponent breakdowns, and ELO
+    timeline. Requires a linked player profile.
+    """
+    player_id = current_user.get("player_id")
+    if not player_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No player profile linked to this account.",
+        )
+
+    try:
+        payload = await my_stats_service.get_my_stats(session=session, player_id=player_id)
+    except Exception as e:
+        logger.error(f"Error fetching my stats for player {player_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch stats.")
+
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    return payload
 
 
 @router.put("/api/users/me/player", response_model=dict)

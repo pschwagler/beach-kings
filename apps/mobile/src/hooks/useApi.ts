@@ -51,12 +51,20 @@ function useApi<T>(
     };
   }, []);
 
+  // Keep the latest fetcher in a ref so its changing identity (callers often
+  // pass an inline `() => api.x()`) does not force execute to be re-created
+  // and does not retrigger the fetch effect each render.
+  const fetcherRef = useRef(fetcher);
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
+
   const execute = useCallback(async () => {
     if (!mountedRef.current) return;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetcher();
+      const result = await fetcherRef.current();
       if (mountedRef.current) {
         setData(result);
       }
@@ -70,7 +78,7 @@ function useApi<T>(
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher, ...deps]);
+  }, deps);
 
   useEffect(() => {
     if (!enabled) {

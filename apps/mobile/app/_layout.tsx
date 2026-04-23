@@ -1,14 +1,16 @@
 import '../global.css';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
+import { QueryClientProvider } from '@tanstack/react-query';
 import AuthProvider from '@/contexts/AuthContext';
 import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
 import NotificationProvider from '@/contexts/NotificationContext';
 import ToastProvider from '@/contexts/ToastContext';
 import ErrorBoundary from '@/lib/ErrorBoundary';
+import { createQueryClient } from '@/lib/queryClient';
 
 // Prevent splash screen from auto-hiding until fonts + auth are ready
 SplashScreen.preventAutoHideAsync();
@@ -34,6 +36,7 @@ function RootLayoutInner({ onReady }: { readonly onReady: () => void }): React.R
 
 export default function RootLayout(): React.ReactNode {
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const queryClient = useMemo(() => createQueryClient(), []);
 
   useEffect(() => {
     async function loadFonts() {
@@ -60,16 +63,18 @@ export default function RootLayout(): React.ReactNode {
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <RootLayoutInner onReady={handleReady} />
-            </ErrorBoundary>
-          </ToastProvider>
-        </NotificationProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                <RootLayoutInner onReady={handleReady} />
+              </ErrorBoundary>
+            </ToastProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

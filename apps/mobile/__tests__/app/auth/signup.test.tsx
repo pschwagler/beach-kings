@@ -1,12 +1,20 @@
 /**
  * Tests for the enhanced Signup screen.
  * Wireframe: Google+Apple at TOP, OR divider, first/last names,
- * phone, email (optional), password with hint, "Create Account", legal text.
+ * email, password with hint, "Create Account", legal text.
  */
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, KeyboardAvoidingView } from 'react-native';
+
+jest.mock('@/utils/haptics', () => ({
+  hapticLight: jest.fn(),
+  hapticMedium: jest.fn(),
+  hapticHeavy: jest.fn(),
+  hapticSuccess: jest.fn(),
+  hapticError: jest.fn(),
+}));
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -44,10 +52,18 @@ describe('SignupScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('renders Google and Apple OAuth buttons at the top', () => {
+  it('renders Google OAuth button at the top', () => {
     const { getByText } = render(<SignupScreen />);
     expect(getByText('Continue with Google')).toBeTruthy();
-    expect(getByText('Continue with Apple')).toBeTruthy();
+  });
+
+  it('renders Apple OAuth button on iOS when available', async () => {
+    const AppleAuth = require('expo-apple-authentication');
+    (AppleAuth.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
+    const Platform = require('react-native').Platform;
+    Platform.OS = 'ios';
+    const { findByText } = render(<SignupScreen />);
+    expect(await findByText('Continue with Apple')).toBeTruthy();
   });
 
   it('renders OR divider', () => {
@@ -61,14 +77,14 @@ describe('SignupScreen', () => {
     expect(getByPlaceholderText('Last Name')).toBeTruthy();
   });
 
-  it('renders phone input', () => {
+  it('renders email input', () => {
     const { getByPlaceholderText } = render(<SignupScreen />);
-    expect(getByPlaceholderText('Phone Number')).toBeTruthy();
+    expect(getByPlaceholderText('Email')).toBeTruthy();
   });
 
-  it('renders email input (optional)', () => {
-    const { getByPlaceholderText } = render(<SignupScreen />);
-    expect(getByPlaceholderText('Email (optional)')).toBeTruthy();
+  it('does not render a phone input', () => {
+    const { queryByPlaceholderText } = render(<SignupScreen />);
+    expect(queryByPlaceholderText('Phone Number')).toBeNull();
   });
 
   it('renders password input', () => {
@@ -86,14 +102,13 @@ describe('SignupScreen', () => {
     expect(getByText(/terms of service/i)).toBeTruthy();
   });
 
-  it('calls signup with correct params', async () => {
+  it('calls signup with correct params and navigates to verify', async () => {
     mockSignup.mockResolvedValueOnce(undefined);
     const result = render(<SignupScreen />);
 
     fireEvent.changeText(result.getByPlaceholderText('First Name'), 'John');
     fireEvent.changeText(result.getByPlaceholderText('Last Name'), 'Doe');
-    fireEvent.changeText(result.getByPlaceholderText('Phone Number'), '2025551234');
-    fireEvent.changeText(result.getByPlaceholderText('Email (optional)'), 'john@example.com');
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'john@example.com');
     fireEvent.changeText(result.getByPlaceholderText('Password'), 'StrongPass1!');
     fireEvent.press(getCreateButton(result));
 
@@ -101,9 +116,14 @@ describe('SignupScreen', () => {
       expect(mockSignup).toHaveBeenCalledWith({
         firstName: 'John',
         lastName: 'Doe',
-        phoneNumber: '2025551234',
         email: 'john@example.com',
         password: 'StrongPass1!',
+      });
+    });
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/(auth)/verify',
+        params: { email: 'john@example.com' },
       });
     });
   });
@@ -120,7 +140,7 @@ describe('SignupScreen', () => {
 
     fireEvent.changeText(result.getByPlaceholderText('First Name'), 'John');
     fireEvent.changeText(result.getByPlaceholderText('Last Name'), 'Doe');
-    fireEvent.changeText(result.getByPlaceholderText('Phone Number'), '2025551234');
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'john@example.com');
     fireEvent.changeText(result.getByPlaceholderText('Password'), 'StrongPass1!');
     fireEvent.press(getCreateButton(result));
 
@@ -135,5 +155,72 @@ describe('SignupScreen', () => {
   it('renders "Sign In" link for existing users', () => {
     const { getByText } = render(<SignupScreen />);
     expect(getByText('Sign In')).toBeTruthy();
+  });
+
+  it('calls hapticError on signup failure', async () => {
+    const { hapticError } = require('@/utils/haptics');
+    mockSignup.mockRejectedValueOnce(new Error('fail'));
+    const result = render(<SignupScreen />);
+
+    fireEvent.changeText(result.getByPlaceholderText('First Name'), 'John');
+    fireEvent.changeText(result.getByPlaceholderText('Last Name'), 'Doe');
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'john@example.com');
+    fireEvent.changeText(result.getByPlaceholderText('Password'), 'StrongPass1!');
+    fireEvent.press(getCreateButton(result));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('Signup Failed', expect.any(String));
+    });
+    expect(hapticError).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call hapticError on successful signup', async () => {
+    const { hapticError } = require('@/utils/haptics');
+    mockSignup.mockResolvedValueOnce(undefined);
+    const result = render(<SignupScreen />);
+
+    fireEvent.changeText(result.getByPlaceholderText('First Name'), 'John');
+    fireEvent.changeText(result.getByPlaceholderText('Last Name'), 'Doe');
+    fireEvent.changeText(result.getByPlaceholderText('Email'), 'john@example.com');
+    fireEvent.changeText(result.getByPlaceholderText('Password'), 'StrongPass1!');
+    fireEvent.press(getCreateButton(result));
+
+    await waitFor(() => {
+      expect(mockSignup).toHaveBeenCalled();
+    });
+    expect(hapticError).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // H1 — KeyboardAvoidingView structural check
+  // -------------------------------------------------------------------------
+
+  it('wraps content in KeyboardAvoidingView after TopNav', () => {
+    const { UNSAFE_getAllByType } = render(<SignupScreen />);
+    const kavInstances = UNSAFE_getAllByType(KeyboardAvoidingView);
+    expect(kavInstances.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // P1 — Password toggle
+  // -------------------------------------------------------------------------
+
+  it('password field renders as secure by default', () => {
+    const { getByPlaceholderText } = render(<SignupScreen />);
+    const passwordInput = getByPlaceholderText('Password');
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+  });
+
+  it('pressing show-password toggle reveals the password', () => {
+    const { getByPlaceholderText, getByLabelText } = render(<SignupScreen />);
+    expect(getByPlaceholderText('Password').props.secureTextEntry).toBe(true);
+    fireEvent.press(getByLabelText('Show password'));
+    expect(getByPlaceholderText('Password').props.secureTextEntry).toBe(false);
+  });
+
+  it('toggle button changes a11y label after pressing', () => {
+    const { getByLabelText } = render(<SignupScreen />);
+    fireEvent.press(getByLabelText('Show password'));
+    expect(getByLabelText('Hide password')).toBeTruthy();
   });
 });

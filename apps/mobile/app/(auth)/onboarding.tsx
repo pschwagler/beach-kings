@@ -1,56 +1,136 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, Pressable, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  Alert,
+  ScrollView,
+  Platform,
+  KeyboardAvoidingView,
+  type TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  GENDER_OPTIONS,
+  SKILL_LEVEL_OPTIONS,
+  SKILL_LEVEL_DESCRIPTIONS,
+} from '@beach-kings/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button, TopNav } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { CrownIcon, CheckIcon } from '@/components/ui/icons';
+import {
+  FormLabel,
+  FormError,
+  BottomSheetSelect,
+  DateOfBirthField,
+  CityAutocomplete,
+  type SelectOption,
+  type CitySuggestion,
+} from '@/components/forms';
 import { api } from '@/lib/api';
+import { routes } from '@/lib/navigation';
+import { hapticSuccess } from '@/utils/haptics';
+import {
+  onboardingSchema,
+  birthdayDisplayToIso,
+  type OnboardingFormValues,
+} from '@/lib/validators';
+import {
+  useLocationAutoSelect,
+  type LocationWithDistance,
+} from '@/lib/useLocationAutoSelect';
+import { fullStateName } from '@/lib/usStates';
+import type { PlayerGender, SkillLevel, Location } from '@beach-kings/shared';
 
-const TOTAL_STEPS = 3;
+type Screen = 'form' | 'success';
 
-const SKILL_LEVELS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'open', label: 'Open' },
-] as const;
+const SKILL_LEVEL_SELECT_OPTIONS: readonly SelectOption[] = SKILL_LEVEL_OPTIONS.map(
+  (opt) => ({
+    value: opt.value,
+    label: opt.label,
+    sublabel: SKILL_LEVEL_DESCRIPTIONS[opt.value],
+  }),
+);
 
-const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-] as const;
+const GENDER_SELECT_OPTIONS: readonly SelectOption[] = GENDER_OPTIONS.map((g) => ({
+  value: g.value,
+  label: g.label,
+}));
 
-interface Location {
-  readonly id: string;
-  readonly name: string;
-  readonly city: string;
-  readonly state: string;
+function formatLocationLabel(loc: LocationWithDistance): string {
+  const base = loc.name ?? `${loc.city}, ${loc.state}`;
+  if (typeof loc.distance_miles === 'number') {
+    return `${base} (${Math.round(loc.distance_miles)} mi)`;
+  }
+  return base;
+}
+
+function buildLocationSearchText(loc: LocationWithDistance): string {
+  return [
+    loc.city,
+    loc.state,
+    fullStateName(loc.state),
+    loc.name,
+    loc.region_name,
+  ]
+    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+    .join(' ');
 }
 
 export default function OnboardingScreen(): React.ReactNode {
   const { setProfileComplete } = useAuth();
+  const router = useRouter();
 
-  const [step, setStep] = useState(1);
-  const [gender, setGender] = useState('');
-  const [level, setLevel] = useState('');
-  const [locationId, setLocationId] = useState('');
+  const [screen, setScreen] = useState<Screen>('form');
   const [locations, setLocations] = useState<readonly Location[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
-  // Fetch locations when entering step 3
+  const nicknameRef = useRef<TextInput>(null);
+  const dobRef = useRef<TextInput>(null);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setValue,
+  } = useForm<OnboardingFormValues>({
+    resolver: zodResolver(onboardingSchema),
+    mode: 'onSubmit',
+    defaultValues: {
+      gender: undefined,
+      level: undefined,
+      city: '',
+      locationId: '',
+      nickname: '',
+      dateOfBirth: '',
+    },
+  });
+
+  const setLocationId = useCallback(
+    (id: string) => {
+      setValue('locationId', id, { shouldValidate: true, shouldDirty: true });
+    },
+    [setValue],
+  );
+
+  const { locationsWithDistance, handleCitySelect } = useLocationAutoSelect({
+    locations,
+    onLocationSelect: setLocationId,
+  });
+
   useEffect(() => {
-    if (step !== 3) return;
     let cancelled = false;
     setIsLoadingLocations(true);
-    api.client.axiosInstance
-      .get('/api/locations')
-      .then((res) => {
-        if (!cancelled) setLocations(res.data);
+    api
+      .getLocations()
+      .then((data) => {
+        if (!cancelled) setLocations(data);
       })
       .catch(() => {
-        if (!cancelled) {
-          Alert.alert('Error', 'Failed to load locations.');
-        }
+        if (!cancelled) Alert.alert('Error', 'Failed to load locations.');
       })
       .finally(() => {
         if (!cancelled) setIsLoadingLocations(false);
@@ -58,200 +138,279 @@ export default function OnboardingScreen(): React.ReactNode {
     return () => {
       cancelled = true;
     };
-  }, [step]);
-
-  const handleNext = useCallback(() => {
-    if (step === 1 && !gender) return;
-    if (step === 2 && !level) return;
-    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
-  }, [step, gender, level]);
-
-  const handleBack = useCallback(() => {
-    setStep((prev) => Math.max(prev - 1, 1));
   }, []);
 
-  const handleComplete = useCallback(async () => {
-    if (!locationId) return;
-    setIsSubmitting(true);
+  const locationOptions = useMemo<readonly SelectOption[]>(
+    () =>
+      locationsWithDistance.map((l) => ({
+        value: l.id,
+        label: formatLocationLabel(l),
+        sublabel: l.name ? `${l.city}, ${l.state}` : undefined,
+        searchText: buildLocationSearchText(l),
+      })),
+    [locationsWithDistance],
+  );
 
-    const selectedLocation = locations.find((l) => l.id === locationId);
-    try {
-      await api.client.axiosInstance.put('/api/users/me/player', {
-        gender,
-        level,
-        location_id: locationId,
-        city: selectedLocation?.city ?? '',
-        state: selectedLocation?.state ?? '',
+  const onCityPicked = useCallback(
+    (suggestion: CitySuggestion) => {
+      setValue('city', suggestion.formatted, {
+        shouldValidate: true,
+        shouldDirty: true,
       });
-      setProfileComplete(true);
-    } catch {
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [gender, level, locationId, locations, setProfileComplete]);
+      handleCitySelect({ lat: suggestion.lat, lon: suggestion.lon });
+    },
+    [handleCitySelect, setValue],
+  );
+
+  const onSubmit = useCallback(
+    async (values: OnboardingFormValues) => {
+      const location = locationsWithDistance.find(
+        (l) => l.id === values.locationId,
+      );
+      try {
+        await api.updatePlayerProfile({
+          gender: values.gender as PlayerGender,
+          level: values.level as SkillLevel,
+          location_id: values.locationId,
+          city: values.city.trim(),
+          state: location?.state ?? '',
+          ...(values.nickname?.trim()
+            ? { nickname: values.nickname.trim() }
+            : {}),
+          ...(values.dateOfBirth?.trim()
+            ? { date_of_birth: birthdayDisplayToIso(values.dateOfBirth.trim()) }
+            : {}),
+        });
+        void hapticSuccess();
+        setScreen('success');
+      } catch {
+        Alert.alert('Error', 'Failed to save profile. Please try again.');
+      }
+    },
+    [locationsWithDistance],
+  );
+
+  const handleGetStarted = useCallback(() => {
+    setProfileComplete(true);
+    router.replace(routes.home());
+  }, [router, setProfileComplete]);
+
+  const handleSkip = useCallback(() => {
+    setProfileComplete(true);
+    router.replace(routes.home());
+  }, [router, setProfileComplete]);
+
+  if (screen === 'success') {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
+        <View className="flex-1 items-center justify-center px-lg">
+          <View className="bg-white dark:bg-dark-surface rounded-2xl px-lg py-xl items-center w-full max-w-md">
+            <View
+              testID="onboarding-success-check"
+              className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center mb-md"
+            >
+              <CheckIcon size={32} color="#15803d" />
+            </View>
+            <Text className="text-title3 font-bold text-primary dark:text-content-primary text-center mb-xs">
+              Profile Complete!
+            </Text>
+            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-lg">
+              You're all set. Find leagues near you, connect with players, and
+              start tracking your games.
+            </Text>
+            <View className="w-full">
+              <Button title="Get Started" onPress={handleGetStarted} />
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
-      <TopNav title="Complete Profile" />
-
-      <ScrollView
-        className="flex-1 px-lg"
-        contentContainerClassName="py-lg"
+    <SafeAreaView className="flex-1 bg-white dark:bg-dark-surface">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Step indicator */}
-        <Text className="text-footnote text-gray-500 dark:text-content-secondary text-center mb-lg">
-          Step {step} of {TOTAL_STEPS}
-        </Text>
-
-        {/* Step 1: Gender */}
-        {step === 1 && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
-              What's your gender?
+        <View className="px-lg pt-lg pb-md">
+          <Pressable
+            className="absolute right-md top-sm z-10 min-h-touch px-sm items-center justify-center"
+            onPress={handleSkip}
+            accessibilityRole="link"
+            accessibilityLabel="Skip for now"
+            hitSlop={8}
+          >
+            <Text className="text-footnote font-semibold text-accent dark:text-brand-gold">
+              Skip for now
             </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
-              This helps us match you in the right divisions.
-            </Text>
-            <View className="gap-sm">
-              {GENDER_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  className={`p-lg rounded-card border-2 ${
-                    gender === option.value
-                      ? 'border-primary dark:border-brand-teal bg-primary/10 dark:bg-brand-teal/10'
-                      : 'border-border dark:border-border-strong bg-white dark:bg-dark-surface'
-                  }`}
-                  onPress={() => setGender(option.value)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: gender === option.value }}
-                  accessibilityLabel={option.label}
-                >
-                  <Text
-                    className={`text-body text-center font-semibold ${
-                      gender === option.value
-                        ? 'text-primary dark:text-brand-teal'
-                        : 'text-gray-700 dark:text-content-primary'
-                    }`}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+          </Pressable>
+          <View className="items-center mb-sm">
+            <CrownIcon size={36} color="#d4a843" />
           </View>
-        )}
-
-        {/* Step 2: Skill level */}
-        {step === 2 && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
-              What's your skill level?
-            </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
-              Be honest — it helps create balanced games.
-            </Text>
-            <View className="gap-sm">
-              {SKILL_LEVELS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  className={`p-lg rounded-card border-2 ${
-                    level === option.value
-                      ? 'border-primary dark:border-brand-teal bg-primary/10 dark:bg-brand-teal/10'
-                      : 'border-border dark:border-border-strong bg-white dark:bg-dark-surface'
-                  }`}
-                  onPress={() => setLevel(option.value)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: level === option.value }}
-                  accessibilityLabel={option.label}
-                >
-                  <Text
-                    className={`text-body text-center font-semibold ${
-                      level === option.value
-                        ? 'text-primary dark:text-brand-teal'
-                        : 'text-gray-700 dark:text-content-primary'
-                    }`}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Step 3: Location */}
-        {step === 3 && (
-          <View className="gap-md">
-            <Text className="text-title2 font-bold text-primary dark:text-content-primary text-center mb-sm">
-              Where do you play?
-            </Text>
-            <Text className="text-body text-gray-500 dark:text-content-secondary text-center mb-md">
-              Select your primary location for leagues and events.
-            </Text>
-            {isLoadingLocations ? (
-              <ActivityIndicator size="large" />
-            ) : (
-              <View className="gap-sm">
-                {locations.map((loc) => (
-                  <Pressable
-                    key={loc.id}
-                    className={`p-lg rounded-card border-2 ${
-                      locationId === loc.id
-                        ? 'border-primary dark:border-brand-teal bg-primary/10 dark:bg-brand-teal/10'
-                        : 'border-border dark:border-border-strong bg-white dark:bg-dark-surface'
-                    }`}
-                    onPress={() => setLocationId(loc.id)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: locationId === loc.id }}
-                    accessibilityLabel={loc.name}
-                  >
-                    <Text
-                      className={`text-body text-center font-semibold ${
-                        locationId === loc.id
-                          ? 'text-primary dark:text-brand-teal'
-                          : 'text-gray-700 dark:text-content-primary'
-                      }`}
-                    >
-                      {loc.name}
-                    </Text>
-                    <Text className="text-footnote text-gray-500 dark:text-content-secondary text-center">
-                      {loc.city}, {loc.state}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Navigation buttons */}
-        <View className="flex-row gap-md mt-xl">
-          {step > 1 && (
-            <Button
-              title="Back"
-              onPress={handleBack}
-              variant="outline"
-              className="flex-1"
-            />
-          )}
-          {step < TOTAL_STEPS ? (
-            <Button
-              title="Next"
-              onPress={handleNext}
-              className="flex-1"
-            />
-          ) : (
-            <Button
-              title="Complete"
-              onPress={handleComplete}
-              disabled={isSubmitting || !locationId}
-              loading={isSubmitting}
-              className="flex-1"
-            />
-          )}
+          <Text className="text-title3 font-bold text-primary dark:text-content-primary text-center mb-xs">
+            Complete Your Profile
+          </Text>
+          <Text className="text-footnote text-gray-500 dark:text-content-secondary text-center">
+            Tell us about yourself so we can match you with the right leagues
+            and players.
+          </Text>
         </View>
-      </ScrollView>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-lg pb-lg"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View>
+            <Text className="text-caption font-medium text-red-500 mb-md">
+              * Required fields
+            </Text>
+
+            <FormLabel required>Gender</FormLabel>
+            <Controller
+              control={control}
+              name="gender"
+              render={({ field: { value, onChange } }) => (
+                <BottomSheetSelect
+                  title="Select gender"
+                  placeholder="Select gender"
+                  options={GENDER_SELECT_OPTIONS}
+                  value={value ?? ''}
+                  onChange={onChange}
+                  error={!!errors.gender}
+                  testID="onboarding-gender-select"
+                />
+              )}
+            />
+            <FormError message={errors.gender?.message} />
+
+            <FormLabel required className="mt-md">
+              City
+            </FormLabel>
+            <Controller
+              control={control}
+              name="city"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <CityAutocomplete
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  onCitySelect={onCityPicked}
+                  error={!!errors.city}
+                  testID="onboarding-city"
+                />
+              )}
+            />
+            <FormError message={errors.city?.message} />
+
+            <FormLabel required className="mt-md">
+              Location
+            </FormLabel>
+            <Controller
+              control={control}
+              name="locationId"
+              render={({ field: { value, onChange } }) => (
+                <BottomSheetSelect
+                  title="Select location"
+                  placeholder={
+                    isLoadingLocations
+                      ? 'Loading locations…'
+                      : 'Select location'
+                  }
+                  options={locationOptions}
+                  value={value}
+                  onChange={onChange}
+                  disabled={isLoadingLocations}
+                  loading={isLoadingLocations}
+                  error={!!errors.locationId}
+                  testID="onboarding-location-select"
+                  searchable
+                  searchPlaceholder="Search city or state"
+                />
+              )}
+            />
+            {errors.locationId ? (
+              <FormError message={errors.locationId.message} />
+            ) : (
+              <Text className="text-caption text-gray-400 dark:text-content-tertiary mt-xxs">
+                Closest region auto-selected from your city — change if needed
+              </Text>
+            )}
+
+            <FormLabel required className="mt-md">
+              Skill Level
+            </FormLabel>
+            <Controller
+              control={control}
+              name="level"
+              render={({ field: { value, onChange } }) => (
+                <BottomSheetSelect
+                  title="Select skill level"
+                  placeholder="Select your level"
+                  options={SKILL_LEVEL_SELECT_OPTIONS}
+                  value={value ?? ''}
+                  onChange={onChange}
+                  error={!!errors.level}
+                  testID="onboarding-level-select"
+                />
+              )}
+            />
+            <FormError message={errors.level?.message} />
+
+            <View className="h-px bg-gray-100 dark:bg-border-strong my-lg" />
+
+            <Text className="text-caption font-semibold text-gray-400 dark:text-content-tertiary uppercase tracking-wider mb-md">
+              Optional
+            </Text>
+
+            <FormLabel>Nickname</FormLabel>
+            <Controller
+              control={control}
+              name="nickname"
+              render={({ field: { value, onChange } }) => (
+                <Input
+                  ref={nicknameRef}
+                  value={value ?? ''}
+                  onChangeText={onChange}
+                  placeholder="What do people call you?"
+                  autoCapitalize="words"
+                  autoComplete="nickname"
+                  textContentType="nickname"
+                  returnKeyType="next"
+                  onSubmitEditing={() => dobRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+              )}
+            />
+
+            <FormLabel className="mt-md">Date of Birth</FormLabel>
+            <Controller
+              control={control}
+              name="dateOfBirth"
+              render={({ field: { value, onChange } }) => (
+                <DateOfBirthField
+                  ref={dobRef}
+                  value={value ?? ''}
+                  onChange={onChange}
+                  error={!!errors.dateOfBirth}
+                  testID="onboarding-dob-input"
+                />
+              )}
+            />
+            <FormError message={errors.dateOfBirth?.message} />
+
+            <View className="mt-xl">
+              <Button
+                title="Save Profile"
+                onPress={handleSubmit(onSubmit)}
+                disabled={isSubmitting}
+                loading={isSubmitting}
+                variant="secondary"
+              />
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

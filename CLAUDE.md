@@ -41,3 +41,11 @@ Note - this is a public repo. Don't leak any PII or anything that could compromi
 # Tools
 
 Always use headless mode when using agent-browser, playwright, chrome devtools if you can
+
+# Local dev utilities
+
+These Makefile targets exist specifically to unblock agents and humans during local development and testing. Prefer them over re-deriving the same queries/scripts ad hoc. Run `make help` for the full list.
+
+- `make dev-login ID=<player_id>` — print access + refresh tokens and a JS snippet to paste into the browser console to log in as that player. `make dev-login` with no ID lists players.
+- `make dev-otp EMAIL=<email>` / `make dev-otp PHONE=<e164>` — fetch the latest unused, unexpired signup or password-reset verification code from the local DB. Use during UI/E2E validation of OTP flows (email is stubbed locally when `ENABLE_EMAIL=false`, but the code is still persisted in `verification_codes`). `make dev-otp` with no args returns the latest code for any identifier.
+- `make seed-users` — create three test users with password `test1234` for quick manual exercise of auth flows.

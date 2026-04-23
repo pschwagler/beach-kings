@@ -12,6 +12,14 @@ import { render, fireEvent, screen } from '@testing-library/react-native';
 
 // react-native-reanimated is stubbed via moduleNameMapper in jest.config.js.
 
+jest.mock('@/utils/haptics', () => ({
+  hapticLight: jest.fn(),
+  hapticMedium: jest.fn(),
+  hapticHeavy: jest.fn(),
+  hapticSuccess: jest.fn(),
+  hapticError: jest.fn(),
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
@@ -47,6 +55,8 @@ jest.mock('@beach-kings/shared/tokens', () => ({
 // Component imports
 // ---------------------------------------------------------------------------
 
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import Divider from '@/components/ui/Divider';
 import Chip from '@/components/ui/Chip';
 import EmptyState from '@/components/ui/EmptyState';
@@ -65,6 +75,188 @@ import FilterChips from '@/components/ui/FilterChips';
 import Toast from '@/components/ui/Toast';
 import ListItem from '@/components/ui/ListItem';
 import ProgressBar from '@/components/ui/ProgressBar';
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
+
+describe('Input', () => {
+  it('renders without password toggle by default', () => {
+    const { getByPlaceholderText, queryByLabelText } = render(
+      <Input value="" onChangeText={jest.fn()} placeholder="Username" />,
+    );
+    expect(getByPlaceholderText('Username')).toBeTruthy();
+    expect(queryByLabelText('Show password')).toBeNull();
+  });
+
+  it('does not render toggle button when showPasswordToggle is false', () => {
+    const { queryByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle={false}
+      />,
+    );
+    expect(queryByLabelText('Show password')).toBeNull();
+  });
+
+  it('renders toggle button when showPasswordToggle and secureTextEntry are both true', () => {
+    const { getByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle
+      />,
+    );
+    expect(getByLabelText('Show password')).toBeTruthy();
+  });
+
+  it('password is secure by default when toggle present', () => {
+    const { getByPlaceholderText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle
+      />,
+    );
+    expect(getByPlaceholderText('Password').props.secureTextEntry).toBe(true);
+  });
+
+  it('pressing toggle reveals the password', () => {
+    const { getByPlaceholderText, getByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle
+      />,
+    );
+    fireEvent.press(getByLabelText('Show password'));
+    expect(getByPlaceholderText('Password').props.secureTextEntry).toBe(false);
+  });
+
+  it('toggle a11y label changes to "Hide password" after pressing', () => {
+    const { getByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle
+      />,
+    );
+    fireEvent.press(getByLabelText('Show password'));
+    expect(getByLabelText('Hide password')).toBeTruthy();
+  });
+
+  it('pressing toggle again hides the password', () => {
+    const { getByPlaceholderText, getByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Password"
+        secureTextEntry
+        showPasswordToggle
+      />,
+    );
+    fireEvent.press(getByLabelText('Show password'));
+    fireEvent.press(getByLabelText('Hide password'));
+    expect(getByPlaceholderText('Password').props.secureTextEntry).toBe(true);
+  });
+
+  it('does not render toggle when showPasswordToggle is true but secureTextEntry is false', () => {
+    const { queryByLabelText } = render(
+      <Input
+        value=""
+        onChangeText={jest.fn()}
+        placeholder="Search"
+        showPasswordToggle
+      />,
+    );
+    expect(queryByLabelText('Show password')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Button
+// ---------------------------------------------------------------------------
+
+describe('Button', () => {
+  const { hapticLight, hapticMedium } = require('@/utils/haptics');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls hapticMedium when a primary button is pressed', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Submit" onPress={onPress} variant="primary" />,
+    );
+    fireEvent.press(getByLabelText('Submit'));
+    expect(hapticMedium).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls hapticMedium when a secondary button is pressed', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Save" onPress={onPress} variant="secondary" />,
+    );
+    fireEvent.press(getByLabelText('Save'));
+    expect(hapticMedium).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls hapticLight when an outline button is pressed', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Cancel" onPress={onPress} variant="outline" />,
+    );
+    fireEvent.press(getByLabelText('Cancel'));
+    expect(hapticLight).toHaveBeenCalledTimes(1);
+    expect(hapticMedium).not.toHaveBeenCalled();
+  });
+
+  it('calls hapticLight when a ghost button is pressed', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Ghost" onPress={onPress} variant="ghost" />,
+    );
+    fireEvent.press(getByLabelText('Ghost'));
+    expect(hapticLight).toHaveBeenCalledTimes(1);
+    expect(hapticMedium).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call any haptic when button is disabled', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Disabled" onPress={onPress} disabled />,
+    );
+    fireEvent.press(getByLabelText('Disabled'));
+    expect(hapticLight).not.toHaveBeenCalled();
+    expect(hapticMedium).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call any haptic when button is loading', () => {
+    const onPress = jest.fn();
+    const { getByLabelText } = render(
+      <Button title="Loading" onPress={onPress} loading />,
+    );
+    // Loading buttons are disabled at the Pressable level — press is no-op
+    fireEvent.press(getByLabelText('Loading'));
+    expect(hapticLight).not.toHaveBeenCalled();
+    expect(hapticMedium).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Divider
@@ -159,7 +351,7 @@ describe('Modal', () => {
       </Modal>
     );
     // Modal renders the close button even without a title
-    expect(screen.getByAccessibilityHint ? screen.getByLabelText('Close') : screen.getByLabelText('Close')).toBeTruthy();
+    expect(screen.getByLabelText('Close')).toBeTruthy();
   });
 
   it('calls onClose when close button pressed', () => {

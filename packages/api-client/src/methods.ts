@@ -16,6 +16,10 @@ import type {
   FriendRequest,
   FriendInLeague,
   Notification,
+  Conversation,
+  ConversationListResponse,
+  DirectMessage,
+  ThreadResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -39,16 +43,16 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
-     * Register a new user. phone_number and password are required.
+     * Register a new user. Requires EITHER phone_number OR email plus password.
      * first_name + last_name preferred; falls back to full_name splitting.
      */
     async signup(data: {
-      phone_number: string;
+      phone_number?: string;
+      email?: string;
       password: string;
       first_name?: string;
       last_name?: string;
       full_name?: string;
-      email?: string;
     }) {
       const response = await api.post('/api/auth/signup', data);
       return response.data;
@@ -97,6 +101,40 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
+     * Request a one-time OTP to attach a phone number to the signed-in account.
+     * User must have no phone on file; phone changes are handled via support.
+     */
+    async requestAddPhone(phoneNumber: string): Promise<{ status: string }> {
+      const response = await api.post('/api/auth/phone/add/request', {
+        phone_number: phoneNumber,
+      });
+      return response.data;
+    },
+
+    /**
+     * Verify the add-phone OTP and attach the phone to the current user.
+     * Returns the updated /me-shaped user.
+     */
+    async verifyAddPhone(phoneNumber: string, code: string) {
+      const response = await api.post('/api/auth/phone/add/verify', {
+        phone_number: phoneNumber,
+        code,
+      });
+      return response.data;
+    },
+
+    /**
+     * Verify email with the 6-digit OTP code.
+     */
+    async verifyEmail(email: string, code: string) {
+      const response = await api.post('/api/auth/verify-email', {
+        email,
+        code,
+      });
+      return response.data;
+    },
+
+    /**
      * Passwordless SMS login — send code first via sendVerification().
      */
     async smsLogin(phoneNumber: string, code: string) {
@@ -139,12 +177,48 @@ export function createApiMethods(client: ApiClient) {
     },
 
     /**
+     * Step 1/3 (email): Request a password-reset OTP via email.
+     */
+    async resetPasswordEmail(email: string) {
+      const response = await api.post('/api/auth/reset-password-email', {
+        email,
+      });
+      return response.data;
+    },
+
+    /**
+     * Step 2/3 (email): Verify the emailed reset OTP. Returns a reset_token.
+     */
+    async resetPasswordEmailVerify(email: string, code: string) {
+      const response = await api.post(
+        '/api/auth/reset-password-email-verify',
+        { email, code },
+      );
+      return response.data;
+    },
+
+    /**
      * Step 3/3: Confirm new password using the reset_token from step 2.
      */
     async resetPasswordConfirm(resetToken: string, newPassword: string) {
       const response = await api.post('/api/auth/reset-password-confirm', {
         reset_token: resetToken,
         new_password: newPassword,
+      });
+      return response.data;
+    },
+
+    /**
+     * Resend email verification code for signup.
+     *
+     * TODO: A dedicated /api/auth/resend-email-verification endpoint should be
+     * added to the backend. Currently this re-calls signup which regenerates
+     * the verification code row — it only works while the user account has not
+     * yet been created (i.e., before the OTP is verified).
+     */
+    async sendEmailVerification(email: string) {
+      const response = await api.post('/api/auth/send-email-verification', {
+        email,
       });
       return response.data;
     },
@@ -239,14 +313,14 @@ export function createApiMethods(client: ApiClient) {
         throw new Error('exportMatchesToCSV is only available in web browsers');
       }
       const response = await api.get('/api/matches/export', { responseType: 'blob' });
-      const url = (window as Window).URL.createObjectURL(new Blob([response.data]));
+      const url = URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'matches_export.csv');
       document.body.appendChild(link);
       link.click();
       link.remove();
-      (window as Window).URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     },
 
     // -----------------------------------------------------------------------
@@ -370,9 +444,9 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
-    async getActiveSession() {
-      const response = await api.get<Session>('/api/sessions/open');
-      return response.data;
+    async getActiveSession(): Promise<Session | null> {
+      const response = await api.get<Session[]>('/api/sessions/open');
+      return response.data?.[0] ?? null;
     },
 
     async createSession(date?: string | null) {
@@ -438,7 +512,20 @@ export function createApiMethods(client: ApiClient) {
     // -----------------------------------------------------------------------
 
     async getCourts(params?: { location_id?: string | null; lat?: number; lon?: number; radius?: number }) {
-      const response = await api.get<Court[]>('/api/public/courts', { params: params ?? {} });
+      const response = await api.get<{ items: Court[] } | Court[]>('/api/public/courts', {
+        params: params ?? {},
+      });
+      const data = response.data;
+      if (Array.isArray(data)) return data;
+      return data?.items ?? [];
+    },
+
+    /**
+     * Fetch full detail for a single court by numeric id or slug.
+     * Returns 404 when the court is not found.
+     */
+    async getCourtById(idOrSlug: string | number): Promise<Court> {
+      const response = await api.get<Court>(`/api/courts/${idOrSlug}`);
       return response.data;
     },
 
@@ -667,6 +754,72 @@ export function createApiMethods(client: ApiClient) {
     async claimInvite(token: string) {
       const response = await api.post(
         `/api/invites/${encodeURIComponent(token)}/claim`,
+      );
+      return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // Direct Messages
+    // -----------------------------------------------------------------------
+
+    /**
+     * Get the current user's conversation list, ordered by most recent.
+     */
+    async getConversations(page = 1, pageSize = 50): Promise<ConversationListResponse> {
+      const response = await api.get<ConversationListResponse>(
+        '/api/messages/conversations',
+        { params: { page, page_size: pageSize } },
+      );
+      return response.data;
+    },
+
+    /**
+     * Get messages in a thread with a specific player (newest first).
+     */
+    async getThread(
+      playerId: number,
+      page = 1,
+      pageSize = 50,
+    ): Promise<ThreadResponse> {
+      const response = await api.get<ThreadResponse>(
+        `/api/messages/conversations/${encodeURIComponent(playerId)}`,
+        { params: { page, page_size: pageSize } },
+      );
+      return response.data;
+    },
+
+    /**
+     * Send a direct message to another player.
+     */
+    async sendDirectMessage(
+      receiverPlayerId: number,
+      messageText: string,
+    ): Promise<DirectMessage> {
+      const response = await api.post<DirectMessage>('/api/messages/send', {
+        receiver_player_id: receiverPlayerId,
+        message_text: messageText,
+      });
+      return response.data;
+    },
+
+    /**
+     * Mark all messages from a specific player as read.
+     */
+    async markThreadRead(
+      playerId: number,
+    ): Promise<{ updated_count: number }> {
+      const response = await api.put<{ updated_count: number }>(
+        `/api/messages/conversations/${encodeURIComponent(playerId)}/read`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Get total unread DM count across all conversations.
+     */
+    async getDmUnreadCount(): Promise<{ count: number }> {
+      const response = await api.get<{ count: number }>(
+        '/api/messages/unread-count',
       );
       return response.data;
     },

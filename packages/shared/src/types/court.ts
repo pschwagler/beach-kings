@@ -7,8 +7,7 @@ import type { CourtStatus } from './enums';
 export interface CourtPhoto {
   id: number;
   url: string;
-  caption: string | null;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface CourtReview {

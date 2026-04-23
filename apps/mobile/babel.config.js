@@ -4,15 +4,15 @@ module.exports = function (api) {
 
   return {
     presets: [
-      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
-      // nativewind/babel pulls in react-native-worklets/plugin (reanimated 4+),
-      // which is not installed — skip it in the Jest environment.
+      // In test mode omit jsxImportSource so TS type annotations inside
+      // jest.mock() factory functions parse correctly with babel-preset-expo.
+      isTest
+        ? ['babel-preset-expo']
+        : ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
       ...(isTest ? [] : ['nativewind/babel']),
     ],
     plugins: [
-      // react-native-reanimated/plugin is mocked in tests; skip to avoid
-      // the react-native-worklets transitive dependency in the Jest environment.
-      ...(isTest ? [] : ['react-native-reanimated/plugin']),
+      ...(isTest ? [] : ['react-native-worklets/plugin']),
     ],
   };
 };

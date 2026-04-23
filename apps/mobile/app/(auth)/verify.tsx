@@ -1,33 +1,56 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, TopNav, OtpInput } from '@/components/ui';
+import { FormError } from '@/components/forms';
 import { api } from '@/lib/api';
+import { routes } from '@/lib/navigation';
+import { hapticSuccess, hapticError } from '@/utils/haptics';
+import { otpSchema, type OtpFormValues } from '@/lib/validators';
 
-const RESEND_COOLDOWN_SECONDS = 30;
+const RESEND_COOLDOWN_SECONDS = 60;
 
-/**
- * Mask a phone number for display: show only last 4 digits.
- * e.g. "+12025551234" → "••••1234"
- */
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 4) return phone;
   return `••••${digits.slice(-4)}`;
 }
 
-export default function VerifyScreen(): React.ReactNode {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
-  const { verifyPhone } = useAuth();
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain || !local) return email;
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}${'•'.repeat(Math.max(1, local.length - visible.length))}@${domain}`;
+}
 
-  const [code, setCode] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export default function VerifyScreen(): React.ReactNode {
+  const { phone, email } = useLocalSearchParams<{
+    phone?: string;
+    email?: string;
+  }>();
+  const { verifyPhone, verifyEmail } = useAuth();
+  const router = useRouter();
+
+  const mode: 'email' | 'phone' = email ? 'email' : 'phone';
+
   const [countdown, setCountdown] = useState(0);
+  const [shakeKey, setShakeKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Countdown timer for resend cooldown
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<OtpFormValues>({
+    resolver: zodResolver(otpSchema),
+    mode: 'onSubmit',
+    defaultValues: { code: '' },
+  });
+
   useEffect(() => {
     if (countdown <= 0) {
       if (timerRef.current) {
@@ -49,61 +72,114 @@ export default function VerifyScreen(): React.ReactNode {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [countdown > 0]);
+  }, [countdown]);
 
-  const handleVerify = useCallback(async () => {
-    if (code.length !== 6 || !phone) return;
-    setIsSubmitting(true);
-    try {
-      await verifyPhone(phone, code);
-    } catch {
-      Alert.alert(
-        'Verification Failed',
-        'Invalid or expired code. Please try again.',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [code, phone, verifyPhone]);
+  const onSubmit = useCallback(
+    async (values: OtpFormValues) => {
+      try {
+        if (mode === 'email') {
+          if (!email) return;
+          await verifyEmail(email, values.code);
+        } else {
+          if (!phone) return;
+          await verifyPhone(phone, values.code);
+        }
+        void hapticSuccess();
+      } catch {
+        void hapticError();
+        Alert.alert(
+          'Verification Failed',
+          'Invalid or expired code. Please try again.',
+        );
+        setShakeKey((k) => k + 1);
+      }
+    },
+    [mode, email, phone, verifyEmail, verifyPhone],
+  );
 
   const handleResend = useCallback(async () => {
-    if (countdown > 0 || !phone) return;
+    if (countdown > 0) return;
+    if (mode === 'phone') {
+      if (!phone) return;
+      try {
+        await api.sendVerification(phone);
+        setCountdown(RESEND_COOLDOWN_SECONDS);
+      } catch {
+        void hapticError();
+        Alert.alert('Error', 'Failed to resend code. Please try again.');
+      }
+      return;
+    }
+    // Email mode — call backend to resend the verification email
+    if (!email) return;
     try {
-      await api.client.axiosInstance.post('/api/auth/send-verification', {
-        phone_number: phone,
-      });
+      await api.sendEmailVerification(email);
       setCountdown(RESEND_COOLDOWN_SECONDS);
     } catch {
+      void hapticError();
       Alert.alert('Error', 'Failed to resend code. Please try again.');
     }
-  }, [countdown, phone]);
+  }, [countdown, mode, phone, email]);
 
-  const maskedPhone = maskPhone(phone ?? '');
+  const handleUseDifferent = useCallback(() => {
+    router.replace(routes.signup());
+  }, [router]);
+
+  const masked =
+    mode === 'email' ? maskEmail(email ?? '') : maskPhone(phone ?? '');
   const resendDisabled = countdown > 0;
+  const title = mode === 'email' ? 'Verify Email' : 'Verify Phone';
+  const useDifferentLabel =
+    mode === 'email' ? 'Use a different email' : 'Use a different number';
+  const useDifferentA11y =
+    mode === 'email'
+      ? 'Use a different email address'
+      : 'Use a different phone number';
 
   return (
     <SafeAreaView className="flex-1 bg-bg-page dark:bg-base">
-      <TopNav title="Verify Phone" showBack />
+      <TopNav title={title} showBack />
 
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View className="flex-1 justify-center px-lg">
         <View className="items-center mb-xl">
           <Text className="text-title2 font-bold text-primary dark:text-content-primary mb-sm">
             Enter Verification Code
           </Text>
           <Text className="text-body text-gray-500 dark:text-content-secondary text-center">
-            We sent a 6-digit code to {maskedPhone}
+            We sent a 6-digit code to {masked}
           </Text>
         </View>
 
-        <View className="items-center mb-xl">
-          <OtpInput value={code} onChange={setCode} length={6} />
+        <View className="items-center mb-md">
+          <Controller
+            control={control}
+            name="code"
+            render={({ field: { value, onChange } }) => (
+              <OtpInput
+                value={value}
+                onChange={onChange}
+                onComplete={() => {
+                  void handleSubmit(onSubmit)();
+                }}
+                length={6}
+                shakeKey={shakeKey}
+              />
+            )}
+          />
+        </View>
+        <View className="items-center mb-md">
+          <FormError message={errors.code?.message} />
         </View>
 
         <View className="gap-md">
           <Button
             title="Verify"
-            onPress={handleVerify}
-            disabled={isSubmitting || code.length !== 6}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
             loading={isSubmitting}
           />
 
@@ -130,8 +206,20 @@ export default function VerifyScreen(): React.ReactNode {
                 : "Didn't receive a code? Resend"}
             </Text>
           </Pressable>
+
+          <Pressable
+            className="min-h-touch items-center justify-center"
+            onPress={handleUseDifferent}
+            accessibilityLabel={useDifferentA11y}
+            accessibilityRole="link"
+          >
+            <Text className="text-footnote font-medium text-gray-500 dark:text-content-secondary">
+              {useDifferentLabel}
+            </Text>
+          </Pressable>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

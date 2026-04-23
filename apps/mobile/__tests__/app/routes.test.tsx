@@ -86,10 +86,32 @@ jest.mock('@/contexts/ThemeContext', () => ({
 // AuthContext
 const mockLogin = jest.fn();
 const mockSignup = jest.fn();
+const mockLoginWithGoogle = jest.fn();
+const mockLoginWithApple = jest.fn();
 jest.mock('@/contexts/AuthContext', () => ({
   __esModule: true,
-  useAuth: () => ({ login: mockLogin, signup: mockSignup, logout: jest.fn(), isAuthenticated: false, isLoading: false, user: null }),
+  useAuth: () => ({
+    login: mockLogin,
+    signup: mockSignup,
+    loginWithGoogle: mockLoginWithGoogle,
+    loginWithApple: mockLoginWithApple,
+    logout: jest.fn(),
+    isAuthenticated: false,
+    isLoading: false,
+    user: null,
+    profileComplete: true,
+  }),
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// OAuth lib
+jest.mock('@/lib/oauth', () => ({
+  __esModule: true,
+  useGoogleSignIn: () => ({ promptGoogle: jest.fn() }),
+  signInWithApple: jest.fn().mockResolvedValue('apple-id-token'),
+  isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+  OAuthCancelledError: class OAuthCancelledError extends Error {},
+  OAuthNotConfiguredError: class OAuthNotConfiguredError extends Error {},
 }));
 
 // NotificationContext
@@ -159,10 +181,94 @@ jest.mock('@/components/ui/TopNav', () => {
   };
 });
 
-// Button
+// @/lib/api — stub all methods the HomeScreen dashboard calls
+jest.mock('@/lib/api', () => ({
+  __esModule: true,
+  api: {
+    getCurrentUserPlayer: jest.fn().mockResolvedValue(null),
+    getUserLeagues: jest.fn().mockResolvedValue([]),
+    getActiveSession: jest.fn().mockResolvedValue(null),
+    getFriendRequests: jest.fn().mockResolvedValue([]),
+    getCourts: jest.fn().mockResolvedValue([]),
+    getPlayerMatchHistory: jest.fn().mockResolvedValue([]),
+  },
+}));
+
+// useDashboard — stubbed so HomeScreen does not need a QueryClientProvider
+jest.mock('@/hooks/useDashboard', () => {
+  const makeQuery = <T,>(data: T) => ({
+    data,
+    isPending: false,
+    isFetching: false,
+    isSuccess: true,
+    isError: false,
+    error: null,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  return {
+    __esModule: true,
+    dashboardKeys: {
+      player: ['dashboard', 'player'],
+      leagues: ['dashboard', 'leagues'],
+      activeSession: ['dashboard', 'activeSession'],
+      friendRequests: ['dashboard', 'friendRequests'],
+      courts: ['dashboard', 'courts'],
+      matches: ['dashboard', 'matches'],
+    },
+    useDashboard: () => ({
+      player: makeQuery(null),
+      leagues: makeQuery([]),
+      activeSession: makeQuery(null),
+      friendRequests: makeQuery([]),
+      courts: makeQuery([]),
+      matches: makeQuery([]),
+      isInitialLoading: true,
+      isRefreshing: false,
+      refetchAll: jest.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
+
+// Home components — stubbed so HomeScreen can render without deep dep chain
+jest.mock('@/components/home/HomeHeader', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <Text testID="home-header">Beach League</Text>,
+  };
+});
+jest.mock('@/components/home/QuickStatsRow', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: () => <View testID="quick-stats" /> };
+});
+jest.mock('@/components/home/SectionHeader', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ title }: { title?: string }) => <Text>{title}</Text>,
+  };
+});
+jest.mock('@/components/home/ProfileBanner', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/PendingInvitesBanner', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/SessionCard', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/RecentGamesScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/LeaguesScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/TournamentsEmpty', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/CourtsScroll', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/NewUserWelcome', () => ({ __esModule: true, default: () => null }));
+jest.mock('@/components/home/DashboardSkeleton', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: () => <View testID="dashboard-skeleton" /> };
+});
+
+// UI components — full set used by auth screens and tab screens
 jest.mock('@/components/ui', () => {
   const React = require('react');
-  const { Pressable, Text, TextInput } = require('react-native');
+  const { Pressable, Text, TextInput, View } = require('react-native');
   return {
     Button: ({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) => (
       <Pressable testID={`button-${title}`} onPress={onPress} disabled={disabled ?? false}>
@@ -183,8 +289,44 @@ jest.mock('@/components/ui', () => {
         {...rest}
       />
     ),
+    TopNav: ({ title }: { title: string }) => <Text testID="top-nav">{title}</Text>,
+    Divider: () => <View testID="divider" />,
+    Card: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    Badge: ({ children }: { children?: React.ReactNode }) => <Text>{children}</Text>,
+    Chip: ({ children }: { children?: React.ReactNode }) => <Text>{children}</Text>,
+    EmptyState: ({ title }: { title?: string }) => <Text>{title}</Text>,
+    LoadingSkeleton: () => <View testID="loading-skeleton" />,
+    Modal: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    SegmentControl: () => <View />,
+    Avatar: () => <View testID="avatar" />,
+    BottomSheet: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    StatCard: ({ label, value }: { label?: string; value?: string }) => (
+      <View><Text>{label}</Text><Text>{value}</Text></View>
+    ),
+    OtpInput: () => <View testID="otp-input" />,
+    PasswordStrength: () => <View />,
+    PullToRefresh: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    TabView: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    SearchBar: () => <View />,
+    FilterChips: () => <View />,
+    Toast: () => <View />,
+    ListItem: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
+    ProgressBar: () => <View />,
+    FAB: () => <View />,
   };
 });
+
+// useLeaguesScreen — stubbed so LeaguesScreen doesn't require a QueryClientProvider
+jest.mock('@/components/screens/Leagues/useLeaguesScreen', () => ({
+  __esModule: true,
+  useLeaguesScreen: () => ({
+    leagues: [],
+    isLoading: false,
+    isError: false,
+    isRefreshing: false,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  }),
+}));
 
 // Icons — each exported as a simple View with a testID
 jest.mock('@/components/ui/icons', () => {
@@ -204,6 +346,12 @@ jest.mock('@/components/ui/icons', () => {
     UserIcon: makeIcon('UserIcon'),
     AlertTriangleIcon: makeIcon('AlertTriangleIcon'),
     ChevronLeftIcon: makeIcon('ChevronLeftIcon'),
+    ChevronRightIcon: makeIcon('ChevronRightIcon'),
+    SearchIcon: makeIcon('SearchIcon'),
+    SettingsIcon: makeIcon('SettingsIcon'),
+    BellIcon: makeIcon('BellIcon'),
+    CheckIcon: makeIcon('CheckIcon'),
+    XIcon: makeIcon('XIcon'),
   };
 });
 
@@ -216,7 +364,7 @@ jest.mock('react-native-svg', () => {
   const Circle = () => null;
   const Polygon = () => null;
   const G = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
-  return { default: Svg, Svg, Path, Circle, Polygon, G };
+  return { __esModule: true, default: Svg, Svg, Path, Circle, Polygon, G };
 });
 
 // ---------------------------------------------------------------------------
@@ -412,14 +560,15 @@ describe('app/(auth)/login — LoginScreen', () => {
     expect(getByTestId('input-Password')).toBeTruthy();
   });
 
-  it('renders the Sign In button', () => {
-    const { getByTestId } = render(<LoginScreen />);
-    expect(getByTestId('button-Sign In')).toBeTruthy();
+  it('renders the Log In button (not "Sign In")', () => {
+    const { getByTestId, queryByTestId } = render(<LoginScreen />);
+    expect(getByTestId('button-Log In')).toBeTruthy();
+    expect(queryByTestId('button-Sign In')).toBeNull();
   });
 
   it('does not call login when fields are empty', async () => {
     const { getByTestId } = render(<LoginScreen />);
-    fireEvent.press(getByTestId('button-Sign In'));
+    fireEvent.press(getByTestId('button-Log In'));
     await waitFor(() => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
@@ -428,7 +577,7 @@ describe('app/(auth)/login — LoginScreen', () => {
   it('does not call login when only email is provided', async () => {
     const { getByTestId } = render(<LoginScreen />);
     fireEvent.changeText(getByTestId('input-Email'), 'user@example.com');
-    fireEvent.press(getByTestId('button-Sign In'));
+    fireEvent.press(getByTestId('button-Log In'));
     await waitFor(() => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
@@ -439,9 +588,12 @@ describe('app/(auth)/login — LoginScreen', () => {
     const { getByTestId } = render(<LoginScreen />);
     fireEvent.changeText(getByTestId('input-Email'), '  user@example.com  ');
     fireEvent.changeText(getByTestId('input-Password'), 'secret123');
-    fireEvent.press(getByTestId('button-Sign In'));
+    fireEvent.press(getByTestId('button-Log In'));
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('user@example.com', 'secret123');
+      expect(mockLogin).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        password: 'secret123',
+      });
     });
   });
 
@@ -450,8 +602,8 @@ describe('app/(auth)/login — LoginScreen', () => {
     mockLogin.mockRejectedValue(new Error('invalid credentials'));
     const { getByTestId } = render(<LoginScreen />);
     fireEvent.changeText(getByTestId('input-Email'), 'bad@example.com');
-    fireEvent.changeText(getByTestId('input-Password'), 'wrong');
-    fireEvent.press(getByTestId('button-Sign In'));
+    fireEvent.changeText(getByTestId('input-Password'), 'wrongpass1');
+    fireEvent.press(getByTestId('button-Log In'));
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
         'Login Failed',
@@ -479,11 +631,12 @@ describe('app/(auth)/signup — SignupScreen', () => {
     SignupScreen = require('../../app/(auth)/signup').default;
   });
 
-  it('renders all four input fields', () => {
-    const { getByTestId } = render(<SignupScreen />);
+  it('renders all input fields (email-first, no phone)', () => {
+    const { getByTestId, queryByTestId } = render(<SignupScreen />);
     expect(getByTestId('input-First Name')).toBeTruthy();
     expect(getByTestId('input-Last Name')).toBeTruthy();
     expect(getByTestId('input-Email')).toBeTruthy();
+    expect(queryByTestId('input-Phone Number')).toBeNull();
     expect(getByTestId('input-Password')).toBeTruthy();
   });
 
@@ -500,11 +653,11 @@ describe('app/(auth)/signup — SignupScreen', () => {
     });
   });
 
-  it('does not call signup when some fields are missing', async () => {
+  it('does not call signup when some required fields are missing', async () => {
     const { getByTestId } = render(<SignupScreen />);
     fireEvent.changeText(getByTestId('input-First Name'), 'Alice');
-    fireEvent.changeText(getByTestId('input-Email'), 'alice@example.com');
-    // Last Name and Password still empty
+    fireEvent.changeText(getByTestId('input-Last Name'), 'Smith');
+    // Email and Password still empty (required)
     fireEvent.press(getByTestId('button-Create Account'));
     await waitFor(() => {
       expect(mockSignup).not.toHaveBeenCalled();
@@ -520,12 +673,12 @@ describe('app/(auth)/signup — SignupScreen', () => {
     fireEvent.changeText(getByTestId('input-Password'), 'pass1234');
     fireEvent.press(getByTestId('button-Create Account'));
     await waitFor(() => {
-      expect(mockSignup).toHaveBeenCalledWith(
-        'alice@example.com',
-        'pass1234',
-        'Alice',
-        'Smith',
-      );
+      expect(mockSignup).toHaveBeenCalledWith({
+        firstName: 'Alice',
+        lastName: 'Smith',
+        email: 'alice@example.com',
+        password: 'pass1234',
+      });
     });
   });
 
@@ -536,7 +689,7 @@ describe('app/(auth)/signup — SignupScreen', () => {
     fireEvent.changeText(getByTestId('input-First Name'), 'Bob');
     fireEvent.changeText(getByTestId('input-Last Name'), 'Jones');
     fireEvent.changeText(getByTestId('input-Email'), 'bob@example.com');
-    fireEvent.changeText(getByTestId('input-Password'), 'pass');
+    fireEvent.changeText(getByTestId('input-Password'), 'password123');
     fireEvent.press(getByTestId('button-Create Account'));
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
@@ -550,6 +703,58 @@ describe('app/(auth)/signup — SignupScreen', () => {
   it('renders the sign in link', () => {
     render(<SignupScreen />);
     expect(screen.getByText('Already have an account?')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tab screens — home, leagues, add-games, social, profile
+// Placed BEFORE the TabLayout describe so jest.resetModules() does not create
+// a React instance mismatch (renderer imported at top of file vs. the reset
+// instance used by the requested screen module).
+// ---------------------------------------------------------------------------
+
+describe('Tab screens', () => {
+  it('HomeScreen renders the HomeHeader', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const HomeScreen = require('../../app/(tabs)/home').default;
+    const { getByTestId } = render(<HomeScreen />);
+    expect(getByTestId('home-header')).toBeTruthy();
+  });
+
+  it('HomeScreen renders the loading skeleton on first paint', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const HomeScreen = require('../../app/(tabs)/home').default;
+    const { getByTestId } = render(<HomeScreen />);
+    expect(getByTestId('dashboard-skeleton')).toBeTruthy();
+  });
+
+  it('LeaguesScreen renders title text', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const LeaguesScreen = require('../../app/(tabs)/leagues').default;
+    const { getAllByText } = render(<LeaguesScreen />);
+    // TopNav mock also renders the title, so expect at least one match
+    expect(getAllByText('Leagues').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('AddGamesScreen renders title text', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const AddGamesScreen = require('../../app/(tabs)/add-games').default;
+    const { getAllByText } = render(<AddGamesScreen />);
+    expect(getAllByText('Add Games').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('SocialScreen renders title text', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const SocialScreen = require('../../app/(tabs)/social').default;
+    const { getAllByText } = render(<SocialScreen />);
+    expect(getAllByText('Social').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ProfileScreen renders title text', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ProfileScreen = require('../../app/(tabs)/profile').default;
+    const { getAllByText } = render(<ProfileScreen />);
+    expect(getAllByText('Profile').length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -681,10 +886,6 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
     });
   });
 
-  afterEach(() => {
-    jest.resetModules();
-  });
-
   function getTabIconRenderer(
     name: string,
   ): ((params: { focused: boolean }) => React.ReactNode) | null {
@@ -807,51 +1008,3 @@ describe('app/(tabs)/_layout — TabLayout + TabIcon', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Tab screens — home, leagues, add-games, social, profile
-// ---------------------------------------------------------------------------
-
-describe('Tab screens', () => {
-  it('HomeScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const HomeScreen = require('../../app/(tabs)/home').default;
-    const { getByText } = render(<HomeScreen />);
-    expect(getByText('Home')).toBeTruthy();
-  });
-
-  it('HomeScreen renders TopNav with Beach League title', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const HomeScreen = require('../../app/(tabs)/home').default;
-    const { getByTestId } = render(<HomeScreen />);
-    expect(getByTestId('top-nav')).toBeTruthy();
-  });
-
-  it('LeaguesScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const LeaguesScreen = require('../../app/(tabs)/leagues').default;
-    const { getAllByText } = render(<LeaguesScreen />);
-    // TopNav mock also renders the title, so expect at least one match
-    expect(getAllByText('Leagues').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('AddGamesScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const AddGamesScreen = require('../../app/(tabs)/add-games').default;
-    const { getAllByText } = render(<AddGamesScreen />);
-    expect(getAllByText('Add Games').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('SocialScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const SocialScreen = require('../../app/(tabs)/social').default;
-    const { getAllByText } = render(<SocialScreen />);
-    expect(getAllByText('Social').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('ProfileScreen renders title text', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ProfileScreen = require('../../app/(tabs)/profile').default;
-    const { getAllByText } = render(<ProfileScreen />);
-    expect(getAllByText('Profile').length).toBeGreaterThanOrEqual(1);
-  });
-});

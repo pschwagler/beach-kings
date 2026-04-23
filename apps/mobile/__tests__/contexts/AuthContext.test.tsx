@@ -26,12 +26,14 @@ jest.mock('@/lib/api', () => ({
     getStoredTokens: jest.fn(),
     setAuthTokens: jest.fn(),
     clearAuthTokens: jest.fn(),
-    client: {
-      axiosInstance: {
-        get: jest.fn(),
-        post: jest.fn(),
-      },
-    },
+    getMe: jest.fn(),
+    getCurrentUserPlayer: jest.fn(),
+    login: jest.fn(),
+    signup: jest.fn(),
+    googleAuth: jest.fn(),
+    appleAuth: jest.fn(),
+    verifyPhone: jest.fn(),
+    logout: jest.fn(),
   },
 }));
 
@@ -56,15 +58,27 @@ const mockClearAuthTokens = api.clearAuthTokens as jest.MockedFunction<
   typeof api.clearAuthTokens
 >;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockGet = api.client.axiosInstance.get as jest.MockedFunction<any>;
+const mockGetMe = api.getMe as jest.MockedFunction<any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockPost = api.client.axiosInstance.post as jest.MockedFunction<any>;
+const mockGetCurrentUserPlayer = api.getCurrentUserPlayer as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockLogin = api.login as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockSignup = api.signup as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGoogleAuth = api.googleAuth as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockAppleAuth = api.appleAuth as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockVerifyPhone = api.verifyPhone as jest.MockedFunction<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockLogout = api.logout as jest.MockedFunction<any>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-/** Matches the UserResponse from /api/auth/me */
+/** Matches the UserResponse from api.getMe() */
 const mockMeResponse = {
   id: 1,
   phone_number: '+12125551234',
@@ -74,19 +88,24 @@ const mockMeResponse = {
   created_at: '2025-01-01T00:00:00Z',
 };
 
-/** Matches a Player with complete profile (gender + level set) */
+/** A Player with all fields required by isProfileComplete (gender, level, city, state, location_id). */
 const mockPlayerComplete = {
   id: 42,
   gender: 'male',
-  level: 'intermediate',
+  level: 'b',
   city: 'San Diego',
+  state: 'CA',
+  location_id: 'socal_sd',
 };
 
-/** Matches a Player with incomplete profile */
+/** A Player missing required profile fields. */
 const mockPlayerIncomplete = {
   id: 42,
   gender: null,
   level: null,
+  city: null,
+  state: null,
+  location_id: null,
 };
 
 /** Matches the AuthResponse from login/signup/OAuth endpoints */
@@ -120,18 +139,6 @@ function wrapper({
   children: React.ReactNode;
 }): React.ReactElement {
   return <AuthProvider>{children}</AuthProvider>;
-}
-
-/** Set up mockGet to respond differently per URL path. */
-function mockGetResponses(responses: Record<string, unknown>) {
-  mockGet.mockImplementation((url: string) => {
-    for (const [path, data] of Object.entries(responses)) {
-      if (url.includes(path)) {
-        return Promise.resolve({ data });
-      }
-    }
-    return Promise.reject(new Error(`Unexpected GET ${url}`));
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -189,10 +196,8 @@ describe('AuthProvider — session restore', () => {
       accessToken: 'valid-token',
       refreshToken: 'refresh',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerComplete,
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -212,15 +217,13 @@ describe('AuthProvider — session restore', () => {
     expect(parsed.user.phone_number).toBe('+12125551234');
   });
 
-  it('sets profileComplete false when player has no gender/level', async () => {
+  it('sets profileComplete false when player is missing required fields', async () => {
     mockGetStoredTokens.mockResolvedValue({
       accessToken: 'valid-token',
       refreshToken: 'refresh',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerIncomplete,
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -243,11 +246,8 @@ describe('AuthProvider — session restore', () => {
       accessToken: 'valid-token',
       refreshToken: 'refresh',
     });
-    mockGet.mockImplementation((url: string) => {
-      if (url.includes('/api/auth/me'))
-        return Promise.resolve({ data: mockMeResponse });
-      return Promise.reject(new Error('404'));
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockRejectedValue(new Error('404'));
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -265,12 +265,12 @@ describe('AuthProvider — session restore', () => {
     expect(parsed.profileComplete).toBe(false);
   });
 
-  it('clears tokens when /api/auth/me throws', async () => {
+  it('clears tokens when api.getMe throws', async () => {
     mockGetStoredTokens.mockResolvedValue({
       accessToken: 'expired',
       refreshToken: null,
     });
-    mockGet.mockRejectedValue(new Error('401 Unauthorized'));
+    mockGetMe.mockRejectedValue(new Error('401 Unauthorized'));
 
     const { getByTestId } = render(
       <AuthProvider>
@@ -291,7 +291,7 @@ describe('AuthProvider — session restore', () => {
 
 describe('AuthProvider — login', () => {
   it('logs in with email and stores tokens', async () => {
-    mockPost.mockResolvedValue({ data: mockAuthResponse });
+    mockLogin.mockResolvedValue(mockAuthResponse);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -303,7 +303,7 @@ describe('AuthProvider — login', () => {
       });
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/login', {
+    expect(mockLogin).toHaveBeenCalledWith({
       email: 'test@example.com',
       password: 'password123',
     });
@@ -314,7 +314,7 @@ describe('AuthProvider — login', () => {
   });
 
   it('logs in with phone number', async () => {
-    mockPost.mockResolvedValue({ data: mockAuthResponse });
+    mockLogin.mockResolvedValue(mockAuthResponse);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -326,14 +326,14 @@ describe('AuthProvider — login', () => {
       });
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/login', {
+    expect(mockLogin).toHaveBeenCalledWith({
       phone_number: '2125551234',
       password: 'password123',
     });
   });
 
   it('propagates error when login fails', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    mockLogin.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -352,9 +352,10 @@ describe('AuthProvider — login', () => {
 });
 
 describe('AuthProvider — signup', () => {
-  it('signs up with phone_number and stores tokens', async () => {
-    mockPost.mockResolvedValue({
-      data: { ...mockAuthResponse, profile_complete: false },
+  it('signs up with email and does not authenticate until verification', async () => {
+    mockSignup.mockResolvedValue({
+      status: 'pending_verification',
+      message: 'Check your email for a verification code',
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -362,28 +363,28 @@ describe('AuthProvider — signup', () => {
 
     await act(async () => {
       await result.current.signup({
-        phoneNumber: '2125551234',
+        email: 'new@example.com',
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
       });
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/signup', {
-      phone_number: '2125551234',
+    expect(mockSignup).toHaveBeenCalledWith({
+      email: 'new@example.com',
+      phone_number: undefined,
       password: 'password123',
       first_name: 'New',
       last_name: 'User',
-      email: undefined,
     });
-    expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.profileComplete).toBe(false);
+    expect(mockSetAuthTokens).not.toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
   });
 
-  it('includes optional email in signup', async () => {
-    mockPost.mockResolvedValue({
-      data: { ...mockAuthResponse, profile_complete: false },
+  it('passes optional phoneNumber through to api.signup', async () => {
+    mockSignup.mockResolvedValue({
+      status: 'pending_verification',
+      message: 'Check your email for a verification code',
     });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -391,25 +392,25 @@ describe('AuthProvider — signup', () => {
 
     await act(async () => {
       await result.current.signup({
+        email: 'new@example.com',
         phoneNumber: '2125551234',
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
-        email: 'new@example.com',
       });
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/signup', {
+    expect(mockSignup).toHaveBeenCalledWith({
+      email: 'new@example.com',
       phone_number: '2125551234',
       password: 'password123',
       first_name: 'New',
       last_name: 'User',
-      email: 'new@example.com',
     });
   });
 
   it('propagates error when signup fails', async () => {
-    mockPost.mockRejectedValue(new Error('Phone taken'));
+    mockSignup.mockRejectedValue(new Error('Email taken'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -417,19 +418,19 @@ describe('AuthProvider — signup', () => {
     await expect(
       act(async () => {
         await result.current.signup({
-          phoneNumber: '2125551234',
+          email: 'taken@example.com',
           password: 'pass1234',
           firstName: 'A',
           lastName: 'B',
         });
       }),
-    ).rejects.toThrow('Phone taken');
+    ).rejects.toThrow('Email taken');
   });
 });
 
 describe('AuthProvider — OAuth', () => {
   it('logs in with Google and stores tokens', async () => {
-    mockPost.mockResolvedValue({ data: mockAuthResponse });
+    mockGoogleAuth.mockResolvedValue(mockAuthResponse);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -438,15 +439,13 @@ describe('AuthProvider — OAuth', () => {
       await result.current.loginWithGoogle('google-id-token');
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/google', {
-      id_token: 'google-id-token',
-    });
+    expect(mockGoogleAuth).toHaveBeenCalledWith('google-id-token');
     expect(mockSetAuthTokens).toHaveBeenCalledWith('acc', 'ref');
     expect(result.current.isAuthenticated).toBe(true);
   });
 
   it('logs in with Apple and stores tokens', async () => {
-    mockPost.mockResolvedValue({ data: mockAuthResponse });
+    mockAppleAuth.mockResolvedValue(mockAuthResponse);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -455,16 +454,14 @@ describe('AuthProvider — OAuth', () => {
       await result.current.loginWithApple('apple-id-token');
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/apple', {
-      id_token: 'apple-id-token',
-    });
+    expect(mockAppleAuth).toHaveBeenCalledWith('apple-id-token');
     expect(result.current.isAuthenticated).toBe(true);
   });
 });
 
 describe('AuthProvider — verifyPhone', () => {
   it('verifies phone and updates auth state', async () => {
-    mockPost.mockResolvedValue({ data: mockAuthResponse });
+    mockVerifyPhone.mockResolvedValue(mockAuthResponse);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -473,10 +470,7 @@ describe('AuthProvider — verifyPhone', () => {
       await result.current.verifyPhone('+12125551234', '123456');
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/verify-phone', {
-      phone_number: '+12125551234',
-      code: '123456',
-    });
+    expect(mockVerifyPhone).toHaveBeenCalledWith('+12125551234', '123456');
     expect(result.current.isAuthenticated).toBe(true);
   });
 });
@@ -487,11 +481,9 @@ describe('AuthProvider — logout', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerComplete,
-    });
-    mockPost.mockResolvedValue({ data: {} });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockLogout.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
@@ -500,7 +492,7 @@ describe('AuthProvider — logout', () => {
       await result.current.logout();
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/auth/logout');
+    expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
@@ -511,12 +503,9 @@ describe('AuthProvider — logout', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerComplete,
-    });
-    // First call to post (logout) rejects, any other resolves
-    mockPost.mockRejectedValue(new Error('Network error'));
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+    mockLogout.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
@@ -527,6 +516,54 @@ describe('AuthProvider — logout', () => {
 
     expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
     expect(result.current.isAuthenticated).toBe(false);
+  });
+});
+
+describe('AuthProvider — refreshUser', () => {
+  it('re-fetches /me and updates the user in state', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetMe.mockResolvedValueOnce(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    const updated = {
+      ...mockMeResponse,
+      phone_number: '+19998887777',
+      is_verified: true,
+    };
+    mockGetMe.mockResolvedValueOnce(updated);
+
+    await act(async () => {
+      await result.current.refreshUser();
+    });
+
+    expect(mockGetMe).toHaveBeenCalledTimes(2);
+    expect(result.current.user?.phone_number).toBe('+19998887777');
+  });
+
+  it('propagates error when api.getMe throws', async () => {
+    mockGetStoredTokens.mockResolvedValue({
+      accessToken: 'valid',
+      refreshToken: 'ref',
+    });
+    mockGetMe.mockResolvedValueOnce(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+
+    mockGetMe.mockRejectedValueOnce(new Error('Network error'));
+
+    await expect(
+      act(async () => {
+        await result.current.refreshUser();
+      }),
+    ).rejects.toThrow('Network error');
   });
 });
 
@@ -565,10 +602,8 @@ describe('AuthProvider — route guard', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerIncomplete,
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
     mockSegments.push('(tabs)');
 
     render(
@@ -587,10 +622,8 @@ describe('AuthProvider — route guard', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerComplete,
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
     mockSegments.push('(auth)');
 
     render(
@@ -626,10 +659,8 @@ describe('AuthProvider — route guard', () => {
       accessToken: 'valid',
       refreshToken: 'ref',
     });
-    mockGetResponses({
-      '/api/auth/me': mockMeResponse,
-      '/api/users/me/player': mockPlayerIncomplete,
-    });
+    mockGetMe.mockResolvedValue(mockMeResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
     mockSegments.push('(auth)', 'onboarding');
 
     const { getByTestId } = render(

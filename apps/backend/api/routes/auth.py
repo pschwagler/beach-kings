@@ -24,6 +24,7 @@ from backend.services import (
     rate_limiting_service,
     avatar_service,
     s3_service,
+    email_service,
 )
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
@@ -31,7 +32,10 @@ from backend.models.schemas import (
     LoginRequest,
     SMSLoginRequest,
     VerifyPhoneRequest,
+    EmailVerifyRequest,
     CheckPhoneRequest,
+    PhoneAddRequest,
+    PhoneAddVerify,
     AuthResponse,
     CheckPhoneResponse,
     UserResponse,
@@ -40,6 +44,8 @@ from backend.models.schemas import (
     ResetPasswordRequest,
     ResetPasswordVerifyRequest,
     ResetPasswordConfirmRequest,
+    ResetPasswordEmailRequest,
+    ResetPasswordEmailVerifyRequest,
     GoogleAuthRequest,
     AppleAuthRequest,
 )
@@ -96,13 +102,13 @@ async def _check_profile_complete(session: AsyncSession, user_id: int) -> bool:
 @router.post("/api/auth/signup", response_model=Dict[str, Any])
 async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_session)):
     """
-    Start signup process by storing signup data and sending verification code.
-    Account is only created after phone verification.
+    Start signup process by storing signup data and sending a verification code.
+    Account is only created after verification.
+
+    Accepts either phone_number (SMS flow, web) or email (email flow, mobile).
+    The request schema enforces that at least one is provided.
     """
     try:
-        phone_number = auth_service.normalize_phone_number(request.phone_number)
-        if await user_service.check_phone_exists(session, phone_number):
-            raise HTTPException(status_code=400, detail="Phone number is already registered")
         if len(request.password) < 8:
             raise HTTPException(
                 status_code=400, detail="Password must be at least 8 characters long"
@@ -114,12 +120,46 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
         # Name validation is handled by SignupRequest's model_validator
         # which ensures first_name + last_name (or full_name) are resolved.
 
+        password_hash = auth_service.hash_password(request.password)
+        code = auth_service.generate_verification_code()
+
+        # Email-only signup path (mobile)
+        if request.email and not request.phone_number:
+            email = auth_service.normalize_email(request.email)
+            if await user_service.check_email_exists(session, email):
+                raise HTTPException(status_code=400, detail="Email is already registered")
+
+            success = await user_service.create_verification_code(
+                session=session,
+                phone_number=None,
+                code=code,
+                password_hash=password_hash,
+                name=request.full_name,
+                email=email,
+            )
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to create verification code")
+
+            sent = await email_service.send_verification_code_email(email, code, session=session)
+            if not sent:
+                raise HTTPException(
+                    status_code=500, detail="Failed to send verification email."
+                )
+
+            return {
+                "status": "success",
+                "message": "Verification code sent. Please verify your email to complete signup.",
+                "email": email,
+            }
+
+        # Phone signup path (web)
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        if await user_service.check_phone_exists(session, phone_number):
+            raise HTTPException(status_code=400, detail="Phone number is already registered")
+
         email = None
         if request.email:
             email = auth_service.normalize_email(request.email)
-
-        password_hash = auth_service.hash_password(request.password)
-        code = auth_service.generate_verification_code()
 
         success = await user_service.create_verification_code(
             session=session,
@@ -536,6 +576,187 @@ async def verify_phone(
         raise HTTPException(status_code=500, detail="Error verifying phone. Please try again.")
 
 
+def _mask_phone_for_log(phone_number: str) -> str:
+    """Mask all but the last 4 digits of a phone number for safe logging."""
+    if not phone_number:
+        return ""
+    if len(phone_number) <= 4:
+        return "*" * len(phone_number)
+    return "*" * (len(phone_number) - 4) + phone_number[-4:]
+
+
+@router.post("/api/auth/phone/add/request", response_model=Dict[str, Any])
+@limiter.limit("10/minute")
+async def add_phone_request(
+    request: Request,
+    payload: PhoneAddRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Start the one-time add-phone OTP flow for the authenticated user.
+
+    The user must not already have a phone number on file; phone changes are
+    handled via support email, not self-service.
+    """
+    if current_user.get("phone_number"):
+        raise HTTPException(
+            status_code=400,
+            detail="Phone already set. Contact support to change.",
+        )
+
+    try:
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if await user_service.check_phone_exists(session, phone_number):
+        raise HTTPException(status_code=409, detail="Phone already in use.")
+
+    code = auth_service.generate_verification_code()
+    created = await user_service.create_verification_code(
+        session=session, phone_number=phone_number, code=code
+    )
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create verification code")
+
+    sms_sent = await auth_service.send_sms_verification(session, phone_number, code)
+    if not sms_sent:
+        raise HTTPException(status_code=502, detail="Unable to send SMS. Try again shortly.")
+
+    logger.info(
+        "phone_add_request user=%s phone=%s",
+        current_user["id"],
+        _mask_phone_for_log(phone_number),
+    )
+    return {"status": "success"}
+
+
+@router.post("/api/auth/phone/add/verify", response_model=UserResponse)
+@limiter.limit("10/minute")
+async def add_phone_verify(
+    request: Request,
+    payload: PhoneAddVerify,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Complete the add-phone OTP flow and attach the phone to the current user.
+    """
+    if current_user.get("phone_number"):
+        raise HTTPException(
+            status_code=400,
+            detail="Phone already set. Contact support to change.",
+        )
+
+    try:
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    signup_data = await user_service.verify_and_mark_code_used(
+        session, phone_number, payload.code
+    )
+    if signup_data is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    # Race re-check: another account may have claimed this phone between request
+    # and verify.
+    if await user_service.check_phone_exists(session, phone_number):
+        raise HTTPException(status_code=409, detail="Phone already in use.")
+
+    attached = await user_service.add_phone_number(session, current_user["id"], phone_number)
+    if not attached:
+        raise HTTPException(status_code=500, detail="Failed to attach phone number.")
+
+    logger.info(
+        "phone_add_verify user=%s phone=%s",
+        current_user["id"],
+        _mask_phone_for_log(phone_number),
+    )
+
+    updated_user = await user_service.get_user_by_id(session, current_user["id"])
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to load updated user.")
+
+    return UserResponse(
+        id=updated_user["id"],
+        phone_number=updated_user.get("phone_number"),
+        email=updated_user.get("email"),
+        is_verified=updated_user["is_verified"],
+        auth_provider=updated_user.get("auth_provider", "phone"),
+        deletion_scheduled_at=updated_user.get("deletion_scheduled_at"),
+        created_at=updated_user["created_at"],
+    )
+
+
+@router.post("/api/auth/verify-email", response_model=AuthResponse)
+@limiter.limit("10/minute")
+async def verify_email(
+    request: Request,
+    payload: EmailVerifyRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Verify email with code (for email-based signup)."""
+    try:
+        email = auth_service.normalize_email(payload.email)
+
+        signup_data = await user_service.verify_and_mark_email_code_used(
+            session, email, payload.code
+        )
+        if not signup_data:
+            raise INVALID_VERIFICATION_CODE_RESPONSE
+
+        is_signup = signup_data.get("password_hash") is not None
+        if not is_signup:
+            # Email-verify is only used for signup today; reset uses a separate route.
+            raise INVALID_VERIFICATION_CODE_RESPONSE
+
+        try:
+            user_id = await user_service.create_user(
+                session=session,
+                phone_number=None,
+                password_hash=signup_data["password_hash"],
+                email=email,
+            )
+
+            full_name = signup_data.get("name")
+            if full_name:
+                player = await data_service.upsert_user_player(
+                    session=session, user_id=user_id, full_name=full_name
+                )
+                if not player:
+                    logger.error(f"Failed to create player profile for user {user_id}")
+
+            user = await user_service.get_user_by_id(session, user_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        await user_service.reset_failed_attempts(session, user["id"])
+        await _maybe_cancel_deletion(session, user)
+
+        access_token, refresh_token = await _issue_tokens(session, user)
+        profile_complete = await _check_profile_complete(session, user["id"])
+
+        return AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user.get("phone_number"),
+            is_verified=user["is_verified"],
+            auth_provider=user.get("auth_provider", "email"),
+            profile_complete=profile_complete,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error verifying email")
+        raise HTTPException(status_code=500, detail="Error verifying email. Please try again.")
+
+
 @router.post("/api/auth/reset-password", response_model=Dict[str, Any])
 async def reset_password(
     request: Request,
@@ -628,6 +849,106 @@ async def reset_password_verify(
         raise
     except Exception:
         logger.exception("Error verifying reset code")
+        raise HTTPException(
+            status_code=500, detail="Error verifying reset code. Please try again."
+        )
+
+
+@router.post("/api/auth/reset-password-email", response_model=Dict[str, Any])
+async def reset_password_email(
+    request: Request,
+    payload: ResetPasswordEmailRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Initiate password reset by sending a verification code to the user's email."""
+    try:
+        email = auth_service.normalize_email(payload.email)
+        await rate_limiting_service.check_phone_rate_limit(request, email)
+
+        user = await user_service.get_user_by_email(session, email)
+        if not user:
+            # Do not leak whether the email is registered.
+            return {
+                "status": "success",
+                "message": "If an account exists with this email, a verification code has been sent.",
+            }
+
+        code = auth_service.generate_verification_code()
+        success = await user_service.create_verification_code(
+            session=session,
+            phone_number=None,
+            code=code,
+            email=email,
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to create verification code")
+
+        sent = await email_service.send_password_reset_code_email(email, code, session=session)
+        if not sent:
+            raise HTTPException(
+                status_code=500, detail="Failed to send reset email. Please try again."
+            )
+
+        return {
+            "status": "success",
+            "message": "If an account exists with this email, a verification code has been sent.",
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error initiating email password reset")
+        raise HTTPException(
+            status_code=500, detail="Error initiating password reset. Please try again."
+        )
+
+
+@router.post("/api/auth/reset-password-email-verify", response_model=Dict[str, Any])
+async def reset_password_email_verify(
+    request: Request,
+    payload: ResetPasswordEmailVerifyRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Verify an email reset code and return a short-lived reset token."""
+    try:
+        email = auth_service.normalize_email(payload.email)
+        await rate_limiting_service.check_phone_rate_limit(request, email)
+
+        user = await user_service.get_user_by_email(session, email)
+        if not user:
+            raise INVALID_CREDENTIALS_RESPONSE
+
+        if user_service.is_account_locked(user):
+            raise HTTPException(
+                status_code=423,
+                detail="Account is temporarily locked due to too many failed attempts. Please try again later.",
+            )
+
+        code_result = await user_service.verify_and_mark_email_code_used(
+            session, email, payload.code
+        )
+        if not code_result:
+            raise INVALID_VERIFICATION_CODE_RESPONSE
+
+        await user_service.reset_failed_attempts(session, user["id"])
+
+        reset_token = auth_service.generate_refresh_token()
+        expires_at = utcnow() + timedelta(hours=1)
+
+        success = await user_service.create_password_reset_token(
+            session, user["id"], reset_token, expires_at
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to create reset token")
+
+        return {
+            "status": "success",
+            "reset_token": reset_token,
+            "message": "Verification code verified. You can now set your new password.",
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error verifying email reset code")
         raise HTTPException(
             status_code=500, detail="Error verifying reset code. Please try again."
         )

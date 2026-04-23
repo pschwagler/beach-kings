@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
+import type { DimensionValue } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 interface LoadingSkeletonProps {
-  readonly width?: number | string;
+  readonly width?: DimensionValue;
   readonly height?: number;
   readonly borderRadius?: number;
   readonly className?: string;
