@@ -12,10 +12,12 @@
  * Wireframe ref: my-games.html
  */
 
-import React from 'react';
-import { View, Text, SectionList, RefreshControl } from 'react-native';
+import React, { useCallback } from 'react';
+import { FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useRouter } from 'expo-router';
+import { routes } from '@/lib/navigation';
 import TopNav from '@/components/ui/TopNav';
 import { useMyGamesScreen } from './useMyGamesScreen';
 import GameRow from './GameRow';
@@ -23,64 +25,14 @@ import GamesSkeleton from './GamesSkeleton';
 import GamesEmptyState from './GamesEmptyState';
 import GamesErrorState from './GamesErrorState';
 import GamesFilterBar from './GamesFilterBar';
-import type { GameHistoryEntry } from '@/lib/mockApi';
-
-// ---------------------------------------------------------------------------
-// Date grouping helper
-// ---------------------------------------------------------------------------
-
-interface DateSection {
-  readonly title: string;
-  readonly data: readonly GameHistoryEntry[];
-}
-
-/** Groups a flat game list by date, preserving order within each group. */
-function groupGamesByDate(games: readonly GameHistoryEntry[]): DateSection[] {
-  const map = new Map<string, GameHistoryEntry[]>();
-
-  for (const game of games) {
-    const existing = map.get(game.date);
-    if (existing != null) {
-      existing.push(game);
-    } else {
-      map.set(game.date, [game]);
-    }
-  }
-
-  return Array.from(map.entries()).map(([date, data]) => ({
-    title: formatDateLabel(date),
-    data,
-  }));
-}
-
-/** "2026-03-19" → "March 19, 2026" */
-function formatDateLabel(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Section header
-// ---------------------------------------------------------------------------
-
-function SectionHeader({ title }: { title: string }): React.ReactNode {
-  return (
-    <Text className="text-[15px] font-bold text-text-default dark:text-content-primary pt-[14px] pb-[8px] bg-bg-page dark:bg-base">
-      {title}
-    </Text>
-  );
-}
+import type { GameHistoryEntry } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
 export default function MyGamesScreen(): React.ReactNode {
+  const router = useRouter();
   const {
     games,
     isLoading,
@@ -92,6 +44,13 @@ export default function MyGamesScreen(): React.ReactNode {
     onRefresh,
     onRetry,
   } = useMyGamesScreen();
+
+  const handleGamePress = useCallback(
+    (game: GameHistoryEntry) => {
+      router.push(routes.session(game.session_id));
+    },
+    [router],
+  );
 
   // --- Loading skeleton ---
   if (isLoading && !isRefreshing) {
@@ -121,8 +80,6 @@ export default function MyGamesScreen(): React.ReactNode {
     );
   }
 
-  const sections = groupGamesByDate(games);
-
   return (
     <SafeAreaView
       className="flex-1 bg-bg-page dark:bg-base"
@@ -139,19 +96,17 @@ export default function MyGamesScreen(): React.ReactNode {
         activeLeagueName={null}
       />
 
-      {games.length === 0 ? (
+      {games.length === 0 && !isLoading ? (
         <GamesEmptyState />
       ) : (
-        <SectionList<GameHistoryEntry, DateSection>
+        <FlatList<GameHistoryEntry>
           testID="games-list"
-          sections={sections}
+          data={games}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <GameRow game={item} />}
-          renderSectionHeader={({ section }) => (
-            <SectionHeader title={section.title} />
+          renderItem={({ item }) => (
+            <GameRow game={item} onPress={handleGamePress} />
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-          stickySectionHeadersEnabled={false}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
           }

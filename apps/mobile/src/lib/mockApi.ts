@@ -246,7 +246,7 @@ export interface LeaguePlayerStats {
     readonly losses: number;
     readonly win_rate: number;
   }[];
-  readonly game_history: readonly GameHistoryEntry[];
+  readonly game_history: readonly import('@beach-kings/shared').GameHistoryEntry[];
   readonly is_self: boolean;
 }
 
@@ -319,37 +319,8 @@ export interface SessionSummary {
   readonly court_name: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Games & Stats mock shapes
-// NOTE: These types represent the shape returned by future backend endpoints.
-// ---------------------------------------------------------------------------
-
-/** A single game entry in the "My Games" history list. */
-export interface GameHistoryEntry {
-  readonly id: number;
-  readonly session_id: number | null;
-  readonly league_id: number | null;
-  readonly league_name: string | null;
-  /** ISO date string, e.g. "2026-03-19" */
-  readonly date: string;
-  /** Time string for display, e.g. "3:45 PM" */
-  readonly time_label: string;
-  /** "win" | "loss" */
-  readonly result: 'win' | 'loss';
-  readonly team1_score: number;
-  readonly team2_score: number;
-  readonly team1_player1_name: string;
-  readonly team1_player2_name: string;
-  readonly team2_player1_name: string;
-  readonly team2_player2_name: string;
-  /** Whether the current user is on team1 (true) or team2 (false). */
-  readonly user_on_team1: boolean;
-  /** ELO rating delta for this game; null if pending/unranked. */
-  readonly rating_change: number | null;
-  /** true when a placeholder player hasn't yet claimed their account */
-  readonly has_pending_player: boolean;
-  readonly is_ranked: boolean;
-}
+// GameHistoryEntry type removed — import from '@beach-kings/shared' instead:
+//   import type { GameHistoryEntry } from '@beach-kings/shared';
 
 // MyStatsPayload, PlayerStats, PartnerOpponentRow, LeagueTrophy types removed.
 // Import these from '@beach-kings/shared' instead:
@@ -588,7 +559,7 @@ const MOCK_LEAGUE_PLAYER_STATS = (leagueId: number, playerId: number): LeaguePla
     { player_id: 14, display_name: 'J. Drabos', initials: 'JD', games_played: 6, wins: 5, losses: 1, win_rate: 83 },
     { player_id: 15, display_name: 'M. Salizar', initials: 'MS', games_played: 4, wins: 3, losses: 1, win_rate: 75 },
   ],
-  game_history: MOCK_GAMES.slice(0, 3),
+  game_history: [],
   is_self: playerId === 1,
 });
 
@@ -1041,108 +1012,7 @@ const DEFAULT_PUSH_PREFS: PushNotificationPrefs = {
   tournament_updates: false,
 };
 
-// ---------------------------------------------------------------------------
-// Mock data — Games & Stats
-// ---------------------------------------------------------------------------
-
-const MOCK_GAMES: GameHistoryEntry[] = [
-  {
-    id: 101,
-    session_id: 42,
-    league_id: 1,
-    league_name: 'QBK Open Men',
-    date: '2026-03-19',
-    time_label: '3:45 PM',
-    result: 'win',
-    team1_score: 21,
-    team2_score: 18,
-    team1_player1_name: 'You',
-    team1_player2_name: 'K. Fawwar',
-    team2_player1_name: 'A. Marthey',
-    team2_player2_name: 'J. Zwyczca',
-    user_on_team1: true,
-    rating_change: 4.2,
-    has_pending_player: false,
-    is_ranked: true,
-  },
-  {
-    id: 102,
-    session_id: 42,
-    league_id: 1,
-    league_name: 'QBK Open Men',
-    date: '2026-03-19',
-    time_label: '3:10 PM',
-    result: 'loss',
-    team1_score: 17,
-    team2_score: 21,
-    team1_player1_name: 'You',
-    team1_player2_name: 'S. Jindash',
-    team2_player1_name: 'J. Drabos',
-    team2_player2_name: 'M. Salizar',
-    user_on_team1: true,
-    rating_change: -3.1,
-    has_pending_player: false,
-    is_ranked: true,
-  },
-  {
-    id: 103,
-    session_id: 42,
-    league_id: 1,
-    league_name: 'QBK Open Men',
-    date: '2026-03-19',
-    time_label: '2:30 PM',
-    result: 'win',
-    team1_score: 21,
-    team2_score: 15,
-    team1_player1_name: 'You',
-    team1_player2_name: 'K. Fawwar',
-    team2_player1_name: 'S. Jindash',
-    team2_player2_name: 'R. Torres',
-    user_on_team1: true,
-    rating_change: null,
-    has_pending_player: true,
-    is_ranked: true,
-  },
-  {
-    id: 104,
-    session_id: 41,
-    league_id: 1,
-    league_name: 'QBK Open Men',
-    date: '2026-03-17',
-    time_label: '11:20 AM',
-    result: 'win',
-    team1_score: 21,
-    team2_score: 12,
-    team1_player1_name: 'You',
-    team1_player2_name: 'C. Gulla',
-    team2_player1_name: 'D. Miniucali',
-    team2_player2_name: 'M. Geda',
-    user_on_team1: true,
-    rating_change: 5.1,
-    has_pending_player: false,
-    is_ranked: true,
-  },
-  {
-    id: 105,
-    session_id: 41,
-    league_id: 1,
-    league_name: 'QBK Open Men',
-    date: '2026-03-17',
-    time_label: '10:40 AM',
-    result: 'win',
-    team1_score: 21,
-    team2_score: 19,
-    team1_player1_name: 'You',
-    team1_player2_name: 'C. Gulla',
-    team2_player1_name: 'K. Fawwar',
-    team2_player2_name: 'A. Marthey',
-    user_on_team1: true,
-    rating_change: 6.3,
-    has_pending_player: false,
-    is_ranked: true,
-  },
-];
-
+// MOCK_GAMES removed — getMyGames is now a real backend call via api-client.
 // MOCK_STATS removed — getMyStats is now a real backend call via api-client.
 // See packages/api-client/src/methods.ts :: getMyStats().
 
@@ -1238,26 +1108,6 @@ export const mockApi = {
     _prefs: Partial<PushNotificationPrefs>,
   ): Promise<PushNotificationPrefs> {
     return notImplemented('PUT /api/users/me/push-prefs');
-  },
-
-  // ---- Games & Stats — TODO(backend): GET /api/users/me/games ----
-  /**
-   * Returns the current user's game history, newest-first.
-   * Supports optional filter by league_id and/or result ('win'|'loss').
-   * TODO(backend): GET /api/users/me/games?league_id=&result=
-   */
-  async getMyGames(params?: {
-    league_id?: number | null;
-    result?: 'win' | 'loss' | null;
-  }): Promise<GameHistoryEntry[]> {
-    let games = [...MOCK_GAMES];
-    if (params?.league_id != null) {
-      games = games.filter((g) => g.league_id === params.league_id);
-    }
-    if (params?.result != null) {
-      games = games.filter((g) => g.result === params.result);
-    }
-    return Promise.resolve(games);
   },
 
   // ---- Sessions — TODO(backend): session endpoints ----

@@ -95,6 +95,7 @@ jest.mock('@/lib/api', () => ({
     createLeagueMessage: (...args: unknown[]) => mockCreateLeagueMessage(...args),
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     leaveLeague: (...args: unknown[]) => mockLeaveLeague(...args),
+    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
   },
 }));
 
@@ -105,7 +106,6 @@ jest.mock('@/lib/mockApi', () => ({
     getLeagueEvents: (...args: unknown[]) => mockGetLeagueEvents(...args),
     getLeagueInfoDetail: (...args: unknown[]) => mockGetLeagueInfoDetail(...args),
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
-    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
     getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
     approveJoinRequest: jest.fn().mockResolvedValue(undefined),
     denyJoinRequest: jest.fn().mockResolvedValue(undefined),
@@ -169,7 +169,7 @@ beforeEach(() => {
     members: [], seasons: [], join_requests: [],
   });
   mockGetLeaguePlayerStats.mockResolvedValue({});
-  mockGetMyGames.mockResolvedValue([]);
+  mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueSignupEvents.mockResolvedValue([]);
 });
 

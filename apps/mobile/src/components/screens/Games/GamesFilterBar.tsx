@@ -61,8 +61,9 @@ function FilterChip({
 
 const RESULT_OPTIONS: { label: string; value: ResultFilter }[] = [
   { label: 'All Results', value: 'all' },
-  { label: 'Wins', value: 'win' },
-  { label: 'Losses', value: 'loss' },
+  { label: 'Wins', value: 'W' },
+  { label: 'Losses', value: 'L' },
+  { label: 'Draws', value: 'D' },
 ];
 
 interface GamesFilterBarProps {

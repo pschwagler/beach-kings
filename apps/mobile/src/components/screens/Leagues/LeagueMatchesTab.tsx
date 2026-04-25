@@ -15,19 +15,20 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLeagueMatchesTab, type SessionGroup } from './useLeagueMatchesTab';
-import type { GameHistoryEntry } from '@/lib/mockApi';
+import type { GameHistoryEntry } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Game row
 // ---------------------------------------------------------------------------
 
 function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode {
-  const isWin = game.result === 'win';
-  const teamAName = `${game.team1_player1_name} / ${game.team1_player2_name}`;
-  const teamBName = `${game.team2_player1_name} / ${game.team2_player2_name}`;
+  const isWin = game.result === 'W';
+  const isDraw = game.result === 'D';
 
-  const userTeamScore = game.user_on_team1 ? game.team1_score : game.team2_score;
-  const oppTeamScore = game.user_on_team1 ? game.team2_score : game.team1_score;
+  const myTeam = game.partner_names.length > 0
+    ? `You / ${game.partner_names.join(' / ')}`
+    : 'You';
+  const oppTeam = game.opponent_names.join(' / ');
 
   return (
     <View
@@ -41,39 +42,43 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
             className="text-[13px] font-semibold text-text-default dark:text-content-primary"
             numberOfLines={1}
           >
-            {game.user_on_team1 ? teamAName : teamBName}
+            {myTeam}
           </Text>
           <Text
             className="text-[12px] text-text-secondary dark:text-content-secondary mt-[2px]"
             numberOfLines={1}
           >
-            vs {game.user_on_team1 ? teamBName : teamAName}
+            vs {oppTeam}
           </Text>
         </View>
 
         {/* Score */}
         <View className="flex-row items-center gap-2 mr-2">
           <Text className="text-[15px] font-bold text-text-default dark:text-content-primary">
-            {userTeamScore} – {oppTeamScore}
+            {game.my_score} – {game.opponent_score}
           </Text>
         </View>
 
-        {/* W/L badge */}
+        {/* W/L/D badge */}
         <View
           className={`rounded-[6px] px-[8px] py-[3px] ${
             isWin
               ? 'bg-green-100 dark:bg-green-900/30'
-              : 'bg-red-100 dark:bg-red-900/30'
+              : isDraw
+                ? 'bg-gray-100 dark:bg-gray-800/40'
+                : 'bg-red-100 dark:bg-red-900/30'
           }`}
         >
           <Text
             className={`text-[11px] font-bold ${
               isWin
                 ? 'text-green-700 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
+                : isDraw
+                  ? 'text-gray-600 dark:text-gray-400'
+                  : 'text-red-600 dark:text-red-400'
             }`}
           >
-            {isWin ? 'W' : 'L'}
+            {game.result}
           </Text>
         </View>
       </View>
@@ -88,7 +93,7 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
           }`}
         >
           {game.rating_change >= 0 ? '+' : ''}
-          {game.rating_change.toFixed(1)} pts
+          {game.rating_change} pts
         </Text>
       )}
     </View>
@@ -100,29 +105,19 @@ function GameRow({ game }: { readonly game: GameHistoryEntry }): React.ReactNode
 // ---------------------------------------------------------------------------
 
 function SessionCard({ session }: { readonly session: SessionGroup }): React.ReactNode {
-  const dateLabel = new Date(session.date).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
   const totalRating = Math.round(session.ratingChange * 10) / 10;
 
   return (
     <View
-      testID={`session-card-${session.session_id ?? session.date}`}
+      testID={`session-card-${session.session_id}`}
       className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 mb-3 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden"
     >
       {/* Header */}
       <View className="flex-row items-center px-4 py-[12px] bg-[#f8f8f8] dark:bg-dark-elevated border-b border-[#e8e8e8] dark:border-border-subtle">
         <View className="flex-1">
           <Text className="text-[13px] font-bold text-text-default dark:text-content-primary">
-            {dateLabel}
+            Session #{session.session_number ?? session.session_id}
           </Text>
-          {session.session_number != null && (
-            <Text className="text-[11px] text-text-secondary dark:text-content-secondary">
-              Session #{session.session_number}
-            </Text>
-          )}
         </View>
         <View className="bg-blue-100 dark:bg-blue-900/30 rounded-[8px] px-2 py-[2px]">
           <Text className="text-[11px] font-semibold text-blue-700 dark:text-blue-400">
@@ -230,7 +225,7 @@ export default function LeagueMatchesTab({ leagueId }: LeagueMatchesTabProps): R
       contentContainerStyle={{ paddingBottom: 32 }}
     >
       {sessions.map((s) => (
-        <SessionCard key={s.session_id ?? s.date} session={s} />
+        <SessionCard key={s.session_id} session={s} />
       ))}
     </ScrollView>
   );

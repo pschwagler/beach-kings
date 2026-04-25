@@ -25,7 +25,8 @@ import {
   useLeagueStatsTab,
   type StatsInnerTab,
 } from './useLeagueStatsTab';
-import type { LeaguePlayerStats, GameHistoryEntry } from '@/lib/mockApi';
+import type { LeaguePlayerStats } from '@/lib/mockApi';
+import type { GameHistoryEntry } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Season selector
@@ -186,11 +187,13 @@ function BreakdownTable({
 // ---------------------------------------------------------------------------
 
 function GameHistoryCard({ game }: { readonly game: GameHistoryEntry }): React.ReactNode {
-  const isWin = game.result === 'win';
-  const dateLabel = new Date(game.date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+  const isWin = game.result === 'W';
+  const isDraw = game.result === 'D';
+
+  const myTeam = game.partner_names.length > 0
+    ? `You / ${game.partner_names.join(' / ')}`
+    : 'You';
+  const oppTeam = game.opponent_names.join(' / ');
 
   return (
     <View
@@ -198,27 +201,32 @@ function GameHistoryCard({ game }: { readonly game: GameHistoryEntry }): React.R
       className="flex-row items-center px-4 py-[10px] border-b border-[#f0f0f0] dark:border-border-subtle"
     >
       <View className="flex-1 min-w-0">
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
-          {dateLabel}
-        </Text>
         <Text className="text-[13px] font-semibold text-text-default dark:text-content-primary" numberOfLines={1}>
-          {game.team1_player1_name}/{game.team1_player2_name} vs {game.team2_player1_name}/{game.team2_player2_name}
+          {myTeam} vs {oppTeam}
         </Text>
       </View>
       <Text className="text-[14px] font-bold text-text-default dark:text-content-primary mx-3">
-        {game.team1_score}–{game.team2_score}
+        {game.my_score}–{game.opponent_score}
       </Text>
       <View
         className={`rounded-[6px] px-2 py-[3px] ${
-          isWin ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+          isWin
+            ? 'bg-green-100 dark:bg-green-900/30'
+            : isDraw
+              ? 'bg-gray-100 dark:bg-gray-800/40'
+              : 'bg-red-100 dark:bg-red-900/30'
         }`}
       >
         <Text
           className={`text-[11px] font-bold ${
-            isWin ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+            isWin
+              ? 'text-green-700 dark:text-green-400'
+              : isDraw
+                ? 'text-gray-600 dark:text-gray-400'
+                : 'text-red-600 dark:text-red-400'
           }`}
         >
-          {isWin ? 'W' : 'L'}
+          {game.result}
         </Text>
       </View>
     </View>

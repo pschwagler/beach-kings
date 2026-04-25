@@ -3,14 +3,16 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from typing import List, Literal, Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
-from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service
+from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload
 
@@ -329,3 +331,47 @@ async def cancel_account_deletion(
     except Exception as e:
         logger.error(f"Error cancelling account deletion: {e}")
         raise HTTPException(status_code=500, detail="Error cancelling account deletion")
+
+
+@router.get("/api/users/me/games", response_model=dict)
+async def get_my_games(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    league_id: Optional[int] = Query(default=None, description="Filter by league ID"),
+    result: Optional[Literal["W", "L", "D"]] = Query(
+        default=None, description="Filter by result: W, L, or D"
+    ),
+    limit: int = Query(default=50, ge=1, le=200, description="Max number of games to return"),
+    offset: int = Query(default=0, ge=0, description="Pagination offset"),
+):
+    """
+    Get the authenticated player's match history for the My Games screen.
+
+    Returns games newest-first, with optional filtering by league and result.
+    Requires a linked player profile.
+    """
+    player_id = current_user.get("player_id")
+    if not player_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No player profile linked to this account.",
+        )
+
+    try:
+        result_data = await my_games_service.get_my_games(
+            session=session,
+            player_id=player_id,
+            league_id=league_id,
+            result_filter=result,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as e:
+        logger.error(f"Error fetching games for player {player_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch game history.")
+
+    if result_data is None:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    games, total = result_data
+    return {"games": games, "total": total}

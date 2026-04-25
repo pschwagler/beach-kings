@@ -27,6 +27,8 @@ import type {
   MyStatsPayload,
   ChangePasswordRequest,
   ChangePasswordResponse,
+  MyGamesQueryParams,
+  MyGamesResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -550,6 +552,20 @@ export function createApiMethods(client: ApiClient) {
       days?: number | null;
     }): Promise<MyStatsPayload> {
       const response = await api.get<MyStatsPayload>('/api/users/me/stats', { params });
+      return response.data;
+    },
+
+    /**
+     * Fetch the authenticated player's game history.
+     * Powers the My Games screen.
+     *
+     * Supports optional filtering by league_id, result, and pagination via
+     * limit/offset.
+     */
+    async getMyGames(params?: MyGamesQueryParams): Promise<MyGamesResponse> {
+      const response = await api.get<MyGamesResponse>('/api/users/me/games', {
+        params: params ?? {},
+      });
       return response.data;
     },
 

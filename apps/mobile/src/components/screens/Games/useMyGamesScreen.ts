@@ -9,12 +9,13 @@
 import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import type { GameHistoryEntry } from '@/lib/mockApi';
+import type { GameHistoryEntry, MyGamesResponse } from '@beach-kings/shared';
 
-export type ResultFilter = 'all' | 'win' | 'loss';
+export type ResultFilter = 'all' | 'W' | 'L' | 'D';
 
 export interface UseMyGamesScreenResult {
   readonly games: readonly GameHistoryEntry[];
+  readonly total: number;
   readonly isLoading: boolean;
   readonly error: Error | null;
   readonly isRefreshing: boolean;
@@ -35,11 +36,11 @@ export function useMyGamesScreen(): UseMyGamesScreenResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const params = {
-    league_id: leagueFilter,
-    result: resultFilter === 'all' ? null : resultFilter,
+    league_id: leagueFilter ?? undefined,
+    result: resultFilter === 'all' ? undefined : resultFilter,
   };
 
-  const { data, isLoading, error, refetch } = useApi<GameHistoryEntry[]>(
+  const { data, isLoading, error, refetch } = useApi<MyGamesResponse>(
     () => api.getMyGames(params),
     [leagueFilter, resultFilter],
   );
@@ -56,7 +57,8 @@ export function useMyGamesScreen(): UseMyGamesScreenResult {
   }, [refetch]);
 
   return {
-    games: data ?? [],
+    games: data?.games ?? [],
+    total: data?.total ?? 0,
     isLoading,
     error,
     isRefreshing,
