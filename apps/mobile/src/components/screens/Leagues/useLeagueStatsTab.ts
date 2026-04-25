@@ -7,8 +7,22 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { Season } from '@beach-kings/shared';
+import { api } from '@/lib/api';
 import { mockApi } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
+
+interface SeasonSelectorEntry {
+  readonly id: number;
+  readonly name: string;
+}
+
+function toSeasonSelectorEntry(season: Season): SeasonSelectorEntry {
+  return {
+    id: season.id,
+    name: season.name ?? `Season ${season.id}`,
+  };
+}
 
 export type StatsInnerTab = 'stats' | 'history';
 
@@ -41,7 +55,10 @@ export function useLeagueStatsTab(
 
   const seasonsQuery = useQuery({
     queryKey: leagueKeys.seasons(leagueId),
-    queryFn: () => mockApi.getLeagueSeasonsList(leagueId), // TODO(backend): GET /api/leagues/:id/seasons
+    queryFn: async (): Promise<readonly SeasonSelectorEntry[]> => {
+      const rows = await api.getLeagueSeasons(Number(leagueId));
+      return rows.map(toSeasonSelectorEntry);
+    },
   });
 
   const onSelectSeason = useCallback((id: number) => {

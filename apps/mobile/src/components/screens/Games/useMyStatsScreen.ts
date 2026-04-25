@@ -9,7 +9,7 @@
 import { useState, useCallback } from 'react';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
-import type { MyStatsPayload } from '@/lib/mockApi';
+import type { MyStatsPayload } from '@beach-kings/shared';
 
 export type TimeFilter = '30d' | '90d' | '1y' | 'all';
 export type BreakdownTab = 'partners' | 'opponents';

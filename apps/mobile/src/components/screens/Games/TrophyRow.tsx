@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
-import type { LeagueTrophy } from '@/lib/mockApi';
+import type { MyStatsTrophy } from '@beach-kings/shared';
 
 function placeMedal(place: number): string {
   if (place === 1) return '1st';
@@ -29,7 +29,7 @@ function trophyPlaceColor(place: number): string {
 }
 
 interface TrophyCardProps {
-  readonly trophy: LeagueTrophy;
+  readonly trophy: MyStatsTrophy;
 }
 
 function TrophyCard({ trophy }: TrophyCardProps): React.ReactNode {
@@ -55,7 +55,7 @@ function TrophyCard({ trophy }: TrophyCardProps): React.ReactNode {
 }
 
 interface TrophyRowProps {
-  readonly trophies: readonly LeagueTrophy[];
+  readonly trophies: readonly MyStatsTrophy[];
 }
 
 export default function TrophyRow({ trophies }: TrophyRowProps): React.ReactNode {

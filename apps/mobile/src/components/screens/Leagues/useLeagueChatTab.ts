@@ -5,7 +5,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FlatList } from 'react-native';
-import { mockApi } from '@/lib/mockApi';
+import { api } from '@/lib/api';
 import type { LeagueChatMessage } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
 
@@ -20,6 +20,25 @@ export interface UseLeagueChatTabResult {
   readonly flatListRef: React.RefObject<FlatList<object> | null>;
 }
 
+/** Shape returned by the backend — identical to LeagueChatMessage minus initials. */
+type BackendLeagueMessage = Omit<LeagueChatMessage, 'initials'>;
+
+function computeInitials(name: string | null): string {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) {
+    return (parts[0]!.slice(0, 2) || '??').toUpperCase();
+  }
+  const first = parts[0]![0] ?? '';
+  const last = parts[parts.length - 1]![0] ?? '';
+  return `${first}${last}`.toUpperCase();
+}
+
+function withInitials(row: BackendLeagueMessage): LeagueChatMessage {
+  return { ...row, initials: computeInitials(row.player_name) };
+}
+
 /**
  * Returns all data and handlers needed by LeagueChatTab.
  */
@@ -31,7 +50,12 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
 
   const chatQuery = useQuery({
     queryKey: leagueKeys.chat(leagueId),
-    queryFn: () => mockApi.getLeagueChat(leagueId), // TODO(backend): GET /api/leagues/:id/messages
+    queryFn: async (): Promise<readonly LeagueChatMessage[]> => {
+      const rows = (await api.getLeagueMessages(
+        Number(leagueId),
+      )) as BackendLeagueMessage[];
+      return rows.map(withInitials);
+    },
   });
 
   const onChangeText = useCallback((v: string) => {
@@ -46,7 +70,7 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
     setMessageText('');
 
     try {
-      await mockApi.sendLeagueMessage(leagueId, text); // TODO(backend): POST /api/leagues/:id/messages
+      await api.createLeagueMessage(Number(leagueId), text);
       await queryClient.invalidateQueries({ queryKey: leagueKeys.chat(leagueId) });
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });

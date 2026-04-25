@@ -832,7 +832,9 @@ async def get_league_messages(
 ):
     """Get league messages (league_member)."""
     try:
-        return await data_service.get_league_messages(session, league_id)
+        return await data_service.get_league_messages(
+            session, league_id, current_user_id=user.get("id")
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
 

@@ -13,14 +13,11 @@ import {
   View,
   Text,
   FlatList,
-  Pressable,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { hapticLight } from '@/utils/haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import ChatComposer from '@/components/ui/ChatComposer';
 import { useLeagueChatTab } from './useLeagueChatTab';
 import type { LeagueChatMessage } from '@/lib/mockApi';
 
@@ -64,10 +61,12 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, showSender }: MessageBubbleProps): React.ReactNode {
-  const timeLabel = new Date(message.sent_at).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const timeLabel = message.created_at
+    ? new Date(message.created_at).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : '';
 
   if (message.is_mine) {
     return (
@@ -76,7 +75,7 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
         className="items-end px-4 mb-[6px]"
       >
         <View className="max-w-[80%] bg-[#1a3a4a] dark:bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
-          <Text className="text-[14px] text-white">{message.text}</Text>
+          <Text className="text-[14px] text-white">{message.message}</Text>
         </View>
         <Text className="text-[10px] text-text-muted dark:text-content-tertiary mt-[2px]">
           {timeLabel}
@@ -95,7 +94,7 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
             </Text>
           </View>
           <Text className="text-[12px] font-semibold text-text-secondary dark:text-content-secondary">
-            {message.display_name}
+            {message.player_name ?? 'Unknown'}
           </Text>
         </View>
       )}
@@ -103,7 +102,7 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
         {!showSender && <View className="w-7" />}
         <View className="max-w-[80%] bg-white dark:bg-dark-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-[#e8e8e8] dark:border-border-subtle">
           <Text className="text-[14px] text-text-default dark:text-content-primary">
-            {message.text}
+            {message.message}
           </Text>
         </View>
       </View>
@@ -118,69 +117,6 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
 }
 
 // ---------------------------------------------------------------------------
-// Input bar
-// ---------------------------------------------------------------------------
-
-interface InputBarProps {
-  readonly value: string;
-  readonly onChangeText: (v: string) => void;
-  readonly onSend: () => void;
-  readonly isSending: boolean;
-}
-
-function ChatInputBar({ value, onChangeText, onSend, isSending }: InputBarProps): React.ReactNode {
-  return (
-    <View className="flex-row items-end px-3 py-2 bg-white dark:bg-dark-surface border-t border-[#e8e8e8] dark:border-border-strong gap-2">
-      <View className="flex-1 min-h-[40px] max-h-[120px] bg-[#f5f5f5] dark:bg-dark-elevated rounded-[20px] px-4 justify-center">
-        <TextInput
-          testID="chat-message-input"
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Message…"
-          placeholderTextColor="#999"
-          className="text-[15px] text-text-default dark:text-content-primary py-[10px]"
-          multiline
-          returnKeyType="default"
-          autoCapitalize="sentences"
-          autoCorrect
-          maxLength={1000}
-        />
-      </View>
-
-      <Pressable
-        testID="chat-send-button"
-        onPress={() => {
-          void hapticLight();
-          onSend();
-        }}
-        disabled={value.trim().length === 0 || isSending}
-        className={`w-[40px] h-[40px] rounded-full items-center justify-center ${
-          value.trim().length > 0 && !isSending
-            ? 'bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80'
-            : 'bg-[#ddd] dark:bg-dark-elevated'
-        }`}
-        accessibilityRole="button"
-        accessibilityLabel="Send message"
-      >
-        {isSending ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"
-              stroke={value.trim().length > 0 ? '#fff' : '#aaa'}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        )}
-      </Pressable>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main tab component
 // ---------------------------------------------------------------------------
 
@@ -189,6 +125,7 @@ interface LeagueChatTabProps {
 }
 
 export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.ReactNode {
+  const insets = useSafeAreaInsets();
   const {
     messages,
     isLoading,
@@ -226,9 +163,13 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
   let lastSenderId: number | null = null;
 
   messages.forEach((msg) => {
-    const msgDate = msg.sent_at.split('T')[0] ?? '';
+    const msgDate = msg.created_at?.split('T')[0] ?? '';
     if (msgDate !== lastDate) {
-      listData.push({ kind: 'divider', key: `divider-${msgDate}`, date: msg.sent_at });
+      listData.push({
+        kind: 'divider',
+        key: `divider-${msgDate}`,
+        date: msg.created_at ?? '',
+      });
       lastDate = msgDate;
       lastSenderId = null;
     }
@@ -240,9 +181,9 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
   return (
     <KeyboardAvoidingView
       testID="chat-tab"
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      behavior="padding"
+      style={{ flex: 1 }}
+      className="bg-[#f5f5f5] dark:bg-base"
     >
       <FlatList<ListItem>
         ref={flatListRef as React.RefObject<FlatList<ListItem> | null>}
@@ -262,17 +203,24 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
             />
           );
         }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         onContentSizeChange={() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }}
       />
 
-      <ChatInputBar
+      <ChatComposer
         value={messageText}
         onChangeText={onChangeText}
         onSend={() => { void onSend(); }}
         isSending={isSending}
+        maxLength={1000}
+        bottomInset={insets.bottom}
+        inputTestID="chat-message-input"
+        sendTestID="chat-send-button"
       />
     </KeyboardAvoidingView>
   );

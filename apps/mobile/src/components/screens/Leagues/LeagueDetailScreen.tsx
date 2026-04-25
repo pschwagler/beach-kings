@@ -24,6 +24,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TopNav from '@/components/ui/TopNav';
+import BottomTabBar from '@/components/navigation/BottomTabBar';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { useLeagueDetailScreen, type LeagueDetailTab } from './useLeagueDetailScreen';
 import LeagueDashboardTab from './LeagueDashboardTab';
@@ -61,8 +62,9 @@ function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.React
       horizontal
       showsHorizontalScrollIndicator={false}
       testID="league-segment-bar"
-      className="bg-white dark:bg-dark-surface border-b border-[#e8e8e8] dark:border-border-subtle"
-      contentContainerStyle={{ paddingHorizontal: 8 }}
+      className="bg-white dark:bg-dark-surface border-b border-[#e8e8e8] dark:border-border-subtle grow-0 shrink-0"
+      style={{ flexGrow: 0, flexShrink: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 8, alignItems: 'center' }}
     >
       {tabs.map((tab) => {
         const isActive = tab.key === activeTab;
@@ -322,6 +324,7 @@ export default function LeagueDetailScreen({
         <View testID="league-detail-loading" className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" />
         </View>
+        <BottomTabBar active="leagues" />
       </SafeAreaView>
     );
   }
@@ -341,6 +344,7 @@ export default function LeagueDetailScreen({
             Failed to load league
           </Text>
         </View>
+        <BottomTabBar active="leagues" />
       </SafeAreaView>
     );
   }
@@ -381,6 +385,7 @@ export default function LeagueDetailScreen({
           />
         </View>
       </View>
+      <BottomTabBar active="leagues" />
     </SafeAreaView>
   );
 }

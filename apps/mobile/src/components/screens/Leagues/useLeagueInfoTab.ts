@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { mockApi } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
 
@@ -53,7 +54,7 @@ export function useLeagueInfoTab(
   );
 
   const onLeaveLeague = useCallback(async (): Promise<void> => {
-    await mockApi.leaveLeagueMock(leagueId); // TODO(backend): DELETE /api/leagues/:id/members/me
+    await api.leaveLeague(Number(leagueId));
     await invalidateInfo();
   }, [leagueId, invalidateInfo]);
 

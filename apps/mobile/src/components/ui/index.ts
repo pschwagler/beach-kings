@@ -22,4 +22,5 @@ export { default as Toast } from './Toast';
 export { default as ListItem } from './ListItem';
 export { default as ProgressBar } from './ProgressBar';
 export { default as FAB } from './FAB';
+export { default as ChatComposer } from './ChatComposer';
 export * from './icons';

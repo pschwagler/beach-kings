@@ -19,21 +19,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.models import LeagueMessage, Player
 
 
-async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dict]:
+async def get_league_messages(
+    session: AsyncSession,
+    league_id: int,
+    current_user_id: Optional[int] = None,
+) -> List[Dict]:
     """
     Return all messages for a league, ordered oldest-first.
 
     Each message dict contains the author's ``player_name`` joined from
-    the ``players`` table via the shared ``user_id`` foreign key.
+    the ``players`` table via the shared ``user_id`` foreign key, plus
+    an ``is_mine`` flag indicating whether the authenticated caller
+    authored the message.
 
     Args:
         session: Async database session.
         league_id: League to fetch messages for.
+        current_user_id: Authenticated caller's user id. When None,
+            ``is_mine`` is always False.
 
     Returns:
         List of message dicts with keys:
         ``id``, ``league_id``, ``user_id``, ``player_id``,
-        ``player_name``, ``message``, ``created_at``.
+        ``player_name``, ``message``, ``created_at``, ``is_mine``.
     """
     result = await session.execute(
         select(
@@ -59,6 +67,7 @@ async def get_league_messages(session: AsyncSession, league_id: int) -> List[Dic
             "player_name": row.player_name,
             "message": row.message,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "is_mine": current_user_id is not None and row.user_id == current_user_id,
         }
         for row in rows
     ]
@@ -112,4 +121,5 @@ async def create_league_message(
         "player_name": player_name,
         "message": msg.message_text,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
+        "is_mine": True,
     }

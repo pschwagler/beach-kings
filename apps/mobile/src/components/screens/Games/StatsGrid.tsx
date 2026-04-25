@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
-import type { PlayerStats } from '@/lib/mockApi';
+import type { MyStatsOverall } from '@beach-kings/shared';
 
 interface StatCardProps {
   readonly label: string;
@@ -42,7 +42,7 @@ function StatCard({ label, value, trend, trendUp }: StatCardProps): React.ReactN
 }
 
 interface StatsGridProps {
-  readonly stats: PlayerStats;
+  readonly stats: MyStatsOverall;
 }
 
 export default function StatsGrid({ stats }: StatsGridProps): React.ReactNode {

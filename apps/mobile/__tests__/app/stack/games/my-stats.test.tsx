@@ -155,7 +155,6 @@ const MOCK_STATS = {
       wins: 28,
       losses: 6,
       win_rate: 82,
-      rating_diff: 17,
     },
   ],
   opponents: [
@@ -167,7 +166,6 @@ const MOCK_STATS = {
       wins: 7,
       losses: 5,
       win_rate: 58,
-      rating_diff: -2,
     },
   ],
   elo_timeline: [

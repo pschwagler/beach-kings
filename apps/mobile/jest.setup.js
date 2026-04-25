@@ -33,3 +33,20 @@ jest.mock('@react-native-community/datetimepicker', () => {
   const React = require('react');
   return { __esModule: true, default: () => null };
 });
+
+// Mock react-native-keyboard-controller — native module unavailable in Jest.
+// KeyboardProvider and KeyboardStickyView render their children as plain views.
+jest.mock('react-native-keyboard-controller', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const Passthrough = ({ children, ...rest }) =>
+    React.createElement(View, rest, children);
+  return {
+    KeyboardProvider: Passthrough,
+    KeyboardStickyView: Passthrough,
+    KeyboardAvoidingView: Passthrough,
+    KeyboardAwareScrollView: Passthrough,
+    useKeyboardHandler: () => undefined,
+    useReanimatedKeyboardAnimation: () => ({ height: { value: 0 }, progress: { value: 0 } }),
+  };
+});

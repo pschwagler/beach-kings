@@ -5,6 +5,7 @@ import { Slot, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import AuthProvider from '@/contexts/AuthContext';
 import ThemeProvider, { useTheme } from '@/contexts/ThemeContext';
 import NotificationProvider from '@/contexts/NotificationContext';
@@ -63,18 +64,20 @@ export default function RootLayout(): React.ReactNode {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <ToastProvider>
-              <ErrorBoundary>
-                <RootLayoutInner onReady={handleReady} />
-              </ErrorBoundary>
-            </ToastProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <KeyboardProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <ToastProvider>
+                <ErrorBoundary>
+                  <RootLayoutInner onReady={handleReady} />
+                </ErrorBoundary>
+              </ToastProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </KeyboardProvider>
   );
 }

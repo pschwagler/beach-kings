@@ -88,16 +88,25 @@ export interface LeagueSeasonInfo {
   readonly game_count: number;
 }
 
-/** A message in the league chat. */
+/**
+ * A message in the league chat.
+ *
+ * Field names mirror the backend response from `GET /api/leagues/:id/messages`
+ * (see apps/backend/services/message_data.py). `initials` is derived
+ * client-side since it's pure presentation.
+ */
 export interface LeagueChatMessage {
   readonly id: number;
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly text: string;
-  readonly sent_at: string;
-  /** true if the message was sent by the current user */
+  readonly league_id: number;
+  readonly user_id: number;
+  readonly player_id: number | null;
+  readonly player_name: string | null;
+  readonly message: string;
+  readonly created_at: string | null;
+  /** Server-computed: true when row.user_id == authenticated caller. */
   readonly is_mine: boolean;
+  /** Client-derived from player_name (e.g. "Patrick Schwagler" -> "PS"). */
+  readonly initials: string;
 }
 
 /** An upcoming event in the sign-ups tab. */
@@ -341,51 +350,9 @@ export interface GameHistoryEntry {
   readonly is_ranked: boolean;
 }
 
-/** Aggregate stats for a player (all-time or filtered). */
-export interface PlayerStats {
-  readonly wins: number;
-  readonly losses: number;
-  readonly games_played: number;
-  readonly rating: number;
-  readonly peak_rating: number;
-  readonly win_rate: number;
-  /** Current streak: positive = win streak, negative = loss streak */
-  readonly current_streak: number;
-  readonly avg_point_diff: number;
-}
-
-/** A partner/opponent breakdown row. */
-export interface PartnerOpponentRow {
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly games_played: number;
-  readonly wins: number;
-  readonly losses: number;
-  readonly win_rate: number;
-  readonly rating_diff: number;
-}
-
-/** A league trophy/placement entry. */
-export interface LeagueTrophy {
-  readonly league_id: number;
-  readonly league_name: string;
-  readonly season_name: string;
-  readonly place: number;
-}
-
-/** Full stats payload for the My Stats screen. */
-export interface MyStatsPayload {
-  readonly player_name: string;
-  readonly player_city: string | null;
-  readonly player_level: string | null;
-  readonly overall: PlayerStats;
-  readonly trophies: readonly LeagueTrophy[];
-  readonly partners: readonly PartnerOpponentRow[];
-  readonly opponents: readonly PartnerOpponentRow[];
-  /** ELO timeline: array of { date, rating } for chart rendering. */
-  readonly elo_timeline: readonly { date: string; rating: number }[];
-}
+// MyStatsPayload, PlayerStats, PartnerOpponentRow, LeagueTrophy types removed.
+// Import these from '@beach-kings/shared' instead:
+//   import type { MyStatsPayload, MyStatsRelationStat, MyStatsTrophy } from '@beach-kings/shared';
 
 const notImplemented = (endpoint: string): never => {
   throw new Error(`TODO(backend): ${endpoint}`);
@@ -444,11 +411,11 @@ const MOCK_LEAGUE_SEASON_INFO: LeagueSeasonInfo = {
 };
 
 const MOCK_LEAGUE_CHAT: LeagueChatMessage[] = [
-  { id: 1, player_id: 10, display_name: 'C. Gulla', initials: 'CG', text: 'Great session yesterday! Who\'s in for Thursday?', sent_at: '2026-03-19T14:22:00Z', is_mine: false },
-  { id: 2, player_id: 1, display_name: 'P. Schwagler', initials: 'PS', text: 'I\'m in. Same time 3pm?', sent_at: '2026-03-19T14:35:00Z', is_mine: true },
-  { id: 3, player_id: 11, display_name: 'K. Fawwar', initials: 'KF', text: 'I\'ll be there. Any idea if the courts are reserved?', sent_at: '2026-03-19T14:40:00Z', is_mine: false },
-  { id: 4, player_id: 10, display_name: 'C. Gulla', initials: 'CG', text: 'Yeah courts 1-3 reserved from 3-6pm', sent_at: '2026-03-19T14:45:00Z', is_mine: false },
-  { id: 5, player_id: 1, display_name: 'P. Schwagler', initials: 'PS', text: 'Perfect. See everyone there!', sent_at: '2026-03-19T15:00:00Z', is_mine: true },
+  { id: 1, league_id: 1, user_id: 110, player_id: 10, player_name: 'Colan Gulla', message: 'Great session yesterday! Who\'s in for Thursday?', created_at: '2026-03-19T14:22:00Z', is_mine: false, initials: 'CG' },
+  { id: 2, league_id: 1, user_id: 101, player_id: 1, player_name: 'Patrick Schwagler', message: 'I\'m in. Same time 3pm?', created_at: '2026-03-19T14:35:00Z', is_mine: true, initials: 'PS' },
+  { id: 3, league_id: 1, user_id: 111, player_id: 11, player_name: 'Ken Fawwar', message: 'I\'ll be there. Any idea if the courts are reserved?', created_at: '2026-03-19T14:40:00Z', is_mine: false, initials: 'KF' },
+  { id: 4, league_id: 1, user_id: 110, player_id: 10, player_name: 'Colan Gulla', message: 'Yeah courts 1-3 reserved from 3-6pm', created_at: '2026-03-19T14:45:00Z', is_mine: false, initials: 'CG' },
+  { id: 5, league_id: 1, user_id: 101, player_id: 1, player_name: 'Patrick Schwagler', message: 'Perfect. See everyone there!', created_at: '2026-03-19T15:00:00Z', is_mine: true, initials: 'PS' },
 ];
 
 const MOCK_LEAGUE_EVENTS: LeagueEvent[] = [
@@ -1175,46 +1142,8 @@ const MOCK_GAMES: GameHistoryEntry[] = [
   },
 ];
 
-const MOCK_STATS: MyStatsPayload = {
-  player_name: 'Patrick Schwagler',
-  player_city: 'New York, NY',
-  player_level: 'Open',
-  overall: {
-    wins: 66,
-    losses: 28,
-    games_played: 94,
-    rating: 1438,
-    peak_rating: 1462,
-    win_rate: 70.2,
-    current_streak: 9,
-    avg_point_diff: 2.7,
-  },
-  trophies: [
-    { league_id: 1, league_name: 'QBK Open Men', season_name: 'Season 3', place: 2 },
-    { league_id: 1, league_name: 'QBK Open Men', season_name: 'Season 2', place: 2 },
-  ],
-  partners: [
-    { player_id: 10, display_name: 'C. Gulla', initials: 'CG', games_played: 34, wins: 28, losses: 6, win_rate: 82, rating_diff: 17 },
-    { player_id: 11, display_name: 'K. Fawwar', initials: 'KF', games_played: 14, wins: 8, losses: 6, win_rate: 57, rating_diff: 12 },
-    { player_id: 12, display_name: 'A. Marthey', initials: 'AM', games_played: 9, wins: 6, losses: 3, win_rate: 67, rating_diff: 10 },
-    { player_id: 13, display_name: 'S. Jindash', initials: 'SJ', games_played: 8, wins: 5, losses: 3, win_rate: 63, rating_diff: 8 },
-    { player_id: 14, display_name: 'R. Ballakian', initials: 'RB', games_played: 4, wins: 4, losses: 0, win_rate: 100, rating_diff: 5 },
-  ],
-  opponents: [
-    { player_id: 20, display_name: 'J. Drabos', initials: 'JD', games_played: 12, wins: 7, losses: 5, win_rate: 58, rating_diff: -2 },
-    { player_id: 21, display_name: 'M. Salizar', initials: 'MS', games_played: 10, wins: 8, losses: 2, win_rate: 80, rating_diff: 8 },
-    { player_id: 22, display_name: 'D. Miniucali', initials: 'DM', games_played: 6, wins: 5, losses: 1, win_rate: 83, rating_diff: 11 },
-  ],
-  elo_timeline: [
-    { date: '2026-01-01', rating: 1400 },
-    { date: '2026-01-15', rating: 1415 },
-    { date: '2026-02-01', rating: 1408 },
-    { date: '2026-02-15', rating: 1425 },
-    { date: '2026-03-01', rating: 1450 },
-    { date: '2026-03-10', rating: 1462 },
-    { date: '2026-03-19', rating: 1438 },
-  ],
-};
+// MOCK_STATS removed — getMyStats is now a real backend call via api-client.
+// See packages/api-client/src/methods.ts :: getMyStats().
 
 export const mockApi = {
   // ---- Tournaments ----
@@ -1328,18 +1257,6 @@ export const mockApi = {
       games = games.filter((g) => g.result === params.result);
     }
     return Promise.resolve(games);
-  },
-
-  // ---- Games & Stats — TODO(backend): GET /api/users/me/stats ----
-  /**
-   * Returns the current user's aggregate stats.
-   * TODO(backend): GET /api/users/me/stats?league_id=&days=
-   */
-  async getMyStats(_params?: {
-    league_id?: number | null;
-    days?: number | null;
-  }): Promise<MyStatsPayload> {
-    return Promise.resolve(MOCK_STATS);
   },
 
   // ---- Sessions — TODO(backend): session endpoints ----

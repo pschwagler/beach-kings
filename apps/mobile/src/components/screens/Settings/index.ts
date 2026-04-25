@@ -6,5 +6,6 @@ export { default as AccountSettingsScreen } from './AccountSettingsScreen';
 export { default as NotificationsSettingsScreen } from './NotificationsSettingsScreen';
 export { default as ChangePasswordScreen } from './ChangePasswordScreen';
 export { default as AddPhoneScreen } from './AddPhoneScreen';
+export { default as AppearanceSettingsScreen } from './AppearanceSettingsScreen';
 export { useNotificationsScreen } from './useNotificationsScreen';
 export type { UseNotificationsScreenResult } from './useNotificationsScreen';

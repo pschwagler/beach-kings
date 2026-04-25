@@ -7,7 +7,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import type { PartnerOpponentRow } from '@/lib/mockApi';
+import type { MyStatsRelationStat } from '@beach-kings/shared';
 import type { BreakdownTab } from './useMyStatsScreen';
 
 // ---------------------------------------------------------------------------
@@ -55,11 +55,10 @@ function TableToggle({ tab, onTabChange }: ToggleProps): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 interface RowProps {
-  readonly row: PartnerOpponentRow;
+  readonly row: MyStatsRelationStat;
 }
 
 function DataRow({ row }: RowProps): React.ReactNode {
-  const ratingDeltaUp = row.rating_diff >= 0;
   return (
     <View className="flex-row items-center px-[14px] py-[11px] border-b border-gray-100 dark:border-border-subtle last:border-b-0">
       {/* Avatar initials + name */}
@@ -88,18 +87,6 @@ function DataRow({ row }: RowProps): React.ReactNode {
       <Text className="w-[40px] text-center text-[12px] text-text-muted dark:text-content-secondary">
         {row.win_rate}%
       </Text>
-
-      {/* +/- */}
-      <Text
-        className={`w-[36px] text-center text-[11px] font-bold ${
-          ratingDeltaUp
-            ? 'text-green-700 dark:text-green-400'
-            : 'text-red-700 dark:text-red-400'
-        }`}
-      >
-        {ratingDeltaUp ? '+' : ''}
-        {row.rating_diff}
-      </Text>
     </View>
   );
 }
@@ -110,8 +97,8 @@ function DataRow({ row }: RowProps): React.ReactNode {
 
 interface BreakdownTableProps {
   readonly tab: BreakdownTab;
-  readonly partners: readonly PartnerOpponentRow[];
-  readonly opponents: readonly PartnerOpponentRow[];
+  readonly partners: readonly MyStatsRelationStat[];
+  readonly opponents: readonly MyStatsRelationStat[];
   readonly onTabChange: (tab: BreakdownTab) => void;
 }
 
@@ -146,9 +133,6 @@ export default function BreakdownTable({
             </Text>
             <Text className="w-[40px] text-center text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
               W%
-            </Text>
-            <Text className="w-[36px] text-center text-[11px] font-bold text-text-muted dark:text-content-tertiary uppercase tracking-wider">
-              +/-
             </Text>
           </View>
 

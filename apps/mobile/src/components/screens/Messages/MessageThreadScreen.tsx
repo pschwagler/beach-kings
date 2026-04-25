@@ -11,22 +11,19 @@
  * Wireframe ref: message-thread.html
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
-  KeyboardAvoidingView,
-  TextInput,
   Pressable,
-  Platform,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
-import Svg, { Polygon } from 'react-native-svg';
 import Avatar from '@/components/ui/Avatar';
+import ChatComposer from '@/components/ui/ChatComposer';
 import { ChevronLeftIcon } from '@/components/ui/icons';
 import { routes } from '@/lib/navigation';
 import { useMessageThreadScreen } from './useMessageThreadScreen';
@@ -140,78 +137,6 @@ function ThreadEmptyState(): React.ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// Input bar
-// ---------------------------------------------------------------------------
-
-interface InputBarProps {
-  readonly value: string;
-  readonly onChangeText: (text: string) => void;
-  readonly onSend: () => void;
-  readonly isSending: boolean;
-  readonly sendError: string | null;
-}
-
-function InputBar({
-  value,
-  onChangeText,
-  onSend,
-  isSending,
-  sendError,
-}: InputBarProps): React.ReactNode {
-  const inputRef = useRef<TextInput>(null);
-
-  return (
-    <View className="bg-white dark:bg-dark-surface border-t border-border dark:border-border-strong">
-      {sendError != null && (
-        <View className="px-4 py-2 bg-red-50 dark:bg-error-bg">
-          <Text className="text-[12px] text-red-600 dark:text-red-400">
-            {sendError}
-          </Text>
-        </View>
-      )}
-      <View className="flex-row items-center gap-[10px] px-4 py-[10px] pb-[20px]">
-        <TextInput
-          testID="message-input"
-          ref={inputRef}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder="Message..."
-          placeholderTextColor="#999"
-          className="flex-1 min-h-[44px] px-[14px] rounded-[20px] border border-[#e0e0e0] dark:border-border-strong bg-[#f8f9fa] dark:bg-dark-elevated text-[14px] text-text-default dark:text-content-primary"
-          multiline
-          keyboardType="default"
-          autoComplete="off"
-          textContentType="none"
-          returnKeyType="send"
-          onSubmitEditing={onSend}
-          accessibilityLabel="Type a message"
-        />
-        <Pressable
-          testID="send-btn"
-          onPress={onSend}
-          disabled={isSending || value.trim() === ''}
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          className={`w-[44px] h-[44px] rounded-full items-center justify-center ${
-            value.trim() === ''
-              ? 'bg-[#e0e0e0] dark:bg-dark-elevated'
-              : 'bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80'
-          }`}
-        >
-          {isSending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor">
-              <Polygon points="5 3 19 12 5 21 5 3" fill="#fff" />
-            </Svg>
-          )}
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -228,6 +153,7 @@ export default function MessageThreadScreen({
   currentPlayerId,
 }: MessageThreadScreenProps): React.ReactNode {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     messages,
     isLoading,
@@ -284,9 +210,8 @@ export default function MessageThreadScreen({
     return (
       <KeyboardAvoidingView
         testID="thread-screen"
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={88}
+        behavior="padding"
+        style={{ flex: 1 }}
       >
         {messages.length === 0 ? (
           <ThreadEmptyState />
@@ -310,18 +235,24 @@ export default function MessageThreadScreen({
                 />
               );
             }}
+            style={{ flex: 1 }}
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             refreshControl={
               <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
             }
           />
         )}
-        <InputBar
+        <ChatComposer
           value={messageText}
           onChangeText={setMessageText}
           onSend={onSend}
           isSending={isSending}
           sendError={sendError}
+          bottomInset={insets.bottom}
+          inputTestID="message-input"
+          sendTestID="send-btn"
         />
       </KeyboardAvoidingView>
     );

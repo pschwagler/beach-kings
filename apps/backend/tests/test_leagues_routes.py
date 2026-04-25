@@ -766,8 +766,15 @@ class TestLeagueMessages:
         """League member can retrieve messages."""
         client, headers = _make_admin_client(monkeypatch)
 
-        async def fake_get_league_messages(session, league_id):
-            return [{"id": 1, "message": "Hello", "user_id": USER_ID}]
+        async def fake_get_league_messages(session, league_id, current_user_id=None):
+            return [
+                {
+                    "id": 1,
+                    "message": "Hello",
+                    "user_id": USER_ID,
+                    "is_mine": current_user_id == USER_ID,
+                }
+            ]
 
         monkeypatch.setattr(
             data_service, "get_league_messages", fake_get_league_messages, raising=True

@@ -394,15 +394,56 @@ describe('CourtDetailScreen — court without photos', () => {
       ...MOCK_COURT,
       photo_count: 10,
       court_photos: [
-        { id: 1, url: 'https://picsum.photos/1', caption: null, created_at: '2026-01-01' },
-        { id: 2, url: 'https://picsum.photos/2', caption: null, created_at: '2026-01-01' },
-        { id: 3, url: 'https://picsum.photos/3', caption: null, created_at: '2026-01-01' },
+        { id: 1, url: 'https://picsum.photos/1', created_at: '2026-01-01' },
+        { id: 2, url: 'https://picsum.photos/2', created_at: '2026-01-01' },
+        { id: 3, url: 'https://picsum.photos/3', created_at: '2026-01-01' },
       ],
     };
     mockGetCourtById.mockResolvedValue(courtManyPhotos);
     render(<CourtDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('court-more-photos-btn')).toBeTruthy();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-id rendering — proves each call renders its own court, not always Manhattan Beach
+// ---------------------------------------------------------------------------
+
+describe('CourtDetailScreen — different ids render different courts', () => {
+  it('renders Manhattan Beach when api returns court id 1', async () => {
+    mockGetCourtById.mockResolvedValue(MOCK_COURT);
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      const elements = screen.getAllByText('Manhattan Beach Courts');
+      expect(elements.length).toBeGreaterThanOrEqual(1);
+    });
+    expect(mockGetCourtById).toHaveBeenCalled();
+  });
+
+  it('renders Venice Beach when api returns court id 2', async () => {
+    mockGetCourtById.mockResolvedValue(MOCK_COURT_VENICE);
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      const elements = screen.getAllByText('Venice Beach Courts');
+      expect(elements.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('api is called with the idOrSlug from route params', async () => {
+    mockGetCourtById.mockResolvedValue(MOCK_COURT);
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      expect(mockGetCourtById).toHaveBeenCalledWith('1');
+    });
+  });
+
+  it('each court renders its own city/state', async () => {
+    mockGetCourtById.mockResolvedValue(MOCK_COURT_VENICE);
+    render(<CourtDetailRoute />);
+    await waitFor(() => {
+      expect(screen.getByText('Venice, CA')).toBeTruthy();
     });
   });
 });

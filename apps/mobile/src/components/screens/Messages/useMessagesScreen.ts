@@ -11,7 +11,7 @@ import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { routes } from '@/lib/navigation';
 import { hapticLight } from '@/utils/haptics';
-import type { Conversation } from '@beach-kings/shared';
+import type { Conversation, Player } from '@beach-kings/shared';
 
 export interface UseMessagesScreenResult {
   readonly conversations: readonly Conversation[];
@@ -23,7 +23,7 @@ export interface UseMessagesScreenResult {
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly onConversationPress: (playerId: number, name?: string) => void;
-  /** Placeholder player ID for unread count display — 0 if not loaded. */
+  /** The current user's player ID, or 0 if not yet loaded. */
   readonly currentPlayerId: number;
 }
 
@@ -34,6 +34,17 @@ export function useMessagesScreen(): UseMessagesScreenResult {
 
   const { data, isLoading, error, refetch } = useApi<{ items: Conversation[]; total_count: number }>(
     () => api.getConversations(),
+    [],
+  );
+
+  const { data: player } = useApi<Player | null>(
+    async () => {
+      try {
+        return (await api.getCurrentUserPlayer()) ?? null;
+      } catch {
+        return null;
+      }
+    },
     [],
   );
 
@@ -76,6 +87,6 @@ export function useMessagesScreen(): UseMessagesScreenResult {
     onRefresh,
     onRetry,
     onConversationPress,
-    currentPlayerId: 0,
+    currentPlayerId: player?.id ?? 0,
   };
 }

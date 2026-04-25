@@ -7,10 +7,26 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import type { Season } from '@beach-kings/shared';
 import { routes } from '@/lib/navigation';
+import { api } from '@/lib/api';
 import { mockApi } from '@/lib/mockApi';
 import type { LeagueStanding, LeagueSeasonInfo } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
+
+interface SeasonPickerEntry {
+  readonly id: number;
+  readonly name: string;
+  readonly is_active: boolean;
+}
+
+function toSeasonPickerEntry(season: Season): SeasonPickerEntry {
+  return {
+    id: season.id,
+    name: season.name ?? `Season ${season.id}`,
+    is_active: season.is_active ?? false,
+  };
+}
 
 export interface UseLeagueDashboardTabResult {
   readonly standings: readonly LeagueStanding[];
@@ -38,7 +54,10 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
 
   const seasonsQuery = useQuery({
     queryKey: leagueKeys.seasons(leagueId),
-    queryFn: () => mockApi.getLeagueSeasonsList(leagueId), // TODO(backend): GET /api/leagues/:id/seasons
+    queryFn: async (): Promise<readonly SeasonPickerEntry[]> => {
+      const rows = await api.getLeagueSeasons(Number(leagueId));
+      return rows.map(toSeasonPickerEntry);
+    },
   });
 
   const onSelectSeason = useCallback((id: number) => {
