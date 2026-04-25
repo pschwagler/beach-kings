@@ -26,6 +26,7 @@ Leave the tournament/KOB mock data in place — do not delete or touch `MOCK_TOU
 
 Before writing any new code for a task, the agent MUST:
 
+0. **Treat the wireframe as the spec.** Find the matching file in `mobile-audit/wireframes/` (e.g. `create-league.html`, `score-game.html`) and use the rendered fields/sections as the source of truth for what the screen should contain. The task descriptions in this doc are best-effort summaries and have been wrong about field lists before — when the spec and the wireframe disagree, the wireframe wins. Surface the discrepancy in your question batch.
 1. **Re-read `packages/api-client/src/methods.ts` end-to-end.** Confirm whether a real method already exists for the feature. Several stubs are just mis-wired calls (e.g. `leaveLeagueMock` → `leaveLeague`, `sendLeagueMessage` → `createLeagueMessage`). Do not add a new api-client method if one already exists — wire the existing one.
 2. **Re-read the backend route list.** Check `docs/API_ROUTES.md` and grep the backend source (routes/controllers/handlers) for the relevant resource. If a route already returns the data you need — even if the shape is slightly different — prefer enriching or adapting the existing route to adding a new one.
 3. **Re-read `packages/shared/src/types/index.ts`.** If a type already exists for the resource, extend it rather than duplicating. Only introduce a new type if nothing usable is there.
@@ -113,11 +114,17 @@ These features throw on submit. Each task = one agent unit of work. Backend work
   - API client (new): `sendLeagueInvites(leagueId, playerIds)`
   - Reuse check: commit `35f5c89` added invite deep links — there is probably already an `invites` table/route for deep-link invites. Extend rather than create a parallel system.
 
-- [ ] **P1.6 — Create League (expanded form)**
-  - Mobile: `apps/mobile/src/components/screens/Leagues/useCreateLeagueScreen.ts`
-  - Endpoint (extend): `POST /api/leagues` — accept `gender`, `level`, `access_type`, `max_players`, `court_name`, `day_of_week`, `start_time`, `description`
-  - API client (extend): widen `createLeague` param type
-  - Reuse check: existing `createLeague(data: Partial<League>)` already exists. Prefer extending the existing `League` type + existing endpoint payload over creating a `createLeagueFull` variant.
+- [ ] **P1.6 — Create League (wire to real API + form gaps)**
+  - **Source of truth:** `mobile-audit/wireframes/create-league.html`. Original spec hallucinated `max_players`, `day_of_week`, `start_time`, free-text `court_name` — none of those are in the wireframe.
+  - Wireframe fields: name, description, access type (Open/Invite Only), gender, level, location (dropdown), home court (FK to courts at the selected location).
+  - Mobile: `apps/mobile/src/components/screens/Leagues/useCreateLeagueScreen.ts` + `CreateLeagueScreen.tsx`
+    - Replace `mockApi.createLeagueMock` with real `api.createLeague`.
+    - Add a Location picker (currently missing).
+    - Replace the free-text `home_court_name` input with a real Court selector that filters by the selected location and sends `initial_court_id` (matches web's pattern).
+    - Map `access_type: 'open' | 'invite_only'` → `is_open: boolean` in the hook before submit.
+  - Endpoint: existing `POST /api/leagues`. **No schema changes, no new columns, no migration.** Existing fields already cover: `name`, `description`, `gender`, `level`, `is_open`, `location_id`, plus the post-create `POST /api/leagues/:id/home-courts` for the court FK.
+  - API client: existing `createLeague(data: Partial<League>)` already exists — wire it; widen the param type only if necessary to include `location_id` and the home-court attachment.
+  - Reuse check: web's `CreateLeagueModal` already does this exact flow. Mirror it.
 
 - [ ] **P1.7 — Signup / Drop from League Event**
   - Mobile: `apps/mobile/src/components/screens/Leagues/useLeagueSignupsTab.ts`
