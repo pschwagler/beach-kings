@@ -33,6 +33,7 @@ interface AuthState {
   readonly isLoading: boolean;
   readonly isAuthenticated: boolean;
   readonly profileComplete: boolean;
+  readonly isNewUser: boolean;
 }
 
 interface LoginWithEmailParams {
@@ -101,14 +102,15 @@ interface AuthResponse {
   readonly is_verified: boolean;
   readonly auth_provider?: string;
   readonly profile_complete?: boolean;
+  readonly is_new_user?: boolean;
   /** True when the user has a password set; absent or false for OAuth-only accounts. */
   readonly has_password?: boolean;
 }
 
-/** Store tokens from an AuthResponse and return profile_complete flag. */
+/** Store tokens from an AuthResponse and return user + is_new_user signal. */
 async function handleAuthResponse(response: AuthResponse): Promise<{
   readonly user: User;
-  readonly profileComplete: boolean;
+  readonly isNewUser: boolean;
 }> {
   await api.setAuthTokens(response.access_token, response.refresh_token);
 
@@ -123,8 +125,18 @@ async function handleAuthResponse(response: AuthResponse): Promise<{
 
   return {
     user,
-    profileComplete: response.profile_complete ?? false,
+    isNewUser: response.is_new_user ?? false,
   };
+}
+
+/** Fetch the current user's player and compute profile completeness. */
+async function fetchProfileComplete(): Promise<boolean> {
+  try {
+    const player = await api.getCurrentUserPlayer();
+    return isProfileComplete(player);
+  } catch {
+    return false;
+  }
 }
 
 /** A profile is "complete" only when all required fields are present. */
@@ -157,6 +169,7 @@ export default function AuthProvider({
     isLoading: true,
     isAuthenticated: false,
     profileComplete: false,
+    isNewUser: false,
   });
 
   const router = useRouter();
@@ -175,6 +188,7 @@ export default function AuthProvider({
             isLoading: false,
             isAuthenticated: false,
             profileComplete: false,
+            isNewUser: false,
           });
           return;
         }
@@ -189,19 +203,14 @@ export default function AuthProvider({
           has_password: userData.has_password !== false,
         };
 
-        let profileComplete = false;
-        try {
-          const player = await api.getCurrentUserPlayer();
-          profileComplete = isProfileComplete(player);
-        } catch {
-          // No player yet — profile not complete
-        }
+        const profileComplete = await fetchProfileComplete();
 
         setState({
           user,
           isLoading: false,
           isAuthenticated: true,
           profileComplete,
+          isNewUser: false,
         });
       } catch {
         await api.clearAuthTokens();
@@ -210,6 +219,7 @@ export default function AuthProvider({
           isLoading: false,
           isAuthenticated: false,
           profileComplete: false,
+          isNewUser: false,
         });
       }
     }
@@ -228,12 +238,27 @@ export default function AuthProvider({
 
     if (!state.isAuthenticated && !inAuthGroup) {
       router.replace(routes.welcome());
-    } else if (state.isAuthenticated && !state.profileComplete && !inOnboarding) {
+    } else if (
+      state.isAuthenticated &&
+      state.isNewUser &&
+      !state.profileComplete &&
+      !inOnboarding
+    ) {
       router.replace(routes.onboarding());
-    } else if (state.isAuthenticated && state.profileComplete && inAuthGroup) {
+    } else if (
+      state.isAuthenticated &&
+      inAuthGroup &&
+      (!state.isNewUser || state.profileComplete)
+    ) {
       router.replace(routes.home());
     }
-  }, [state.isAuthenticated, state.isLoading, state.profileComplete, segments]);
+  }, [
+    state.isAuthenticated,
+    state.isLoading,
+    state.profileComplete,
+    state.isNewUser,
+    segments,
+  ]);
 
   // -----------------------------------------------------------------------
   // Auth actions
@@ -248,11 +273,13 @@ export default function AuthProvider({
 
       const data = await api.login(credentials);
       const result = await handleAuthResponse(data);
+      const profileComplete = await fetchProfileComplete();
       setState({
         user: result.user,
         isLoading: false,
         isAuthenticated: true,
-        profileComplete: result.profileComplete,
+        profileComplete,
+        isNewUser: false,
       });
     },
     [],
@@ -274,22 +301,26 @@ export default function AuthProvider({
   const loginWithGoogle = useCallback(async (idToken: string) => {
     const data = await api.googleAuth(idToken);
     const result = await handleAuthResponse(data);
+    const profileComplete = await fetchProfileComplete();
     setState({
       user: result.user,
       isLoading: false,
       isAuthenticated: true,
-      profileComplete: result.profileComplete,
+      profileComplete,
+      isNewUser: result.isNewUser,
     });
   }, []);
 
   const loginWithApple = useCallback(async (idToken: string) => {
     const data = await api.appleAuth(idToken);
     const result = await handleAuthResponse(data);
+    const profileComplete = await fetchProfileComplete();
     setState({
       user: result.user,
       isLoading: false,
       isAuthenticated: true,
-      profileComplete: result.profileComplete,
+      profileComplete,
+      isNewUser: result.isNewUser,
     });
   }, []);
 
@@ -297,11 +328,13 @@ export default function AuthProvider({
     async (phoneNumber: string, code: string) => {
       const data = await api.verifyPhone(phoneNumber, code);
       const result = await handleAuthResponse(data);
+      const profileComplete = await fetchProfileComplete();
       setState({
         user: result.user,
         isLoading: false,
         isAuthenticated: true,
-        profileComplete: result.profileComplete,
+        profileComplete,
+        isNewUser: result.isNewUser,
       });
     },
     [],
@@ -311,11 +344,13 @@ export default function AuthProvider({
     async (email: string, code: string) => {
       const data = await api.verifyEmail(email, code);
       const result = await handleAuthResponse(data);
+      const profileComplete = await fetchProfileComplete();
       setState({
         user: result.user,
         isLoading: false,
         isAuthenticated: true,
-        profileComplete: result.profileComplete,
+        profileComplete,
+        isNewUser: result.isNewUser,
       });
     },
     [],
@@ -333,6 +368,7 @@ export default function AuthProvider({
       isLoading: false,
       isAuthenticated: false,
       profileComplete: false,
+      isNewUser: false,
     });
   }, []);
 
