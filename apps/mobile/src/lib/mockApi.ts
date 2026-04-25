@@ -440,33 +440,6 @@ const MOCK_LEAGUE_SCHEDULE: LeagueScheduleRow[] = [
   { day_of_week: 'Sunday', time_label: '10:00 AM - 1:00 PM', court_name: 'QBK Sports (Courts 2-4)' },
 ];
 
-const MOCK_LEAGUE_MEMBERS: LeagueMemberRow[] = [
-  { player_id: 10, display_name: 'C. Gulla', initials: 'CG', role: 'admin', joined_at: '2025-01-01' },
-  { player_id: 11, display_name: 'K. Fawwar', initials: 'KF', role: 'member', joined_at: '2025-01-01' },
-  { player_id: 1, display_name: 'P. Schwagler', initials: 'PS', role: 'member', joined_at: '2025-01-05' },
-  { player_id: 12, display_name: 'A. Marthey', initials: 'AM', role: 'member', joined_at: '2025-01-05' },
-  { player_id: 13, display_name: 'S. Jindash', initials: 'SJ', role: 'member', joined_at: '2025-02-01' },
-  { player_id: 14, display_name: 'J. Drabos', initials: 'JD', role: 'member', joined_at: '2025-02-10' },
-  { player_id: 15, display_name: 'M. Salizar', initials: 'MS', role: 'member', joined_at: '2025-03-01' },
-  { player_id: 16, display_name: 'R. Torres', initials: 'RT', role: 'member', joined_at: '2025-03-15' },
-];
-
-const MOCK_LEAGUE_JOIN_REQUESTS: LeagueJoinRequest[] = [
-  { id: 1, player_id: 99, display_name: 'T. Wilson', initials: 'TW', requested_at: '2026-03-18', status: 'pending', message: 'Looking to join a competitive league!' },
-  { id: 2, player_id: 98, display_name: 'B. Lopez', initials: 'BL', requested_at: '2026-03-19', status: 'pending', message: null },
-];
-
-const MOCK_LEAGUE_INFO: LeagueInfoDetail = {
-  id: 1,
-  description: 'Competitive open-level men\'s beach volleyball league at QBK Sports.',
-  access_type: 'open',
-  level: 'Open',
-  location_name: 'Queens, NY',
-  home_court_name: 'QBK Sports',
-  members: MOCK_LEAGUE_MEMBERS,
-  seasons: MOCK_LEAGUE_SEASONS,
-  join_requests: MOCK_LEAGUE_JOIN_REQUESTS,
-};
 
 const MOCK_PENDING_INVITES: LeagueInviteItem[] = [
   { id: 1, league_id: 1, league_name: 'QBK Open Men', player_id: 50, display_name: 'D. Thompson', initials: 'DT', invited_at: '2026-03-15', status: 'pending' },
@@ -1268,44 +1241,6 @@ export const mockApi = {
     _eventId: number,
   ): Promise<LeagueEvent> {
     return notImplemented('DELETE /api/leagues/:leagueId/events/:eventId/signup');
-  },
-
-  /**
-   * Returns full info tab payload (description, members, seasons, join requests).
-   * TODO(backend): GET /api/leagues/:id/info
-   */
-  async getLeagueInfoDetail(_id: number | string): Promise<LeagueInfoDetail> {
-    return Promise.resolve({ ...MOCK_LEAGUE_INFO, members: [...MOCK_LEAGUE_MEMBERS], seasons: [...MOCK_LEAGUE_SEASONS], join_requests: [...MOCK_LEAGUE_JOIN_REQUESTS] });
-  },
-
-  /**
-   * Approve a join request (admin).
-   * TODO(backend): POST /api/leagues/:id/join-requests/:requestId/approve
-   */
-  async approveJoinRequest(
-    _id: number | string,
-    _requestId: number,
-  ): Promise<void> {
-    return notImplemented('POST /api/leagues/:id/join-requests/:requestId/approve');
-  },
-
-  /**
-   * Deny a join request (admin).
-   * TODO(backend): POST /api/leagues/:id/join-requests/:requestId/deny
-   */
-  async denyJoinRequest(
-    _id: number | string,
-    _requestId: number,
-  ): Promise<void> {
-    return notImplemented('POST /api/leagues/:id/join-requests/:requestId/deny');
-  },
-
-  /**
-   * Request to join a public league.
-   * TODO(backend): POST /api/leagues/:id/join-request
-   */
-  async requestToJoinLeague(_id: number | string): Promise<void> {
-    return notImplemented('POST /api/leagues/:id/join-request');
   },
 
   /**

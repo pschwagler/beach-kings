@@ -70,6 +70,11 @@ const mockRequestToJoin = jest.fn();
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
     findLeagues: (...args: unknown[]) => mockFindLeagues(...args),
+  },
+}));
+
+jest.mock('@/lib/api', () => ({
+  api: {
     requestToJoinLeague: (...args: unknown[]) => mockRequestToJoin(...args),
   },
 }));

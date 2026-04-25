@@ -83,10 +83,14 @@ const mockCreateLeagueMessage = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockLeaveLeague = jest.fn();
 const mockGetLeagueEvents = jest.fn();
-const mockGetLeagueInfoDetail = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
 const mockGetMyGames = jest.fn();
 const mockGetLeagueSignupEvents = jest.fn();
+const mockGetLeague = jest.fn();
+const mockGetLeagueMembers = jest.fn();
+const mockGetLeagueJoinRequests = jest.fn();
+const mockApproveJoinRequest = jest.fn();
+const mockRejectJoinRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -96,6 +100,11 @@ jest.mock('@/lib/api', () => ({
     getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
     leaveLeague: (...args: unknown[]) => mockLeaveLeague(...args),
     getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
+    getLeague: (...args: unknown[]) => mockGetLeague(...args),
+    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
+    getLeagueJoinRequests: (...args: unknown[]) => mockGetLeagueJoinRequests(...args),
+    approveJoinRequest: (...args: unknown[]) => mockApproveJoinRequest(...args),
+    rejectJoinRequest: (...args: unknown[]) => mockRejectJoinRequest(...args),
   },
 }));
 
@@ -104,11 +113,8 @@ jest.mock('@/lib/mockApi', () => ({
     getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
     getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
     getLeagueEvents: (...args: unknown[]) => mockGetLeagueEvents(...args),
-    getLeagueInfoDetail: (...args: unknown[]) => mockGetLeagueInfoDetail(...args),
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
-    approveJoinRequest: jest.fn().mockResolvedValue(undefined),
-    denyJoinRequest: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -153,6 +159,16 @@ const MOCK_DETAIL = {
   user_rating: 1520,
 };
 
+const MOCK_LEAGUE_FOR_INFO = {
+  id: 1,
+  name: 'Manhattan Open',
+  description: null,
+  is_open: true,
+  level: null,
+  location_name: null,
+  home_courts: [],
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetLeagueDetail.mockResolvedValue(MOCK_DETAIL);
@@ -163,14 +179,14 @@ beforeEach(() => {
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 1 });
   mockLeaveLeague.mockResolvedValue(undefined);
   mockGetLeagueEvents.mockResolvedValue([]);
-  mockGetLeagueInfoDetail.mockResolvedValue({
-    id: 1, description: null, access_type: 'open', level: 'Open',
-    location_name: null, home_court_name: null,
-    members: [], seasons: [], join_requests: [],
-  });
   mockGetLeaguePlayerStats.mockResolvedValue({});
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueSignupEvents.mockResolvedValue([]);
+  mockGetLeague.mockResolvedValue(MOCK_LEAGUE_FOR_INFO);
+  mockGetLeagueMembers.mockResolvedValue([]);
+  mockGetLeagueJoinRequests.mockResolvedValue({ pending: [], rejected: [] });
+  mockApproveJoinRequest.mockResolvedValue({ success: true });
+  mockRejectJoinRequest.mockResolvedValue({ success: true });
 });
 
 // ---------------------------------------------------------------------------

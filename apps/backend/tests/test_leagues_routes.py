@@ -536,6 +536,168 @@ class TestGetJoinRequests:
 
 
 # ---------------------------------------------------------------------------
+# POST /api/leagues/{league_id}/join-requests/{request_id}/approve
+# ---------------------------------------------------------------------------
+
+
+REQUEST_ID = 5
+
+
+class TestApproveJoinRequest:
+    """Tests for POST /api/leagues/{league_id}/join-requests/{request_id}/approve."""
+
+    def test_approve_join_request_success(self, monkeypatch):
+        """Admin can approve a pending join request; player is added to the league."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        client, headers = _make_admin_client(monkeypatch)
+
+        async def fake_add_league_member(session, league_id, player_id, role):
+            return {
+                "id": 99,
+                "league_id": league_id,
+                "player_id": player_id,
+                "role": role,
+                "created_at": "2026-01-01T00:00:00Z",
+            }
+
+        monkeypatch.setattr(data_service, "add_league_member", fake_add_league_member, raising=True)
+        monkeypatch.setattr(
+            notification_service,
+            "notify_player_about_join_approval",
+            _noop,
+            raising=True,
+        )
+        monkeypatch.setattr(
+            notification_service,
+            "notify_members_about_new_member",
+            _noop,
+            raising=True,
+        )
+
+        # Patch session.execute to return a fake join request row.
+        fake_join_request = MagicMock()
+        fake_join_request.player_id = PLAYER_ID
+
+        fake_scalar = MagicMock()
+        fake_scalar.scalar_one_or_none.return_value = fake_join_request
+
+        # Second execute (player user_id lookup) returns None safely.
+        fake_player_scalar = MagicMock()
+        fake_player_scalar.scalar_one_or_none.return_value = None
+
+        execute_mock = AsyncMock(side_effect=[fake_scalar, MagicMock(), fake_player_scalar])
+        monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", execute_mock)
+        monkeypatch.setattr(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit", AsyncMock(), raising=False
+        )
+
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("success") is True
+
+    def test_approve_join_request_not_found(self, monkeypatch):
+        """Returns 404 when the join request does not exist."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        client, headers = _make_admin_client(monkeypatch)
+
+        fake_scalar = MagicMock()
+        fake_scalar.scalar_one_or_none.return_value = None
+        execute_mock = AsyncMock(return_value=fake_scalar)
+        monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", execute_mock)
+
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve",
+            headers=headers,
+        )
+        assert response.status_code == 404
+
+    def test_approve_join_request_unauthenticated(self, monkeypatch):
+        """Unauthenticated request is rejected."""
+        client = TestClient(app)
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/approve"
+        )
+        assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/leagues/{league_id}/join-requests/{request_id}/reject
+# ---------------------------------------------------------------------------
+
+
+class TestRejectJoinRequest:
+    """Tests for POST /api/leagues/{league_id}/join-requests/{request_id}/reject."""
+
+    def test_reject_join_request_success(self, monkeypatch):
+        """Admin can reject a pending join request."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        client, headers = _make_admin_client(monkeypatch)
+
+        monkeypatch.setattr(
+            notification_service,
+            "notify_player_about_join_rejection",
+            _noop,
+            raising=True,
+        )
+
+        fake_join_request = MagicMock()
+        fake_join_request.player_id = PLAYER_ID
+
+        fake_scalar = MagicMock()
+        fake_scalar.scalar_one_or_none.return_value = fake_join_request
+
+        # Second execute: player user_id lookup returns None.
+        fake_player_scalar = MagicMock()
+        fake_player_scalar.scalar_one_or_none.return_value = None
+
+        execute_mock = AsyncMock(side_effect=[fake_scalar, fake_player_scalar, MagicMock()])
+        monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", execute_mock)
+        monkeypatch.setattr(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit", AsyncMock(), raising=False
+        )
+
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("success") is True
+
+    def test_reject_join_request_not_found(self, monkeypatch):
+        """Returns 404 when the join request does not exist."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        client, headers = _make_admin_client(monkeypatch)
+
+        fake_scalar = MagicMock()
+        fake_scalar.scalar_one_or_none.return_value = None
+        execute_mock = AsyncMock(return_value=fake_scalar)
+        monkeypatch.setattr("sqlalchemy.ext.asyncio.AsyncSession.execute", execute_mock)
+
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject",
+            headers=headers,
+        )
+        assert response.status_code == 404
+
+    def test_reject_join_request_unauthenticated(self, monkeypatch):
+        """Unauthenticated request is rejected."""
+        client = TestClient(app)
+        response = client.post(
+            f"/api/leagues/{LEAGUE_ID}/join-requests/{REQUEST_ID}/reject"
+        )
+        assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
 # POST /api/leagues/{league_id}/leave
 # ---------------------------------------------------------------------------
 

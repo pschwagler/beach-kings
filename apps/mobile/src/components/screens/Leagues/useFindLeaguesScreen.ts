@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { routes } from '@/lib/navigation';
+import { api } from '@/lib/api';
 import { mockApi } from '@/lib/mockApi';
 import type { FindLeagueResult, LeagueAccessType } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
@@ -104,7 +105,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
     async (id: number): Promise<void> => {
       setRequestingIds((prev) => new Set([...prev, id]));
       try {
-        await mockApi.requestToJoinLeague(id); // TODO(backend): POST /api/leagues/:id/join-request
+        await api.requestToJoinLeague(id);
       } finally {
         setRequestingIds((prev) => {
           const next = new Set(prev);

@@ -4,6 +4,31 @@
 
 import type { LeagueGender, LeagueMemberRole, SkillLevel } from './enums';
 
+// ---------------------------------------------------------------------------
+// Join requests
+// ---------------------------------------------------------------------------
+
+/**
+ * A single join request row returned from GET /api/leagues/:id/join-requests.
+ */
+export interface JoinRequest {
+  id: number;
+  player_id: number;
+  /** First + last name concatenated by the backend. */
+  display_name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  /** ISO date string. */
+  requested_at: string;
+}
+
+/**
+ * Response shape from GET /api/leagues/:id/join-requests.
+ */
+export interface JoinRequestsResponse {
+  pending: JoinRequest[];
+  rejected: JoinRequest[];
+}
+
 export interface LeagueMember {
   id: number;
   league_id: number;

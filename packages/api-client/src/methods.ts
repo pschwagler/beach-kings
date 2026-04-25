@@ -29,6 +29,8 @@ import type {
   ChangePasswordResponse,
   MyGamesQueryParams,
   MyGamesResponse,
+  JoinRequest,
+  JoinRequestsResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -459,6 +461,61 @@ export function createApiMethods(client: ApiClient) {
 
     async createLeagueMessage(leagueId: number, message: string) {
       const response = await api.post(`/api/leagues/${leagueId}/messages`, { message });
+      return response.data;
+    },
+
+    /**
+     * Submit a join request for an invite-only league.
+     * Maps to POST /api/leagues/{leagueId}/request-join.
+     */
+    async requestToJoinLeague(leagueId: number): Promise<{ success: boolean; message: string }> {
+      const response = await api.post<{ success: boolean; message: string }>(
+        `/api/leagues/${leagueId}/request-join`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Cancel the current user's pending join request.
+     * Maps to DELETE /api/leagues/{leagueId}/join-request.
+     */
+    async cancelJoinRequest(leagueId: number): Promise<{ success: boolean; message: string }> {
+      const response = await api.delete<{ success: boolean; message: string }>(
+        `/api/leagues/${leagueId}/join-request`,
+      );
+      return response.data;
+    },
+
+    /**
+     * List pending and rejected join requests for a league (league admin only).
+     * Maps to GET /api/leagues/{leagueId}/join-requests.
+     */
+    async getLeagueJoinRequests(leagueId: number): Promise<JoinRequestsResponse> {
+      const response = await api.get<JoinRequestsResponse>(
+        `/api/leagues/${leagueId}/join-requests`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Approve a join request and add the player to the league (league admin).
+     * Maps to POST /api/leagues/{leagueId}/join-requests/{requestId}/approve.
+     */
+    async approveJoinRequest(leagueId: number, requestId: number): Promise<{ success: boolean }> {
+      const response = await api.post<{ success: boolean }>(
+        `/api/leagues/${leagueId}/join-requests/${requestId}/approve`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Reject a join request (league admin).
+     * Maps to POST /api/leagues/{leagueId}/join-requests/{requestId}/reject.
+     */
+    async rejectJoinRequest(leagueId: number, requestId: number): Promise<{ success: boolean }> {
+      const response = await api.post<{ success: boolean }>(
+        `/api/leagues/${leagueId}/join-requests/${requestId}/reject`,
+      );
       return response.data;
     },
 
