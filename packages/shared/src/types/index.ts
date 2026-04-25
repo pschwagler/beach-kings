@@ -114,3 +114,13 @@ export interface ApiError {
   status?: number;
 }
 
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  status: string;
+  password_changed_at: string;
+}
+

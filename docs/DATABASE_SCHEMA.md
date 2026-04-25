@@ -41,6 +41,7 @@ User accounts with phone or Google SSO authentication.
 | `failed_verification_attempts` | Integer | Default `0` |
 | `locked_until` | String | ISO timestamp, nullable |
 | `deletion_scheduled_at` | DateTime(tz) | Nullable. Set when user requests account deletion (30-day grace period) |
+| `password_changed_at` | DateTime(tz) | Nullable. Set to UTC now on every successful password change |
 | `created_at` | DateTime(tz) | |
 | `updated_at` | DateTime(tz) | |
 

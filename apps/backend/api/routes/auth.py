@@ -41,6 +41,8 @@ from backend.models.schemas import (
     ResetPasswordVerifyRequest,
     ResetPasswordConfirmRequest,
     GoogleAuthRequest,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
 )
 from backend.utils.datetime_utils import utcnow
 
@@ -558,10 +560,6 @@ async def reset_password_confirm(
             raise HTTPException(
                 status_code=400, detail="Password must be at least 8 characters long"
             )
-        if not any(char.isdigit() for char in payload.new_password):
-            raise HTTPException(
-                status_code=400, detail="Password must include at least one number"
-            )
 
         user_id = await user_service.verify_and_use_password_reset_token(
             session, payload.reset_token
@@ -714,6 +712,75 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
         email=current_user.get("email"),
         is_verified=current_user["is_verified"],
         auth_provider=current_user.get("auth_provider", "phone"),
+        has_password=current_user.get("password_hash") is not None,
         deletion_scheduled_at=current_user.get("deletion_scheduled_at"),
         created_at=current_user["created_at"],
     )
+
+
+@router.post("/api/auth/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Change the authenticated user's password.
+
+    Verifies the current password, then replaces it with the new one.
+    All other refresh tokens for the user are revoked on success so that
+    other sessions (different devices) are invalidated — the current session's
+    access token remains valid until it expires naturally.
+
+    Returns the ISO-8601 timestamp at which the password was changed.
+    """
+    try:
+        # OAuth-only users have no password hash — they must use password reset first.
+        if not current_user.get("password_hash"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Your account uses social sign-in. "
+                    "Set a password via password reset first."
+                ),
+            )
+
+        if len(payload.new_password) < 8:
+            raise HTTPException(
+                status_code=400, detail="Password must be at least 8 characters long"
+            )
+
+        if not auth_service.verify_password(
+            payload.current_password, current_user["password_hash"]
+        ):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        new_password_hash = auth_service.hash_password(payload.new_password)
+        success = await user_service.update_user_password(
+            session, current_user["id"], new_password_hash
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update password")
+
+        # Revoke all refresh tokens so other sessions are invalidated.
+        await user_service.delete_user_refresh_tokens(session, current_user["id"])
+
+        # Re-fetch the user to get the freshly-written password_changed_at value.
+        updated_user = await user_service.get_user_by_id(session, current_user["id"])
+        password_changed_at = (
+            updated_user.get("password_changed_at") or utcnow().isoformat()
+            if updated_user
+            else utcnow().isoformat()
+        )
+
+        return ChangePasswordResponse(
+            status="success",
+            password_changed_at=password_changed_at,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error changing password")
+        raise HTTPException(
+            status_code=500, detail="Error changing password. Please try again."
+        )

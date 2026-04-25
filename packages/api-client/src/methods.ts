@@ -3,7 +3,7 @@
  */
 
 import type { ApiClient } from './client';
-import type { Player, Match, League, Season, Session, Location, Court } from '@beach-kings/shared';
+import type { Player, Match, League, Season, Session, Location, Court, ChangePasswordRequest, ChangePasswordResponse } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
   const api = client.axiosInstance;
@@ -32,6 +32,20 @@ export function createApiMethods(client: ApiClient) {
 
     async verifyPhone(phone: string, code: string) {
       const response = await api.post('/api/auth/verify-phone', { phone, code });
+      return response.data;
+    },
+
+    /**
+     * Change the authenticated user's password.
+     * Revokes all existing refresh tokens on success.
+     * Throws 401 if current_password is wrong, 400 for OAuth users or short passwords.
+     */
+    async changePassword(currentPassword: string, newPassword: string): Promise<ChangePasswordResponse> {
+      const payload: ChangePasswordRequest = {
+        current_password: currentPassword,
+        new_password: newPassword,
+      };
+      const response = await api.post<ChangePasswordResponse>('/api/auth/change-password', payload);
       return response.data;
     },
 
