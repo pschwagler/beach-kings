@@ -10,6 +10,10 @@
  *   - Shows error when new password matches current password
  *   - Clears banner when user types in a field
  *   - Calls submit on keyboard done
+ *   - Calls api.changePassword with correct args on valid form submit
+ *   - Shows success banner and navigates back after API success
+ *   - Shows "Current password is incorrect" on 401 response
+ *   - Shows API detail message on 400 response
  */
 
 import React from 'react';
@@ -19,17 +23,27 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-
 // Mocks
 // ---------------------------------------------------------------------------
 
+const mockBack = jest.fn();
+
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: jest.fn(), back: mockBack }),
     useLocalSearchParams: () => ({}),
     Redirect: ({ href }: { href: string }) => <View testID={`redirect-${href}`} />,
     useSegments: () => [],
     Slot: ({ children }: { children?: React.ReactNode }) => <View>{children}</View>,
   };
 });
+
+const mockChangePassword = jest.fn();
+
+jest.mock('@/lib/api', () => ({
+  api: {
+    changePassword: (...args: unknown[]) => mockChangePassword(...args),
+  },
+}));
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -109,6 +123,11 @@ function fillForm(current: string, newPwd: string, confirm: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -196,11 +215,16 @@ describe('ChangePasswordScreen — validation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Success
+// Success (real API)
 // ---------------------------------------------------------------------------
 
-describe('ChangePasswordScreen — success', () => {
-  it('shows success banner after simulated successful submit', async () => {
+describe('ChangePasswordScreen — API success', () => {
+  it('shows success banner after successful API call', async () => {
+    mockChangePassword.mockResolvedValue({
+      status: 'success',
+      password_changed_at: '2026-04-25T12:00:00+00:00',
+    });
+
     render(<ChangePasswordRoute />);
     fillForm('currentpass', 'newpassword1', 'newpassword1');
     await act(async () => {
@@ -208,11 +232,31 @@ describe('ChangePasswordScreen — success', () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId('change-password-success')).toBeTruthy();
-    }, { timeout: 3000 });
+    });
     expect(screen.getByText('Password updated successfully.')).toBeTruthy();
   });
 
-  it('clears form fields after successful submit', async () => {
+  it('calls api.changePassword with correct arguments', async () => {
+    mockChangePassword.mockResolvedValue({
+      status: 'success',
+      password_changed_at: '2026-04-25T12:00:00+00:00',
+    });
+
+    render(<ChangePasswordRoute />);
+    fillForm('oldpass123', 'newpass456', 'newpass456');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+    await waitFor(() => expect(mockChangePassword).toHaveBeenCalledTimes(1));
+    expect(mockChangePassword).toHaveBeenCalledWith('oldpass123', 'newpass456');
+  });
+
+  it('clears form fields after successful API call', async () => {
+    mockChangePassword.mockResolvedValue({
+      status: 'success',
+      password_changed_at: '2026-04-25T12:00:00+00:00',
+    });
+
     render(<ChangePasswordRoute />);
     fillForm('currentpass', 'newpassword1', 'newpassword1');
     await act(async () => {
@@ -220,8 +264,83 @@ describe('ChangePasswordScreen — success', () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId('change-password-success')).toBeTruthy();
-    }, { timeout: 3000 });
-    const currentField = screen.getByTestId('input-current-password');
-    expect(currentField.props.value).toBe('');
+    });
+    expect(screen.getByTestId('input-current-password').props.value).toBe('');
+  });
+
+  it('navigates back to Settings after 800ms success banner', async () => {
+    mockChangePassword.mockResolvedValue({
+      status: 'success',
+      password_changed_at: '2026-04-25T12:00:00+00:00',
+    });
+
+    render(<ChangePasswordRoute />);
+    fillForm('currentpass', 'newpassword1', 'newpassword1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('change-password-success')).toBeTruthy();
+    });
+    expect(mockBack).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(800);
+    });
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// API error handling
+// ---------------------------------------------------------------------------
+
+describe('ChangePasswordScreen — API errors', () => {
+  it('shows "Current password is incorrect" on 401 response', async () => {
+    const err = { response: { status: 401 } };
+    mockChangePassword.mockRejectedValue(err);
+
+    render(<ChangePasswordRoute />);
+    fillForm('wrongpass', 'newpassword1', 'newpassword1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('change-password-error')).toBeTruthy();
+    });
+    expect(screen.getByText('Current password is incorrect.')).toBeTruthy();
+  });
+
+  it('shows API detail message on 400 response', async () => {
+    const err = {
+      response: {
+        status: 400,
+        data: { detail: 'Your account uses social sign-in. Set a password via password reset first.' },
+      },
+    };
+    mockChangePassword.mockRejectedValue(err);
+
+    render(<ChangePasswordRoute />);
+    fillForm('anything', 'newpassword1', 'newpassword1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('change-password-error')).toBeTruthy();
+    });
+    expect(screen.getByText('Your account uses social sign-in. Set a password via password reset first.')).toBeTruthy();
+  });
+
+  it('shows generic error on unexpected failure', async () => {
+    mockChangePassword.mockRejectedValue(new Error('Network error'));
+
+    render(<ChangePasswordRoute />);
+    fillForm('currentpass', 'newpassword1', 'newpassword1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('change-password-submit-btn'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('change-password-error')).toBeTruthy();
+    });
+    expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
   });
 });

@@ -24,6 +24,8 @@ interface User {
   readonly email: string | null;
   readonly is_verified: boolean;
   readonly auth_provider: string;
+  /** True when the user has a password set (false for OAuth-only accounts). */
+  readonly has_password: boolean;
 }
 
 interface AuthState {
@@ -99,6 +101,8 @@ interface AuthResponse {
   readonly is_verified: boolean;
   readonly auth_provider?: string;
   readonly profile_complete?: boolean;
+  /** True when the user has a password set; absent or false for OAuth-only accounts. */
+  readonly has_password?: boolean;
 }
 
 /** Store tokens from an AuthResponse and return profile_complete flag. */
@@ -114,6 +118,7 @@ async function handleAuthResponse(response: AuthResponse): Promise<{
     email: response.email ?? null,
     is_verified: response.is_verified,
     auth_provider: response.auth_provider ?? 'phone',
+    has_password: response.has_password !== false,
   };
 
   return {
@@ -181,6 +186,7 @@ export default function AuthProvider({
           email: userData.email ?? null,
           is_verified: userData.is_verified,
           auth_provider: userData.auth_provider ?? 'phone',
+          has_password: userData.has_password !== false,
         };
 
         let profileComplete = false;
@@ -342,6 +348,7 @@ export default function AuthProvider({
       email: userData.email ?? null,
       is_verified: userData.is_verified,
       auth_provider: userData.auth_provider ?? 'phone',
+      has_password: (userData as Record<string, unknown>).has_password !== false,
     };
     setState((prev) => ({ ...prev, user }));
   }, []);

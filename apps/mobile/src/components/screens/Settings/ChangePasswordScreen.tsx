@@ -21,10 +21,12 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import TopNav from '@/components/ui/TopNav';
 import Input from '@/components/ui/Input';
 import { hapticMedium, hapticError } from '@/utils/haptics';
+import { api } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +48,7 @@ type BannerState =
 // ---------------------------------------------------------------------------
 
 export default function ChangePasswordScreen(): React.ReactNode {
+  const router = useRouter();
   const [form, setForm] = useState<FormState>({
     currentPassword: '',
     newPassword: '',
@@ -84,14 +87,24 @@ export default function ChangePasswordScreen(): React.ReactNode {
     setBanner(null);
 
     try {
-      // TODO(backend): POST /api/auth/change-password
-      // await api.changePassword({ current_password: form.currentPassword, new_password: form.newPassword });
-      await new Promise<void>((resolve) => setTimeout(resolve, 600)); // simulated delay
-      setBanner({ type: 'success', message: 'Password updated successfully.' });
+      await api.changePassword(form.currentPassword, form.newPassword);
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch {
+      setBanner({ type: 'success', message: 'Password updated successfully.' });
+      // Navigate back to Settings after a brief success banner
+      setTimeout(() => {
+        router.back();
+      }, 800);
+    } catch (err: unknown) {
       void hapticError();
-      setBanner({ type: 'error', message: 'Current password is incorrect.' });
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        setBanner({ type: 'error', message: 'Current password is incorrect.' });
+      } else if (status === 400) {
+        const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        setBanner({ type: 'error', message: detail ?? 'Unable to change password.' });
+      } else {
+        setBanner({ type: 'error', message: 'Something went wrong. Please try again.' });
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -24,6 +24,9 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockLogout = jest.fn();
 
+// Mutable so individual tests can override the user.
+let mockUser: Record<string, unknown> = { email: 'test@example.com', has_password: true };
+
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -78,13 +81,26 @@ jest.mock('@/utils/haptics', () => ({
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { email: 'test@example.com' },
+    user: mockUser,
     logout: mockLogout,
   }),
 }));
 
+const mockSubmitFeedback = jest.fn();
+
+jest.mock('@/lib/api', () => ({
+  api: {
+    submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
+  },
+}));
+
 jest.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({
+    isDark: false,
+    colorScheme: 'light',
+    themeMode: 'system',
+    setThemeMode: jest.fn(),
+  }),
 }));
 
 jest.mock('@/components/ui/icons', () => {
@@ -110,6 +126,7 @@ import SettingsRoute from '../../../../app/(stack)/settings';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUser = { email: 'test@example.com', has_password: true };
 });
 
 // ---------------------------------------------------------------------------
@@ -205,5 +222,77 @@ describe('SettingsScreen — delete account', () => {
     render(<SettingsRoute />);
     // Should not throw
     fireEvent.press(screen.getByTestId('settings-row-delete'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feedback modal
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — feedback modal', () => {
+  it('opens feedback modal when feedback row is pressed', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-feedback'));
+    expect(screen.getByTestId('feedback-modal')).toBeTruthy();
+    expect(screen.getByTestId('feedback-input')).toBeTruthy();
+  });
+
+  it('closes modal when cancel is pressed', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-feedback'));
+    fireEvent.press(screen.getByTestId('feedback-cancel-btn'));
+    expect(screen.queryByTestId('feedback-modal')).toBeNull();
+  });
+
+  it('disables submit when input is empty', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-feedback'));
+    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
+    expect(mockSubmitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('submits feedback via api.submitFeedback with trimmed text', async () => {
+    mockSubmitFeedback.mockResolvedValue({ id: 1 });
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-feedback'));
+    fireEvent.changeText(screen.getByTestId('feedback-input'), '  App is great!  ');
+    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
+    await waitFor(() => {
+      expect(mockSubmitFeedback).toHaveBeenCalledWith('App is great!');
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('feedback-modal')).toBeNull();
+    });
+  });
+
+  it('surfaces an error message when submission fails', async () => {
+    mockSubmitFeedback.mockRejectedValue(new Error('network'));
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-feedback'));
+    fireEvent.changeText(screen.getByTestId('feedback-input'), 'bug report');
+    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('feedback-error')).toBeTruthy();
+    });
+    expect(screen.getByTestId('feedback-modal')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth user (no password)
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — OAuth user', () => {
+  it('hides the password row for users without a password', () => {
+    mockUser = { email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
+    render(<SettingsRoute />);
+    expect(screen.queryByTestId('settings-row-password')).toBeNull();
+  });
+
+  it('still shows email and phone rows for OAuth users', () => {
+    mockUser = { email: 'oauth@example.com', has_password: false, auth_provider: 'google' };
+    render(<SettingsRoute />);
+    expect(screen.getByTestId('settings-row-email')).toBeTruthy();
+    expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
   });
 });

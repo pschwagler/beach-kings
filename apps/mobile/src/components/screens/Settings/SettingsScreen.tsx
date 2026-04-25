@@ -12,7 +12,15 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  Alert,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -20,6 +28,8 @@ import TopNav from '@/components/ui/TopNav';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { api } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -84,8 +94,14 @@ function SectionLabel({ title, danger = false }: SectionLabelProps): React.React
 
 export default function SettingsScreen(): React.ReactNode {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { themeMode } = useTheme();
+  const hasPassword = user?.has_password !== false;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  const themeLabel =
+    themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System';
 
   const handleSettingsAccount = useCallback(() => {
     void hapticLight();
@@ -102,10 +118,20 @@ export default function SettingsScreen(): React.ReactNode {
     router.push(routes.settingsNotifications());
   }, [router]);
 
+  const handleAppearance = useCallback(() => {
+    void hapticLight();
+    router.push(routes.settingsAppearance());
+  }, [router]);
+
   const handleFeedback = useCallback(() => {
     void hapticLight();
-    Alert.alert('Feedback', 'Feedback form coming soon.');
-    // TODO(backend): open feedback form
+    setShowFeedback(true);
+  }, []);
+
+  const handleFeedbackSubmit = useCallback(async (text: string) => {
+    await api.submitFeedback(text);
+    setShowFeedback(false);
+    Alert.alert('Thanks!', 'Your feedback has been submitted.');
   }, []);
 
   const handleContactSupport = useCallback(() => {
@@ -168,13 +194,15 @@ export default function SettingsScreen(): React.ReactNode {
             value="Account info"
             onPress={handleSettingsAccount}
           />
-          <SettingsRow
-            testID="settings-row-password"
-            label="Password"
-            value="Change"
-            valueColor="text-brand-teal"
-            onPress={handleChangePassword}
-          />
+          {hasPassword && (
+            <SettingsRow
+              testID="settings-row-password"
+              label="Password"
+              value="Change"
+              valueColor="text-brand-teal"
+              onPress={handleChangePassword}
+            />
+          )}
           <SettingsRow
             testID="settings-row-phone"
             label="Phone Number"
@@ -189,6 +217,16 @@ export default function SettingsScreen(): React.ReactNode {
             testID="settings-row-notifications"
             label="Notification Preferences"
             onPress={handleNotifications}
+          />
+        </View>
+
+        <SectionLabel title="Appearance" />
+        <View>
+          <SettingsRow
+            testID="settings-row-appearance"
+            label="Theme"
+            value={themeLabel}
+            onPress={handleAppearance}
           />
         </View>
 
@@ -245,7 +283,107 @@ export default function SettingsScreen(): React.ReactNode {
           onCancel={() => setShowLogoutConfirm(false)}
         />
       )}
+
+      {/* Feedback modal */}
+      {showFeedback && (
+        <FeedbackModal
+          onSubmit={handleFeedbackSubmit}
+          onCancel={() => setShowFeedback(false)}
+        />
+      )}
     </SafeAreaView>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Feedback modal
+// ---------------------------------------------------------------------------
+
+interface FeedbackModalProps {
+  readonly onSubmit: (text: string) => Promise<void>;
+  readonly onCancel: () => void;
+}
+
+function FeedbackModal({ onSubmit, onCancel }: FeedbackModalProps): React.ReactNode {
+  const [text, setText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = text.trim().length > 0 && !isSubmitting;
+
+  const handleSubmit = useCallback(async () => {
+    const trimmed = text.trim();
+    if (trimmed.length === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit(trimmed);
+    } catch {
+      setError('Could not submit feedback. Please try again.');
+      setIsSubmitting(false);
+    }
+  }, [text, isSubmitting, onSubmit]);
+
+  return (
+    <View
+      testID="feedback-modal"
+      className="absolute inset-0 bg-black/50 items-center justify-center px-xl"
+    >
+      <View className="w-full bg-white dark:bg-elevated rounded-2xl p-xl">
+        <Text className="text-[18px] font-bold text-text-default dark:text-content-primary text-center mb-sm">
+          Leave Feedback
+        </Text>
+        <Text className="text-sm text-text-muted dark:text-text-tertiary text-center mb-lg">
+          Tell us what you think, what's broken, or what you'd like to see.
+        </Text>
+
+        <TextInput
+          testID="feedback-input"
+          value={text}
+          onChangeText={setText}
+          placeholder="Your feedback…"
+          placeholderTextColor="#999"
+          multiline
+          numberOfLines={5}
+          maxLength={2000}
+          editable={!isSubmitting}
+          className="min-h-[120px] bg-[#f5f5f5] dark:bg-dark-elevated rounded-xl px-md py-sm text-[15px] text-text-default dark:text-content-primary mb-md"
+          textAlignVertical="top"
+        />
+
+        {error != null && (
+          <Text testID="feedback-error" className="text-red-500 text-sm mb-sm">
+            {error}
+          </Text>
+        )}
+
+        <Pressable
+          testID="feedback-submit-btn"
+          onPress={() => {
+            void handleSubmit();
+          }}
+          disabled={!canSubmit}
+          className={`py-sm rounded-xl mb-sm items-center active:opacity-70 ${
+            canSubmit ? 'bg-brand-teal' : 'bg-text-disabled'
+          }`}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text className="text-white font-semibold">Submit</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          testID="feedback-cancel-btn"
+          onPress={onCancel}
+          disabled={isSubmitting}
+          className="py-sm rounded-xl items-center active:opacity-70"
+        >
+          <Text className="text-text-muted dark:text-text-tertiary font-semibold">Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 

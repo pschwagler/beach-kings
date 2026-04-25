@@ -20,6 +20,7 @@ import type {
   ConversationListResponse,
   DirectMessage,
   ThreadResponse,
+  MyStatsPayload,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -238,6 +239,24 @@ export function createApiMethods(client: ApiClient) {
      */
     async getMe() {
       const response = await api.get('/api/auth/me');
+      return response.data;
+    },
+
+    /**
+     * Change the authenticated user's password.
+     * Revokes all existing refresh tokens on success.
+     *
+     * @throws 401 when current_password is wrong.
+     * @throws 400 when new_password is too short or the account is OAuth-only.
+     */
+    async changePassword(currentPassword: string, newPassword: string): Promise<{
+      readonly status: string;
+      readonly password_changed_at: string;
+    }> {
+      const response = await api.post('/api/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
       return response.data;
     },
 
@@ -475,6 +494,18 @@ export function createApiMethods(client: ApiClient) {
 
     async getCurrentUserPlayer() {
       const response = await api.get<Player>('/api/users/me/player');
+      return response.data;
+    },
+
+    /**
+     * Fetch the authenticated player's full stats payload.
+     * Powers the My Stats screen.
+     */
+    async getMyStats(params?: {
+      league_id?: number | null;
+      days?: number | null;
+    }): Promise<MyStatsPayload> {
+      const response = await api.get<MyStatsPayload>('/api/users/me/stats', { params });
       return response.data;
     },
 
