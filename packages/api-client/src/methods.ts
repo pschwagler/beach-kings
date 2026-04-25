@@ -10,6 +10,9 @@ import type {
   Season,
   Session,
   SessionCreatePayload,
+  GameCreatePayload,
+  GameCreateResponse,
+  SessionParticipant,
   Location,
   Court,
   Friend,
@@ -314,6 +317,18 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
+    /**
+     * Submit a scored game from the score-entry screen.
+     *
+     * Pass `session_id: null` to create a brand-new session at the same time.
+     * The response always includes the resolved `session_id` (newly created or
+     * the one you passed in).
+     */
+    async submitScoredGame(payload: GameCreatePayload): Promise<GameCreateResponse> {
+      const response = await api.post<GameCreateResponse>('/api/matches', payload);
+      return response.data;
+    },
+
     async updateMatch(matchId: number, matchData: Partial<Match>) {
       const response = await api.put<Match>(`/api/matches/${matchId}`, matchData);
       return response.data;
@@ -501,6 +516,19 @@ export function createApiMethods(client: ApiClient) {
 
     async deleteSession(sessionId: number) {
       const response = await api.delete(`/api/sessions/${sessionId}`);
+      return response.data;
+    },
+
+    /**
+     * Fetch the roster for a session (participants + players with matches).
+     * Used by the score-entry screen's roster picker when a session is active.
+     *
+     * Maps to GET /api/sessions/:id/participants.
+     */
+    async getSessionParticipants(sessionId: number): Promise<SessionParticipant[]> {
+      const response = await api.get<SessionParticipant[]>(
+        `/api/sessions/${sessionId}/participants`,
+      );
       return response.data;
     },
 

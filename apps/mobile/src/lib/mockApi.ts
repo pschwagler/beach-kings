@@ -1316,17 +1316,6 @@ export const mockApi = {
   },
 
   /**
-   * Returns the roster for a session.
-   * TODO(backend): GET /api/sessions/:id/roster
-   */
-  async getSessionRoster(id: number): Promise<SessionPlayer[]> {
-    if (id === MOCK_SESSION_DETAIL.id) {
-      return Promise.resolve([...MOCK_SESSION_PLAYERS]);
-    }
-    return Promise.resolve([...MOCK_SESSION_PLAYERS]);
-  },
-
-  /**
    * Adds a player to a session (by player_id or as placeholder name).
    * TODO(backend): POST /api/sessions/:id/roster
    */
@@ -1343,26 +1332,6 @@ export const mockApi = {
    */
   async removeSessionPlayer(_id: number, _entryId: number): Promise<void> {
     return notImplemented('DELETE /api/sessions/:id/roster/:entryId');
-  },
-
-  // ---- Score entry — TODO(backend): POST /api/matches (extended) ----
-  /**
-   * Submit a scored game from the score-game modal.
-   * TODO(backend): POST /api/matches with player assignments + scores
-   */
-  async submitScoredGame(_data: {
-    session_id?: number | null;
-    league_id?: number | null;
-    team1_player1_id: number;
-    team1_player2_id: number;
-    team2_player1_id: number;
-    team2_player2_id: number;
-    team1_score: number;
-    team2_score: number;
-    is_ranked: boolean;
-    date?: string | null;
-  }): Promise<{ match_id: number; rating_changes: Record<number, number> }> {
-    return notImplemented('POST /api/matches (score-game)');
   },
 
   // ---- League detail ----

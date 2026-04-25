@@ -81,10 +81,27 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockSubmitScoredGame = jest.fn();
+const mockGetFriends = jest.fn();
+const mockGetSessionParticipants = jest.fn();
+const mockGetLeagueMembers = jest.fn();
+
+/** Friends response matching chip IDs used throughout the tests. */
+const MOCK_FRIENDS_ROSTER = {
+  items: [
+    { id: 10, player_id: 10, full_name: 'C. Gulla', avatar: null, location_name: null, level: null },
+    { id: 11, player_id: 11, full_name: 'K. Fawwar', avatar: null, location_name: null, level: null },
+    { id: 12, player_id: 12, full_name: 'A. Marthey', avatar: null, location_name: null, level: null },
+    { id: 13, player_id: 13, full_name: 'S. Jindash', avatar: null, location_name: null, level: null },
+  ],
+  total_count: 4,
+};
 
 jest.mock('@/lib/api', () => ({
   api: {
     submitScoredGame: (...args: unknown[]) => mockSubmitScoredGame(...args),
+    getFriends: (...args: unknown[]) => mockGetFriends(...args),
+    getSessionParticipants: (...args: unknown[]) => mockGetSessionParticipants(...args),
+    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
   },
 }));
 
@@ -112,8 +129,12 @@ import ScoreGameScreen from '../../../../app/(stack)/score-game';
 beforeEach(() => {
   jest.clearAllMocks();
   mockHapticMedium.mockResolvedValue(undefined);
-  // Default: throw to exercise error state (backend not implemented yet)
+  // Default: throw to exercise error state
   mockSubmitScoredGame.mockRejectedValue(new Error('TODO(backend)'));
+  // Roster from friends fallback (no sessionId / leagueId in route params)
+  mockGetFriends.mockResolvedValue(MOCK_FRIENDS_ROSTER);
+  mockGetSessionParticipants.mockResolvedValue([]);
+  mockGetLeagueMembers.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -169,12 +190,17 @@ describe('ScoreGameScreen — roster picker', () => {
 
   it('renders player chips in the roster', async () => {
     render(<ScoreGameScreen />);
-    expect(screen.getByTestId('roster-chip-10')).toBeTruthy(); // C. Gulla
-    expect(screen.getByTestId('roster-chip-11')).toBeTruthy(); // K. Fawwar
+    // Roster is fetched async — wait for chips to appear
+    await waitFor(() => {
+      expect(screen.getByTestId('roster-chip-10')).toBeTruthy(); // C. Gulla
+      expect(screen.getByTestId('roster-chip-11')).toBeTruthy(); // K. Fawwar
+    });
   });
 
   it('filters roster chips based on search input', async () => {
     render(<ScoreGameScreen />);
+    // Wait for roster to load first
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
     fireEvent.changeText(screen.getByTestId('roster-search-input'), 'Gulla');
     await waitFor(() => {
       expect(screen.getByTestId('roster-chip-10')).toBeTruthy();
@@ -219,24 +245,23 @@ describe('ScoreGameScreen — error state after submit', () => {
   async function fillAndSubmit() {
     render(<ScoreGameScreen />);
 
+    // Wait for roster to load async before interacting with chips
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
+
     // Activate team1 slot0, pick C. Gulla
     fireEvent.press(screen.getByTestId('team1-slot0'));
-    await waitFor(() => {});
     fireEvent.press(screen.getByTestId('roster-chip-10'));
 
     // Activate team1 slot1, pick K. Fawwar
     fireEvent.press(screen.getByTestId('team1-slot1'));
-    await waitFor(() => {});
     fireEvent.press(screen.getByTestId('roster-chip-11'));
 
     // Activate team2 slot0, pick A. Marthey
     fireEvent.press(screen.getByTestId('team2-slot0'));
-    await waitFor(() => {});
     fireEvent.press(screen.getByTestId('roster-chip-12'));
 
     // Activate team2 slot1, pick S. Jindash
     fireEvent.press(screen.getByTestId('team2-slot1'));
-    await waitFor(() => {});
     fireEvent.press(screen.getByTestId('roster-chip-13'));
 
     // Set score > 0
@@ -292,11 +317,19 @@ describe('ScoreGameScreen — error state after submit', () => {
 
 describe('ScoreGameScreen — success state after submit', () => {
   beforeEach(() => {
-    mockSubmitScoredGame.mockResolvedValue({ match_id: 999, rating_changes: {} });
+    mockSubmitScoredGame.mockResolvedValue({
+      status: 'success',
+      message: 'Game created successfully',
+      match_id: 999,
+      session_id: 42,
+    });
   });
 
   async function fillAndSubmit() {
     render(<ScoreGameScreen />);
+
+    // Wait for roster to load async before interacting with chips
+    await waitFor(() => expect(screen.getByTestId('roster-chip-10')).toBeTruthy());
 
     fireEvent.press(screen.getByTestId('team1-slot0'));
     fireEvent.press(screen.getByTestId('roster-chip-10'));
@@ -327,12 +360,13 @@ describe('ScoreGameScreen — success state after submit', () => {
     });
   });
 
-  it('calls router.back when Done is pressed', async () => {
+  it('navigates to session screen when Done is pressed', async () => {
     await fillAndSubmit();
     await waitFor(() => {
       expect(screen.getByTestId('done-btn')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('done-btn'));
-    expect(mockBack).toHaveBeenCalled();
+    // lastSessionId = 42 from the mock response → router.replace is called
+    expect(mockReplace).toHaveBeenCalledWith('/session-active?sessionId=42');
   });
 });

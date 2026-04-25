@@ -10,7 +10,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -20,6 +20,13 @@ import ScoreBoard from './ScoreBoard';
 import RosterPicker from './RosterPicker';
 import { hapticMedium } from '@/utils/haptics';
 import type { RosterPlayer } from './useScoreGameScreen';
+
+export interface ScoreGameScreenProps {
+  /** Existing session to add the game to. Null/undefined → backend creates a new session. */
+  readonly sessionId?: number | null;
+  /** League context — enables ranked toggle and scopes roster. */
+  readonly leagueId?: number | null;
+}
 
 // ---------------------------------------------------------------------------
 // Success screen
@@ -171,7 +178,10 @@ function ErrorView({ message, onRetry, onDiscard }: ErrorViewProps): React.React
 // Main screen
 // ---------------------------------------------------------------------------
 
-export default function ScoreGameScreen(): React.ReactNode {
+export default function ScoreGameScreen({
+  sessionId,
+  leagueId,
+}: ScoreGameScreenProps = {}): React.ReactNode {
   const router = useRouter();
   const {
     team1,
@@ -183,14 +193,18 @@ export default function ScoreGameScreen(): React.ReactNode {
     submitState,
     errorMessage,
     canSubmit,
+    isRanked,
+    lastSessionId,
     setScore1,
     setScore2,
     assignPlayer,
     setSearch,
+    setIsRanked,
     onSubmit,
     onRetry,
     onDismissError,
-  } = useScoreGameScreen();
+    onAddAnother: hookOnAddAnother,
+  } = useScoreGameScreen({ sessionId, leagueId });
 
   // Track which slot is "active" for the roster picker
   const [activeSlot, setActiveSlot] = useState<{
@@ -201,6 +215,14 @@ export default function ScoreGameScreen(): React.ReactNode {
   const handleClose = useCallback(() => {
     router.back();
   }, [router]);
+
+  const handleDone = useCallback(() => {
+    if (lastSessionId != null) {
+      router.replace(`/session-active?sessionId=${lastSessionId}` as never);
+    } else {
+      router.back();
+    }
+  }, [router, lastSessionId]);
 
   const handleSlotPress = useCallback((team: 1 | 2, slot: 0 | 1) => {
     setActiveSlot({ team, slot });
@@ -217,9 +239,9 @@ export default function ScoreGameScreen(): React.ReactNode {
   );
 
   const handleAddAnother = useCallback(() => {
-    // Reset to idle — caller can just navigate again to a fresh screen instance
-    router.replace('/');
-  }, [router]);
+    hookOnAddAnother();
+    setActiveSlot(null);
+  }, [hookOnAddAnother]);
 
   const handleSave = useCallback(() => {
     void hapticMedium();
@@ -238,7 +260,7 @@ export default function ScoreGameScreen(): React.ReactNode {
         <SuccessView
           score1={score1}
           score2={score2}
-          onDone={handleClose}
+          onDone={handleDone}
           onAddAnother={handleAddAnother}
         />
       </SafeAreaView>
@@ -289,6 +311,24 @@ export default function ScoreGameScreen(): React.ReactNode {
           onDecScore2={() => setScore2(Math.max(0, score2 - 1))}
           onSlotPress={handleSlotPress}
         />
+
+        {/* Ranked toggle — only shown for league games */}
+        {leagueId != null && (
+          <View
+            testID="ranked-toggle-row"
+            className="flex-row items-center justify-between px-4 py-3 mx-4 mt-2 rounded-xl bg-gray-50 dark:bg-dark-surface"
+          >
+            <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+              Ranked Game
+            </Text>
+            <Switch
+              testID="ranked-toggle"
+              value={isRanked}
+              onValueChange={setIsRanked}
+              accessibilityLabel="Toggle ranked game"
+            />
+          </View>
+        )}
 
         {/* Roster picker */}
         <RosterPicker

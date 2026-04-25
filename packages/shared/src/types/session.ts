@@ -4,6 +4,59 @@
 
 import type { SessionStatus, SessionType } from './enums';
 
+// ---------------------------------------------------------------------------
+// Game (match) creation — POST /api/matches
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload sent when submitting a scored game.
+ *
+ * - `session_id: null` signals a brand-new pickup session; the backend creates
+ *   one and returns it in GameCreateResponse.session_id.
+ * - `league_id` threads the game into a league/season context when provided.
+ * - `is_ranked` defaults to true for league games, false for pickup games.
+ */
+export interface GameCreatePayload {
+  readonly session_id: number | null;
+  readonly league_id?: number | null;
+  readonly season_id?: number | null;
+  readonly date?: string | null;
+  readonly team1_player1_id: number;
+  readonly team1_player2_id: number;
+  readonly team2_player1_id: number;
+  readonly team2_player2_id: number;
+  readonly team1_score: number;
+  readonly team2_score: number;
+  readonly is_ranked: boolean;
+  readonly is_public?: boolean;
+  readonly latitude?: number | null;
+  readonly longitude?: number | null;
+}
+
+/**
+ * Response from POST /api/matches.
+ * The `session_id` is always present — when a new session was created it
+ * reflects the newly created session's id.
+ */
+export interface GameCreateResponse {
+  readonly status: string;
+  readonly message: string;
+  readonly match_id: number;
+  readonly session_id: number;
+}
+
+/**
+ * A single session participant returned by GET /api/sessions/:id/participants.
+ */
+export interface SessionParticipant {
+  readonly player_id: number;
+  readonly full_name: string;
+  readonly level: string | null;
+  readonly gender: string | null;
+  readonly location_name: string | null;
+  readonly is_placeholder: boolean;
+}
+
 export interface Session {
   id: number;
   season_id: number;

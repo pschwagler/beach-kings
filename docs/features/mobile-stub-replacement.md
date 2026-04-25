@@ -22,6 +22,15 @@ Leave the tournament/KOB mock data in place — do not delete or touch `MOCK_TOU
 
 ---
 
+## Unresolved designs (revisit after P1)
+
+Open design questions surfaced during P1 work. Implementations follow the current wireframe for now; these need product/design alignment before changing.
+
+- **Roster picker — adding non-registered players.** The pickup score wireframe (`score-scoreboard.html`) shows an "Add new player as placeholder" affordance. P1.1 ships with registered-player-only search. We need a real flow for: (a) searching across all players in the system to add to a session, (b) creating placeholder/guest players for people who don't have accounts yet, (c) what happens to ratings/stats for placeholder players, (d) merge/claim flow if a placeholder later signs up. Surface: missing wireframes for the search and create-placeholder flows.
+- **`is_ranked` toggle location — per-game vs per-session.** The current wireframes put ranked/unranked on the score entry screen (`score-league.html`). Product intuition is that it belongs on the session itself (session is ranked → all its games are ranked). Decide and update wireframes before refactoring.
+
+---
+
 ## Ground Rules for Every Agent
 
 Before writing any new code for a task, the agent MUST:
@@ -75,7 +84,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
 
 ### Games
 
-- [ ] **P1.1 — Submit Scored Game**
+- [x] **P1.1 — Submit Scored Game**
   - Mobile: `apps/mobile/src/components/screens/Games/useScoreGameScreen.ts` (replace `submitScoredGame` stub + remove inline `MOCK_ROSTER`)
   - Endpoint (new): `POST /api/sessions/:id/games` with `{team_a, team_b, score_a, score_b, ...}`
   - Endpoint (new): `GET /api/sessions/:id/players` (roster picker)
@@ -328,6 +337,8 @@ _Update this section as tasks complete._
 
 - 2026-04-25: **P1.6 Create League** complete. `mockApi.createLeagueMock` deleted; hook now calls `api.createLeague` with `access_type → is_open` mapping (`'open'` → `true`, `'invite_only'` → `false`). Added Location picker (fetches `api.getLocations()` on mount) and Court selector (fetches `api.getCourts({ location_id })` when location changes; resets on location change). On submit: `api.createLeague`, then optional `api.addLeagueHomeCourt(newId, courtId)` (non-fatal if fails). Added `addLeagueHomeCourt` to api-client. 20 new tests; full mobile suite: 1278 pass. `tsc --noEmit` clean.
 
+- 2026-04-25: **P1.1 Submit Scored Game** complete. `submitScoredGame` mock deleted from `mockApi.ts`; `getSessionRoster` mock deleted. New shared types `GameCreatePayload`, `GameCreateResponse`, `SessionParticipant` added to `packages/shared/src/types/session.ts`. New api-client methods `submitScoredGame` and `getSessionParticipants` added to `packages/api-client/src/methods.ts`. `useScoreGameScreen` fully rewritten: accepts `{ sessionId?, leagueId? }`, fetches roster from session participants → league members → friends fallback, `is_ranked` defaults true for league / false for pickup with override toggle, posts `session_id: null` for new-session path, stores `lastSessionId` from response. `ScoreGameScreen` updated: reads route params, passes context to hook, adds ranked toggle for league games, navigates to session screen on Done. Route updated to read `sessionId`/`leagueId` params. 29 new hook tests + 17 screen tests; full mobile suite: 1307 pass. `tsc --noEmit` clean.
+
 - 2026-04-25: **P1.10 Change Password** complete. Full delivery:
   - **Backend** (branch `feat/ps/p1-change-password`): `POST /api/auth/change-password` — bcrypt verify, 8-char min, 400 for OAuth accounts, revokes all refresh tokens on success, sets `password_changed_at` (nullable TIMESTAMPTZ). Alembic migration `040_add_password_changed_at` with `_column_exists` idempotency guard. 20 tests (happy path, bad current password, too short, OAuth block, unauth).
   - **API client**: `changePassword(currentPassword, newPassword)` in `packages/api-client/src/methods.ts`.
@@ -387,8 +398,8 @@ Picked to land foundational types early so downstream tasks can reuse them, and 
 1. **P1.10** Change Password — smallest, isolated to `auth.py` + one screen; good warm-up. ✓ DONE
 2. **P1.6** Expand createLeague — payload extension, no new routes; establishes the expanded `League` shape. ✓ DONE
 3. **P1.8** Expand createSession — payload extension, mirrors P1.6 pattern. ✓ DONE
-4. **P1.1** Submit Scored Game — net-new `Game` resource, foundational for P1.2. ← RESUME POINT
-5. **P1.2** My Games list — depends on P1.1's `Game` type.
+4. **P1.1** Submit Scored Game — net-new `Game` resource, foundational for P1.2. ✓ DONE
+5. **P1.2** My Games list — depends on P1.1's `Game` type. ← RESUME POINT
 6. **P1.3 + P1.4** Join Requests (bundled, one agent) — full request/approve/deny lifecycle on a single resource.
 7. **P1.5** League Invites — must coordinate with existing deep-link invite system from commit `35f5c89` (likely a question batch).
 8. **P1.9 + P2.9** Session player remove + add (bundled, one agent — P2.9 pulled forward) — pairs naturally on `sessions.py`.
