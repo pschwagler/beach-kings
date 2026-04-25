@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { useSessionEditScreen } from './useSessionEditScreen';
-import type { SessionType } from '@/lib/mockApi';
+import type { SessionType } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Sub-components (reused from create screen pattern)

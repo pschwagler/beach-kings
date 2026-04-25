@@ -27,7 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TopNav from '@/components/ui/TopNav';
 import { useSessionCreateScreen } from './useSessionCreateScreen';
-import type { SessionType } from '@/lib/mockApi';
+import type { SessionType } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // Sub-components

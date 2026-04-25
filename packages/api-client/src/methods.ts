@@ -9,6 +9,7 @@ import type {
   League,
   Season,
   Session,
+  SessionCreatePayload,
   Location,
   Court,
   Friend,
@@ -477,8 +478,14 @@ export function createApiMethods(client: ApiClient) {
       return response.data?.[0] ?? null;
     },
 
-    async createSession(date?: string | null) {
-      const response = await api.post<Session>('/api/sessions', { date });
+    /**
+     * Create a new non-league session.
+     *
+     * Accepts the full session create payload. All fields are optional;
+     * `date` defaults to today on the backend when omitted.
+     */
+    async createSession(payload?: SessionCreatePayload | null) {
+      const response = await api.post<Session>('/api/sessions', payload ?? {});
       return response.data;
     },
 

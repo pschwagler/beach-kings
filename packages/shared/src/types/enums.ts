@@ -37,6 +37,15 @@ export type KobTournamentStatus = 'SETUP' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
 
 /**
+ * Session type / access mode.
+ * - 'pickup': open session — any player can join via code.
+ * - 'league': league-only — must be a league member to join.
+ *
+ * Maps to the backend `session_type` column (VARCHAR).
+ */
+export type SessionType = 'pickup' | 'league';
+
+/**
  * Notification type values — must match backend NotificationType enum in models.py.
  */
 export type NotificationType =

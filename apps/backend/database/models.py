@@ -652,6 +652,12 @@ class Session(Base):
         Integer, ForeignKey("players.id"), nullable=True
     )  # Player who last updated/submitted the session
 
+    # Extended fields (migration 046)
+    start_time = Column(String, nullable=True)  # e.g. "3:00 PM"
+    session_type = Column(String, nullable=True)  # 'pickup' | 'league'
+    max_players = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+
     # Relationships
     season = relationship("Season", back_populates="sessions")
     court = relationship("Court", back_populates="sessions")

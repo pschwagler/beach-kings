@@ -625,6 +625,10 @@ async def create_session(
     created_by: Optional[int] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    start_time: Optional[str] = None,
+    session_type: Optional[str] = None,
+    max_players: Optional[int] = None,
+    notes: Optional[str] = None,
 ) -> Dict:
     """
     Create a new non-league session (no season_id).
@@ -638,6 +642,10 @@ async def create_session(
         created_by: Optional player ID who created the session
         latitude: Optional browser geolocation latitude
         longitude: Optional browser geolocation longitude
+        start_time: Optional start time string (e.g. '3:00 PM')
+        session_type: Optional access type ('pickup' or 'league')
+        max_players: Optional maximum number of players (2-64)
+        notes: Optional free-text notes visible to participants
 
     Returns:
         Dict with session info including code
@@ -681,6 +689,10 @@ async def create_session(
         location_id=geo_location_id,
         latitude=geo_lat,
         longitude=geo_lon,
+        start_time=start_time,
+        session_type=session_type,
+        max_players=max_players,
+        notes=notes,
     )
     session.add(new_session)
     await session.flush()
@@ -704,6 +716,10 @@ async def create_session(
         "location_id": new_session.location_id,
         "latitude": new_session.latitude,
         "longitude": new_session.longitude,
+        "start_time": new_session.start_time,
+        "session_type": new_session.session_type,
+        "max_players": new_session.max_players,
+        "notes": new_session.notes,
         "created_at": new_session.created_at.isoformat() if new_session.created_at else "",
     }
 

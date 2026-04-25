@@ -379,6 +379,7 @@ class AuthResponse(BaseModel):
     is_verified: bool
     auth_provider: str = "phone"
     profile_complete: Optional[bool] = None
+    is_new_user: bool = False
 
 
 class RefreshTokenRequest(BaseModel):
@@ -1060,6 +1061,10 @@ class SessionDetailResponse(BaseModel):
     updated_at: Optional[str] = None
     updated_by: Optional[int] = None
     updated_by_name: Optional[str] = None
+    start_time: Optional[str] = None
+    session_type: Optional[str] = None
+    max_players: Optional[int] = None
+    notes: Optional[str] = None
 
 
 class SessionListItemResponse(BaseModel):
@@ -1452,13 +1457,23 @@ class InviteBatchToSessionRequest(BaseModel):
 
 
 class CreateNonLeagueSessionRequest(BaseModel):
-    """Request to create a non-league session."""
+    """Request to create a non-league session.
+
+    All fields are optional. ``date`` defaults to today on the backend when
+    omitted.  ``session_type`` must be one of ``'pickup'`` or ``'league'``
+    when provided.
+    """
 
     date: Optional[str] = None  # MM/DD/YYYY; defaults to today when omitted
     name: Optional[str] = None
     court_id: Optional[int] = None
     latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+    # Extended fields added in migration 046
+    start_time: Optional[str] = None
+    session_type: Optional[str] = None
+    max_players: Optional[int] = Field(default=None, ge=2, le=64)
+    notes: Optional[str] = None
 
 
 class UpdateSessionRequest(BaseModel):

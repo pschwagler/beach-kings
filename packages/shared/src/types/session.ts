@@ -2,7 +2,7 @@
  * Session, match, and ELO types.
  */
 
-import type { SessionStatus } from './enums';
+import type { SessionStatus, SessionType } from './enums';
 
 export interface Session {
   id: number;
@@ -25,6 +25,30 @@ export interface Session {
   participation?: string | null;
   name?: string | null;
   user_match_count?: number | null;
+  /** Time of day when the session starts, e.g. "3:00 PM". */
+  start_time?: string | null;
+  /**
+   * Session access type — 'pickup' (open) or 'league' (members only).
+   * Stored as a VARCHAR column added in migration 046.
+   */
+  session_type?: SessionType | null;
+  /** Maximum number of players allowed in the session. */
+  max_players?: number | null;
+  /** Free-text notes visible to all participants. */
+  notes?: string | null;
+}
+
+/** Payload accepted by POST /api/sessions (create non-league session). */
+export interface SessionCreatePayload {
+  date?: string | null;
+  name?: string | null;
+  court_id?: number | null;
+  start_time?: string | null;
+  session_type?: SessionType | null;
+  max_players?: number | null;
+  notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface EloChange {

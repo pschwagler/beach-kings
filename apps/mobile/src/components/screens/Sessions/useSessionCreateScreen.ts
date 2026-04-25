@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { api } from '@/lib/api';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import type { SessionType } from '@/lib/mockApi';
+import type { SessionType } from '@beach-kings/shared';
 
 export interface UseSessionCreateScreenResult {
   readonly date: string;

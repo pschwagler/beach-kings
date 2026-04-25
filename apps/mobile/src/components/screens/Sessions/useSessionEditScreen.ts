@@ -10,7 +10,8 @@ import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { hapticMedium } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
-import type { SessionType, SessionDetail } from '@/lib/mockApi';
+import type { SessionType } from '@beach-kings/shared';
+import type { SessionDetail } from '@/lib/mockApi';
 
 export interface UseSessionEditScreenResult {
   readonly session: SessionDetail | null;

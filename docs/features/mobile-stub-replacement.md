@@ -134,7 +134,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
 
 ### Sessions
 
-- [ ] **P1.8 — Create Session (expanded form)**
+- [x] **P1.8 — Create Session (expanded form)**
   - Mobile: `apps/mobile/src/components/screens/Sessions/useSessionCreateScreen.ts`
   - Endpoint (extend): `POST /api/sessions` — accept `start_time`, `court_name`, `session_type`, `max_players`, `notes`
   - API client (extend): widen `createSession` param type (currently `createSession(date?)`)
@@ -385,8 +385,8 @@ Picked to land foundational types early so downstream tasks can reuse them, and 
 
 1. **P1.10** Change Password — smallest, isolated to `auth.py` + one screen; good warm-up. ✓ DONE
 2. **P1.6** Expand createLeague — payload extension, no new routes; establishes the expanded `League` shape. ✓ DONE
-3. **P1.8** Expand createSession — payload extension, mirrors P1.6 pattern. ← RESUME POINT
-4. **P1.1** Submit Scored Game — net-new `Game` resource, foundational for P1.2.
+3. **P1.8** Expand createSession — payload extension, mirrors P1.6 pattern. ✓ DONE
+4. **P1.1** Submit Scored Game — net-new `Game` resource, foundational for P1.2. ← RESUME POINT
 5. **P1.2** My Games list — depends on P1.1's `Game` type.
 6. **P1.3 + P1.4** Join Requests (bundled, one agent) — full request/approve/deny lifecycle on a single resource.
 7. **P1.5** League Invites — must coordinate with existing deep-link invite system from commit `35f5c89` (likely a question batch).

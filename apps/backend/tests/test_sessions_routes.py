@@ -715,6 +715,10 @@ class TestCreateSession:
             created_by=None,
             latitude=None,
             longitude=None,
+            start_time=None,
+            session_type=None,
+            max_players=None,
+            notes=None,
         ):
             return created_session
 
@@ -731,6 +735,92 @@ class TestCreateSession:
         assert data["session"]["id"] == _SESSION_ID
         assert "code" in data["session"]
 
+    def test_creates_session_with_new_fields(self, monkeypatch):
+        """Happy path: new fields (start_time, session_type, max_players, notes) are forwarded."""
+        client, headers = _make_user_client(monkeypatch)
+        _patch_player(monkeypatch)
+
+        captured: dict = {}
+        created_session = {
+            "id": _SESSION_ID,
+            "name": "Pickup",
+            "code": "PICK0001",
+            "status": "ACTIVE",
+            "start_time": "3:00 PM",
+            "session_type": "pickup",
+            "max_players": 12,
+            "notes": "Bring sunscreen",
+        }
+
+        async def fake_create_session(
+            session,
+            date,
+            name=None,
+            court_id=None,
+            created_by=None,
+            latitude=None,
+            longitude=None,
+            start_time=None,
+            session_type=None,
+            max_players=None,
+            notes=None,
+        ):
+            captured["start_time"] = start_time
+            captured["session_type"] = session_type
+            captured["max_players"] = max_players
+            captured["notes"] = notes
+            return created_session
+
+        monkeypatch.setattr(data_service, "create_session", fake_create_session, raising=True)
+
+        response = client.post(
+            "/api/sessions",
+            json={
+                "date": "4/25/2026",
+                "start_time": "3:00 PM",
+                "session_type": "pickup",
+                "max_players": 12,
+                "notes": "Bring sunscreen",
+            },
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["session"]["start_time"] == "3:00 PM"
+        assert data["session"]["session_type"] == "pickup"
+        assert data["session"]["max_players"] == 12
+        assert data["session"]["notes"] == "Bring sunscreen"
+        # Verify route correctly forwarded the fields to the service
+        assert captured["start_time"] == "3:00 PM"
+        assert captured["session_type"] == "pickup"
+        assert captured["max_players"] == 12
+        assert captured["notes"] == "Bring sunscreen"
+
+    def test_max_players_validation_too_low(self, monkeypatch):
+        """max_players below 2 returns 422 (Pydantic validation)."""
+        client, headers = _make_user_client(monkeypatch)
+        _patch_player(monkeypatch)
+
+        response = client.post(
+            "/api/sessions",
+            json={"max_players": 1},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
+    def test_max_players_validation_too_high(self, monkeypatch):
+        """max_players above 64 returns 422 (Pydantic validation)."""
+        client, headers = _make_user_client(monkeypatch)
+        _patch_player(monkeypatch)
+
+        response = client.post(
+            "/api/sessions",
+            json={"max_players": 65},
+            headers=headers,
+        )
+        assert response.status_code == 422
+
     def test_creates_session_with_defaults(self, monkeypatch):
         """Creates a session with no body (date defaults to today)."""
         client, headers = _make_user_client(monkeypatch)
@@ -744,6 +834,10 @@ class TestCreateSession:
             created_by=None,
             latitude=None,
             longitude=None,
+            start_time=None,
+            session_type=None,
+            max_players=None,
+            notes=None,
         ):
             return {"id": _SESSION_ID, "name": None, "code": "DEFA0001", "status": "ACTIVE"}
 

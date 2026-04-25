@@ -540,6 +540,10 @@ async def create_session(
             created_by=created_by,
             latitude=body.latitude,
             longitude=body.longitude,
+            start_time=body.start_time,
+            session_type=body.session_type,
+            max_players=body.max_players,
+            notes=body.notes,
         )
         return {
             "status": "success",

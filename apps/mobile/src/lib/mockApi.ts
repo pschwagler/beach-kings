@@ -18,6 +18,7 @@ import type {
   KobTournamentDetail,
   KobMatch,
   KobStanding,
+  SessionType,
 } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ export interface LeaguePlayerStats {
 // ---------------------------------------------------------------------------
 
 export type SessionStatus = 'active' | 'submitted';
-export type SessionType = 'pickup' | 'league';
+// SessionType promoted to @beach-kings/shared (migration 046). Import from there.
 
 /** A player entry in a session's roster. */
 export interface SessionPlayer {
