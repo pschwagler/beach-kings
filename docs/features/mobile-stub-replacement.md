@@ -42,6 +42,7 @@ Before writing any new code for a task, the agent MUST:
 4. **Check web client usage.** If `apps/web/` already consumes the same endpoint, mirror its calling pattern and type usage. Avoid divergent shapes between web and mobile for the same resource.
 5. **Immutability + file-size rules from `CLAUDE.md`.** No in-place mutation, new objects only; keep files under ~400 lines; no emojis in code or docs.
 6. **TDD.** Write unit tests for new api-client methods and hook-level tests for the mobile hook wiring before the implementation. Target 80%+ coverage on touched files.
+7. **Types follow their mocks.** A type leaves `mockApi.ts` and lands in `@beach-kings/shared` exactly when the corresponding mock function is replaced with a real API call — never earlier. No speculative promotion (locks in a guess about the backend shape) and no stragglers (a real wiring that left its type in the doomed module). Promotion is part of the same task that deletes the mock, in the same commit.
 
 At the end of each task: update the checkbox here, note the PR, and move any types promoted to shared into the **Type debt** section with a strikethrough.
 
@@ -94,7 +95,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
     - Check `packages/shared` for existing `Game` / `GameCreatePayload` types.
     - Check `apps/web/` for any existing score-submission flow to mirror.
 
-- [ ] **P1.2 — My Games list with filters**
+- [x] **P1.2 — My Games list with filters**
   - Mobile: `apps/mobile/src/components/screens/Games/useMyGamesScreen.ts`
   - Endpoint (new or extend): `GET /api/users/me/games?league_id=&result=`
   - API client (new): `getMyGames(params)`
@@ -105,13 +106,13 @@ These features throw on submit. Each task = one agent unit of work. Backend work
 
 ### Leagues
 
-- [ ] **P1.3 — Request to Join League**
+- [x] **P1.3 — Request to Join League**
   - Mobile: `apps/mobile/src/components/screens/Leagues/useFindLeaguesScreen.ts`
   - Endpoint (new): `POST /api/leagues/:id/join-request`
   - API client (new): `requestToJoinLeague(leagueId)`
   - Reuse check: backend may already have a `league_join_requests` model/table (the mock info tab assumes one exists with approve/deny). Grep the backend for `join_request` before designing new tables.
 
-- [ ] **P1.4 — Approve / Deny Join Requests**
+- [x] **P1.4 — Approve / Deny Join Requests**
   - Mobile: `apps/mobile/src/components/screens/Leagues/useLeagueInfoTab.ts`
   - Endpoints (new): `POST /api/leagues/:id/join-requests/:playerId/approve`, `.../deny`
   - API client (new): `approveJoinRequest`, `denyJoinRequest`
@@ -135,7 +136,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
   - API client: existing `createLeague(data: Partial<League>)` already exists — wire it; widen the param type only if necessary to include `location_id` and the home-court attachment.
   - Reuse check: web's `CreateLeagueModal` already does this exact flow. Mirror it.
 
-- [ ] **P1.7 — Signup / Drop from League Event**
+- [x] **P1.7 — Signup / Drop from League Event**
   - Mobile: `apps/mobile/src/components/screens/Leagues/useLeagueSignupsTab.ts`
   - Endpoints (new): `POST /api/leagues/:id/signups`, `DELETE /api/leagues/:id/signups/:eventId`
   - API client (new): `signUpForEvent(eventId)`, `dropFromEvent(eventId)`
@@ -149,7 +150,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
   - API client (extend): widen `createSession` param type (currently `createSession(date?)`)
   - Reuse check: inspect existing `Session` type in `packages/shared` — add fields there rather than introducing a parallel `SessionCreateInput`.
 
-- [ ] **P1.9 — Remove Player from Session Roster**
+- [x] **P1.9 — Remove Player from Session Roster**
   - Mobile: `apps/mobile/src/components/screens/Sessions/useSessionRosterScreen.ts`
   - Endpoint (new): `DELETE /api/sessions/:id/players/:playerId`
   - API client (new): `removeSessionPlayer`
@@ -214,7 +215,7 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: `GET /api/sessions/:id` (full detail including roster and games played)
   - Reuse check: a session-detail endpoint likely exists (web client has session management). Confirm shape before adding `getSessionById`.
 
-- [ ] **P2.9 — Add Player to Session**
+- [x] **P2.9 — Add Player to Session**
   - File: `useSessionRosterScreen.ts` (also wire the currently empty `onAddPlayer` callback)
   - Endpoint: `POST /api/sessions/:id/players` with `{player_id}`
   - Reuse check: pair with P1.9.
@@ -260,17 +261,33 @@ Each of these screens currently renders mock data; the feature *works* but value
 
 ---
 
-## Type debt
+## Type debt — owning task index
 
-Types currently defined only in `apps/mobile/src/lib/mockApi.ts` that must be promoted to `packages/shared/src/types/index.ts` as their phases complete. Strike through when moved.
+Per Ground Rule 7 (*Types follow their mocks*), each remaining type leaves `mockApi.ts` for `@beach-kings/shared` as part of the task that deletes its backing mock. This is a per-task index, not a separate sweep — there is no standalone "type cleanup" task to schedule.
 
-**Leagues:** `LeagueDetail`, `LeagueStanding`, `LeagueSeason`, `LeagueChatMessage`, `LeagueEvent`, `LeagueScheduleRow`, `LeagueMemberRow`, `LeagueJoinRequest`, `LeagueInfoDetail`, `LeagueInviteItem`, `InvitablePlayer`, `FindLeagueResult`, `LeaguePlayerStats`
+**Promoted (done):**
+- ~~`GameHistoryEntry`~~ → P0.x (already in shared)
+- ~~`MyStatsPayload`, `PlayerStats`, `PartnerOpponentRow`, `LeagueTrophy`~~ → already in shared
+- ~~`LeagueChatMessage`~~ → orphan sweep 2026-04-25 (P0.2 wired the hook to real api-client; type was the last thing pinning it to mockApi)
+- ~~`LeagueJoinRequest`~~ → orphan sweep 2026-04-25 (reconciled with shared `JoinRequest`; status enum aligned to `'rejected'`; optional `initials`/`message` added to shared type)
+- ~~`SessionSummary`~~ → orphan sweep 2026-04-25 (deleted outright — only consumer was the dead `MOCK_SESSIONS` constant)
 
-**Sessions:** `SessionPlayer`, `SessionGame`, `SessionDetail`, `SessionSummary`
+**Remaining — owned by their phase task:**
 
-**Games:** `GameHistoryEntry`
-
-**Settings:** `PushNotificationPrefs`
+| Type | Owning task |
+|---|---|
+| `LeagueDetail` | P2.1 |
+| `LeagueStanding` | P2.2 |
+| `LeagueSeason` | P2.1 (and consumed by P2.2, P2.3) |
+| `LeagueSeasonInfo` | P2.2 |
+| `LeagueEvent`, `LeagueScheduleRow` | P2.5 (or P1.7) |
+| `LeagueMemberRow`, `LeagueInfoDetail` | P2.3 |
+| `LeagueInviteItem` | P2.7 |
+| `InvitablePlayer` | P2.7 |
+| `FindLeagueResult` | P2.6 |
+| `LeaguePlayerStats` | P2.4 |
+| `SessionPlayer`, `SessionGame`, `SessionDetail` | P2.8 |
+| `PushNotificationPrefs` | P3.4 |
 
 **Tournaments (out of scope — leave in mockApi.ts):** `Tournament`, `TournamentTeam`, `TournamentGame`, `TournamentStanding`, `KobScheduleRow`
 
@@ -338,6 +355,14 @@ _Update this section as tasks complete._
 - 2026-04-25: **P1.6 Create League** complete. `mockApi.createLeagueMock` deleted; hook now calls `api.createLeague` with `access_type → is_open` mapping (`'open'` → `true`, `'invite_only'` → `false`). Added Location picker (fetches `api.getLocations()` on mount) and Court selector (fetches `api.getCourts({ location_id })` when location changes; resets on location change). On submit: `api.createLeague`, then optional `api.addLeagueHomeCourt(newId, courtId)` (non-fatal if fails). Added `addLeagueHomeCourt` to api-client. 20 new tests; full mobile suite: 1278 pass. `tsc --noEmit` clean.
 
 - 2026-04-25: **P1.1 Submit Scored Game** complete. `submitScoredGame` mock deleted from `mockApi.ts`; `getSessionRoster` mock deleted. New shared types `GameCreatePayload`, `GameCreateResponse`, `SessionParticipant` added to `packages/shared/src/types/session.ts`. New api-client methods `submitScoredGame` and `getSessionParticipants` added to `packages/api-client/src/methods.ts`. `useScoreGameScreen` fully rewritten: accepts `{ sessionId?, leagueId? }`, fetches roster from session participants → league members → friends fallback, `is_ranked` defaults true for league / false for pickup with override toggle, posts `session_id: null` for new-session path, stores `lastSessionId` from response. `ScoreGameScreen` updated: reads route params, passes context to hook, adds ranked toggle for league games, navigates to session screen on Done. Route updated to read `sessionId`/`leagueId` params. 29 new hook tests + 17 screen tests; full mobile suite: 1307 pass. `tsc --noEmit` clean.
+
+- 2026-04-25: **Ground rule clarification + orphan sweep.** Added Ground Rule 7 (*Types follow their mocks*) — type promotion to `@beach-kings/shared` happens in the same task that deletes the backing mock, never speculatively. Reframed the Type debt section from a TODO list into a per-task owning index. Swept three orphans whose backing mock was already gone (or shadowed by a real api-client method): promoted `LeagueChatMessage` to shared (P0.2 wired the hook months ago); reconciled `LeagueJoinRequest` with the existing shared `JoinRequest` (added optional `initials`/`message`, callers now use `'rejected'` status); deleted `SessionSummary`, `MOCK_LEAGUE_CHAT`, `MOCK_SESSIONS`, `getLeagueChat`, `sendLeagueMessage`, mock `getSessions`, and `LeagueJoinRequestStatus` outright. No backend, no api-client changes.
+
+- 2026-04-25: **Phase 1 complete.** All P1 tasks done (P1.5 League Invites deferred — design doc at `docs/features/league-invites.md`). P2.9 pulled forward and completed alongside P1.9. Tasks landed in this session:
+  - **P1.2** My Games: `GET /api/users/me/games?league_id=&result=`, `getMyGames` api-client method, `useMyGamesScreen` rewired, `GameHistoryEntry` promoted to shared.
+  - **P1.3+P1.4** Join Requests: `POST /api/leagues/:id/join-request`, approve/deny endpoints, `requestToJoinLeague`/`approveJoinRequest`/`rejectJoinRequest` api-client methods, `useLeagueInfoTab` rewired.
+  - **P1.9+P2.9** Session Roster: `GET /api/sessions/:id`, `DELETE /api/sessions/:id/players/:playerId`, `inviteSessionPlayer` (stub), `getSessionById`/`removeSessionPlayer`/`inviteSessionPlayer` api-client methods, `useSessionRosterScreen` rewired.
+  - **P1.7** League Signups: `GET /api/leagues/:id/signups` (joins through active season), `joinSignup`/`dropSignup`/`getLeagueSignups` api-client methods, `useLeagueSignupsTab` rewired, mock stubs removed. No cap/waitlist in scope.
 
 - 2026-04-25: **P1.10 Change Password** complete. Full delivery:
   - **Backend** (branch `feat/ps/p1-change-password`): `POST /api/auth/change-password` — bcrypt verify, 8-char min, 400 for OAuth accounts, revokes all refresh tokens on success, sets `password_changed_at` (nullable TIMESTAMPTZ). Alembic migration `040_add_password_changed_at` with `_column_exists` idempotency guard. 20 tests (happy path, bad current password, too short, OAuth block, unauth).
