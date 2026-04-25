@@ -85,15 +85,22 @@ export default function ThemeProvider({ children }: ThemeProviderProps): React.R
     void writeStoredThemeMode(mode);
   }, [nwScheme]);
 
-  // Load persisted mode on mount, falling back to 'system'
+  // Apply default 'system' mode synchronously on mount so the underlying
+  // colorScheme tracks Appearance immediately, then reconcile with any
+  // persisted preference once secure-store resolves.
+  useEffect(() => {
+    nwScheme.setColorScheme('system');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const stored = await readStoredThemeMode();
       if (cancelled) return;
-      const mode: ThemeMode = isThemeMode(stored) ? stored : 'system';
-      setThemeModeState(mode);
-      nwScheme.setColorScheme(mode);
+      if (isThemeMode(stored) && stored !== 'system') {
+        setThemeModeState(stored);
+        nwScheme.setColorScheme(stored);
+      }
     })();
     return () => {
       cancelled = true;
