@@ -15,6 +15,7 @@ export interface UseLeagueChatTabResult {
   readonly isError: boolean;
   readonly messageText: string;
   readonly isSending: boolean;
+  readonly sendError: string | null;
   readonly onChangeText: (v: string) => void;
   readonly onSend: () => Promise<void>;
   readonly flatListRef: React.RefObject<FlatList<object> | null>;
@@ -46,6 +47,7 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList<object> | null>(null);
 
   const chatQuery = useQuery({
@@ -68,6 +70,7 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
 
     setIsSending(true);
     setMessageText('');
+    setSendError(null);
 
     try {
       await api.createLeagueMessage(Number(leagueId), text);
@@ -76,8 +79,8 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch {
-      // Restore text on failure
       setMessageText(text);
+      setSendError('Failed to send message. Tap the arrow to retry.');
     } finally {
       setIsSending(false);
     }
@@ -89,6 +92,7 @@ export function useLeagueChatTab(leagueId: number | string): UseLeagueChatTabRes
     isError: chatQuery.isError,
     messageText,
     isSending,
+    sendError,
     onChangeText,
     onSend,
     flatListRef,

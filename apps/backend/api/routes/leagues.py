@@ -89,6 +89,8 @@ async def query_leagues(
         region_id?: string,
         gender?: string,
         level?: string,
+        q?: string,       # text search on name / description
+        is_open?: bool,   # true = open, false = invite-only
         order?: string,   # e.g., "name:asc", "created_at:desc", "member_count:desc"
         page?: number,    # 1-based page index, default 1
         page_size?: number  # page size, default 25
@@ -112,6 +114,8 @@ async def query_leagues(
             region_id=body.get("region_id"),
             gender=body.get("gender"),
             level=body.get("level"),
+            q=body.get("q"),
+            is_open=body.get("is_open"),
             order=body.get("order"),
             page=page,
             page_size=page_size,

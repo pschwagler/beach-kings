@@ -269,6 +269,7 @@ async def google_auth(
 
         # 1. Check by google_id first
         user = await user_service.get_user_by_google_id(session, google_id)
+        is_new_user = user is None
 
         if not user:
             # 2. Check if email already in use — do NOT auto-link
@@ -327,6 +328,7 @@ async def google_auth(
             is_verified=user["is_verified"],
             auth_provider=user.get("auth_provider", "google"),
             profile_complete=profile_complete,
+            is_new_user=is_new_user,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -361,6 +363,7 @@ async def apple_auth(
 
         # 1. Check by apple_id first
         user = await user_service.get_user_by_apple_id(session, apple_id)
+        is_new_user = user is None
 
         if not user:
             # 2. Check if email already in use -- do NOT auto-link
@@ -408,6 +411,7 @@ async def apple_auth(
             is_verified=user["is_verified"],
             auth_provider=user.get("auth_provider", "apple"),
             profile_complete=profile_complete,
+            is_new_user=is_new_user,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -568,6 +572,7 @@ async def verify_phone(
             is_verified=user["is_verified"],
             auth_provider=user.get("auth_provider", "phone"),
             profile_complete=profile_complete,
+            is_new_user=is_signup,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -749,6 +754,7 @@ async def verify_email(
             is_verified=user["is_verified"],
             auth_provider=user.get("auth_provider", "email"),
             profile_complete=profile_complete,
+            is_new_user=True,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

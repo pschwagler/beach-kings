@@ -956,3 +956,69 @@ class TestQueryLeagues:
         assert response.status_code == 200
         assert response.json()["items"][0]["friend_count"] == 0
         assert response.json()["items"][0]["friends_preview"] == []
+
+    def test_query_with_text_search(self, monkeypatch):
+        """q param is forwarded to the service."""
+        client = TestClient(app)
+        captured: dict = {}
+
+        async def fake_query_leagues(session, **kwargs):
+            captured.update(kwargs)
+            return {"items": [], "page": 1, "page_size": 25, "total_count": 0}
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post("/api/leagues/query", json={"q": "beach"})
+        assert response.status_code == 200
+        assert captured.get("q") == "beach"
+
+    def test_query_with_is_open_true(self, monkeypatch):
+        """is_open=True is forwarded to the service."""
+        client = TestClient(app)
+        captured: dict = {}
+
+        async def fake_query_leagues(session, **kwargs):
+            captured.update(kwargs)
+            return {"items": [], "page": 1, "page_size": 25, "total_count": 0}
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post("/api/leagues/query", json={"is_open": True})
+        assert response.status_code == 200
+        assert captured.get("is_open") is True
+
+    def test_query_with_is_open_false(self, monkeypatch):
+        """is_open=False (invite-only) is forwarded to the service."""
+        client = TestClient(app)
+        captured: dict = {}
+
+        async def fake_query_leagues(session, **kwargs):
+            captured.update(kwargs)
+            return {"items": [], "page": 1, "page_size": 25, "total_count": 0}
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post("/api/leagues/query", json={"is_open": False})
+        assert response.status_code == 200
+        assert captured.get("is_open") is False
+
+    def test_query_combined_filters(self, monkeypatch):
+        """q, is_open, gender, and level can all be combined."""
+        client = TestClient(app)
+        captured: dict = {}
+
+        async def fake_query_leagues(session, **kwargs):
+            captured.update(kwargs)
+            return {"items": [], "page": 1, "page_size": 25, "total_count": 0}
+
+        monkeypatch.setattr(data_service, "query_leagues", fake_query_leagues, raising=True)
+
+        response = client.post(
+            "/api/leagues/query",
+            json={"q": "kings", "is_open": True, "gender": "mens", "level": "A"},
+        )
+        assert response.status_code == 200
+        assert captured.get("q") == "kings"
+        assert captured.get("is_open") is True
+        assert captured.get("gender") == "mens"
+        assert captured.get("level") == "A"

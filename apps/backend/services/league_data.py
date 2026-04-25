@@ -252,6 +252,8 @@ async def query_leagues(
     region_id: Optional[str] = None,
     gender: Optional[str] = None,
     level: Optional[str] = None,
+    q: Optional[str] = None,
+    is_open: Optional[bool] = None,
     order: Optional[str] = None,
     page: int = 1,
     page_size: int = 25,
@@ -313,6 +315,13 @@ async def query_leagues(
         conditions.append(League.gender == gender)
     if level is not None:
         conditions.append(League.level == level)
+    if q is not None and q.strip():
+        pattern = f"%{q.strip()}%"
+        conditions.append(
+            or_(League.name.ilike(pattern), League.description.ilike(pattern))
+        )
+    if is_open is not None:
+        conditions.append(League.is_open == is_open)
 
     # Optionally filter by membership: when include_joined is explicitly False, exclude joined leagues.
     if include_joined is False and player_id is not None:

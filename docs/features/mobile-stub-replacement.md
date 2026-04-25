@@ -187,10 +187,11 @@ Each of these screens currently renders mock data; the feature *works* but value
   - Endpoint: `GET /api/leagues/:id/events` (must include signup status for current user)
   - Reuse check: same reuse check as P1.7 — events may map onto existing sessions.
 
-- [ ] **P2.6 — Find Leagues search**
+- [ ] **P2.6 — Find Leagues search** *(backend done; mobile wiring pending after P1.8 commits)*
   - File: `useFindLeaguesScreen.ts`
-  - Endpoint: `GET /api/leagues/find?q=&gender=&level=&access_type=` (or extend existing `GET /api/leagues` list with filters)
-  - Reuse check: prefer extending the existing leagues-list endpoint over introducing `/find`.
+  - Endpoint: extended existing `POST /api/leagues/query` — added `q` (ILIKE on name/description) and `is_open` (boolean) params; 4 new route tests (45 total pass). No migration, no model changes.
+  - Mobile wiring remaining: replace `mockApi.findLeagues` with real `api.queryLeagues({q, is_open, gender, level})`; add `queryLeagues` method to api-client. Blocked on `methods.ts` being dirty from P1.8.
+  - Reuse check done: extended `POST /api/leagues/query` per plan guidance; no `/find` route needed.
 
 - [ ] **P2.7 — Invitable Players + Pending Invites**
   - Files: `useLeagueInviteScreen.ts`, `usePendingInvitesScreen.ts`

@@ -15,7 +15,6 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ChatComposer from '@/components/ui/ChatComposer';
 import { useLeagueChatTab } from './useLeagueChatTab';
@@ -125,13 +124,13 @@ interface LeagueChatTabProps {
 }
 
 export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.ReactNode {
-  const insets = useSafeAreaInsets();
   const {
     messages,
     isLoading,
     isError,
     messageText,
     isSending,
+    sendError,
     onChangeText,
     onSend,
     flatListRef,
@@ -217,8 +216,9 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
         onChangeText={onChangeText}
         onSend={() => { void onSend(); }}
         isSending={isSending}
+        sendError={sendError}
+        autoFocus={false}
         maxLength={1000}
-        bottomInset={insets.bottom}
         inputTestID="chat-message-input"
         sendTestID="chat-send-button"
       />
