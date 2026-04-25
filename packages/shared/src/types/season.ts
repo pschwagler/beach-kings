@@ -55,3 +55,27 @@ export interface Signup {
   updated_at: string;
   players: SignupPlayer[] | null;
 }
+
+/** A single upcoming signup event returned by GET /api/leagues/:id/signups. */
+export interface LeagueSignupItem {
+  id: number;
+  scheduled_datetime: string;
+  duration_hours: number;
+  court_name: string | null;
+  player_count: number;
+  is_open: boolean;
+  user_status: 'signed_up' | 'none';
+}
+
+/** A weekly schedule row returned by GET /api/leagues/:id/signups. */
+export interface LeagueScheduleItem {
+  day_of_week: string;
+  time_label: string;
+  court_name: string | null;
+}
+
+/** Response shape for GET /api/leagues/:id/signups. */
+export interface LeagueSignupsApiResponse {
+  signups: LeagueSignupItem[];
+  schedule: LeagueScheduleItem[];
+}

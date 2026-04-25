@@ -32,6 +32,7 @@ import type {
   MyGamesResponse,
   JoinRequest,
   JoinRequestsResponse,
+  LeagueSignupsApiResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -1009,6 +1010,35 @@ export function createApiMethods(client: ApiClient) {
         '/api/messages/unread-count',
       );
       return response.data;
+    },
+
+    // -----------------------------------------------------------------------
+    // League Signups
+    // -----------------------------------------------------------------------
+
+    /**
+     * Get upcoming signups and weekly schedule for a league's active season.
+     * Each signup includes the current user's sign-up status ('signed_up' | 'none').
+     */
+    async getLeagueSignups(leagueId: number): Promise<LeagueSignupsApiResponse> {
+      const response = await api.get<LeagueSignupsApiResponse>(
+        `/api/leagues/${encodeURIComponent(leagueId)}/signups`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Join a signup (player signs up for a specific session).
+     */
+    async joinSignup(signupId: number): Promise<void> {
+      await api.post(`/api/signups/${encodeURIComponent(signupId)}/signup`);
+    },
+
+    /**
+     * Drop from a signup (player drops out of a specific session).
+     */
+    async dropSignup(signupId: number): Promise<void> {
+      await api.post(`/api/signups/${encodeURIComponent(signupId)}/dropout`);
     },
   };
 }

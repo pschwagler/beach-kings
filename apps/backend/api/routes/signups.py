@@ -1,14 +1,16 @@
 """Weekly schedule and signup route handlers."""
 
 import logging
+from datetime import datetime
 from typing import List, Optional
 
+import pytz
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.db import get_db_session
-from backend.database.models import Player
+from backend.database.models import Player, Season, Court
 from backend.services import data_service
 from backend.api.auth_dependencies import (
     get_current_user_optional,
@@ -26,10 +28,149 @@ from backend.models.schemas import (
     SignupResponse,
     SignupUpdate,
     SignupWithPlayersResponse,
+    LeagueSignupsResponse,
+    LeagueSignupItem,
+    LeagueScheduleItem,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# League signups aggregate endpoint
+# ---------------------------------------------------------------------------
+
+_DAY_NAMES = [
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+]
+
+
+def _format_time_label(time_str: str) -> str:
+    """Convert HH:MM to a human-readable label such as '6:00 PM'.
+
+    Args:
+        time_str: Time string in ``"HH:MM"`` format.
+
+    Returns:
+        Formatted 12-hour time string, e.g. ``"6:00 PM"``.
+    """
+    try:
+        t = datetime.strptime(time_str, "%H:%M")
+        return t.strftime("%-I:%M %p").lstrip("0") or "12:00 AM"
+    except (ValueError, AttributeError):
+        return time_str
+
+
+@router.get("/api/leagues/{league_id}/signups", response_model=LeagueSignupsResponse)
+async def get_league_signups(
+    league_id: int,
+    user: dict = Depends(require_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Return upcoming signups and the weekly schedule for a league's active season.
+
+    Finds the active season for the league (the season whose start_date <= today
+    <= end_date), then aggregates upcoming signups (with user sign-up status) and
+    the weekly schedule rows.  Returns empty lists when no active season exists.
+
+    Args:
+        league_id: ID of the league.
+        user: Authenticated user dict from ``require_user``.
+        session: Async database session.
+
+    Returns:
+        :class:`LeagueSignupsResponse` with ``signups`` and ``schedule`` lists.
+    """
+    try:
+        # Resolve the current player from the auth user.
+        player_result = await session.execute(
+            select(Player).where(Player.user_id == user["id"])
+        )
+        player = player_result.scalar_one_or_none()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found for user")
+
+        # Find the active season by date bounds (no is_active column on Season).
+        from datetime import date as date_type
+
+        today = date_type.today()
+        season_result = await session.execute(
+            select(Season)
+            .where(
+                and_(
+                    Season.league_id == league_id,
+                    Season.start_date <= today,
+                    Season.end_date >= today,
+                )
+            )
+            .order_by(Season.created_at.desc())
+            .limit(1)
+        )
+        active_season = season_result.scalar_one_or_none()
+
+        if not active_season:
+            return LeagueSignupsResponse(signups=[], schedule=[])
+
+        # Fetch upcoming signups with players included.
+        raw_signups = await data_service.get_signups(
+            session,
+            active_season.id,
+            upcoming_only=True,
+            include_players=True,
+        )
+
+        current_player_id = player.id
+
+        signup_items: List[LeagueSignupItem] = []
+        for s in raw_signups:
+            players_list = s.get("players") or []
+            signed_up = any(p["player_id"] == current_player_id for p in players_list)
+            signup_items.append(
+                LeagueSignupItem(
+                    id=s["id"],
+                    scheduled_datetime=s["scheduled_datetime"],
+                    duration_hours=s["duration_hours"],
+                    court_name=s.get("court_name"),
+                    player_count=s["player_count"],
+                    is_open=s["is_open"],
+                    user_status="signed_up" if signed_up else "none",
+                )
+            )
+
+        # Fetch weekly schedules and resolve court names.
+        raw_schedules = await data_service.get_weekly_schedules(session, active_season.id)
+
+        schedule_items: List[LeagueScheduleItem] = []
+        for sched in raw_schedules:
+            court_name: Optional[str] = None
+            if sched.get("court_id"):
+                court_result = await session.execute(
+                    select(Court.name).where(Court.id == sched["court_id"])
+                )
+                court_row = court_result.scalar_one_or_none()
+                court_name = court_row
+
+            day_int = sched.get("day_of_week", 0)
+            day_name = _DAY_NAMES[day_int] if 0 <= day_int <= 6 else str(day_int)
+            time_label = _format_time_label(sched.get("start_time", ""))
+
+            schedule_items.append(
+                LeagueScheduleItem(
+                    day_of_week=day_name,
+                    time_label=time_label,
+                    court_name=court_name,
+                )
+            )
+
+        return LeagueSignupsResponse(signups=signup_items, schedule=schedule_items)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching league signups: {str(e)}"
+        )
 
 
 # ---------------------------------------------------------------------------

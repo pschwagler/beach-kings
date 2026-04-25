@@ -82,7 +82,9 @@ const mockGetLeagueMessages = jest.fn();
 const mockCreateLeagueMessage = jest.fn();
 const mockGetCurrentUserPlayer = jest.fn();
 const mockLeaveLeague = jest.fn();
-const mockGetLeagueEvents = jest.fn();
+const mockGetLeagueSignups = jest.fn();
+const mockJoinSignup = jest.fn();
+const mockDropSignup = jest.fn();
 const mockGetLeaguePlayerStats = jest.fn();
 const mockGetMyGames = jest.fn();
 const mockGetLeagueSignupEvents = jest.fn();
@@ -105,6 +107,9 @@ jest.mock('@/lib/api', () => ({
     getLeagueJoinRequests: (...args: unknown[]) => mockGetLeagueJoinRequests(...args),
     approveJoinRequest: (...args: unknown[]) => mockApproveJoinRequest(...args),
     rejectJoinRequest: (...args: unknown[]) => mockRejectJoinRequest(...args),
+    getLeagueSignups: (...args: unknown[]) => mockGetLeagueSignups(...args),
+    joinSignup: (...args: unknown[]) => mockJoinSignup(...args),
+    dropSignup: (...args: unknown[]) => mockDropSignup(...args),
   },
 }));
 
@@ -112,7 +117,6 @@ jest.mock('@/lib/mockApi', () => ({
   mockApi: {
     getLeagueDetail: (...args: unknown[]) => mockGetLeagueDetail(...args),
     getLeagueStandings: (...args: unknown[]) => mockGetLeagueStandings(...args),
-    getLeagueEvents: (...args: unknown[]) => mockGetLeagueEvents(...args),
     getLeaguePlayerStats: (...args: unknown[]) => mockGetLeaguePlayerStats(...args),
     getLeagueSignupEvents: (...args: unknown[]) => mockGetLeagueSignupEvents(...args),
   },
@@ -178,7 +182,9 @@ beforeEach(() => {
   mockCreateLeagueMessage.mockResolvedValue({});
   mockGetCurrentUserPlayer.mockResolvedValue({ id: 1 });
   mockLeaveLeague.mockResolvedValue(undefined);
-  mockGetLeagueEvents.mockResolvedValue([]);
+  mockGetLeagueSignups.mockResolvedValue({ signups: [], schedule: [] });
+  mockJoinSignup.mockResolvedValue(undefined);
+  mockDropSignup.mockResolvedValue(undefined);
   mockGetLeaguePlayerStats.mockResolvedValue({});
   mockGetMyGames.mockResolvedValue({ games: [], total: 0 });
   mockGetLeagueSignupEvents.mockResolvedValue([]);
@@ -335,6 +341,77 @@ describe('LeagueDetailScreen — error', () => {
     render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('league-detail-error')).toBeTruthy();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Signups tab — real API integration
+// ---------------------------------------------------------------------------
+
+describe('LeagueDetailScreen — signups tab', () => {
+  it('calls getLeagueSignups when signups tab is active', async () => {
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('segment-tab-signups'));
+    await waitFor(() => {
+      expect(mockGetLeagueSignups).toHaveBeenCalledWith(1);
+    });
+  });
+
+  it('renders empty signups tab when API returns no signups', async () => {
+    mockGetLeagueSignups.mockResolvedValue({ signups: [], schedule: [] });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('segment-tab-signups'));
+    await waitFor(() => {
+      expect(screen.getByTestId('signups-tab')).toBeTruthy();
+    });
+  });
+
+  it('renders an event card when getLeagueSignups returns an upcoming signup', async () => {
+    mockGetLeagueSignups.mockResolvedValue({
+      signups: [
+        {
+          id: 42,
+          scheduled_datetime: '2030-06-15T18:00:00Z',
+          duration_hours: 2,
+          court_name: 'Beach Court 1',
+          player_count: 5,
+          is_open: true,
+          user_status: 'none',
+        },
+      ],
+      schedule: [],
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('segment-tab-signups'));
+    await waitFor(() => {
+      expect(screen.getByTestId('event-card-42')).toBeTruthy();
+    });
+  });
+
+  it('renders signed-up status and drop button for a signed-up event', async () => {
+    mockGetLeagueSignups.mockResolvedValue({
+      signups: [
+        {
+          id: 99,
+          scheduled_datetime: '2030-06-20T14:00:00Z',
+          duration_hours: 2,
+          court_name: null,
+          player_count: 3,
+          is_open: true,
+          user_status: 'signed_up',
+        },
+      ],
+      schedule: [],
+    });
+    render(<LeagueDetailRoute />, { wrapper: makeWrapper() });
+    await waitFor(() => expect(screen.getByTestId('segment-tab-signups')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('segment-tab-signups'));
+    await waitFor(() => {
+      expect(screen.getByTestId('drop-event-btn-99')).toBeTruthy();
     });
   });
 });

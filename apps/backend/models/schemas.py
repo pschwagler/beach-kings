@@ -1333,6 +1333,36 @@ class SignupWithPlayersResponse(SignupResponse):
     players: List[SignupPlayerResponse]
 
 
+# League Signups aggregate response (GET /api/leagues/{league_id}/signups)
+
+
+class LeagueSignupItem(BaseModel):
+    """A single upcoming signup event for the league signups tab."""
+
+    id: int
+    scheduled_datetime: str  # ISO UTC
+    duration_hours: float
+    court_name: Optional[str] = None
+    player_count: int
+    is_open: bool
+    user_status: str  # 'signed_up' | 'none'
+
+
+class LeagueScheduleItem(BaseModel):
+    """A weekly schedule row for the league signups tab."""
+
+    day_of_week: str  # "Monday", "Tuesday", etc.
+    time_label: str  # "6:00 PM"
+    court_name: Optional[str] = None
+
+
+class LeagueSignupsResponse(BaseModel):
+    """Aggregate response for the league signups tab."""
+
+    signups: List[LeagueSignupItem]
+    schedule: List[LeagueScheduleItem]
+
+
 # League Messages
 class LeagueMessageCreate(BaseModel):
     """Create a league message."""

@@ -14,6 +14,7 @@
 import type {
   Court,
   CourtPhoto,
+  JoinRequest,
   KobTournament,
   KobTournamentDetail,
   KobMatch,
@@ -28,7 +29,6 @@ import type {
 
 export type LeagueAccessType = 'open' | 'invite_only';
 export type LeagueMemberRole = 'admin' | 'member' | 'visitor';
-export type LeagueJoinRequestStatus = 'pending' | 'approved' | 'denied';
 export type LeagueInviteStatus = 'pending' | 'accepted' | 'declined';
 export type LeagueEventStatus = 'upcoming' | 'in_progress' | 'completed';
 
@@ -89,26 +89,9 @@ export interface LeagueSeasonInfo {
   readonly game_count: number;
 }
 
-/**
- * A message in the league chat.
- *
- * Field names mirror the backend response from `GET /api/leagues/:id/messages`
- * (see apps/backend/services/message_data.py). `initials` is derived
- * client-side since it's pure presentation.
- */
-export interface LeagueChatMessage {
-  readonly id: number;
-  readonly league_id: number;
-  readonly user_id: number;
-  readonly player_id: number | null;
-  readonly player_name: string | null;
-  readonly message: string;
-  readonly created_at: string | null;
-  /** Server-computed: true when row.user_id == authenticated caller. */
-  readonly is_mine: boolean;
-  /** Client-derived from player_name (e.g. "Patrick Schwagler" -> "PS"). */
-  readonly initials: string;
-}
+// LeagueChatMessage type promoted to '@beach-kings/shared' (see types/league.ts).
+// Real api-client methods getLeagueMessages/createLeagueMessage already back this
+// resource, so the type lives with the contract, not in this transitional module.
 
 /** An upcoming event in the sign-ups tab. */
 export interface LeagueEvent {
@@ -143,16 +126,9 @@ export interface LeagueMemberRow {
   readonly joined_at: string;
 }
 
-/** A pending join request (admin view). */
-export interface LeagueJoinRequest {
-  readonly id: number;
-  readonly player_id: number;
-  readonly display_name: string;
-  readonly initials: string;
-  readonly requested_at: string;
-  readonly status: LeagueJoinRequestStatus;
-  readonly message: string | null;
-}
+// LeagueJoinRequest reconciled with shared `JoinRequest` (packages/shared/src/types/league.ts).
+// Same entity, same status enum ('pending' | 'approved' | 'rejected'); shared type now
+// includes the optional `initials` and `message` presentation fields.
 
 /** Full info tab payload. */
 export interface LeagueInfoDetail {
@@ -164,7 +140,7 @@ export interface LeagueInfoDetail {
   readonly home_court_name: string | null;
   readonly members: readonly LeagueMemberRow[];
   readonly seasons: readonly LeagueSeason[];
-  readonly join_requests: readonly LeagueJoinRequest[];
+  readonly join_requests: readonly JoinRequest[];
 }
 
 /** A pending invite item (pending-invites screen). */
@@ -306,18 +282,9 @@ export interface SessionDetail {
   readonly user_rating_change: number | null;
 }
 
-/** Minimal session data for list/create forms. */
-export interface SessionSummary {
-  readonly id: number;
-  readonly date: string;
-  readonly session_number: number;
-  readonly status: SessionStatus;
-  readonly session_type: SessionType;
-  readonly player_count: number;
-  readonly game_count: number;
-  readonly league_name: string | null;
-  readonly court_name: string | null;
-}
+// SessionSummary type removed — its only consumer was the dead MOCK_SESSIONS
+// constant. The real `getSessions` method in packages/api-client/src/methods.ts
+// returns the canonical session shape.
 
 // GameHistoryEntry type removed — import from '@beach-kings/shared' instead:
 //   import type { GameHistoryEntry } from '@beach-kings/shared';
@@ -381,65 +348,6 @@ const MOCK_LEAGUE_SEASON_INFO: LeagueSeasonInfo = {
   session_count: 3,
   game_count: 36,
 };
-
-const MOCK_LEAGUE_CHAT: LeagueChatMessage[] = [
-  { id: 1, league_id: 1, user_id: 110, player_id: 10, player_name: 'Colan Gulla', message: 'Great session yesterday! Who\'s in for Thursday?', created_at: '2026-03-19T14:22:00Z', is_mine: false, initials: 'CG' },
-  { id: 2, league_id: 1, user_id: 101, player_id: 1, player_name: 'Patrick Schwagler', message: 'I\'m in. Same time 3pm?', created_at: '2026-03-19T14:35:00Z', is_mine: true, initials: 'PS' },
-  { id: 3, league_id: 1, user_id: 111, player_id: 11, player_name: 'Ken Fawwar', message: 'I\'ll be there. Any idea if the courts are reserved?', created_at: '2026-03-19T14:40:00Z', is_mine: false, initials: 'KF' },
-  { id: 4, league_id: 1, user_id: 110, player_id: 10, player_name: 'Colan Gulla', message: 'Yeah courts 1-3 reserved from 3-6pm', created_at: '2026-03-19T14:45:00Z', is_mine: false, initials: 'CG' },
-  { id: 5, league_id: 1, user_id: 101, player_id: 1, player_name: 'Patrick Schwagler', message: 'Perfect. See everyone there!', created_at: '2026-03-19T15:00:00Z', is_mine: true, initials: 'PS' },
-];
-
-const MOCK_LEAGUE_EVENTS: LeagueEvent[] = [
-  {
-    id: 1,
-    title: 'Thursday Session #4',
-    date: '2026-03-24',
-    month_abbr: 'MAR',
-    day: 24,
-    time_label: '3:00 PM - 6:00 PM',
-    spots_total: 16,
-    spots_remaining: 6,
-    court_name: 'QBK Sports (Courts 1-3)',
-    status: 'upcoming',
-    user_status: 'signed_up',
-    attendee_count: 10,
-  },
-  {
-    id: 2,
-    title: 'Sunday Pickup Session',
-    date: '2026-03-26',
-    month_abbr: 'MAR',
-    day: 26,
-    time_label: '10:00 AM - 1:00 PM',
-    spots_total: 12,
-    spots_remaining: 3,
-    court_name: 'QBK Sports (Courts 2-4)',
-    status: 'upcoming',
-    user_status: 'none',
-    attendee_count: 9,
-  },
-  {
-    id: 3,
-    title: 'Thursday Session #5',
-    date: '2026-03-31',
-    month_abbr: 'MAR',
-    day: 31,
-    time_label: '3:00 PM - 6:00 PM',
-    spots_total: 16,
-    spots_remaining: 16,
-    court_name: 'QBK Sports (Courts 1-3)',
-    status: 'upcoming',
-    user_status: 'none',
-    attendee_count: 0,
-  },
-];
-
-const MOCK_LEAGUE_SCHEDULE: LeagueScheduleRow[] = [
-  { day_of_week: 'Thursday', time_label: '3:00 PM - 6:00 PM', court_name: 'QBK Sports (Courts 1-3)' },
-  { day_of_week: 'Sunday', time_label: '10:00 AM - 1:00 PM', court_name: 'QBK Sports (Courts 2-4)' },
-];
-
 
 const MOCK_PENDING_INVITES: LeagueInviteItem[] = [
   { id: 1, league_id: 1, league_name: 'QBK Open Men', player_id: 50, display_name: 'D. Thompson', initials: 'DT', invited_at: '2026-03-15', status: 'pending' },
@@ -591,31 +499,6 @@ const MOCK_SESSION_DETAIL: SessionDetail = {
   user_losses: 2,
   user_rating_change: 8.9,
 };
-
-const MOCK_SESSIONS: SessionSummary[] = [
-  {
-    id: 42,
-    date: '2026-03-19',
-    session_number: 3,
-    status: 'active',
-    session_type: 'league',
-    player_count: 5,
-    game_count: 7,
-    league_name: 'QBK Open Men',
-    court_name: 'QBK Sports',
-  },
-  {
-    id: 41,
-    date: '2026-03-17',
-    session_number: 2,
-    status: 'submitted',
-    session_type: 'league',
-    player_count: 8,
-    game_count: 12,
-    league_name: 'QBK Open Men',
-    court_name: 'QBK Sports',
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Tournaments (top-level, distinct from league/session tournaments)
@@ -1089,14 +972,7 @@ export const mockApi = {
 
   // ---- Sessions — TODO(backend): session endpoints ----
 
-  /**
-   * Returns a list of sessions for the current user.
-   * TODO(backend): GET /api/sessions
-   */
-  async getSessions(): Promise<SessionSummary[]> {
-    return Promise.resolve(MOCK_SESSIONS);
-  },
-
+  // getSessions removed — real `getSessions` exists in packages/api-client/src/methods.ts.
   // getSessionById (session roster) removed — now a real backend call.
   // See packages/api-client/src/methods.ts :: getSessionById().
 
@@ -1182,59 +1058,12 @@ export const mockApi = {
     return Promise.resolve([...MOCK_LEAGUE_SEASONS]);
   },
 
-  /**
-   * Returns chat messages for a league.
-   * TODO(backend): GET /api/leagues/:id/messages (extended shape)
-   */
-  async getLeagueChat(_id: number | string): Promise<LeagueChatMessage[]> {
-    return Promise.resolve([...MOCK_LEAGUE_CHAT]);
-  },
+  // getLeagueChat / sendLeagueMessage removed — real getLeagueMessages /
+  // createLeagueMessage exist in packages/api-client/src/methods.ts.
 
-  /**
-   * Sends a message to the league chat.
-   * TODO(backend): POST /api/leagues/:id/messages
-   */
-  async sendLeagueMessage(
-    _id: number | string,
-    _text: string,
-  ): Promise<LeagueChatMessage> {
-    return notImplemented('POST /api/leagues/:id/messages');
-  },
-
-  /**
-   * Returns upcoming events for the league sign-ups tab.
-   * TODO(backend): GET /api/leagues/:id/events
-   */
-  async getLeagueEvents(
-    _id: number | string,
-  ): Promise<{ events: LeagueEvent[]; schedule: LeagueScheduleRow[] }> {
-    return Promise.resolve({
-      events: [...MOCK_LEAGUE_EVENTS],
-      schedule: [...MOCK_LEAGUE_SCHEDULE],
-    });
-  },
-
-  /**
-   * Sign up for a league event.
-   * TODO(backend): POST /api/leagues/:id/events/:eventId/signup
-   */
-  async signUpForEvent(
-    _leagueId: number | string,
-    _eventId: number,
-  ): Promise<LeagueEvent> {
-    return notImplemented('POST /api/leagues/:leagueId/events/:eventId/signup');
-  },
-
-  /**
-   * Drop from a league event.
-   * TODO(backend): DELETE /api/leagues/:id/events/:eventId/signup
-   */
-  async dropFromEvent(
-    _leagueId: number | string,
-    _eventId: number,
-  ): Promise<LeagueEvent> {
-    return notImplemented('DELETE /api/leagues/:leagueId/events/:eventId/signup');
-  },
+  // getLeagueEvents / signUpForEvent / dropFromEvent removed — real
+  // getLeagueSignups / joinSignup / dropSignup exist in
+  // packages/api-client/src/methods.ts.
 
   /**
    * Leave a league.
