@@ -435,6 +435,20 @@ class ResetPasswordConfirmRequest(BaseModel):
     new_password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    """Request to change the authenticated user's password."""
+
+    current_password: str
+    new_password: str
+
+
+class ChangePasswordResponse(BaseModel):
+    """Response after a successful password change."""
+
+    status: str
+    password_changed_at: str
+
+
 class UserResponse(BaseModel):
     """User information response."""
 
@@ -443,6 +457,7 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     is_verified: bool
     auth_provider: str = "phone"
+    has_password: bool = True
     deletion_scheduled_at: Optional[str] = None
     created_at: str
 

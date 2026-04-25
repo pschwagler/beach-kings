@@ -112,7 +112,7 @@ async def create_user(
 
 async def update_user_password(session: AsyncSession, user_id: int, password_hash: str) -> bool:
     """
-    Update a user's password.
+    Update a user's password and record the change timestamp.
 
     Args:
         session: Database session
@@ -125,7 +125,11 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
     result = await session.execute(
         update(User)
         .where(User.id == user_id)
-        .values(password_hash=password_hash, updated_at=func.now())
+        .values(
+            password_hash=password_hash,
+            password_changed_at=func.now(),
+            updated_at=func.now(),
+        )
     )
     await session.commit()
     return result.rowcount > 0
@@ -407,6 +411,9 @@ def _user_to_dict(user: User) -> Dict:
         "locked_until": user.locked_until,
         "deletion_scheduled_at": (
             user.deletion_scheduled_at.isoformat() if user.deletion_scheduled_at else None
+        ),
+        "password_changed_at": (
+            user.password_changed_at.isoformat() if user.password_changed_at else None
         ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,

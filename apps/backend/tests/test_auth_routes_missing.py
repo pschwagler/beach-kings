@@ -300,15 +300,15 @@ class TestResetPasswordConfirm:
         assert response.status_code == 400
         assert "8 characters" in response.json()["detail"]
 
-    def test_confirm_password_no_number(self, monkeypatch):
-        """Password without number returns 400."""
+    def test_confirm_password_exactly_7_chars(self, monkeypatch):
+        """Password exactly 7 chars (below 8-char minimum) returns 400."""
         client = TestClient(app)
         response = client.post(
             "/api/auth/reset-password-confirm",
-            json={"reset_token": "token", "new_password": "longpasswordnone"},
+            json={"reset_token": "token", "new_password": "1234567"},
         )
         assert response.status_code == 400
-        assert "number" in response.json()["detail"]
+        assert "8 characters" in response.json()["detail"]
 
     def test_confirm_invalid_token(self, monkeypatch):
         """Invalid reset token returns 401."""

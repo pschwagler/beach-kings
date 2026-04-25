@@ -21,6 +21,8 @@ import type {
   DirectMessage,
   ThreadResponse,
   MyStatsPayload,
+  ChangePasswordRequest,
+  ChangePasswordResponse,
 } from '@beach-kings/shared';
 
 export function createApiMethods(client: ApiClient) {
@@ -249,14 +251,12 @@ export function createApiMethods(client: ApiClient) {
      * @throws 401 when current_password is wrong.
      * @throws 400 when new_password is too short or the account is OAuth-only.
      */
-    async changePassword(currentPassword: string, newPassword: string): Promise<{
-      readonly status: string;
-      readonly password_changed_at: string;
-    }> {
-      const response = await api.post('/api/auth/change-password', {
+    async changePassword(currentPassword: string, newPassword: string): Promise<ChangePasswordResponse> {
+      const payload: ChangePasswordRequest = {
         current_password: currentPassword,
         new_password: newPassword,
-      });
+      };
+      const response = await api.post<ChangePasswordResponse>('/api/auth/change-password', payload);
       return response.data;
     },
 

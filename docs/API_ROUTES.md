@@ -36,6 +36,7 @@ Source: `apps/backend/api/routes/` (~169 endpoints across 14 domain modules) + `
 | POST | `/api/auth/refresh` | None | Refresh access token |
 | POST | `/api/auth/logout` | User | Revoke refresh token |
 | GET | `/api/auth/me` | User | Get current user profile |
+| POST | `/api/auth/change-password` | User | Change password (requires current password; revokes all refresh tokens on success) |
 
 ## Users
 
