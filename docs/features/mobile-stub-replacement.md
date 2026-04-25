@@ -114,7 +114,7 @@ These features throw on submit. Each task = one agent unit of work. Backend work
   - API client (new): `sendLeagueInvites(leagueId, playerIds)`
   - Reuse check: commit `35f5c89` added invite deep links — there is probably already an `invites` table/route for deep-link invites. Extend rather than create a parallel system.
 
-- [ ] **P1.6 — Create League (wire to real API + form gaps)**
+- [x] **P1.6 — Create League (wire to real API + form gaps)**
   - **Source of truth:** `mobile-audit/wireframes/create-league.html`. Original spec hallucinated `max_players`, `day_of_week`, `start_time`, free-text `court_name` — none of those are in the wireframe.
   - Wireframe fields: name, description, access type (Open/Invite Only), gender, level, location (dropdown), home court (FK to courts at the selected location).
   - Mobile: `apps/mobile/src/components/screens/Leagues/useCreateLeagueScreen.ts` + `CreateLeagueScreen.tsx`
@@ -325,6 +325,8 @@ _Update this section as tasks complete._
 
 - 2026-04-23: **Bonus backend change** (originally listed as Phase-0-no-backend but promoted to make the codebase right): `GET /api/leagues/:id/messages` and `POST /api/leagues/:id/messages` now return a server-computed `is_mine` flag (`row.user_id == current_user_id`). Mobile dropped the extra `getCurrentUserPlayer` fetch it was using to derive this locally; backend tests updated. Web can adopt this field later to replace its own inline comparison. **Pattern note**: any future chat-shaped endpoint (DMs, session chat, etc.) should include a server-computed `is_mine` from day one — auth-relative derivations belong on the server, not in every client.
 
+- 2026-04-25: **P1.6 Create League** complete. `mockApi.createLeagueMock` deleted; hook now calls `api.createLeague` with `access_type → is_open` mapping (`'open'` → `true`, `'invite_only'` → `false`). Added Location picker (fetches `api.getLocations()` on mount) and Court selector (fetches `api.getCourts({ location_id })` when location changes; resets on location change). On submit: `api.createLeague`, then optional `api.addLeagueHomeCourt(newId, courtId)` (non-fatal if fails). Added `addLeagueHomeCourt` to api-client. 20 new tests; full mobile suite: 1278 pass. `tsc --noEmit` clean.
+
 - 2026-04-25: **P1.10 Change Password** complete. Full delivery:
   - **Backend** (branch `feat/ps/p1-change-password`): `POST /api/auth/change-password` — bcrypt verify, 8-char min, 400 for OAuth accounts, revokes all refresh tokens on success, sets `password_changed_at` (nullable TIMESTAMPTZ). Alembic migration `040_add_password_changed_at` with `_column_exists` idempotency guard. 20 tests (happy path, bad current password, too short, OAuth block, unauth).
   - **API client**: `changePassword(currentPassword, newPassword)` in `packages/api-client/src/methods.ts`.
@@ -381,9 +383,9 @@ After questions are answered, each agent owns the full lifecycle — no hand-off
 
 Picked to land foundational types early so downstream tasks can reuse them, and to keep each agent's blast radius minimal:
 
-1. **P1.10** Change Password — smallest, isolated to `auth.py` + one screen; good warm-up.
-2. **P1.6** Expand createLeague — payload extension, no new routes; establishes the expanded `League` shape.
-3. **P1.8** Expand createSession — payload extension, mirrors P1.6 pattern.
+1. **P1.10** Change Password — smallest, isolated to `auth.py` + one screen; good warm-up. ✓ DONE
+2. **P1.6** Expand createLeague — payload extension, no new routes; establishes the expanded `League` shape. ✓ DONE
+3. **P1.8** Expand createSession — payload extension, mirrors P1.6 pattern. ← RESUME POINT
 4. **P1.1** Submit Scored Game — net-new `Game` resource, foundational for P1.2.
 5. **P1.2** My Games list — depends on P1.1's `Game` type.
 6. **P1.3 + P1.4** Join Requests (bundled, one agent) — full request/approve/deny lifecycle on a single resource.

@@ -425,6 +425,15 @@ export function createApiMethods(client: ApiClient) {
       return response.data;
     },
 
+    /**
+     * Add a home court to a league (league_admin).
+     * Called right after league creation when the user selected a court.
+     */
+    async addLeagueHomeCourt(leagueId: number, courtId: number) {
+      const response = await api.post(`/api/leagues/${leagueId}/home-courts`, { court_id: courtId });
+      return response.data;
+    },
+
     async getLeagueMessages(leagueId: number) {
       const response = await api.get(`/api/leagues/${leagueId}/messages`);
       return response.data;

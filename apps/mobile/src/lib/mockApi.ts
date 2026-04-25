@@ -1568,22 +1568,6 @@ export const mockApi = {
   },
 
   /**
-   * Create a new league.
-   * TODO(backend): POST /api/leagues (extended with description/access/gender/level/home_court)
-   */
-  async createLeagueMock(_data: {
-    name: string;
-    description?: string | null;
-    access_type: LeagueAccessType;
-    gender: 'mens' | 'womens' | 'coed';
-    level?: string | null;
-    location_id?: string | null;
-    home_court_id?: number | null;
-  }): Promise<LeagueDetail> {
-    return notImplemented('POST /api/leagues (create)');
-  },
-
-  /**
    * Returns pending invites sent by the current user across all leagues.
    * TODO(backend): GET /api/users/me/league-invites/sent
    */

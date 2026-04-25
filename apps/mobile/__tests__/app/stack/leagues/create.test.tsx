@@ -2,11 +2,11 @@
  * Tests for the Create League screen.
  *
  * Covers:
- *   - Renders all form fields
+ *   - Renders all form fields (name, description, access toggle, gender, level,
+ *     location picker, court picker)
  *   - Submit button disabled until name is long enough
- *   - Access type toggle switches
- *   - Gender pill selection
- *   - Level option selection
+ *   - access_type → is_open mapping: 'open' → true, 'invite_only' → false
+ *   - Order of API calls: createLeague then optional addLeagueHomeCourt
  *   - Success navigation after submit
  *   - Error handling on submit failure
  */
@@ -67,10 +67,16 @@ jest.mock('@/utils/haptics', () => ({
 }));
 
 const mockCreateLeague = jest.fn();
+const mockGetLocations = jest.fn();
+const mockGetCourts = jest.fn();
+const mockAddLeagueHomeCourt = jest.fn();
 
-jest.mock('@/lib/mockApi', () => ({
-  mockApi: {
-    createLeagueMock: (...args: unknown[]) => mockCreateLeague(...args),
+jest.mock('@/lib/api', () => ({
+  api: {
+    createLeague: (...args: unknown[]) => mockCreateLeague(...args),
+    getLocations: (...args: unknown[]) => mockGetLocations(...args),
+    getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    addLeagueHomeCourt: (...args: unknown[]) => mockAddLeagueHomeCourt(...args),
   },
 }));
 
@@ -84,8 +90,21 @@ import CreateLeagueRoute from '../../../../app/(stack)/create-league';
 // Setup
 // ---------------------------------------------------------------------------
 
+const MOCK_LOCATIONS = [
+  { id: 'socal_sd', name: 'San Diego', city: 'San Diego', state: 'CA' },
+  { id: 'socal_la', name: 'Los Angeles', city: 'Los Angeles', state: 'CA' },
+];
+
+const MOCK_COURTS = [
+  { id: 1, name: 'QBK Sports', location_id: 'socal_sd' },
+  { id: 2, name: 'Mission Beach', location_id: 'socal_sd' },
+];
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetLocations.mockResolvedValue(MOCK_LOCATIONS);
+  mockGetCourts.mockResolvedValue(MOCK_COURTS);
+  mockAddLeagueHomeCourt.mockResolvedValue({ id: 1, name: 'QBK Sports', position: 0 });
 });
 
 // ---------------------------------------------------------------------------
@@ -94,42 +113,41 @@ beforeEach(() => {
 
 describe('CreateLeagueScreen — render', () => {
   it('renders the create league screen container', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('create-league-screen')).toBeTruthy();
   });
 
   it('renders the league name input', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('league-name-input')).toBeTruthy();
   });
 
   it('renders the league description input', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('league-description-input')).toBeTruthy();
   });
 
   it('renders the create button', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('create-league-button')).toBeTruthy();
   });
 
   it('renders the access type toggles', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('access-toggle-open')).toBeTruthy();
     expect(screen.getByTestId('access-toggle-invite_only')).toBeTruthy();
   });
 
   it('renders gender pills', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     expect(screen.getByTestId('gender-pill-mens')).toBeTruthy();
     expect(screen.getByTestId('gender-pill-womens')).toBeTruthy();
     expect(screen.getByTestId('gender-pill-coed')).toBeTruthy();
+  });
+
+  it('renders the location picker', () => {
+    render(<CreateLeagueRoute />);
+    expect(screen.getByTestId('location-picker')).toBeTruthy();
   });
 });
 
@@ -139,14 +157,12 @@ describe('CreateLeagueScreen — render', () => {
 
 describe('CreateLeagueScreen — validation', () => {
   it('submit button is disabled when name is empty', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     const button = screen.getByTestId('create-league-button');
     expect(button.props.accessibilityState?.disabled).toBe(true);
   });
 
   it('submit button is disabled when name has only one character', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'A');
     const button = screen.getByTestId('create-league-button');
@@ -154,7 +170,6 @@ describe('CreateLeagueScreen — validation', () => {
   });
 
   it('submit button is enabled when name has 2+ characters', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'My League');
     const button = screen.getByTestId('create-league-button');
@@ -168,14 +183,12 @@ describe('CreateLeagueScreen — validation', () => {
 
 describe('CreateLeagueScreen — access toggle', () => {
   it('switches access to invite_only when that toggle is pressed', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.press(screen.getByTestId('access-toggle-invite_only'));
     expect(screen.getByTestId('access-toggle-invite_only')).toBeTruthy();
   });
 
   it('switches access back to open when open toggle is pressed', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.press(screen.getByTestId('access-toggle-invite_only'));
     fireEvent.press(screen.getByTestId('access-toggle-open'));
@@ -189,14 +202,12 @@ describe('CreateLeagueScreen — access toggle', () => {
 
 describe('CreateLeagueScreen — gender pills', () => {
   it('selects womens pill when pressed', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.press(screen.getByTestId('gender-pill-womens'));
     expect(screen.getByTestId('gender-pill-womens')).toBeTruthy();
   });
 
   it('selects coed pill when pressed', () => {
-    mockCreateLeague.mockReturnValue(new Promise(() => {}));
     render(<CreateLeagueRoute />);
     fireEvent.press(screen.getByTestId('gender-pill-coed'));
     expect(screen.getByTestId('gender-pill-coed')).toBeTruthy();
@@ -204,11 +215,37 @@ describe('CreateLeagueScreen — gender pills', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Submit
+// Submit — access_type to is_open mapping + API call order
 // ---------------------------------------------------------------------------
 
 describe('CreateLeagueScreen — submit', () => {
-  it('calls createLeagueMock on submit with name and defaults', async () => {
+  it('maps open access_type to is_open: true', async () => {
+    mockCreateLeague.mockResolvedValueOnce({ id: 99, name: 'Beach Kings' });
+    render(<CreateLeagueRoute />);
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
+    // access_type default is 'open'
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockCreateLeague).toHaveBeenCalledWith(
+        expect.objectContaining({ is_open: true }),
+      );
+    });
+  });
+
+  it('maps invite_only access_type to is_open: false', async () => {
+    mockCreateLeague.mockResolvedValueOnce({ id: 99, name: 'Beach Kings' });
+    render(<CreateLeagueRoute />);
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
+    fireEvent.press(screen.getByTestId('access-toggle-invite_only'));
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockCreateLeague).toHaveBeenCalledWith(
+        expect.objectContaining({ is_open: false }),
+      );
+    });
+  });
+
+  it('calls createLeague (not mock) on submit with name and defaults', async () => {
     mockCreateLeague.mockResolvedValueOnce({ id: 99, name: 'Beach Kings' });
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'Beach Kings');
@@ -230,8 +267,19 @@ describe('CreateLeagueScreen — submit', () => {
     });
   });
 
-  it('shows error text when submit fails', async () => {
-    mockCreateLeague.mockRejectedValueOnce(new Error('TODO(backend): POST /api/leagues (create)'));
+  it('does not call addLeagueHomeCourt when no court selected', async () => {
+    mockCreateLeague.mockResolvedValueOnce({ id: 77 });
+    render(<CreateLeagueRoute />);
+    fireEvent.changeText(screen.getByTestId('league-name-input'), 'No Court League');
+    fireEvent.press(screen.getByTestId('create-league-button'));
+    await waitFor(() => {
+      expect(mockCreateLeague).toHaveBeenCalled();
+      expect(mockAddLeagueHomeCourt).not.toHaveBeenCalled();
+    });
+  });
+
+  it('shows error text when createLeague fails', async () => {
+    mockCreateLeague.mockRejectedValueOnce(new Error('Network error'));
     render(<CreateLeagueRoute />);
     fireEvent.changeText(screen.getByTestId('league-name-input'), 'New League');
     fireEvent.press(screen.getByTestId('create-league-button'));
