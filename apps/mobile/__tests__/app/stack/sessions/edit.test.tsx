@@ -87,12 +87,17 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockGetSessionById = jest.fn();
+const mockGetSessionDetailMock = jest.fn();
 const mockUpdateSession = jest.fn();
+
+jest.mock('@/lib/mockApi', () => ({
+  mockApi: {
+    getSessionDetailMock: (...args: unknown[]) => mockGetSessionDetailMock(...args),
+  },
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     updateSession: (...args: unknown[]) => mockUpdateSession(...args),
   },
 }));
@@ -143,7 +148,7 @@ const MOCK_SESSION = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetSessionById.mockResolvedValue(MOCK_SESSION);
+  mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION);
 });
 
 // ---------------------------------------------------------------------------

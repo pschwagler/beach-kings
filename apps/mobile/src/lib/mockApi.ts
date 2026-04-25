@@ -540,6 +540,10 @@ const MOCK_LEAGUE_PLAYER_STATS = (leagueId: number, playerId: number): LeaguePla
 // Session mock data
 // ---------------------------------------------------------------------------
 
+// MOCK_SESSION_DETAIL is retained for getSessionDetailMock (session detail
+// screen with games/scores). The real getSessionById returns roster-only
+// (SessionDetailFull). A richer detail endpoint is tracked as TODO(backend).
+
 const MOCK_SESSION_PLAYERS: SessionPlayer[] = [
   { id: 1, player_id: 1, display_name: 'You', initials: 'PS', is_placeholder: false, game_count: 5 },
   { id: 2, player_id: 2, display_name: 'K. Fawwar', initials: 'KF', is_placeholder: false, game_count: 5 },
@@ -1093,16 +1097,24 @@ export const mockApi = {
     return Promise.resolve(MOCK_SESSIONS);
   },
 
+  // getSessionById (session roster) removed — now a real backend call.
+  // See packages/api-client/src/methods.ts :: getSessionById().
+
   /**
-   * Returns full detail for a single session by id.
-   * TODO(backend): GET /api/sessions/:id
+   * Returns full session detail (including games, scores, user stats) by id.
+   * This is a RICHER mock than the real getSessionById (which returns roster
+   * only). Used by session detail and edit screens until a dedicated backend
+   * endpoint for full session detail is implemented.
+   *
+   * TODO(backend): GET /api/sessions/:id/detail (full session with games)
    */
-  async getSessionById(id: number): Promise<SessionDetail> {
-    if (id === MOCK_SESSION_DETAIL.id) {
-      return Promise.resolve({ ...MOCK_SESSION_DETAIL });
-    }
+  async getSessionDetailMock(id: number): Promise<SessionDetail> {
     return Promise.resolve({ ...MOCK_SESSION_DETAIL, id });
   },
+
+  // addSessionPlayer, removeSessionPlayer removed — now real backend calls.
+  // See packages/api-client/src/methods.ts :: inviteSessionPlayer(),
+  // removeSessionPlayer().
 
   /**
    * Creates a new session.
@@ -1136,25 +1148,6 @@ export const mockApi = {
     }>,
   ): Promise<SessionDetail> {
     return notImplemented('PUT /api/sessions/:id');
-  },
-
-  /**
-   * Adds a player to a session (by player_id or as placeholder name).
-   * TODO(backend): POST /api/sessions/:id/roster
-   */
-  async addSessionPlayer(
-    _id: number,
-    _data: { player_id?: number | null; display_name?: string },
-  ): Promise<SessionPlayer> {
-    return notImplemented('POST /api/sessions/:id/roster');
-  },
-
-  /**
-   * Removes a player from a session roster.
-   * TODO(backend): DELETE /api/sessions/:id/roster/:entryId
-   */
-  async removeSessionPlayer(_id: number, _entryId: number): Promise<void> {
-    return notImplemented('DELETE /api/sessions/:id/roster/:entryId');
   },
 
   // ---- League detail ----

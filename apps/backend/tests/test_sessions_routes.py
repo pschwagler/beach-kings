@@ -1020,3 +1020,118 @@ class TestDeleteSession:
         client = TestClient(app)
         response = client.delete(f"/api/sessions/{_SESSION_ID}")
         assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# GET /api/sessions/{session_id}  (session roster detail)
+# ---------------------------------------------------------------------------
+
+
+class TestGetSessionDetail:
+    """GET /api/sessions/{session_id} — session roster with game counts."""
+
+    _ROSTER_PLAYER = {
+        "entry_id": _PLAYER_ID,
+        "player_id": _PLAYER_ID,
+        "display_name": "Test Player",
+        "initials": "TP",
+        "game_count": 3,
+        "is_placeholder": False,
+    }
+
+    def test_returns_session_detail(self, monkeypatch):
+        """Happy path: participant gets full session detail with roster."""
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return _ACTIVE_SESSION
+
+        async def fake_can_add(session, session_id, sess, user_id):
+            return True
+
+        async def fake_get_roster(session, session_id):
+            return [self._ROSTER_PLAYER]
+
+        call_count = [0]
+
+        async def fake_execute(self_session, query, *args, **kwargs):
+            """Return session-type/court on first call, league_id on second."""
+            call_count[0] += 1
+
+            class RowOne:
+                session_type = "pickup"
+                court_id = None
+                court_name = None
+
+            class ResultFirst:
+                def one_or_none(self_r):
+                    return RowOne()
+
+            class ResultSecond:
+                def scalar_one_or_none(self_r):
+                    return None  # no league
+
+            if call_count[0] == 1:
+                return ResultFirst()
+            return ResultSecond()
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
+        monkeypatch.setattr(
+            data_service,
+            "get_session_roster_with_game_counts",
+            fake_get_roster,
+            raising=True,
+        )
+        monkeypatch.setattr(AsyncSession, "execute", fake_execute, raising=True)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == _SESSION_ID
+        assert data["session_type"] == "pickup"
+        assert data["court_name"] is None
+        assert isinstance(data["players"], list)
+        assert len(data["players"]) == 1
+        assert data["players"][0]["player_id"] == _PLAYER_ID
+        assert data["players"][0]["game_count"] == 3
+
+    def test_non_participant_returns_403(self, monkeypatch):
+        """Returns 403 when caller is not a session participant."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return _ACTIVE_SESSION
+
+        async def fake_can_add(session, session_id, sess, user_id):
+            return False
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+        monkeypatch.setattr(
+            data_service, "can_user_add_match_to_session", fake_can_add, raising=True
+        )
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 403
+
+    def test_session_not_found_returns_404(self, monkeypatch):
+        """Returns 404 when session does not exist."""
+        client, headers = _make_user_client(monkeypatch)
+
+        async def fake_get_session(session, session_id):
+            return None
+
+        monkeypatch.setattr(data_service, "get_session", fake_get_session, raising=True)
+
+        response = client.get(f"/api/sessions/{_SESSION_ID}", headers=headers)
+        assert response.status_code == 404
+
+    def test_requires_auth(self):
+        """Returns 401 when no token is provided."""
+        client = TestClient(app)
+        response = client.get(f"/api/sessions/{_SESSION_ID}")
+        assert response.status_code == 401

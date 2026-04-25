@@ -8,12 +8,12 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import type { SessionPlayer } from '@/lib/mockApi';
+import type { SessionPlayerEntry } from '@beach-kings/shared';
 
 const AVATAR_COLORS = ['#7fb3c7', '#d4a843', '#e87461', '#7bc47f', '#b07fc7'];
 
 interface Props {
-  readonly player: SessionPlayer;
+  readonly player: SessionPlayerEntry;
   readonly canRemove: boolean;
   readonly isRemoving: boolean;
   readonly onRemove: () => void;
@@ -27,11 +27,11 @@ export default function SessionRosterRow({
 }: Props): React.ReactNode {
   const bgColor = player.is_placeholder
     ? 'transparent'
-    : AVATAR_COLORS[player.id % AVATAR_COLORS.length];
+    : AVATAR_COLORS[player.player_id % AVATAR_COLORS.length];
 
   return (
     <View
-      testID={`roster-row-${player.id}`}
+      testID={`roster-row-${player.entry_id}`}
       className="flex-row items-center gap-[12px] py-[10px] border-b border-[#f0f0f0] dark:border-[#2a2a2a]"
     >
       {/* Avatar */}
@@ -71,11 +71,11 @@ export default function SessionRosterRow({
       {/* Remove button */}
       {canRemove && (
         isRemoving ? (
-          <ActivityIndicator size="small" testID={`roster-removing-${player.id}`} />
+          <ActivityIndicator size="small" testID={`roster-removing-${player.entry_id}`} />
         ) : (
           <TouchableOpacity
             onPress={onRemove}
-            testID={`roster-remove-${player.id}`}
+            testID={`roster-remove-${player.entry_id}`}
             className="border border-[#fca5a5] bg-white dark:bg-[#1a1a1a] px-[12px] py-[6px] rounded-[8px]"
           >
             <Text className="text-[12px] font-semibold text-[#dc2626]">Remove</Text>

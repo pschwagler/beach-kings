@@ -31,6 +31,7 @@ __all__ = [
     "update_match_async",
     "delete_match_async",
     "get_session_participants",
+    "get_session_roster_with_game_counts",
     "remove_session_participant",
     "add_session_participant",
     "join_session_by_code",
@@ -1340,6 +1341,102 @@ async def get_session_participants(db_session: AsyncSession, session_id: int) ->
         }
         for r in rows
     ]
+
+
+async def get_session_roster_with_game_counts(
+    db_session: AsyncSession, session_id: int
+) -> List[Dict]:
+    """
+    Return session participants enriched with per-player game counts.
+
+    Each entry contains:
+    - entry_id: the player_id (used as the path param for the remove endpoint)
+    - player_id: same as entry_id
+    - display_name: first_name + " " + last_name (or full_name fallback)
+    - initials: two-letter uppercase initials derived from display_name
+    - game_count: number of matches this player appears in for the session
+    - is_placeholder: whether the player is an unregistered placeholder
+
+    Args:
+        db_session: SQLAlchemy async session.
+        session_id: ID of the session to query.
+
+    Returns:
+        List of enriched participant dicts.
+    """
+    # Count appearances per player across all four player slots in matches
+    match_q = select(
+        Match.team1_player1_id,
+        Match.team1_player2_id,
+        Match.team2_player1_id,
+        Match.team2_player2_id,
+    ).where(Match.session_id == session_id)
+    match_result = await db_session.execute(match_q)
+    game_counts: Dict[int, int] = {}
+    for row in match_result.all():
+        for pid in (
+            row.team1_player1_id,
+            row.team1_player2_id,
+            row.team2_player1_id,
+            row.team2_player2_id,
+        ):
+            if pid is not None:
+                game_counts[pid] = game_counts.get(pid, 0) + 1
+
+    # Fetch all session participants
+    part_q = select(SessionParticipant.player_id).where(
+        SessionParticipant.session_id == session_id
+    )
+    part_result = await db_session.execute(part_q)
+    participant_ids = {row[0] for row in part_result.all()}
+
+    # Union of participants and players who have matches
+    all_player_ids = participant_ids | set(game_counts.keys())
+    if not all_player_ids:
+        return []
+
+    players_q = select(
+        Player.id,
+        Player.first_name,
+        Player.last_name,
+        Player.full_name,
+        Player.nickname,
+        Player.is_placeholder,
+    ).where(Player.id.in_(all_player_ids))
+    players_result = await db_session.execute(players_q)
+    rows = players_result.all()
+
+    roster = []
+    for r in rows:
+        first = (r.first_name or "").strip()
+        last = (r.last_name or "").strip()
+        if first and last:
+            display_name = f"{first} {last}"
+            initials = (first[0] + last[0]).upper()
+        elif r.full_name:
+            parts = r.full_name.strip().split()
+            display_name = r.full_name.strip()
+            initials = (parts[0][0] + parts[-1][0]).upper() if len(parts) >= 2 else parts[0][:2].upper()
+        elif r.nickname:
+            display_name = r.nickname.strip()
+            words = display_name.split()
+            initials = (words[0][0] + words[-1][0]).upper() if len(words) >= 2 else words[0][:2].upper()
+        else:
+            display_name = f"Player {r.id}"
+            initials = "??"
+
+        roster.append(
+            {
+                "entry_id": r.id,
+                "player_id": r.id,
+                "display_name": display_name,
+                "initials": initials,
+                "game_count": game_counts.get(r.id, 0),
+                "is_placeholder": bool(r.is_placeholder),
+            }
+        )
+
+    return roster
 
 
 async def remove_session_participant(

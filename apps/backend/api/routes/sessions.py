@@ -38,6 +38,7 @@ from backend.models.schemas import (
     SessionListItemResponse,
     SessionMatchItemResponse,
     SessionParticipantItemResponse,
+    SessionRosterDetailResponse,
     SessionWithStatusResponse,
     StatusResponse,
     SubmitSessionResponse,
@@ -327,6 +328,68 @@ async def get_session_by_code(
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
     return sess
+
+
+@router.get("/api/sessions/{session_id}", response_model=SessionRosterDetailResponse)
+async def get_session_detail(
+    session_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get full session detail including roster with per-player game counts.
+
+    Returns session metadata and all participants enriched with game counts.
+    Only accessible to session participants and session creators.
+    """
+    sess = await data_service.get_session(session, session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not await data_service.can_user_add_match_to_session(
+        session, session_id, sess, current_user["id"]
+    ):
+        raise HTTPException(
+            status_code=403, detail="Only session participants can view session detail"
+        )
+
+    # Fetch session-type and court in one query
+    sess_row = await session.execute(
+        select(
+            Session.session_type,
+            Session.court_id,
+            Court.name.label("court_name"),
+        )
+        .outerjoin(Court, Session.court_id == Court.id)
+        .where(Session.id == session_id)
+    )
+    sess_extra = sess_row.one_or_none()
+    session_type: str | None = sess_extra.session_type if sess_extra else None
+    court_id: int | None = sess_extra.court_id if sess_extra else None
+    court_name: str | None = sess_extra.court_name if sess_extra else None
+
+    # Resolve league_id through the session's season
+    league_id: int | None = None
+    season_id = sess.get("season_id")
+    if season_id is not None:
+        league_result = await session.execute(
+            select(Season.league_id).where(Season.id == season_id)
+        )
+        league_id = league_result.scalar_one_or_none()
+
+    # Fetch participants enriched with game counts
+    players = await data_service.get_session_roster_with_game_counts(
+        session, session_id
+    )
+
+    return {
+        "id": sess["id"],
+        "court_name": court_name,
+        "court_id": court_id,
+        "session_type": session_type,
+        "status": sess.get("status") or "ACTIVE",
+        "league_id": league_id,
+        "players": players,
+    }
 
 
 @router.get("/api/sessions/{session_id}/matches", response_model=list[SessionMatchItemResponse])

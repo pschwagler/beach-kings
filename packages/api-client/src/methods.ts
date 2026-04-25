@@ -13,6 +13,7 @@ import type {
   GameCreatePayload,
   GameCreateResponse,
   SessionParticipant,
+  SessionDetailFull,
   Location,
   Court,
   Friend,
@@ -587,6 +588,44 @@ export function createApiMethods(client: ApiClient) {
     async getSessionParticipants(sessionId: number): Promise<SessionParticipant[]> {
       const response = await api.get<SessionParticipant[]>(
         `/api/sessions/${sessionId}/participants`,
+      );
+      return response.data;
+    },
+
+    /**
+     * Fetch full session detail including the player roster with game counts.
+     * Used by the Manage Players (Session Roster) screen.
+     *
+     * Maps to GET /api/sessions/:id.
+     */
+    async getSessionById(sessionId: number): Promise<SessionDetailFull> {
+      const response = await api.get<SessionDetailFull>(`/api/sessions/${sessionId}`);
+      return response.data;
+    },
+
+    /**
+     * Remove a player from a session roster.
+     * `playerId` is the player_id of the participant to remove.
+     *
+     * Maps to DELETE /api/sessions/:id/participants/:player_id.
+     */
+    async removeSessionPlayer(sessionId: number, playerId: number): Promise<void> {
+      await api.delete(`/api/sessions/${sessionId}/participants/${playerId}`);
+    },
+
+    /**
+     * Invite a player to join a session.
+     * `playerId` is the player_id of the player to invite.
+     *
+     * Maps to POST /api/sessions/:id/invite.
+     */
+    async inviteSessionPlayer(
+      sessionId: number,
+      playerId: number,
+    ): Promise<{ status: string; message: string }> {
+      const response = await api.post<{ status: string; message: string }>(
+        `/api/sessions/${sessionId}/invite`,
+        { player_id: playerId },
       );
       return response.data;
     },

@@ -104,6 +104,42 @@ export interface SessionCreatePayload {
   longitude?: number | null;
 }
 
+// ---------------------------------------------------------------------------
+// Session roster types (used by the Manage Players screen)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single player entry returned by GET /api/sessions/:id (roster view).
+ *
+ * `entry_id` is the SessionParticipant.player_id — this is what the
+ * DELETE /api/sessions/:id/participants/:player_id endpoint expects.
+ */
+export interface SessionPlayerEntry {
+  /** The player_id (also used as the remove-endpoint path param). */
+  readonly entry_id: number;
+  readonly player_id: number;
+  readonly display_name: string;
+  readonly initials: string;
+  /** Number of games this player has in the session. */
+  readonly game_count: number;
+  /** True when the player is an unregistered placeholder. */
+  readonly is_placeholder: boolean;
+}
+
+/**
+ * Full session detail returned by GET /api/sessions/:id.
+ * Tailored for the Manage Players (roster) screen.
+ */
+export interface SessionDetailFull {
+  readonly id: number;
+  readonly court_name: string | null;
+  readonly court_id: number | null;
+  readonly session_type: string | null;
+  readonly status: string;
+  readonly league_id: number | null;
+  readonly players: readonly SessionPlayerEntry[];
+}
+
 export interface EloChange {
   elo_before: number;
   elo_after: number;

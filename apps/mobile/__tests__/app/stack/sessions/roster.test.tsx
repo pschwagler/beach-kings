@@ -119,7 +119,7 @@ import SessionRosterRoute from '../../../../app/(stack)/session/[id]/roster';
 // ---------------------------------------------------------------------------
 
 const PLAYER_IN_GAMES = {
-  id: 1,
+  entry_id: 1,
   player_id: 1,
   display_name: 'You',
   initials: 'PS',
@@ -128,7 +128,7 @@ const PLAYER_IN_GAMES = {
 };
 
 const PLAYER_NO_GAMES = {
-  id: 5,
+  entry_id: 5,
   player_id: 5,
   display_name: 'C. Gulla',
   initials: 'CG',
@@ -139,21 +139,13 @@ const PLAYER_NO_GAMES = {
 const MOCK_SESSION_WITH_PLAYERS = {
   id: 42,
   league_id: 1,
-  league_name: 'QBK Open Men',
   court_name: 'QBK Sports',
-  date: '2026-03-19',
-  start_time: '3:00 PM',
-  session_number: 3,
-  status: 'active' as const,
+  court_id: null,
   session_type: 'league' as const,
-  max_players: 16,
-  notes: null,
+  status: 'ACTIVE',
   players: [PLAYER_IN_GAMES, PLAYER_NO_GAMES],
-  games: [],
-  user_wins: 0,
-  user_losses: 0,
-  user_rating_change: null,
 };
+
 
 const MOCK_SESSION_EMPTY = {
   ...MOCK_SESSION_WITH_PLAYERS,

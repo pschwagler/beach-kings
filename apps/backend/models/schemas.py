@@ -1198,6 +1198,33 @@ class BatchInviteResponse(BaseModel):
     failed: List[BatchInviteFailItem]
 
 
+class SessionRosterPlayerResponse(BaseModel):
+    """A single player entry in the session roster detail response."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    entry_id: int
+    player_id: int
+    display_name: str
+    initials: str
+    game_count: int
+    is_placeholder: bool = False
+
+
+class SessionRosterDetailResponse(BaseModel):
+    """Full session detail including roster, returned by GET /api/sessions/:id."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    court_name: Optional[str] = None
+    court_id: Optional[int] = None
+    session_type: Optional[str] = None
+    status: str
+    league_id: Optional[int] = None
+    players: List[SessionRosterPlayerResponse]
+
+
 # Weekly Schedule schemas
 class WeeklyScheduleBase(BaseModel):
     """Base weekly schedule model."""

@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import useApi from '@/hooks/useApi';
 import { api } from '@/lib/api';
+import { mockApi } from '@/lib/mockApi';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { routes } from '@/lib/navigation';
 import type { SessionDetail } from '@/lib/mockApi';
@@ -39,8 +40,12 @@ export function useSessionDetailScreen(
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // TODO(backend): replace with real full-session-detail endpoint when it
+  // exists. The real api.getSessionById returns SessionDetailFull (roster only);
+  // this screen needs the richer mock payload (games, scores, user stats) until
+  // a dedicated GET /api/sessions/:id/detail endpoint is built.
   const { data, isLoading, error, refetch } = useApi<SessionDetail>(
-    () => api.getSessionById(sessionId),
+    () => mockApi.getSessionDetailMock(sessionId),
     [sessionId],
   );
 

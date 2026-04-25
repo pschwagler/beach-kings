@@ -87,12 +87,17 @@ jest.mock('@/utils/haptics', () => ({
   hapticError: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockGetSessionById = jest.fn();
+const mockGetSessionDetailMock = jest.fn();
 const mockLockInSession = jest.fn();
+
+jest.mock('@/lib/mockApi', () => ({
+  mockApi: {
+    getSessionDetailMock: (...args: unknown[]) => mockGetSessionDetailMock(...args),
+  },
+}));
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getSessionById: (...args: unknown[]) => mockGetSessionById(...args),
     lockInSession: (...args: unknown[]) => mockLockInSession(...args),
   },
 }));
@@ -177,7 +182,7 @@ const MOCK_SESSION_WITH_PLACEHOLDER = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
+  mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_ACTIVE);
 });
 
 // ---------------------------------------------------------------------------
@@ -186,7 +191,7 @@ beforeEach(() => {
 
 describe('SessionDetailScreen — loading state', () => {
   it('renders loading skeleton while data is fetching', async () => {
-    mockGetSessionById.mockReturnValue(new Promise(() => {}));
+    mockGetSessionDetailMock.mockReturnValue(new Promise(() => {}));
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-loading')).toBeTruthy();
@@ -194,7 +199,7 @@ describe('SessionDetailScreen — loading state', () => {
   });
 
   it('renders the screen container during loading', async () => {
-    mockGetSessionById.mockReturnValue(new Promise(() => {}));
+    mockGetSessionDetailMock.mockReturnValue(new Promise(() => {}));
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-screen')).toBeTruthy();
@@ -208,7 +213,7 @@ describe('SessionDetailScreen — loading state', () => {
 
 describe('SessionDetailScreen — error state', () => {
   it('renders error state when fetch fails', async () => {
-    mockGetSessionById.mockRejectedValue(new Error('Network error'));
+    mockGetSessionDetailMock.mockRejectedValue(new Error('Network error'));
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-error')).toBeTruthy();
@@ -216,7 +221,7 @@ describe('SessionDetailScreen — error state', () => {
   });
 
   it('renders retry button in error state', async () => {
-    mockGetSessionById.mockRejectedValue(new Error('Network error'));
+    mockGetSessionDetailMock.mockRejectedValue(new Error('Network error'));
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-retry-btn')).toBeTruthy();
@@ -224,15 +229,15 @@ describe('SessionDetailScreen — error state', () => {
   });
 
   it('calls api again when retry is pressed', async () => {
-    mockGetSessionById.mockRejectedValueOnce(new Error('fail'));
-    mockGetSessionById.mockResolvedValue(MOCK_SESSION_ACTIVE);
+    mockGetSessionDetailMock.mockRejectedValueOnce(new Error('fail'));
+    mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_ACTIVE);
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-detail-retry-btn')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('session-detail-retry-btn'));
     await waitFor(() => {
-      expect(mockGetSessionById).toHaveBeenCalledTimes(2);
+      expect(mockGetSessionDetailMock).toHaveBeenCalledTimes(2);
     });
   });
 });
@@ -328,7 +333,7 @@ describe('SessionDetailScreen — active session actions', () => {
 
 describe('SessionDetailScreen — submitted session', () => {
   it('does NOT render Add Game button for submitted sessions', async () => {
-    mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_SUBMITTED);
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.queryByTestId('session-add-game-btn')).toBeNull();
@@ -336,7 +341,7 @@ describe('SessionDetailScreen — submitted session', () => {
   });
 
   it('does NOT render Submit Session button for submitted sessions', async () => {
-    mockGetSessionById.mockResolvedValue(MOCK_SESSION_SUBMITTED);
+    mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_SUBMITTED);
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.queryByTestId('session-submit-btn')).toBeNull();
@@ -350,7 +355,7 @@ describe('SessionDetailScreen — submitted session', () => {
 
 describe('SessionDetailScreen — invite banner', () => {
   it('shows invite banner when placeholder players exist', async () => {
-    mockGetSessionById.mockResolvedValue(MOCK_SESSION_WITH_PLACEHOLDER);
+    mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_WITH_PLACEHOLDER);
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-invite-banner')).toBeTruthy();
@@ -371,7 +376,7 @@ describe('SessionDetailScreen — invite banner', () => {
 
 describe('SessionDetailScreen — no games', () => {
   it('renders no-games message when games list is empty', async () => {
-    mockGetSessionById.mockResolvedValue(MOCK_SESSION_NO_GAMES);
+    mockGetSessionDetailMock.mockResolvedValue(MOCK_SESSION_NO_GAMES);
     render(<SessionDetailRoute />);
     await waitFor(() => {
       expect(screen.getByTestId('session-no-games')).toBeTruthy();

@@ -92,7 +92,7 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
               </Text>
               {playersInGames.map((player) => (
                 <SessionRosterRow
-                  key={player.id}
+                  key={player.entry_id}
                   player={player}
                   canRemove={false}
                   isRemoving={false}
@@ -110,11 +110,11 @@ export default function SessionRosterScreen({ sessionId }: Props): React.ReactNo
               </Text>
               {playersNoGames.map((player) => (
                 <SessionRosterRow
-                  key={player.id}
+                  key={player.entry_id}
                   player={player}
                   canRemove
-                  isRemoving={isRemoving === player.id}
-                  onRemove={() => { void onRemovePlayer(player.id); }}
+                  isRemoving={isRemoving === player.entry_id}
+                  onRemove={() => { void onRemovePlayer(player.entry_id); }}
                 />
               ))}
             </View>
