@@ -52,7 +52,7 @@ export default function StatsBar({
 }: StatsBarProps): React.ReactNode {
   if (isLoading) {
     return (
-      <View className="flex-row bg-white dark:bg-dark-surface border-t border-border-subtle border-b">
+      <View className="flex-row bg-spike-surface border-t border-border-subtle border-b">
         {[0, 1, 2, 3].map((i) => (
           <View key={i} className="flex-1 items-center py-md px-sm">
             <LoadingSkeleton width={40} height={18} borderRadius={4} />

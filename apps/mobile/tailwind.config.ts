@@ -68,6 +68,7 @@ const config: Config = {
         // Light surfaces
         surface: colors.bgSurface,
         'dark-surface': darkColors.bgSurface,
+        'spike-surface': 'rgb(var(--spike-surface) / <alpha-value>)',
         nav: colors.bgNav,
         border: colors.border,
 

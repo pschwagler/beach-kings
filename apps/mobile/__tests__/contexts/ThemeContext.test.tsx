@@ -20,6 +20,7 @@ jest.mock('nativewind', () => ({
     colorScheme: mockColorScheme,
     setColorScheme: mockSetColorScheme,
   }),
+  vars: (input: Record<string, string>) => input,
 }));
 
 // ---------------------------------------------------------------------------
