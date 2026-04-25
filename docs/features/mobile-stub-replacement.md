@@ -347,22 +347,28 @@ Each agent's prompt must open with this directive verbatim:
 >
 > Acceptable to proceed without asking: pure mechanical work (deleting an obsolete mock entry, wiring an already-agreed type, writing a test for an already-agreed contract).
 
+### Branching policy (revised 2026-04-25)
+
+**All Phase 1 work commits directly to `feat/ps/mobile-app-creation`.** Do NOT use `git worktree`, do NOT create per-task feature branches, do NOT open per-task PRs. The full mobile feature branch is the single integration point — it carries every P1 task as a sequence of commits and merges to main as one PR when Phase 1 is done.
+
+Rationale: a previous attempt at per-task worktree + PR ran into merge conflicts on shared files (`packages/api-client/src/methods.ts`, `packages/shared/src/types/index.ts`, mobile-only files that don't exist on main). Single-branch keeps the diff coherent.
+
 ### Agent delivery contract (per task)
 
 After questions are answered, each agent owns the full lifecycle — no hand-offs:
 
-1. **Plan & reuse check** — read `methods.ts`, `docs/API_ROUTES.md`, `packages/shared/src/types/index.ts`, equivalent web flow. Document findings in PR description.
+1. **Plan & reuse check** — read `methods.ts`, `docs/API_ROUTES.md`, `packages/shared/src/types/index.ts`, equivalent web flow. Document findings in the commit message body.
 2. **Backend (TDD)** — pytest first (happy path + auth + 4xx edge cases), Alembic migration if needed (never destructive), Pydantic schema, SQLAlchemy model, route. Update `docs/API_ROUTES.md` and `docs/DATABASE_SCHEMA.md` if schema changes.
 3. **API client** — unit test with mocked fetch, then implementation in `methods.ts`.
 4. **Shared types** — promote from `mockApi.ts` to `@beach-kings/shared`; strike through the type in the Type debt section above.
 5. **Mobile (TDD)** — hook test first, hook implementation, delete the obsolete entry from `mockApi.ts`.
-6. **Validation gate (must pass before PR):**
+6. **Validation gate (must pass before commit):**
    - `cd apps/backend && pytest <touched paths>`
    - `cd apps/mobile && npm test` (full suite)
    - `tsc --noEmit` clean across `apps/mobile`, `packages/api-client`, `packages/shared`
    - Manual sanity in Expo (or document why blocked)
-   - Update the checkbox + PR link in this doc's status log
-7. **PR** — branch `feat/ps/p1-<slug>`, conventional commit, links to plan section.
+   - Update the checkbox + commit hash in this doc's status log
+7. **Commit & push** — conventional commit on `feat/ps/mobile-app-creation`, push to origin. **No new branches, no PRs.**
 
 ### Sequenced task order
 
@@ -381,10 +387,10 @@ Picked to land foundational types early so downstream tasks can reuse them, and 
 ### Orchestrator loop
 
 For each task in sequence:
-1. Verify `main` is clean and pulled.
+1. Verify `feat/ps/mobile-app-creation` is clean (or that any unstaged work has been committed).
 2. Dispatch the agent with the task spec + question-first directive.
-3. If the agent returns questions → relay to user, wait for answers, resume the same agent via `SendMessage` to preserve context.
-4. Agent finishes → review the PR, spot-check the validation gate, merge.
+3. If the agent returns questions → relay to user, wait for answers, resume the agent (or dispatch a fresh agent with full context if SendMessage isn't available) to continue.
+4. Agent finishes → spot-check the validation gate, confirm commit pushed.
 5. Update the status log entry below.
 6. Move to next task.
 
