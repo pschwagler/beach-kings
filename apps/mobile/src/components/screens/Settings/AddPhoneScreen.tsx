@@ -5,7 +5,7 @@
  *   2. `verify` — submit the 6-digit code via /phone/add/verify, then refresh
  *                 the signed-in user and navigate back.
  *
- * Phone *changes* are not supported here — the AccountSettingsScreen routes
+ * Phone *changes* are not supported here — the SettingsScreen routes
  * those to a support mailto instead.
  */
 

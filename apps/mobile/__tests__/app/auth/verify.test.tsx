@@ -41,8 +41,8 @@ const mockSendVerification = jest.fn();
 const mockSendEmailVerification = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    sendVerification: (...args: unknown[]) => mockSendVerification(...args),
-    sendEmailVerification: (...args: unknown[]) => mockSendEmailVerification(...args),
+    sendVerification: (...args) => mockSendVerification(...args),
+    sendEmailVerification: (...args) => mockSendEmailVerification(...args),
   },
 }));
 

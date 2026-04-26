@@ -42,6 +42,47 @@ Note - this is a public repo. Don't leak any PII or anything that could compromi
 
 Always use headless mode when using agent-browser, playwright, chrome devtools if you can
 
+## agent-device (iOS Simulator)
+
+`agent-device` is the CLI tool for interacting with the iOS simulator. Key usage patterns:
+
+**Session management — always check first:**
+```bash
+agent-device session list          # list active sessions
+agent-device --session bk <cmd>   # reuse existing session "bk" (bound to iPhone 16e)
+```
+The session named `bk` is pre-configured for this project. Always pass `--session bk` to every command — omitting it creates a new session and causes `INVALID_ARGS` conflicts.
+
+**App identifiers:**
+- App display name: `Beach League`
+- Bundle ID: `com.beachleague.app`
+
+**Common commands:**
+```bash
+agent-device --session bk snapshot          # visible text/structure (read-only, fast)
+agent-device --session bk snapshot -i       # interactive refs (@e1, @e2…) for clicking
+agent-device --session bk screenshot        # save screenshot; read with Read tool
+agent-device --session bk click @e3         # click by ref — NOT "tap", that command does not exist
+agent-device --session bk scroll down       # scroll; re-snapshot after
+agent-device --session bk open com.beachleague.app  # open/foreground the app
+agent-device --session bk app-switcher      # show app switcher (fallback when "open" fails)
+```
+
+**Clicking gotchas:**
+- `click` only accepts interactive refs (`@e1`, `@e2`…), never text strings — always run `snapshot -i` first to get refs.
+- `back` does NOT work for in-app back buttons. Tap the back button ref found via `snapshot -i` instead.
+- `open com.beachleague.app` can fail for Expo dev-client builds (`xcrun exited with code 4`). Use `app-switcher` to bring the already-running app forward, and verify the app process with `lsof -i :8081`.
+
+**Debugging mobile API calls:**
+- `agent-device network dump` does NOT capture React Native `fetch` calls — iOS Unified Logging doesn't expose them. Diagnose API issues by reading source code instead (check `packages/api-client/src/methods.ts` and `apps/mobile/src/lib/api.ts`).
+- Backend API base URL is set in root `.env` as `EXPO_PUBLIC_API_URL` (e.g. `http://192.168.50.103:8000`).
+
+**After backend code changes:** the backend runs from a pre-built Docker image with no hot reload. Always rebuild and restart:
+```bash
+docker compose build backend
+docker compose up -d backend
+```
+
 # Local dev utilities
 
 These Makefile targets exist specifically to unblock agents and humans during local development and testing. Prefer them over re-deriving the same queries/scripts ad hoc. Run `make help` for the full list.

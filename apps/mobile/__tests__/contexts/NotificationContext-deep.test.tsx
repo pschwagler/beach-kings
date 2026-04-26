@@ -61,7 +61,7 @@ const appStateListeners: Array<(state: string) => void> = [];
 const RN = require('react-native');
 
 jest.spyOn(RN.AppState, 'addEventListener').mockImplementation(
-  (...args: unknown[]) => {
+  (...args) => {
     const handler = args[1] as (state: string) => void;
     appStateListeners.push(handler);
     return { remove: () => { /* noop */ } };

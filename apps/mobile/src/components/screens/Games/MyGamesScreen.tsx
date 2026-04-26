@@ -27,10 +27,6 @@ import GamesErrorState from './GamesErrorState';
 import GamesFilterBar from './GamesFilterBar';
 import type { GameHistoryEntry } from '@beach-kings/shared';
 
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
-
 export default function MyGamesScreen(): React.ReactNode {
   const router = useRouter();
   const {
@@ -40,7 +36,14 @@ export default function MyGamesScreen(): React.ReactNode {
     isRefreshing,
     resultFilter,
     leagueFilter,
+    selectedPartner,
+    selectedOpponent,
+    availablePartners,
+    availableOpponents,
+    setLeagueFilter,
     setResultFilter,
+    setSelectedPartner,
+    setSelectedOpponent,
     onRefresh,
     onRetry,
   } = useMyGamesScreen();
@@ -52,31 +55,44 @@ export default function MyGamesScreen(): React.ReactNode {
     [router],
   );
 
-  // --- Loading skeleton ---
+  let content: React.ReactNode;
   if (isLoading && !isRefreshing) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
-        edges={['top']}
-        testID="my-games-screen"
-      >
-        <TopNav title="My Games" showBack />
-        <GamesSkeleton />
-      </SafeAreaView>
-    );
-  }
-
-  // --- Error ---
-  if (error != null && !isRefreshing) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
-        edges={['top']}
-        testID="my-games-screen"
-      >
-        <TopNav title="My Games" showBack />
-        <GamesErrorState onRetry={onRetry} />
-      </SafeAreaView>
+    content = <GamesSkeleton />;
+  } else if (error != null && !isRefreshing) {
+    content = <GamesErrorState onRetry={onRetry} />;
+  } else {
+    content = (
+      <>
+        <GamesFilterBar
+          resultFilter={resultFilter}
+          onResultChange={setResultFilter}
+          leagueFilter={leagueFilter}
+          onLeagueClear={() => setLeagueFilter(null)}
+          activeLeagueName={null}
+          availablePartners={availablePartners}
+          availableOpponents={availableOpponents}
+          selectedPartner={selectedPartner}
+          selectedOpponent={selectedOpponent}
+          onPartnerSelect={setSelectedPartner}
+          onOpponentSelect={setSelectedOpponent}
+        />
+        {games.length === 0 ? (
+          <GamesEmptyState />
+        ) : (
+          <FlatList<GameHistoryEntry>
+            testID="games-list"
+            data={games as GameHistoryEntry[]}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <GameRow game={item} onPress={handleGamePress} />
+            )}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+            }
+          />
+        )}
+      </>
     );
   }
 
@@ -87,31 +103,7 @@ export default function MyGamesScreen(): React.ReactNode {
       testID="my-games-screen"
     >
       <TopNav title="My Games" showBack />
-
-      <GamesFilterBar
-        resultFilter={resultFilter}
-        onResultChange={setResultFilter}
-        leagueFilter={leagueFilter}
-        onLeagueClear={() => {}}
-        activeLeagueName={null}
-      />
-
-      {games.length === 0 && !isLoading ? (
-        <GamesEmptyState />
-      ) : (
-        <FlatList<GameHistoryEntry>
-          testID="games-list"
-          data={games}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <GameRow game={item} onPress={handleGamePress} />
-          )}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          }
-        />
-      )}
+      {content}
     </SafeAreaView>
   );
 }

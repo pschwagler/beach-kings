@@ -92,13 +92,13 @@ const mockLockInSession = jest.fn();
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
-    getSessionDetailMock: (...args: unknown[]) => mockGetSessionDetailMock(...args),
+    getSessionDetailMock: (...args) => mockGetSessionDetailMock(...args),
   },
 }));
 
 jest.mock('@/lib/api', () => ({
   api: {
-    lockInSession: (...args: unknown[]) => mockLockInSession(...args),
+    lockInSession: (...args) => mockLockInSession(...args),
   },
 }));
 

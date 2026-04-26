@@ -292,6 +292,7 @@ describe('AuthProvider — session restore', () => {
 describe('AuthProvider — login', () => {
   it('logs in with email and stores tokens', async () => {
     mockLogin.mockResolvedValue(mockAuthResponse);
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerComplete);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -597,7 +598,11 @@ describe('AuthProvider — route guard', () => {
     });
   });
 
-  it('redirects to onboarding when authenticated but profile incomplete', async () => {
+  it('does not redirect returning users with incomplete profiles to onboarding', async () => {
+    // Returning users (isNewUser=false from session restore) with incomplete
+    // profiles should land on home where ProfileBanner nudges them — not be
+    // force-redirected to onboarding. New signups are handled separately by
+    // the verifyEmail/verifyPhone/OAuth paths that set is_new_user=true.
     mockGetStoredTokens.mockResolvedValue({
       accessToken: 'valid',
       refreshToken: 'ref',
@@ -606,11 +611,35 @@ describe('AuthProvider — route guard', () => {
     mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
     mockSegments.push('(tabs)');
 
-    render(
+    const { getByTestId } = render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>,
     );
+
+    await waitFor(() => {
+      const parsed = JSON.parse(getByTestId('output').props.children);
+      expect(parsed.isLoading).toBe(false);
+    });
+
+    expect(mockRouterReplace).not.toHaveBeenCalledWith('/(auth)/onboarding');
+  });
+
+  it('redirects new signups with incomplete profiles to onboarding', async () => {
+    mockGetCurrentUserPlayer.mockResolvedValue(mockPlayerIncomplete);
+    mockGoogleAuth.mockResolvedValue({
+      ...mockAuthResponse,
+      profile_complete: false,
+      is_new_user: true,
+    });
+    mockSegments.push('(tabs)');
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithGoogle('google-token');
+    });
 
     await waitFor(() => {
       expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/onboarding');

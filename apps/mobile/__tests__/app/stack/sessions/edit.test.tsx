@@ -92,13 +92,13 @@ const mockUpdateSession = jest.fn();
 
 jest.mock('@/lib/mockApi', () => ({
   mockApi: {
-    getSessionDetailMock: (...args: unknown[]) => mockGetSessionDetailMock(...args),
+    getSessionDetailMock: (...args) => mockGetSessionDetailMock(...args),
   },
 }));
 
 jest.mock('@/lib/api', () => ({
   api: {
-    updateSession: (...args: unknown[]) => mockUpdateSession(...args),
+    updateSession: (...args) => mockUpdateSession(...args),
   },
 }));
 

@@ -616,6 +616,7 @@ class LeagueResponse(LeagueBase):
     """League response."""
 
     id: int
+    location_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     home_courts: List[HomeCourtResponse] = []
@@ -669,6 +670,11 @@ class SeasonResponse(SeasonBase):
 
     id: int
     league_id: int
+    start_date: Optional[str] = None  # type: ignore[assignment]
+    end_date: Optional[str] = None  # type: ignore[assignment]
+    is_active: Optional[bool] = None
+    session_count: int = 0
+    game_count: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -1847,8 +1853,10 @@ class JoinRequestItemResponse(BaseModel):
     league_id: Optional[int] = None
     player_id: int
     player_name: Optional[str] = None
+    display_name: Optional[str] = None
     status: str
     created_at: Optional[str] = None
+    requested_at: Optional[str] = None
 
 
 class JoinRequestsResponse(BaseModel):
@@ -2656,3 +2664,35 @@ class KobPillRecommendation(BaseModel):
     playoff_format: Optional[str] = None
     total_time_minutes: int
     max_games_per_player: int
+
+
+class LeagueStandingEntry(BaseModel):
+    """Single row in the league standings table."""
+
+    rank: int
+    player_id: int
+    display_name: str
+    initials: str
+    wins: int
+    losses: int
+    win_rate: float
+    rating: Optional[float] = None
+    rating_delta: Optional[float] = None
+    games_played: int
+
+
+class LeagueSeasonInfoResponse(BaseModel):
+    """Season metadata returned alongside standings."""
+
+    id: int
+    name: str
+    started_at: Optional[str] = None
+    session_count: int
+    game_count: int
+
+
+class LeagueStandingsResponse(BaseModel):
+    """Response for GET /api/leagues/{league_id}/standings."""
+
+    standings: List[LeagueStandingEntry]
+    season_info: Optional[LeagueSeasonInfoResponse] = None

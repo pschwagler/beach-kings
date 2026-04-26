@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.services import auth_service, user_service
+from backend.api.auth_dependencies import require_verified_player
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -24,18 +24,13 @@ USER_ID = 42
 PLAYER_ID = 7
 PHONE = "+10000000001"
 
-FAKE_USER_NO_PLAYER = {
+FAKE_USER_WITH_PLAYER = {
     "id": USER_ID,
     "phone_number": PHONE,
     "name": "No Player",
     "email": "noplayer@example.com",
     "is_verified": True,
     "created_at": "2020-01-01T00:00:00Z",
-    # no player_id key — simulates user without a linked player profile
-}
-
-FAKE_USER_WITH_PLAYER = {
-    **FAKE_USER_NO_PLAYER,
     "player_id": PLAYER_ID,
 }
 
@@ -81,38 +76,20 @@ MINIMAL_STATS_PAYLOAD = {
 
 
 # ---------------------------------------------------------------------------
-# Auth helpers
+# Auth fixture
 # ---------------------------------------------------------------------------
 
 
-def _authed_client_no_player(monkeypatch) -> tuple:
-    """Return (TestClient, headers) for a user without a linked player."""
+@pytest.fixture(autouse=True)
+def _override_auth():
+    """Override require_verified_player for all tests in this module."""
 
-    def fake_verify_token(token: str):
-        return {"user_id": USER_ID, "phone_number": PHONE}
-
-    async def fake_get_user(session, uid: int):
-        return FAKE_USER_NO_PLAYER
-
-    monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
-    monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user, raising=True)
-
-    return TestClient(app), {"Authorization": "Bearer dummy"}
-
-
-def _authed_client_with_player(monkeypatch) -> tuple:
-    """Return (TestClient, headers) for a user with a linked player profile."""
-
-    def fake_verify_token(token: str):
-        return {"user_id": USER_ID, "phone_number": PHONE}
-
-    async def fake_get_user(session, uid: int):
+    async def _fake():
         return FAKE_USER_WITH_PLAYER
 
-    monkeypatch.setattr(auth_service, "verify_token", fake_verify_token, raising=True)
-    monkeypatch.setattr(user_service, "get_user_by_id", fake_get_user, raising=True)
-
-    return TestClient(app), {"Authorization": "Bearer dummy"}
+    app.dependency_overrides[require_verified_player] = _fake
+    yield
+    app.dependency_overrides.pop(require_verified_player, None)
 
 
 # ---------------------------------------------------------------------------
@@ -127,33 +104,25 @@ class TestGetMyStatsRoute:
 
     def test_unauthenticated_returns_401(self):
         """Request without a token must be rejected with 401."""
+        app.dependency_overrides.pop(require_verified_player, None)
         client = TestClient(app)
         response = client.get("/api/users/me/stats")
         assert response.status_code == 401
 
-    # -- No linked player ----------------------------------------------------
-
-    def test_no_player_linked_returns_404(self, monkeypatch):
-        """Authenticated user without a player profile receives a 404."""
-        client, headers = _authed_client_no_player(monkeypatch)
-        response = client.get("/api/users/me/stats", headers=headers)
-        assert response.status_code == 404
-        assert "player" in response.json()["detail"].lower()
-
     # -- Happy path (shape-contract) -----------------------------------------
 
-    def test_happy_path_shape_contract(self, monkeypatch):
+    def test_happy_path_shape_contract(self):
         """
         Authenticated user with a player profile receives a well-formed
         MyStatsPayload with all required top-level keys and correct sub-shapes.
         """
-        client, headers = _authed_client_with_player(monkeypatch)
+        client = TestClient(app)
 
         with patch(
             "backend.services.my_stats_service.get_my_stats",
             new=AsyncMock(return_value=MINIMAL_STATS_PAYLOAD),
         ):
-            response = client.get("/api/users/me/stats", headers=headers)
+            response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
 
         assert response.status_code == 200
         data = response.json()
@@ -202,14 +171,14 @@ class TestGetMyStatsRoute:
 
     # -- Service error -------------------------------------------------------
 
-    def test_service_exception_returns_500(self, monkeypatch):
+    def test_service_exception_returns_500(self):
         """Unhandled service exception must surface as a 500 response."""
-        client, headers = _authed_client_with_player(monkeypatch)
+        client = TestClient(app)
 
         with patch(
             "backend.services.my_stats_service.get_my_stats",
             new=AsyncMock(side_effect=RuntimeError("DB exploded")),
         ):
-            response = client.get("/api/users/me/stats", headers=headers)
+            response = client.get("/api/users/me/stats", headers={"Authorization": "Bearer dummy"})
 
         assert response.status_code == 500

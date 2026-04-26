@@ -92,7 +92,7 @@ const mockGetCourts = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getCourts: (...args: unknown[]) => mockGetCourts(...args),
+    getCourts: (...args) => mockGetCourts(...args),
   },
 }));
 

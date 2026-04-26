@@ -29,13 +29,12 @@ export function HomeIcon({ size = 24, color = '#000' }: IconProps): React.ReactN
 export function TrophyIcon({ size = 24, color = '#000' }: IconProps): React.ReactNode {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M8 21h8m-4-4v4m-4.5-8a7 7 0 01-3.5-6V4h16v3a7 7 0 01-3.5 6M4 4H2v3a3 3 0 003 3m15-6h2v3a3 3 0 01-3 3"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18 9h1.5a1 1 0 0 0 0-5H18" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 22h16" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 9H4.5a1 1 0 0 1 0-5H6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

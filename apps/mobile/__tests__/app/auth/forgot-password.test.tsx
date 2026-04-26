@@ -36,13 +36,13 @@ const mockResetPasswordEmail = jest.fn();
 const mockResetPasswordEmailVerify = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    resetPassword: (...args: unknown[]) => mockResetPassword(...args),
-    resetPasswordVerify: (...args: unknown[]) =>
+    resetPassword: (...args) => mockResetPassword(...args),
+    resetPasswordVerify: (...args) =>
       mockResetPasswordVerify(...args),
-    resetPasswordConfirm: (...args: unknown[]) =>
+    resetPasswordConfirm: (...args) =>
       mockResetPasswordConfirm(...args),
-    resetPasswordEmail: (...args: unknown[]) => mockResetPasswordEmail(...args),
-    resetPasswordEmailVerify: (...args: unknown[]) =>
+    resetPasswordEmail: (...args) => mockResetPasswordEmail(...args),
+    resetPasswordEmailVerify: (...args) =>
       mockResetPasswordEmailVerify(...args),
   },
 }));

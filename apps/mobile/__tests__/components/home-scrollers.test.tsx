@@ -149,13 +149,22 @@ describe('RecentGamesScroll', () => {
     expect(getAllByLabelText(/^Win/).length).toBe(3);
   });
 
-  it('navigates to my-stats when a game card is pressed', () => {
+  it('navigates to session when a game card with a session_id is pressed', () => {
+    const match = { id: 1, result: 'W', score: '21-18', session_id: 42 };
+    const { getByLabelText } = render(
+      <RecentGamesScroll matches={[match] as any} />,
+    );
+    fireEvent.press(getByLabelText('Win 21-18'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/session/42');
+  });
+
+  it('does not navigate when a game card has no session_id', () => {
     const match = { id: 1, result: 'W', score: '21-18' };
     const { getByLabelText } = render(
       <RecentGamesScroll matches={[match] as any} />,
     );
     fireEvent.press(getByLabelText('Win 21-18'));
-    expect(mockPush).toHaveBeenCalledWith('/(stack)/my-stats');
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 

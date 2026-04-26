@@ -111,10 +111,7 @@ async def signup(request: SignupRequest, session: AsyncSession = Depends(get_db_
     The request schema enforces that at least one is provided.
     """
     try:
-        if len(request.password) < 8:
-            raise HTTPException(
-                status_code=400, detail="Password must be at least 8 characters long"
-            )
+        auth_service.validate_password_length(request.password)
         if not any(char.isdigit() for char in request.password):
             raise HTTPException(
                 status_code=400, detail="Password must include at least one number"
@@ -971,10 +968,7 @@ async def reset_password_confirm(
 ):
     """Confirm password reset with token and set new password. Automatically logs the user in."""
     try:
-        if len(payload.new_password) < 8:
-            raise HTTPException(
-                status_code=400, detail="Password must be at least 8 characters long"
-            )
+        auth_service.validate_password_length(payload.new_password)
 
         user_id = await user_service.verify_and_use_password_reset_token(
             session, payload.reset_token
@@ -991,6 +985,8 @@ async def reset_password_confirm(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update password")
 
+        # _issue_tokens writes a refresh token and commits, persisting the
+        # password update in the same transaction.
         access_token, refresh_token = await _issue_tokens(session, user)
 
         return AuthResponse(
@@ -1112,6 +1108,7 @@ async def logout(
     """Logout the current user by invalidating all refresh tokens."""
     try:
         await user_service.delete_user_refresh_tokens(session, current_user["id"])
+        await session.commit()
         return {"status": "success", "message": "Logged out successfully"}
     except Exception:
         logger.exception("Error during logout")
@@ -1160,10 +1157,7 @@ async def change_password(
                 ),
             )
 
-        if len(payload.new_password) < 8:
-            raise HTTPException(
-                status_code=400, detail="Password must be at least 8 characters long"
-            )
+        auth_service.validate_password_length(payload.new_password)
 
         if not auth_service.verify_password(
             payload.current_password, current_user["password_hash"]
@@ -1178,7 +1172,10 @@ async def change_password(
             raise HTTPException(status_code=500, detail="Failed to update password")
 
         # Revoke all refresh tokens so other sessions are invalidated.
+        # Both writes share a single transaction so the password change and
+        # session invalidation either both commit or both roll back.
         await user_service.delete_user_refresh_tokens(session, current_user["id"])
+        await session.commit()
 
         # Re-fetch the user to get the freshly-written password_changed_at value.
         updated_user = await user_service.get_user_by_id(session, current_user["id"])

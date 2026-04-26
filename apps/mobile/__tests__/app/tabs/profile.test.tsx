@@ -40,8 +40,8 @@ const mockGetCurrentUserPlayer = jest.fn();
 const mockGetFriends = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    getCurrentUserPlayer: (...args: unknown[]) => mockGetCurrentUserPlayer(...args),
-    getFriends: (...args: unknown[]) => mockGetFriends(...args),
+    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
+    getFriends: (...args) => mockGetFriends(...args),
   },
 }));
 

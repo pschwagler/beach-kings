@@ -73,6 +73,25 @@ VERIFICATION_CODE_LENGTH = 6
 VERIFICATION_CODE_EXPIRATION_MINUTES = 10
 
 
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password_length(password: str) -> None:
+    """
+    Enforce the minimum password length policy.
+
+    Raises:
+        HTTPException(400): if the password is shorter than ``MIN_PASSWORD_LENGTH``.
+    """
+    from fastapi import HTTPException
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters long",
+        )
+
+
 def hash_password(password: str) -> str:
     """
     Hash a password using bcrypt.

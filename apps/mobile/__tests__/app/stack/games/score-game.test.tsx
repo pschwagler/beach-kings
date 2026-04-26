@@ -98,10 +98,10 @@ const MOCK_FRIENDS_ROSTER = {
 
 jest.mock('@/lib/api', () => ({
   api: {
-    submitScoredGame: (...args: unknown[]) => mockSubmitScoredGame(...args),
-    getFriends: (...args: unknown[]) => mockGetFriends(...args),
-    getSessionParticipants: (...args: unknown[]) => mockGetSessionParticipants(...args),
-    getLeagueMembers: (...args: unknown[]) => mockGetLeagueMembers(...args),
+    submitScoredGame: (...args) => mockSubmitScoredGame(...args),
+    getFriends: (...args) => mockGetFriends(...args),
+    getSessionParticipants: (...args) => mockGetSessionParticipants(...args),
+    getLeagueMembers: (...args) => mockGetLeagueMembers(...args),
   },
 }));
 

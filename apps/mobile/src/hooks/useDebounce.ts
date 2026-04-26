@@ -3,7 +3,7 @@
  * elapsed since the last change. Useful for search inputs and other
  * high-frequency update scenarios.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /** Default debounce delay in milliseconds. */
 const DEFAULT_DELAY_MS = 300;
@@ -17,15 +17,20 @@ const DEFAULT_DELAY_MS = 300;
  */
 function useDebounce<T>(value: T, delay: number = DEFAULT_DELAY_MS): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    // Skip the initial render: useState already initializes debouncedValue to
+    // the current value, so a timer here would be a no-op and causes act()
+    // warnings in tests when the timer fires after assertions complete.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-
-    return () => {
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [value, delay]);
 
   return debouncedValue;

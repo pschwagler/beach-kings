@@ -17,6 +17,7 @@ import {
 import { routes } from '@/lib/navigation';
 import { hapticError } from '@/utils/haptics';
 import { loginSchema, type LoginFormValues } from '@/lib/validators';
+import DevLoginPanel from '@/components/dev/DevLoginPanel';
 
 export default function LoginScreen(): React.ReactNode {
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -28,6 +29,7 @@ export default function LoginScreen(): React.ReactNode {
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -62,6 +64,15 @@ export default function LoginScreen(): React.ReactNode {
       }
     },
     [login],
+  );
+
+  const handleDevFill = useCallback(
+    (email: string, password: string) => {
+      setValue('email', email);
+      setValue('password', password);
+      void handleSubmit(onSubmit)();
+    },
+    [setValue, handleSubmit, onSubmit],
   );
 
   const handleForgotPassword = useCallback(() => {
@@ -225,6 +236,8 @@ export default function LoginScreen(): React.ReactNode {
             </Text>
           </Pressable>
         </Link>
+
+        <DevLoginPanel onSelect={handleDevFill} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

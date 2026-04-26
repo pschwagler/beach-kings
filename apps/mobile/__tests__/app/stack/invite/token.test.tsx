@@ -32,8 +32,8 @@ const mockGetInviteDetails = jest.fn();
 const mockClaimInvite = jest.fn();
 jest.mock('@/lib/api', () => ({
   api: {
-    getInviteDetails: (...args: unknown[]) => mockGetInviteDetails(...args),
-    claimInvite: (...args: unknown[]) => mockClaimInvite(...args),
+    getInviteDetails: (...args) => mockGetInviteDetails(...args),
+    claimInvite: (...args) => mockClaimInvite(...args),
   },
 }));
 

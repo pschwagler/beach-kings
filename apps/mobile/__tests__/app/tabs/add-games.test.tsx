@@ -94,8 +94,8 @@ const mockGetUserLeagues = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getActiveSession: (...args: unknown[]) => mockGetActiveSession(...args),
-    getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
+    getActiveSession: (...args) => mockGetActiveSession(...args),
+    getUserLeagues: (...args) => mockGetUserLeagues(...args),
   },
 }));
 

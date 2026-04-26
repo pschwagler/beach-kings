@@ -4,16 +4,16 @@ Non-destructive migration: adds a nullable TIMESTAMPTZ column to record
 when a user last changed their password via the change-password endpoint.
 No data migration required.
 
-Revision ID: 040
-Revises: 039
+Revision ID: 040b
+Revises: 040
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 
-revision = "040"
-down_revision = "039"
+revision = "040b"
+down_revision = "040"
 branch_labels = None
 depends_on = None
 

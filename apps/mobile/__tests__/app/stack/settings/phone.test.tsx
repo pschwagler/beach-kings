@@ -110,8 +110,8 @@ const mockVerifyAddPhone = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    requestAddPhone: (...args: unknown[]) => mockRequestAddPhone(...args),
-    verifyAddPhone: (...args: unknown[]) => mockVerifyAddPhone(...args),
+    requestAddPhone: (...args) => mockRequestAddPhone(...args),
+    verifyAddPhone: (...args) => mockVerifyAddPhone(...args),
   },
 }));
 

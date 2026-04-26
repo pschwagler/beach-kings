@@ -2,15 +2,19 @@
  * Behavior tests for the Settings screen.
  *
  * Covers:
- *   - All section rows render
- *   - Account row navigates to account settings
+ *   - All section rows render (Login & Security, Connected Accounts,
+ *     Notifications, Appearance, Support, Danger Zone)
+ *   - Email row shows masked email
  *   - Password row navigates to change password
+ *   - Phone row: navigates to add-phone when unset, mailto when set
+ *   - Connected accounts: Google connected, Apple connect button
  *   - Notifications row navigates to notifications settings
  *   - Log Out button opens logout modal
  *   - Logout modal: confirm triggers logout
  *   - Logout modal: cancel closes modal
  *   - Delete Account shows confirmation alert
  *   - Support rows show alert stubs
+ *   - OAuth users: password row hidden
  */
 
 import React from 'react';
@@ -24,7 +28,6 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockLogout = jest.fn();
 
-// Mutable so individual tests can override the user.
 let mockUser: Record<string, unknown> = { email: 'test@example.com', has_password: true };
 
 jest.mock('expo-router', () => {
@@ -87,10 +90,12 @@ jest.mock('@/contexts/AuthContext', () => ({
 }));
 
 const mockSubmitFeedback = jest.fn();
+const mockGetCurrentUserPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    submitFeedback: (...args: unknown[]) => mockSubmitFeedback(...args),
+    submitFeedback: (...args) => mockSubmitFeedback(...args),
+    getCurrentUserPlayer: (...args) => mockGetCurrentUserPlayer(...args),
   },
 }));
 
@@ -114,6 +119,11 @@ jest.mock('@/components/ui/icons', () => {
   };
 });
 
+import { Linking } from 'react-native';
+const mockOpenURL = jest
+  .spyOn(Linking, 'openURL')
+  .mockResolvedValue(true);
+
 // ---------------------------------------------------------------------------
 // Module under test — imported AFTER all jest.mock() calls
 // ---------------------------------------------------------------------------
@@ -127,6 +137,11 @@ import SettingsRoute from '../../../../app/(stack)/settings';
 beforeEach(() => {
   jest.clearAllMocks();
   mockUser = { email: 'test@example.com', has_password: true };
+  mockGetCurrentUserPlayer.mockResolvedValue({
+    id: 1,
+    email: 'test@example.com',
+    phone_number: null,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -139,16 +154,21 @@ describe('SettingsScreen — render', () => {
     expect(screen.getByTestId('settings-screen')).toBeTruthy();
   });
 
-  it('renders all section rows', () => {
+  it('renders all section rows', async () => {
     render(<SettingsRoute />);
-    expect(screen.getByTestId('settings-row-email')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-password')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-notifications')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-feedback')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-contact')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-rate')).toBeTruthy();
-    expect(screen.getByTestId('settings-row-delete')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-row-email')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-password')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-google')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-apple')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-notifications')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-appearance')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-feedback')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-contact')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-rate')).toBeTruthy();
+      expect(screen.getByTestId('settings-row-delete')).toBeTruthy();
+    });
   });
 
   it('renders log out button', () => {
@@ -158,16 +178,23 @@ describe('SettingsScreen — render', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Email masking
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — email masking', () => {
+  it('shows masked email from auth user', async () => {
+    render(<SettingsRoute />);
+    await waitFor(() => {
+      expect(screen.getByText('t***@example.com')).toBeTruthy();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
 
 describe('SettingsScreen — navigation', () => {
-  it('navigates to account settings when email row is pressed', () => {
-    render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-email'));
-    expect(mockPush).toHaveBeenCalled();
-  });
-
   it('navigates to change password when password row is pressed', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-password'));
@@ -178,6 +205,65 @@ describe('SettingsScreen — navigation', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-notifications'));
     expect(mockPush).toHaveBeenCalled();
+  });
+
+  it('navigates to appearance when appearance row is pressed', () => {
+    render(<SettingsRoute />);
+    fireEvent.press(screen.getByTestId('settings-row-appearance'));
+    expect(mockPush).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phone row
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — phone row', () => {
+  it('navigates to add-phone route when no phone is set', async () => {
+    render(<SettingsRoute />);
+    await waitFor(() => {
+      expect(screen.getByText('Not set')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('settings-row-phone'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/phone');
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  it('opens support mailto when phone is already set', async () => {
+    mockGetCurrentUserPlayer.mockResolvedValue({
+      id: 1,
+      email: 'test@example.com',
+      phone_number: '+15551234567',
+    });
+    render(<SettingsRoute />);
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-row-phone')).toBeTruthy();
+    });
+    // Wait for player data to load before pressing.
+    await waitFor(() => {
+      expect(screen.queryByText('Not set')).toBeNull();
+    });
+    fireEvent.press(screen.getByTestId('settings-row-phone'));
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    const calledUrl = mockOpenURL.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('mailto:support@beachkings.app');
+    expect(calledUrl).toContain('Change%20phone%20number');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Connected accounts
+// ---------------------------------------------------------------------------
+
+describe('SettingsScreen — connected accounts', () => {
+  it('shows Connected status for Google', () => {
+    render(<SettingsRoute />);
+    expect(screen.getByText('Connected')).toBeTruthy();
+  });
+
+  it('shows Connect button for Apple', () => {
+    render(<SettingsRoute />);
+    expect(screen.getByText('Connect')).toBeTruthy();
   });
 });
 
@@ -220,61 +306,20 @@ describe('SettingsScreen — delete account', () => {
 
   it('delete account row is pressable', () => {
     render(<SettingsRoute />);
-    // Should not throw
     fireEvent.press(screen.getByTestId('settings-row-delete'));
   });
 });
 
 // ---------------------------------------------------------------------------
-// Feedback modal
+// Feedback navigation
 // ---------------------------------------------------------------------------
 
-describe('SettingsScreen — feedback modal', () => {
-  it('opens feedback modal when feedback row is pressed', () => {
+describe('SettingsScreen — feedback row', () => {
+  it('navigates to feedback route when feedback row is pressed', () => {
     render(<SettingsRoute />);
     fireEvent.press(screen.getByTestId('settings-row-feedback'));
-    expect(screen.getByTestId('feedback-modal')).toBeTruthy();
-    expect(screen.getByTestId('feedback-input')).toBeTruthy();
-  });
-
-  it('closes modal when cancel is pressed', () => {
-    render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-feedback'));
-    fireEvent.press(screen.getByTestId('feedback-cancel-btn'));
-    expect(screen.queryByTestId('feedback-modal')).toBeNull();
-  });
-
-  it('disables submit when input is empty', () => {
-    render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-feedback'));
-    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/settings/feedback');
     expect(mockSubmitFeedback).not.toHaveBeenCalled();
-  });
-
-  it('submits feedback via api.submitFeedback with trimmed text', async () => {
-    mockSubmitFeedback.mockResolvedValue({ id: 1 });
-    render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-feedback'));
-    fireEvent.changeText(screen.getByTestId('feedback-input'), '  App is great!  ');
-    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
-    await waitFor(() => {
-      expect(mockSubmitFeedback).toHaveBeenCalledWith('App is great!');
-    });
-    await waitFor(() => {
-      expect(screen.queryByTestId('feedback-modal')).toBeNull();
-    });
-  });
-
-  it('surfaces an error message when submission fails', async () => {
-    mockSubmitFeedback.mockRejectedValue(new Error('network'));
-    render(<SettingsRoute />);
-    fireEvent.press(screen.getByTestId('settings-row-feedback'));
-    fireEvent.changeText(screen.getByTestId('feedback-input'), 'bug report');
-    fireEvent.press(screen.getByTestId('feedback-submit-btn'));
-    await waitFor(() => {
-      expect(screen.getByTestId('feedback-error')).toBeTruthy();
-    });
-    expect(screen.getByTestId('feedback-modal')).toBeTruthy();
   });
 });
 

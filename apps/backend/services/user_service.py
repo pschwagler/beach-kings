@@ -114,6 +114,10 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
     """
     Update a user's password and record the change timestamp.
 
+    Flushes but does not commit, so callers can compose this with other
+    operations (e.g. revoking refresh tokens) inside a single transaction.
+    The caller is responsible for committing.
+
     Args:
         session: Database session
         user_id: User ID
@@ -131,7 +135,7 @@ async def update_user_password(session: AsyncSession, user_id: int, password_has
             updated_at=func.now(),
         )
     )
-    await session.commit()
+    await session.flush()
     return result.rowcount > 0
 
 
@@ -785,6 +789,10 @@ async def delete_user_refresh_tokens(session: AsyncSession, user_id: int) -> int
     """
     Delete all refresh tokens for a user.
 
+    Flushes but does not commit, so callers can compose this with other
+    operations (e.g. updating the user's password) inside a single
+    transaction. The caller is responsible for committing.
+
     Args:
         session: Database session
         user_id: User ID
@@ -793,7 +801,7 @@ async def delete_user_refresh_tokens(session: AsyncSession, user_id: int) -> int
         Number of tokens deleted
     """
     result = await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
-    await session.commit()
+    await session.flush()
     return result.rowcount
 
 

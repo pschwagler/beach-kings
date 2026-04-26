@@ -95,11 +95,11 @@ const mockDeclineFriendRequest = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getNotifications: (...args: unknown[]) => mockGetNotifications(...args),
-    markNotificationRead: (...args: unknown[]) => mockMarkNotificationRead(...args),
-    markAllNotificationsRead: (...args: unknown[]) => mockMarkAllNotificationsRead(...args),
-    acceptFriendRequest: (...args: unknown[]) => mockAcceptFriendRequest(...args),
-    declineFriendRequest: (...args: unknown[]) => mockDeclineFriendRequest(...args),
+    getNotifications: (...args) => mockGetNotifications(...args),
+    markNotificationRead: (...args) => mockMarkNotificationRead(...args),
+    markAllNotificationsRead: (...args) => mockMarkAllNotificationsRead(...args),
+    acceptFriendRequest: (...args) => mockAcceptFriendRequest(...args),
+    declineFriendRequest: (...args) => mockDeclineFriendRequest(...args),
   },
 }));
 

@@ -88,9 +88,8 @@ jest.mock('react-native-svg', () => {
   };
 });
 
-const mockHapticMedium = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/utils/haptics', () => ({
-  hapticMedium: () => mockHapticMedium(),
+  hapticMedium: jest.fn().mockResolvedValue(undefined),
   hapticLight: jest.fn().mockResolvedValue(undefined),
   hapticHeavy: jest.fn().mockResolvedValue(undefined),
   hapticSuccess: jest.fn().mockResolvedValue(undefined),
@@ -101,7 +100,7 @@ const mockGetMyGames = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getMyGames: (...args: unknown[]) => mockGetMyGames(...args),
+    getMyGames: (...args) => mockGetMyGames(...args),
   },
 }));
 
@@ -168,8 +167,6 @@ const BOTH_RESPONSE = { games: [MOCK_WIN_GAME, MOCK_LOSS_GAME], total: 2 };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockHapticMedium.mockResolvedValue(undefined);
-  // Default: returns empty list immediately
   mockGetMyGames.mockResolvedValue(EMPTY_RESPONSE);
 });
 
@@ -369,6 +366,23 @@ describe('MyGamesScreen — filter bar', () => {
     });
   });
 
+  it('renders With Partner and Vs Opponent filter chips', async () => {
+    mockGetMyGames.mockResolvedValue(EMPTY_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-result-partner')).toBeTruthy();
+      expect(screen.getByTestId('filter-result-opponent')).toBeTruthy();
+    });
+  });
+
+  it('does not render a Draws filter chip', async () => {
+    mockGetMyGames.mockResolvedValue(EMPTY_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.queryByTestId('filter-result-D')).toBeNull();
+    });
+  });
+
   it('calls api with result=W when Wins filter is pressed', async () => {
     mockGetMyGames.mockResolvedValue(EMPTY_RESPONSE);
     render(<MyGamesScreen />);
@@ -394,6 +408,108 @@ describe('MyGamesScreen — filter bar', () => {
       expect(mockGetMyGames).toHaveBeenCalledWith(
         expect.objectContaining({ result: 'L' }),
       );
+    });
+  });
+
+  it('does not call api with result param when With Partner filter is pressed', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-result-partner')).toBeTruthy();
+    });
+    mockGetMyGames.mockClear();
+    fireEvent.press(screen.getByTestId('filter-result-partner'));
+    // No new fetch should occur (deps unchanged: leagueFilter=null, apiResult=undefined)
+    await waitFor(() => {
+      expect(mockGetMyGames).not.toHaveBeenCalledWith(
+        expect.objectContaining({ result: 'partner' }),
+      );
+    });
+  });
+
+  it('shows partner sub-filter row with partner names after pressing With Partner', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('filter-result-partner'));
+    await waitFor(() => {
+      expect(screen.getByTestId('partner-filter-row')).toBeTruthy();
+      expect(screen.getByText('K. Fawwar')).toBeTruthy();
+      expect(screen.getByText('S. Jindash')).toBeTruthy();
+    });
+  });
+
+  it('filters games by selected partner client-side', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+      expect(screen.getByTestId('game-row-102')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('filter-result-partner'));
+    await waitFor(() => {
+      expect(screen.getByTestId('partner-filter-row')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText('K. Fawwar'));
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+      expect(screen.queryByTestId('game-row-102')).toBeNull();
+    });
+  });
+
+  it('shows opponent sub-filter row with opponent names after pressing Vs Opponent', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('filter-result-opponent'));
+    await waitFor(() => {
+      expect(screen.getByTestId('opponent-filter-row')).toBeTruthy();
+      expect(screen.getByText('A. Marthey')).toBeTruthy();
+      expect(screen.getByText('J. Drabos')).toBeTruthy();
+    });
+  });
+
+  it('filters games by selected opponent client-side', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+      expect(screen.getByTestId('game-row-102')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('filter-result-opponent'));
+    await waitFor(() => {
+      expect(screen.getByTestId('opponent-filter-row')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText('J. Drabos'));
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-102')).toBeTruthy();
+      expect(screen.queryByTestId('game-row-101')).toBeNull();
+    });
+  });
+
+  it('clears partner selection when switching to a different filter', async () => {
+    mockGetMyGames.mockResolvedValue(BOTH_RESPONSE);
+    render(<MyGamesScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('filter-result-partner'));
+    await waitFor(() => {
+      expect(screen.getByTestId('partner-filter-row')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText('K. Fawwar'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('game-row-102')).toBeNull();
+    });
+    // Switch to All Results — both games should return
+    fireEvent.press(screen.getByTestId('filter-result-all'));
+    await waitFor(() => {
+      expect(screen.getByTestId('game-row-101')).toBeTruthy();
+      expect(screen.getByTestId('game-row-102')).toBeTruthy();
     });
   });
 });

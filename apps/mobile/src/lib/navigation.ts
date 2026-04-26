@@ -64,11 +64,11 @@ export const routes = {
       ? (`/(stack)/score-game?matchId=${matchId}` as const)
       : ('/(stack)/score-game' as const),
   settings: () => '/(stack)/settings' as const,
-  settingsAccount: () => '/(stack)/settings/account' as const,
   settingsNotifications: () => '/(stack)/settings/notifications' as const,
   settingsAppearance: () => '/(stack)/settings/appearance' as const,
   settingsPhone: () => '/(stack)/settings/phone' as const,
   changePassword: () => '/(stack)/settings/change-password' as const,
+  settingsFeedback: () => '/(stack)/settings/feedback' as const,
 
   // ---- Stack: inbox ----
   messagesList: () => '/(stack)/messages' as const,

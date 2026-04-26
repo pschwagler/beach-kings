@@ -33,6 +33,7 @@ export function formatDate(
   format: 'relative' | 'short' | 'long' = 'relative',
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '';
 
   if (format === 'short') {
     return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`;

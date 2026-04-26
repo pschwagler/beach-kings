@@ -4,7 +4,7 @@ Players can check in to a court; check-ins auto-expire after 4 hours.
 Only one active check-in per player per court (unique constraint).
 
 Revision ID: 041
-Revises: 040
+Revises: 040b
 """
 
 import sqlalchemy as sa
@@ -12,7 +12,7 @@ from alembic import op
 
 
 revision = "041"
-down_revision = "040"
+down_revision = "040b"
 branch_labels = None
 depends_on = None
 

@@ -13,7 +13,7 @@ from backend.api.routes import limiter
 from backend.database.db import get_db_session
 from backend.database.models import Player
 from backend.services import data_service, user_service, avatar_service, s3_service, my_stats_service, my_games_service
-from backend.api.auth_dependencies import get_current_user
+from backend.api.auth_dependencies import get_current_user, require_verified_player
 from backend.models.schemas import UserResponse, UserUpdate, PlayerUpdate, StatusResponse, MyStatsPayload
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ async def get_current_user_player(
 
 @router.get("/api/users/me/stats", response_model=MyStatsPayload)
 async def get_my_stats(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -87,12 +87,7 @@ async def get_my_stats(
     Returns overall stats, trophies, partner/opponent breakdowns, and ELO
     timeline. Requires a linked player profile.
     """
-    player_id = current_user.get("player_id")
-    if not player_id:
-        raise HTTPException(
-            status_code=404,
-            detail="No player profile linked to this account.",
-        )
+    player_id = current_user["player_id"]
 
     try:
         payload = await my_stats_service.get_my_stats(session=session, player_id=player_id)
@@ -335,7 +330,7 @@ async def cancel_account_deletion(
 
 @router.get("/api/users/me/games", response_model=dict)
 async def get_my_games(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_verified_player),
     session: AsyncSession = Depends(get_db_session),
     league_id: Optional[int] = Query(default=None, description="Filter by league ID"),
     result: Optional[Literal["W", "L", "D"]] = Query(
@@ -350,12 +345,7 @@ async def get_my_games(
     Returns games newest-first, with optional filtering by league and result.
     Requires a linked player profile.
     """
-    player_id = current_user.get("player_id")
-    if not player_id:
-        raise HTTPException(
-            status_code=404,
-            detail="No player profile linked to this account.",
-        )
+    player_id = current_user["player_id"]
 
     try:
         result_data = await my_games_service.get_my_games(

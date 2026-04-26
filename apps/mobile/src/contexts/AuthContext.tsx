@@ -248,7 +248,7 @@ export default function AuthProvider({
     } else if (
       state.isAuthenticated &&
       inAuthGroup &&
-      (!state.isNewUser || state.profileComplete)
+      (state.profileComplete || (!state.isNewUser && !inOnboarding))
     ) {
       router.replace(routes.home());
     }

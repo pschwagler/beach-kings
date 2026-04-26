@@ -89,7 +89,7 @@ const mockCreateSession = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    createSession: (...args: unknown[]) => mockCreateSession(...args),
+    createSession: (...args) => mockCreateSession(...args),
   },
 }));
 
