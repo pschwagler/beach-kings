@@ -40,7 +40,7 @@ export default function CourtsFilterBar({
       testID="courts-filter-bar"
       horizontal
       showsHorizontalScrollIndicator={false}
-      className="border-b border-border dark:border-border-strong"
+      className="border-b border-strong"
       contentContainerClassName="flex-row gap-2 px-4 py-3"
     >
       {CHIPS.map((chip) => {
@@ -55,15 +55,15 @@ export default function CourtsFilterBar({
             accessibilityLabel={chip.label}
             className={`px-4 py-1.5 rounded-full border ${
               isActive
-                ? 'bg-primary dark:bg-brand-teal border-primary dark:border-brand-teal'
-                : 'bg-white dark:bg-dark-surface border-border dark:border-border-strong'
+                ? 'bg-brand-teal border-brand-teal'
+                : 'bg-surface border-strong'
             } active:opacity-80`}
           >
             <Text
               className={`text-[13px] font-medium ${
                 isActive
                   ? 'text-white'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  : 'text-muted'
               }`}
             >
               {chip.label}

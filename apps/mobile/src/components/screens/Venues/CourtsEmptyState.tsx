@@ -38,15 +38,15 @@ export default function CourtsEmptyState({
         testID="courts-empty-state"
         className="flex-1 items-center justify-center px-8 py-16"
       >
-        <View className="w-20 h-20 rounded-full bg-teal-50 dark:bg-info-bg items-center justify-center mb-5">
+        <View className="w-20 h-20 rounded-full bg-info-tint items-center justify-center mb-5">
           <LocationIcon />
         </View>
 
-        <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[20px] font-bold text-default mb-2 text-center">
           No Courts Found
         </Text>
 
-        <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5] mb-8">
+        <Text className="text-[14px] text-tertiary text-center leading-[1.5] mb-8">
           No courts match your current filter. Try a different filter or clear it
           to see all courts.
         </Text>
@@ -57,7 +57,7 @@ export default function CourtsEmptyState({
             onPress={onClearFilter}
             accessibilityRole="button"
             accessibilityLabel="Clear Filter"
-            className="bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+            className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
           >
             <Text className="text-white font-bold text-[15px]">Clear Filter</Text>
           </Pressable>
@@ -71,15 +71,15 @@ export default function CourtsEmptyState({
       testID="courts-empty-state"
       className="flex-1 items-center justify-center px-8 py-16"
     >
-      <View className="w-20 h-20 rounded-full bg-teal-50 dark:bg-info-bg items-center justify-center mb-5">
+      <View className="w-20 h-20 rounded-full bg-info-tint items-center justify-center mb-5">
         <LocationIcon />
       </View>
 
-      <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-2 text-center">
+      <Text className="text-[20px] font-bold text-default mb-2 text-center">
         Enable Location
       </Text>
 
-      <Text className="text-[14px] text-text-muted dark:text-content-tertiary text-center leading-[1.5] mb-8">
+      <Text className="text-[14px] text-tertiary text-center leading-[1.5] mb-8">
         Allow location access to discover beach volleyball courts near you.
       </Text>
 
@@ -89,7 +89,7 @@ export default function CourtsEmptyState({
           onPress={onEnableLocation}
           accessibilityRole="button"
           accessibilityLabel="Enable Location"
-          className="bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+          className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
         >
           <Text className="text-white font-bold text-[15px]">Enable Location</Text>
         </Pressable>

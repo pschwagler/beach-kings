@@ -64,10 +64,10 @@ function PhotoGrid({
         testID="court-photos-empty"
         className="flex-1 items-center justify-center py-16 px-8"
       >
-        <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary mb-2 text-center">
+        <Text className="text-[16px] font-semibold text-default mb-2 text-center">
           No Photos Yet
         </Text>
-        <Text className="text-[14px] text-text-muted dark:text-content-secondary text-center mb-6">
+        <Text className="text-[14px] text-muted text-center mb-6">
           Add photos that help other players find and judge this court.
         </Text>
         <Pressable
@@ -75,7 +75,7 @@ function PhotoGrid({
           onPress={onAddPhoto}
           accessibilityRole="button"
           accessibilityLabel="Add Photo"
-          className="bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+          className="bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
         >
           <Text className="text-white font-bold text-[15px]">Add Photo</Text>
         </Pressable>
@@ -137,7 +137,7 @@ export default function CourtPhotosScreen({
       accessibilityRole="button"
       accessibilityLabel="Add photo"
     >
-      <Text className="text-primary dark:text-brand-teal font-semibold text-[15px]">
+      <Text className="text-brand-teal font-semibold text-[15px]">
         + Add
       </Text>
     </Pressable>
@@ -147,7 +147,7 @@ export default function CourtPhotosScreen({
   if (isLoading) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="court-photos-screen"
       >
@@ -161,7 +161,7 @@ export default function CourtPhotosScreen({
   if (error != null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="court-photos-screen"
       >
@@ -170,7 +170,7 @@ export default function CourtPhotosScreen({
           testID="court-photos-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-semibold text-text-default dark:text-content-primary mb-2">
+          <Text className="text-[16px] font-semibold text-default mb-2">
             Could Not Load Photos
           </Text>
           <Pressable
@@ -178,7 +178,7 @@ export default function CourtPhotosScreen({
             onPress={onRetry}
             accessibilityRole="button"
             accessibilityLabel="Try Again"
-            className="mt-4 bg-accent dark:bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
+            className="mt-4 bg-brand-gold px-8 py-[14px] rounded-[10px] active:opacity-80"
           >
             <Text className="text-white font-bold text-[15px]">Try Again</Text>
           </Pressable>
@@ -189,7 +189,7 @@ export default function CourtPhotosScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="court-photos-screen"
     >
@@ -198,21 +198,21 @@ export default function CourtPhotosScreen({
       {/* Court info bar */}
       <View
         testID="court-photos-header"
-        className="px-4 py-3 border-b border-border dark:border-border-strong"
+        className="px-4 py-3 border-b border-strong"
       >
-        <Text className="text-[15px] font-semibold text-text-default dark:text-content-primary">
+        <Text className="text-[15px] font-semibold text-default">
           {courtName}
         </Text>
         {courtAddress != null && (
-          <Text className="text-[13px] text-text-muted dark:text-content-secondary mt-0.5">
+          <Text className="text-[13px] text-muted mt-0.5">
             {courtAddress}
           </Text>
         )}
       </View>
 
       {/* Guidance text */}
-      <View className="px-4 py-2 border-b border-border dark:border-border-strong">
-        <Text className="text-[13px] text-text-muted dark:text-content-secondary">
+      <View className="px-4 py-2 border-b border-strong">
+        <Text className="text-[13px] text-muted">
           Add photos that help other players find and judge this court.
         </Text>
       </View>
@@ -220,9 +220,9 @@ export default function CourtPhotosScreen({
       {/* Photo count */}
       <View
         testID="court-photos-count-bar"
-        className="px-4 py-2 border-b border-border dark:border-border-strong"
+        className="px-4 py-2 border-b border-strong"
       >
-        <Text className="text-[13px] font-medium text-text-default dark:text-content-primary">
+        <Text className="text-[13px] font-medium text-default">
           {photos.length} photo{photos.length !== 1 ? 's' : ''}
         </Text>
       </View>

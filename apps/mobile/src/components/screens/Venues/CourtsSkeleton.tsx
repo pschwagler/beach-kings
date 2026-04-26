@@ -9,7 +9,7 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 
 function SkeletonCourtRow(): React.ReactNode {
   return (
-    <View className="flex-row items-center py-3 px-4 border-b border-border dark:border-border-strong">
+    <View className="flex-row items-center py-3 px-4 border-b border-strong">
       {/* Thumbnail */}
       <LoadingSkeleton width={72} height={72} borderRadius={8} />
       <View className="flex-1 ml-3">
@@ -37,7 +37,7 @@ export default function CourtsSkeleton({ count = 5 }: CourtsSkeletonProps): Reac
   return (
     <View testID="courts-list-loading">
       {/* Filter chips skeleton */}
-      <View className="flex-row gap-2 px-4 py-3 border-b border-border dark:border-border-strong">
+      <View className="flex-row gap-2 px-4 py-3 border-b border-strong">
         {[80, 96, 88, 72, 80, 72].map((w, i) => (
           // eslint-disable-next-line react/no-array-index-key
           <LoadingSkeleton key={i} width={w} height={32} borderRadius={16} />

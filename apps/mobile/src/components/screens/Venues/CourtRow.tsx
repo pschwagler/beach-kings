@@ -76,22 +76,22 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      className="flex-row items-center px-4 py-3 border-b border-border dark:border-border-strong active:bg-gray-50 dark:active:bg-dark-surface"
+      className="flex-row items-center px-4 py-3 border-b border-strong active:bg-surface"
     >
       {/* Thumbnail */}
       <Image
         source={{ uri: photoUrl }}
-        className="w-[72px] h-[72px] rounded-lg bg-gray-100 dark:bg-dark-surface"
+        className="w-[72px] h-[72px] rounded-lg bg-surface"
         accessibilityIgnoresInvertColors
       />
 
       {/* Content */}
       <View className="flex-1 ml-3">
-        <Text className="text-[15px] font-semibold text-text-default dark:text-content-primary mb-0.5">
+        <Text className="text-[15px] font-semibold text-default mb-0.5">
           {court.name}
         </Text>
         {locationLabel.length > 0 && (
-          <Text className="text-[13px] text-text-muted dark:text-content-tertiary mb-1.5">
+          <Text className="text-[13px] text-tertiary mb-1.5">
             {locationLabel}
           </Text>
         )}
@@ -99,11 +99,11 @@ export default function CourtRow({ court }: CourtRowProps): React.ReactNode {
         {/* Rating + distance row */}
         <View className="flex-row items-center gap-2">
           <StarRating rating={court.average_rating ?? 0} />
-          <Text className="text-[12px] text-text-muted dark:text-content-secondary">
+          <Text className="text-[12px] text-muted">
             {(court.average_rating ?? 0).toFixed(1)} ({court.review_count ?? 0})
           </Text>
           {court.distance_miles != null && (
-            <Text className="text-[12px] text-text-muted dark:text-content-tertiary">
+            <Text className="text-[12px] text-tertiary">
               · {court.distance_miles.toFixed(1)} mi
             </Text>
           )}

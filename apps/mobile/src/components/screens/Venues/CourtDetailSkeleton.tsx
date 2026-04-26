@@ -15,7 +15,7 @@ export default function CourtDetailSkeleton(): React.ReactNode {
       <LoadingSkeleton width="100%" height={200} borderRadius={0} />
 
       {/* Header */}
-      <View className="px-4 pt-4 pb-3 border-b border-border dark:border-border-strong">
+      <View className="px-4 pt-4 pb-3 border-b border-strong">
         <LoadingSkeleton width="70%" height={22} borderRadius={6} className="mb-2" />
         <LoadingSkeleton width="50%" height={14} borderRadius={6} className="mb-3" />
         {/* Badges */}
@@ -27,19 +27,19 @@ export default function CourtDetailSkeleton(): React.ReactNode {
       </View>
 
       {/* Rating bar */}
-      <View className="flex-row items-center px-4 py-3 border-b border-border dark:border-border-strong">
+      <View className="flex-row items-center px-4 py-3 border-b border-strong">
         <LoadingSkeleton width={100} height={18} borderRadius={6} className="mr-2" />
         <LoadingSkeleton width={48} height={14} borderRadius={6} />
       </View>
 
       {/* Action row */}
-      <View className="flex-row gap-3 px-4 py-4 border-b border-border dark:border-border-strong">
+      <View className="flex-row gap-3 px-4 py-4 border-b border-strong">
         <LoadingSkeleton width="55%" height={44} borderRadius={10} />
         <LoadingSkeleton width="40%" height={44} borderRadius={10} />
       </View>
 
       {/* Court Info section */}
-      <View className="px-4 pt-4 pb-4 border-b border-border dark:border-border-strong">
+      <View className="px-4 pt-4 pb-4 border-b border-strong">
         <LoadingSkeleton width={80} height={16} borderRadius={6} className="mb-3" />
         <LoadingSkeleton width="90%" height={13} borderRadius={6} className="mb-2" />
         <LoadingSkeleton width="70%" height={13} borderRadius={6} className="mb-2" />
@@ -47,7 +47,7 @@ export default function CourtDetailSkeleton(): React.ReactNode {
       </View>
 
       {/* Photos section */}
-      <View className="px-4 pt-4 pb-4 border-b border-border dark:border-border-strong">
+      <View className="px-4 pt-4 pb-4 border-b border-strong">
         <LoadingSkeleton width={64} height={16} borderRadius={6} className="mb-3" />
         <View className="flex-row gap-2">
           <LoadingSkeleton width={100} height={100} borderRadius={8} />

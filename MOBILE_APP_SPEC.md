@@ -239,7 +239,7 @@ Source of truth for the role table: `packages/shared/src/tokens/semantic.ts`.
 | Home (`components/home/*` + `app/(tabs)/home.tsx`) | 3.2 | ✅ Migrated |
 | Leagues | 3.3 | ⏳ Pending |
 | Games & AddGames | 3.4 | ⏳ Pending |
-| Venues | 3.5 | ⏳ Pending |
+| Venues (`components/screens/Venues/*` — Court* screens) | 3.5 | ✅ Migrated |
 | Social / Messages / Notifications | 3.6 | ⏳ Pending |
 | PlayerProfile / FindPlayers / KOB | 3.7 | ⏳ Pending |
 | Settings + invite | 3.8 | ⏳ Pending |

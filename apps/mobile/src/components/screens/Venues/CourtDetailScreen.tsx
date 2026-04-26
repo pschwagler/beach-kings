@@ -41,8 +41,8 @@ import type { Court } from '@beach-kings/shared';
 
 function Badge({ label }: { label: string }): React.ReactNode {
   return (
-    <View className="px-3 py-1 rounded-full bg-teal-50 dark:bg-info-bg border border-teal-200 dark:border-brand-teal">
-      <Text className="text-[12px] font-medium text-primary dark:text-brand-teal">
+    <View className="px-3 py-1 rounded-full bg-info-tint border border-brand-teal">
+      <Text className="text-[12px] font-medium text-brand-teal">
         {label}
       </Text>
     </View>
@@ -59,7 +59,7 @@ function StarRatingBar({
   return (
     <View
       testID="court-rating-bar"
-      className="flex-row items-center gap-2 px-4 py-3 border-b border-border dark:border-border-strong"
+      className="flex-row items-center gap-2 px-4 py-3 border-b border-strong"
     >
       <View className="flex-row items-center gap-0.5">
         {[1, 2, 3, 4, 5].map((star) => (
@@ -73,10 +73,10 @@ function StarRatingBar({
           </Text>
         ))}
       </View>
-      <Text className="text-[15px] font-semibold text-text-default dark:text-content-primary">
+      <Text className="text-[15px] font-semibold text-default">
         {rating.toFixed(1)}
       </Text>
-      <Text className="text-[14px] text-text-muted dark:text-content-secondary">
+      <Text className="text-[14px] text-muted">
         ({reviewCount} review{reviewCount !== 1 ? 's' : ''})
       </Text>
     </View>
@@ -99,13 +99,13 @@ function ActionRow({
   }, []);
 
   return (
-    <View className="flex-row gap-3 px-4 py-4 border-b border-border dark:border-border-strong">
+    <View className="flex-row gap-3 px-4 py-4 border-b border-strong">
       <Pressable
         testID={`check-in-btn-${courtId}`}
         onPress={handleCheckIn}
         accessibilityRole="button"
         accessibilityLabel="Check In"
-        className="flex-1 bg-accent dark:bg-brand-gold py-[14px] rounded-[10px] items-center active:opacity-80"
+        className="flex-1 bg-brand-gold py-[14px] rounded-[10px] items-center active:opacity-80"
       >
         <Text className="text-white font-bold text-[15px]">Check In</Text>
       </Pressable>
@@ -115,9 +115,9 @@ function ActionRow({
         onPress={handleAddToMyCourts}
         accessibilityRole="button"
         accessibilityLabel="Add to My Courts"
-        className="flex-1 py-[14px] rounded-[10px] items-center border border-primary dark:border-brand-teal active:opacity-80"
+        className="flex-1 py-[14px] rounded-[10px] items-center border border-brand-teal active:opacity-80"
       >
-        <Text className="text-primary dark:text-brand-teal font-semibold text-[15px]">
+        <Text className="text-brand-teal font-semibold text-[15px]">
           My Courts
         </Text>
       </Pressable>
@@ -129,37 +129,37 @@ function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
   return (
     <View
       testID="court-info-section"
-      className="px-4 pt-4 pb-4 border-b border-border dark:border-border-strong"
+      className="px-4 pt-4 pb-4 border-b border-strong"
     >
-      <Text className="text-[16px] font-bold text-text-default dark:text-content-primary mb-3">
+      <Text className="text-[16px] font-bold text-default mb-3">
         Court Info
       </Text>
 
       <View className="flex-row flex-wrap gap-x-6 gap-y-2 mb-4">
         {court.court_count != null && (
           <View>
-            <Text className="text-[12px] text-text-muted dark:text-content-tertiary uppercase tracking-wide">
+            <Text className="text-[12px] text-tertiary uppercase tracking-wide">
               Courts
             </Text>
-            <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+            <Text className="text-[14px] font-semibold text-default">
               {court.court_count}
             </Text>
           </View>
         )}
         <View>
-          <Text className="text-[12px] text-text-muted dark:text-content-tertiary uppercase tracking-wide">
+          <Text className="text-[12px] text-tertiary uppercase tracking-wide">
             Surface
           </Text>
-          <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary capitalize">
+          <Text className="text-[14px] font-semibold text-default capitalize">
             {court.surface_type}
           </Text>
         </View>
         {court.hours != null && (
           <View>
-            <Text className="text-[12px] text-text-muted dark:text-content-tertiary uppercase tracking-wide">
+            <Text className="text-[12px] text-tertiary uppercase tracking-wide">
               Hours
             </Text>
-            <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+            <Text className="text-[14px] font-semibold text-default">
               {court.hours}
             </Text>
           </View>
@@ -169,14 +169,14 @@ function CourtInfoSection({ court }: { court: Court }): React.ReactNode {
       {/* Map preview stub */}
       <View
         testID="court-map-preview"
-        className="h-[100px] rounded-xl bg-teal-50 dark:bg-info-bg items-center justify-center border border-border dark:border-border-strong"
+        className="h-[100px] rounded-xl bg-info-tint items-center justify-center border border-strong"
       >
-        <Text className="text-[13px] text-text-muted dark:text-content-secondary">
+        <Text className="text-[13px] text-muted">
           Map preview
         </Text>
       </View>
       {court.address != null && (
-        <Text className="text-[13px] text-text-muted dark:text-content-secondary mt-2">
+        <Text className="text-[13px] text-muted mt-2">
           {court.address}
         </Text>
       )}
@@ -198,10 +198,10 @@ function PhotosSection({
   return (
     <View
       testID="court-photos-section"
-      className="px-4 pt-4 pb-4 border-b border-border dark:border-border-strong"
+      className="px-4 pt-4 pb-4 border-b border-strong"
     >
       <View className="flex-row justify-between items-center mb-3">
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary">
+        <Text className="text-[16px] font-bold text-default">
           Photos
         </Text>
         <Pressable
@@ -210,7 +210,7 @@ function PhotosSection({
           accessibilityRole="button"
           accessibilityLabel="See all photos"
         >
-          <Text className="text-[14px] text-primary dark:text-brand-teal font-medium">
+          <Text className="text-[14px] text-brand-teal font-medium">
             See All
           </Text>
         </Pressable>
@@ -221,7 +221,7 @@ function PhotosSection({
           <Image
             key={photo.id}
             source={{ uri: photo.url }}
-            className="flex-1 h-[100px] rounded-lg bg-gray-100 dark:bg-dark-surface"
+            className="flex-1 h-[100px] rounded-lg bg-surface"
             accessibilityIgnoresInvertColors
           />
         ))}
@@ -231,9 +231,9 @@ function PhotosSection({
             onPress={onViewAll}
             accessibilityRole="button"
             accessibilityLabel={`View ${remaining} more photos`}
-            className="w-[100px] h-[100px] rounded-lg bg-gray-100 dark:bg-dark-surface items-center justify-center"
+            className="w-[100px] h-[100px] rounded-lg bg-surface items-center justify-center"
           >
-            <Text className="text-[16px] font-bold text-text-muted dark:text-content-tertiary">
+            <Text className="text-[16px] font-bold text-tertiary">
               +{remaining}
             </Text>
           </Pressable>
@@ -244,10 +244,10 @@ function PhotosSection({
             onPress={onViewAll}
             accessibilityRole="button"
             accessibilityLabel="Add photos"
-            className="w-[100px] h-[100px] rounded-lg border-2 border-dashed border-border dark:border-border-strong items-center justify-center"
+            className="w-[100px] h-[100px] rounded-lg border-2 border-dashed border-strong items-center justify-center"
           >
-            <Text className="text-[24px] text-text-muted dark:text-content-tertiary">+</Text>
-            <Text className="text-[11px] text-text-muted dark:text-content-tertiary mt-1">
+            <Text className="text-[24px] text-tertiary">+</Text>
+            <Text className="text-[11px] text-tertiary mt-1">
               Add Photo
             </Text>
           </Pressable>
@@ -281,7 +281,7 @@ export default function CourtDetailScreen({
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="court-detail-screen"
       >
@@ -295,7 +295,7 @@ export default function CourtDetailScreen({
   if (error != null || court == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="court-detail-screen"
       >
@@ -311,7 +311,7 @@ export default function CourtDetailScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="court-detail-screen"
     >
@@ -327,7 +327,7 @@ export default function CourtDetailScreen({
         <View testID="court-hero-image" className="relative">
           <Image
             source={{ uri: heroUrl }}
-            className="w-full h-[200px] bg-gray-100 dark:bg-dark-surface"
+            className="w-full h-[200px] bg-surface"
             accessibilityIgnoresInvertColors
           />
           {/* Photo count badge */}
@@ -343,12 +343,12 @@ export default function CourtDetailScreen({
         {/* Header */}
         <View
           testID="court-header"
-          className="px-4 pt-4 pb-3 border-b border-border dark:border-border-strong"
+          className="px-4 pt-4 pb-3 border-b border-strong"
         >
-          <Text className="text-[20px] font-bold text-text-default dark:text-content-primary mb-0.5">
+          <Text className="text-[20px] font-bold text-default mb-0.5">
             {court.name}
           </Text>
-          <Text className="text-[14px] text-text-muted dark:text-content-secondary mb-3">
+          <Text className="text-[14px] text-muted mb-3">
             {court.city}, {court.state}
           </Text>
 
@@ -382,10 +382,10 @@ export default function CourtDetailScreen({
           testID="court-reviews-section"
           className="px-4 pt-4 pb-4"
         >
-          <Text className="text-[16px] font-bold text-text-default dark:text-content-primary mb-2">
+          <Text className="text-[16px] font-bold text-default mb-2">
             Reviews
           </Text>
-          <Text className="text-[14px] text-text-muted dark:text-content-secondary">
+          <Text className="text-[14px] text-muted">
             {court.review_count != null && court.review_count > 0
               ? `${court.review_count} review${court.review_count !== 1 ? 's' : ''}`
               : 'No reviews yet. Be the first to review!'}

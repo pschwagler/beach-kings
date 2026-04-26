@@ -35,18 +35,18 @@ function MapStub(): React.ReactNode {
   return (
     <View
       testID="courts-map-stub"
-      className="h-[180px] bg-teal-50 dark:bg-info-bg items-center justify-center border-b border-border dark:border-border-strong"
+      className="h-[180px] bg-info-tint items-center justify-center border-b border-strong"
     >
-      <Text className="text-[13px] text-text-muted dark:text-content-secondary mb-2">
+      <Text className="text-[13px] text-muted mb-2">
         Map view
       </Text>
       <Pressable
         testID="courts-view-full-map-btn"
         accessibilityRole="button"
         accessibilityLabel="View Full Map"
-        className="px-4 py-2 rounded-lg bg-white dark:bg-dark-surface border border-border dark:border-border-strong active:opacity-80"
+        className="px-4 py-2 rounded-lg bg-surface border border-strong active:opacity-80"
       >
-        <Text className="text-[13px] font-medium text-primary dark:text-brand-teal">
+        <Text className="text-[13px] font-medium text-brand-teal">
           View Full Map
         </Text>
       </Pressable>
@@ -60,7 +60,7 @@ function MapStub(): React.ReactNode {
 
 function SectionLabel({ text }: { text: string }): React.ReactNode {
   return (
-    <Text className="text-[13px] font-semibold text-text-muted dark:text-content-secondary uppercase tracking-wide px-4 py-2 bg-bg-page dark:bg-base">
+    <Text className="text-[13px] font-semibold text-muted uppercase tracking-wide px-4 py-2 bg-page">
       {text}
     </Text>
   );
@@ -92,7 +92,7 @@ export default function CourtsScreen(): React.ReactNode {
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="courts-screen"
       >
@@ -112,7 +112,7 @@ export default function CourtsScreen(): React.ReactNode {
   if (error != null && !isRefreshing) {
     return (
       <SafeAreaView
-        className="flex-1 bg-bg-page dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
         testID="courts-screen"
       >
@@ -132,7 +132,7 @@ export default function CourtsScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
       testID="courts-screen"
     >
