@@ -13,9 +13,9 @@ export default function SectionError({
   return (
     <View
       testID="section-error"
-      className="bg-white dark:bg-dark-surface rounded-card p-lg items-center border border-danger-tint dark:border-danger-bg"
+      className="bg-surface rounded-card p-lg items-center border border-danger-tint"
     >
-      <Text className="text-footnote text-gray-700 dark:text-content-secondary text-center mb-sm">
+      <Text className="text-footnote text-muted text-center mb-sm">
         {message}
       </Text>
       {onRetry != null && (
@@ -23,7 +23,7 @@ export default function SectionError({
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel="Retry loading this section"
-          className="bg-primary dark:bg-brand-teal rounded-chip px-md py-xs min-h-touch items-center justify-center"
+          className="bg-brand-teal rounded-chip px-md py-xs min-h-touch items-center justify-center"
         >
           <Text className="text-white font-semibold text-footnote">Retry</Text>
         </Pressable>

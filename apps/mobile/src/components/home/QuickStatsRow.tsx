@@ -21,19 +21,19 @@ export default function QuickStatsRow({
   losses,
 }: QuickStatsRowProps): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-3 px-lg py-sm bg-white dark:bg-dark-surface border-b border-gray-200 dark:border-border-subtle">
-      <Text className="flex-1 text-subhead font-semibold text-text-default dark:text-content-primary">
+    <View className="flex-row items-center gap-3 px-lg py-sm bg-surface border-b border-divider">
+      <Text className="flex-1 text-subhead font-semibold text-default">
         Hey {firstName}
       </Text>
       {rating != null && (
-        <View className="bg-teal-tint dark:bg-info-bg px-sm py-xxs rounded-chip">
-          <Text className="text-caption font-semibold text-primary dark:text-info-text">
+        <View className="bg-info-tint px-sm py-xxs rounded-chip">
+          <Text className="text-caption font-semibold text-info">
             <Text className="font-bold">{formatElo(rating)}</Text> Rating
           </Text>
         </View>
       )}
-      <View className="bg-teal-tint dark:bg-info-bg px-sm py-xxs rounded-chip">
-        <Text className="text-caption font-semibold text-primary dark:text-info-text">
+      <View className="bg-info-tint px-sm py-xxs rounded-chip">
+        <Text className="text-caption font-semibold text-info">
           <Text className="font-bold">{formatRecord(wins, losses)}</Text>
         </Text>
       </View>

@@ -39,20 +39,20 @@ function LeagueCard({
       onPress={() => router.push(routes.league(league.id))}
       accessibilityRole="link"
       accessibilityLabel={`League ${league.name}`}
-      className="min-w-[150px] bg-white dark:bg-dark-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-border-subtle"
+      className="min-w-[150px] bg-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-divider"
     >
       <Text
-        className="text-footnote font-semibold text-text-default dark:text-content-primary leading-[17px]"
+        className="text-footnote font-semibold text-default leading-[17px]"
         numberOfLines={2}
       >
         {league.name}
       </Text>
-      <Text className="text-[11px] text-gray-600 dark:text-content-tertiary mt-xs">
+      <Text className="text-[11px] text-tertiary mt-xs">
         {memberCount} {memberCount === 1 ? 'player' : 'players'}
       </Text>
       {rank != null && (
-        <View className="self-start mt-sm bg-teal-tint dark:bg-info-bg px-sm py-[3px] rounded-[10px]">
-          <Text className="text-[11px] font-semibold text-accent dark:text-info-text">
+        <View className="self-start mt-sm bg-info-tint px-sm py-[3px] rounded-[10px]">
+          <Text className="text-[11px] font-semibold text-info">
             {formatOrdinal(rank)} Ranked
           </Text>
         </View>
@@ -68,12 +68,12 @@ function JoinLeagueCard(): React.ReactNode {
       onPress={() => router.push(routes.findLeagues())}
       accessibilityRole="link"
       accessibilityLabel="Join a league"
-      className="min-w-[150px] rounded-card p-md border border-dashed border-gray-300 dark:border-border-subtle opacity-80"
+      className="min-w-[150px] rounded-card p-md border border-dashed border-divider opacity-80"
     >
-      <Text className="text-footnote font-semibold text-accent dark:text-brand-teal">
+      <Text className="text-footnote font-semibold text-brand-teal">
         + Join a League
       </Text>
-      <Text className="text-[11px] text-gray-600 dark:text-content-tertiary mt-xs">
+      <Text className="text-[11px] text-tertiary mt-xs">
         Browse open leagues near you
       </Text>
     </Pressable>

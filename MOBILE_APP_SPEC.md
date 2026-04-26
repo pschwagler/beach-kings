@@ -221,6 +221,75 @@ a browser at 390x844 and match the layout pixel-for-pixel.
 - **Touch targets**: 44px minimum on all interactive elements
 - **Shadows**: Light mode uses shadows; dark mode uses subtle borders instead
 
+### Theming Rules (Semantic Tokens — In-Flight Migration)
+
+Mobile is migrating to **semantic theme tokens** powered by NativeWind v4
+`vars()`. Each visual role has **one Tailwind class** whose value flips per
+theme via CSS variables mounted on the `ThemeProvider` root. Components do
+**not** carry `dark:` color variants for migrated screens.
+
+**Authoritative plan:** `~/.claude/plans/ok-great-let-s-do-buzzing-hoare.md`.
+Source of truth for the role table: `packages/shared/src/tokens/semantic.ts`.
+
+**Migration status (update as phases land):**
+
+| Domain | Phase | Status |
+|--------|-------|--------|
+| Profile | 3.1 | ✅ Migrated |
+| Home (`components/home/*` + `app/(tabs)/home.tsx`) | 3.2 | ✅ Migrated |
+| Leagues | 3.3 | ⏳ Pending |
+| Games & AddGames | 3.4 | ⏳ Pending |
+| Venues | 3.5 | ⏳ Pending |
+| Social / Messages / Notifications | 3.6 | ⏳ Pending |
+| PlayerProfile / FindPlayers / KOB | 3.7 | ⏳ Pending |
+| Settings + invite | 3.8 | ⏳ Pending |
+| Shared UI primitives (`components/ui/*`) | 3.9 | ⏳ Pending |
+
+**Rules for agents touching mobile styles:**
+
+1. **In a migrated domain** — use semantic classes only. **No `dark:` color
+   variants.** The semantic class already flips per theme.
+2. **In an unmigrated domain** — leave the legacy `bg-X dark:bg-Y` pattern
+   alone. Do **not** preemptively migrate while doing unrelated work; the
+   migration belongs to its own phase commit.
+3. **New screens** — write semantic classes from the start, even if they
+   live next to unmigrated screens.
+4. **Never revert** a migrated screen back to the `dark:` color form,
+   even if surrounding code uses that pattern. Phase 4.2 will add an
+   ESLint rule to enforce this.
+
+**Migration mapping (canonical replacements):**
+
+| Legacy | Semantic |
+|--------|----------|
+| `bg-white dark:bg-dark-surface` | `bg-surface` |
+| `bg-bg-page dark:bg-base` | `bg-page` |
+| `bg-nav dark:bg-nav-dark` | `bg-nav` |
+| `text-text-default dark:text-content-primary` | `text-default` |
+| `text-text-muted` / `dark:text-content-secondary` / `text-gray-700 dark:text-content-secondary` | `text-muted` |
+| `text-gray-{500,600} dark:text-content-tertiary` | `text-tertiary` |
+| `border-border-subtle dark:border-border-subtle` / `border-gray-{200,300} dark:border-border-subtle` | `border-divider` |
+| `border-border-strong dark:border-border-strong` | `border-strong` |
+| `bg-gray-100 dark:bg-elevated` / `dark:bg-dark-elevated` | `bg-elevated` |
+| `bg-primary dark:bg-brand-teal` / `text-primary dark:text-brand-teal` / `text-primary dark:text-content-primary` | `bg-brand-teal` / `text-brand-teal` |
+| `bg-accent dark:bg-brand-gold` | `bg-brand-gold` |
+| `bg-{success,danger,warning,info}-tint dark:bg-{X}-bg` / `bg-teal-tint dark:bg-info-bg` | `bg-{X}-tint` |
+| `text-{success,danger,warning,info} dark:text-{X}-text` / `text-[#92400e] dark:text-warning-text` | `text-{X}` |
+
+**Always keep (non-color, legitimate `dark:` use):** `dark:shadow-none`,
+`dark:opacity-*`, structural `dark:border` (toggling whether a border
+exists in dark mode only).
+
+**JS-side color access** (for the ~11 components that import `colors` /
+`darkColors` directly): Phase 1.4 introduces `usePaletteColors()` —
+replace direct token imports with the hook in those components during
+their domain phase.
+
+**Adding a new role:** add the camelCase entry to the `roles` table in
+`packages/shared/src/tokens/semantic.ts` with `[lightHex, darkHex]`. The
+drift-guard test (`__tests__/theme/semantic-tokens.test.ts`) enforces
+key parity between light and dark.
+
 ---
 
 ## 2. Shared Code Strategy

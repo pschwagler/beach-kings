@@ -30,7 +30,7 @@ function CourtCard({ court }: { readonly court: Court }): React.ReactNode {
       onPress={() => router.push(routes.court(court.id))}
       accessibilityRole="link"
       accessibilityLabel={`Court ${court.name}`}
-      className="min-w-[200px] bg-white dark:bg-dark-surface rounded-card overflow-hidden shadow-sm dark:shadow-none dark:border dark:border-border-subtle"
+      className="min-w-[200px] bg-surface rounded-card overflow-hidden shadow-sm dark:shadow-none dark:border dark:border-divider"
     >
       {court.photo_url != null && court.photo_url !== '' ? (
         <Image
@@ -39,17 +39,17 @@ function CourtCard({ court }: { readonly court: Court }): React.ReactNode {
           resizeMode="cover"
         />
       ) : (
-        <View className="h-[100px] w-full bg-[#a8d8ea] dark:bg-inset" />
+        <View className="h-[100px] w-full bg-info-tint" />
       )}
       <View className="px-sm py-xs">
         <Text
-          className="text-footnote font-semibold text-text-default dark:text-content-primary"
+          className="text-footnote font-semibold text-default"
           numberOfLines={1}
         >
           {court.name}
         </Text>
         <Text
-          className="text-[11px] text-gray-600 dark:text-content-tertiary mt-[3px]"
+          className="text-[11px] text-tertiary mt-[3px]"
           numberOfLines={1}
         >
           {formatLocation(court)}
@@ -62,8 +62,8 @@ function CourtCard({ court }: { readonly court: Court }): React.ReactNode {
 export default function CourtsScroll({ courts }: CourtsScrollProps): React.ReactNode {
   if (courts.length === 0) {
     return (
-      <View className="bg-white dark:bg-dark-surface rounded-card p-xl items-center">
-        <Text className="text-footnote text-gray-500 dark:text-content-tertiary">
+      <View className="bg-surface rounded-card p-xl items-center">
+        <Text className="text-footnote text-tertiary">
           No courts found nearby
         </Text>
       </View>

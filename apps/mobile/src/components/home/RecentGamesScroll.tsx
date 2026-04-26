@@ -27,56 +27,56 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
 
   return (
     <Pressable
-      onPress={() => router.push(routes.myStats())}
+      onPress={() => {
+        if (match.session_id != null) {
+          router.push(routes.session(match.session_id as number));
+        }
+      }}
       accessibilityRole="link"
       accessibilityLabel={`${isWin ? 'Win' : 'Loss'} ${match.score ?? ''}`}
-      className="min-w-[200px] bg-white dark:bg-dark-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-border-subtle"
+      className="min-w-[200px] bg-surface rounded-card p-md shadow-sm dark:shadow-none dark:border dark:border-divider"
     >
       <View className="flex-row items-center gap-xs mb-xs">
         <View
-          className={`${isWin ? 'bg-success-tint dark:bg-success-bg' : 'bg-danger-tint dark:bg-danger-bg'} px-sm py-[2px] rounded-chip`}
+          className={`${isWin ? 'bg-success-tint' : 'bg-danger-tint'} px-sm py-[2px] rounded-chip`}
         >
           <Text
-            className={`text-[11px] font-semibold ${isWin ? 'text-success dark:text-success-text' : 'text-danger dark:text-danger-text'}`}
+            className={`text-[11px] font-semibold ${isWin ? 'text-success' : 'text-danger'}`}
           >
             {isWin ? 'WIN' : 'LOSS'}
           </Text>
         </View>
         {isPending && (
-          <View className="bg-warning-tint dark:bg-warning-bg border border-warning px-[6px] py-[1px] rounded-lg">
-            <Text className="text-[10px] font-bold text-[#b45309] dark:text-warning-text">
+          <View className="bg-warning-tint border border-warning px-[6px] py-[1px] rounded-lg">
+            <Text className="text-[10px] font-bold text-warning">
               Pending
             </Text>
           </View>
         )}
       </View>
       {match.score != null && match.score !== '' && (
-        <Text className="text-title3 font-bold text-primary dark:text-content-primary mb-0.5">
+        <Text className="text-title3 font-bold text-brand-teal mb-0.5">
           {match.score}
         </Text>
       )}
-      <Text className="text-caption text-gray-700 dark:text-content-secondary leading-[18px]">
-        <Text className="font-semibold text-text-default dark:text-content-primary">
+      <Text className="text-caption text-muted leading-[18px]">
+        <Text className="font-semibold text-default">
           You
         </Text>
         {match.partner ? ' / ' : ''}
         <Text
           className={
-            match.partner_is_placeholder
-              ? 'italic text-[#b45309] dark:text-warning-text'
-              : ''
+            match.partner_is_placeholder ? 'italic text-warning' : ''
           }
         >
           {match.partner ?? ''}
         </Text>
       </Text>
-      <Text className="text-caption text-gray-700 dark:text-content-secondary leading-[18px]">
+      <Text className="text-caption text-muted leading-[18px]">
         vs{' '}
         <Text
           className={
-            match.opponent_1_is_placeholder
-              ? 'italic text-[#b45309] dark:text-warning-text'
-              : ''
+            match.opponent_1_is_placeholder ? 'italic text-warning' : ''
           }
         >
           {match.opponent_1 ?? ''}
@@ -84,16 +84,14 @@ function GameCard({ match }: { readonly match: MatchRecord }): React.ReactNode {
         {match.opponent_2 ? ' / ' : ''}
         <Text
           className={
-            match.opponent_2_is_placeholder
-              ? 'italic text-[#b45309] dark:text-warning-text'
-              : ''
+            match.opponent_2_is_placeholder ? 'italic text-warning' : ''
           }
         >
           {match.opponent_2 ?? ''}
         </Text>
       </Text>
       {meta !== '' && (
-        <Text className="text-[11px] text-gray-600 dark:text-content-tertiary mt-xs">
+        <Text className="text-[11px] text-tertiary mt-xs">
           {meta}
         </Text>
       )}
@@ -109,8 +107,8 @@ export default function RecentGamesScroll({
 
   if (visible.length === 0) {
     return (
-      <View className="bg-white dark:bg-dark-surface rounded-card p-xl items-center">
-        <Text className="text-footnote text-gray-500 dark:text-content-tertiary">
+      <View className="bg-surface rounded-card p-xl items-center">
+        <Text className="text-footnote text-tertiary">
           No games yet
         </Text>
       </View>

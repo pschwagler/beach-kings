@@ -51,7 +51,7 @@ function ProgressRing({ percent }: { readonly percent: number }): React.ReactNod
         />
       </Svg>
       <View className="absolute inset-0 items-center justify-center">
-        <Text className="text-[11px] font-bold text-primary dark:text-content-primary">
+        <Text className="text-[11px] font-bold text-brand-teal">
           {Math.round(safe)}%
         </Text>
       </View>
@@ -70,14 +70,14 @@ export default function ProfileBanner({
       onPress={() => router.push(routes.onboarding())}
       accessibilityRole="link"
       accessibilityLabel="Finish setting up your profile"
-      className="bg-white dark:bg-dark-surface rounded-card px-lg py-md mb-md flex-row items-center gap-md shadow-sm dark:shadow-none dark:border dark:border-border-subtle border-l-[3px] border-l-accent"
+      className="bg-surface rounded-card px-lg py-md mb-md flex-row items-center gap-md shadow-sm dark:shadow-none dark:border dark:border-divider border-l-[3px] border-l-accent"
     >
       <ProgressRing percent={percent} />
       <View className="flex-1">
-        <Text className="text-subhead font-bold text-text-default dark:text-content-primary mb-0.5">
+        <Text className="text-subhead font-bold text-default mb-0.5">
           Finish setting up your profile
         </Text>
-        <Text className="text-caption text-gray-600 dark:text-content-tertiary">
+        <Text className="text-caption text-tertiary">
           Add your level and location to get matched with players
         </Text>
       </View>
@@ -87,7 +87,7 @@ export default function ProfileBanner({
           onPress={onDismiss}
           accessibilityLabel="Dismiss profile banner"
           accessibilityRole="button"
-          className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-gray-100 dark:bg-elevated items-center justify-center"
+          className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-elevated items-center justify-center"
           hitSlop={8}
         >
           <XIcon size={11} color="#999999" />

@@ -24,7 +24,7 @@ function Badge({ count }: { readonly count: number }): React.ReactNode {
   const label = count > 99 ? '99+' : String(count);
   return (
     <View
-      className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] rounded-full bg-danger items-center justify-center px-1 border-2 border-nav dark:border-nav-dark"
+      className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] rounded-full bg-danger items-center justify-center px-1 border-2 border-nav"
     >
       <Text className="text-white font-bold text-[10px] leading-none">
         {label}
@@ -43,7 +43,7 @@ export default function HomeHeader({
 
   return (
     <View
-      className="h-nav-bar bg-nav dark:bg-nav-dark flex-row items-center justify-between px-lg dark:border-b dark:border-border-subtle"
+      className="h-nav-bar bg-nav flex-row items-center justify-between px-lg dark:border-b dark:border-divider"
       accessibilityRole="header"
     >
       <View className="flex-row items-center gap-2">

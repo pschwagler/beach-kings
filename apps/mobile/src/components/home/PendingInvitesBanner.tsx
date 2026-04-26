@@ -21,10 +21,10 @@ export default function PendingInvitesBanner({
   onDismiss,
 }: PendingInvitesBannerProps): React.ReactNode {
   return (
-    <View className="flex-row items-center gap-sm bg-[#fffbeb] dark:bg-warning-bg border border-warning rounded-[10px] px-md py-sm mb-md">
+    <View className="flex-row items-center gap-sm bg-warning-tint border border-warning rounded-[10px] px-md py-sm mb-md">
       <UsersIcon size={16} color="#92400e" />
       <View className="flex-1">
-        <Text className="text-footnote font-medium text-[#92400e] dark:text-warning-text">
+        <Text className="text-footnote font-medium text-warning">
           <Text className="font-bold">
             {playerCount} {playerCount === 1 ? 'player' : 'players'} waiting
           </Text>{' '}

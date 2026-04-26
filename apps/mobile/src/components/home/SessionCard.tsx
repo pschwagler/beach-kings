@@ -29,13 +29,9 @@ export default function SessionCard({
   const router = useRouter();
 
   const badgeBg =
-    badgeTone === 'active'
-      ? 'bg-success-tint dark:bg-success-bg'
-      : 'bg-teal-tint dark:bg-info-bg';
+    badgeTone === 'active' ? 'bg-success-tint' : 'bg-info-tint';
   const badgeText =
-    badgeTone === 'active'
-      ? 'text-success dark:text-success-text'
-      : 'text-accent dark:text-info-text';
+    badgeTone === 'active' ? 'text-success' : 'text-info';
 
   const title = session.name ?? session.code ?? `Session #${session.id}`;
   const meta =
@@ -55,10 +51,10 @@ export default function SessionCard({
       onPress={() => router.push(routes.session(session.id))}
       accessibilityRole="link"
       accessibilityLabel={`Session ${title}`}
-      className={`bg-white dark:bg-dark-surface rounded-card p-md mb-xs shadow-sm dark:shadow-none dark:border dark:border-border-subtle ${accentBorder ? 'border-l-[3px] border-l-success' : ''}`}
+      className={`bg-surface rounded-card p-md mb-xs shadow-sm dark:shadow-none dark:border dark:border-divider ${accentBorder ? 'border-l-[3px] border-l-success' : ''}`}
     >
       <View className="flex-row justify-between items-start mb-xs">
-        <Text className="text-subhead font-semibold text-text-default dark:text-content-primary flex-1 pr-sm">
+        <Text className="text-subhead font-semibold text-default flex-1 pr-sm">
           {title}
         </Text>
         <View className={`${badgeBg} px-sm py-[2px] rounded-chip`}>
@@ -67,7 +63,7 @@ export default function SessionCard({
           </Text>
         </View>
       </View>
-      <Text className="text-caption text-gray-600 dark:text-content-tertiary mb-xs">
+      <Text className="text-caption text-tertiary mb-xs">
         {meta}
       </Text>
       {stats.length > 0 && (
@@ -75,7 +71,7 @@ export default function SessionCard({
           {stats.map((s, idx) => (
             <Text
               key={idx}
-              className="text-caption text-gray-700 dark:text-content-secondary"
+              className="text-caption text-muted"
             >
               {s}
             </Text>

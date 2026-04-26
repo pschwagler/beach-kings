@@ -98,7 +98,7 @@ export default function HomeScreen(): React.ReactNode {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-bg-page dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
       <HomeHeader

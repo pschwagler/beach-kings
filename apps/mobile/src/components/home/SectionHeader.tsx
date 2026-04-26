@@ -19,7 +19,7 @@ export default function SectionHeader({
 }: SectionHeaderProps): React.ReactNode {
   return (
     <View className="flex-row justify-between items-center mb-sm">
-      <Text className="text-callout font-bold text-text-default dark:text-content-primary">
+      <Text className="text-callout font-bold text-default">
         {title}
       </Text>
       {linkLabel != null && onLinkPress != null && (
@@ -29,7 +29,7 @@ export default function SectionHeader({
           accessibilityLabel={linkLabel}
           hitSlop={8}
         >
-          <Text className="text-footnote font-medium text-accent dark:text-brand-teal">
+          <Text className="text-footnote font-medium text-brand-teal">
             {linkLabel}
           </Text>
         </Pressable>
