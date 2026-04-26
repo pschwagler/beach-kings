@@ -19,6 +19,7 @@ import LeagueCard from '@/components/screens/Leagues/LeagueCard';
 import LeaguesEmptyState from '@/components/screens/Leagues/LeaguesEmptyState';
 import LeaguesErrorState from '@/components/screens/Leagues/LeaguesErrorState';
 import LeaguesActionBar from '@/components/screens/Leagues/LeaguesActionBar';
+import JoinAnotherLeagueCta from '@/components/screens/Leagues/JoinAnotherLeagueCta';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -113,6 +114,8 @@ export default function LeaguesScreen(): React.ReactNode {
                   />
                 );
               })}
+
+              <JoinAnotherLeagueCta onPress={handleFindLeagues} />
             </View>
           )}
         </ScrollView>

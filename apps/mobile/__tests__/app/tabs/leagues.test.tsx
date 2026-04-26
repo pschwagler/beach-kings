@@ -43,8 +43,8 @@ const mockGetCurrentUserPlayer = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getUserLeagues: (...args: unknown[]) => mockGetUserLeagues(...args),
-    getCurrentUserPlayer: (...args: unknown[]) =>
+    getUserLeagues: (...args) => mockGetUserLeagues(...args),
+    getCurrentUserPlayer: (...args) =>
       mockGetCurrentUserPlayer(...args),
   },
 }));
@@ -207,6 +207,28 @@ describe('LeaguesScreen', () => {
       expect(getByTestId('league-card-101')).toBeTruthy();
       expect(getByTestId('league-card-202')).toBeTruthy();
     });
+  });
+
+  it('shows the "Join Another League" CTA below the league list when populated', async () => {
+    const { getByTestId } = renderWithQuery(<LeaguesScreen />);
+
+    await waitFor(() => {
+      expect(getByTestId('league-card-101')).toBeTruthy();
+    });
+
+    expect(getByTestId('join-another-league-cta')).toBeTruthy();
+  });
+
+  it('tapping "Join Another League" CTA navigates to find-leagues', async () => {
+    const { getByTestId } = renderWithQuery(<LeaguesScreen />);
+
+    await waitFor(() => {
+      expect(getByTestId('join-another-league-cta')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('join-another-league-cta'));
+
+    expect(mockPush).toHaveBeenCalledWith('/(stack)/find-leagues');
   });
 
   // ---- Empty state ---------------------------------------------------------

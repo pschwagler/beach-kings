@@ -14,6 +14,8 @@ from backend.database.models import (
     League,
     LeagueMember,
     LeagueRequest,
+    PlayerSeasonStats,
+    Season,
     Session,
     Player,
     SessionStatus,
@@ -458,6 +460,149 @@ async def test_query_leagues_friends_preview_capped_at_three(db_session, test_pl
     # Preview should be the first 3 alphabetically
     preview_names = [f["first_name"] for f in league_item["friends_preview"]]
     assert preview_names == ["Amy", "Beth", "Cara"]
+
+
+# ============================================================================
+# get_user_leagues — payload shape (current_season, standings, games_played)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_includes_current_season_and_user_standing(
+    db_session, test_player, test_user
+):
+    """get_user_leagues returns current_season + the user's standings row."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Test League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    today = date.today()
+    season = Season(
+        league_id=league["id"],
+        name="Spring Season",
+        start_date=today - timedelta(days=10),
+        end_date=today + timedelta(days=10),
+    )
+    db_session.add(season)
+    await db_session.commit()
+    await db_session.refresh(season)
+
+    # Add a second player so the user's rank isn't trivially 1.
+    other_player = Player(full_name="Other Player", user_id=test_user["id"])
+    db_session.add(other_player)
+    await db_session.commit()
+    await db_session.refresh(other_player)
+
+    db_session.add_all(
+        [
+            PlayerSeasonStats(
+                player_id=test_player.id,
+                season_id=season.id,
+                games=10,
+                wins=7,
+                points=30.0,
+                win_rate=0.7,
+                avg_point_diff=2.5,
+            ),
+            PlayerSeasonStats(
+                player_id=other_player.id,
+                season_id=season.id,
+                games=10,
+                wins=9,
+                points=40.0,
+                win_rate=0.9,
+                avg_point_diff=4.0,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    entry = leagues[0]
+
+    # Current season is populated and flagged active.
+    assert entry["current_season"] is not None
+    assert entry["current_season"]["id"] == season.id
+    assert entry["current_season"]["name"] == "Spring Season"
+    assert entry["current_season"]["is_active"] is True
+
+    # The user's games are surfaced at the top level.
+    assert entry["games_played"] == 10
+
+    # Standings contains exactly the user's row with rank derived from points.
+    assert len(entry["standings"]) == 1
+    user_row = entry["standings"][0]
+    assert user_row["player_id"] == test_player.id
+    assert user_row["wins"] == 7
+    assert user_row["losses"] == 3
+    assert user_row["season_rank"] == 2  # other_player has more points
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_inactive_when_season_dates_outside_today(
+    db_session, test_player, test_user
+):
+    """current_season.is_active is False when today is outside the season window."""
+    league = await data_service.create_league(
+        session=db_session,
+        name="Past League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    today = date.today()
+    db_session.add(
+        Season(
+            league_id=league["id"],
+            name="Old Season",
+            start_date=today - timedelta(days=400),
+            end_date=today - timedelta(days=30),
+        )
+    )
+    await db_session.commit()
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    assert leagues[0]["current_season"] is not None
+    assert leagues[0]["current_season"]["is_active"] is False
+    # No PlayerSeasonStats → empty standings, zero games.
+    assert leagues[0]["games_played"] == 0
+    assert leagues[0]["standings"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_leagues_no_seasons_returns_null_current_season(
+    db_session, test_player, test_user
+):
+    """A league with no seasons returns current_season=None and empty standings."""
+    await data_service.create_league(
+        session=db_session,
+        name="Brand New League",
+        description=None,
+        location_id=None,
+        is_open=True,
+        whatsapp_group_id=None,
+        creator_user_id=test_player.user_id,
+    )
+
+    leagues = await data_service.get_user_leagues(db_session, test_user["id"])
+
+    assert len(leagues) == 1
+    assert leagues[0]["current_season"] is None
+    assert leagues[0]["games_played"] == 0
+    assert leagues[0]["standings"] == []
 
 
 # ============================================================================

@@ -60,6 +60,7 @@ __all__ = [
     "cancel_league_request",
     "get_setting",
     "set_setting",
+    "get_league_standings",
 ]
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,6 +80,9 @@ from backend.database.models import (
     Location,
     Court,
     Player,
+    PlayerSeasonStats,
+    PlayerLeagueStats,
+    PlayerGlobalStats,
     Setting,
     Region,
     ScoringSystem,
@@ -397,6 +401,7 @@ async def query_leagues(
                 LeagueMember.league_id,
                 Player.id,
                 Player.first_name,
+                Player.last_name,
                 Player.avatar,
             )
             .distinct()
@@ -417,9 +422,9 @@ async def query_leagues(
             .where(LeagueMember.league_id.in_(page_league_ids))
             .order_by(Player.first_name.asc())
         )
-        for league_id, pid, first_name, avatar in friends_result.all():
+        for league_id, pid, first_name, last_name, avatar in friends_result.all():
             friends_by_league.setdefault(league_id, []).append(
-                {"player_id": pid, "first_name": first_name, "avatar": avatar}
+                {"player_id": pid, "first_name": first_name, "last_name": last_name, "avatar": avatar}
             )
 
     items = [
@@ -479,17 +484,22 @@ async def get_league(session: AsyncSession, league_id: int) -> Optional[Dict]:
 
 
 async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
-    """Get all leagues a user is a member of, ordered by most recent session date."""
+    """Get all leagues a user is a member of, ordered by most recent session date.
+
+    Each entry includes the league's most recent season (with `is_active`
+    derived from today's date), and the user's stats in that season
+    (`games_played` plus a single-row `standings` array containing wins,
+    losses, win_rate, and `season_rank`). The standings row is included
+    so mobile clients can render the user's rank without a second request.
+    """
     from backend.database.models import Session as SessionModel
 
-    # Subquery to count members for each league
     member_count_subq = (
         select(LeagueMember.league_id, func.count(LeagueMember.id).label("member_count"))
         .group_by(LeagueMember.league_id)
         .subquery()
     )
 
-    # Subquery to get the most recent session date per league
     latest_session_subq = (
         select(
             Season.league_id,
@@ -500,19 +510,67 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         .subquery()
     )
 
+    # Most recent season per league (highest start_date, ties broken by id).
+    season_rn = (
+        select(
+            Season.id.label("id"),
+            Season.league_id.label("league_id"),
+            Season.name.label("name"),
+            Season.start_date.label("start_date"),
+            Season.end_date.label("end_date"),
+            func.row_number()
+            .over(
+                partition_by=Season.league_id,
+                order_by=(Season.start_date.desc(), Season.id.desc()),
+            )
+            .label("rn"),
+        )
+        .subquery()
+    )
+    latest_season_subq = (
+        select(
+            season_rn.c.id,
+            season_rn.c.league_id,
+            season_rn.c.name,
+            season_rn.c.start_date,
+            season_rn.c.end_date,
+        )
+        .where(season_rn.c.rn == 1)
+        .subquery()
+    )
+
     result = await session.execute(
         select(
             League,
             LeagueMember.role.label("membership_role"),
+            Player.id.label("player_id"),
+            Player.full_name.label("player_full_name"),
             func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
             Location.name.label("location_name"),
             latest_session_subq.c.latest_session_date,
+            latest_season_subq.c.id.label("season_id"),
+            latest_season_subq.c.name.label("season_name"),
+            latest_season_subq.c.start_date.label("season_start"),
+            latest_season_subq.c.end_date.label("season_end"),
+            PlayerSeasonStats.games.label("user_games"),
+            PlayerSeasonStats.wins.label("user_wins"),
+            PlayerSeasonStats.points.label("user_points"),
+            PlayerSeasonStats.win_rate.label("user_win_rate"),
+            PlayerSeasonStats.avg_point_diff.label("user_avg_pt_diff"),
         )
         .join(LeagueMember, LeagueMember.league_id == League.id)
         .join(Player, Player.id == LeagueMember.player_id)
         .outerjoin(member_count_subq, member_count_subq.c.league_id == League.id)
         .outerjoin(Location, Location.id == League.location_id)
         .outerjoin(latest_session_subq, latest_session_subq.c.league_id == League.id)
+        .outerjoin(latest_season_subq, latest_season_subq.c.league_id == League.id)
+        .outerjoin(
+            PlayerSeasonStats,
+            and_(
+                PlayerSeasonStats.season_id == latest_season_subq.c.id,
+                PlayerSeasonStats.player_id == Player.id,
+            ),
+        )
         .where(Player.user_id == user_id)
         .distinct()
         .order_by(
@@ -521,24 +579,115 @@ async def get_user_leagues(session: AsyncSession, user_id: int) -> List[Dict]:
         )
     )
     rows = result.all()
-    return [
-        {
-            "id": league.id,
-            "name": league.name,
-            "description": league.description,
-            "location_id": league.location_id,
-            "location_name": location_name,
-            "is_open": league.is_open,
-            "whatsapp_group_id": league.whatsapp_group_id,
-            "gender": league.gender,
-            "level": league.level,
-            "membership_role": role,
-            "member_count": int(member_count) if member_count is not None else 0,
-            "created_at": league.created_at.isoformat() if league.created_at else None,
-            "updated_at": league.updated_at.isoformat() if league.updated_at else None,
-        }
-        for league, role, member_count, location_name, _latest_date in rows
+
+    # Compute the user's season rank in each league's current season via
+    # a windowed query — one round-trip regardless of league count.
+    ranks_map: Dict[tuple, int] = {}
+    season_player_pairs = [
+        (r.season_id, r.player_id) for r in rows if r.season_id is not None
     ]
+    if season_player_pairs:
+        season_ids = list({sid for sid, _ in season_player_pairs})
+        player_ids = list({pid for _, pid in season_player_pairs})
+        ranked_sq = (
+            select(
+                PlayerSeasonStats.season_id.label("season_id"),
+                PlayerSeasonStats.player_id.label("player_id"),
+                func.row_number()
+                .over(
+                    partition_by=PlayerSeasonStats.season_id,
+                    order_by=(
+                        PlayerSeasonStats.points.desc(),
+                        PlayerSeasonStats.avg_point_diff.desc(),
+                        PlayerSeasonStats.win_rate.desc(),
+                    ),
+                )
+                .label("season_rank"),
+            )
+            .where(PlayerSeasonStats.season_id.in_(season_ids))
+            .subquery()
+        )
+        rank_result = await session.execute(
+            select(
+                ranked_sq.c.season_id,
+                ranked_sq.c.player_id,
+                ranked_sq.c.season_rank,
+            ).where(ranked_sq.c.player_id.in_(player_ids))
+        )
+        for rank_row in rank_result.all():
+            ranks_map[(rank_row.season_id, rank_row.player_id)] = int(
+                rank_row.season_rank
+            )
+
+    today = date.today()
+
+    output: List[Dict] = []
+    for r in rows:
+        league = r[0]
+
+        season_data: Optional[Dict] = None
+        if r.season_id is not None:
+            sd = r.season_start
+            ed = r.season_end
+            is_active = bool(sd and ed and sd <= today <= ed)
+            season_data = {
+                "id": r.season_id,
+                "name": r.season_name or f"Season {r.season_id}",
+                "start_date": sd.isoformat() if sd else None,
+                "end_date": ed.isoformat() if ed else None,
+                "is_active": is_active,
+            }
+
+        user_games = int(r.user_games) if r.user_games is not None else 0
+        user_wins = int(r.user_wins) if r.user_wins is not None else 0
+        user_losses = max(0, user_games - user_wins)
+        user_points = float(r.user_points) if r.user_points is not None else 0.0
+        user_win_rate = (
+            float(r.user_win_rate) if r.user_win_rate is not None else 0.0
+        )
+        user_avg_pt_diff = (
+            float(r.user_avg_pt_diff) if r.user_avg_pt_diff is not None else 0.0
+        )
+        user_rank = ranks_map.get((r.season_id, r.player_id))
+
+        standings: List[Dict] = []
+        if user_games > 0 or user_rank is not None:
+            standings.append(
+                {
+                    "player_id": r.player_id,
+                    "name": r.player_full_name or "",
+                    "elo": 0,
+                    "points": user_points,
+                    "games": user_games,
+                    "wins": user_wins,
+                    "losses": user_losses,
+                    "win_rate": user_win_rate,
+                    "avg_pt_diff": user_avg_pt_diff,
+                    "season_rank": user_rank,
+                }
+            )
+
+        output.append(
+            {
+                "id": league.id,
+                "name": league.name,
+                "description": league.description,
+                "location_id": league.location_id,
+                "location_name": r.location_name,
+                "is_open": league.is_open,
+                "whatsapp_group_id": league.whatsapp_group_id,
+                "gender": league.gender,
+                "level": league.level,
+                "membership_role": r.membership_role,
+                "member_count": int(r.member_count) if r.member_count is not None else 0,
+                "created_at": league.created_at.isoformat() if league.created_at else None,
+                "updated_at": league.updated_at.isoformat() if league.updated_at else None,
+                "current_season": season_data,
+                "games_played": user_games,
+                "standings": standings,
+            }
+        )
+    return output
 
 
 async def update_league(
@@ -1717,3 +1866,135 @@ async def set_setting(session: AsyncSession, key: str, value: str) -> None:
     )
     await session.execute(stmt)
     await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# League Standings
+# ---------------------------------------------------------------------------
+
+
+def _abbreviate_name(full_name: Optional[str]) -> str:
+    """Convert 'Patrick Schwagler' → 'P. Schwagler'. Falls back to full_name."""
+    if not full_name:
+        return ""
+    parts = full_name.strip().split()
+    if len(parts) < 2:
+        return full_name
+    return f"{parts[0][0]}. {' '.join(parts[1:])}"
+
+
+async def get_league_standings(
+    session: AsyncSession,
+    league_id: int,
+    season_id: Optional[int] = None,
+) -> Dict:
+    """
+    Return standings and season metadata for a league.
+
+    When season_id is provided, returns per-season stats (PlayerSeasonStats).
+    When season_id is None, returns aggregate league stats (PlayerLeagueStats).
+
+    Returns:
+        {"standings": [LeagueStandingEntry dicts], "season_info": dict | None}
+    """
+    from backend.services.player_data import generate_player_initials
+    from backend.database.models import Session as SessionModel, Match
+
+    if season_id is not None:
+        rows_result = await session.execute(
+            select(PlayerSeasonStats, Player)
+            .join(Player, Player.id == PlayerSeasonStats.player_id)
+            .where(PlayerSeasonStats.season_id == season_id)
+            .order_by(PlayerSeasonStats.points.desc(), PlayerSeasonStats.win_rate.desc())
+        )
+        rows = rows_result.all()
+
+        standings = []
+        for rank, (stats, player) in enumerate(rows, start=1):
+            losses = stats.games - stats.wins
+            win_rate_pct = round(stats.win_rate * 100, 1)
+            avatar_str = player.avatar or ""
+            if len(avatar_str) > 2:
+                avatar_url: Optional[str] = avatar_str
+                initials = generate_player_initials(player.full_name or "")
+            else:
+                avatar_url = None
+                initials = avatar_str or generate_player_initials(player.full_name or "")
+            standings.append({
+                "rank": rank,
+                "player_id": player.id,
+                "display_name": _abbreviate_name(player.full_name),
+                "initials": initials,
+                "avatar_url": avatar_url,
+                "wins": stats.wins,
+                "losses": losses,
+                "win_rate": win_rate_pct,
+                "rating": stats.points,
+                "rating_delta": None,
+                "games_played": stats.games,
+            })
+
+        # Build season_info
+        season_result = await session.execute(select(Season).where(Season.id == season_id))
+        season = season_result.scalar_one_or_none()
+        season_info = None
+        if season:
+            session_count_result = await session.execute(
+                select(func.count(SessionModel.id)).where(SessionModel.season_id == season_id)
+            )
+            session_count = session_count_result.scalar() or 0
+
+            game_count_result = await session.execute(
+                select(func.count(Match.id))
+                .join(SessionModel, Match.session_id == SessionModel.id)
+                .where(SessionModel.season_id == season_id)
+            )
+            game_count = game_count_result.scalar() or 0
+
+            season_info = {
+                "id": season.id,
+                "name": season.name or f"Season {season.id}",
+                "started_at": season.start_date.isoformat() if season.start_date else None,
+                "ended_at": season.end_date.isoformat() if season.end_date else None,
+                "session_count": session_count,
+                "game_count": game_count,
+            }
+
+        return {"standings": standings, "season_info": season_info}
+
+    # All-time aggregate view
+    rows_result = await session.execute(
+        select(PlayerLeagueStats, Player, PlayerGlobalStats)
+        .join(Player, Player.id == PlayerLeagueStats.player_id)
+        .outerjoin(PlayerGlobalStats, PlayerGlobalStats.player_id == PlayerLeagueStats.player_id)
+        .where(PlayerLeagueStats.league_id == league_id)
+        .order_by(PlayerLeagueStats.wins.desc(), PlayerLeagueStats.win_rate.desc())
+    )
+    rows = rows_result.all()
+
+    standings = []
+    for rank, (stats, player, global_stats) in enumerate(rows, start=1):
+        losses = stats.games - stats.wins
+        win_rate_pct = round(stats.win_rate * 100, 1)
+        avatar_str = player.avatar or ""
+        if len(avatar_str) > 2:
+            avatar_url: Optional[str] = avatar_str
+            initials = generate_player_initials(player.full_name or "")
+        else:
+            avatar_url = None
+            initials = avatar_str or generate_player_initials(player.full_name or "")
+        standings.append({
+            "rank": rank,
+            "player_id": player.id,
+            "display_name": _abbreviate_name(player.full_name),
+            "initials": initials,
+            "avatar_url": avatar_url,
+            "wins": stats.wins,
+            "losses": losses,
+            "win_rate": win_rate_pct,
+            "rating": global_stats.current_rating if global_stats else None,
+            "rating_delta": None,
+            "games_played": stats.games,
+        })
+
+    return {"standings": standings, "season_info": None}

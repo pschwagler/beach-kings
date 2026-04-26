@@ -80,6 +80,8 @@ async def _patch_missing_columns(conn):
         ("users", "apple_id", "VARCHAR"),
         # Migration 026 — Account deletion
         ("users", "deletion_scheduled_at", "TIMESTAMPTZ"),
+        # Migration 040 — track when a password was last changed
+        ("users", "password_changed_at", "TIMESTAMPTZ"),
         # Migration 020 — court discovery columns on the courts table
         ("courts", "description", "TEXT"),
         ("courts", "court_count", "INTEGER"),
@@ -107,6 +109,11 @@ async def _patch_missing_columns(conn):
         ("sessions", "location_id", "VARCHAR REFERENCES locations(id)"),
         ("sessions", "latitude", "FLOAT"),
         ("sessions", "longitude", "FLOAT"),
+        # Migration 046 — expanded create-session form fields
+        ("sessions", "start_time", "VARCHAR"),
+        ("sessions", "session_type", "VARCHAR"),
+        ("sessions", "max_players", "INTEGER"),
+        ("sessions", "notes", "TEXT"),
         # Player name split columns
         ("players", "first_name", "VARCHAR NOT NULL DEFAULT ''"),
         ("players", "last_name", "VARCHAR NOT NULL DEFAULT ''"),
