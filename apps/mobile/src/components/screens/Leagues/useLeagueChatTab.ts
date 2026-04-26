@@ -6,7 +6,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FlatList } from 'react-native';
 import { api } from '@/lib/api';
-import type { LeagueChatMessage } from '@/lib/mockApi';
+import type { LeagueChatMessage } from '@beach-kings/shared';
 import { leagueKeys } from './leagueKeys';
 
 export interface UseLeagueChatTabResult {

@@ -2,16 +2,18 @@
  * Data hook for the League Dashboard (Standings) tab.
  *
  * Fetches standings and seasons list; exposes season-picker state.
+ * selectedSeasonId:
+ *   null  = uninitialised (auto-initialises to latest season on first load)
+ *   'all' = aggregate all-time view (no season_id sent to API)
+ *   number = specific season
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import type { Season } from '@beach-kings/shared';
+import type { Season, LeagueStanding, LeagueSeasonInfo } from '@beach-kings/shared';
 import { routes } from '@/lib/navigation';
 import { api } from '@/lib/api';
-import { mockApi } from '@/lib/mockApi';
-import type { LeagueStanding, LeagueSeasonInfo } from '@/lib/mockApi';
 import { leagueKeys } from './leagueKeys';
 
 interface SeasonPickerEntry {
@@ -31,11 +33,11 @@ function toSeasonPickerEntry(season: Season): SeasonPickerEntry {
 export interface UseLeagueDashboardTabResult {
   readonly standings: readonly LeagueStanding[];
   readonly seasonInfo: LeagueSeasonInfo | null;
-  readonly seasons: readonly { id: number; name: string; is_active: boolean }[];
-  readonly selectedSeasonId: number | null;
+  readonly seasons: readonly SeasonPickerEntry[];
+  readonly selectedSeasonId: number | 'all' | null;
   readonly isLoading: boolean;
   readonly isError: boolean;
-  readonly onSelectSeason: (id: number) => void;
+  readonly onSelectSeason: (id: number | 'all') => void;
   readonly onPressPlayer: (playerId: number) => void;
 }
 
@@ -44,12 +46,17 @@ export interface UseLeagueDashboardTabResult {
  */
 export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashboardTabResult {
   const router = useRouter();
-  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | 'all' | null>(null);
 
   const standingsQuery = useQuery({
     queryKey: leagueKeys.standings(leagueId, selectedSeasonId),
-    queryFn: () =>
-      mockApi.getLeagueStandings(leagueId, selectedSeasonId), // TODO(backend): GET /api/leagues/:id/standings
+    queryFn: () => {
+      const seasonId = selectedSeasonId === 'all' || selectedSeasonId === null
+        ? undefined
+        : selectedSeasonId;
+      return api.getLeagueStandings(Number(leagueId), seasonId);
+    },
+    enabled: selectedSeasonId !== null,
   });
 
   const seasonsQuery = useQuery({
@@ -60,7 +67,14 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     },
   });
 
-  const onSelectSeason = useCallback((id: number) => {
+  // Auto-init: once seasons load, select the latest (first) season if still uninitialised.
+  useEffect(() => {
+    if (selectedSeasonId === null && seasonsQuery.data && seasonsQuery.data.length > 0) {
+      setSelectedSeasonId(seasonsQuery.data[0].id);
+    }
+  }, [selectedSeasonId, seasonsQuery.data]);
+
+  const onSelectSeason = useCallback((id: number | 'all') => {
     setSelectedSeasonId(id);
   }, []);
 
@@ -71,9 +85,7 @@ export function useLeagueDashboardTab(leagueId: number | string): UseLeagueDashb
     [router],
   );
 
-  const isLoading =
-    (standingsQuery.isLoading || seasonsQuery.isLoading) &&
-    !standingsQuery.isFetching;
+  const isLoading = seasonsQuery.isLoading || standingsQuery.isLoading;
 
   const isError =
     (standingsQuery.isError || seasonsQuery.isError) && !isLoading;

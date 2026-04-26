@@ -5,12 +5,12 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { routes } from '@/lib/navigation';
 import { api } from '@/lib/api';
-import { mockApi } from '@/lib/mockApi';
-import type { FindLeagueResult, LeagueAccessType } from '@/lib/mockApi';
+import type { FindLeagueResult, LeagueQueryResponse } from '@beach-kings/shared';
+import useDebounce from '@/hooks/useDebounce';
 import { leagueKeys } from './leagueKeys';
 
 export type FindLeaguesFilter = 'all' | 'public' | 'mens' | 'womens' | 'coed' | 'beginner' | 'intermediate';
@@ -37,11 +37,11 @@ function filterToParams(
 ): {
   gender?: string | null;
   level?: string | null;
-  access_type?: LeagueAccessType | null;
+  is_open?: boolean;
 } {
   switch (filter) {
     case 'public':
-      return { access_type: 'open' };
+      return { is_open: true };
     case 'mens':
       return { gender: 'mens' };
     case 'womens':
@@ -62,19 +62,21 @@ function filterToParams(
  */
 export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FindLeaguesFilter>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestingIds, setRequestingIds] = useState<Set<number>>(new Set());
 
+  const debouncedSearch = useDebounce(searchQuery, 350);
   const queryParams = {
-    query: searchQuery || null,
+    q: debouncedSearch || null,
     ...filterToParams(activeFilter),
   };
 
   const leaguesQuery = useQuery({
     queryKey: leagueKeys.findLeagues(queryParams),
-    queryFn: () => mockApi.findLeagues(queryParams), // TODO(backend): GET /api/leagues/find
+    queryFn: () => api.queryLeagues(queryParams),
   });
 
   const onChangeSearch = useCallback((v: string) => {
@@ -104,8 +106,18 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   const onRequestJoin = useCallback(
     async (id: number): Promise<void> => {
       setRequestingIds((prev) => new Set([...prev, id]));
+      queryClient.setQueriesData<LeagueQueryResponse>(
+        { queryKey: [...leagueKeys.root, 'find'] },
+        (old) =>
+          old
+            ? { ...old, items: old.items.map((l) => l.id === id ? { ...l, user_status: 'requested' as const } : l) }
+            : old,
+      );
       try {
         await api.requestToJoinLeague(id);
+      } catch (err) {
+        void queryClient.invalidateQueries({ queryKey: [...leagueKeys.root, 'find'] });
+        throw err;
       } finally {
         setRequestingIds((prev) => {
           const next = new Set(prev);
@@ -114,7 +126,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
         });
       }
     },
-    [],
+    [queryClient],
   );
 
   const onCreateLeague = useCallback(() => {
@@ -129,7 +141,7 @@ export function useFindLeaguesScreen(): UseFindLeaguesScreenResult {
   return {
     searchQuery,
     activeFilter,
-    leagues: leaguesQuery.data ?? [],
+    leagues: leaguesQuery.data?.items ?? [],
     isLoading,
     isRefreshing,
     isError,

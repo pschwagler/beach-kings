@@ -15,7 +15,8 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { leagueKeys } from './leagueKeys';
-import type { LeagueInfoDetail, LeagueMemberRow, LeagueSeason, LeagueJoinRequest } from '@/lib/mockApi';
+import type { JoinRequest, LeagueSeason } from '@beach-kings/shared';
+import type { LeagueInfoDetail, LeagueMemberRow } from '@/lib/mockApi';
 
 /** Derive two-letter initials from a player name ("Patrick Schwagler" → "PS"). */
 function toInitials(name: string | null | undefined): string {
@@ -84,14 +85,14 @@ export function useLeagueInfoTab(
         },
       );
 
-      const joinRequests: LeagueJoinRequest[] = joinRequestsResult.pending.map(
-        (r): LeagueJoinRequest => ({
+      const joinRequests: JoinRequest[] = joinRequestsResult.pending.map(
+        (r): JoinRequest => ({
           id: r.id,
           player_id: r.player_id,
           display_name: r.display_name,
           initials: toInitials(r.display_name),
           requested_at: r.requested_at,
-          status: r.status as 'pending' | 'approved' | 'denied',
+          status: r.status,
           message: null,
         }),
       );

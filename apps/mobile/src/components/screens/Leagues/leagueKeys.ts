@@ -17,7 +17,7 @@ export const leagueKeys = {
   detail: (id: number | string) =>
     [...leagueKeys.root, 'detail', String(id)] as const,
 
-  standings: (id: number | string, seasonId?: number | null) =>
+  standings: (id: number | string, seasonId?: number | 'all' | null) =>
     [...leagueKeys.root, 'standings', String(id), seasonId ?? 'current'] as const,
 
   seasons: (id: number | string) =>

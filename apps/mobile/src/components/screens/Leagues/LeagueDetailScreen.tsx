@@ -62,7 +62,7 @@ function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.React
       horizontal
       showsHorizontalScrollIndicator={false}
       testID="league-segment-bar"
-      className="bg-white dark:bg-dark-surface border-b border-[#e8e8e8] dark:border-border-subtle grow-0 shrink-0"
+      className="bg-surface border-b border-divider grow-0 shrink-0"
       style={{ flexGrow: 0, flexShrink: 0 }}
       contentContainerStyle={{ paddingHorizontal: 8, alignItems: 'center' }}
     >
@@ -81,14 +81,14 @@ function SegmentBar({ tabs, activeTab, onSetTab }: SegmentBarProps): React.React
             <Text
               className={`text-[13px] font-semibold ${
                 isActive
-                  ? 'text-[#1a3a4a] dark:text-brand-teal'
-                  : 'text-text-secondary dark:text-content-secondary'
+                  ? 'text-brand-teal'
+                  : 'text-muted'
               }`}
             >
               {tab.label}
             </Text>
             {isActive && (
-              <View className="absolute bottom-0 left-4 right-4 h-[2px] bg-[#1a3a4a] dark:bg-brand-teal rounded-full" />
+              <View className="absolute bottom-0 left-4 right-4 h-[2px] bg-brand-teal rounded-full" />
             )}
           </Pressable>
         );
@@ -127,12 +127,12 @@ function LeagueHeader({
   return (
     <View
       testID="league-header"
-      className="bg-white dark:bg-dark-surface px-4 pt-5 pb-4 border-b border-[#e8e8e8] dark:border-border-subtle"
+      className="bg-surface px-4 pt-5 pb-4 border-b border-divider"
     >
       {/* Title row */}
       <Text
         testID="league-header-name"
-        className="text-[22px] font-extrabold text-text-default dark:text-content-primary"
+        className="text-[22px] font-extrabold text-default"
         numberOfLines={2}
       >
         {name}
@@ -141,11 +141,11 @@ function LeagueHeader({
       {/* Meta row */}
       <View className="flex-row flex-wrap items-center gap-2 mt-[6px]">
         {locationName != null && (
-          <Text className="text-[13px] text-text-secondary dark:text-content-secondary">
+          <Text className="text-[13px] text-muted">
             {locationName}
           </Text>
         )}
-        <Text className="text-[13px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[13px] text-muted">
           {memberCount} members
         </Text>
       </View>
@@ -153,15 +153,15 @@ function LeagueHeader({
       {/* Badge row */}
       <View className="flex-row flex-wrap gap-2 mt-3">
         {isActive && currentSeasonName != null && (
-          <View className="bg-green-100 dark:bg-green-900/30 rounded-[6px] px-[10px] py-[4px]">
-            <Text className="text-[11px] font-bold text-green-700 dark:text-green-400">
+          <View className="bg-success-tint rounded-[6px] px-[10px] py-[4px]">
+            <Text className="text-[11px] font-bold text-success">
               {currentSeasonName} · Active
             </Text>
           </View>
         )}
         {userRank != null && (
-          <View className="bg-[#c8a84b]/20 rounded-[6px] px-[10px] py-[4px]">
-            <Text className="text-[11px] font-bold text-[#c8a84b]">
+          <View className="bg-warning-tint rounded-[6px] px-[10px] py-[4px]">
+            <Text className="text-[11px] font-bold text-warning">
               #{userRank} Ranked
             </Text>
           </View>
@@ -177,9 +177,9 @@ function LeagueHeader({
               void hapticLight();
               onInvite();
             }}
-            className="flex-1 rounded-[10px] py-[10px] items-center border border-[#1a3a4a] dark:border-brand-teal active:opacity-70"
+            className="flex-1 rounded-[10px] py-[10px] items-center border border-brand-teal active:opacity-70"
           >
-            <Text className="text-[13px] font-semibold text-[#1a3a4a] dark:text-brand-teal">
+            <Text className="text-[13px] font-semibold text-brand-teal">
               Invite Players
             </Text>
           </Pressable>
@@ -191,7 +191,7 @@ function LeagueHeader({
               void hapticMedium();
               onStartSession();
             }}
-            className="flex-1 rounded-[10px] py-[10px] items-center bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80"
+            className="flex-1 rounded-[10px] py-[10px] items-center bg-brand-teal active:opacity-80"
           >
             <Text className="text-[13px] font-bold text-white">
               Start Session
@@ -299,6 +299,10 @@ export default function LeagueDetailScreen({
   const canAddGame =
     detail != null && (detail.user_role === 'admin' || detail.user_role === 'member');
 
+  const handleBack = (): void => {
+    router.replace('/(tabs)/leagues');
+  };
+
   const addGameAction = canAddGame ? (
     <Pressable
       testID="league-add-game-btn"
@@ -317,10 +321,10 @@ export default function LeagueDetailScreen({
   if (isLoading) {
     return (
       <SafeAreaView
-        className="flex-1 bg-[#f5f5f5] dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
       >
-        <TopNav title="League" showBack />
+        <TopNav title="League" showBack onBack={handleBack} />
         <View testID="league-detail-loading" className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" />
         </View>
@@ -332,15 +336,15 @@ export default function LeagueDetailScreen({
   if (isError || detail == null) {
     return (
       <SafeAreaView
-        className="flex-1 bg-[#f5f5f5] dark:bg-base"
+        className="flex-1 bg-page"
         edges={['top']}
       >
-        <TopNav title="League" showBack />
+        <TopNav title="League" showBack onBack={handleBack} />
         <View
           testID="league-detail-error"
           className="flex-1 items-center justify-center px-8"
         >
-          <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+          <Text className="text-[16px] font-bold text-default text-center">
             Failed to load league
           </Text>
         </View>
@@ -351,11 +355,11 @@ export default function LeagueDetailScreen({
 
   return (
     <SafeAreaView
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       edges={['top']}
     >
-      <TopNav title={title} showBack rightAction={addGameAction} />
-      <View testID="league-detail-screen" className="flex-1 bg-[#f5f5f5] dark:bg-base">
+      <TopNav title={title} showBack onBack={handleBack} rightAction={addGameAction} />
+      <View testID="league-detail-screen" className="flex-1 bg-page">
         <LeagueHeader
           name={detail.name}
           locationName={detail.location_name}

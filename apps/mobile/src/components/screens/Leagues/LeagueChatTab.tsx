@@ -18,7 +18,7 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ChatComposer from '@/components/ui/ChatComposer';
 import { useLeagueChatTab } from './useLeagueChatTab';
-import type { LeagueChatMessage } from '@/lib/mockApi';
+import type { LeagueChatMessage } from '@beach-kings/shared';
 
 // ---------------------------------------------------------------------------
 // List item union type (divider or message)
@@ -41,11 +41,11 @@ function DateDivider({ date }: { readonly date: string }): React.ReactNode {
 
   return (
     <View className="flex-row items-center px-4 py-3 gap-3">
-      <View className="flex-1 h-[1px] bg-[#e0e0e0] dark:bg-border-subtle" />
-      <Text className="text-[11px] text-text-secondary dark:text-content-secondary font-medium">
+      <View className="flex-1 h-[1px] bg-divider" />
+      <Text className="text-[11px] text-muted font-medium">
         {label}
       </Text>
-      <View className="flex-1 h-[1px] bg-[#e0e0e0] dark:bg-border-subtle" />
+      <View className="flex-1 h-[1px] bg-divider" />
     </View>
   );
 }
@@ -73,10 +73,10 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
         testID={`message-bubble-${message.id}`}
         className="items-end px-4 mb-[6px]"
       >
-        <View className="max-w-[80%] bg-[#1a3a4a] dark:bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
+        <View className="max-w-[80%] bg-brand-teal rounded-[16px] rounded-tr-[4px] px-4 py-[10px]">
           <Text className="text-[14px] text-white">{message.message}</Text>
         </View>
-        <Text className="text-[10px] text-text-muted dark:text-content-tertiary mt-[2px]">
+        <Text className="text-[10px] text-tertiary mt-[2px]">
           {timeLabel}
         </Text>
       </View>
@@ -87,27 +87,27 @@ function MessageBubble({ message, showSender }: MessageBubbleProps): React.React
     <View testID={`message-bubble-${message.id}`} className="px-4 mb-[6px]">
       {showSender && (
         <View className="flex-row items-center gap-2 mb-[4px]">
-          <View className="w-7 h-7 rounded-full bg-[#ddd] dark:bg-dark-elevated items-center justify-center">
-            <Text className="text-[9px] font-bold text-[#666] dark:text-content-secondary">
+          <View className="w-7 h-7 rounded-full bg-elevated items-center justify-center">
+            <Text className="text-[9px] font-bold text-muted">
               {message.initials}
             </Text>
           </View>
-          <Text className="text-[12px] font-semibold text-text-secondary dark:text-content-secondary">
+          <Text className="text-[12px] font-semibold text-muted">
             {message.player_name ?? 'Unknown'}
           </Text>
         </View>
       )}
       <View className="flex-row items-end gap-2">
         {!showSender && <View className="w-7" />}
-        <View className="max-w-[80%] bg-white dark:bg-dark-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-[#e8e8e8] dark:border-border-subtle">
-          <Text className="text-[14px] text-text-default dark:text-content-primary">
+        <View className="max-w-[80%] bg-surface rounded-[16px] rounded-tl-[4px] px-4 py-[10px] border border-divider">
+          <Text className="text-[14px] text-default">
             {message.message}
           </Text>
         </View>
       </View>
       <View className="flex-row items-center gap-2 mt-[2px]">
         <View className="w-7" />
-        <Text className="text-[10px] text-text-muted dark:text-content-tertiary">
+        <Text className="text-[10px] text-tertiary">
           {timeLabel}
         </Text>
       </View>
@@ -150,7 +150,7 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
         testID="chat-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+        <Text className="text-[16px] font-bold text-default text-center">
           Failed to load messages
         </Text>
       </View>
@@ -182,7 +182,7 @@ export default function LeagueChatTab({ leagueId }: LeagueChatTabProps): React.R
       testID="chat-tab"
       behavior="padding"
       style={{ flex: 1 }}
-      className="bg-[#f5f5f5] dark:bg-base"
+      className="bg-page"
     >
       <FlatList<ListItem>
         ref={flatListRef as React.RefObject<FlatList<ListItem> | null>}

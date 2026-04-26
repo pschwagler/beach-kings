@@ -23,7 +23,8 @@ import {
 } from 'react-native';
 import { hapticMedium, hapticLight } from '@/utils/haptics';
 import { useLeagueInfoTab } from './useLeagueInfoTab';
-import type { LeagueMemberRow, LeagueJoinRequest, LeagueSeason } from '@/lib/mockApi';
+import type { JoinRequest, LeagueSeason } from '@beach-kings/shared';
+import type { LeagueMemberRow } from '@/lib/mockApi';
 
 // ---------------------------------------------------------------------------
 // Section header
@@ -31,7 +32,7 @@ import type { LeagueMemberRow, LeagueJoinRequest, LeagueSeason } from '@/lib/moc
 
 function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
   return (
-    <Text className="text-[12px] font-semibold text-text-secondary dark:text-content-secondary uppercase tracking-wider px-4 pt-5 pb-2">
+    <Text className="text-[12px] font-semibold text-muted uppercase tracking-wider px-4 pt-5 pb-2">
       {title}
     </Text>
   );
@@ -42,7 +43,7 @@ function SectionLabel({ title }: { readonly title: string }): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 interface JoinRequestRowProps {
-  readonly request: LeagueJoinRequest;
+  readonly request: JoinRequest;
   readonly onApprove: (id: number) => Promise<void>;
   readonly onDeny: (id: number) => Promise<void>;
 }
@@ -56,21 +57,21 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
   return (
     <View
       testID={`join-request-row-${request.id}`}
-      className="flex-row items-center px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle gap-3"
+      className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
-      <View className="w-10 h-10 rounded-full bg-[#ddd] dark:bg-dark-elevated items-center justify-center flex-shrink-0">
-        <Text className="text-[11px] font-bold text-[#666] dark:text-content-secondary">
-          {request.initials}
+      <View className="w-10 h-10 rounded-full bg-elevated items-center justify-center flex-shrink-0">
+        <Text className="text-[11px] font-bold text-muted">
+          {request.initials ?? ''}
         </Text>
       </View>
       <View className="flex-1 min-w-0">
         <Text
-          className="text-[14px] font-semibold text-text-default dark:text-content-primary"
+          className="text-[14px] font-semibold text-default"
           numberOfLines={1}
         >
           {request.display_name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary mt-[1px]">
+        <Text className="text-[12px] text-muted mt-[1px]">
           Requested {dateLabel}
           {request.message != null ? ` · "${request.message}"` : ''}
         </Text>
@@ -82,7 +83,7 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
             void hapticLight();
             void onApprove(request.id);
           }}
-          className="px-[12px] py-[8px] rounded-[8px] bg-[#1a3a4a] dark:bg-brand-teal active:opacity-80"
+          className="px-[12px] py-[8px] rounded-[8px] bg-brand-teal active:opacity-80"
         >
           <Text className="text-[12px] font-bold text-white">Approve</Text>
         </Pressable>
@@ -92,9 +93,9 @@ function JoinRequestRow({ request, onApprove, onDeny }: JoinRequestRowProps): Re
             void hapticLight();
             void onDeny(request.id);
           }}
-          className="px-[12px] py-[8px] rounded-[8px] border border-[#ccc] dark:border-border-strong active:opacity-70"
+          className="px-[12px] py-[8px] rounded-[8px] border border-strong active:opacity-70"
         >
-          <Text className="text-[12px] font-bold text-text-secondary dark:text-content-secondary">
+          <Text className="text-[12px] font-bold text-muted">
             Deny
           </Text>
         </Pressable>
@@ -111,22 +112,22 @@ function MemberRow({ member }: { readonly member: LeagueMemberRow }): React.Reac
   return (
     <View
       testID={`member-row-${member.player_id}`}
-      className="flex-row items-center px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle gap-3"
+      className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
-      <View className="w-9 h-9 rounded-full bg-[#1a3a4a] dark:bg-brand-teal/40 items-center justify-center flex-shrink-0">
-        <Text className="text-[10px] font-bold text-white dark:text-brand-teal">
+      <View className="w-9 h-9 rounded-full bg-brand-teal items-center justify-center flex-shrink-0">
+        <Text className="text-[10px] font-bold text-white">
           {member.initials}
         </Text>
       </View>
       <Text
-        className="flex-1 text-[14px] font-semibold text-text-default dark:text-content-primary"
+        className="flex-1 text-[14px] font-semibold text-default"
         numberOfLines={1}
       >
         {member.display_name}
       </Text>
       {member.role === 'admin' && (
-        <View className="bg-[#c8a84b]/20 rounded-[6px] px-2 py-[2px]">
-          <Text className="text-[10px] font-bold text-[#c8a84b]">Admin</Text>
+        <View className="bg-warning-tint rounded-[6px] px-2 py-[2px]">
+          <Text className="text-[10px] font-bold text-warning">Admin</Text>
         </View>
       )}
     </View>
@@ -146,28 +147,28 @@ function SeasonRow({ season }: { readonly season: LeagueSeason }): React.ReactNo
   return (
     <View
       testID={`season-row-${season.id}`}
-      className="flex-row items-center px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle gap-3"
+      className="flex-row items-center px-4 py-[12px] border-b border-divider gap-3"
     >
       <View className="flex-1">
-        <Text className="text-[14px] font-semibold text-text-default dark:text-content-primary">
+        <Text className="text-[14px] font-semibold text-default">
           {season.name}
         </Text>
-        <Text className="text-[12px] text-text-secondary dark:text-content-secondary">
+        <Text className="text-[12px] text-muted">
           Started {startDate} · {season.session_count} sessions
         </Text>
       </View>
       <View
         className={`rounded-[6px] px-2 py-[2px] ${
           season.is_active
-            ? 'bg-green-100 dark:bg-green-900/30'
-            : 'bg-[#f0f0f0] dark:bg-dark-elevated'
+            ? 'bg-success-tint'
+            : 'bg-elevated'
         }`}
       >
         <Text
           className={`text-[10px] font-semibold ${
             season.is_active
-              ? 'text-green-700 dark:text-green-400'
-              : 'text-text-secondary dark:text-content-secondary'
+              ? 'text-success'
+              : 'text-muted'
           }`}
         >
           {season.is_active ? 'Active' : 'Past'}
@@ -190,11 +191,11 @@ function InfoRow({
 }): React.ReactNode {
   if (value == null) return null;
   return (
-    <View className="flex-row items-start px-4 py-[12px] border-b border-[#f0f0f0] dark:border-border-subtle gap-4">
-      <Text className="w-[110px] text-[12px] text-text-secondary dark:text-content-secondary flex-shrink-0">
+    <View className="flex-row items-start px-4 py-[12px] border-b border-divider gap-4">
+      <Text className="w-[110px] text-[12px] text-muted flex-shrink-0">
         {label}
       </Text>
-      <Text className="flex-1 text-[13px] font-semibold text-text-default dark:text-content-primary">
+      <Text className="flex-1 text-[13px] font-semibold text-default">
         {value}
       </Text>
     </View>
@@ -256,7 +257,7 @@ export default function LeagueInfoTab({
         testID="info-error"
         className="flex-1 items-center justify-center px-8"
       >
-        <Text className="text-[16px] font-bold text-text-default dark:text-content-primary text-center">
+        <Text className="text-[16px] font-bold text-default text-center">
           Failed to load info
         </Text>
       </View>
@@ -269,7 +270,7 @@ export default function LeagueInfoTab({
   return (
     <ScrollView
       testID="info-tab"
-      className="flex-1 bg-[#f5f5f5] dark:bg-base"
+      className="flex-1 bg-page"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 32 }}
     >
@@ -277,8 +278,8 @@ export default function LeagueInfoTab({
       {info.description != null && (
         <>
           <SectionLabel title="Description" />
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle px-4 py-3">
-            <Text className="text-[14px] text-text-default dark:text-content-primary leading-[1.5]">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider px-4 py-3">
+            <Text className="text-[14px] text-default leading-[1.5]">
               {info.description}
             </Text>
           </View>
@@ -289,7 +290,7 @@ export default function LeagueInfoTab({
       {userRole === 'admin' && pendingRequests.length > 0 && (
         <>
           <SectionLabel title={`Join Requests (${pendingRequests.length})`} />
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             {pendingRequests.map((req) => (
               <JoinRequestRow
                 key={req.id}
@@ -306,7 +307,7 @@ export default function LeagueInfoTab({
       {info.members.length > 0 && (
         <>
           <SectionLabel title={`Players (${info.members.length})`} />
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             {info.members.map((m) => (
               <MemberRow key={m.player_id} member={m} />
             ))}
@@ -318,7 +319,7 @@ export default function LeagueInfoTab({
       {info.seasons.length > 0 && (
         <>
           <SectionLabel title="Seasons" />
-          <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+          <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
             {info.seasons.map((s) => (
               <SeasonRow key={s.id} season={s} />
             ))}
@@ -328,7 +329,7 @@ export default function LeagueInfoTab({
 
       {/* League Information */}
       <SectionLabel title="League Information" />
-      <View className="bg-white dark:bg-dark-surface rounded-[12px] mx-4 border border-[#e8e8e8] dark:border-border-subtle overflow-hidden">
+      <View className="bg-surface rounded-[12px] mx-4 border border-divider overflow-hidden">
         <InfoRow label="Access" value={accessLabel} />
         <InfoRow label="Skill Level" value={info.level} />
         <InfoRow label="Location" value={info.location_name} />
@@ -341,12 +342,12 @@ export default function LeagueInfoTab({
           testID="leave-league-button"
           onPress={handleLeave}
           disabled={leavePending}
-          className="mx-4 mt-6 rounded-[12px] py-[14px] items-center border border-red-300 dark:border-red-700 active:opacity-70"
+          className="mx-4 mt-6 rounded-[12px] py-[14px] items-center border border-danger-tint active:opacity-70"
         >
           {leavePending ? (
             <ActivityIndicator size="small" />
           ) : (
-            <Text className="text-[14px] font-semibold text-red-600 dark:text-red-400">
+            <Text className="text-[14px] font-semibold text-danger">
               Leave League
             </Text>
           )}
