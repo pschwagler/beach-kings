@@ -27,7 +27,7 @@ export default function ProfileHeader({
   if (isLoading) {
     return (
       <View
-        className="bg-white dark:bg-dark-surface items-center px-lg pt-xl pb-lg"
+        className="bg-surface items-center px-lg pt-xxl pb-xl"
         accessibilityLabel="Loading profile header"
       >
         <LoadingSkeleton width={88} height={88} borderRadius={44} />
@@ -57,7 +57,7 @@ export default function ProfileHeader({
   const hasMetaInfo = locationLabel != null || levelLabel != null;
 
   return (
-    <View className="bg-white dark:bg-dark-surface items-center px-lg pt-xl pb-lg">
+    <View className="bg-surface items-center px-lg pt-xxl pb-xl">
       <Pressable
         onPress={onEditPress}
         accessibilityLabel="Edit profile picture"
@@ -69,36 +69,36 @@ export default function ProfileHeader({
           name={fullName}
           size="xl"
         />
-        <View className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-nav dark:bg-nav-dark border-2 border-white dark:border-dark-surface items-center justify-center">
+        <View className="absolute -bottom-2 -right-3 w-11 h-11 rounded-full bg-nav border-2 border-surface items-center justify-center">
           <Text className="text-white text-xs font-semibold">+</Text>
         </View>
       </Pressable>
 
-      <Text className="text-xl font-bold text-text-default dark:text-content-primary mt-md">
+      <Text className="text-title2 font-bold text-default mt-md">
         {fullName}
       </Text>
 
       {hasMetaInfo ? (
         <View className="flex-row items-center gap-xs mt-xs flex-wrap justify-center">
           {locationLabel != null && (
-            <Text className="text-sm text-text-muted dark:text-text-tertiary">
+            <Text className="text-sm text-muted">
               {locationLabel}
             </Text>
           )}
           {locationLabel != null && levelLabel != null && (
-            <Text className="text-sm text-text-muted dark:text-text-tertiary">
+            <Text className="text-sm text-muted">
               {' · '}
             </Text>
           )}
           {levelLabel != null && (
-            <View className="bg-primary/10 dark:bg-brand-teal/20 rounded-full px-sm py-0.5">
-              <Text className="text-xs font-semibold text-primary dark:text-brand-teal">
+            <View className="bg-brand-teal/10 rounded-full px-sm py-0.5">
+              <Text className="text-xs font-semibold text-brand-teal">
                 {levelLabel}
               </Text>
             </View>
           )}
           {(locationLabel != null || levelLabel != null) && (
-            <Text className="text-sm text-text-muted dark:text-text-tertiary">
+            <Text className="text-sm text-muted">
               {' · '}
             </Text>
           )}
@@ -107,13 +107,13 @@ export default function ProfileHeader({
             accessibilityRole="button"
             accessibilityLabel={`${friendCount} Friends`}
           >
-            <Text className="text-sm font-semibold text-primary dark:text-brand-teal">
+            <Text className="text-sm font-semibold text-brand-teal">
               {friendCount} Friends
             </Text>
           </Pressable>
         </View>
       ) : (
-        <Text className="text-sm text-text-muted dark:text-text-tertiary mt-xs italic">
+        <Text className="text-sm text-muted mt-xs italic">
           Add your details below
         </Text>
       )}

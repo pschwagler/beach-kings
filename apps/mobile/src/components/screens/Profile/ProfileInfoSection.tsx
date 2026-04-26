@@ -22,22 +22,20 @@ function InfoRow({ label, value, placeholder, required = false }: InfoRowProps):
         {required && isEmpty && (
           <View className="w-1.5 h-1.5 rounded-full bg-danger" />
         )}
-        <Text className="text-2xs uppercase tracking-wide font-semibold text-text-muted dark:text-text-tertiary">
+        <Text className="text-2xs uppercase tracking-wide font-semibold text-muted">
           {label}
         </Text>
       </View>
       <View
         className={`rounded-xl px-md py-sm border ${
           required && isEmpty
-            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-            : 'bg-surface dark:bg-dark-surface border-border-subtle dark:border-border-subtle'
+            ? 'bg-danger-tint border-danger/30'
+            : 'bg-surface border-divider'
         }`}
       >
         <Text
           className={`text-sm ${
-            isEmpty
-              ? 'text-text-muted dark:text-text-tertiary italic'
-              : 'text-text-default dark:text-content-primary'
+            isEmpty ? 'text-muted italic' : 'text-default'
           }`}
         >
           {isEmpty ? (placeholder ?? 'Not set') : value}
@@ -75,7 +73,7 @@ export default function ProfileInfoSection({ player }: ProfileInfoSectionProps):
 
   return (
     <View className="px-lg pt-md">
-      <Text className="text-base font-bold text-text-default dark:text-content-primary mb-md">
+      <Text className="text-base font-bold text-default mb-md">
         Player Profile
       </Text>
 

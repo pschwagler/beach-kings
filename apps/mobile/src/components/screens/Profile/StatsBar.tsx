@@ -25,18 +25,16 @@ interface StatCellProps {
 function StatCell({ value, label, muted, isLast = false }: StatCellProps): React.ReactNode {
   return (
     <View
-      className={`flex-1 items-center py-md ${isLast ? '' : 'border-r border-border-subtle dark:border-border-subtle'}`}
+      className={`flex-1 items-center py-md ${isLast ? '' : 'border-r border-divider'}`}
     >
       <Text
         className={`text-lg font-bold ${
-          muted
-            ? 'text-text-muted dark:text-text-tertiary'
-            : 'text-text-default dark:text-content-primary'
+          muted ? 'text-muted' : 'text-default'
         }`}
       >
         {value}
       </Text>
-      <Text className="text-2xs uppercase tracking-wide text-text-muted dark:text-text-tertiary mt-0.5">
+      <Text className="text-2xs uppercase tracking-wide text-muted mt-0.5">
         {label}
       </Text>
     </View>
@@ -52,7 +50,7 @@ export default function StatsBar({
 }: StatsBarProps): React.ReactNode {
   if (isLoading) {
     return (
-      <View className="flex-row bg-white dark:bg-dark-surface border-t border-border-subtle border-b">
+      <View className="flex-row bg-surface border-t border-divider border-b">
         {[0, 1, 2, 3].map((i) => (
           <View key={i} className="flex-1 items-center py-md px-sm">
             <LoadingSkeleton width={40} height={18} borderRadius={4} />
@@ -70,7 +68,7 @@ export default function StatsBar({
     wins + losses > 0 ? `${Math.round((wins / (wins + losses)) * 100)}%` : '--';
 
   return (
-    <View className="flex-row bg-white dark:bg-dark-surface border-t border-border-subtle border-b">
+    <View className="flex-row bg-surface border-t border-divider border-b">
       <StatCell
         value={games != null ? String(games) : '0'}
         label="Games"

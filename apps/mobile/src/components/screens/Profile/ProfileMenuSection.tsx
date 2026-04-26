@@ -20,19 +20,17 @@ function MenuRow({ label, onPress, accessibilityLabel, danger = false }: MenuRow
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      className="flex-row items-center justify-between py-md px-lg bg-white dark:bg-dark-surface border-b border-border-subtle dark:border-border-subtle active:opacity-70"
+      className="flex-row items-center justify-between py-md px-lg bg-surface border-b border-divider active:opacity-70"
     >
       <Text
         className={`text-sm font-medium ${
-          danger
-            ? 'text-danger dark:text-danger-text'
-            : 'text-text-default dark:text-content-primary'
+          danger ? 'text-danger' : 'text-default'
         }`}
       >
         {label}
       </Text>
       {!danger && (
-        <Text className="text-text-muted dark:text-text-tertiary text-lg leading-none">
+        <Text className="text-muted text-lg leading-none">
           {'›'}
         </Text>
       )}
@@ -76,7 +74,7 @@ export default function ProfileMenuSection({
 
   return (
     <View className="mt-lg mb-xxxl">
-      <Text className="text-2xs uppercase tracking-wide font-semibold text-text-muted dark:text-text-tertiary px-lg mb-xs">
+      <Text className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
         Activity
       </Text>
       <View className="rounded-xl overflow-hidden mx-lg mb-lg">
@@ -85,7 +83,7 @@ export default function ProfileMenuSection({
         <MenuRow label="Friends" onPress={onFriendsPress} accessibilityLabel="Friends" />
       </View>
 
-      <Text className="text-2xs uppercase tracking-wide font-semibold text-text-muted dark:text-text-tertiary px-lg mb-xs">
+      <Text className="text-2xs uppercase tracking-wide font-semibold text-muted px-lg mb-xs">
         Account
       </Text>
       <View className="rounded-xl overflow-hidden mx-lg">

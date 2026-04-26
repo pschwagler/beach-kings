@@ -48,31 +48,19 @@ const config: Config = {
           light: colors.accentLight,
         },
 
-        // Semantic
-        success: colors.success,
-        danger: colors.danger,
-        warning: colors.warning,
-        info: colors.info,
-
-        // Semantic tinted backgrounds (chips, badges, highlight rows)
+        // Tinted backgrounds (no semantic equivalent)
         'teal-tint': colors.tealTint,
         'gold-tint': colors.goldTint,
-        'success-tint': colors.successTint,
-        'danger-tint': colors.dangerTint,
-        'warning-tint': colors.warningTint,
-        'info-tint': colors.infoTint,
 
         // Disabled state
         'disabled-bg': colors.disabledBg,
         'disabled-text': colors.disabledText,
 
-        // Light surfaces
-        surface: colors.bgSurface,
+        // Light surfaces (legacy — kept for screens not yet migrated)
         'dark-surface': darkColors.bgSurface,
-        nav: colors.bgNav,
         border: colors.border,
 
-        // Light semantic aliases
+        // Light semantic aliases (legacy prefixed — generate `.bg-bg-page`, `.text-text-default`)
         'bg-page': colors.bgPrimary,
         'text-default': colors.textPrimary,
 
@@ -90,10 +78,9 @@ const config: Config = {
           900: colors.gray900,
         },
 
-        // Dark surfaces (three-tier hierarchy)
+        // Dark surfaces (legacy — kept for screens not yet migrated;
+        // `elevated` / `inset` collide with semantic basenames and were removed)
         base: darkColors.bgBase,
-        elevated: darkColors.bgElevated,
-        inset: darkColors.bgInset,
         tabbar: darkColors.bgTabbar,
         'nav-dark': darkColors.bgNav,
 
@@ -102,9 +89,8 @@ const config: Config = {
         'content-secondary': darkColors.textSecondary,
         'content-tertiary': darkColors.textTertiary,
 
-        // Dark brand (lightened for dark backgrounds)
-        'brand-teal': darkColors.brandTeal,
-        'brand-gold': darkColors.brandGold,
+        // (legacy `brand-teal` / `brand-gold` removed — collide with
+        // semantic basenames; values now flow through CSS vars)
 
         // Dark borders
         'border-strong': darkColors.border,

@@ -89,14 +89,14 @@ export default function ProfileScreen(): React.ReactNode {
       accessibilityLabel="Settings"
       className="min-w-touch min-h-touch items-center justify-center"
     >
-      <Text className="text-gold dark:text-gold font-semibold text-sm">
+      <Text className="text-brand-gold font-semibold text-sm">
         Settings
       </Text>
     </Pressable>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-page dark:bg-base" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-page" edges={['top']}>
       <TopNav title="Profile" rightAction={rightAction} />
 
       <ScrollView
@@ -165,17 +165,17 @@ function ErrorState({ onRetry }: ErrorStateProps): React.ReactNode {
       accessibilityRole="alert"
       accessibilityLabel="Failed to load profile"
     >
-      <Text className="text-base font-semibold text-text-default dark:text-content-primary text-center mb-sm">
+      <Text className="text-base font-semibold text-default text-center mb-sm">
         Could not load your profile
       </Text>
-      <Text className="text-sm text-text-muted dark:text-text-tertiary text-center mb-lg">
+      <Text className="text-sm text-muted text-center mb-lg">
         Check your connection and try again.
       </Text>
       <Pressable
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry loading profile"
-        className="bg-primary dark:bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
+        className="bg-brand-teal px-xl py-sm rounded-xl active:opacity-80"
       >
         <Text className="text-white font-semibold text-sm">Retry</Text>
       </Pressable>
